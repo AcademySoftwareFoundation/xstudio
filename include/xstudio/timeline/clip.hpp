@@ -1,16 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
-#include <list>
-#include <memory>
+#include <caf/actor.hpp>
 #include <string>
 
-#include "xstudio/media/media.hpp"
 #include "xstudio/timeline/item.hpp"
 #include "xstudio/utility/container.hpp"
-#include "xstudio/utility/edit_list.hpp"
 #include "xstudio/utility/json_store.hpp"
-#include "xstudio/utility/media_reference.hpp"
 #include "xstudio/utility/uuid.hpp"
 
 namespace xstudio {
@@ -24,6 +20,7 @@ namespace timeline {
             const caf::actor &actor        = caf::actor(),
             const utility::Uuid media_uuid = utility::Uuid());
         Clip(const utility::JsonStore &jsn);
+        Clip(const Item &item, const caf::actor &actor);
 
         ~Clip() override = default;
 
@@ -38,16 +35,25 @@ namespace timeline {
         }
 
         [[nodiscard]] const utility::Uuid &media_uuid() const { return media_uuid_; }
-        void set_media_uuid(const utility::Uuid &media_uuid) {
+        utility::JsonStore set_media_uuid(const utility::Uuid &media_uuid) {
             auto jsn          = item_.prop();
             jsn["media_uuid"] = media_uuid;
-            item_.set_prop(jsn);
-            media_uuid_ = media_uuid;
+            media_uuid_       = media_uuid;
+            return item_.set_prop(jsn);
+        }
+
+        void override_media_rate(const utility::FrameRate &media_rate) {
+            overridden_media_rate_ = media_rate;
+        }
+
+        [[nodiscard]] const utility::FrameRate &media_rate() const {
+            return overridden_media_rate_;
         }
 
       private:
         Item item_;
         utility::Uuid media_uuid_;
+        utility::FrameRate overridden_media_rate_;
     };
 } // namespace timeline
 } // namespace xstudio

@@ -31,6 +31,8 @@ namespace bookmark {
         }
         utility::Uuid bookmark_uuid_;
 
+        virtual size_t hash() const { return 0; }
+
       private:
         utility::JsonStore store_;
     };
@@ -84,6 +86,7 @@ namespace bookmark {
         BookmarkDetail(const Bookmark &bm) { *this = bm; }
 
         utility::Uuid uuid_;
+        caf::actor_addr actor_addr_;
 
         std::optional<utility::UuidActor> owner_;
         std::optional<bool> enabled_;
@@ -91,6 +94,8 @@ namespace bookmark {
         std::optional<bool> visible_;
         std::optional<timebase::flicks> start_;
         std::optional<timebase::flicks> duration_;
+        std::optional<std::string> user_type_;
+        std::optional<utility::JsonStore> user_data_;
 
         std::optional<std::string> author_;
         std::optional<std::string> subject_;
@@ -101,6 +106,7 @@ namespace bookmark {
 
         std::optional<bool> has_note_;
         std::optional<bool> has_annotation_;
+        std::optional<size_t> annotation_hash_;
 
         std::optional<utility::MediaReference> media_reference_;
         std::optional<std::string> media_flag_;
@@ -111,13 +117,17 @@ namespace bookmark {
         template <class Inspector> friend bool inspect(Inspector &f, BookmarkDetail &x) {
             return f.object(x).fields(
                 f.field("uui", x.uuid_),
+                f.field("act", x.actor_addr_),
                 f.field("own", x.owner_),
                 f.field("ena", x.enabled_),
                 f.field("foc", x.has_focus_),
                 f.field("vis", x.visible_),
                 f.field("sta", x.start_),
                 f.field("dur", x.duration_),
+                f.field("utp", x.user_type_),
+                f.field("udt", x.user_data_),
                 f.field("hasa", x.has_annotation_),
+                f.field("anh", x.annotation_hash_),
                 f.field("hasn", x.has_note_),
                 f.field("aut", x.author_),
                 f.field("cat", x.category_),
@@ -206,7 +216,7 @@ namespace bookmark {
 
         double get_second(const int frame) const {
             if (media_reference_) {
-                return timebase::to_seconds((*(media_reference_)).rate() * frame);
+                return timebase::to_seconds((*(media_reference_)).rate().to_flicks() * frame);
             }
             return 0.0;
         }
@@ -237,11 +247,7 @@ namespace bookmark {
 
 
         std::string created() const {
-#ifdef _WIN32
-            auto dt = (created_ ? *created_ : std::chrono::high_resolution_clock::now());
-#else
             auto dt = (created_ ? *created_ : std::chrono::system_clock::now());
-#endif
             return utility::to_string(dt);
         }
 
@@ -282,6 +288,7 @@ namespace bookmark {
 
         auto has_note() const { return static_cast<bool>(note_); }
         auto has_annotation() const { return static_cast<bool>(annotation_); }
+        size_t annotation_hash() const { return annotation_ ? annotation_->hash() : 0; }
 
         void create_note();
         void create_annotation();
@@ -291,6 +298,9 @@ namespace bookmark {
         auto visible() const { return visible_; }
         auto start() const { return start_; }
         auto duration() const { return duration_; }
+        auto user_type() const { return user_type_; }
+        auto user_data() const { return user_data_; }
+        auto created() const { return created_; };
 
         auto owner() const { return owner_; }
 
@@ -304,6 +314,9 @@ namespace bookmark {
         void set_duration(const timebase::flicks duration = timebase::k_flicks_max) {
             duration_ = duration;
         }
+        void set_user_type(const std::string &user_type) { user_type_ = user_type; }
+        void set_user_data(const utility::JsonStore &user_data) { user_data_ = user_data; }
+        void set_created(const utility::sys_time_point &created) { created_ = created; }
 
         friend BookmarkDetail &BookmarkDetail::operator=(const Bookmark &bookmark);
 
@@ -317,6 +330,9 @@ namespace bookmark {
         bool visible_{true};
         timebase::flicks start_{timebase::k_flicks_low};
         timebase::flicks duration_{timebase::k_flicks_max};
+        std::string user_type_;
+        utility::JsonStore user_data_;
+        utility::sys_time_point created_{utility::sysclock::now()};
 
         std::shared_ptr<Note> note_{nullptr};
         std::shared_ptr<AnnotationBase> annotation_{nullptr};

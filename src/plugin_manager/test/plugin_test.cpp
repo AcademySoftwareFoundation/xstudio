@@ -42,7 +42,9 @@ class TestPlugin : public PluginFactory {
     [[nodiscard]] bool resident() const override { return false; }
     [[nodiscard]] std::string author() const override { return "author"; }
     [[nodiscard]] std::string description() const override { return "description"; }
-    [[nodiscard]] semver::version version() const override { return semver::version("0.1.0"); }
+    [[nodiscard]] semver::version version() const override {
+        return semver::version("${XSTUDIO_GLOBAL_VERSION}");
+    }
 
     [[nodiscard]] caf::actor spawn(
         caf::blocking_actor &sys,

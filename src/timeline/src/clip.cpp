@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-#include <algorithm>
 
 #include "xstudio/timeline/clip.hpp"
-#include "xstudio/utility/helpers.hpp"
-#include "xstudio/utility/json_store.hpp"
 
 using namespace xstudio::timeline;
 using namespace xstudio;
@@ -29,6 +26,7 @@ Clip::Clip(const utility::JsonStore &jsn)
     : Container(static_cast<utility::JsonStore>(jsn.at("container"))),
       item_(static_cast<utility::JsonStore>(jsn.at("item"))) {
 
+    // hack for old data
     if (jsn.count("media_uuid")) {
         media_uuid_       = jsn.at("media_uuid");
         auto jsn          = R"({"media_uuid": null})"_json;
@@ -37,7 +35,19 @@ Clip::Clip(const utility::JsonStore &jsn)
     } else {
         media_uuid_ = item_.prop().at("media_uuid");
     }
+
+    if (jsn.count("overriden_media_rate")) {
+
+        overridden_media_rate_ = jsn.at("overriden_media_rate");
+    }
 }
+
+Clip::Clip(const Item &item, const caf::actor &actor)
+    : Container(item.name(), "Clip", item.uuid()), item_(item.clone()) {
+    media_uuid_ = item_.prop().value("media_uuid", utility::Uuid());
+    item_.set_actor_addr(caf::actor_cast<caf::actor_addr>(actor));
+}
+
 
 Clip Clip::duplicate() const {
     utility::JsonStore jsn;
@@ -46,8 +56,9 @@ Clip Clip::duplicate() const {
     auto dup_item      = item_;
     dup_item.set_uuid(dup_container.uuid());
 
-    jsn["container"] = dup_container.serialise();
-    jsn["item"]      = dup_item.serialise();
+    jsn["container"]            = dup_container.serialise();
+    jsn["item"]                 = dup_item.serialise();
+    jsn["overriden_media_rate"] = overridden_media_rate_;
 
     return Clip(jsn);
 }
@@ -55,8 +66,9 @@ Clip Clip::duplicate() const {
 utility::JsonStore Clip::serialise() const {
     utility::JsonStore jsn;
 
-    jsn["container"] = Container::serialise();
-    jsn["item"]      = item_.serialise();
+    jsn["container"]            = Container::serialise();
+    jsn["item"]                 = item_.serialise();
+    jsn["overriden_media_rate"] = overridden_media_rate_;
 
     return jsn;
 }

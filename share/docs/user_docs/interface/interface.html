@@ -1,475 +1,172 @@
 
 
 <!DOCTYPE html>
-<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8">
-  
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
-  <title>The xSTUDIO Interface &mdash; xStudio 0.10.0 documentation</title>
-  
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The xSTUDIO Interface &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
 
   
-  
-  
-  
-
-  
-  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
-  
-    
-      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/language_data.js"></script>
-    
-    <script type="text/javascript" src="../../_static/js/theme.js"></script>
-
-    
-
-  
-  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="../../_static/graphviz.css" type="text/css" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Video Playback" href="../playback.html" />
-    <link rel="prev" title="Getting Started" href="../getting_started/getting_started.html" /> 
+    <link rel="next" title="Custom Interface Layouts" href="layouts.html" />
+    <link rel="prev" title="Getting Started" href="../getting_started/getting_started.html" />
+    <link href="../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
 </head>
 
-<body class="wy-body-for-nav">
-
-   
+<body class="wy-body-for-nav"> 
   <div class="wy-grid-for-nav">
-    
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-          
 
           
-            <a href="../../index.html" class="icon icon-home"> xStudio
           
-
-          
+          <a href="../../index.html" class="icon icon-home">
+            xStudio
           </a>
-
-          
-            
-            
-              <div class="version">
-                0.10.0
-              </div>
-            
-          
-
-          
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-
-          
-        </div>
-
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-          
-            
-            
-              
-            
-            
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../../index.html">Welcome to xStudio’s documentation!</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../index.html">xSTUDIO User Guide</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="../overview.html">Introduction</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../getting_started/getting_started.html">Getting Started</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">The xSTUDIO Interface</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#customising-the-interface">Customising the Interface</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#scaling-the-panels">Scaling the panels</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#hiding-showing-ui-elements">Hiding/Showing UI elements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="layouts.html">Custom Interface Layouts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="playlists.html">The Playlist Panel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="media_list.html">The Media List Panel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="viewport.html">The Viewport</a></li>
+<li class="toctree-l3"><a class="reference internal" href="timeline.html">The Timeline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="transport.html">Transport Controls and Toolbar</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#mouse-interaction-in-the-viewer">Mouse interaction in the Viewer</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#transport-controls-and-toolbar">Transport Controls and Toolbar</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#toolbar">Toolbar</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#timeline">Timeline</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#transport-controls">Transport Controls</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#frame-indiator">Frame Indiator</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#timeline-and-playhead-ui">Timeline and Playhead UI</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#fps-duration-remaining">FPS/Duration/Remaining</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#player-viewer-controls">Player/Viewer Controls</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#the-playlist-panel">The Playlist Panel</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#playlist-flags">Playlist Flags</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#xstudio-subsets">xSTUDIO Subsets</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#dividers">Dividers</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#the-media-list-panel">The Media List Panel</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#media-selection-and-viewing">Media Selection and Viewing</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#media-list-context-menu-right-mouse-button">Media List Context Menu (right mouse button)</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../playback.html">Video Playback</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../notes.html">Notes and Annotations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../preferences.html">Preferences</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../workflow/workflow.html">Workflow Tools</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../appendix/index.html">Appendix</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../release_notes/index.html">Release Notes</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">xSTUDIO Reference</a></li>
 </ul>
 
-            
-          
         </div>
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-
-      
-      <nav class="wy-nav-top" aria-label="top navigation">
-        
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="../../index.html">xStudio</a>
-        
       </nav>
 
-
       <div class="wy-nav-content">
-        
         <div class="rst-content">
-        
-          
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<div role="navigation" aria-label="breadcrumbs navigation">
-
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-    
-      <li><a href="../../index.html">Docs</a> &raquo;</li>
-        
-          <li><a href="../index.html">xSTUDIO User Guide</a> &raquo;</li>
-        
-      <li>The xSTUDIO Interface</li>
-    
-    
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">xSTUDIO User Guide</a></li>
+      <li class="breadcrumb-item active">The xSTUDIO Interface</li>
       <li class="wy-breadcrumbs-aside">
-        
-            
             <a href="../../_sources/user_docs/interface/interface.rst.txt" rel="nofollow"> View page source</a>
-          
-        
       </li>
-    
   </ul>
-
-  
   <hr/>
 </div>
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
-            
-  <div class="section" id="the-xstudio-interface">
-<h1>The xSTUDIO Interface<a class="headerlink" href="#the-xstudio-interface" title="Permalink to this headline">¶</a></h1>
-<img alt="../../_images/interface-02.png" class="align-center" src="../../_images/interface-02.png" />
-<p>xSTUDIO’s main window provides 3 different layouts plus some user customization options that can be applied to hide or show UI components. The layouts are intended to support distinct modes of use or workflows.</p>
-<p>The Review layout provides panels showing the session’s ‘Playlists Panel’ and the ‘Media List Panel’ to the left with the main Viewer on the right. This layout might be used to assemble, adjust, organise and access (for viewing) your playlists and the media that they contain. The Media List interface gives you access to browse your media for viewing and comparing in either an ordered or unordered way.</p>
-<p>The Present layout hides the Playlist and Media List panels to give you the uncluttered and expanded Viewer filling the window for full screen viewing and playback. Hotkey controls can be used to navigate your playlist contents in this mode.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The Edit layout is included only as a teaser at this stage - it includes a dummy image showing the non-linear-editor (NLE) interface which is still under construction.</p>
-</div>
-<p>Tip: Hit the ‘Tab’ key to toggle between the ‘Present’ layout and an alternative layout. This defaults to the most recently used layout before Preset.</p>
-<div class="section" id="customising-the-interface">
-<h2>Customising the Interface<a class="headerlink" href="#customising-the-interface" title="Permalink to this headline">¶</a></h2>
-<img alt="../../_images/interface-03.png" class="align-center" src="../../_images/interface-03.png" />
-<p><em>xSTUDIO in ‘Presentation’ mode, with customisation of the visible UI components via the hamburger button in the top right corner.</em></p>
-<p>In this version of xSTUDIO you have some options to customise the interface.</p>
-<div class="section" id="scaling-the-panels">
-<h3>Scaling the panels<a class="headerlink" href="#scaling-the-panels" title="Permalink to this headline">¶</a></h3>
-<p>In Review and Edit layouts, you can change the relative size of the panels in the window: Hover your mouse over the ‘gutters’ that separate the panels. When the mouse pointer changes to a bi-directional arrow you can click and drag the gutter to alter the scale of the panels.</p>
-</div>
-<div class="section" id="hiding-showing-ui-elements">
-<h3>Hiding/Showing UI elements<a class="headerlink" href="#hiding-showing-ui-elements" title="Permalink to this headline">¶</a></h3>
-<p>Clicking on the ‘hamburger’ icon to the top right of the window shows the panel for controlling the visibility of some elements of the UI. The list is self explanatory - try clicking on the buttons to learn how to use this to switch between a ‘cleaner’ or more information rich interface.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Relative panel sizes in the Layouts and UI element visibility will persist between sessions.</p>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Under the ‘Panels-&gt;Settings’ panel you can change the ‘UI Accent Colour’ that is used for highlighting certain parts of the interface.</p>
-</div>
-<p>Some useful shortcuts are as follows</p>
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 8%" />
-<col style="width: 92%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Shortcut</p></th>
-<th class="head"><p>Action</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>Ctrl + H</p></td>
-<td><p>‘Hide’ UI elements. Use this hotkey to hide the tool bar, the media info bar and the transport controls so the viewport only fills the window.</p></td>
-</tr>
-<tr class="row-odd"><td><p>Ctrl + P</p></td>
-<td><p>Launch the pop-out (2nd) viewer window.</p></td>
-</tr>
-<tr class="row-even"><td><p>Ctrl + F</p></td>
-<td><p>‘Fullscreen’ This makes the xSTUDIO window go fullscreen (or leave fullscreen).</p></td>
-</tr>
-<tr class="row-odd"><td><p>Tab</p></td>
-<td><p>This toggles between presentation and your other, most recently used, layout.</p></td>
-</tr>
-<tr class="row-even"><td><p>Escape</p></td>
-<td><p>This can be used to leave fullscreen, unhide the UI elements and exit presentation mode.</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-<div class="section" id="mouse-interaction-in-the-viewer">
-<h2>Mouse interaction in the Viewer<a class="headerlink" href="#mouse-interaction-in-the-viewer" title="Permalink to this headline">¶</a></h2>
-<p>A three buttoned mouse can be used for closer image inspection. Hold the middle button and drag to pan the image within the viewport. Hold down the CTRL key on your keyboard and drag left/right with the middle mouse button to perform a centred zoom in/out on the image.</p>
-<p>In the Settings panel (accessed via the cog icon in the viewer title bar) there is an option to set the behaviour of the mouse wheel - if it is set to ‘Zoom Viewer’ you can roll the mouse wheel to zoom in/out of the image in the viewer.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>To ‘reset’ the viewer so that the image is auto-fitted (according to your ‘Fit’ mode set from the toolbar or right-click context menu) use the ‘CTRL+R’ hotkey sequence.</p>
-</div>
-</div>
-<div class="section" id="transport-controls-and-toolbar">
-<h2>Transport Controls and Toolbar<a class="headerlink" href="#transport-controls-and-toolbar" title="Permalink to this headline">¶</a></h2>
-<a class="reference internal image-reference" href="../../_images/toolbar-01.jpg"><img alt="../../_images/toolbar-01.jpg" class="align-center" src="../../_images/toolbar-01.jpg" style="width: 614.4px; height: 96.0px;" /></a>
-<p>The toolbar and transport controls are found immediately below the Viewer. The toolbar provides controls for modifying the appearance and behaviour of the viewer:</p>
-<div class="section" id="toolbar">
-<h3>Toolbar<a class="headerlink" href="#toolbar" title="Permalink to this headline">¶</a></h3>
-<p>The toolbar is a collection of controls that affect on-screen information in the viewport, colour visualisation, playback behaviour and so-on. xSTUDIO plugins are able to add toolbar controls but here we only list the ‘native’ tooblar controls that are present by default.</p>
-<div class="topic">
-<p class="topic-title first">HUD</p>
-<p>Click this to toggle the HUD (heads up display) on or off or enter the HUD settings. The HUD is currently a very minimal plugin that provides an overlay showing the data window (for EXRs) and the image boundary.</p>
-</div>
-<div class="topic">
-<p class="topic-title first">Mask</p>
-<p>The mask plugin settings are accessed from this button. You can set the mask aspect ratio,safety percent, and mask visualisation (lines, opaque masking etc)</p>
-</div>
-<div class="topic">
-<p class="topic-title first">Rate</p>
-<p>Click and drag left/right to adjust to playhead rate multiplier. If ‘Rate’ is 0.5, your media will play at half speed etc. Double click to toggle between reset value (1.0) and your last setting.</p>
-</div>
-<div class="topic">
-<p class="topic-title first">Exposure</p>
-<p>Click and drag left/right to adjust the viewer exposure (in exposure stops). Double click to toggle the value between 0.0 and your last non-zero exposure setting.</p>
-</div>
-<div class="topic">
-<p class="topic-title first">Zoom</p>
-<p>Click to activate zoom mode. When zoom mode is on click and drag left/right in the viewer to zoom in/out of the image. Note that the ‘Z’ hotkey allows you to enter the zoom mode from the keyboard (hold the Z key down while zooming with the mouse).</p>
-</div>
-<div class="topic">
-<p class="topic-title first">Pan</p>
-<p>As for zoom, this enters a pan mode where you can click and drag in the view to move the image within the window. The ‘P’ hotkey can be held down to activate this mode. (Note that you can also pan directly in the viewer using a middle mouse button drag, and zoom by holding CTRL key and middle mouse drag)</p>
-</div>
-</div>
-</div>
-<div class="section" id="timeline">
-<h2>Timeline<a class="headerlink" href="#timeline" title="Permalink to this headline">¶</a></h2>
-<img alt="../../_images/timeline-01.png" class="align-center" src="../../_images/timeline-01.png" />
-<div class="section" id="transport-controls">
-<h3>Transport Controls<a class="headerlink" href="#transport-controls" title="Permalink to this headline">¶</a></h3>
-<p>These are pretty universal and don’t need much explanation. There’s a play/pause button, step forwards/backwards buttons and fast forard/fast rewind buttons.</p>
-</div>
-<div class="section" id="frame-indiator">
-<h3>Frame Indiator<a class="headerlink" href="#frame-indiator" title="Permalink to this headline">¶</a></h3>
-<dl class="simple">
-<dt>Immediately to the left of the timeline is the ‘current frame’ indicator. Click on this to get a list of options as to how the current position of the playhead is displayed:</dt><dd><ul class="simple">
-<li><p><em>Frames:</em> absolute frame, i.e. the first frame of the media is always frame 1.</p></li>
-<li><p><em>Time:</em> the playhead position from the start of the media in seconds</p></li>
-<li><p><em>Timecode:</em> the 8 digit timecode. If the media has timecode metadata this will be used</p></li>
-<li><p><em>Frames from Timecode:</em> This converts the 8 digit timecode into a frame number. Thus it is possible to use the timecode metadata to set the frame number of the first (and subsequent) frames for some piece of media.</p></li>
+             
+  <section id="the-xstudio-interface">
+<span id="interface"></span><h1>The xSTUDIO Interface<a class="headerlink" href="#the-xstudio-interface" title="Link to this heading"></a></h1>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="layouts.html">Custom Interface Layouts</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="layouts.html#scaling-and-dividing-the-panels-in-a-layout">Scaling and dividing the panels in a Layout</a></li>
+<li class="toctree-l2"><a class="reference internal" href="layouts.html#customising-the-interface-walkthrough">Customising the Interface Walkthrough</a></li>
+<li class="toctree-l2"><a class="reference internal" href="layouts.html#other-customisaions">Other Customisaions</a></li>
 </ul>
-</dd>
-</dl>
-</div>
-<div class="section" id="timeline-and-playhead-ui">
-<h3>Timeline and Playhead UI<a class="headerlink" href="#timeline-and-playhead-ui" title="Permalink to this headline">¶</a></h3>
-<p>The compact timeline UI in this version of xSTUDIO is a horizontal slider representing the full frame range of the current on-screen source(s). The ‘playhead’ (indicating the current on-screen frame) is shown as a vertical line. Other information that is visualised is as follows:</p>
-<blockquote>
-<div><ul class="simple">
-<li><p><em>Playhead:</em> This vertical line butted by triangles indicates the current on screen frame. Click and drag left/right to ‘scrub’ the viewed frame.</p></li>
-<li><p><em>In/Out Loops Points:</em> If you are looping on a sub section of the source frame range, this is indicated by solid grey background in the timline for the areas that are outside the loop range.</p></li>
-<li><p><em>Cache Status:</em> Frames that are ‘cached’ (i.e. which frames have been decoded off the filesystem and are in memory ready for immediate display) are indicated by a horizontal bar through the middle of the timeline. When you start viewing a new source you should see the cache status refresh as xSTUDIO loads frames ready for playback. For a detailed explanation please refer to the ‘Playhead’ section.</p></li>
-<li><p><em>Note Indicator:</em> Any notes that are attached to the on-screen source are visualised with a brown horiontal bar (showing the curresponding in/out points of the note) at the bottom of the timeline.</p></li>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="playlists.html">The Playlist Panel</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="playlists.html#getting-started">Getting Started</a></li>
+<li class="toctree-l2"><a class="reference internal" href="playlists.html#inspecting-playlist-media">Inspecting Playlist Media</a></li>
+<li class="toctree-l2"><a class="reference internal" href="playlists.html#viewing-playlist-media">Viewing Playlist Media</a></li>
+<li class="toctree-l2"><a class="reference internal" href="playlists.html#organising-playlists">Organising Playlists</a></li>
+<li class="toctree-l2"><a class="reference internal" href="playlists.html#playlist-flags">Playlist Flags</a></li>
+<li class="toctree-l2"><a class="reference internal" href="playlists.html#xstudio-subsets">xSTUDIO Subsets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="playlists.html#xstudio-contact-sheets">xSTUDIO Contact Sheets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="playlists.html#dividers">Dividers</a></li>
 </ul>
-</div></blockquote>
-</div>
-<div class="section" id="fps-duration-remaining">
-<h3>FPS/Duration/Remaining<a class="headerlink" href="#fps-duration-remaining" title="Permalink to this headline">¶</a></h3>
-<dl class="simple">
-<dt>The box immediately to the right of the timeline shows more information about the media source in the timeline. Clicking in this box shows a pop-up selector you can choose between:</dt><dd><ul class="simple">
-<li><p>The source duration (shown in units set by the frame indicator mode)</p></li>
-<li><p>The amount of time remaining until it has played out (from the current playhead position)</p></li>
-<li><p>The frames-per-second (FPS) indicator showing that actual FPS that xSTUDIO is achieving in playback and the target FPS.</p></li>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="media_list.html">The Media List Panel</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="media_list.html#media-selection-and-viewing">Media Selection and Viewing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="media_list.html#media-list-context-menu">Media List Context Menu</a></li>
+<li class="toctree-l2"><a class="reference internal" href="media_list.html#configuring-media-list-columns">Configuring Media List Columns</a></li>
 </ul>
-</dd>
-</dl>
-</div>
-<div class="section" id="player-viewer-controls">
-<h3>Player/Viewer Controls<a class="headerlink" href="#player-viewer-controls" title="Permalink to this headline">¶</a></h3>
-<dl class="simple">
-<dt>Four buttons to the right of the timline provide the following interactions</dt><dd><ul class="simple">
-<li><p><em>Volume/mute control:</em> click once to get a pop-up volume control. Double click to toggle muting of audio.</p></li>
-<li><p><em>Loop mode:</em> set whether the playhead will loop a source in playback, play it once and stop on the final frame or ‘ping-pong’ loop.</p></li>
-<li><p><em>Screenshot:</em> this button shows an interface for grabbing the current on-screen frame (plus overlays like annotation sketches) and saving to disk as an image file.</p></li>
-<li><p><em>Show/Hide Popout Viewer:</em> xSTUDIO provides a second viewer for dual screen set-ups. Note that the second viewer has all the same features and behavoiur as the main viewer that is embedded in the main UI window.</p></li>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="viewport.html">The Viewport</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="viewport.html#interacting-with-the-viewport">Interacting with the Viewport</a></li>
 </ul>
-</dd>
-</dl>
-<p>For a more in-depth description of xSTUDIO’s playback behaviours and user interactions please refer to the ‘Playback’ section of these docs.</p>
-</div>
-</div>
-<div class="section" id="the-playlist-panel">
-<h2>The Playlist Panel<a class="headerlink" href="#the-playlist-panel" title="Permalink to this headline">¶</a></h2>
-<img alt="../../_images/playlist-panel-01.png" class="align-center" src="../../_images/playlist-panel-01.png" />
-<p>The playlists panel provides an interface to access and organise your session through playlists.</p>
-<p>The Session Menu provides top level options for loading, saving and importing (merging) sessions. To add new playlists or dividers hit the Add Playlists button. You can also add playlists through the drag + drop load functionality described in the <em>Getting Started</em> section of these pages.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The term ‘session’ refers to the state of all of your current playlists, media, notes, annotations and so-on, i.e. the entire data content of the application. Any session can be saved to/loaded from a file on disk.</p>
-</div>
-<p>To re-order your playlists, click and drag the ‘Drag Handle’ to slide a given playlist or playlists up and down the overall collection.</p>
-<div class="section" id="playlist-flags">
-<h3>Playlist Flags<a class="headerlink" href="#playlist-flags" title="Permalink to this headline">¶</a></h3>
-<p>You can add colour flags to playlists via the ‘Playlist Menu’ - setting a flag will result in a corresponding coloured bar to show against the playlist item in the Playlists panel. This is an easy way to add your own status indicators or otherwise highlight your playlists as desired.</p>
-</div>
-<div class="section" id="xstudio-subsets">
-<h3>xSTUDIO Subsets<a class="headerlink" href="#xstudio-subsets" title="Permalink to this headline">¶</a></h3>
-<p>A ‘subset’ is a collection of media within a given playlist. This concept provides a convenient way to further categorise media within playlists. Note that any media within a subset is only a reference to the media item in the parent playlist. Thus any media in a subset will always be present in the parent playlist and any changes to a given piece of media (for example added bookmark notes or annotations) will be seen on both the media in the subset and the parent playlist.</p>
-<p>The Playlist menu button provides an option to create a new subset on a given playlist. Alternatively, select media in the Media List Panel and use the ‘Add to …’ right click sub menu to create a new subset from your selection. Add media to a subset by drag-dropping a selection of media from the Media List Panel into the Subset item in the Playlists panel.</p>
-</div>
-<div class="section" id="dividers">
-<h3>Dividers<a class="headerlink" href="#dividers" title="Permalink to this headline">¶</a></h3>
-<p>You can add a divider from the ‘Add Playlists’ button. A divider is simply a labelled bar in the playlist collection that can help with organisation.</p>
-</div>
-</div>
-<div class="section" id="the-media-list-panel">
-<h2>The Media List Panel<a class="headerlink" href="#the-media-list-panel" title="Permalink to this headline">¶</a></h2>
-<img alt="../../_images/media-list-01.png" class="align-center" src="../../_images/media-list-01.png" />
-<p>The Media List is a scrollable window showing the ordered list of media in the current selected playlist or subset (note that the selected playlist/subset can be different from the current <em>viewed</em> playlist/subset). Each media item is represented by a thumbnail image and the filename of the source media.</p>
-<p>The size of the thumbnails can be adjusted by dragging the handle immediately to the left of the ‘File’ label at the top of the panel. Thumbnails show the middle frame of a media item but they are also animated - hover the mouse pointer over a thumbnail and move it horizontally left right within the thumbnail width to see other preview frames from the source video.</p>
-<div class="section" id="media-selection-and-viewing">
-<h3>Media Selection and Viewing<a class="headerlink" href="#media-selection-and-viewing" title="Permalink to this headline">¶</a></h3>
-<p>Clicking once on any media item in the media list will select it (if it’s not already part of a multi selection). If your viewed playlist/subset (the one showing in the viewport) is the same as your selected playlist/subset (the one showing in the media list panel) then the media you click on will immediately appear in the viewport for playback. If your viewed playlist/subset is different from that selected, but you want to see a media item from the media list, then <em>double clicking</em> on it will force the viewed playlist/subset to switch to your selected playlist or subset.</p>
-<p>It is also possible to select more than one piece of media and this is required to take advantage of the Playhead compare modes:</p>
-<blockquote>
-<div><ul class="simple">
-<li><p>To set a multi-selection, click on media items while holding the CTRL key or SHIFT keys.</p></li>
-<li><p>The order that you select items is registered and is indicated in the leftmost column of the media view.</p></li>
-<li><p>When you click on a media item that is <em>already selected</em> the selection will not change, but the media you clicked on will be played in the viewport (if you’re not viewing a different playlist).</p></li>
-<li><p>To clear your selection, click on an unselected media item or use the ‘CTRL+D’ hotkey.</p></li>
-<li><p>To select all items in the playlist use ‘CTRL+A’ hotkey.</p></li>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="timeline.html">The Timeline</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="timeline.html#sequence-creation">Sequence Creation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="timeline.html#loading-and-exporting-timelines">Loading and Exporting Timelines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="timeline.html#interacting-with-sequences">Interacting with Sequences</a></li>
+<li class="toctree-l2"><a class="reference internal" href="timeline.html#sequence-markers">Sequence Markers</a></li>
 </ul>
-</div></blockquote>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Multi-selection is required for A/B compare mode. See the Playhead Controls section for more information.</p>
-</div>
-</div>
-<div class="section" id="media-list-context-menu-right-mouse-button">
-<h3>Media List Context Menu (right mouse button)<a class="headerlink" href="#media-list-context-menu-right-mouse-button" title="Permalink to this headline">¶</a></h3>
-<img alt="../../_images/media-list-menu-01.png" class="align-center" src="../../_images/media-list-menu-01.png" />
-<p>A right mouse button click in the Media List will show a pop-up menu giving access to the following features:</p>
-<blockquote>
-<div><ul class="simple">
-<li><p><strong>Flag Media:</strong> Apply a simple colour coding to the selected media items in the playlist. The ‘flag’ colour will be shown as a vertical bar to the left of the media - item in the Media List Panel. This could be useful for reminding you to revisit certain media, or to visually categorise them in whatever way you prefer.</p></li>
-<li><p><strong>Add to New:</strong> Create a new Playlist or Subset from your current selected media.</p></li>
-<li><p><strong>Copy:</strong> Use options in this sub-menu to copy the full paths or the file names of the selected media to the desktop clipboard. This can be useful to gather a list of media that you want to copy into an email, for example.</p></li>
-<li><p><strong>Duplicate media:</strong> Copy the selected media items in-place into the same playlist.</p></li>
-<li><p><strong>Reveal Source File ..:</strong> Open your desktop file browser with the folder of the selected media.</p></li>
-<li><p><strong>Advanced/Clear Cache:</strong> Unload all decoded video frames from xSTUDIO’s cache, freeing up system memory</p></li>
-<li><p><strong>Clear Selected Media from Cache:</strong> Unloads all decoded video frames from the selected media only. Can be useful if a file has been updated on disk in place and you want to force xSTUDIO to reload it.</p></li>
-<li><p><strong>Set Selected Media Rate:</strong> Override the playback rate (in FPS) for the selected media.</p></li>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="transport.html">Transport Controls and Toolbar</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="transport.html#transport-controls">Transport Controls</a></li>
+<li class="toctree-l2"><a class="reference internal" href="transport.html#xstudio-toolbar">xSTUDIO Toolbar</a></li>
 </ul>
-</div></blockquote>
+</li>
+</ul>
 </div>
-</div>
-</div>
+</section>
 
 
            </div>
-           
           </div>
-          <footer>
-  
-    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-      
-        <a href="../playback.html" class="btn btn-neutral float-right" title="Video Playback" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
-      
-      
-        <a href="../getting_started/getting_started.html" class="btn btn-neutral float-left" title="Getting Started" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
-      
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../getting_started/getting_started.html" class="btn btn-neutral float-left" title="Getting Started" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="layouts.html" class="btn btn-neutral float-right" title="Custom Interface Layouts" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
-  
 
   <hr/>
 
   <div role="contentinfo">
-    <p>
-        &copy; Copyright 2020, DNeg
-
-    </p>
+    <p>&#169; Copyright 2025, DNeg.</p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
 
 </footer>
-
         </div>
       </div>
-
     </section>
-
   </div>
-  
-
-
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script>
-
-  
-  
-    
-   
+  </script> 
 
 </body>
 </html>

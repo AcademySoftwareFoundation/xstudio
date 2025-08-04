@@ -1,26 +1,51 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/policy/select_all.hpp>
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/atoms.hpp"
-#include "xstudio/broadcast/broadcast_actor.hpp"
-#include "xstudio/media/media.hpp"
+#include "xstudio/thumbnail/thumbnail.hpp"
 #include "xstudio/timeline/clip_actor.hpp"
-#include "xstudio/timeline/stack_actor.hpp"
-#include "xstudio/timeline/timeline_actor.hpp"
-#include "xstudio/timeline/track_actor.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
-#include "xstudio/utility/uuid.hpp"
 
 using namespace xstudio;
 using namespace xstudio::utility;
 using namespace xstudio::timeline;
-using namespace caf;
+using namespace std::literals;
+
+namespace {
+// helper function that makes a set of std::pair<int,int>, condensing
+// contiguous numbers to their end points.
+// e.g. 1,2,3,8,9,10,20,30,31 -> (1,3), (8,9), (20,20), (30,31)
+struct RangeMaker {
+    inline static const int invalid_frame = -1234442;
+    int a                                 = {invalid_frame};
+    int b                                 = {invalid_frame};
+    void extend(int f) {
+        if (a == invalid_frame) {
+            a = f;
+            b = f;
+        } else if (f > (b + 1)) {
+            r.emplace_back(a, b);
+            a = f;
+            b = f;
+        } else {
+            b = f;
+        }
+    }
+    media::LogicalFrameRanges result() {
+        if (a != invalid_frame) {
+            r.emplace_back(a, b);
+        }
+        return r;
+    }
+    media::LogicalFrameRanges r;
+};
+} // namespace
 
 ClipActor::ClipActor(caf::actor_config &cfg, const JsonStore &jsn)
     : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn.at("base"))) {
     base_.item().set_actor_addr(this);
-    base_.item().set_system(&system());
 
     init();
 }
@@ -28,47 +53,75 @@ ClipActor::ClipActor(caf::actor_config &cfg, const JsonStore &jsn)
 ClipActor::ClipActor(caf::actor_config &cfg, const JsonStore &jsn, Item &pitem)
     : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn.at("base"))) {
     base_.item().set_actor_addr(this);
-    base_.item().set_system(&system());
 
-    pitem = base_.item();
+    pitem = base_.item().clone();
     init();
 }
 
+ClipActor::ClipActor(caf::actor_config &cfg, const Item &item)
+    : caf::event_based_actor(cfg), base_(item, this) {
+    init();
+}
+
+ClipActor::ClipActor(caf::actor_config &cfg, const Item &item, Item &nitem)
+    : ClipActor(cfg, item) {
+    nitem = base_.item().clone();
+}
+
 ClipActor::ClipActor(
-    caf::actor_config &cfg,
-    const utility::UuidActor &media,
-    const std::string &name,
-    const utility::Uuid &uuid)
+    caf::actor_config &cfg, const UuidActor &media, const std::string &name, const Uuid &uuid)
     : caf::event_based_actor(cfg),
       // playlist_(caf::actor_cast<actor_addr>(playlist)),
       base_(name, uuid, this, media.uuid()) {
-    base_.item().set_system(&system());
-    base_.item().set_name(name);
+
+    // already done in base clase ?
+    // base_.item().set_name(name);
 
     if (media.actor()) {
 
         media_ = caf::actor_cast<caf::actor_addr>(media.actor());
 
-        monitor(media.actor());
+        // monitor_media(media.actor());
+
         join_event_group(this, media.actor());
 
         try {
             caf::scoped_actor sys(system());
-            auto ref = request_receive<std::vector<MediaReference>>(
-                *sys, media.actor(), media::media_reference_atom_v)[0];
+            auto ref = request_receive<std::pair<Uuid, MediaReference>>(
+                           *sys, media.actor(), media::media_reference_atom_v, Uuid())
+                           .second;
 
             if (name.empty()) {
-                base_.item().set_name(
-                    fs::path(uri_to_posix_path(ref.uri())).filename().string());
+                mail(name_atom_v)
+                    .delay(1s)
+                    .request(media.actor(), infinite)
+                    .then(
+                        [=](const std::string &value) mutable {
+                            anon_mail(item_name_atom_v, value).send(this);
+                        },
+                        [=](const caf::error &err) mutable {
+                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        });
+                // base_.item().set_name(
+                //     fs::path(uri_to_posix_path(ref.uri())).filename().string());
             }
 
-            if (ref.frame_count())
-                base_.item().set_available_range(utility::FrameRange(ref.duration()));
-            else
-                delayed_send(
-                    caf::actor_cast<caf::actor>(this),
-                    std::chrono::milliseconds(100),
-                    media::acquire_media_detail_atom_v);
+            if (ref.frame_count()) {
+                // base_.item().set_available_range(FrameRange(ref.duration()));
+                auto tc_start = static_cast<int>(ref.timecode().total_frames());
+
+                auto mfr = FrameRange(
+                    FrameRateDuration(tc_start, ref.duration().rate()), ref.duration());
+                base_.item().set_range(mfr, mfr);
+                base_.override_media_rate(ref.duration().rate());
+
+                auto m_actor =
+                    system().registry().template get<caf::actor>(media_hook_registry);
+                anon_mail(media_hook::get_clip_hook_atom_v, this).send(m_actor);
+            } else
+                mail(media::acquire_media_detail_atom_v)
+                    .delay(std::chrono::milliseconds(100))
+                    .send(caf::actor_cast<caf::actor>(this));
 
         } catch (const std::exception &err) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -78,97 +131,224 @@ ClipActor::ClipActor(
     init();
 }
 
+void ClipActor::link_media(
+    caf::typed_response_promise<bool> rp, const UuidActor &media, const bool refresh) {
 
-void ClipActor::init() {
-    print_on_create(this, base_.name());
-    print_on_exit(this, base_.name());
+    // spdlog::warn("link_media_atom {}", to_string(media));
+    auto old_media_actor = caf::actor_cast<caf::actor>(media_);
+    if (old_media_actor)
+        leave_event_group(this, old_media_actor);
 
-    event_group_ = spawn<broadcast::BroadcastActor>(this);
-    link_to(event_group_);
+    if (media.actor()) {
+        // monitor(media.actor());
+        join_event_group(this, media.actor());
+        media_ = caf::actor_cast<caf::actor_addr>(media.actor());
+    } else
+        media_ = caf::actor_addr();
 
-    // we die if our media dies.
-    set_down_handler([=](down_msg &msg) {
-        if (msg.source == media_) {
-            demonitor(caf::actor_cast<caf::actor>(media_));
-            send_exit(this, caf::exit_reason::user_shutdown);
+    auto jsn = base_.set_media_uuid(media.uuid());
+    if (not jsn.is_null())
+        mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
+
+    // clear ptr cache
+    image_ptr_cache_.clear();
+    audio_ptr_cache_.clear();
+
+    if (refresh) {
+        // force update ?
+        // cache available range ?
+        if (media.actor()) {
+            mail(media::acquire_media_detail_atom_v)
+                .delay(std::chrono::milliseconds(100))
+                .send(caf::actor_cast<caf::actor>(this));
+
+            // replace clip name ?
+            mail(name_atom_v)
+                .request(media.actor(), infinite)
+                .then(
+                    [=](const std::string &value) mutable {
+                        anon_mail(item_name_atom_v, value).send(this);
+                    },
+                    [=](const caf::error &err) mutable {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    });
+        } else {
+            anon_mail(item_name_atom_v, "NO CLIP").send(this);
+            auto m_actor = system().registry().template get<caf::actor>(media_hook_registry);
+            anon_mail(media_hook::get_clip_hook_atom_v, this).send(m_actor);
         }
-    });
+    }
 
-    // monitor changes in media..
-    behavior_.assign(
-        base_.make_set_name_handler(event_group_, this),
-        base_.make_get_name_handler(),
-        base_.make_last_changed_getter(),
-        base_.make_last_changed_setter(event_group_, this),
-        base_.make_last_changed_event_handler(event_group_, this),
-        base_.make_get_uuid_handler(),
-        base_.make_get_type_handler(),
-        make_get_event_group_handler(event_group_),
-        base_.make_get_detail_handler(this, event_group_),
+    rp.deliver(true);
+}
 
-        [=](link_media_atom, const UuidActorMap &media) -> bool {
+caf::message_handler ClipActor::message_handler() {
+    return caf::message_handler{
+        // replace current media..
+        [=](link_media_atom, const UuidActor &media) -> result<bool> {
+            auto rp = make_response_promise<bool>();
+            link_media(rp, media);
+            return rp;
+        },
+
+        [=](link_media_atom, const UuidActorMap &media, const bool force) -> result<bool> {
+            auto rp = make_response_promise<bool>();
+
             if (media.count(base_.media_uuid())) {
-                auto media_actor = media.at(base_.media_uuid());
-                auto addr        = caf::actor_cast<caf::actor_addr>(media_actor);
+                if (force) {
+                    link_media(rp, UuidActor(base_.media_uuid(), media.at(base_.media_uuid())));
+                } else {
+                    auto media_actor = media.at(base_.media_uuid());
+                    auto addr        = caf::actor_cast<caf::actor_addr>(media_actor);
 
-                if (media_ != addr) {
-                    monitor(media_actor);
-                    join_event_group(this, media_actor);
-                    media_ = addr;
+                    if (media_ != addr) {
+                        // monitor_media(media_actor);
+                        // shouldn't we leave previous events ?
+                        // leave_event_group(this, media_);
+                        join_event_group(this, media_actor);
+                        media_ = addr;
+                    }
+                    rp.deliver(true);
                 }
             } else {
                 media_ = caf::actor_addr();
+                rp.deliver(true);
             }
-            return true;
+
+            return rp;
         },
 
+        [=](playhead::source_atom,
+            const UuidUuidMap &swap,
+            const UuidActorMap &media) -> result<bool> {
+            auto rp = make_response_promise<bool>();
+
+            if (swap.count(base_.media_uuid())) {
+                // spdlog::warn("{} {} {}", base_.item().name(), to_string(base_.media_uuid()),
+                // to_string(media.at(swap.at(base_.media_uuid()))));
+                link_media(
+                    rp,
+                    UuidActor(
+                        swap.at(base_.media_uuid()), media.at(swap.at(base_.media_uuid()))),
+                    false);
+            } else
+                rp.deliver(false);
+
+            return rp;
+        },
+
+
         [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-        [=](const group_down_msg & /*msg*/) {},
 
         [=](plugin_manager::enable_atom, const bool value) -> JsonStore {
             auto jsn = base_.item().set_enabled(value);
             if (not jsn.is_null())
-                send(event_group_, event_atom_v, item_atom_v, jsn, false);
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
             return jsn;
         },
 
         [=](item_name_atom, const std::string &value) -> JsonStore {
             auto jsn = base_.item().set_name(value);
             if (not jsn.is_null())
-                send(event_group_, event_atom_v, item_atom_v, jsn, false);
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
+            return jsn;
+        },
+
+        [=](item_type_atom) -> ItemType { return base_.item().item_type(); },
+
+        [=](item_lock_atom, const bool value) -> JsonStore {
+            auto jsn = base_.item().set_locked(value);
+            if (not jsn.is_null())
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
             return jsn;
         },
 
         [=](item_flag_atom, const std::string &value) -> JsonStore {
             auto jsn = base_.item().set_flag(value);
             if (not jsn.is_null())
-                send(event_group_, event_atom_v, item_atom_v, jsn, false);
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
             return jsn;
         },
+
+        [=](rate_atom) -> FrameRate { return base_.item().rate(); },
+
+        [=](rate_atom atom, const media::MediaType media_type) {
+            return mail(atom).delegate(caf::actor_cast<caf::actor>(this));
+        },
+
+        [=](rate_atom,
+            const utility::FrameRate &new_rate,
+            const bool force_media_rate_to_match) -> bool {
+            base_.item().override_frame_rate(new_rate, force_media_rate_to_match);
+            if (force_media_rate_to_match)
+                base_.override_media_rate(new_rate);
+            return true;
+        },
+
+        [=](item_prop_atom, const JsonStore &value) -> JsonStore {
+            auto jsn = base_.item().set_prop(value);
+            if (not jsn.is_null())
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
+            return jsn;
+        },
+
+        [=](item_prop_atom, const JsonStore &value, const bool merge) -> JsonStore {
+            auto p = base_.item().prop();
+            p.update(value);
+            auto jsn = base_.item().set_prop(p);
+            if (not jsn.is_null())
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
+            return jsn;
+        },
+
+        [=](item_prop_atom, const JsonStore &value, const std::string &path) -> JsonStore {
+            auto prop = base_.item().prop();
+            try {
+                auto ptr = nlohmann::json::json_pointer(path);
+                prop.at(ptr).update(value, true);
+            } catch (const std::exception &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+            }
+            auto jsn = base_.item().set_prop(prop);
+            if (not jsn.is_null())
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
+            return jsn;
+        },
+
+        [=](item_prop_atom) -> JsonStore { return base_.item().prop(); },
 
         [=](active_range_atom, const FrameRange &fr) -> JsonStore {
             auto jsn = base_.item().set_active_range(fr);
             if (not jsn.is_null())
-                send(event_group_, event_atom_v, item_atom_v, jsn, false);
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
             return jsn;
         },
 
         [=](available_range_atom, const FrameRange &fr) -> JsonStore {
             auto jsn = base_.item().set_available_range(fr);
             if (not jsn.is_null())
-                send(event_group_, event_atom_v, item_atom_v, jsn, false);
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
             return jsn;
         },
 
-        [=](active_range_atom) -> std::optional<utility::FrameRange> {
+        [=](active_range_atom) -> std::optional<FrameRange> {
             return base_.item().active_range();
         },
 
-        [=](available_range_atom) -> std::optional<utility::FrameRange> {
+        [=](available_range_atom) -> std::optional<FrameRange> {
             return base_.item().available_range();
         },
 
-        [=](trimmed_range_atom) -> utility::FrameRange { return base_.item().trimmed_range(); },
+        [=](trimmed_range_atom) -> FrameRange { return base_.item().trimmed_range(); },
+
+        [=](trimmed_range_atom,
+            const FrameRange &avail,
+            const FrameRange &active) -> JsonStore {
+            auto jsn = base_.item().set_range(avail, active);
+            if (not jsn.is_null())
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
+            return jsn;
+        },
 
         [=](history::undo_atom, const JsonStore &hist) -> result<bool> {
             base_.item().undo(hist);
@@ -180,142 +360,230 @@ void ClipActor::init() {
             return true;
         },
 
-        [=](item_atom) -> Item { return base_.item(); },
+        [=](event_atom, item_atom, const JsonStore &update, const bool hidden) {
+            // where is this coming from??
+        },
+
+        [=](item_atom) -> Item { return base_.item().clone(); },
 
         [=](item_atom, const bool with_state) -> result<std::pair<JsonStore, Item>> {
             auto rp = make_response_promise<std::pair<JsonStore, Item>>();
-            request(caf::actor_cast<caf::actor>(this), infinite, utility::serialise_atom_v)
+            mail(serialise_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const JsonStore &jsn) mutable {
-                        rp.deliver(std::make_pair(jsn, base_.item()));
+                        rp.deliver(std::make_pair(jsn, base_.item().clone()));
                     },
                     [=](const caf::error &err) mutable { rp.deliver(err); });
             return rp;
         },
-        // [=](duration_atom) -> utility::FrameRateDuration { return base_.duration(); },
 
-        // [=](duration_atom, const utility::FrameRateDuration &duration) -> bool {
-        //     base_.set_duration(duration);
-        //     update_edit_list();
-        //     return true;
-        // },
-
-        // [=](media::get_edit_list_atom, const Uuid &uuid) -> utility::EditList {
-        //     auto edit_list = clip_edit_list_;
-
-        //     if (not uuid.is_null())
-        //         edit_list.set_uuid(uuid);
-        //     else
-        //         edit_list.set_uuid(base_.uuid());
-
-        //     return edit_list;
-        // },
-
-        // [=](media::get_media_pointer_atom,
-        //     const int logical_frame) -> result<media::AVFrameID> {
-        //     if (base_.media_uuid().is_null())
-        //         return result<media::AVFrameID>(make_error(xstudio_error::error, "No
-        //         media"));
-
-        //     auto rp = make_response_promise<media::AVFrameID>();
-        //     deliver_media_pointer(logical_frame, rp);
-        //     return rp;
-        // },
-
-        // [=](media::get_media_type_atom) -> media::MediaType { return base_.media_type(); },
-
-        // [=](playlist::get_media_atom) -> UuidActor {
-        //     return UuidActor(base_.media_uuid(), caf::actor_cast<actor>(media_));
-        // },
-
-        // [=](start_time_atom) -> utility::FrameRateDuration { return base_.start_time(); },
-
-        // [=](start_time_atom, const utility::FrameRateDuration &start_time) -> bool {
-        //     base_.set_start_time(start_time);
-        //     update_edit_list();
-        //     return true;
-        // },
-
-        // [&](utility::event_atom, utility::change_atom) {
-        //     request(actor_cast<actor>(media_), infinite, media::get_edit_list_atom_v, Uuid())
-        //         .then(
-        //             [&](const utility::EditList &sl) {
-        //                 media_edit_list_ = sl;
-        //                 update_edit_list();
-        //             },
-        //             [=](const error &err) {
-        //                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-        //             });
-        // },
-
-        // [=](utility::event_atom, utility::name_atom, const std::string & /*name*/) {},
-        // events from media actor
-
-        // re-evaluate media reference.., needed for lazy loading
-        [=](media::acquire_media_detail_atom) {
+        [=](playlist::reflag_container_atom) -> result<std::tuple<std::string, std::string>> {
+            auto rp    = make_response_promise<std::tuple<std::string, std::string>>();
             auto actor = caf::actor_cast<caf::actor>(media_);
+            if (actor)
+                rp.delegate(actor, playlist::reflag_container_atom_v);
+            else
+                rp.deliver(make_error(xstudio_error::error, "No media assigned."));
+
+            return rp;
+        },
+
+
+        [=](media::media_reference_atom,
+            const media::MediaType media_type) -> result<std::pair<Uuid, MediaReference>> {
+            auto rp    = make_response_promise<std::pair<Uuid, MediaReference>>();
+            auto actor = caf::actor_cast<caf::actor>(media_);
+            if (actor)
+                rp.delegate(actor, media::media_reference_atom_v, media_type, Uuid());
+            else
+                rp.deliver(make_error(xstudio_error::error, "No media assigned."));
+
+            return rp;
+        },
+
+        [=](media::acquire_media_detail_atom, const Uuid &uuid) {
+            auto actor = caf::actor_cast<caf::actor>(media_);
+            // spdlog::warn("acquire_media_detail_atom {} {}", to_string(uuid),
+            // to_string(actor));
             if (actor) {
-                request(actor, infinite, media::media_reference_atom_v)
+                mail(media::media_reference_atom_v, uuid)
+                    .request(actor, infinite)
                     .then(
-                        [=](const std::vector<MediaReference> &refs) {
-                            if (not refs.empty() and refs[0].frame_count()) {
-                                auto jsn = base_.item().set_available_range(
-                                    utility::FrameRange(refs[0].duration()));
+                        [=](const std::pair<Uuid, MediaReference> &ref) {
+                            // spdlog::warn("{}",ref.second.frame_count());
+                            if (ref.second.frame_count()) {
+                                // clear ptr cache
+                                auto tc_start =
+                                    static_cast<int>(ref.second.timecode().total_frames());
+
+                                // spdlog::warn("{} {} {}", base_.item().name(), tc_start,
+                                // ref.second.timecode().to_string());
+
+                                // if(base_.item().available_range()) {
+                                //     spdlog::warn("before {} available_range start {} duration
+                                //     {}",
+                                //         base_.item().name(),
+                                //         base_.item().available_range()->frame_start().frames(),
+                                //         base_.item().available_range()->frame_duration().frames()
+                                //     );
+                                //     spdlog::warn("before {} trimmed start {} duration {}",
+                                //         base_.item().name(),
+                                //         base_.item().trimmed_range().frame_start().frames(),
+                                //         base_.item().trimmed_range().frame_duration().frames()
+                                //     );
+                                // }
+                                // else
+                                //     spdlog::warn("no available range
+                                //     {}",base_.item().name());
+
+                                auto jsn = base_.item().set_available_range(FrameRange(
+                                    FrameRateDuration(tc_start, ref.second.duration().rate()),
+                                    ref.second.duration()));
+
+                                base_.override_media_rate(ref.second.duration().rate());
+
+                                // spdlog::warn("after {} available_range start {} duration {}",
+                                //     base_.item().name(),
+                                //     base_.item().available_range()->frame_start().frames(),
+                                //     base_.item().available_range()->frame_duration().frames()
+                                // );
+                                // spdlog::warn("after {} trimmed start {} duration {}",
+                                //     base_.item().name(),
+                                //     base_.item().trimmed_range().frame_start().frames(),
+                                //     base_.item().trimmed_range().frame_duration().frames()
+                                // );
 
                                 if (not jsn.is_null())
-                                    send(event_group_, event_atom_v, item_atom_v, jsn, false);
+                                    mail(event_atom_v, item_atom_v, jsn, false)
+                                        .send(base_.event_group());
+
+                                auto m_actor = system().registry().template get<caf::actor>(
+                                    media_hook_registry);
+                                anon_mail(media_hook::get_clip_hook_atom_v, this).send(m_actor);
                             } else {
                                 // retry ?
-                                delayed_send(
-                                    caf::actor_cast<caf::actor>(this),
-                                    std::chrono::seconds(1),
-                                    media::acquire_media_detail_atom_v);
+                                // spdlog::warn("delayed get detail");
+
+                                mail(media::acquire_media_detail_atom_v, uuid)
+                                    .delay(std::chrono::seconds(1))
+                                    .send(caf::actor_cast<caf::actor>(this));
                             }
                         },
-                        [=](const error &err) {});
+                        [=](const error &err) {
+                            // spdlog::warn("errored get detail");
+                            // retry not ready ? Or no sources?
+                            mail(media::acquire_media_detail_atom_v, uuid)
+                                .delay(std::chrono::seconds(1))
+                                .send(caf::actor_cast<caf::actor>(this));
+                        });
             }
         },
 
-        [=](utility::event_atom,
+        [=](media::acquire_media_detail_atom atom) {
+            return mail(atom, Uuid()).delegate(caf::actor_cast<caf::actor>(this));
+        },
+
+        [=](event_atom,
             playlist::reflag_container_atom,
             const Uuid &,
             const std::tuple<std::string, std::string> &) {},
 
-        [=](utility::event_atom,
-            bookmark::bookmark_change_atom,
-            const utility::Uuid &bookmark_uuid) {
+        [=](event_atom, bookmark::bookmark_change_atom, const Uuid &bookmark_uuid) {
             // not sure why we want this..
-            // send(
-            //     event_group_,
-            //     utility::event_atom_v,
+            // mail(//     event_atom_v,
             //     bookmark::bookmark_change_atom_v,
-            //     bookmark_uuid);
+            //     bookmark_uuid).send(//     event_group_);
+        },
+        [=](event_atom, bookmark::bookmark_change_atom, const Uuid &, const UuidList &) {},
+
+        [=](event_atom,
+            media_reader::get_thumbnail_atom,
+            const thumbnail::ThumbnailBufferPtr &buf) {},
+
+        [=](event_atom, bookmark::remove_bookmark_atom, const Uuid &) {},
+        [=](event_atom, bookmark::add_bookmark_atom, const UuidActor &) {},
+
+        [=](event_atom, media::media_status_atom, const media::MediaStatus ms) {},
+
+        [=](event_atom, media::media_display_info_atom, const JsonStore &, caf::actor_addr &) {
         },
 
-        [=](utility::event_atom, bookmark::remove_bookmark_atom, const utility::Uuid &) {},
-        [=](utility::event_atom, bookmark::add_bookmark_atom, const utility::UuidActor &) {},
+        [=](event_atom, media::media_display_info_atom, const JsonStore &) {},
 
-        [=](utility::event_atom, media::media_status_atom, const media::MediaStatus ms) {},
-        [=](utility::event_atom,
+        // ak this need's to know if the clip uses audio or video SOB.
+        // we'll use video for the moment.. BUT THIS IS WRONG.
+        [=](event_atom,
             media::current_media_source_atom,
-            const UuidActor &,
-            const media::MediaType) {
+            const UuidActor &ua,
+            const media::MediaType mt) {
+            // media source has changed, we need to acquire the new available range...
+
+            // spdlog::warn("media::current_media_source_atom {}", to_string(ua.uuid()));
+
+            if (mt == media::MediaType::MT_IMAGE) {
+
+                mail(media::acquire_media_detail_atom_v, ua.uuid())
+                    .delay(std::chrono::milliseconds(10))
+                    .send(caf::actor_cast<caf::actor>(this));
+            }
+
             image_ptr_cache_.clear();
             audio_ptr_cache_.clear();
+
+            mail(event_atom_v, change_atom_v).send(base_.event_group());
         },
-        [=](utility::event_atom, utility::change_atom) {},
-        [=](utility::event_atom,
-            media::add_media_source_atom,
-            const utility::UuidActorVector &) {},
+
+        [=](event_atom, change_atom) {
+            // something has changed. It means we might need to re-generate our
+            // frame pointers for playback. For example, if media source metadata
+            // has changed that affects colour management, we need to re-gernerate
+            // the frame pointers that carry the colour management data to the
+            // playhead and up to the viewport.
+            image_ptr_cache_.clear();
+            audio_ptr_cache_.clear();
+            mail(event_atom_v, change_atom_v).send(base_.event_group());
+        },
+
+        [=](json_store::update_atom,
+            const JsonStore &,
+            const std::string &,
+            const JsonStore &) {},
+
+        [=](json_store::update_atom, const JsonStore &) mutable {},
+
+        [=](event_atom, media::add_media_source_atom, const UuidActorVector &) {},
+
+        [=](playlist::get_media_atom, const bool) -> UuidUuidActor {
+            return UuidUuidActor(
+                base_.uuid(),
+                UuidActor(base_.media_uuid(), caf::actor_cast<caf::actor>(media_)));
+        },
+
+        // how do we deal with lazy loading of metadata..
+        [=](playlist::get_media_atom,
+            json_store::get_json_atom,
+            const Uuid &uuid,
+            const std::string &path) -> result<JsonStore> {
+            auto rp    = make_response_promise<JsonStore>();
+            auto actor = caf::actor_cast<caf::actor>(media_);
+            if (actor)
+                rp.delegate(actor, json_store::get_json_atom_v, uuid, path);
+            else
+                rp.deliver(make_error(xstudio_error::error, "No media assigned."));
+
+            return rp;
+        },
 
         [=](playlist::get_media_atom) -> UuidActor {
             return UuidActor(base_.media_uuid(), caf::actor_cast<caf::actor>(media_));
         },
 
-        [=](xstudio::media::current_media_source_atom atom) -> caf::result<UuidActor> {
+        [=](xstudio::media::current_media_source_atom atom,
+            const media::MediaType mt) -> caf::result<UuidActor> {
             if (media_) {
                 auto rp = make_response_promise<UuidActor>();
-                rp.delegate(caf::actor_cast<caf::actor>(media_), atom);
+                rp.delegate(caf::actor_cast<caf::actor>(media_), atom, mt);
                 return rp;
             }
             return make_error(xstudio_error::error, "No media assigned.");
@@ -332,148 +600,130 @@ void ClipActor::init() {
 
         [=](media::get_media_pointer_atom,
             const media::MediaType media_type,
-            const std::vector<FrameRate> &timepoints,
-            const FrameRate &override_rate) -> result<media::AVFrameIDs> {
+            const std::vector<timebase::flicks> timepoints,
+            const FrameRate override_rate) -> result<media::AVFrameIDs> {
             if (media_) {
-                auto result = std::make_shared<media::AVFrameIDs>(timepoints.size());
-                auto rp     = make_response_promise<media::AVFrameIDs>();
+
+
+                // TODO: Optimise and refactor this!! Too slow (often over > 1ms to
+                // evaulate)
+
+                // the 'result' here is a vector of std::shared_ptr<const media::AVFrameID> -
+                // one element per frame timepoint. We initialise it with blank frames and
+                // the logic below will fill in actual frames where possible
+                media::AVFrameID blank = *(media::make_blank_frame(
+                    media_type, base_.media_uuid(), Uuid(), base_.uuid()));
+                blank.set_frame_status(media::FS_NOT_ON_DISK);
+
+                auto blank_ptr = std::make_shared<const media::AVFrameID>(blank);
+
+                // the result data
+                auto result = std::make_shared<media::AVFrameIDs>(timepoints.size(), blank_ptr);
+
+                // the response
+                auto rp = make_response_promise<media::AVFrameIDs>();
 
                 auto trimmed_start = base_.item().trimmed_start();
-                auto active_start =
-                    (base_.item().active_start() ? *base_.item().active_start()
-                                                 : trimmed_start);
                 auto available_start =
                     (base_.item().available_start() ? *base_.item().available_start()
                                                     : trimmed_start);
 
-                // spdlog::warn("trs {} avs {} act {}", trimmed_start.to_seconds(),
-                // available_start.to_seconds(), active_start.to_seconds());
+                // get a ref to the appropriate AvFrameID cache
+                auto &frame_ptr_cache = media_type == media::MediaType::MT_IMAGE
+                                            ? image_ptr_cache_
+                                            : audio_ptr_cache_;
 
-                // build logical frame ranges.
-                auto ranges = media::LogicalFrameRanges();
-                auto indexs = std::vector<int>();
-                auto range  = std::pair<int, int>(-1, -1);
 
-                auto index = 0;
-                for (const auto timepoint : timepoints) {
+                // Note: a clip's frame rate may be different to the frame rate
+                // of the media wrapped by the clip. This is how retiming works
+                // so that media of different rates can be played in a timeline
+                // of fixed rate.
+                const auto reference_frame_rate =
+                    base_.media_rate() != timebase::k_flicks_zero_seconds ? base_.media_rate()
+                                                                          : base_.item().rate();
+
+                RangeMaker range_maker;
+
+                // loop over the timeline timepoints for which we've been asked
+                // for an AVFrameID
+                for (size_t i = 0; i < timepoints.size(); ++i) {
+
+                    // convert the timepoint into a logical frame
                     auto frd = FrameRateDuration(
-                        FrameRate(timepoint.to_flicks() - available_start.to_flicks()),
-                        override_rate);
-                    auto logical_frame = frd.frames(base_.item().rate());
+                        timepoints[i] - available_start.to_flicks(), override_rate);
 
-                    if (media_type == media::MediaType::MT_IMAGE and
-                        image_ptr_cache_.count(logical_frame)) {
-                        (*result)[index] = image_ptr_cache_[logical_frame];
-                        if (range.first != -1) {
-                            ranges.push_back(range);
-                            range.first  = -1;
-                            range.second = -1;
-                        }
-                    } else if (
-                        media_type == media::MediaType::MT_AUDIO and
-                        audio_ptr_cache_.count(logical_frame)) {
-                        (*result)[index] = audio_ptr_cache_[logical_frame];
-                        if (range.first != -1) {
-                            ranges.push_back(range);
-                            range.first  = -1;
-                            range.second = -1;
-                        }
+                    auto media_logical_frame = frd.frames(reference_frame_rate);
+
+                    // have we cached an AVFrameID for this frame already?
+                    if (!frame_ptr_cache.count(media_logical_frame)) {
+                        range_maker.extend(media_logical_frame);
                     } else {
-                        // extend or flush rane
-                        if (range.first != -1) {
-                            if (logical_frame != range.second + 1) {
-                                ranges.push_back(range);
-                                range.first  = -1;
-                                range.second = -1;
-                            } else {
-                                range.second = logical_frame;
-                            }
-                        }
-
-                        if (range.first == -1) {
-                            range.first  = logical_frame;
-                            range.second = logical_frame;
-                            indexs.push_back(index);
-                        }
+                        (*result)[i] = frame_ptr_cache[media_logical_frame];
                     }
-
-                    index++;
                 }
 
-                if (range.first != -1)
-                    ranges.push_back(range);
+                const auto frame_ranges = range_maker.result();
 
-                if (indexs.empty()) {
+                if (frame_ranges.empty()) {
+                    // all our frames were in the cache
                     rp.deliver(*result);
                 } else {
-                    request(
-                        caf::actor_cast<caf::actor>(media_),
-                        infinite,
+                    mail(
                         media::get_media_pointers_atom_v,
                         media_type,
-                        ranges,
-                        FrameRate())
+                        frame_ranges,
+                        FrameRate(),
+                        base_.uuid())
+                        .request(caf::actor_cast<caf::actor>(media_), infinite)
                         .then(
                             [=](const media::AVFrameIDs &mps) mutable {
+                                /*spdlog::warn("const media::AVFrameIDs &mps {} {}",
+                                     name(), mps.size());*/
+
+                                auto &frame_ptr_cache = media_type == media::MediaType::MT_IMAGE
+                                                            ? image_ptr_cache_
+                                                            : audio_ptr_cache_;
+
                                 auto mp = mps.begin();
-                                for (size_t i = 0; i < indexs.size(); i++) {
-                                    auto ind = indexs[i];
-                                    auto rng = ranges[i];
-                                    for (auto ii = rng.first; ii <= rng.second; ii++, ind++) {
-                                        if (media_type == media::MediaType::MT_IMAGE) {
-                                            image_ptr_cache_[ii] = *mp;
-                                            (*result)[ind]       = image_ptr_cache_[ii];
-                                        } else if (media_type == media::MediaType::MT_AUDIO) {
-                                            audio_ptr_cache_[ii] = *mp;
-                                            (*result)[ind]       = audio_ptr_cache_[ii];
-                                        }
+                                for (const auto &rng : frame_ranges) {
+
+                                    for (auto ii = rng.first; ii <= rng.second; ii++) {
+
+                                        // this should never happen, but just in case
+                                        if (mp == mps.end())
+                                            break;
+
+                                        std::shared_ptr<const media::AVFrameID> foo = *mp;
+                                        frame_ptr_cache[ii]                         = foo;
                                         mp++;
                                     }
                                 }
+
+                                for (size_t i = 0; i < timepoints.size(); ++i) {
+
+                                    // convert the timepoint into a logical frame
+                                    auto frd = FrameRateDuration(
+                                        timepoints[i] - available_start.to_flicks(),
+                                        override_rate);
+
+                                    auto media_logical_frame = frd.frames(reference_frame_rate);
+
+                                    // have we cached an AVFrameID for this frame already?
+                                    if (frame_ptr_cache.count(media_logical_frame)) {
+                                        (*result)[i] = frame_ptr_cache[media_logical_frame];
+                                    }
+                                }
+
                                 // spdlog::warn("deliver {}", result->size());
                                 rp.deliver(*result);
                             },
                             [=](error &err) mutable {
-                                for (size_t i = 0; i < indexs.size(); i++) {
-                                    auto ind = indexs[i];
-                                    auto rng = ranges[i];
-                                    for (auto ii = rng.first; ii <= rng.second; ii++, ind++)
-                                        (*result)[ind] = media::make_blank_frame(media_type);
-                                }
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                // can get an error for missing media - instead
+                                // of passing error up we allow delivery of
+                                // the blank frames
                                 // rp.deliver(std::move(err));
                                 rp.deliver(*result);
                             });
-
-                    // for(size_t i = 0; i < indexs.size(); i++) {
-                    //     auto ind = indexs[i];
-                    //     auto rng = ranges[i];
-
-                    //     try {
-                    //         // FrameRate() might need setting correctly..
-                    //         auto mps = request_receive<media::AVFrameIDs>(
-                    //             *sys, caf::actor_cast<caf::actor>(media_),
-                    //             media::get_media_pointers_atom_v, media_type,
-                    //             media::LogicalFrameRanges({rng}), FrameRate());
-
-                    //         for(auto mp : mps ){
-                    //             if(media_type == media::MediaType::MT_IMAGE) {
-                    //                 image_ptr_cache_[ind] = mp;
-                    //                 (*result)[ind] = image_ptr_cache_[ind];
-                    //             } else if(media_type == media::MediaType::MT_AUDIO) {
-                    //                 audio_ptr_cache_[ind] = mp;
-                    //                 (*result)[ind] = audio_ptr_cache_[ind];
-                    //             }
-                    //             ind++;
-                    //         }
-
-                    //     } catch (const std::exception &err) {
-                    //         for(auto ii = rng.first; ii <= rng.second; ii++, ind++)
-                    //             (*result)[ind] = make_blank_frame(media_type);
-                    //         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-                    //     }
-                    // }
-                    // rp.deliver(*result);
                 }
                 return rp;
             }
@@ -481,66 +731,7 @@ void ClipActor::init() {
             return make_error(xstudio_error::error, "No media assigned.");
         },
 
-        // [=](media::get_media_pointer_atom, const media::MediaType media_type, const FrameRate
-        // &timepoint, const FrameRate &override_rate) -> result<std::shared_ptr<const
-        // media::AVFrameID>> {
-        //     if(media_) {
-        //         auto trimmed_start = base_.item().trimmed_start();
-        //         auto active_start = (base_.item().active_start() ? *
-        //         base_.item().active_start() : trimmed_start); auto available_start =
-        //         (base_.item().available_start() ? * base_.item().available_start() :
-        //         trimmed_start);
-
-        //         // spdlog::warn("trs {} avs {} act {}", trimmed_start.to_seconds(),
-        //         available_start.to_seconds(), active_start.to_seconds());
-
-        //         auto frd =
-        //         FrameRateDuration(FrameRate(timepoint.to_flicks()-available_start.to_flicks()),
-        //         override_rate); auto logical_frame = frd.frames(base_.item().rate());
-
-        //         if(media_type == media::MediaType::MT_IMAGE and
-        //         image_ptr_cache_.count(logical_frame)) {
-        //             return image_ptr_cache_[logical_frame];
-        //         } else if(media_type == media::MediaType::MT_AUDIO and
-        //         audio_ptr_cache_.count(logical_frame)) {
-        //             return audio_ptr_cache_[logical_frame];
-        //         } else {
-        //             auto rp = make_response_promise<std::shared_ptr<const
-        //             media::AVFrameID>>(); request(caf::actor_cast<caf::actor>(media_),
-        //             infinite, media::get_media_pointer_atom_v, media_type,
-        //             logical_frame).then(
-        //                 [=](const media::AVFrameID &mp) mutable {
-        //                     if(media_type == media::MediaType::MT_IMAGE) {
-        //                         image_ptr_cache_[logical_frame] =
-        //                         std::make_shared<media::AVFrameID>(std::move(mp));
-        //                         rp.deliver(image_ptr_cache_[logical_frame]);
-        //                     } else if(media_type == media::MediaType::MT_AUDIO) {
-        //                         audio_ptr_cache_[logical_frame] =
-        //                         std::make_shared<media::AVFrameID>(std::move(mp));
-        //                         rp.deliver(audio_ptr_cache_[logical_frame]);
-        //                     } else {
-        //                         rp.deliver(make_error(xstudio_error::error, "Unknown media
-        //                         type."));
-        //                     }
-        //                 },
-        //                 [=](error &err) mutable { rp.deliver(std::move(err)); }
-        //             );
-        //             return rp;
-        //         }
-        //     }
-
-        //     return make_error(xstudio_error::error, "No media assigned.");
-        // },
-
-
-        [=](xstudio::media::current_media_source_atom atom) {
-            delegate(caf::actor_cast<caf::actor>(media_), atom);
-        },
-        [=](xstudio::playlist::reflag_container_atom atom) {
-            delegate(caf::actor_cast<caf::actor>(media_), atom);
-        },
-
-        [=](utility::duplicate_atom) -> result<UuidActor> {
+        [=](duplicate_atom) -> result<UuidActor> {
             JsonStore jsn;
             auto dup    = base_.duplicate();
             jsn["base"] = dup.serialise();
@@ -551,7 +742,8 @@ void ClipActor::init() {
 
             auto rp = make_response_promise<UuidActor>();
 
-            request(actor, infinite, link_media_atom_v, media_map)
+            mail(link_media_atom_v, media_map, false)
+                .request(actor, infinite)
                 .then(
                     [=](const bool) mutable { rp.deliver(UuidActor(dup.uuid(), actor)); },
                     [=](const caf::error &err) mutable {
@@ -562,45 +754,23 @@ void ClipActor::init() {
             return rp;
         },
 
-        [=](utility::serialise_atom) -> JsonStore {
+        [=](serialise_atom) -> JsonStore {
             JsonStore jsn;
             jsn["base"] = base_.serialise();
             return jsn;
-        }
+        },
 
-    );
+        [=](media::get_media_pointers_atom atom,
+            const media::MediaType media_type,
+            const TimeSourceMode tsm,
+            const FrameRate &override_rate) -> caf::result<media::FrameTimeMapPtr> {
+            // This is required by SubPlayhead actor to make the track
+            // playable.
+            return base_.item().get_all_frame_IDs(media_type, tsm, override_rate);
+        }};
 }
 
-// void ClipActor::update_edit_list() {
-//     ClipList sl = media_edit_list_.section_list();
-
-//     sl[0].frame_rate_and_duration_ = base_.duration();
-//     sl[0].timecode_                = sl[0].timecode_ + base_.start_time().frames();
-
-//     clip_edit_list_ = EditList(sl);
-
-//     // all we do is adjust the duration ? and the timecode?
-//     // adjust edit_list based off our start_time and duration..
-//     // a media object should really only return one entry, otherwise we've no idea how to
-//     adjust
-//     // the STL start_time we set the uuid to ourself as we're the ones that return
-//     mediapointer.
-//     // remapped to our start_time/duration.
-//     send(event_group_, utility::event_atom_v, utility::change_atom_v);
-// }
-
-// void ClipActor::deliver_media_pointer(
-//     const int logical_frame, caf::typed_response_promise<media::AVFrameID> rp) {
-//     // send request to media actor but offset the logical_frame.
-//     // also send no frame error if duration exceeds our duration.
-//     if (logical_frame >= base_.duration().frames())
-//         rp.deliver(make_error(xstudio_error::error, "No frames left"));
-//     else {
-//         int request_frame = logical_frame + base_.start_time().frames();
-//         request(
-//             actor_cast<actor>(media_), infinite, media::get_media_pointer_atom_v,
-//             media::MT_IMAGE, request_frame) .then(
-//                 [=](const media::AVFrameID &mptr) mutable { rp.deliver(mptr); },
-//                 [=](error &err) mutable { rp.deliver(std::move(err)); });
-//     }
-// }
+void ClipActor::init() {
+    print_on_create(this, base_.name());
+    print_on_exit(this, base_.name());
+}

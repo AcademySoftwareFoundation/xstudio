@@ -36,7 +36,7 @@ vec4 fetch_rgba_pixel(ivec2 image_coord)
     int bytes_per_pixel = 4;
     int pixel_bytes_offset_in_texture_memory = (image_coord.x + image_coord.y*blank_width)*bytes_per_pixel;
     uvec4 c = get_image_data_4bytes(pixel_bytes_offset_in_texture_memory);
-    return vec4(float(c.x)/255.0f,float(c.y)/255.0f,float(c.z)/255.0f,1.0f);
+    return vec4(float(c.x)/255.0f,float(c.y)/255.0f,float(c.z)/255.0f,0.1f);
 }
 )"};
 
@@ -51,7 +51,7 @@ utility::Uuid BlankMediaReader::plugin_uuid() const { return s_plugin_uuid; }
 std::array<std::byte, 3> BlankMediaReader::get_colour(const std::string &colour) const {
 
     if (colour == "gray")
-        return std::array<std::byte, 3>{std::byte{0x20}, std::byte{0x20}, std::byte{0x20}};
+        return std::array<std::byte, 3>{std::byte{0x10}, std::byte{0x10}, std::byte{0x10}};
     else if (colour == "green")
         return std::array<std::byte, 3>{std::byte{0x20}, std::byte{0xff}, std::byte{0x20}};
 
@@ -60,8 +60,8 @@ std::array<std::byte, 3> BlankMediaReader::get_colour(const std::string &colour)
 
 ImageBufPtr BlankMediaReader::image(const media::AVFrameID &mpr) {
     ImageBufPtr buf;
-    int width             = 128;
-    int height            = 128;
+    int width             = 192;
+    int height            = 108;
     size_t size           = width * height;
     int bytes_per_channel = 1;
 
@@ -91,17 +91,25 @@ ImageBufPtr BlankMediaReader::image(const media::AVFrameID &mpr) {
     buf->set_shader(blank_shader);
     buf->set_image_dimensions(Imath::V2i(width, height));
 
-    if (mpr.error_ != "") {
-        buf->set_error(mpr.error_);
+    if (mpr.error() != "") {
+        buf->set_error(mpr.error());
     }
 
-    auto i = mpr.uri_.query().find("colour");
-    if (i != mpr.uri_.query().end()) {
+    auto i = mpr.uri().query().find("colour");
+    if (i != mpr.uri().query().end()) {
         auto c = get_colour(i->second);
+        int i  = 0;
         for (byte *b = buf->buffer(); b < (buf->buffer() + size * bytes_per_pixel); b += 4) {
-            b[0] = (byte)c[0];
-            b[1] = (byte)c[1];
-            b[2] = (byte)c[2];
+            if (((i / 16) & 1) == (i / (192 * 16) & 1)) {
+                b[0] = (byte)c[0];
+                b[1] = (byte)c[1];
+                b[2] = (byte)c[2];
+            } else {
+                b[0] = (byte)0;
+                b[1] = (byte)0;
+                b[2] = (byte)0;
+            }
+            ++i;
         }
     } else {
         std::memset(buf->buffer(), 0, size * bytes_per_pixel);
@@ -115,8 +123,8 @@ BlankMediaReader::thumbnail(const media::AVFrameID &mpr, const size_t thumb_size
     auto thumb = std::make_shared<thumbnail::ThumbnailBuffer>(
         thumb_size, thumb_size, thumbnail::TF_RGB24);
 
-    auto i = mpr.uri_.query().find("colour");
-    if (i != mpr.uri_.query().end()) {
+    auto i = mpr.uri().query().find("colour");
+    if (i != mpr.uri().query().end()) {
         auto c = get_colour(i->second);
         auto b = &(thumb->data()[0]);
 
@@ -139,7 +147,7 @@ MRCertainty BlankMediaReader::supported(const caf::uri &uri, const std::array<ui
     // but we're pretty good at movs..
     // spdlog::warn("{} {}", to_string(uri.scheme()), to_string(uri.authority()));
 
-    if (to_string(uri.scheme()) == "xstudio" and to_string(uri.authority()) == "blank") {
+    if (std::string(uri.scheme()) == "xstudio" and to_string(uri.authority()) == "blank") {
         return MRC_FULLY;
     }
 

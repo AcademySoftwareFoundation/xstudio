@@ -50,7 +50,7 @@ namespace ui {
                 const float opacity) const override;
 
           private:
-            unsigned int vao_, vbo_, texture_;
+            unsigned int vao_, vbo_, texture_, buf_size_;
             std::unique_ptr<xstudio::ui::opengl::GLShaderProgram> shader_;
         };
 

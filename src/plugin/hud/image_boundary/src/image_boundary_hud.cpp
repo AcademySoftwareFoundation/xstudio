@@ -6,8 +6,12 @@
 #include "xstudio/utility/blind_data.hpp"
 #include "xstudio/ui/viewport/viewport_helpers.hpp"
 
+#ifdef __apple__
+#include <OpenGL/gl3.h>
+#else
 #include <GL/glew.h>
 #include <GL/gl.h>
+#endif
 
 using namespace xstudio;
 using namespace xstudio::ui::viewport;
@@ -24,10 +28,11 @@ class HudData : public utility::BlindDataObject {
 class ImageBoundaryRenderer : public plugin::ViewportOverlayRenderer {
 
   public:
-    void render_opengl(
+    void render_image_overlay(
         const Imath::M44f &transform_window_to_viewport_space,
         const Imath::M44f &transform_viewport_to_image_space,
         const float /*viewport_du_dpixel*/,
+        const float /*device_pixel_ratio*/,
         const xstudio::media_reader::ImageBufPtr &frame,
         const bool have_alpha_buffer) override {
 
@@ -60,7 +65,7 @@ class ImageBoundaryRenderer : public plugin::ViewportOverlayRenderer {
                                            transform_window_to_viewport_space;
 
             auto image_dims   = frame ? frame->image_size_in_pixels() : Imath::V2i();
-            auto pixel_aspect = frame ? frame->pixel_aspect() : 1.0f;
+            auto pixel_aspect = frame.frame_id().pixel_aspect();
 
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -76,6 +81,7 @@ class ImageBoundaryRenderer : public plugin::ViewportOverlayRenderer {
                 get_transformed_point(image_dims, image_dims, transform_matrix, pixel_aspect);
 
             glUseProgram(0);
+#ifndef __apple__
             glLineWidth(w);
             glColor4f(c.r, c.g, c.b, 1.0f);
             glBegin(GL_LINE_LOOP);
@@ -84,6 +90,7 @@ class ImageBoundaryRenderer : public plugin::ViewportOverlayRenderer {
             glVertex2f(bottom_right.x, bottom_right.y);
             glVertex2f(top_left.x, bottom_right.y);
             glEnd();
+#endif
         }
     }
 };
@@ -91,10 +98,7 @@ class ImageBoundaryRenderer : public plugin::ViewportOverlayRenderer {
 
 ImageBoundaryHUD::ImageBoundaryHUD(
     caf::actor_config &cfg, const utility::JsonStore &init_settings)
-    : HUDPluginBase(cfg, "Image Boundary", init_settings) {
-
-    enabled_->set_preference_path("/plugin/image_boundary/enabled");
-    enabled_->set_role_data(module::Attribute::ToolbarPosition, 2.0f);
+    : plugin::HUDPluginBase(cfg, "Image Boundary", init_settings) {
 
     colour_ =
         add_colour_attribute("Line Colour", "Colour", utility::ColourTriplet(1.0f, 0.0f, 0.0f));
@@ -106,14 +110,18 @@ ImageBoundaryHUD::ImageBoundaryHUD(
     add_hud_settings_attribute(width_);
 }
 
-plugin::ViewportOverlayRendererPtr ImageBoundaryHUD::make_overlay_renderer(const int) {
+plugin::ViewportOverlayRendererPtr
+ImageBoundaryHUD::make_overlay_renderer(const std::string &viewport_name) {
     return plugin::ViewportOverlayRendererPtr(new ImageBoundaryRenderer());
 }
 
 ImageBoundaryHUD::~ImageBoundaryHUD() = default;
 
-utility::BlindDataObjectPtr ImageBoundaryHUD::prepare_overlay_data(
-    const media_reader::ImageBufPtr &image, const bool /*offscreen*/) const {
+utility::BlindDataObjectPtr ImageBoundaryHUD::onscreen_render_data(
+    const media_reader::ImageBufPtr &image,
+    const std::string & /*viewport_name*/,
+    const utility::Uuid &playhead_uuid,
+    const bool is_hero_image) const {
 
     auto r = utility::BlindDataObjectPtr();
 
@@ -146,7 +154,8 @@ plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
             {std::make_shared<plugin_manager::PluginFactoryTemplate<ImageBoundaryHUD>>(
                 utility::Uuid("95268f7c-88d1-48da-8543-c5275ef5b2c5"),
                 "ImageBoundaryHUD",
-                plugin_manager::PluginFlags::PF_HEAD_UP_DISPLAY,
+                plugin_manager::PluginFlags::PF_HEAD_UP_DISPLAY |
+                    plugin_manager::PluginFlags::PF_VIEWPORT_OVERLAY,
                 true,
                 "Clement Jovet",
                 "Viewport HUD Plugin")}));

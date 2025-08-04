@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/policy/select_all.hpp>
+#include <caf/actor_registry.hpp>
+
 #include <chrono>
 #include <tuple>
+#include <regex>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
+#include "xstudio/global_store/global_store.hpp"
 #include "xstudio/json_store/json_store_actor.hpp"
 #include "xstudio/media/media_actor.hpp"
 #include "xstudio/playhead/sub_playhead.hpp"
@@ -31,6 +35,8 @@ void MediaActor::deserialise(const JsonStore &jsn) {
     }
 
     link_to(json_store_);
+    // join out metadata handler. propagate events from it.
+    join_event_group(this, json_store_);
 
     for (const auto &[key, value] : jsn.at("actors").items()) {
         if (value.at("base").at("container").at("type") == "MediaSource") {
@@ -39,10 +45,8 @@ void MediaActor::deserialise(const JsonStore &jsn) {
 
                 media_sources_[ukey] =
                     spawn<media::MediaSourceActor>(static_cast<JsonStore>(value));
-                send(
-                    media_sources_[ukey],
-                    utility::parent_atom_v,
-                    UuidActor(base_.uuid(), this));
+                mail(utility::parent_atom_v, UuidActor(base_.uuid(), this))
+                    .send(media_sources_[ukey]);
                 link_to(media_sources_[ukey]);
                 join_event_group(this, media_sources_[ukey]);
             } catch (const std::exception &e) {
@@ -67,7 +71,7 @@ MediaActor::MediaActor(caf::actor_config &cfg, const JsonStore &jsn, const bool 
     init();
 
     if (async)
-        anon_send(this, module::deserialise_atom_v, jsn);
+        anon_mail(module::deserialise_atom_v, jsn).send(this);
     else
         deserialise(jsn);
 }
@@ -86,6 +90,9 @@ MediaActor::MediaActor(
         utility::Uuid::generate(), utility::JsonStore(), std::chrono::milliseconds(50));
     link_to(json_store_);
 
+    // join out metadata handler. propagate events from it.
+    join_event_group(this, json_store_);
+
     init();
 
     utility::UuidActorVector good_sources;
@@ -103,7 +110,7 @@ MediaActor::MediaActor(
         good_sources.push_back(i);
     }
 
-    anon_send(caf::actor_cast<caf::actor>(this), add_media_source_atom_v, good_sources);
+    anon_mail(add_media_source_atom_v, good_sources).send(caf::actor_cast<caf::actor>(this));
 }
 
 caf::message_handler MediaActor::default_event_handler() {
@@ -115,53 +122,69 @@ caf::message_handler MediaActor::default_event_handler() {
             const std::tuple<std::string, std::string> &) {},
         [=](utility::event_atom, add_media_source_atom, const utility::UuidActorVector &) {},
         [=](utility::event_atom, media_status_atom, const MediaStatus ms) {},
-        [=](utility::event_atom, bookmark::bookmark_change_atom, const utility::Uuid &) {}};
+        [=](json_store::update_atom,
+            const JsonStore &,
+            const std::string &,
+            const JsonStore &) {},
+        [=](json_store::update_atom, const JsonStore &) {},
+        [=](utility::event_atom, media::media_display_info_atom, const utility::JsonStore &) {
+        }};
 }
 
-void MediaActor::init() {
-    // only parial..
-    event_group_ = spawn<broadcast::BroadcastActor>(this);
-    link_to(event_group_);
-
-    print_on_create(this, base_);
-    print_on_exit(this, base_);
-
-    behavior_.assign(
-        base_.make_set_name_handler(event_group_, this),
-        base_.make_get_name_handler(),
-        base_.make_last_changed_getter(),
-        base_.make_last_changed_setter(event_group_, this),
-        base_.make_last_changed_event_handler(event_group_, this),
-        base_.make_get_uuid_handler(),
-        base_.make_get_type_handler(),
-        make_get_event_group_handler(event_group_),
-        base_.make_get_detail_handler(this, event_group_),
+caf::message_handler MediaActor::message_handler() {
+    return caf::message_handler{
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
         // [=](bookmark::associate_bookmark_atom atom, caf::actor bookmarks) {
-        //     delegate(bookmarks, atom, UuidActor(base_.uuid(), actor_cast<caf::actor>(this)));
+        //     mail(atom, UuidActor(base_.uuid(),
+        //     actor_cast<caf::actor>(this))).delegate(bookmarks);
         // },
 
         [=](module::deserialise_atom, const utility::JsonStore &jsn) { deserialise(jsn); },
 
         [=](utility::event_atom,
+            media::media_display_info_atom,
+            const utility::JsonStore &metadata_filter_sets) {
+            media_list_columns_config_ =
+                utility::json_to_tree(metadata_filter_sets, "children");
+            anon_mail(media_display_info_atom_v).send(this);
+        },
+
+        [=](utility::event_atom,
             bookmark::bookmark_change_atom,
             const utility::Uuid &bookamrk_uuid) {
-            send(
-                event_group_,
-                utility::event_atom_v,
-                bookmark::bookmark_change_atom_v,
-                bookamrk_uuid);
+            if (std::find(bookmark_uuids_.begin(), bookmark_uuids_.end(), bookamrk_uuid) ==
+                bookmark_uuids_.end()) {
+                bookmark_uuids_.emplace_back(bookamrk_uuid);
+                mail(
+                    utility::event_atom_v,
+                    bookmark::bookmark_change_atom_v,
+                    base_.uuid(),
+                    bookmark_uuids_)
+                    .send(base_.event_group());
+            }
+            mail(utility::event_atom_v, bookmark::bookmark_change_atom_v, bookamrk_uuid)
+                .send(base_.event_group());
         },
+
+        [=](bookmark::get_bookmarks_atom) -> utility::UuidList { return bookmark_uuids_; },
 
         [=](utility::event_atom,
             bookmark::remove_bookmark_atom,
             const utility::Uuid &bookmark_uuid) {
-            send(
-                event_group_,
-                utility::event_atom_v,
-                bookmark::bookmark_change_atom_v,
-                bookmark_uuid);
+            auto p = std::find(bookmark_uuids_.begin(), bookmark_uuids_.end(), bookmark_uuid);
+            if (p != bookmark_uuids_.end()) {
+                bookmark_uuids_.erase(p);
+                mail(
+                    utility::event_atom_v,
+                    bookmark::bookmark_change_atom_v,
+                    base_.uuid(),
+                    bookmark_uuids_)
+                    .send(base_.event_group());
+            }
+
+            mail(utility::event_atom_v, bookmark::bookmark_change_atom_v, bookmark_uuid)
+                .send(base_.event_group());
         },
 
         [=](rescan_atom atom) -> result<MediaReference> {
@@ -255,36 +278,47 @@ void MediaActor::init() {
         },
 
         [=](add_media_source_atom, const UuidActor &source_media) -> result<Uuid> {
+            auto rp = make_response_promise<Uuid>();
+
             if (source_media.uuid().is_null() or not source_media.actor()) {
                 spdlog::warn(
                     "{} Invalid source {} {}",
                     __PRETTY_FUNCTION__,
                     to_string(source_media.uuid()),
                     to_string(source_media.actor()));
-                return make_error(xstudio_error::error, "Invalid MediaSource");
+                rp.deliver(make_error(xstudio_error::error, "Invalid MediaSource"));
+                return rp;
             }
 
             media_sources_[source_media.uuid()] = source_media.actor();
             link_to(source_media.actor());
             join_event_group(this, source_media.actor());
             base_.add_media_source(source_media.uuid());
-            auto_set_current_source(media::MT_IMAGE);
-            auto_set_current_source(media::MT_AUDIO);
-            base_.send_changed(event_group_, this);
-            send(source_media.actor(), utility::parent_atom_v, UuidActor(base_.uuid(), this));
+            mail(playhead::media_source_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](bool) mutable {
+                        base_.send_changed();
+                        mail(utility::parent_atom_v, UuidActor(base_.uuid(), this))
+                            .send(source_media.actor());
 
-            send(
-                event_group_,
-                utility::event_atom_v,
-                add_media_source_atom_v,
-                UuidActorVector({source_media}));
+                        mail(
+                            utility::event_atom_v,
+                            add_media_source_atom_v,
+                            UuidActorVector({source_media}))
+                            .send(base_.event_group());
 
-            return source_media.uuid();
+                        rp.deliver(source_media.uuid());
+                    },
+                    [=](caf::error &err) mutable { rp.deliver(err); });
+
+            return rp;
         },
 
         [=](add_media_source_atom atom, caf::actor source_media) -> result<Uuid> {
             auto rp = make_response_promise<Uuid>();
-            request(source_media, infinite, uuid_atom_v)
+            mail(uuid_atom_v)
+                .request(source_media, infinite)
                 .then(
                     [=](const Uuid &uuid) mutable {
                         rp.delegate(
@@ -295,6 +329,8 @@ void MediaActor::init() {
         },
 
         [=](add_media_source_atom, const UuidActorVector &sources) -> result<bool> {
+            auto rp = make_response_promise<bool>();
+
             UuidActorVector good_sources;
 
             for (const auto &source_media : sources) {
@@ -310,19 +346,31 @@ void MediaActor::init() {
                     link_to(source_media.actor());
                     join_event_group(this, source_media.actor());
                     base_.add_media_source(source_media.uuid());
-                    auto_set_current_source(media::MT_IMAGE);
-                    auto_set_current_source(media::MT_AUDIO);
-                    send(
-                        source_media.actor(),
-                        utility::parent_atom_v,
-                        UuidActor(base_.uuid(), this));
+                    mail(utility::parent_atom_v, UuidActor(base_.uuid(), this))
+                        .send(source_media.actor());
+                    mail(
+                        utility::event_atom_v,
+                        add_media_source_atom_v,
+                        UuidActorVector({source_media}))
+                        .send(base_.event_group());
                 }
             }
 
-            base_.send_changed(event_group_, this);
-            send(event_group_, utility::event_atom_v, add_media_source_atom_v, good_sources);
+            base_.send_changed();
+            mail(utility::event_atom_v, add_media_source_atom_v, good_sources)
+                .send(base_.event_group());
 
-            return true;
+            // select a current media source if necessary
+            mail(playhead::media_source_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](bool) mutable {
+                        base_.send_changed();
+                        rp.deliver(true);
+                    },
+                    [=](caf::error &err) mutable { rp.deliver(err); });
+
+            return rp;
         },
 
         [=](add_media_source_atom,
@@ -342,12 +390,10 @@ void MediaActor::init() {
                     : spawn<media::MediaSourceActor>(
                           (ext.empty() ? "UNKNOWN" : ext), uri, frame_list, rate, source_uuid);
 
-            anon_send(source, media_metadata::get_metadata_atom_v);
-            request(
-                actor_cast<caf::actor>(this),
-                infinite,
-                add_media_source_atom_v,
-                UuidActor(source_uuid, source))
+            // anon_mail(media_metadata::get_metadata_atom_v).send(source);
+
+            mail(add_media_source_atom_v, UuidActor(source_uuid, source))
+                .request(actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const Uuid &uuid) mutable { rp.deliver(UuidActor(uuid, source)); },
                     [=](const error &err) mutable { rp.deliver(err); });
@@ -365,7 +411,8 @@ void MediaActor::init() {
             // order in source_refs. We also want the names to reflect
             // source_names. Here goes ...
 
-            request(caf::actor_cast<caf::actor>(this), infinite, media_reference_atom_v)
+            mail(media_reference_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const std::vector<utility::MediaReference>
                             &existing_source_refs) mutable {
@@ -412,11 +459,84 @@ void MediaActor::init() {
             return rp;
         },
 
-        [=](current_media_source_atom) -> caf::result<UuidActor> {
-            if (base_.empty() or not media_sources_.count(base_.current()))
-                return make_error(xstudio_error::error, "No MediaSources");
+        [=](current_media_source_atom, const bool current_names)
+            -> caf::result<std::pair<UuidActor, std::pair<std::string, std::string>>> {
+            auto rp = make_response_promise<
+                std::pair<UuidActor, std::pair<std::string, std::string>>>();
 
-            return UuidActor(base_.current(), media_sources_.at(base_.current()));
+            if (base_.empty() or not media_sources_.count(base_.current())) {
+                rp.deliver(std::make_pair(
+                    UuidActor(base_.uuid(), this),
+                    std::make_pair(std::string(), std::string())));
+            }
+
+            auto gtype = MT_IMAGE;
+            if (not media_sources_.count(base_.current(MT_IMAGE)))
+                gtype = MT_AUDIO;
+
+            mail(name_atom_v)
+                .request(media_sources_.at(base_.current(gtype)), infinite)
+                .then(
+                    [=](const std::string &name) mutable {
+                        if (base_.current(gtype) == base_.current(MT_AUDIO) or
+                            not media_sources_.count(base_.current(MT_AUDIO))) {
+                            rp.deliver(std::make_pair(
+                                UuidActor(base_.uuid(), this), std::make_pair(name, name)));
+                        } else {
+                            mail(name_atom_v)
+                                .request(media_sources_.at(base_.current(MT_AUDIO)), infinite)
+                                .then(
+                                    [=](const std::string &aname) mutable {
+                                        rp.deliver(std::make_pair(
+                                            UuidActor(base_.uuid(), this),
+                                            std::make_pair(name, aname)));
+                                    },
+                                    [=](error &err) mutable {
+                                        rp.deliver(std::make_pair(
+                                            UuidActor(base_.uuid(), this),
+                                            std::make_pair(std::string(), std::string())));
+                                        spdlog::warn(
+                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    });
+                        }
+                    },
+                    [=](error &err) mutable {
+                        rp.deliver(std::make_pair(
+                            UuidActor(base_.uuid(), this),
+                            std::make_pair(std::string(), std::string())));
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    });
+
+            return rp;
+        },
+
+        // dead..
+        // [=](current_media_source_atom) -> caf::result<UuidActor> {
+        //     if (base_.empty() or not media_sources_.count(base_.current()))
+        //         return make_error(xstudio_error::error, "No MediaSources");
+
+        //     return UuidActor(base_.current(), media_sources_.at(base_.current()));
+        // },
+
+
+        [=](current_media_source_atom)
+            -> caf::result<std::pair<UuidActor, std::pair<UuidActor, UuidActor>>> {
+            auto iua = UuidActor();
+            auto aua = UuidActor();
+            if (media_sources_.count(base_.current(MT_IMAGE)))
+                iua = UuidActor(
+                    base_.current(MT_IMAGE), media_sources_.at(base_.current(MT_IMAGE)));
+
+            if (media_sources_.count(base_.current(MT_AUDIO)))
+                aua = UuidActor(
+                    base_.current(MT_AUDIO), media_sources_.at(base_.current(MT_AUDIO)));
+
+            if (iua.uuid().is_null())
+                iua = aua;
+            else if (aua.uuid().is_null())
+                aua = iua;
+
+            return std::make_pair(UuidActor(base_.uuid(), this), std::make_pair(iua, aua));
         },
 
         [=](current_media_source_atom, const MediaType media_type) -> caf::result<UuidActor> {
@@ -432,104 +552,83 @@ void MediaActor::init() {
             // might need this when adding initial media source ?
             // do we need to specify which media type is changing ?
             if (result) {
-                base_.send_changed(event_group_, this);
-                send(
-                    event_group_,
+                base_.send_changed();
+                anon_mail(media_display_info_atom_v).send(this);
+                mail(
                     utility::event_atom_v,
                     current_media_source_atom_v,
                     UuidActor(
                         base_.current(media_type),
                         media_sources_.at(base_.current(media_type))),
-                    media_type);
+                    media_type)
+                    .send(base_.event_group());
             }
 
             return result;
         },
 
-        [=](current_media_source_atom atom, const Uuid &uuid) {
+        [=](utility::event_atom,
+            media_reader::get_thumbnail_atom,
+            thumbnail::ThumbnailBufferPtr buf) {},
+
+        [=](media_reader::get_thumbnail_atom,
+            float position) -> result<thumbnail::ThumbnailBufferPtr> {
+            if (base_.empty() or not media_sources_.count(base_.current(MT_IMAGE)))
+                return make_error(xstudio_error::error, "No MediaSources");
+
+            auto rp = make_response_promise<thumbnail::ThumbnailBufferPtr>();
+            mail(media_reader::get_thumbnail_atom_v, position)
+                .request(media_sources_.at(base_.current(media::MT_IMAGE)), infinite)
+                .then(
+                    [=](thumbnail::ThumbnailBufferPtr &buf) mutable {
+                        rp.deliver(buf);
+                        mail(utility::event_atom_v, media_reader::get_thumbnail_atom_v, buf)
+                            .send(base_.event_group());
+                    },
+                    [=](error &err) mutable { rp.deliver(err); });
+            return rp;
+        },
+
+        [=](media_reader::get_thumbnail_atom,
+            float position) -> result<thumbnail::ThumbnailBufferPtr> {
+            if (base_.empty() or not media_sources_.count(base_.current(MT_IMAGE)))
+                return make_error(xstudio_error::error, "No MediaSources");
+
+            auto rp = make_response_promise<thumbnail::ThumbnailBufferPtr>();
+            mail(media_reader::get_thumbnail_atom_v, position)
+                .request(media_sources_.at(base_.current(media::MT_IMAGE)), infinite)
+                .then(
+                    [=](thumbnail::ThumbnailBufferPtr &buf) mutable {
+                        rp.deliver(buf);
+                        mail(utility::event_atom_v, media_reader::get_thumbnail_atom_v, buf)
+                            .send(base_.event_group());
+                    },
+                    [=](error &err) mutable { rp.deliver(err); });
+            return rp;
+        },
+
+        [=](current_media_source_atom, const Uuid &uuid) -> bool {
             auto result = base_.set_current(uuid, MT_IMAGE);
             result |= base_.set_current(uuid, MT_AUDIO);
 
             // might need this when adding initial media source ?
             // do we need to specify which media type is changing ?
             if (result) {
-                base_.send_changed(event_group_, this);
-                send(
-                    event_group_,
+                anon_mail(media_display_info_atom_v).send(this);
+                anon_mail(human_readable_info_atom_v, true).send(this);
+                base_.send_changed();
+                mail(
                     utility::event_atom_v,
                     current_media_source_atom_v,
                     UuidActor(base_.current(), media_sources_.at(base_.current())),
-                    MT_IMAGE);
+                    MT_IMAGE)
+                    .send(base_.event_group());
             }
 
             return result;
         },
         [=](timeline::duration_atom, const timebase::flicks &new_duration) -> bool {
             return false;
-        },
-        [=](get_edit_list_atom atom,
-            const MediaType media_type,
-            const Uuid &uuid) -> caf::result<utility::EditList> {
-            if (base_.empty() or not media_sources_.count(base_.current(media_type)))
-                return make_error(xstudio_error::error, "No MediaSources");
-
-            auto rp = make_response_promise<utility::EditList>();
-
-            // Audio media source must have same duration as video media source.
-            // We force that here.
-            if (media_type == media::MT_IMAGE ||
-                not media_sources_.count(base_.current(media::MT_IMAGE))) {
-                rp.delegate(
-                    media_sources_.at(base_.current(media_type)),
-                    atom,
-                    media_type,
-                    (uuid.is_null() ? base_.uuid() : uuid));
-            } else {
-
-                request(
-                    media_sources_.at(base_.current(media::MT_AUDIO)),
-                    infinite,
-                    atom,
-                    media::MT_AUDIO,
-                    uuid.is_null() ? base_.uuid() : uuid)
-                    .then(
-                        [=](utility::EditList audio_edl) mutable {
-                            request(
-                                media_sources_.at(base_.current(media::MT_IMAGE)),
-                                infinite,
-                                atom,
-                                media::MT_IMAGE,
-                                uuid.is_null() ? base_.uuid() : uuid)
-                                .then(
-                                    [=](const utility::EditList &video_edl) mutable {
-                                        ClipList audio_clips = audio_edl.section_list();
-                                        ClipList video_clips = video_edl.section_list();
-                                        if (audio_clips.size() != video_clips.size()) {
-                                            // audio doesn't match video so just return
-                                            // unmodified audio EDL
-                                            rp.deliver(audio_edl);
-                                            return;
-                                        }
-
-                                        ClipList modified_audio_clips;
-                                        for (size_t i = 0; i < audio_clips.size(); ++i) {
-                                            modified_audio_clips.push_back(audio_clips[i]);
-                                            modified_audio_clips.back()
-                                                .frame_rate_and_duration_.set_seconds(
-                                                    video_clips[i]
-                                                        .frame_rate_and_duration_.seconds());
-                                            modified_audio_clips.back().timecode_ =
-                                                video_clips[i].timecode_;
-                                        }
-                                        rp.deliver(utility::EditList(modified_audio_clips));
-                                    },
-                                    [=](error &err) mutable { rp.deliver(err); });
-                        },
-                        [=](error &err) mutable { rp.deliver(err); });
-            }
-
-
-            return rp;
         },
 
         [=](get_media_pointer_atom atom,
@@ -547,56 +646,49 @@ void MediaActor::init() {
             const int logical_frame) -> caf::result<media::AVFrameID> {
             if (base_.empty() or not media_sources_.count(base_.current(media_type)))
                 return make_error(xstudio_error::error, "No MediaSources");
-
             auto rp = make_response_promise<media::AVFrameID>();
             rp.delegate(
                 media_sources_.at(base_.current(media_type)), atom, media_type, logical_frame);
+
             return rp;
         },
 
         [=](get_media_pointers_atom atom,
             const MediaType media_type,
             const utility::TimeSourceMode tsm,
-            const utility::FrameRate &override_rate) -> caf::result<media::FrameTimeMap> {
-            auto rp = make_response_promise<media::FrameTimeMap>();
-
-            request(
-                caf::actor_cast<caf::actor>(this),
-                infinite,
-                get_edit_list_atom_v,
+            const utility::FrameRate &override_rate) -> caf::result<media::FrameTimeMapPtr> {
+            if (base_.empty() or not media_sources_.count(base_.current(media_type)))
+                return make_error(xstudio_error::error, "No MediaSources");
+            auto rp = make_response_promise<media::FrameTimeMapPtr>();
+            rp.delegate(
+                media_sources_.at(base_.current(media_type)),
+                atom,
                 media_type,
-                utility::Uuid())
-                .then(
-                    [=](const utility::EditList &edl) mutable {
-                        const auto clip           = edl.section_list()[0];
-                        const int num_clip_frames = clip.frame_rate_and_duration_.frames(
-                            tsm == TimeSourceMode::FIXED ? override_rate : FrameRate());
-                        const utility::Timecode tc = clip.timecode_;
+                tsm,
+                override_rate);
 
-                        request(
-                            caf::actor_cast<caf::actor>(this),
-                            infinite,
-                            atom,
-                            media_type,
-                            media::LogicalFrameRanges({{0, num_clip_frames - 1}}),
-                            override_rate)
+            return rp;
+        },
+
+        [=](get_media_pointers_atom atom,
+            const MediaType media_type,
+            const LogicalFrameRanges &ranges,
+            const FrameRate &override_rate,
+            const utility::Uuid &clip_uuid) -> caf::result<media::AVFrameIDs> {
+            if (base_.empty() or not media_sources_.count(base_.current(media_type)))
+                return make_error(xstudio_error::error, "No MediaSources");
+
+            auto rp = make_response_promise<media::AVFrameIDs>();
+            // we need to ensure the media detail has been acquired before
+            // we can deliver AVFrameIDs
+            mail(acquire_media_detail_atom_v, override_rate)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](bool) mutable {
+                        mail(atom, media_type, ranges, clip_uuid)
+                            .request(media_sources_.at(base_.current(media_type)), infinite)
                             .then(
-                                [=](const media::AVFrameIDs &ids) mutable {
-                                    media::FrameTimeMap result;
-                                    auto time_point = timebase::flicks(0);
-                                    for (int f = 0; f < num_clip_frames; f++) {
-                                        result[time_point] = ids[f];
-                                        const_cast<media::AVFrameID *>(result[time_point].get())
-                                            ->playhead_logical_frame_ = f;
-                                        const_cast<media::AVFrameID *>(ids[f].get())
-                                            ->timecode_ = tc + f;
-                                        time_point +=
-                                            tsm == TimeSourceMode::FIXED
-                                                ? override_rate
-                                                : clip.frame_rate_and_duration_.rate();
-                                    }
-                                    rp.deliver(result);
-                                },
+                                [=](const media::AVFrameIDs &ids) mutable { rp.deliver(ids); },
                                 [=](error &err) mutable { rp.deliver(err); });
                     },
                     [=](error &err) mutable { rp.deliver(err); });
@@ -606,31 +698,44 @@ void MediaActor::init() {
         [=](get_media_pointers_atom atom,
             const MediaType media_type,
             const LogicalFrameRanges &ranges,
-            const FrameRate &override_rate) -> caf::result<media::AVFrameIDs> {
+            const FrameRate &override_rate) {
+            // no clip ID provided
+            return mail(atom, media_type, ranges, override_rate, utility::Uuid())
+                .delegate(caf::actor_cast<caf::actor>(this));
+        },
+
+        [=](utility::rate_atom, const media::MediaType media_type) -> caf::result<FrameRate> {
+            auto rp = make_response_promise<FrameRate>();
+            mail(media_reference_atom_v, media_type)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](const MediaReference &ref) mutable { rp.deliver(ref.rate()); },
+                    [=](error &err) mutable { rp.deliver(err); });
+
+            return rp;
+        },
+
+        [=](media_reference_atom atom,
+            const media::MediaType media_type) -> caf::result<MediaReference> {
             if (base_.empty() or not media_sources_.count(base_.current(media_type)))
                 return make_error(xstudio_error::error, "No MediaSources");
 
-            auto rp = make_response_promise<media::AVFrameIDs>();
-            // we need to ensure the media detail has been acquired before
-            // we can deliver AVFrameIDs
-            request(
-                caf::actor_cast<caf::actor>(this),
-                infinite,
-                acquire_media_detail_atom_v,
-                override_rate)
-                .then(
-                    [=](bool) mutable {
-                        request(
-                            media_sources_.at(base_.current(media_type)),
-                            infinite,
-                            atom,
-                            media_type,
-                            ranges)
-                            .then(
-                                [=](const media::AVFrameIDs &ids) mutable { rp.deliver(ids); },
-                                [=](error &err) mutable { rp.deliver(err); });
-                    },
-                    [=](error &err) mutable { rp.deliver(err); });
+            auto rp = make_response_promise<MediaReference>();
+            rp.delegate(media_sources_.at(base_.current(media_type)), atom);
+            return rp;
+        },
+
+        [=](media_reference_atom atom,
+            const media::MediaType media_type,
+            const Uuid &uuid) -> caf::result<std::pair<Uuid, MediaReference>> {
+            if (base_.empty() or not media_sources_.count(base_.current(media_type)))
+                return make_error(xstudio_error::error, "No MediaSources");
+
+            auto rp = make_response_promise<std::pair<Uuid, MediaReference>>();
+            rp.delegate(
+                media_sources_.at(base_.current(media_type)),
+                atom,
+                (uuid.is_null() ? base_.uuid() : uuid));
             return rp;
         },
 
@@ -673,16 +778,6 @@ void MediaActor::init() {
             return rp;
         },
 
-        [=](media::source_offset_frames_atom) -> int {
-            // needed for SubPlayhead when playing media direct
-            return 0;
-        },
-
-        [=](media::source_offset_frames_atom, const int) -> bool {
-            // needed for SubPlayhead when playing media direct
-            return false;
-        },
-
         [=](playlist::reflag_container_atom) -> std::tuple<std::string, std::string> {
             return std::make_tuple(base_.flag(), base_.flag_text());
         },
@@ -690,12 +785,12 @@ void MediaActor::init() {
         [=](playlist::reflag_container_atom,
             const std::string &flag_colour,
             std::string &flag_text) {
-            delegate(
-                actor_cast<caf::actor>(this),
-                playlist::reflag_container_atom_v,
-                std::make_tuple(
-                    std::optional<std::string>(flag_colour),
-                    std::optional<std::string>(flag_text)));
+            return mail(
+                       playlist::reflag_container_atom_v,
+                       std::make_tuple(
+                           std::optional<std::string>(flag_colour),
+                           std::optional<std::string>(flag_text)))
+                .delegate(actor_cast<caf::actor>(this));
         },
 
 
@@ -715,13 +810,13 @@ void MediaActor::init() {
             }
 
             if (changed) {
-                send(
-                    event_group_,
+                mail(
                     utility::event_atom_v,
                     playlist::reflag_container_atom_v,
                     base_.uuid(),
-                    std::make_tuple(base_.flag(), base_.flag_text()));
-                base_.send_changed(event_group_, this);
+                    std::make_tuple(base_.flag(), base_.flag_text()))
+                    .send(base_.event_group());
+                base_.send_changed();
             }
             return changed;
         },
@@ -737,6 +832,12 @@ void MediaActor::init() {
             if (media_sources_.count(uuid))
                 return media_sources_.at(uuid);
             return make_error(xstudio_error::error, "Invalid MediaSource Uuid");
+        },
+
+        [=](get_media_source_atom, const Uuid &uuid, bool) -> caf::result<caf::actor> {
+            if (media_sources_.count(uuid))
+                return media_sources_.at(uuid);
+            return caf::actor();
         },
 
         [=](get_media_source_names_atom)
@@ -791,6 +892,49 @@ void MediaActor::init() {
                 rp.deliver(make_error(xstudio_error::error, "No MediaSources"));
             else
                 rp.delegate(media_sources_.at(base_.current(mt)), media::checksum_atom_v);
+
+            return rp;
+        },
+
+        [=](current_media_stream_atom, const MediaType media_type) -> result<UuidActor> {
+            auto rp = make_response_promise<UuidActor>();
+            if (base_.empty())
+                rp.deliver(make_error(xstudio_error::error, "No MediaSources"));
+            else
+                rp.delegate(
+                    media_sources_.at(base_.current(media_type)),
+                    media::current_media_stream_atom_v,
+                    media_type);
+
+            return rp;
+        },
+
+        [=](current_media_stream_atom,
+            const MediaType media_type,
+            const Uuid &uuid) -> result<bool> {
+            auto rp = make_response_promise<bool>();
+            if (base_.empty())
+                rp.deliver(make_error(xstudio_error::error, "No MediaSources"));
+            else
+                rp.delegate(
+                    media_sources_.at(base_.current(media_type)),
+                    media::current_media_stream_atom_v,
+                    media_type,
+                    uuid);
+
+            return rp;
+        },
+
+        [=](get_media_stream_atom,
+            const MediaType media_type) -> result<std::vector<UuidActor>> {
+            auto rp = make_response_promise<std::vector<UuidActor>>();
+            if (base_.empty())
+                rp.deliver(make_error(xstudio_error::error, "No MediaSources"));
+            else
+                rp.delegate(
+                    media_sources_.at(base_.current(media_type)),
+                    media::get_media_stream_atom_v,
+                    media_type);
 
             return rp;
         },
@@ -873,7 +1017,8 @@ void MediaActor::init() {
             const bool /*fanout*/) -> caf::result<std::pair<UuidActor, JsonStore>> {
             if (uuid.is_null() or uuid == base_.uuid()) {
                 auto rp = make_response_promise<std::pair<UuidActor, JsonStore>>();
-                request(json_store_, infinite, atom, path)
+                mail(atom, path)
+                    .request(json_store_, infinite)
                     .then(
                         [=](const JsonStore &jsn) mutable {
                             rp.deliver(std::make_pair(UuidActor(base_.uuid(), this), jsn));
@@ -885,7 +1030,8 @@ void MediaActor::init() {
                 return rp;
             } else if (media_sources_.count(uuid)) {
                 auto rp = make_response_promise<std::pair<UuidActor, JsonStore>>();
-                request(media_sources_.at(uuid), infinite, atom, path)
+                mail(atom, path)
+                    .request(media_sources_.at(uuid), infinite)
                     .then(
                         [=](const JsonStore &jsn) mutable {
                             rp.deliver(
@@ -907,13 +1053,14 @@ void MediaActor::init() {
             if (!try_source_actors) {
                 rp.delegate(caf::actor_cast<caf::actor>(this), atom, utility::Uuid(), path);
             } else {
-                request(json_store_, infinite, atom, path)
+                mail(atom, path)
+                    .request(json_store_, infinite)
                     .then(
                         [=](const JsonStore &r) mutable { rp.deliver(r); },
                         [=](error &) mutable {
                             // our own store doesn't have data at 'path'. Try the
                             // current media source as a fallback
-                            rp.delegate(media_sources_.at(base_.current()), atom, path);
+                            rp.delegate(media_sources_.at(base_.current()), atom, path, true);
                         });
             }
             return rp;
@@ -939,18 +1086,26 @@ void MediaActor::init() {
                 return make_error(xstudio_error::error, "No MediaSources");
 
             auto rp = make_response_promise<JsonStore>();
-            rp.delegate(media_sources_.at(base_.current()), atom, path);
+            rp.delegate(json_store_, atom, path);
             return rp;
         },
 
-        [=](json_store::get_json_atom atom, const std::string &path) -> caf::result<JsonStore> {
-            if (base_.empty() or not media_sources_.count(base_.current()))
-                return make_error(xstudio_error::error, "No MediaSources");
+        [=](json_store::get_json_atom atom,
+            const std::vector<std::string> &paths) -> caf::result<JsonStore> {
+            // multi json store value request
+            auto rp = make_response_promise<JsonStore>();
+            rp.delegate(json_store_, atom, paths);
+            return rp;
+        },
+
+        /*[=](json_store::get_json_atom atom, const std::string &path) -> caf::result<JsonStore>
+        { if (base_.empty() or not media_sources_.count(base_.current())) return
+        make_error(xstudio_error::error, "No MediaSources");
 
             auto rp = make_response_promise<JsonStore>();
             rp.delegate(media_sources_.at(base_.current()), atom, path);
             return rp;
-        },
+        },*/
 
         [=](json_store::set_json_atom atom,
             const utility::Uuid &uuid,
@@ -981,21 +1136,28 @@ void MediaActor::init() {
         },
 
         [=](media::acquire_media_detail_atom atom,
-            const FrameRate &default_rate) -> caf::result<bool> {
-            if (base_.empty() or not media_sources_.count(base_.current()))
-                return make_error(xstudio_error::error, "No MediaSources");
-
-            // auto m_hook_actor = system().registry().template
-            // get<caf::actor>(media_hook_registry); if (m_hook_actor) {
-            //     anon_send(
-            //         m_hook_actor,
-            //         media_hook::gather_media_sources_atom_v,
-            //         caf::actor_cast<caf::actor>(this)
-            //         );
-            // }
-
+            const FrameRate default_rate) -> caf::result<bool> {
             auto rp = make_response_promise<bool>();
-            rp.delegate(media_sources_.at(base_.current()), atom, default_rate);
+
+            // first, make sure we have a media source
+            mail(playhead::media_source_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](bool) mutable {
+                        // ensures media sources have had their details filled in and
+                        // we've set the media sources (image and audio) where possible
+                        if (base_.empty() or not media_sources_.count(base_.current())) {
+                            rp.deliver(make_error(xstudio_error::error, "No MediaSources"));
+                            return;
+                        }
+
+                        rp.delegate(media_sources_.at(base_.current()), atom, default_rate);
+                    },
+                    [=](caf::error &err) mutable {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        rp.deliver(err);
+                    });
+
             return rp;
         },
 
@@ -1005,49 +1167,6 @@ void MediaActor::init() {
 
             auto rp = make_response_promise<MediaKeyVector>();
             rp.delegate(media_sources_.at(base_.current()), atom);
-            return rp;
-        },
-
-        [=](media_cache::keys_atom atom) -> caf::result<MediaKeyVector> {
-            if (base_.empty() or not media_sources_.count(base_.current()))
-                return make_error(xstudio_error::error, "No MediaSources");
-
-            auto rp = make_response_promise<MediaKeyVector>();
-            rp.delegate(media_sources_.at(base_.current()), atom);
-            return rp;
-        },
-
-        [=](media_cache::keys_atom atom,
-            const MediaType media_type) -> caf::result<MediaKeyVector> {
-            if (base_.empty() or not media_sources_.count(base_.current(media_type)))
-                return make_error(xstudio_error::error, "No MediaSources");
-
-            auto rp = make_response_promise<MediaKeyVector>();
-            rp.delegate(media_sources_.at(base_.current(media_type)), atom, media_type);
-            return rp;
-        },
-
-        [=](media_cache::keys_atom atom,
-            const MediaType media_type,
-            const int logical_frame) -> caf::result<MediaKey> {
-            if (base_.empty() or not media_sources_.count(base_.current(media_type)))
-                return make_error(xstudio_error::error, "No MediaSources");
-
-            auto rp = make_response_promise<MediaKey>();
-            rp.delegate(
-                media_sources_.at(base_.current(media_type)), atom, media_type, logical_frame);
-            return rp;
-        },
-
-        [=](media_cache::keys_atom atom,
-            const MediaType media_type,
-            const std::vector<int> &logical_frames) -> caf::result<MediaKeyVector> {
-            if (base_.empty() or not media_sources_.count(base_.current(media_type)))
-                return make_error(xstudio_error::error, "No MediaSources");
-
-            auto rp = make_response_promise<MediaKeyVector>();
-            rp.delegate(
-                media_sources_.at(base_.current(media_type)), atom, media_type, logical_frames);
             return rp;
         },
 
@@ -1091,6 +1210,36 @@ void MediaActor::init() {
             return rp;
         },
 
+        [=](playhead::media_source_atom) -> result<bool> {
+            // ensures media sources have had their details filled in and
+            // we've set the media sources (image and audio) where possible
+            auto rp = make_response_promise<bool>();
+            mail(playhead::media_source_atom_v, media::MT_IMAGE)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](bool) mutable {
+                        mail(playhead::media_source_atom_v, media::MT_AUDIO)
+                            .request(caf::actor_cast<caf::actor>(this), infinite)
+                            .then(
+                                [=](bool) mutable { rp.deliver(true); },
+                                [=](caf::error &err) mutable { rp.deliver(err); });
+                    },
+                    [=](caf::error &err) mutable { rp.deliver(err); });
+            return rp;
+        },
+
+        [=](playhead::media_source_atom, const media::MediaType mt) -> result<bool> {
+            // ensures media sources have had their details filled in and
+            // we've set the media sources (image OR audio) where possible
+            auto rp = make_response_promise<bool>();
+            if (base_.empty() or not media_sources_.count(base_.current(mt))) {
+                auto_set_current_source(mt, rp);
+            } else {
+                rp.deliver(true);
+            }
+            return rp;
+        },
+
         [=](playhead::media_source_atom,
             const std::string &source_name,
             const media::MediaType mt) -> result<bool> {
@@ -1115,66 +1264,22 @@ void MediaActor::init() {
             return rp;
         },
 
-        [=](utility::duplicate_atom atom) {
-            delegate(caf::actor_cast<caf::actor>(this), atom, caf::actor(), caf::actor());
+        [=](utility::duplicate_atom) -> result<UuidUuidActor> {
+            auto rp = make_response_promise<UuidUuidActor>();
+            duplicate(rp, caf::actor(), caf::actor());
+            return rp;
         },
+
         [=](utility::duplicate_atom,
             caf::actor src_bookmarks,
             caf::actor dst_bookmarks) -> result<UuidUuidActor> {
             auto rp = make_response_promise<UuidUuidActor>();
-
-            auto uuid  = utility::Uuid::generate();
-            auto actor = spawn<MediaActor>(base_.name(), uuid);
-
-            caf::scoped_actor sys(system());
-            auto json =
-                request_receive<JsonStore>(*sys, json_store_, json_store::get_json_atom_v);
-            anon_send(actor, json_store::set_json_atom_v, Uuid(), json, "");
-            anon_send(
-                actor,
-                playlist::reflag_container_atom_v,
-                std::make_tuple(
-                    std::optional<std::string>(base_.flag()),
-                    std::optional<std::string>(base_.flag_text())));
-            // sometimes caf makes my head bleed. see below.
-
-            auto source_count = std::make_shared<int>();
-            (*source_count)   = base_.media_sources().size();
-            for (const Uuid i : base_.media_sources()) {
-
-                request(media_sources_.at(i), infinite, utility::duplicate_atom_v)
-                    .then(
-                        [=](UuidActor media_src) mutable {
-                            request(actor, infinite, add_media_source_atom_v, media_src.actor())
-                                .then(
-                                    [=](const Uuid &) mutable {
-                                        if (i == base_.current()) {
-                                            anon_send(
-                                                actor,
-                                                current_media_source_atom_v,
-                                                media_src.uuid());
-                                        }
-                                        (*source_count)--;
-                                        if (!*source_count) {
-                                            // done!
-                                            auto ua = UuidActor(uuid, actor);
-                                            if (src_bookmarks)
-                                                clone_bookmarks_to(
-                                                    ua, src_bookmarks, dst_bookmarks);
-                                            rp.deliver(UuidUuidActor(base_.uuid(), ua));
-                                        }
-                                    },
-                                    [=](const error &err) mutable { rp.deliver(err); });
-                        },
-                        [=](const error &err) mutable { rp.deliver(err); });
-            }
-
-
+            duplicate(rp, src_bookmarks, dst_bookmarks);
             return rp;
         },
 
         [=](utility::event_atom, add_media_stream_atom, const UuidActor &) {
-            base_.send_changed(event_group_, this);
+            base_.send_changed();
         },
 
         [=](utility::event_atom, media_status_atom, const MediaStatus ms) {
@@ -1185,7 +1290,7 @@ void MediaActor::init() {
                 //     "media_status_atom {} {}",
                 //     to_string(current_sender()),
                 //     static_cast<int>(ms));
-                send(event_group_, utility::event_atom_v, media_status_atom_v, ms);
+                mail(utility::event_atom_v, media_status_atom_v, ms).send(base_.event_group());
             }
         },
 
@@ -1193,25 +1298,25 @@ void MediaActor::init() {
             // spdlog::warn("{} {}", __PRETTY_FUNCTION__,
             // to_string(caf::actor_cast<caf::actor>(this)));
             pending_change_ = false;
-            send(event_group_, utility::event_atom_v, utility::change_atom_v);
+            // update any display info about this media item used in the
+            // front end
+            anon_mail(media_display_info_atom_v).send(this);
+            mail(utility::event_atom_v, utility::change_atom_v).send(base_.event_group());
         },
 
         [=](utility::event_atom, utility::change_atom) {
             // propagate changes upwards
             if (not pending_change_) {
                 pending_change_ = true;
-                delayed_send(
-                    this,
-                    std::chrono::milliseconds(250),
-                    utility::event_atom_v,
-                    change_atom_v,
-                    true);
+                mail(utility::event_atom_v, change_atom_v, true)
+                    .delay(std::chrono::milliseconds(250))
+                    .send(this);
             }
         },
 
         [=](utility::event_atom, utility::last_changed_atom, const time_point &) {
             // propagate changes upwards
-            send(this, utility::event_atom_v, utility::change_atom_v);
+            mail(utility::event_atom_v, utility::change_atom_v).send(this);
         },
 
         [=](utility::event_atom, utility::name_atom, const std::string & /*name*/) {},
@@ -1219,7 +1324,8 @@ void MediaActor::init() {
         [=](utility::serialise_atom) -> result<JsonStore> {
             auto rp = make_response_promise<JsonStore>();
 
-            request(json_store_, infinite, json_store::get_json_atom_v, "")
+            mail(json_store::get_json_atom_v, "")
+                .request(json_store_, infinite)
                 .then(
                     [=](const JsonStore &meta) mutable {
                         std::vector<caf::actor> clients;
@@ -1266,7 +1372,60 @@ void MediaActor::init() {
                         rp.deliver(std::move(err));
                     });
             return rp;
-        });
+        },
+
+        [=](json_store::update_atom,
+            const JsonStore &change,
+            const std::string &path,
+            const JsonStore &full) {
+            if (current_sender() == json_store_)
+                mail(json_store::update_atom_v, change, path, full).send(base_.event_group());
+        },
+
+        [=](json_store::update_atom, const JsonStore &full) mutable {
+            if (current_sender() == json_store_)
+                mail(json_store::update_atom_v, full).send(base_.event_group());
+        },
+
+        [=](media_display_info_atom,
+            const utility::JsonStore &item_query_info) -> result<utility::JsonStore> {
+            auto rp = make_response_promise<utility::JsonStore>();
+            display_info_item(item_query_info, rp);
+            return rp;
+        },
+        [=](human_readable_info_atom, bool update) -> result<utility::JsonStore> {
+            auto rp = make_response_promise<utility::JsonStore>();
+            update_human_readable_details(rp);
+            return rp;
+        },
+        [=](media_display_info_atom) -> result<utility::JsonStore> {
+            auto rp = make_response_promise<utility::JsonStore>();
+            mail(human_readable_info_atom_v, true)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](const utility::JsonStore &human_readable) mutable {
+                        build_media_list_info(rp);
+                    },
+                    [=](caf::error &err) mutable { rp.deliver(err); });
+            return rp;
+        }};
+}
+
+
+void MediaActor::init() {
+    // only parial..
+    print_on_create(this, base_);
+    print_on_exit(this, base_);
+
+    // get updates from the GlobalMetadataManager instance that manages the
+    // filters used to get metadata from the MediaActors to the UI layer.
+    auto metadata_filter_actor = home_system().registry().template get<caf::actor>(
+        global_media_metadata_manager_registry);
+
+    // this message kicks the metadata filter actor to send us the dictionary
+    // for filtering our metadata
+    mail(media::media_display_info_atom_v, true).send(metadata_filter_actor);
+    join_event_group(this, metadata_filter_actor);
 }
 
 void MediaActor::add_or_rename_media_source(
@@ -1284,13 +1443,11 @@ void MediaActor::add_or_rename_media_source(
         if (existing_ref == ref) {
 
             if (media_sources_.count(*source_uuid)) {
-                anon_send(media_sources_.at(*source_uuid), utility::name_atom_v, name);
+                anon_mail(utility::name_atom_v, name).send(media_sources_.at(*source_uuid));
             }
             if (set_as_current_source) {
-                anon_send(
-                    caf::actor_cast<caf::actor>(this),
-                    current_media_source_atom_v,
-                    *source_uuid);
+                anon_mail(current_media_source_atom_v, *source_uuid)
+                    .send(caf::actor_cast<caf::actor>(this));
             }
             return;
         }
@@ -1301,18 +1458,13 @@ void MediaActor::add_or_rename_media_source(
     auto new_source =
         spawn<MediaSourceActor>(name, ref.uri(), ref.frame_list(), ref.rate(), uuid);
 
-    request(
-        caf::actor_cast<caf::actor>(this),
-        infinite,
-        add_media_source_atom_v,
-        utility::UuidActor(uuid, new_source))
+    mail(add_media_source_atom_v, utility::UuidActor(uuid, new_source))
+        .request(caf::actor_cast<caf::actor>(this), infinite)
         .then(
             [=](const Uuid &source_uuid) {
                 if (set_as_current_source) {
-                    anon_send(
-                        caf::actor_cast<caf::actor>(this),
-                        current_media_source_atom_v,
-                        source_uuid);
+                    anon_mail(current_media_source_atom_v, source_uuid)
+                        .send(caf::actor_cast<caf::actor>(this));
                 }
             },
             [=](const error &err) mutable {
@@ -1321,27 +1473,50 @@ void MediaActor::add_or_rename_media_source(
 }
 
 void MediaActor::clone_bookmarks_to(
-    const utility::UuidActor &ua, caf::actor src_bookmark, caf::actor dst_bookmark) {
+    caf::typed_response_promise<utility::UuidUuidActor> rp,
+    const utility::UuidUuidActor &uua,
+    caf::actor src_bookmark,
+    caf::actor dst_bookmark) {
     // use global session (should be safe.. ish)
-    try {
-        scoped_actor sys{system()};
-        try {
-            UuidActorVector copied;
-            // // duplicate bookmarks if any
-            auto bookmarks = utility::request_receive<UuidActorVector>(
-                *sys, src_bookmark, bookmark::get_bookmarks_atom_v, base_.uuid());
-            for (const auto &i : bookmarks) {
-                copied.push_back(utility::request_receive<UuidActor>(
-                    *sys, src_bookmark, utility::duplicate_atom_v, i.uuid(), ua));
-            }
-            utility::request_receive<bool>(
-                *sys, dst_bookmark, bookmark::add_bookmark_atom_v, copied);
-        } catch (const std::exception &err) {
-            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-        }
-    } catch (const std::exception &err) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-    }
+    // DON'T USE REQUEST RECEIVE!!
+
+    mail(bookmark::get_bookmarks_atom_v, base_.uuid())
+        .request(src_bookmark, infinite)
+        .then(
+            [=](const UuidActorVector &bookmarks) mutable {
+                if (bookmarks.empty())
+                    rp.deliver(uua);
+                else {
+                    auto copied = std::make_shared<UuidActorVector>();
+                    auto count  = std::make_shared<int>(bookmarks.size());
+                    for (const auto &i : bookmarks) {
+                        mail(utility::duplicate_atom_v, i.uuid(), uua.second)
+                            .request(src_bookmark, infinite)
+                            .then(
+                                [=](const UuidActor &new_bookmark) mutable {
+                                    copied->push_back(new_bookmark);
+                                    (*count)--;
+                                    if (not(*count)) {
+                                        anon_mail(bookmark::add_bookmark_atom_v, *copied)
+                                            .send(dst_bookmark);
+                                        rp.deliver(uua);
+                                    }
+                                },
+                                [=](const error &err) mutable {
+                                    (*count)--;
+                                    if (not(*count)) {
+                                        anon_mail(bookmark::add_bookmark_atom_v, *copied)
+                                            .send(dst_bookmark);
+                                        rp.deliver(uua);
+                                    }
+                                });
+                    }
+                }
+            },
+            [=](const error &err) mutable {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                rp.deliver(err);
+            });
 }
 
 void MediaActor::switch_current_source_to_named_source(
@@ -1358,6 +1533,9 @@ void MediaActor::switch_current_source_to_named_source(
         scoped_actor sys{system()};
         auto sources     = utility::map_value_to_vec(media_sources_);
         auto source_uuid = utility::Uuid();
+
+        const utility::Uuid current_source_id = base_.current(media_type);
+
         for (auto &source : sources) {
             auto source_container_detail =
                 utility::request_receive<ContainerDetail>(*sys, source, detail_atom_v);
@@ -1367,8 +1545,16 @@ void MediaActor::switch_current_source_to_named_source(
             if (source_container_detail.name_ == source_name &&
                 !source_stream_details.empty()) {
                 // name matches and the source has a stream of type media_type
-                source_uuid = source_container_detail.uuid_;
-                break;
+                if (source_uuid.is_null()) {
+                    source_uuid = source_container_detail.uuid_;
+                }
+
+                // the name of the current source id matches 'source_name'.
+                // Nothing to do!
+                if (current_source_id == source_container_detail.uuid_) {
+                    rp.deliver(true);
+                    return;
+                }
             }
         }
 
@@ -1405,12 +1591,8 @@ void MediaActor::switch_current_source_to_named_source(
                << "\" but no such source was found.";
             rp.deliver(make_error(xstudio_error::error, ss.str()));
         } else if (not source_uuid.is_null()) {
-            request(
-                caf::actor_cast<caf::actor>(this),
-                infinite,
-                current_media_source_atom_v,
-                source_uuid,
-                media_type)
+            mail(current_media_source_atom_v, source_uuid, media_type)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const bool result) mutable { return rp.deliver(result); },
                     [=](error &err) mutable {
@@ -1426,17 +1608,24 @@ void MediaActor::switch_current_source_to_named_source(
     }
 }
 
-void MediaActor::auto_set_current_source(const media::MediaType media_type) {
+
+void MediaActor::auto_set_current_source(
+    const media::MediaType media_type, caf::typed_response_promise<bool> rp) {
 
     auto set_current = [=](const media::MediaType mt, const utility::Uuid &uuid) mutable {
         if (base_.set_current(uuid, mt)) {
-            send(
-                event_group_,
+            anon_mail(media_display_info_atom_v).send(this);
+            mail(
                 utility::event_atom_v,
                 current_media_source_atom_v,
                 UuidActor(
                     base_.current(media_type), media_sources_.at(base_.current(media_type))),
-                media_type);
+                media_type)
+                .send(base_.event_group());
+            if (rp.pending())
+                rp.deliver(true);
+        } else if (rp.pending()) {
+            rp.deliver(false);
         }
     };
 
@@ -1461,29 +1650,435 @@ void MediaActor::auto_set_current_source(const media::MediaType media_type) {
                     // source - the reason is that xSTUDIO always needs and image source to set
                     // frame rate and duration, even if it can't provide images.
                     set_current(media::MT_IMAGE, base_.media_sources().front());
+                } else if (rp.pending()) {
+                    rp.deliver(false);
                 }
+            } else {
+                rp.deliver(false);
             }
         };
 
     // TODO: do these requests asynchronously, as it could be heavy and slow
     // loading of big playlists etc
 
-    std::set<utility::Uuid> sources_matching_media_type;
-    caf::scoped_actor sys(system());
 
-    for (auto source_uuid : base_.media_sources()) {
+    auto sources_matching_media_type = std::make_shared<std::set<utility::Uuid>>();
+    auto count                       = std::make_shared<int>(media_sources_.size());
 
-        auto source_actor = media_sources_[source_uuid];
+    // caf::scoped_actor sys(system());
+    if (base_.media_sources().empty()) {
+        rp.deliver(false);
+    } else {
+        for (auto source_uuid : base_.media_sources()) {
+            auto source_actor = media_sources_[source_uuid];
 
-        try {
-            auto stream_details = request_receive<std::vector<ContainerDetail>>(
-                *sys, source_actor, detail_atom_v, media_type);
+            mail(detail_atom_v, media_type)
+                .request(source_actor, infinite)
+                .then(
+                    [=](const std::vector<ContainerDetail> &stream_details) mutable {
+                        if (stream_details.size())
+                            sources_matching_media_type->insert(source_uuid);
 
-            if (stream_details.size())
-                sources_matching_media_type.insert(source_uuid);
-        } catch (...) {
+                        (*count)--;
+                        if (not *count)
+                            auto_set_sources_mt(*sources_matching_media_type);
+                    },
+                    [=](caf::error err) mutable {
+                        (*count)--;
+                        if (not *count)
+                            auto_set_sources_mt(*sources_matching_media_type);
+                    });
+
+            // try {
+            //     auto stream_details = request_receive<std::vector<ContainerDetail>>(
+            //         *sys, source_actor, detail_atom_v, media_type);
+
+            //     if (stream_details.size())
+            //         sources_matching_media_type.insert(source_uuid);
+            // } catch (...) {
+            // }
         }
     }
 
-    auto_set_sources_mt(sources_matching_media_type);
+
+    // auto_set_sources_mt(sources_matching_media_type);
+}
+
+void MediaActor::update_human_readable_details(
+    caf::typed_response_promise<utility::JsonStore> rp) {
+
+    // The goal with this function is make a simple dictionary with the most
+    // useful info about the media - filename, duration, frame rate, resolution
+    // etc. This is then used to (partly) make the 'display_info' data that
+    // is used to show info about the media in the xSTUDIO UI, or perhaps used
+    // in plguins via API
+
+    // we're making 4 async requests to other actors, so we need to store the
+    // result in a shared ptr captured by the lambda and deliver the response
+    // only when each request has returned a response
+    auto result         = std::make_shared<utility::JsonStore>();
+    auto response_count = std::make_shared<int>(0);
+
+    auto check_deliver = [=]() mutable {
+        (*response_count)++;
+        if (*response_count == 4) {
+            if (human_readable_info_ != *result) {
+                human_readable_info_ = *result;
+                // rebuild our display info data
+                anon_mail(media_display_info_atom_v).send(this);
+            }
+            rp.deliver(human_readable_info_);
+        }
+    };
+
+    // get info about IMAGE stream
+    mail(get_stream_detail_atom_v, media::MT_IMAGE)
+        .request(caf::actor_cast<caf::actor>(this), infinite)
+        .then(
+            [=](const StreamDetail &image_stream_detail) mutable {
+                auto &r = *result;
+
+                r["Duration / seconds - MediaSource (Image)"] =
+                    image_stream_detail.duration_.seconds();
+                r["Duration / frames - MediaSource (Image)"] =
+                    image_stream_detail.duration_.frames();
+                r["Frame Rate - MediaSource (Image)"] =
+                    fmt::format("{:.2f}", image_stream_detail.duration_.rate().to_fps());
+                r["Name - MediaSource (Image)"]       = image_stream_detail.name_;
+                r["Resolution - MediaSource (Image)"] = fmt::format(
+                    "{}x{}:{}",
+                    image_stream_detail.resolution_.x,
+                    image_stream_detail.resolution_.y,
+                    image_stream_detail.pixel_aspect_);
+                r["Pixel Aspect - MediaSource (Image)"] = image_stream_detail.pixel_aspect_;
+                check_deliver();
+            },
+            [=](caf::error err) mutable { check_deliver(); });
+
+    // get info about AUDIO stream
+    mail(get_stream_detail_atom_v, media::MT_AUDIO)
+        .request(caf::actor_cast<caf::actor>(this), infinite)
+        .then(
+            [=](const StreamDetail &audio_stream_detail) mutable {
+                auto &r = *result;
+                r["Duration / seconds - MediaSource (Audio)"] =
+                    audio_stream_detail.duration_.seconds();
+                r["Name - MediaSource (Audio)"] = audio_stream_detail.name_;
+                check_deliver();
+            },
+            [=](caf::error err) mutable { check_deliver(); });
+
+    // get info about IMAGE source
+    if (media_sources_.count(base_.current(MT_IMAGE))) {
+        mail(media_reference_atom_v)
+            .request(media_sources_[base_.current(MT_IMAGE)], infinite)
+            .then(
+                [=](const MediaReference &ref) mutable {
+                    auto &r = *result;
+
+                    // The uri for frame based formats is a bit ugly ... here replace the frame
+                    // expr with some hashes
+                    static std::regex re(R"(\.\{\:[0-9]+d\}\.)");
+                    r["File Path - MediaSource (Image)"] =
+                        std::regex_replace(uri_to_posix_path(ref.uri()), re, ".####.");
+                    r["Timecode - MediaSource (Image)"]    = ref.timecode().to_string();
+                    r["Frame Range - MediaSource (Image)"] = to_string(ref.frame_list());
+
+                    check_deliver();
+                },
+                [=](caf::error err) mutable { check_deliver(); });
+    } else {
+        check_deliver();
+    }
+
+    // get info about AUDIO source
+    if (media_sources_.count(base_.current(MT_AUDIO))) {
+        mail(media_reference_atom_v)
+            .request(media_sources_[base_.current(MT_AUDIO)], infinite)
+            .then(
+                [=](const MediaReference &ref) mutable {
+                    auto &r                                = *result;
+                    r["File Path - MediaSource (Audio)"]   = uri_to_posix_path(ref.uri());
+                    r["Timecode - MediaSource (Audio)"]    = ref.timecode().to_string();
+                    r["Frame Range - MediaSource (Image)"] = to_string(ref.frame_list());
+                    check_deliver();
+                },
+                [=](caf::error err) mutable { check_deliver(); });
+    } else {
+        check_deliver();
+    }
+}
+
+void MediaActor::display_info_item(
+    const JsonStore item_query_info, caf::typed_response_promise<utility::JsonStore> rp) {
+
+    // fetch specific info about the media, current media source or current
+    // media stream (either a metadata value or a value from the
+    // human_readable_info_ json dict).
+    //
+    // item_query_info is json that is a segment of the
+    // /ui/qml/media_list_column_configuration preference and tells us whether to
+    // fetch a metadata value or on of our entries in the human_readable_info_
+    // dictionary
+    //
+    // We also allow the facility to to a regex replace on the resulting metadata
+    // value to format it in some way convenient for the media list.
+    //
+    // We can also define indefinite 'fallbacks' to try if our metadata fetch
+    // fails to match something in the metadata.
+    //
+    // In this example for "File" we show a particular shotgun metadata value,
+    // but if that isn't present the we fallback onto the media path, with a
+    // regex to show the filename only and not the full filesystem path.
+    /*{
+        "title": "File",
+        "metadata_path": "/metadata/shotgun/version/attributes/code",
+        "data_type": "metadata",
+        "size": 360,
+        "object": "Media",
+        "resizable": true,
+        "sortable": true,
+        "position": "left",
+        "fallback": {
+            "info_key": "File Path - MediaSource (Image)",
+            "data_type": "media_standard_details",
+            "regex_match": "(.+)\/([^\/]+)$",
+            "regex_format": "$2",
+            "fallback": {
+                "info_key": "File Path - MediaSource (Audio)",
+                "data_type": "media_standard_details",
+                "regex_match": "(.+)\/([^\/]+)$",
+                "regex_format": "$2"
+            }
+        }
+    }
+    */
+
+    // lambda to recurse into the 'fallback'
+    auto fallback = [=]() mutable {
+        if (item_query_info.contains("children") && item_query_info["children"].size() &&
+            item_query_info["children"].is_array()) {
+            display_info_item(item_query_info["children"][0], rp);
+        } else {
+            rp.deliver(JsonStore());
+        }
+    };
+
+    // lambda to apply optional regex replace formatting
+    auto do_regex_format = [=](const JsonStore &data) -> JsonStore {
+        if (item_query_info.contains("regex_match") &&
+            item_query_info.contains("regex_format")) {
+            try {
+                std::regex re(item_query_info.value("regex_match", ""));
+                auto fonk = JsonStore(std::regex_replace(
+                    data.is_string() ? data.get<std::string>() : data.dump(),
+                    re,
+                    item_query_info.value("regex_format", "")));
+                return fonk;
+            } catch (const std::regex_error &e) {
+                return JsonStore(e.what());
+            }
+        }
+        return data;
+    };
+
+    const std::string data_type = item_query_info.value("data_type", "");
+    if (data_type == "flag") {
+
+        rp.deliver(JsonStore(base_.flag()));
+
+    } else if (data_type == "metadata") {
+
+        const std::string metadata_path = item_query_info.value("metadata_path", "");
+
+        // "object" should be Media, MediaSource or MediaStream to tell us
+        // which one we should do the metadata search on. For example, codec
+        // related metadata will be found on the MediaStream. File metadata
+        // might be found on the MediaSource. Pipeline metadata (version stream
+        // metadata) will be attached to Media.
+        const std::string object = item_query_info.value("object", "");
+
+        auto get_metadata_value = [=](caf::actor target) mutable {
+            mail(json_store::get_json_atom_v, metadata_path)
+                .request(target, infinite)
+                .then(
+                    [=](const JsonStore &data) mutable { rp.deliver(do_regex_format(data)); },
+                    [=](caf::error &err) mutable { fallback(); });
+        };
+
+        if (object == "MediaSource (Image)" &&
+            media_sources_.count(base_.current(media::MT_IMAGE))) {
+            // ask for metadata from MediaSource
+            get_metadata_value(media_sources_.at(base_.current(media::MT_IMAGE)));
+        } else if (
+            object == "MediaSource (Audio)" &&
+            media_sources_.count(base_.current(media::MT_AUDIO))) {
+            // ask for metadata from MediaSource
+            get_metadata_value(media_sources_.at(base_.current(media::MT_AUDIO)));
+        } else if (object == "Image Stream") {
+            // ask for metadata from MediaStream - as it stands, the streams
+            // have no metadata, by the way! The stream metadata all lives on
+            // the media source.
+            mail(current_media_stream_atom_v, media::MT_IMAGE)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](caf::actor t) mutable { get_metadata_value(t); },
+                    [=](caf::error &err) mutable { fallback(); });
+        } else if (object == "Audio Stream") {
+            // ask for metadata from MediaStream
+            mail(current_media_stream_atom_v, media::MT_AUDIO)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](caf::actor t) mutable { get_metadata_value(t); },
+                    [=](caf::error &err) mutable { fallback(); });
+        } else {
+            // By defaul use media level json store
+            get_metadata_value(json_store_);
+        }
+    } else if (data_type == "media_standard_details") {
+        auto key = item_query_info.value("info_key", "");
+        if (human_readable_info_.contains(key)) {
+            rp.deliver(do_regex_format(human_readable_info_[key]));
+        } else {
+            fallback();
+        }
+    } else {
+        fallback();
+    }
+}
+
+inline void dump_tree3(const utility::JsonTree &node, const int depth = 0) {
+    std::cerr << fmt::format("{:>{}} {}", " ", depth * 4, node.data().dump()) << "\n";
+    for (const auto &i : node.base())
+        dump_tree3(i, depth + 1);
+}
+
+void MediaActor::build_media_list_info(caf::typed_response_promise<utility::JsonStore> rp) {
+
+    // empty json array for results of the filter sets
+    auto result = std::make_shared<JsonStore>(R"([])"_json);
+
+    // because do this by firing off a bunch of asynchronous requests, we count
+    // the number of results we get until it matches num_metadata_filter_results_
+    // before delivering the response promise
+    auto result_countdown = std::make_shared<int>(media_list_columns_config_.size());
+
+    auto check_if_finished = [=]() mutable {
+        (*result_countdown)--;
+        if (*result_countdown == 0) {
+            // we've received reposnses to all the requests made in the
+            // loop below. Boradcast
+            if (media_list_columns_info_ != *result) {
+                media_list_columns_info_ = *result;
+
+                mail(utility::event_atom_v, media_display_info_atom_v, media_list_columns_info_)
+                    .send(base_.event_group());
+            }
+            rp.deliver(*result);
+        }
+    };
+
+    // empty json array for results of the filter set items
+    result->push_back(R"([])"_json);
+
+    int item_idx = 0;
+
+    for (const auto &j : media_list_columns_config_.base()) {
+
+        (*result)[item_idx]                      = nlohmann::json();
+        const utility::JsonStore metadata_filter = utility::tree_to_json(j);
+        mail(media_display_info_atom_v, metadata_filter)
+            .request(caf::actor_cast<caf::actor>(this), infinite)
+            .then(
+                [=](utility::JsonStore &data) mutable {
+                    (*result)[item_idx] = data;
+                    check_if_finished();
+                },
+                [=](caf::error &err) mutable { check_if_finished(); });
+        item_idx++;
+    }
+}
+
+void MediaActor::duplicate(
+    caf::typed_response_promise<utility::UuidUuidActor> rp,
+    caf::actor src_bookmarks,
+    caf::actor dst_bookmarks) {
+    auto uuid  = utility::Uuid::generate();
+    auto actor = spawn<MediaActor>(base_.name(), uuid);
+
+    // don't use request receive..
+    mail(json_store::get_json_atom_v)
+        .request(json_store_, infinite)
+        .then(
+            [=](const JsonStore &jsn) mutable {
+                anon_mail(json_store::set_json_atom_v, Uuid(), jsn, "").send(actor);
+            },
+            [=](const error &err) mutable {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+            });
+
+    anon_mail(
+        playlist::reflag_container_atom_v,
+        std::make_tuple(
+            std::optional<std::string>(base_.flag()),
+            std::optional<std::string>(base_.flag_text())))
+        .send(actor);
+    // sometimes caf makes my head bleed. see below.
+
+    // auto source_count = std::make_shared<int>();
+    // (*source_count)   = base_.media_sources().size();
+
+    if (!media_sources_.size()) {
+        auto uua = UuidUuidActor(base_.uuid(), UuidActor(uuid, actor));
+
+        if (src_bookmarks)
+            clone_bookmarks_to(rp, uua, src_bookmarks, dst_bookmarks);
+        else
+            rp.deliver(uua);
+        return;
+    }
+
+    fan_out_request<policy::select_all>(
+        map_value_to_vec(media_sources_), infinite, utility::duplicate_atom_v)
+        .then(
+            [=](const std::vector<UuidUuidActor> dmedia_srcs) mutable {
+                std::map<Uuid, UuidActor> dmedia_srcs_map;
+
+                for (const auto &i : dmedia_srcs)
+                    dmedia_srcs_map[i.first] = i.second;
+
+                UuidActorVector new_media_srcs;
+
+                for (const auto &i : base_.media_sources())
+                    new_media_srcs.push_back(dmedia_srcs_map[i]);
+
+                // bulk add srcs.
+                mail(add_media_source_atom_v, new_media_srcs)
+                    .request(actor, infinite)
+                    .then(
+                        [=](const bool) mutable {
+                            // set current source.
+
+                            // anon_mail(//     current_media_source_atom_v,
+                            //     dmedia_srcs_map[base_.current()].uuid()).send(//     actor);
+                            mail(
+                                current_media_source_atom_v,
+                                dmedia_srcs_map[base_.current()].uuid())
+                                .request(actor, infinite)
+                                .then(
+                                    [=](const bool) mutable {
+                                        auto uua =
+                                            UuidUuidActor(base_.uuid(), UuidActor(uuid, actor));
+
+                                        if (src_bookmarks)
+                                            clone_bookmarks_to(
+                                                rp, uua, src_bookmarks, dst_bookmarks);
+                                        else
+                                            rp.deliver(uua);
+                                    },
+                                    [=](const caf::error &err) mutable { rp.deliver(err); });
+                        },
+                        [=](const error &err) mutable { rp.deliver(err); });
+            },
+            [=](const caf::error &err) mutable { rp.deliver(err); });
 }

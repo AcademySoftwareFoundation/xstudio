@@ -1,0 +1,481 @@
+{
+    "plugin": {
+        "data_source": {
+            "shotbrowser": {
+                "authentication": {
+                    "client_id": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "string",
+                        "default_value": "",
+                        "description": "Client Id.",
+                        "path": "/plugin/data_source/shotbrowser/authentication/client_id",
+                        "value": ""
+                    },
+                    "client_secret": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "string",
+                        "default_value": "",
+                        "description": "Client Secret.",
+                        "path": "/plugin/data_source/shotbrowser/authentication/client_secret",
+                        "value": ""
+                    },
+                    "grant_type": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "string",
+                        "default_value": "password",
+                        "description": "Authentication method.",
+                        "path": "/plugin/data_source/shotbrowser/authentication/grant_type",
+                        "value": "password"
+                    },
+                    "password": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "string",
+                        "default_value": "",
+                        "description": "Authentication password.",
+                        "path": "/plugin/data_source/shotbrowser/authentication/password",
+                        "value": ""
+                    },
+                    "refresh_token": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "string",
+                        "default_value": "",
+                        "description": "Authentication refresh token.",
+                        "path": "/plugin/data_source/shotbrowser/authentication/refresh_token",
+                        "value": ""
+                    },
+                    "session_token": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "string",
+                        "default_value": "",
+                        "description": "Authentication session_token.",
+                        "path": "/plugin/data_source/shotbrowser/authentication/session_token",
+                        "value": ""
+                    },
+                    "username": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "string",
+                        "default_value": "${USER}",
+                        "description": "Authentication Username.",
+                        "path": "/plugin/data_source/shotbrowser/authentication/username",
+                        "value": "${USER}"
+                    }
+                },
+                "download": {
+                    "path": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "string",
+                        "default_value": "${HOME}/xStudio/shotbrowser_cache",
+                        "description": "Path to shotbrowser download cache.",
+                        "path": "/plugin/data_source/shotbrowser/download/path",
+                        "value": "${TMPDIR}/${USER}/xStudio/shotbrowser_cache"
+                    },
+                    "size": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "int",
+                        "default_value": 5,
+                        "description": "Cache size in GBytes.",
+                        "path": "/plugin/data_source/shotbrowser/download/size",
+                        "value": 5
+                    }
+                },
+                "browser": {
+                    "hide_tree": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "bool",
+                        "default_value": false,
+                        "description": "Hide tree panel.",
+                        "path": "/plugin/data_source/shotbrowser/browser/hide_tree",
+                        "value": false
+                    },
+                    "location": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "string",
+                        "default_value": "${DNSITEDATA_SHORT_NAME}",
+                        "description": "Location.",
+                        "path": "/plugin/data_source/shotbrowser/browser/location",
+                        "value": "${DNSITEDATA_SHORT_NAME}"
+                    },
+                    "project": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "string",
+                        "default_value": "NSFL",
+                        "description": "Project.",
+                        "path": "/plugin/data_source/shotbrowser/browser/project",
+                        "value": "NSFL"
+                    },
+                    "popout": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "json",
+                        "default_value": {},
+                        "description": "Popout prefs.",
+                        "path": "/plugin/data_source/shotbrowser/browser/popout",
+                        "value": {}
+                    },
+                    "pipestep": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "json",
+                        "default_value": [],
+                        "description": "Default pipesteps.",
+                        "path": "/plugin/data_source/shotbrowser/browser/pipestep",
+                        "value": [
+                            {
+                                "name": "Anim"
+                            },
+                            {
+                                "name": "Body Track"
+                            },
+                            {
+                                "name": "Camera Track"
+                            },
+                            {
+                                "name": "Comp"
+                            },
+                            {
+                                "name": "Creature"
+                            },
+                            {
+                                "name": "Creature FX"
+                            },
+                            {
+                                "name": "Crowd"
+                            },
+                            {
+                                "name": "Digimatte"
+                            },
+                            {
+                                "name": "DMP"
+                            },
+                            {
+                                "name": "Dmpsetup"
+                            },
+                            {
+                                "name": "Editorial"
+                            },
+                            {
+                                "name": "Envfinishing"
+                            },
+                            {
+                                "name": "Environ"
+                            },
+                            {
+                                "name": "Envlighting"
+                            },
+                            {
+                                "name": "Envsetup"
+                            },
+                            {
+                                "name": "Final Layout"
+                            },
+                            {
+                                "name": "FX"
+                            },
+                            {
+                                "name": "Groom"
+                            },
+                            {
+                                "name": "Layout"
+                            },
+                            {
+                                "name": "Lighting"
+                            },
+                            {
+                                "name": "Look Dev"
+                            },
+                            {
+                                "name": "Model"
+                            },
+                            {
+                                "name": "Muscle"
+                            },
+                            {
+                                "name": "Paintover"
+                            },
+                            {
+                                "name": "Postvis"
+                            },
+                            {
+                                "name": "Prep"
+                            },
+                            {
+                                "name": "Previs"
+                            },
+                            {
+                                "name": "Retime Layout"
+                            },
+                            {
+                                "name": "Rig"
+                            },
+                            {
+                                "name": "Roto"
+                            },
+                            {
+                                "name": "Scan"
+                            },
+                            {
+                                "name": "Shot Sculpt"
+                            },
+                            {
+                                "name": "Skin"
+                            },
+                            {
+                                "name": "Sweatbox"
+                            },
+                            {
+                                "name": "TD"
+                            },
+                            {
+                                "name": "None"
+                            }
+                        ]
+                    }
+                },
+                "note_publishing": {
+                    "note_publish_settings": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "json",
+                        "default_value": {
+                            "__ignore__": true,
+                            "addFrame": false,
+                            "addPlaylistName": true,
+                            "addType": false,
+                            "combine": true,
+                            "defaultType": "",
+                            "ignoreEmpty": false,
+                            "notifyCreator": true,
+                            "skipAlreadyPublished": false,
+                            "notifyGroups": [],
+                            "settings": {}
+                        },
+                        "description": "Prefs relating to note publishing.",
+                        "path": "/plugin/data_source/shotbrowser/note_publishing/note_publish_settings",
+                        "value": {
+                            "__ignore__": true,
+                            "addFrame": false,
+                            "addPlaylistName": true,
+                            "addType": false,
+                            "combine": true,
+                            "defaultType": "",
+                            "ignoreEmpty": false,
+                            "notifyCreator": true,
+                            "skipAlreadyPublished": false,
+                            "notifyGroups": [],
+                            "settings": {}
+                        }
+                    }
+                },
+                "server": {
+                    "host": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "string",
+                        "default_value": "xstudio-shotgun.dneg.com",
+                        "description": "Shotgun host.",
+                        "path": "/plugin/data_source/shotbrowser/server/host",
+                        "value": "xstudio-shotgun.dneg.com"
+                    },
+                    "port": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "int",
+                        "default_value": 0,
+                        "description": "Shotgun host port.",
+                        "path": "/plugin/data_source/shotbrowser/server/port",
+                        "value": 0
+                    },
+                    "protocol": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "string",
+                        "default_value": "https",
+                        "description": "Connection protocol.",
+                        "path": "/plugin/data_source/shotbrowser/server/protocol",
+                        "value": "http"
+                    },
+                    "timeout": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "int",
+                        "default_value": 120,
+                        "description": "Connection timeout.",
+                        "path": "/plugin/data_source/shotbrowser/server/timeout",
+                        "value": 120
+                    }
+                },
+
+                "fields":
+                {
+                    "version": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "json",
+                        "default_value": [],
+                        "description": "Additional entity properties.",
+                        "path": "/plugin/data_source/shotbrowser/fields/version",
+                        "value": []
+                    },
+                    "note": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "json",
+                        "default_value": [],
+                        "description": "Additional entity properties.",
+                        "path": "/plugin/data_source/shotbrowser/fields/note",
+                        "value": []
+                    },
+                    "shot": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "json",
+                        "default_value": [],
+                        "description": "Additional entity properties.",
+                        "path": "/plugin/data_source/shotbrowser/fields/shot",
+                        "value": []
+                    },
+                    "playlist": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "json",
+                        "default_value": [],
+                        "description": "Additional entity properties.",
+                        "path": "/plugin/data_source/shotbrowser/fields/playlist",
+                        "value": []
+                    }
+                },
+
+                "add_after_selection": {
+                    "context": [
+                        "PLUGIN"
+                    ],
+                    "datatype": "bool",
+                    "default_value": true,
+                    "description": "Add new media after selection, if false will add to end.",
+                    "path": "/plugin/data_source/shotbrowser/add_after_selection",
+                    "value": true,
+                    "category": "Pipeline"
+                },
+
+                "disable_integration": {
+                    "context": [
+                        "PLUGIN"
+                    ],
+                    "datatype": "bool",
+                    "default_value": false,
+                    "description": "Disable Shotbrowser integration.",
+                    "path": "/plugin/data_source/shotbrowser/disable_integration",
+                    "value": false,
+                    "category": "Pipeline"
+                },
+                "pause_update_on_playing": {
+                    "context": [
+                        "PLUGIN"
+                    ],
+                    "datatype": "bool",
+                    "default_value": true,
+                    "description": "Pauses updates whilst playing.",
+                    "path": "/plugin/data_source/shotbrowser/pause_update_on_playing",
+                    "value": true,
+                    "category": "Pipeline"
+                },
+                "preset_paths": {
+                    "context": [
+                        "PLUGIN"
+                    ],
+                    "datatype": "json",
+                    "default_value": ["/tools/SITE/data/xStudio/shotbrowser/presets", "${HOME}/xStudio/presets", "/tools/${SHOW}/xStudio/presets"],
+                    "description": "Additional Presets Paths",
+                    "path": "/plugin/data_source/shotbrowser/preset_paths",
+                    "value": ["/tools/SITE/data/xStudio/shotbrowser/presets", "${HOME}/xStudio/presets", "/tools/${SHOW}/xStudio/presets"]
+                },
+                "project_presets": {
+                    "context": [
+                        "PLUGIN"
+                    ],
+                    "datatype": "json",
+                    "default_value": [],
+                    "description": "Project presets.",
+                    "path": "/plugin/data_source/shotbrowser/project_presets",
+                    "value": null
+                },
+                "site_presets": {
+                    "context": [
+                        "PLUGIN"
+                    ],
+                    "datatype": "json",
+                    "default_value": [],
+                    "description": "Site presets.",
+                    "path": "/plugin/data_source/shotbrowser/site_presets",
+                    "value": null
+                },
+                "user_presets": {
+                    "context": [
+                        "PLUGIN"
+                    ],
+                    "datatype": "json",
+                    "default_value": [],
+                    "description": "User presets.",
+                    "path": "/plugin/data_source/shotbrowser/user_presets",
+                    "value": null
+                }
+            }
+        }
+    },
+    "ui": {
+        "qml": {
+            "shotbrowser_settings": {
+                "context": [
+                    "QML_UI"
+                ],
+                "datatype": "json",
+                "default_value": {},
+                "description": "Prefs relating to window position.",
+                "path": "/ui/qml/shotbrowser_settings",
+                "value": {
+                    "__ignore__": true,
+                    "height": 400,
+                    "visibility": 0,
+                    "width": 700,
+                    "x": 100,
+                    "y": 100
+                }
+            }
+        }
+    }
+}

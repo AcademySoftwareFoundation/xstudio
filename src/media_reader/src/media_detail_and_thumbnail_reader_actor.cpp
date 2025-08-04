@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/sec.hpp>
 #include <caf/policy/select_all.hpp>
-#include <limits>
+#include <caf/actor_registry.hpp>
 
+#include <limits>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/global_store/global_store.hpp"
@@ -65,16 +66,11 @@ MediaDetailAndThumbnailReaderActor::MediaDetailAndThumbnailReaderActor(
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
         [=](get_media_detail_atom) {
-            // here we process a thumbnail request once for every 4 'get_media_detail' requests
-            // - this is to balance thumbnail delivery to the UI (which is nice but not
-            // essential) against building media sources (which is essential)
-            if (num_detail_requests_since_thumbnail_request_ > 4 &&
-                !thumbnail_request_queue_.empty()) {
-                process_get_thumbnail_queue();
-            } else if (not media_detail_request_queue_.empty()) {
+            // Continue processing requests in the queue in a loop (loop
+            // happens as we ping ourselves another get_media_detail_atom when
+            // we've completed a request in the queue)
+            if (not media_detail_request_queue_.empty()) {
                 process_get_media_detail_queue();
-            } else {
-                process_get_thumbnail_queue();
             }
         },
 
@@ -107,49 +103,35 @@ MediaDetailAndThumbnailReaderActor::MediaDetailAndThumbnailReaderActor(
             auto rp    = make_response_promise<MediaDetail>();
             media_detail_request_queue_.emplace(_uri, key, rp);
             if (start)
-                anon_send(
-                    caf::actor_cast<caf::actor>(this),
-                    get_media_detail_atom_v); // starts loop to chew through the request queue
+                anon_mail(get_media_detail_atom_v)
+                    .send(caf::actor_cast<caf::actor>(
+                        this)); // starts loop to chew through the request queue
             return rp;
         },
 
         [=](get_thumbnail_atom,
             const media::AVFrameID &mptr,
             const size_t size) -> result<thumbnail::ThumbnailBufferPtr> {
-            bool start = queues_empty();
-            auto rp    = make_response_promise<thumbnail::ThumbnailBufferPtr>();
-            thumbnail_request_queue_.emplace(mptr, size, rp);
-            if (start)
-                anon_send(
-                    caf::actor_cast<caf::actor>(this),
-                    get_media_detail_atom_v); // starts loop to chew through the request queue
+            auto rp = make_response_promise<thumbnail::ThumbnailBufferPtr>();
+            get_thumbnail(rp, mptr, size);
             return rp;
         },
 
         [=](utility::uuid_atom) -> Uuid { return uuid_; });
 }
 
-void MediaDetailAndThumbnailReaderActor::process_get_thumbnail_queue() {
-
-    if (!thumbnail_request_queue_.size())
-        return;
-
-    num_detail_requests_since_thumbnail_request_ = 0;
-
-    const auto thumbnail_request = thumbnail_request_queue_.front();
-    thumbnail_request_queue_.pop();
-
-    media::AVFrameID mptr = thumbnail_request.media_pointer_;
-    const size_t size     = thumbnail_request.size_;
-    caf::typed_response_promise<thumbnail::ThumbnailBufferPtr> rp = thumbnail_request.rp_;
+void MediaDetailAndThumbnailReaderActor::get_thumbnail(
+    caf::typed_response_promise<thumbnail::ThumbnailBufferPtr> rp,
+    const media::AVFrameID &mptr,
+    const size_t size) {
 
     try {
         fan_out_request<policy::select_all>(
             plugins_,
             infinite,
             media_reader::supported_atom_v,
-            mptr.uri_,
-            utility::get_signature(mptr.uri_))
+            mptr.uri(),
+            utility::get_signature(mptr.uri()))
             .then(
                 [=](std::vector<std::pair<xstudio::utility::Uuid, MRCertainty>> supt) mutable {
                     // find the best media reader plugin to read this file ...
@@ -163,56 +145,58 @@ void MediaDetailAndThumbnailReaderActor::process_get_thumbnail_queue() {
                     }
 
                     if (best_match == MRC_NO) {
-                        spdlog::warn("{} Unsupported format.", __PRETTY_FUNCTION__);
                         rp.deliver(make_error(media_error::unsupported, "Unsupported format"));
-                        continue_processing_queue();
                     } else {
                         get_thumbnail_from_reader_plugin(
-                            plugins_map_[best_reader_plugin_uuid], mptr, size, rp);
+                            plugins_map_[best_reader_plugin_uuid], rp, mptr, size);
                     }
                 },
                 [=](const caf::error &err) mutable {
                     spdlog::warn("{} {}", err.category(), to_string(err));
                     rp.deliver(err);
-                    continue_processing_queue();
                 });
     } catch (std::exception &e) {
         rp.deliver(make_error(media_error::unsupported, e.what()));
-        // spdlog::info("{} {}", __PRETTY_FUNCTION__, e.what());
-        continue_processing_queue();
     }
 }
 
 void MediaDetailAndThumbnailReaderActor::get_thumbnail_from_reader_plugin(
     caf::actor &reader_plugin,
-    const media::AVFrameID mptr,
-    const size_t size,
-    caf::typed_response_promise<thumbnail::ThumbnailBufferPtr> rp) {
+    caf::typed_response_promise<thumbnail::ThumbnailBufferPtr> rp,
+    const media::AVFrameID &mptr,
+    const size_t size) {
 
     auto colour_pipe_manager = system().registry().get<caf::actor>(colour_pipeline_registry);
-    request(reader_plugin, infinite, get_thumbnail_atom_v, mptr, size)
+    mail(get_thumbnail_atom_v, mptr, size)
+        .request(reader_plugin, infinite)
         .then(
             [=](const thumbnail::ThumbnailBufferPtr &buf) mutable {
                 if (buf && buf->format() == thumbnail::THUMBNAIL_FORMAT::TF_RGB24)
                     rp.deliver(buf);
                 else if (buf) {
-                    // send to colour pipeline..
-                    rp.delegate(colour_pipe_manager, process_thumbnail_atom_v, mptr, buf);
+                    // send to colour pipeline.. (requires RGB64 format, i.e. floating pt)
+                    // Colour pipeline will convert float images to display space.
+                    mail(process_thumbnail_atom_v, mptr, buf)
+                        .request(colour_pipe_manager, infinite)
+                        .then(
+                            [=](const thumbnail::ThumbnailBufferPtr &buf) mutable {
+                                rp.deliver(buf);
+                            },
+                            [=](const caf::error &err) mutable { rp.deliver(err); });
                 } else {
-                    if (mptr.actor_addr_) {
-                        auto dest = caf::actor_cast<caf::actor>(mptr.actor_addr_);
+                    if (mptr.media_source_addr()) {
+                        auto dest = caf::actor_cast<caf::actor>(mptr.media_source_addr());
                         if (dest)
-                            anon_send(dest, media_status_atom_v, MediaStatus::MS_UNSUPPORTED);
+                            anon_mail(media_status_atom_v, MediaStatus::MS_UNSUPPORTED)
+                                .send(dest);
                     }
                     rp.deliver(make_error(
                         media_error::corrupt, "thumbnail loaded returned empty buffer."));
                 }
-                continue_processing_queue();
             },
             [=](const caf::error &err) mutable {
                 spdlog::error("{} {}", err.category(), to_string(err));
                 rp.deliver(err);
-                continue_processing_queue();
             });
 }
 
@@ -221,7 +205,6 @@ void MediaDetailAndThumbnailReaderActor::process_get_media_detail_queue() {
     if (media_detail_request_queue_.empty())
         return;
 
-    num_detail_requests_since_thumbnail_request_++;
     const auto media_detail_request = media_detail_request_queue_.front();
     media_detail_request_queue_.pop();
 
@@ -253,11 +236,8 @@ void MediaDetailAndThumbnailReaderActor::process_get_media_detail_queue() {
                         rp.deliver(make_error(media_error::unsupported, "Unsupported format"));
                         continue_processing_queue();
                     } else {
-                        request(
-                            plugins_map_[best_reader_plugin_uuid],
-                            infinite,
-                            get_media_detail_atom_v,
-                            _uri)
+                        mail(get_media_detail_atom_v, _uri)
+                            .request(plugins_map_[best_reader_plugin_uuid], infinite)
                             .then(
                                 [=](const MediaDetail &md) mutable {
                                     media_detail_cache_age_[_uri] = utility::clock::now();
@@ -267,18 +247,22 @@ void MediaDetailAndThumbnailReaderActor::process_get_media_detail_queue() {
                                 },
                                 [=](const caf::error &err) mutable {
                                     rp.deliver(err);
+                                    // spdlog::warn("HERE {} {}", to_string(_uri),
+                                    // to_string(err));
                                     send_error_to_source(key, err);
                                     continue_processing_queue();
                                 });
                     }
                 },
                 [=](const caf::error &err) mutable {
+                    // spdlog::warn("HERE 2 {} {}", to_string(_uri), to_string(err));
                     rp.deliver(err);
                     send_error_to_source(key, err);
                     continue_processing_queue();
                 });
     } catch (std::exception &e) {
         auto err = make_error(xstudio_error::error, e.what());
+        // spdlog::warn("HERE 3 {} {}", to_string(_uri), to_string(err));
         send_error_to_source(key, err);
         continue_processing_queue();
         rp.deliver(err);
@@ -294,16 +278,16 @@ void MediaDetailAndThumbnailReaderActor::send_error_to_source(
             from_integer(err.code(), me);
             switch (me) {
             case media_error::corrupt:
-                anon_send(dest, media_status_atom_v, MediaStatus::MS_CORRUPT);
+                anon_mail(media_status_atom_v, MediaStatus::MS_CORRUPT).send(dest);
                 break;
             case media_error::unsupported:
-                anon_send(dest, media_status_atom_v, MediaStatus::MS_UNSUPPORTED);
+                anon_mail(media_status_atom_v, MediaStatus::MS_UNSUPPORTED).send(dest);
                 break;
             case media_error::unreadable:
-                anon_send(dest, media_status_atom_v, MediaStatus::MS_UNREADABLE);
+                anon_mail(media_status_atom_v, MediaStatus::MS_UNREADABLE).send(dest);
                 break;
             case media_error::missing:
-                anon_send(dest, media_status_atom_v, MediaStatus::MS_MISSING);
+                anon_mail(media_status_atom_v, MediaStatus::MS_MISSING).send(dest);
                 break;
             }
         }
@@ -313,6 +297,6 @@ void MediaDetailAndThumbnailReaderActor::send_error_to_source(
 void MediaDetailAndThumbnailReaderActor::continue_processing_queue() {
 
     if (!queues_empty()) {
-        anon_send(caf::actor_cast<caf::actor>(this), get_media_detail_atom_v);
+        anon_mail(get_media_detail_atom_v).send(caf::actor_cast<caf::actor>(this));
     }
 }

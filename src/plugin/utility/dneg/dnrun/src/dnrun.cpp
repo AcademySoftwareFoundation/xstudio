@@ -9,7 +9,10 @@
 #include <sys/ioctl.h>
 #include <queue>
 
+#include <caf/actor_registry.hpp>
+
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/utility/frame_rate.hpp"
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/plugin_manager/plugin_utility.hpp"
@@ -91,7 +94,7 @@ class DNRun : public Utility {
             fds_[0].events = POLLIN;
             nfds_          = 1;
 
-            spdlog::info("DNRun port created: {}", port_name_v1_.c_str());
+            spdlog::debug("DNRun port created: {}", port_name_v1_.c_str());
         } catch (const std::exception &err) {
             if (sock_ >= 0)
                 close(sock_);
@@ -330,7 +333,7 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
         // } catch (...) {
         // }
 
-        send(this, utility::event_atom_v);
+        mail(utility::event_atom_v).send(this);
 
         behavior_.assign(
             // [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
@@ -361,47 +364,17 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
 
                             spdlog::info("DNRun received request {}", jsn.dump(2));
 
-                            caf::actor playlist;
+                            bool quickview = jsn.at("args").contains("quickview") &&
+                                             jsn.at("args").at("quickview");
 
-                            // first, try and add to existing 'current' playlist
-                            try {
-                                // this throws an exception if there is no 'current' playlist
-                                playlist = request_receive<caf::actor>(
-                                    *sys, session, session::current_playlist_atom_v);
-                            } catch (...) {
-                            }
-
-                            // second, try and find the 'Ivy Media' named playlist
-                            if (!playlist) {
-
-                                playlist = request_receive<caf::actor>(
-                                    *sys,
-                                    session,
-                                    session::get_playlist_atom_v,
-                                    "DNRun Playlist");
-                            }
-
-                            // third, make a new 'Ivy Media' playlist
-                            if (!playlist) {
-
-                                playlist = request_receive<UuidUuidActor>(
-                                               *sys,
-                                               session,
-                                               session::add_playlist_atom_v,
-                                               "DNRun Playlist")
-                                               .second.actor();
-                            }
+                            // get the session to give us a playlist to add the
+                            // media to. The session decides if it's the
+                            // current playlist or a named playlist based on
+                            // user prefs
+                            auto playlist = request_receive<caf::actor>(
+                                *sys, session, session::get_push_playlist_atom_v);
 
                             bool first = true;
-
-                            bool quickview = false;
-                            if (jsn.at("args").contains("quickview")) {
-                                if (jsn.at("args")["quickview"].is_boolean()) {
-                                    quickview = jsn.at("args").at("quickview");
-                                } else if (jsn.at("args")["quickview"].is_string()) {
-                                    quickview = jsn.at("args").at("quickview") == "true";
-                                }
-                            }
 
                             bool ab_compare = jsn.at("args").contains("compare") &&
                                               jsn.at("args").at("compare") == "ab";
@@ -437,7 +410,8 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
                                         FrameList fl;
                                         caf::uri uri = parse_cli_posix_path(path, fl, true);
 
-                                        validate_media(uri, fl);
+                                        // we shouldn't validate... As it maybe a partial
+                                        // sequence ? validate_media(uri, fl);
 
                                         UuidActor new_media;
                                         if (fl.empty())
@@ -459,39 +433,40 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
                                                 Uuid());
 
                                         if (!new_media.uuid().is_null()) {
-                                            auto selection_actor = request_receive<caf::actor>(
-                                                *sys,
-                                                playlist,
-                                                playlist::selection_actor_atom_v);
-                                            if (selection_actor) {
-                                                if (first) {
-                                                    // clear the selection
-                                                    request_receive<bool>(
+
+                                            if (quickview) {
+                                                auto studio = system()
+                                                                  .registry()
+                                                                  .template get<caf::actor>(
+                                                                      studio_registry);
+
+                                                anon_mail(
+                                                    ui::open_quickview_window_atom_v,
+                                                    utility::UuidActorVector({new_media}),
+                                                    "Off")
+                                                    .send(studio);
+                                            } else {
+
+                                                auto selection_actor =
+                                                    request_receive<caf::actor>(
                                                         *sys,
-                                                        selection_actor,
-                                                        playlist::select_media_atom_v);
-                                                    first = false;
+                                                        playlist,
+                                                        playlist::selection_actor_atom_v);
+                                                if (selection_actor) {
+                                                    if (first) {
+                                                        // clear the selection
+                                                        request_receive<bool>(
+                                                            *sys,
+                                                            selection_actor,
+                                                            playlist::select_media_atom_v);
+                                                        first = false;
+                                                    }
+                                                    anon_mail(
+                                                        playlist::select_media_atom_v,
+                                                        new_media.uuid())
+                                                        .send(selection_actor);
                                                 }
-                                                anon_send(
-                                                    selection_actor,
-                                                    playlist::select_media_atom_v,
-                                                    new_media.uuid());
                                             }
-
-                                            // trigger the session to (perhaps -
-                                            // depending on quick view preference)
-                                            // launch a quick viewer for the new
-                                            // media
-                                            auto studio =
-                                                system().registry().template get<caf::actor>(
-                                                    studio_registry);
-
-                                            anon_send(
-                                                studio,
-                                                ui::open_quickview_window_atom_v,
-                                                utility::UuidActorVector({new_media}),
-                                                "Off",
-                                                quickview);
                                         }
 
                                     } catch (const std::exception &e) {
@@ -509,16 +484,20 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
                 }
 
                 if (utility_.connected())
-                    delayed_send(this, std::chrono::milliseconds(100), utility::event_atom_v);
+                    mail(utility::event_atom_v)
+                        .delay(std::chrono::milliseconds(100))
+                        .send(this);
                 else
-                    delayed_send(this, std::chrono::milliseconds(5000), utility::event_atom_v);
+                    mail(utility::event_atom_v)
+                        .delay(std::chrono::milliseconds(5000))
+                        .send(this);
             }
 
             // [=](json_store::update_atom,
             //     const utility::JsonStore & /*change*/,
             //     const std::string & /*path*/,
             //     const utility::JsonStore &full) {
-            //     delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+            //     mail(json_store::update_atom_v, full).delegate(actor_cast<caf::actor>(this));
             // },
 
             // [=](json_store::update_atom, const utility::JsonStore &js) {
@@ -553,15 +532,16 @@ void DNRunPluginActor<T>::send_uri_request_to_plugin(
     const bool quickview,
     const bool ab_compare) {
 
-    request(
-        plugin_manager, infinite, data_source::use_data_atom_v, uri, session, playlist, rate)
+    mail(data_source::use_data_atom_v, uri, session, playlist, rate)
+        .request(plugin_manager, infinite)
         .then(
             [=](UuidActorVector &new_media) {
                 if (!new_media.size())
                     return;
 
                 // check if we're loading media
-                request(new_media[0].actor(), infinite, type_atom_v)
+                mail(type_atom_v)
+                    .request(new_media[0].actor(), infinite)
                     .then(
                         [=](const std::string &type) {
                             if (type == "Media") {
@@ -569,14 +549,15 @@ void DNRunPluginActor<T>::send_uri_request_to_plugin(
                                 // depending on quick view preference)
                                 // launch a quick viewer for the new
                                 // media
-                                auto studio = system().registry().template get<caf::actor>(
-                                    studio_registry);
-                                anon_send(
-                                    studio,
-                                    ui::open_quickview_window_atom_v,
-                                    new_media,
-                                    ab_compare ? "Off" : "A/B",
-                                    quickview);
+                                if (quickview) {
+                                    auto studio = system().registry().template get<caf::actor>(
+                                        studio_registry);
+                                    anon_mail(
+                                        ui::open_quickview_window_atom_v,
+                                        new_media,
+                                        ab_compare ? "Off" : "A/B")
+                                        .send(studio);
+                                }
                             }
                         },
                         [=](error &err) mutable {

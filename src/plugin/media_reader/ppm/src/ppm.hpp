@@ -14,8 +14,9 @@ namespace media_reader {
             : MediaReader("PPM", prefs) {}
         virtual ~PPMMediaReader() = default;
 
-        ImageBufPtr image(const media::AVFrameID &mptr);
-        MRCertainty supported(const caf::uri &uri, const std::array<uint8_t, 16> &signature);
+        ImageBufPtr image(const media::AVFrameID &mptr) override;
+        MRCertainty
+        supported(const caf::uri &uri, const std::array<uint8_t, 16> &signature) override;
         // media::MediaDetail detail(const caf::uri &uri) const override;
         [[nodiscard]] utility::Uuid plugin_uuid() const override;
     };

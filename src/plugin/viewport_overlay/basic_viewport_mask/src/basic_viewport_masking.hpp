@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
-#include "xstudio/plugin_manager/plugin_base.hpp"
 #include "xstudio/ui/opengl/shader_program_base.hpp"
 #include "xstudio/ui/opengl/opengl_text_rendering.hpp"
+#include "xstudio/plugin_manager/hud_plugin.hpp"
 
 namespace xstudio {
 namespace ui {
@@ -24,10 +24,11 @@ namespace ui {
         class BasicMaskRenderer : public plugin::ViewportOverlayRenderer {
 
           public:
-            void render_opengl(
+            void render_image_overlay(
                 const Imath::M44f &transform_window_to_viewport_space,
                 const Imath::M44f &transform_viewport_to_image_space,
                 const float viewport_du_dpixel,
+                const float device_pixel_ratio,
                 const xstudio::media_reader::ImageBufPtr &frame,
                 const bool have_alpha_buffer) override;
 
@@ -43,7 +44,7 @@ namespace ui {
             float ma_         = 0.0f;
         };
 
-        class BasicViewportMasking : public plugin::StandardPlugin {
+        class BasicViewportMasking : public plugin::HUDPluginBase {
           public:
             BasicViewportMasking(
                 caf::actor_config &cfg, const utility::JsonStore &init_settings);
@@ -55,15 +56,21 @@ namespace ui {
                 ) override;
 
             void hotkey_pressed(
-                const utility::Uuid &hotkey_uuid, const std::string &context) override;
+                const utility::Uuid &hotkey_uuid,
+                const std::string &context,
+                const std::string &window) override;
 
           protected:
             void register_hotkeys() override;
 
-            utility::BlindDataObjectPtr prepare_overlay_data(
-                const media_reader::ImageBufPtr &, const bool /*offscreen*/) const override;
+            utility::BlindDataObjectPtr onscreen_render_data(
+                const media_reader::ImageBufPtr &,
+                const std::string & /*viewport_name*/,
+                const utility::Uuid &playhead_uuid,
+                const bool is_hero_image) const override;
 
-            plugin::ViewportOverlayRendererPtr make_overlay_renderer(const int) override {
+            plugin::ViewportOverlayRendererPtr
+            make_overlay_renderer(const std::string &viewport_name) override {
                 return plugin::ViewportOverlayRendererPtr(new BasicMaskRenderer());
             }
 
@@ -82,12 +89,7 @@ namespace ui {
 
             module::BooleanAttribute *show_mask_label_;
 
-            module::BooleanAttribute *mask_enabled_;
-            module::StringChoiceAttribute *mask_selection_;
-
             utility::Uuid mask_hotkey_;
-
-            bool render_opengl_ = false;
         };
 
     } // namespace viewport

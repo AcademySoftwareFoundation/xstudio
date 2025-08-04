@@ -5,7 +5,8 @@
 #include <map>
 #include <mutex>
 #include <regex>
-#ifdef __linux__
+
+#ifndef _WIN32
 #include <sys/time.h>
 #endif
 
@@ -29,14 +30,77 @@ using namespace xstudio::utility;
 
 namespace {
 
+static Uuid blankshader_uuid{"d6c8722b-dc2a-42f9-981d-a2485c6ceea1"};
+
+static std::string blankshader{R"(
+#version 330 core
+uniform int blank_width;
+uniform int dummy;
+
+// forward declaration
+uvec4 get_image_data_4bytes(int byte_address);
+
+vec4 fetch_rgba_pixel(ivec2 image_coord)
+{
+    int bytes_per_pixel = 4;
+    int pixel_bytes_offset_in_texture_memory = (image_coord.x + image_coord.y*blank_width)*bytes_per_pixel;
+    uvec4 c = get_image_data_4bytes(pixel_bytes_offset_in_texture_memory);
+    return vec4(float(c.x)/255.0f,float(c.y)/255.0f,float(c.z)/255.0f,1.0f);
+}
+)"};
+
+static ui::viewport::GPUShaderPtr
+    blank_shader(new ui::opengl::OpenGLShader(blankshader_uuid, blankshader));
+
+ImageBufPtr make_blank_image() {
+
+    ImageBufPtr buf;
+    int width             = 192;
+    int height            = 108;
+    size_t size           = width * height;
+    int bytes_per_channel = 1;
+
+    // we are totally free to choose the pixel layout, but we need to unpack
+    // in the shader. RGBA 4 bytes matches underlying texture format, so most
+    // simple option.
+    int bytes_per_pixel = 4 * bytes_per_channel;
+
+    JsonStore jsn;
+    jsn["blank_width"] = width;
+
+    buf.reset(new ImageBuffer(blankshader_uuid, jsn));
+    buf->allocate(size * bytes_per_pixel);
+    buf->set_shader(blank_shader);
+    buf->set_image_dimensions(Imath::V2i(width, height));
+
+    std::array<uint8_t, 4> c = {48, 48, 48};
+    int i                    = 0;
+    uint8_t *b               = (uint8_t *)buf->buffer();
+    while (i < size) {
+        if (((i / 16) & 1) == (i / (192 * 16) & 1)) {
+            b[0] = c[0];
+            b[1] = c[1];
+            b[2] = c[2];
+        } else {
+            b[0] = 0;
+            b[1] = 0;
+            b[2] = 0;
+        }
+        b += 4; // buf is implicitly rgba
+        ++i;
+    }
+    return buf;
+}
+
+
 static Uuid s_plugin_uuid("87557f93-55f8-4650-8905-4834f1f4b78d");
 static Uuid ffmpeg_shader_uuid_yuv{"9854e7c0-2e32-4600-aedd-463b2a6de95a"};
 static Uuid ffmpeg_shader_uuid_rgb{"20015805-0b83-426a-bf7e-f6549226bfef"};
 
 static std::string the_shader_yuv = {R"(
-#version 430 core
-uniform ivec2 image_dims;
+#version 410 core
 uniform ivec2 texture_dims;
+uniform int frame_width_pixels;
 uniform int rgb;
 uniform int y_linesize;
 uniform int u_linesize;
@@ -94,7 +158,7 @@ vec4 fetch_rgba_pixel(ivec2 image_coord)
 			yuv_tex_lookup_10bit(uv_coord, v_plane_bytes_offset, v_linesize)
 			);
 
-		if (half_scale_uvx && ((image_coord.x & 1) == 1) && image_coord.x*2 < image_dims.x) {
+		if (half_scale_uvx && ((image_coord.x & 1) == 1) && image_coord.x*2 < frame_width_pixels) {
 
 			uv_coord.x = uv_coord.x + 1;
 			ivec3 yuv2 = ivec3(yuv.x,
@@ -125,8 +189,7 @@ vec4 fetch_rgba_pixel(ivec2 image_coord)
 )"};
 
 static std::string the_shader_rgb = {R"(
-#version 430 core
-uniform ivec2 image_dims;
+#version 410 core
 uniform ivec2 texture_dims;
 uniform int rgb;
 uniform int y_linesize;
@@ -162,7 +225,7 @@ vec4 fetch_rgba_pixel_from_rgba32(ivec2 image_coord)
 	int address = image_coord.x*4 + image_coord.y*y_linesize;
 	uvec4 rgba = get_image_data_4bytes(address);
 	if (rgb == 3) { // AV_PIX_FMT_ARGB
-		rgba.xyzw = rgba.wxyz;
+		rgba.xyzw = rgba.yzwx;
 	} else if (rgb == 4) { // AV_PIX_FMT_RGBA
         //nope
 	} else if (rgb == 5) { // AV_PIX_FMT_ABGR
@@ -238,6 +301,48 @@ static ui::viewport::GPUShaderPtr
 static ui::viewport::GPUShaderPtr
     ffmpeg_shader_rgb(new ui::opengl::OpenGLShader(ffmpeg_shader_uuid_rgb, the_shader_rgb));
 
+// See 'uri_convert' - I'm doing this because 'uri_to_posix_path' which is used
+// in most places we need to go from uri to filsystem can't deal with uris like
+// https://aswf.s3-accelerate.amazonaws.com/ALab_h264_MOVs/mk020_0220.mov. For
+// FFMPEG reader, we might want to access media via https and other protocols
+// so I have avoided using uri_to_posix_path
+std::string uri_decode(const std::string &eString) {
+    std::string ret;
+    char ch;
+    unsigned int i, j;
+    for (i = 0; i < eString.length(); i++) {
+        if (int(eString[i]) == 37) {
+            sscanf(eString.substr(i + 1, 2).c_str(), "%x", &j);
+            ch = static_cast<char>(j);
+            ret += ch;
+            i = i + 2;
+        } else {
+            ret += eString[i];
+        }
+    }
+    return (ret);
+}
+
+std::string uri_convert(const caf::uri &uri) {
+
+    const auto uri_string = to_string(uri);
+    if (uri_string.find("http") == 0) {
+        return utility::forward_remap_file_path(uri_string);
+    }
+
+    // Note, turning off non-file uri support for now
+    return utility::uri_to_posix_path(uri);
+
+    // This may be a kettle of fish.
+
+    // uri like https://aswf.s3-accelerate.amazonaws.com/ALab_h264_MOVs/mk020_0220.mov
+    // can be passed through.
+    // uri like file://localhost/user_data/my_vid.mov needs the 'localhost' removed.
+    /*auto path = to_string(uri);
+    utility::replace_string_in_place(path, "file://localhost", "file:");
+    return forward_remap_file_path(uri_decode(path));*/
+}
+
 } // namespace
 
 
@@ -263,17 +368,22 @@ FFMpegMediaReader::FFMpegMediaReader(const utility::JsonStore &prefs)
 utility::Uuid FFMpegMediaReader::plugin_uuid() const { return s_plugin_uuid; }
 
 void FFMpegMediaReader::update_preferences(const utility::JsonStore &prefs) {
+
     try {
+
         readers_per_source_ =
             preference_value<int>(prefs, "/plugin/media_reader/FFMPEG/readers_per_source");
-#ifdef __linux__
-        soundcard_sample_rate_ =
-            preference_value<int>(prefs, "/core/audio/pulse_audio_prefs/sample_rate");
-#endif
+
 #ifdef _WIN32
         soundcard_sample_rate_ =
             preference_value<int>(prefs, "/core/audio/windows_audio_prefs/sample_rate");
+#else
+        soundcard_sample_rate_ =
+            preference_value<int>(prefs, "/core/audio/pulse_audio_prefs/sample_rate");
 #endif
+
+        default_rate_ = utility::FrameRate(
+            preference_value<std::string>(prefs, "/core/session/media_rate"));
 
     } catch (const std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -281,26 +391,46 @@ void FFMpegMediaReader::update_preferences(const utility::JsonStore &prefs) {
 }
 
 ImageBufPtr FFMpegMediaReader::image(const media::AVFrameID &mptr) {
-    std::string path = uri_to_posix_path(mptr.uri_);
-
-    if (last_decoded_image_ && last_decoded_image_->media_key() == mptr.key_) {
-        return last_decoded_image_;
-    }
-
-    if (!decoder || decoder->path() != path) {
-        decoder.reset(new FFMpegDecoder(path, soundcard_sample_rate_, mptr.stream_id_));
-    }
 
     ImageBufPtr rt;
-    decoder->decode_video_frame(mptr.frame_, rt);
 
-    if (rt && !rt->shader_params().is_null()) {
-        if (rt->shader_params().value("rgb", 0) != 0) {
-            rt->set_shader(ffmpeg_shader_rgb);
-        } else {
-            rt->set_shader(ffmpeg_shader_yuv);
+    if (mptr.stream_id() == "stream -1") {
+        // dummy stream, return empty image
+        ImageBufPtr blank = make_blank_image();
+        if (mptr.error() != "") {
+            blank->set_error(mptr.error());
         }
-        last_decoded_image_ = rt;
+        return blank;
+    }
+
+    try {
+        std::string path = uri_convert(mptr.uri());
+
+        if (last_decoded_image_ && last_decoded_image_->media_key() == mptr.key()) {
+            return last_decoded_image_;
+        }
+
+        if (!decoder || decoder->path() != path) {
+            decoder.reset(new FFMpegDecoder(
+                path, soundcard_sample_rate_, default_rate_, mptr.stream_id()));
+        }
+
+        decoder->decode_video_frame(mptr.frame(), rt);
+
+        if (rt && !rt->shader_params().is_null()) {
+            if (rt->shader_params().value("rgb", 0) != 0) {
+                rt->set_shader(ffmpeg_shader_rgb);
+            } else {
+                rt->set_shader(ffmpeg_shader_yuv);
+            }
+            last_decoded_image_ = rt;
+        }
+
+    } catch (std::exception &e) {
+        rt = make_blank_image();
+        if (mptr.error() != "") {
+            rt->set_error(e.what());
+        }
     }
 
     return rt;
@@ -312,19 +442,19 @@ AudioBufPtr FFMpegMediaReader::audio(const media::AVFrameID &mptr) {
 
         // Set the path for the media file. Currently, it's hard-coded to a specific file.
         // This may be updated later to use the URI from the AVFrameID object.
-        std::string path = uri_to_posix_path(mptr.uri_);
+        std::string path = uri_convert(mptr.uri());
 
         // If the audio_decoder object doesn't exist or the path it's using differs
         // from the one we're interested in, then create a new audio_decoder.
         if (!audio_decoder || audio_decoder->path() != path) {
-            audio_decoder.reset(
-                new FFMpegDecoder(path, soundcard_sample_rate_, mptr.stream_id_));
+            audio_decoder.reset(new FFMpegDecoder(
+                path, soundcard_sample_rate_, default_rate_, mptr.stream_id()));
         }
 
         AudioBufPtr rt;
 
         // Decode the audio frame using the decoder and get the resulting audio buffer.
-        audio_decoder->decode_audio_frame(mptr.frame_, rt);
+        audio_decoder->decode_audio_frame(mptr.frame(), rt);
 
         // If decoding didn't produce an audio buffer (i.e., rt is null), then initialize
         // a new empty audio buffer.
@@ -347,9 +477,13 @@ AudioBufPtr FFMpegMediaReader::audio(const media::AVFrameID &mptr) {
 
 xstudio::media::MediaDetail FFMpegMediaReader::detail(const caf::uri &uri) const {
 
-    FFMpegDecoder t_decoder(uri_to_posix_path(uri), soundcard_sample_rate_);
+    FFMpegDecoder t_decoder(uri_convert(uri), soundcard_sample_rate_, default_rate_);
     // N.B. MediaDetail needs frame duration, so invert frame rate
     std::vector<media::StreamDetail> streams;
+
+    bool have_video_stream = false;
+    bool have_audio_stream = false;
+
 
     for (auto &p : t_decoder.streams()) {
         if (p.second->codec_type() == AVMEDIA_TYPE_VIDEO ||
@@ -357,12 +491,15 @@ xstudio::media::MediaDetail FFMpegMediaReader::detail(const caf::uri &uri) const
 
             auto frameRate = t_decoder.frame_rate(p.first);
 
+            have_audio_stream |= p.second->codec_type() == AVMEDIA_TYPE_AUDIO;
+            have_video_stream |= p.second->codec_type() == AVMEDIA_TYPE_VIDEO;
+
             // If the stream has a duration of 1 then it is probably frame based.
             // FFMPEG assigns a default frame rate of 25fps to JPEGs, for example -
             // If this has happened, we want to ignore this and let xstudio apply
             // xSTUDIO's default frame rate preference instead.
-            if (t_decoder.duration_frames() == 1 &&
-                frameRate.to_flicks() == timebase::flicks(28224000)) {
+            if ((t_decoder.duration_frames() == 1 &&
+                 frameRate.to_flicks() == timebase::flicks(28224000))) {
                 // setting a null frame rate will make xstudio use its own preference
                 frameRate = utility::FrameRate();
             }
@@ -379,6 +516,25 @@ xstudio::media::MediaDetail FFMpegMediaReader::detail(const caf::uri &uri) const
                 p.first));
         }
     }
+
+
+    // Leaving this here - dummy video streams was a bad idea because audio only
+    // sources were showing up in the list of valid video sources.
+    /*if (have_audio_stream && !have_video_stream) {
+        // audio only source. We need a dummy video stream, because xstudio playheads
+        // currently require an media::MT_IMAGE type media stream to be available for
+        // a given source. The duration of the source is always inferred from the
+        // active video track. This is easily done by adding a phoney video stream with
+        // the same duration as the first audio stream:
+        streams.emplace_back(media::StreamDetail(
+            streams[0].duration_,
+            "stream -1",
+            media::MT_IMAGE,
+            "{0}@{1}/{2}",
+            Imath::V2f(1920, 1080),
+            1.0f,
+            -1));
+    }*/
 
     return xstudio::media::MediaDetail(name(), streams, t_decoder.first_frame_timecode());
 }
@@ -402,16 +558,16 @@ std::shared_ptr<thumbnail::ThumbnailBuffer>
 FFMpegMediaReader::thumbnail(const media::AVFrameID &mptr, const size_t thumb_size) {
     try {
 
-        std::string path = uri_to_posix_path(mptr.uri_);
+        std::string path = uri_convert(mptr.uri());
 
-        // DebugTimer d(path, mptr.frame_);
+        // DebugTimer d(path, mptr.frame());
         if (!thumbnail_decoder || thumbnail_decoder->path() != path) {
-            thumbnail_decoder.reset(
-                new FFMpegDecoder(path, soundcard_sample_rate_, mptr.stream_id_));
+            thumbnail_decoder.reset(new FFMpegDecoder(
+                path, soundcard_sample_rate_, default_rate_, mptr.stream_id()));
         }
 
         std::shared_ptr<thumbnail::ThumbnailBuffer> rt =
-            thumbnail_decoder->decode_thumbnail_frame(mptr.frame_, thumb_size);
+            thumbnail_decoder->decode_thumbnail_frame(mptr.frame(), thumb_size);
 
         // for now immediately deleting the decoder to prevent memory hogging
         // when generating many thumbnails. This could make the scrubbable
@@ -429,7 +585,9 @@ FFMpegMediaReader::thumbnail(const media::AVFrameID &mptr, const size_t thumb_si
 #define ALPHA_UNSET -1e6f
 
 PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
-    const ImageBuffer &buf, const Imath::V2i &pixel_location) {
+    const ImageBuffer &buf,
+    const Imath::V2i &pixel_location,
+    const std::vector<Imath::V2i> &extra_pixel_locations) {
 
     // This function is close to being a C++ implementation of the the
     // glsl shader(s) at the top of this file. It allows xstudio to inspect
@@ -460,16 +618,15 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
         const int half_scale_uvy       = buf.shader_params().value("half_scale_uvy", 0);
         const int half_scale_uvx       = buf.shader_params().value("half_scale_uvx", 0);
         const int bits_per_channel     = buf.shader_params().value("bits_per_channel", 0);
-        const Imath::M33f yuv_conv =
-            buf.shader_params().value("yuv_conv", Imath::M33f()).transposed();
-        const Imath::V3i yuv_offsets = buf.shader_params().value("yuv_offsets", Imath::V3i());
-        const float norm_coeff       = buf.shader_params().value("norm_coeff", 1.0f);
+        const Imath::M33f yuv_conv     = buf.shader_params().value("yuv_conv", Imath::M33f());
+        const Imath::V3i yuv_offsets   = buf.shader_params().value("yuv_offsets", Imath::V3i());
+        const float norm_coeff         = buf.shader_params().value("norm_coeff", 1.0f);
 
-        auto get_image_data_4bytes = [&](const int address) -> std::array<float, 4> {
+        auto get_image_data_4bytes = [&](const int address) -> std::array<uint8_t, 4> {
             if (address < 0 || address >= (int)buf.size())
-                return std::array<float, 4>({0.0f, 0.0f, 0.0f, 0.0f});
-            std::array<float, 4> r;
-            memcpy(r.data(), (buf.buffer() + address), 4 * sizeof(float));
+                return std::array<uint8_t, 4>({0, 0, 0, 0});
+            std::array<uint8_t, 4> r;
+            memcpy(r.data(), buf.buffer() + address, 4 * sizeof(uint8_t));
             return r;
         };
 
@@ -505,7 +662,7 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
             Imath::V4f r = bgr ? Imath::V4f(bytes4[2], bytes4[1], bytes4[0], 0.0f)
                                : Imath::V4f(bytes4[0], bytes4[1], bytes4[2], 0.0f);
             r *= norm_coeff;
-            r.z = 1.0f;
+            r.w = 1.0f;
             return r;
         };
 
@@ -514,7 +671,7 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
             auto bytes4 = get_image_data_4bytes(address);
             Imath::V4f r;
             if (rgb == 3) { // AV_PIX_FMT_ARGB
-                r = Imath::V4f(bytes4[3], bytes4[0], bytes4[1], bytes4[2]);
+                r = Imath::V4f(bytes4[1], bytes4[2], bytes4[3], bytes4[0]);
             } else if (rgb == 4) { // AV_PIX_FMT_RGBA
                 // nope
             } else if (rgb == 5) { // AV_PIX_FMT_ABGR
@@ -596,7 +753,7 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
             r.add_code_value_info("B", rgba.z);
 
             rgba *= norm_coeff;
-            rgba.w = 0.0f;
+            rgba.w = 1.0f;
             return rgba;
         };
 
@@ -642,25 +799,43 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
             }
         };
 
-        Imath::V4f rgba_pix;
-        if (rgb == 0) {
-            rgba_pix = fetch_rgba_pixel_from_yuv(pixel_location);
-        } else if (rgb == 9) {
-            rgba_pix = fetch_rgba_pixel_from_rgba_64(pixel_location);
-        } else if (rgb == 8) {
-            rgba_pix = fetch_rgba_pixel_from_rgb_48(pixel_location);
-        } else if (rgb == 7) {
-            rgba_pix = fetch_rgba_pixel_from_gbr_planar(pixel_location);
-        } else if (rgb > 2) {
-            rgba_pix = fetch_rgba_pixel_from_rgba32(pixel_location);
-        } else {
-            rgba_pix = fetch_rgba_pixel_from_rgb24(pixel_location, rgb == 2);
-        }
+        auto fetch_rgba_pixel = [&](const Imath::V2i pixel_location) -> Imath::V4f {
+            Imath::V4f rgba_pix;
+            if (rgb == 0) {
+                rgba_pix = fetch_rgba_pixel_from_yuv(pixel_location);
+            } else if (rgb == 9) {
+                rgba_pix = fetch_rgba_pixel_from_rgba_64(pixel_location);
+            } else if (rgb == 8) {
+                rgba_pix = fetch_rgba_pixel_from_rgb_48(pixel_location);
+            } else if (rgb == 7) {
+                rgba_pix = fetch_rgba_pixel_from_gbr_planar(pixel_location);
+            } else if (rgb > 2) {
+                rgba_pix = fetch_rgba_pixel_from_rgba32(pixel_location);
+            } else {
+                rgba_pix = fetch_rgba_pixel_from_rgb24(pixel_location, rgb == 2);
+            }
+            return rgba_pix;
+        };
+
+        Imath::V4f rgba_pix = fetch_rgba_pixel(pixel_location);
         r.add_raw_channel_info("R", rgba_pix.x);
         r.add_raw_channel_info("G", rgba_pix.y);
         r.add_raw_channel_info("B", rgba_pix.z);
         if (rgba_pix.w != ALPHA_UNSET)
             r.add_raw_channel_info("A", rgba_pix.w);
+
+
+        for (const auto &p : extra_pixel_locations) {
+
+            if (pixel_location.x < 0 || pixel_location.x >= width || pixel_location.y < 0 ||
+                pixel_location.y >= height) {
+                r.add_extra_pixel_raw_rgba(Imath::V4f(0.0f, 0.0f, 0.0f, 0.0f));
+            } else {
+                Imath::V4f rgba_pix = fetch_rgba_pixel(pixel_location);
+                r.add_extra_pixel_raw_rgba(fetch_rgba_pixel(p));
+            }
+        }
+
         return r;
 
     } catch (std::exception &e) {

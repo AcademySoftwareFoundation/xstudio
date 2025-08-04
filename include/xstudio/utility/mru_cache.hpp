@@ -40,6 +40,7 @@ namespace utility {
 
         typename cache_type::iterator erase(const typename cache_type::iterator &it);
 
+        [[nodiscard]] bool empty() const { return count_ == 0; }
         [[nodiscard]] size_t size() const { return size_; }
         [[nodiscard]] size_t count() const { return count_; }
 

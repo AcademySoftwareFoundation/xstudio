@@ -6,7 +6,9 @@ using namespace xstudio;
 
 std::map<long, std::shared_ptr<AnnotationSerialiser>> AnnotationSerialiser::serialisers;
 
+namespace {
 static const std::string ANNO_VERSION_KEY("Annotation Serialiser Version");
+}
 
 utility::JsonStore AnnotationSerialiser::serialise(const Annotation *anno) {
     if (serialisers.empty()) {
@@ -40,7 +42,7 @@ void AnnotationSerialiser::register_serialiser(
     const unsigned char maj_ver,
     const unsigned char minor_ver,
     std::shared_ptr<AnnotationSerialiser> sptr) {
-    int fver = maj_ver << 8 + minor_ver;
+    int fver = (maj_ver << 8) + minor_ver;
     assert(sptr);
     if (serialisers.find(fver) != serialisers.end()) {
         throw std::runtime_error("Attempt to register Annotation Serialiser with a used "

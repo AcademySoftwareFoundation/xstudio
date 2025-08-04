@@ -33,7 +33,7 @@ namespace media_reader {
             case audio::SampleFormat::INT16:
                 samp_size = 2;
                 break;
-            case audio::SampleFormat::INT32:
+            case audio::SampleFormat::SFINT32:
                 samp_size = 4;
                 break;
             case audio::SampleFormat::FLOAT32:
@@ -104,12 +104,15 @@ namespace media_reader {
         AudioBufPtr() = default;
         AudioBufPtr(AudioBuffer *imbuf) : Base(imbuf) {}
         AudioBufPtr(const AudioBufPtr &o)
-            : Base(static_cast<const Base &>(o)), when_to_display_(o.when_to_display_) {}
+            : Base(static_cast<const Base &>(o)),
+              when_to_display_(o.when_to_display_),
+              tts_(o.tts_) {}
 
         AudioBufPtr &operator=(const AudioBufPtr &o) {
             Base &b          = static_cast<Base &>(*this);
             b                = static_cast<const Base &>(o);
             when_to_display_ = o.when_to_display_;
+            tts_             = o.tts_;
             return *this;
         }
 
@@ -125,6 +128,12 @@ namespace media_reader {
         bool operator<(const utility::time_point &t) const { return when_to_display_ < t; }
 
         utility::time_point when_to_display_;
+
+        [[nodiscard]] const timebase::flicks &timeline_timestamp() const { return tts_; }
+        void set_timline_timestamp(const timebase::flicks tts) { tts_ = tts; }
+
+      private:
+        timebase::flicks tts_ = timebase::flicks{0};
     };
 
 } // namespace media_reader

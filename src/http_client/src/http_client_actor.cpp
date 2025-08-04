@@ -74,6 +74,7 @@ HTTPWorker::HTTPWorker(
             const httplib::Headers &headers,
             const std::string &body,
             const std::string &content_type) -> result<httplib::Response> {
+            // spdlog::warn("http_delete_atom {}", path);
             try {
                 httplib::Client cli(scheme_host_port.c_str());
                 cli.set_follow_location(true);
@@ -104,15 +105,8 @@ HTTPWorker::HTTPWorker(
             const std::string &body,
             const std::string &content_type) -> result<std::string> {
             auto rp = make_response_promise<std::string>();
-            request(
-                actor_cast<caf::actor>(this),
-                infinite,
-                http_delete_atom_v,
-                scheme_host_port,
-                path,
-                headers,
-                body,
-                content_type)
+            mail(http_delete_atom_v, scheme_host_port, path, headers, body, content_type)
+                .request(actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const httplib::Response &response) mutable {
                         if (response.status != 200)
@@ -133,6 +127,8 @@ HTTPWorker::HTTPWorker(
             const std::string &path,
             const httplib::Headers &headers,
             const httplib::Params &params) -> result<httplib::Response> {
+            // spdlog::warn("http_get_atom {}", path);
+
             try {
                 httplib::Client cli(scheme_host_port.c_str());
                 cli.set_follow_location(true);
@@ -172,14 +168,8 @@ HTTPWorker::HTTPWorker(
             const httplib::Headers &headers,
             const httplib::Params &params) -> result<std::string> {
             auto rp = make_response_promise<std::string>();
-            request(
-                actor_cast<caf::actor>(this),
-                infinite,
-                http_get_atom_v,
-                scheme_host_port,
-                path,
-                headers,
-                params)
+            mail(http_get_atom_v, scheme_host_port, path, headers, params)
+                .request(actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const httplib::Response &response) mutable {
                         if (response.status != 200)
@@ -202,6 +192,8 @@ HTTPWorker::HTTPWorker(
             const httplib::Params &params,
             const std::string &body,
             const std::string &content_type) -> result<httplib::Response> {
+            // spdlog::warn("http_post_atom {}", path);
+
             try {
                 httplib::Client cli(scheme_host_port.c_str());
                 cli.set_follow_location(true);
@@ -233,16 +225,8 @@ HTTPWorker::HTTPWorker(
             const std::string &body,
             const std::string &content_type) -> result<std::string> {
             auto rp = make_response_promise<std::string>();
-            request(
-                actor_cast<caf::actor>(this),
-                infinite,
-                http_post_atom_v,
-                scheme_host_port,
-                path,
-                headers,
-                params,
-                body,
-                content_type)
+            mail(http_post_atom_v, scheme_host_port, path, headers, params, body, content_type)
+                .request(actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const httplib::Response &response) mutable {
                         if (response.status != 200)
@@ -265,6 +249,8 @@ HTTPWorker::HTTPWorker(
             const httplib::Params &params,
             const std::string &body,
             const std::string &content_type) -> result<httplib::Response> {
+            // spdlog::warn("http_put_atom {}", path);
+
             try {
                 httplib::Client cli(scheme_host_port.c_str());
                 cli.set_follow_location(true);
@@ -303,16 +289,8 @@ HTTPWorker::HTTPWorker(
             const std::string &body,
             const std::string &content_type) -> result<std::string> {
             auto rp = make_response_promise<std::string>();
-            request(
-                actor_cast<caf::actor>(this),
-                infinite,
-                http_put_atom_v,
-                scheme_host_port,
-                path,
-                headers,
-                params,
-                body,
-                content_type)
+            mail(http_put_atom_v, scheme_host_port, path, headers, params, body, content_type)
+                .request(actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const httplib::Response &response) mutable {
                         if (response.status != 200)
@@ -346,21 +324,27 @@ void HTTPClientActor::init() {
     spdlog::debug("Created HTTPClientActor");
     print_on_exit(this, "HTTPClientActor");
 
-    // try {
-    // 	auto prefs = GlobalStoreHelper(system());
-    // 	JsonStore j;
-    // 	join_broadcast(this, prefs.get_group(j));
-    // 	worker_count = preference_value<size_t>(j, "/core/media_hook/max_worker_count");
-    // } catch(...) {
-    // }
+// try {
+// 	auto prefs = GlobalStoreHelper(system());
+// 	JsonStore j;
+// 	join_broadcast(this, prefs.get_group(j));
+// 	worker_count = preference_value<size_t>(j, "/core/media_hook/max_worker_count");
+// } catch(...) {
+// }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
     auto pool = caf::actor_pool::make(
-        system().dummy_execution_unit(),
+        system(),
         worker_count,
         [&] {
             return system().spawn<HTTPWorker>(
                 connection_timeout_, read_timeout_, write_timeout_);
         },
         caf::actor_pool::round_robin());
+
+#pragma GCC diagnostic pop
+
     link_to(pool);
 
     behavior_.assign(
@@ -368,14 +352,15 @@ void HTTPClientActor::init() {
         [=](http_delete_atom atom,
             const std::string &scheme_host_port,
             const std::string &path) {
-            return delegate(pool, atom, scheme_host_port, path, httplib::Headers(), "", "");
+            return mail(atom, scheme_host_port, path, httplib::Headers(), "", "")
+                .delegate(pool);
         },
 
         [=](http_delete_atom atom,
             const std::string &scheme_host_port,
             const std::string &path,
             const httplib::Headers &headers) {
-            return delegate(pool, atom, scheme_host_port, path, headers, "", "");
+            return mail(atom, scheme_host_port, path, headers, "", "").delegate(pool);
         },
 
         [=](http_delete_atom atom,
@@ -384,20 +369,22 @@ void HTTPClientActor::init() {
             const httplib::Headers &headers,
             const std::string &body,
             const std::string &content_type) {
-            return delegate(pool, atom, scheme_host_port, path, headers, body, content_type);
+            return mail(atom, scheme_host_port, path, headers, body, content_type)
+                .delegate(pool);
         },
 
         [=](http_delete_simple_atom atom,
             const std::string &scheme_host_port,
             const std::string &path) {
-            return delegate(pool, atom, scheme_host_port, path, httplib::Headers(), "", "");
+            return mail(atom, scheme_host_port, path, httplib::Headers(), "", "")
+                .delegate(pool);
         },
 
         [=](http_delete_simple_atom atom,
             const std::string &scheme_host_port,
             const std::string &path,
             const httplib::Headers &headers) {
-            return delegate(pool, atom, scheme_host_port, path, headers, "", "");
+            return mail(atom, scheme_host_port, path, headers, "", "").delegate(pool);
         },
 
         [=](http_delete_simple_atom atom,
@@ -406,19 +393,21 @@ void HTTPClientActor::init() {
             const httplib::Headers &headers,
             const std::string &body,
             const std::string &content_type) {
-            return delegate(pool, atom, scheme_host_port, path, headers, body, content_type);
+            return mail(atom, scheme_host_port, path, headers, body, content_type)
+                .delegate(pool);
         },
 
         [=](http_get_atom atom, const std::string &scheme_host_port, const std::string &path) {
-            return delegate(
-                pool, atom, scheme_host_port, path, httplib::Headers(), httplib::Params());
+            return mail(atom, scheme_host_port, path, httplib::Headers(), httplib::Params())
+                .delegate(pool);
         },
 
         [=](http_get_atom atom,
             const std::string &scheme_host_port,
             const std::string &path,
             const httplib::Headers &headers) {
-            return delegate(pool, atom, scheme_host_port, path, headers, httplib::Params());
+            return mail(atom, scheme_host_port, path, headers, httplib::Params())
+                .delegate(pool);
         },
 
         [=](http_get_atom atom,
@@ -426,21 +415,22 @@ void HTTPClientActor::init() {
             const std::string &path,
             const httplib::Headers &headers,
             const httplib::Params &params) {
-            return delegate(pool, atom, scheme_host_port, path, headers, params);
+            return mail(atom, scheme_host_port, path, headers, params).delegate(pool);
         },
 
         [=](http_get_simple_atom atom,
             const std::string &scheme_host_port,
             const std::string &path) {
-            return delegate(
-                pool, atom, scheme_host_port, path, httplib::Headers(), httplib::Params());
+            return mail(atom, scheme_host_port, path, httplib::Headers(), httplib::Params())
+                .delegate(pool);
         },
 
         [=](http_get_simple_atom atom,
             const std::string &scheme_host_port,
             const std::string &path,
             const httplib::Headers &headers) {
-            return delegate(pool, atom, scheme_host_port, path, headers, httplib::Params());
+            return mail(atom, scheme_host_port, path, headers, httplib::Params())
+                .delegate(pool);
         },
 
         [=](http_get_simple_atom atom,
@@ -448,27 +438,27 @@ void HTTPClientActor::init() {
             const std::string &path,
             const httplib::Headers &headers,
             const httplib::Params &params) {
-            return delegate(pool, atom, scheme_host_port, path, headers, params);
+            return mail(atom, scheme_host_port, path, headers, params).delegate(pool);
         },
 
         [=](http_post_atom atom, const std::string &scheme_host_port, const std::string &path) {
-            return delegate(
-                pool,
-                atom,
-                scheme_host_port,
-                path,
-                httplib::Headers(),
-                httplib::Params(),
-                "",
-                "");
+            return mail(
+                       atom,
+                       scheme_host_port,
+                       path,
+                       httplib::Headers(),
+                       httplib::Params(),
+                       "",
+                       "")
+                .delegate(pool);
         },
 
         [=](http_post_atom atom,
             const std::string &scheme_host_port,
             const std::string &path,
             const httplib::Headers &headers) {
-            return delegate(
-                pool, atom, scheme_host_port, path, headers, httplib::Params(), "", "");
+            return mail(atom, scheme_host_port, path, headers, httplib::Params(), "", "")
+                .delegate(pool);
         },
 
         [=](http_post_atom atom,
@@ -476,7 +466,7 @@ void HTTPClientActor::init() {
             const std::string &path,
             const httplib::Headers &headers,
             const httplib::Params &params) {
-            return delegate(pool, atom, scheme_host_port, path, headers, params, "", "");
+            return mail(atom, scheme_host_port, path, headers, params, "", "").delegate(pool);
         },
 
         [=](http_post_atom atom,
@@ -485,37 +475,37 @@ void HTTPClientActor::init() {
             const httplib::Headers &headers,
             const std::string &body,
             const std::string &content_type) {
-            return delegate(
-                pool,
-                atom,
-                scheme_host_port,
-                path,
-                headers,
-                httplib::Params(),
-                body,
-                content_type);
+            return mail(
+                       atom,
+                       scheme_host_port,
+                       path,
+                       headers,
+                       httplib::Params(),
+                       body,
+                       content_type)
+                .delegate(pool);
         },
 
         [=](http_post_simple_atom atom,
             const std::string &scheme_host_port,
             const std::string &path) {
-            return delegate(
-                pool,
-                atom,
-                scheme_host_port,
-                path,
-                httplib::Headers(),
-                httplib::Params(),
-                "",
-                "");
+            return mail(
+                       atom,
+                       scheme_host_port,
+                       path,
+                       httplib::Headers(),
+                       httplib::Params(),
+                       "",
+                       "")
+                .delegate(pool);
         },
 
         [=](http_post_simple_atom atom,
             const std::string &scheme_host_port,
             const std::string &path,
             const httplib::Headers &headers) {
-            return delegate(
-                pool, atom, scheme_host_port, path, headers, httplib::Params(), "", "");
+            return mail(atom, scheme_host_port, path, headers, httplib::Params(), "", "")
+                .delegate(pool);
         },
 
         [=](http_post_simple_atom atom,
@@ -523,7 +513,7 @@ void HTTPClientActor::init() {
             const std::string &path,
             const httplib::Headers &headers,
             const httplib::Params &params) {
-            return delegate(pool, atom, scheme_host_port, path, headers, params, "", "");
+            return mail(atom, scheme_host_port, path, headers, params, "", "").delegate(pool);
         },
 
         [=](http_post_simple_atom atom,
@@ -532,35 +522,35 @@ void HTTPClientActor::init() {
             const httplib::Headers &headers,
             const std::string &body,
             const std::string &content_type) {
-            return delegate(
-                pool,
-                atom,
-                scheme_host_port,
-                path,
-                headers,
-                httplib::Params(),
-                body,
-                content_type);
+            return mail(
+                       atom,
+                       scheme_host_port,
+                       path,
+                       headers,
+                       httplib::Params(),
+                       body,
+                       content_type)
+                .delegate(pool);
         },
 
         [=](http_put_atom atom, const std::string &scheme_host_port, const std::string &path) {
-            return delegate(
-                pool,
-                atom,
-                scheme_host_port,
-                path,
-                httplib::Headers(),
-                httplib::Params(),
-                "",
-                "");
+            return mail(
+                       atom,
+                       scheme_host_port,
+                       path,
+                       httplib::Headers(),
+                       httplib::Params(),
+                       "",
+                       "")
+                .delegate(pool);
         },
 
         [=](http_put_atom atom,
             const std::string &scheme_host_port,
             const std::string &path,
             const httplib::Headers &headers) {
-            return delegate(
-                pool, atom, scheme_host_port, path, headers, httplib::Params(), "", "");
+            return mail(atom, scheme_host_port, path, headers, httplib::Params(), "", "")
+                .delegate(pool);
         },
 
         [=](http_put_atom atom,
@@ -568,7 +558,7 @@ void HTTPClientActor::init() {
             const std::string &path,
             const httplib::Headers &headers,
             const httplib::Params &params) {
-            return delegate(pool, atom, scheme_host_port, path, headers, params, "", "");
+            return mail(atom, scheme_host_port, path, headers, params, "", "").delegate(pool);
         },
 
         [=](http_put_atom atom,
@@ -577,15 +567,15 @@ void HTTPClientActor::init() {
             const httplib::Headers &headers,
             const std::string &body,
             const std::string &content_type) {
-            return delegate(
-                pool,
-                atom,
-                scheme_host_port,
-                path,
-                headers,
-                httplib::Params(),
-                body,
-                content_type);
+            return mail(
+                       atom,
+                       scheme_host_port,
+                       path,
+                       headers,
+                       httplib::Params(),
+                       body,
+                       content_type)
+                .delegate(pool);
         },
 
         [=](http_put_atom atom,
@@ -595,30 +585,30 @@ void HTTPClientActor::init() {
             const std::string &body,
             const httplib::Params &params,
             const std::string &content_type) {
-            return delegate(
-                pool, atom, scheme_host_port, path, headers, params, body, content_type);
+            return mail(atom, scheme_host_port, path, headers, params, body, content_type)
+                .delegate(pool);
         },
 
         [=](http_put_simple_atom atom,
             const std::string &scheme_host_port,
             const std::string &path) {
-            return delegate(
-                pool,
-                atom,
-                scheme_host_port,
-                path,
-                httplib::Headers(),
-                httplib::Params(),
-                "",
-                "");
+            return mail(
+                       atom,
+                       scheme_host_port,
+                       path,
+                       httplib::Headers(),
+                       httplib::Params(),
+                       "",
+                       "")
+                .delegate(pool);
         },
 
         [=](http_put_simple_atom atom,
             const std::string &scheme_host_port,
             const std::string &path,
             const httplib::Headers &headers) {
-            return delegate(
-                pool, atom, scheme_host_port, path, headers, httplib::Params(), "", "");
+            return mail(atom, scheme_host_port, path, headers, httplib::Params(), "", "")
+                .delegate(pool);
         },
 
         [=](http_put_simple_atom atom,
@@ -626,7 +616,7 @@ void HTTPClientActor::init() {
             const std::string &path,
             const httplib::Headers &headers,
             const httplib::Params &params) {
-            return delegate(pool, atom, scheme_host_port, path, headers, params, "", "");
+            return mail(atom, scheme_host_port, path, headers, params, "", "").delegate(pool);
         },
 
         [=](http_put_simple_atom atom,
@@ -635,15 +625,15 @@ void HTTPClientActor::init() {
             const httplib::Headers &headers,
             const std::string &body,
             const std::string &content_type) {
-            return delegate(
-                pool,
-                atom,
-                scheme_host_port,
-                path,
-                headers,
-                httplib::Params(),
-                body,
-                content_type);
+            return mail(
+                       atom,
+                       scheme_host_port,
+                       path,
+                       headers,
+                       httplib::Params(),
+                       body,
+                       content_type)
+                .delegate(pool);
         },
 
         [=](http_put_simple_atom atom,
@@ -653,7 +643,7 @@ void HTTPClientActor::init() {
             const std::string &body,
             const httplib::Params &params,
             const std::string &content_type) {
-            return delegate(
-                pool, atom, scheme_host_port, path, headers, params, body, content_type);
+            return mail(atom, scheme_host_port, path, headers, params, body, content_type)
+                .delegate(pool);
         });
 }

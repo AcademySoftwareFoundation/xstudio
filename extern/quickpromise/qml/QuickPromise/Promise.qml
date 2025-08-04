@@ -1,5 +1,5 @@
 // Author:  Ben Lau (https://github.com/benlau)
-import QtQuick 2.0
+import QtQuick
 import QtQml 2.2
 import QuickPromise 1.0
 import "promise.js" as PromiseJS

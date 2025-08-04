@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#ifdef __apple__
+#undef nil
+#endif
+
 #include <caf/all.hpp>
 
 #include "xstudio/module/typed_attributes.hpp"
@@ -23,6 +27,8 @@ namespace module {
         Module(const std::string name, const utility::Uuid &uuid = utility::Uuid::generate());
 
         virtual ~Module();
+
+        void parent_actor_exiting();
 
         FloatAttribute *add_float_attribute(
             const std::string &title,
@@ -52,6 +58,9 @@ namespace module {
                   // enabled
         );
 
+        IntegerVecAttribute *
+        add_int_vec_attribute(const std::string &title, const std::string &abbr_title = "");
+
         JsonAttribute *add_json_attribute(
             const std::string &title,
             const std::string &abbr_title = "",
@@ -69,9 +78,9 @@ namespace module {
         IntegerAttribute *add_integer_attribute(
             const std::string &title,
             const std::string &abbr_title,
-            const int value,
-            const int int_min = std::numeric_limits<int>::lowest(),
-            const int int_max = std::numeric_limits<int>::max());
+            const int64_t value,
+            const int64_t int_min = std::numeric_limits<int64_t>::lowest(),
+            const int64_t int_max = std::numeric_limits<int64_t>::max());
 
         ActionAttribute *
         add_action_attribute(const std::string &title, const std::string &abbr_title);
@@ -81,10 +90,29 @@ namespace module {
             const std::string &abbr_title,
             const utility::ColourTriplet &value);
 
+        Vec4fAttribute *add_vec4f_attribute(
+            const std::string &title, const std::string &abbr_title, const Imath::V4f &value);
+
+        Vec4fAttribute *add_vec4f_attribute(
+            const std::string &title,
+            const std::string &abbr_title,
+            const Imath::V4f &value,
+            const Imath::V4f &min,
+            const Imath::V4f &max,
+            const Imath::V4f &step);
+
+        FloatVectorAttribute *add_float_vector_attribute(
+            const std::string &title,
+            const std::string &abbr_title,
+            const std::vector<float> &value,
+            const std::vector<float> &min,
+            const std::vector<float> &max,
+            const std::vector<float> &step);
+
         Attribute *add_attribute(
             const std::string &title,
-            const utility::JsonStore &value,
-            const utility::JsonStore &role_data);
+            const utility::JsonStore &value     = utility::JsonStore(),
+            const utility::JsonStore &role_data = utility::JsonStore());
 
         [[nodiscard]] virtual AttributeSet full_module(
             const std::vector<std::string> &attr_groups = std::vector<std::string>()) const;
@@ -96,7 +124,7 @@ namespace module {
 
         virtual void update_attrs_from_preferences(const utility::JsonStore &);
 
-        virtual bool remove_attribute(const utility::Uuid &attribute_uuid);
+        virtual void remove_attribute(const utility::Uuid &attribute_uuid);
 
         [[nodiscard]] virtual utility::JsonStore serialise() const;
 
@@ -146,6 +174,12 @@ namespace module {
             const bool redraw_viewport = false,
             const bool self_notify     = true);
 
+        utility::Uuid register_hotkey(
+            const std::string sequence,
+            const std::string &hotkey_name,
+            const std::string &description,
+            const bool autorepeat        = false,
+            const std::string &component = "MODULE_NAME");
 
         utility::Uuid register_hotkey(
             int default_keycode,
@@ -153,22 +187,22 @@ namespace module {
             const std::string &hotkey_name,
             const std::string &description,
             const bool autorepeat        = false,
-            const std::string &component = "MODULE_NAME",
-            const std::string &context   = "any" // context "any" means hotkey will be activated
-                                                 // regardless of which window it came from
-        );
+            const std::string &component = "MODULE_NAME");
 
         void remove_hotkey(const utility::Uuid &hotkey_uuid);
 
         // re-implement to handle viewport hotkey events. context argument indicates where the
         // hotkey was pressed (e.g. 'main_viewport', 'popout_viewport' etc.)
-        virtual void
-        hotkey_pressed(const utility::Uuid & /*hotkey_uuid*/, const std::string & /*context*/) {
-        }
+        virtual void hotkey_pressed(
+            const utility::Uuid & /*hotkey_uuid*/,
+            const std::string & /*context*/,
+            const std::string & /*window*/) {}
 
         // re-implement to handle viewport hotkey release events
         virtual void hotkey_released(
-            const utility::Uuid & /*hotkey_uuid*/, const std::string & /*context*/) {}
+            const utility::Uuid & /*hotkey_uuid*/,
+            const std::string & /*context*/,
+            const bool /*due_to_focus_change*/) {}
 
         // re-implement to handle viewport pointer events
         virtual bool pointer_event(const ui::PointerEvent &) { return false; }
@@ -182,7 +216,7 @@ namespace module {
 
         caf::scoped_actor home_system() { return self()->home_system(); }
 
-        caf::actor self() { return caf::actor_cast<caf::actor>(parent_actor_addr_); }
+        caf::actor self() const { return caf::actor_cast<caf::actor>(parent_actor_addr_); }
 
         // re-implement to receive callback when the on-screen media changes. To
         virtual void on_screen_media_changed(caf::actor media) {}
@@ -202,7 +236,14 @@ namespace module {
         virtual void connect_to_viewport(
             const std::string &viewport_name,
             const std::string &viewport_toolbar_name,
-            bool connect);
+            bool connect,
+            caf::actor viewport);
+
+        // re-implement to execute useful state reset for your module when the
+        // user hits the 'reset-viewport' hotkey or button. For example, a
+        // colour pipeline plugin might reset exposure / gamma values in this
+        // function.
+        virtual void reset() {}
 
       protected:
         /* Call this method with your StringChoiceAttribute to expose it in
@@ -230,6 +271,43 @@ namespace module {
             const std::string top_level_menu,
             const std::string before = std::string{});
 
+        utility::Uuid insert_menu_item(
+            const std::string &menu_model_name,
+            const std::string &menu_text,
+            const std::string &menu_path,
+            const float menu_item_position,
+            Attribute *attr              = nullptr,
+            const bool divider           = false,
+            const utility::Uuid &hotkey  = utility::Uuid(),
+            const std::string &user_data = std::string());
+
+        utility::Uuid insert_hotkey_into_menu(
+            const std::string &menu_model_name,
+            const std::string &menu_path,
+            const float menu_item_position,
+            const utility::Uuid &hotkey);
+
+        utility::Uuid insert_menu_divider(
+            const std::string &menu_model_name,
+            const std::string &menu_path,
+            const float menu_item_position);
+
+        void set_submenu_position_in_parent(
+            const std::string &menu_model_name,
+            const std::string &submenu,
+            const float submenu_position);
+
+        void remove_all_menu_items(const std::string &menu_model_name);
+
+        void remove_menu_item(const std::string &menu_model_name, const utility::Uuid item_id);
+
+        virtual void menu_item_activated(
+            const utility::JsonStore &menu_item_data, const std::string &user_data) {}
+
+        utility::JsonStore attribute_menu_item_data(Attribute *attr);
+
+        void update_attribute_menu_item_data(Attribute *attr);
+
         void make_attribute_visible_in_viewport_toolbar(
             Attribute *attr, const bool make_visible = true);
 
@@ -253,12 +331,12 @@ namespace module {
         caf::actor_addr parent_actor_addr_;
 
         void connect_to_ui();
-        void disconnect_from_ui();
         void grab_mouse_focus();
         void release_mouse_focus();
         void grab_keyboard_focus();
         void release_keyboard_focus();
-        void listen_to_playhead_events(const bool listen = true);
+
+        virtual void disconnect_from_ui();
 
         [[nodiscard]] bool connected_to_ui() const { return connected_to_ui_; }
         virtual void connected_to_ui_changed() {}
@@ -268,16 +346,62 @@ namespace module {
 
         std::vector<AttributePtr> attributes_;
 
+        // Call this code to expose a UI panel in xSTUDIO's panels menu. See
+        // annotations tool for an example. To allow the panel to be shown in
+        // a floating window, provide an incon path and a position within
+        // the pop-out button shelf (top left of viewport panels) for it to
+        // appear in.
+        void register_ui_panel_qml(
+            const std::string &panel_name,
+            const std::string &qml_code,
+            const float position_in_menu,
+            const std::string &viewport_popout_button_icon_path = "",
+            const float &viewport_popout_button_position        = -1.0f,
+            const utility::Uuid toggle_hotkey_id                = utility::Uuid());
+
+        // Call this code to expose a widget that can dock to the left/right or
+        // top/bottom of the viewport
+        Attribute *register_viewport_dockable_widget(
+            const std::string &widget_name,
+            const std::string &button_icon_qrc_path,
+            const std::string &button_tooltip,
+            const float button_position,
+            const bool enabled,
+            const std::string &left_right_dockable_widget_qml,
+            const std::string &top_bottom_dockable_widget_qml,
+            const utility::Uuid toggle_widget_visible_hotkey = utility::Uuid());
+
+        std::set<utility::Uuid> dock_widget_attributes_;
+
+        // re-implement to get a callback when your dockable widget has been
+        // made visible by the user clicking on the toggle button in the
+        // viewport action bar
+        virtual void viewport_dockable_widget_activated(std::string &widget_name) {}
+
+        // re-implement to get a callback when your dockable widget has been
+        // hidden by the user clicking on the toggle button in the
+        // viewport action bar. Also this callback is made when the dockable
+        // widget is hidden or goes off screen.
+        // If you have a tool that captures mouse events, for example, you may
+        // want to stop grabbing mouse events when the widget is hidden
+        virtual void viewport_dockable_widget_deactivated(std::string &widget_name) {}
+
+        // To instance a single global UI item on startup (which might, for
+        // example, insert menu items into the xstudio interface) pass the
+        // necessary qml to this function.
+        void register_singleton_qml(const std::string &qml_code);
+
+        // This method can be overriden to receive a callback when the number of viewports
+        // connected to the module changes. This is used by the Playhead class, for example
+        virtual void connected_viewports_changed(std::set<caf::actor> &connected_viewports) {}
+
       private:
         void notify_attribute_destroyed(Attribute *);
         void attribute_changed(const utility::Uuid &attr_uuid, const int role_id, bool notify);
         void add_attribute(Attribute *attr);
 
-        caf::actor global_module_events_actor_;
         caf::actor keypress_monitor_actor_;
         caf::actor keyboard_and_mouse_group_;
-        caf::actor ui_attribute_events_group_;
-        caf::actor module_events_group_;
         caf::actor attribute_events_group_;
 
         caf::actor_addr attr_sync_source_adress_;
@@ -285,15 +409,18 @@ namespace module {
         std::set<caf::actor_addr> fully_linked_modules_;
         std::set<utility::Uuid> linked_attrs_;
         std::set<utility::Uuid> attrs_in_toolbar_;
-        std::set<std::string> connected_viewports_;
+        std::set<std::string> connected_viewport_names_;
+        std::set<caf::actor> connected_viewports_;
 
         bool connected_to_ui_  = {false};
         bool linking_disabled_ = {false};
         utility::Uuid module_uuid_;
         std::string name_;
         std::set<utility::Uuid> attrs_waiting_to_update_prefs_;
+        std::map<std::string, std::vector<utility::Uuid>> menu_items_;
 
-        std::vector<ui::Hotkey> unregistered_hotkeys_;
+
+        std::map<caf::actor_addr, caf::disposable> monitor_;
     };
 
     template <class T>

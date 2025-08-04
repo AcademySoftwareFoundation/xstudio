@@ -34,7 +34,7 @@ class AudioOutputControl {
      *  audio frames.
      *
      */
-    void prepare_samples_for_soundcard(
+    void prepare_samples_for_soundcard_playback(
         std::vector<int16_t> &samples,
         const long num_samps_to_push,
         const long microseconds_delay,
@@ -42,9 +42,17 @@ class AudioOutputControl {
         const int sample_rate);
 
     /**
+     *  @brief Pick audio samples based on the current playhead position to sound
+     *  audio during timeline scrubbing.
+     *
+     */
+    long copy_samples_to_buffer_for_scrubbing(
+        std::vector<int16_t> &samples, const long num_samps_to_push);
+
+    /**
      *  @brief The audio volume (range is 0-1)
      */
-    [[nodiscard]] float volume() const { return volume_; }
+    [[nodiscard]] float volume() const { return volume_ * override_volume_ / 100.0f; }
 
     /**
      *  @brief The audio volume muted
@@ -54,11 +62,25 @@ class AudioOutputControl {
     /**
      *   @brief Queue audio buffer for streaming to the soundcard
      */
-    void queue_samples_for_playing(
+    void queue_samples_for_playing(const std::vector<media_reader::AudioBufPtr> &audio_buffers);
+
+    /**
+     *   @brief Queue audio buffer for streaming to the soundcard during
+     *   timeline scrubbing
+     */
+    void prepare_samples_for_audio_scrubbing(
         const std::vector<media_reader::AudioBufPtr> &audio_buffers,
+        const timebase::flicks playhead_position);
+
+    /**
+     *   @brief Fine grained update of playhead position
+     */
+    void playhead_position_changed(
+        const timebase::flicks playhead_position,
+        const bool forward,
+        const float velocity,
         const bool playing,
-        const bool forwards,
-        const float velocity);
+        utility::time_point when_position_changed);
 
     /**
      *   @brief Clear all queued audio buffers to immediately stop audio playback
@@ -82,7 +104,11 @@ class AudioOutputControl {
         audio_scrubbing_ = audio_scrubbing;
     }
 
-  private:
+    void set_override_volume(const float override_volume) {
+        override_volume_ = override_volume;
+    }
+
+  protected:
     media_reader::AudioBufPtr
     pick_audio_buffer(const utility::clock::time_point &tp, const bool drop_old_buffers);
 
@@ -91,17 +117,34 @@ class AudioOutputControl {
         const media_reader::AudioBufPtr &next_buf,
         const media_reader::AudioBufPtr &previous_buf_);
 
-    std::map<utility::time_point, media_reader::AudioBufPtr> sample_data_;
+    // the actual sound samples that we are about to play, measured against
+    // their timestamp in the xstudio plyhead timeline
+    std::map<timebase::flicks, media_reader::AudioBufPtr> sample_data_;
+
+    // a dynamic buffer of samples to be streamed to soundcard during
+    // scrubbing.
+    std::vector<int16_t> scrubbing_samples_buf_;
+
     media_reader::AudioBufPtr current_buf_;
     media_reader::AudioBufPtr previous_buf_;
+    media_reader::AudioBufPtr next_buf_;
     long current_buf_pos_;
     float playback_velocity_ = {1.0f};
 
     int fade_in_out_ = {NoFade};
 
-    bool audio_repitch_   = {false};
-    bool audio_scrubbing_ = {false};
-    float volume_         = {100.0f};
-    bool muted_           = {false};
+    timebase::flicks playhead_position_;
+    bool playing_forward_ = {true};
+    utility::time_point playhead_position_update_tp_;
+    timebase::flicks last_buffer_pts_;
+
+    bool audio_repitch_                = {false};
+    bool audio_scrubbing_              = {false};
+    float volume_                      = {100.0f};
+    bool muted_                        = {false};
+    bool playing_                      = {false};
+    float override_volume_             = {100.0f};
+    float last_volume_                 = {100.0f};
+    float scrub_chunk_duration_frames_ = {1.0f};
 };
 } // namespace xstudio::audio

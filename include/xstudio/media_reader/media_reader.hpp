@@ -83,8 +83,10 @@ namespace media_reader {
         supported(const caf::uri &uri, const std::array<uint8_t, 16> &signature);
 
       private:
-        static PixelInfo
-        default_pixel_picker(const ImageBuffer &buf, const Imath::V2i &pixel_location) {
+        static PixelInfo default_pixel_picker(
+            const ImageBuffer &buf,
+            const Imath::V2i &pixel_location,
+            const std::vector<Imath::V2i> &extra_pixel_locationss) {
             return PixelInfo(pixel_location);
         }
         const std::string name_;
@@ -136,7 +138,7 @@ namespace media_reader {
                     try {
                         mb = media_reader_.audio(mptr);
                         if (mb) {
-                            mb->set_media_key(mptr.key_);
+                            mb->set_media_key(mptr.key());
                         }
                     } catch (const std::exception &e) {
                         return make_error(xstudio_error::error, e.what());
@@ -147,16 +149,14 @@ namespace media_reader {
                 [=](get_image_atom, const media::AVFrameID &mptr) -> result<ImageBufPtr> {
                     ImageBufPtr mb;
                     try {
-                        std::string path = utility::uri_to_posix_path(mptr.uri_);
+                        std::string path = utility::uri_to_posix_path(mptr.uri());
                         mb               = media_reader_.image(mptr);
                         if (mb) {
-                            mb->set_media_key(mptr.key_);
+                            if (mb->media_key().is_null())
+                                mb->set_media_key(mptr.key());
                             mb->set_pixel_picker_func(media_reader_.pixel_picker_func());
-                            if (mb->audio_) {
-                                mb->audio_->set_media_key(mptr.key_);
-                            }
                             mb->params()["path"]   = path;
-                            mb->params()["frame"]  = mptr.frame_;
+                            mb->params()["frame"]  = mptr.frame();
                             mb->params()["reader"] = media_reader_.name();
                         }
                     } catch (const media_missing_error &e) {
@@ -228,7 +228,8 @@ namespace media_reader {
                     const utility::JsonStore & /*change*/,
                     const std::string & /*path*/,
                     const utility::JsonStore &full) {
-                    delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+                    return mail(json_store::update_atom_v, full)
+                        .delegate(actor_cast<caf::actor>(this));
                 },
 
                 [=](json_store::update_atom, const utility::JsonStore &js) {

@@ -44,8 +44,9 @@ std::map<std::string, std::string> Fonts::available_fonts() {
     // TODO: grep for ttf files in the /fonts/ folder, maybe freetype can give
     // use the font 'name' from the .ttf file?
     return {
-        {"Vera Mono", xstudio::utility::xstudio_root("/fonts/VeraMono.ttf")},
-        {"Overpass Regular", xstudio::utility::xstudio_root("/fonts/Overpass-Regular.ttf")}};
+        {"Vera Mono", xstudio::utility::xstudio_resources_dir("fonts/VeraMono.ttf")},
+        {"Overpass Regular",
+         xstudio::utility::xstudio_resources_dir("fonts/Overpass-Regular.ttf")}};
 }
 
 AlphaBitmapFont::AlphaBitmapFont(const std::string &font_path, const int glyph_pixel_size)
@@ -178,7 +179,7 @@ void AlphaBitmapFont::render_text2(
     const float viewport_du_dx) const {
     std::vector<float> vertices;
 
-    precompute_text_rendering_vertex_layout(
+    std::ignore = precompute_text_rendering_vertex_layout(
         vertices, text, position, wrap_width, text_size, just, line_spacing);
 
     render_text(
@@ -220,7 +221,7 @@ void AlphaBitmapFont::compute_wrap_indeces(
 
         x += character.hori_advance_ * scale; // bitshift by 6 to get value in pixels (2^6 = 64)
 
-        if (right_edge > box_width && last_word_begin != text.begin() &&
+        if (box_width && right_edge > box_width && last_word_begin != text.begin() &&
             !(result.size() && result.back() == last_word_begin)) {
             // need to wrap ... go back to last space
             c = last_word_begin;
@@ -405,15 +406,15 @@ Imath::Box2f AlphaBitmapFont::precompute_text_rendering_vertex_layout(
     const float wrap_width,
     const float text_size,
     const Justification &just,
-    const float line_spacing) const {
+    const float line_spacing,
+    const bool align_around_position,
+    const VerticalJustification v_just) const {
 
     // N.B. the 'text_size' defines the font size in pixels if the viewport is width
     // fitted to a 1080p display. The 2.0 comes from the fact that xstudio's coordinate
     // system spans from -1.0 to +1.0 where the left and right edges of the image land.
     const float scale = text_size * 2.0f / (1920.0f * glyph_pixel_size());
 
-    float x = position.x;
-    float y = position.y;
 
     std::vector<std::string::const_iterator> wrap_points;
     compute_wrap_indeces(wrap_points, text, wrap_width, scale);
@@ -421,24 +422,31 @@ Imath::Box2f AlphaBitmapFont::precompute_text_rendering_vertex_layout(
     std::string::const_iterator c;
     auto wrap_point = wrap_points.begin();
 
-    result.resize(4 * 4 * text.size());
+    result.resize(6 * 4 * text.size());
     float *_vv = result.data();
 
     Imath::Box2f bounding_box;
+    float x = position.x;
+    float y = position.y;
+
     bounding_box.min.x = position.x - 0.2f * line_spacing * scale * glyph_pixel_size();
     bounding_box.min.y = position.y - line_spacing * scale * glyph_pixel_size();
-
     bounding_box.max.x = bounding_box.min.x + wrap_width;
 
     int i = 0;
+    std::vector<float> line_widths;
+    std::vector<int> line_num_chars;
     for (c = text.begin(); c != text.end(); c++) {
 
         const CharacterMetrics &character = get_character(*c);
 
         if (wrap_point != wrap_points.end() && *wrap_point == c) {
             y += line_spacing * scale * glyph_pixel_size();
+            line_widths.push_back(x - position.x);
+            line_num_chars.push_back(i);
             x = position.x;
             wrap_point++;
+            i = 0;
         }
 
         // skip non-printable
@@ -457,23 +465,125 @@ Imath::Box2f AlphaBitmapFont::precompute_text_rendering_vertex_layout(
         float w = character.width_ * scale;
         float h = character.height_ * scale;
         // update VBO for each character
-        float vertices[4][4] = {
+        float vertices[6][4] = {
             // NOLINT
             {xpos, ypos + h, atlas_offset_x_, atlas_offset_y_ + hr},
             {xpos, ypos, atlas_offset_x_, atlas_offset_y_},
             {xpos + w, ypos, atlas_offset_x_ + wr, atlas_offset_y_},
-            {xpos + w, ypos + h, atlas_offset_x_ + wr, atlas_offset_y_ + hr}};
+            {xpos + w, ypos, atlas_offset_x_ + wr, atlas_offset_y_},
+            {xpos + w, ypos + h, atlas_offset_x_ + wr, atlas_offset_y_ + hr},
+            {xpos, ypos + h, atlas_offset_x_, atlas_offset_y_ + hr}};
         memcpy(_vv, vertices, sizeof(vertices));
-        _vv += 16;
+        _vv += 24;
         x += character.hori_advance_ * scale; // bitshift by 6 to get value in pixels (2^6 = 64)
+        i++;
+
+        bounding_box.max.x = std::max(bounding_box.max.x, x);
+    }
+
+    if (!wrap_width) {
+        bounding_box.max.x += 0.2f * line_spacing * scale * glyph_pixel_size();
+    }
+
+    line_widths.push_back(x - position.x);
+    line_num_chars.push_back(i);
+
+    // deal with horizontal justification
+    if (just == JustifyRight) {
+        _vv = result.data();
+        for (int j = 0; j < line_num_chars.size(); ++j) {
+            const float shift =
+                (align_around_position ? 0 : bounding_box.max.x) - line_widths[j];
+            for (int i = 0; i < line_num_chars[j]; ++i) {
+                (*_vv) = *_vv + shift;
+                _vv += 4;
+                (*_vv) = *_vv + shift;
+                _vv += 4;
+                (*_vv) = *_vv + shift;
+                _vv += 4;
+                (*_vv) = *_vv + shift;
+                _vv += 4;
+                (*_vv) = *_vv + shift;
+                _vv += 4;
+                (*_vv) = *_vv + shift;
+                _vv += 4;
+            }
+        }
+
+        if (!wrap_width) {
+            const float w      = bounding_box.max.x - bounding_box.min.x;
+            bounding_box.max.x = position.x + 0.2f * line_spacing * scale * glyph_pixel_size();
+            bounding_box.min.x = bounding_box.max.x - w;
+        }
+
+
+    } else if (just == JustifyCentre) {
+
+        _vv = result.data();
+        for (int j = 0; j < line_num_chars.size(); ++j) {
+            const float shift =
+                ((align_around_position ? 0 : bounding_box.max.x) - line_widths[j]) / 2.0f;
+            for (int i = 0; i < line_num_chars[j]; ++i) {
+                (*_vv) = *_vv + shift;
+                _vv += 4;
+                (*_vv) = *_vv + shift;
+                _vv += 4;
+                (*_vv) = *_vv + shift;
+                _vv += 4;
+                (*_vv) = *_vv + shift;
+                _vv += 4;
+                (*_vv) = *_vv + shift;
+                _vv += 4;
+                (*_vv) = *_vv + shift;
+                _vv += 4;
+            }
+        }
+
+        if (!wrap_width) {
+            const float w      = bounding_box.max.x - bounding_box.min.x;
+            bounding_box.max.x = position.x + w * 0.5f;
+            bounding_box.min.x = position.x - w * 0.5f;
+        }
     }
 
     if (wrap_points.size() && wrap_points.back() == text.end()) {
         // this means there's a carriage return right at the end of 'text'
         y += line_spacing * scale * glyph_pixel_size();
     }
-
     bounding_box.max.y = y + 0.25f * line_spacing * scale * glyph_pixel_size();
+
+    // deal with vertical justification ...
+    const float y_shift = v_just == JustifyTop      ? line_spacing * scale * glyph_pixel_size()
+                          : v_just == JustifyBottom ? position.y - bounding_box.max.y
+                          : v_just == JustifyVCentre
+                              ? position.y - (bounding_box.max.y + bounding_box.min.y) * 0.5f
+                              : 0.0f;
+
+    if (y_shift) {
+
+        // move all verts in Y if necessary
+        bounding_box.min.y += y_shift;
+        bounding_box.max.y += y_shift;
+        _vv = result.data();
+        _vv++;
+        for (int j = 0; j < line_num_chars.size(); ++j) {
+            for (int i = 0; i < line_num_chars[j]; ++i) {
+                (*_vv) = *_vv + y_shift;
+                _vv += 4;
+                (*_vv) = *_vv + y_shift;
+                _vv += 4;
+                (*_vv) = *_vv + y_shift;
+                _vv += 4;
+                (*_vv) = *_vv + y_shift;
+                _vv += 4;
+                (*_vv) = *_vv + y_shift;
+                _vv += 4;
+                (*_vv) = *_vv + y_shift;
+                _vv += 4;
+            }
+        }
+    }
+
     return bounding_box;
 }
 

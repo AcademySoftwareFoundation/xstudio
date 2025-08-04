@@ -84,7 +84,8 @@ namespace plugin_manager {
                     const utility::JsonStore & /*change*/,
                     const std::string & /*path*/,
                     const utility::JsonStore &full) {
-                    delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+                    return mail(json_store::update_atom_v, full)
+                        .delegate(actor_cast<caf::actor>(this));
                 },
 
                 [=](json_store::update_atom, const utility::JsonStore &js) {

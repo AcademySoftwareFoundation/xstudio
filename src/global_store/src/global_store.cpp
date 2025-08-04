@@ -2,6 +2,7 @@
 #include <filesystem>
 
 #include <fstream>
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/global_store/global_store.hpp"
@@ -21,15 +22,24 @@ namespace fs = std::filesystem;
 GlobalStoreHelper::GlobalStoreHelper(caf::actor_system &sys, const std::string &reg_name)
     : JsonStoreHelper(sys, caf::actor()) {
     auto gs_actor = sys.registry().get<caf::actor>(reg_name);
-    if (not gs_actor)
+    if (not gs_actor) {
         throw std::runtime_error("GlobalStore is not registered");
+    }
 
     store_actor_ = caf::actor_cast<caf::actor_addr>(gs_actor);
 }
 
-void GlobalStoreHelper::set(const GlobalStoreDef &gsd, const bool async) {
-    JsonStoreHelper::set(
-        static_cast<utility::JsonStore>(gsd), static_cast<std::string>(gsd), async);
+bool GlobalStoreHelper::read_only() const {
+    bool result = false;
+
+    try {
+        result = request_receive<bool>(
+            *system_, caf::actor_cast<caf::actor>(store_actor_), read_only_atom_v);
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    return result;
 }
 
 bool GlobalStoreHelper::save(const std::string &context) {
@@ -60,9 +70,50 @@ utility::JsonStore xstudio::global_store::global_store_builder(
     return merged;
 }
 
-void xstudio::global_store::set_global_store_def(
-    utility::JsonStore &js, const GlobalStoreDef &gsd) {
-    js.set(static_cast<utility::JsonStore>(gsd), static_cast<std::string>(gsd));
+bool xstudio::global_store::load_preferences(
+    utility::JsonStore &prefs,
+    const bool load_user_prefs,
+    const std::vector<std::string> &extra_prefs_paths,
+    const std::vector<std::string> &override_prefs_paths) {
+
+    // load application default prefs. These prefs must exist for xstudio to
+    // work! If this fails, app should exit.
+    if (not preference_load_defaults(prefs, xstudio_resources_dir("preference"))) {
+        spdlog::error(
+            "Failed to load application preferences {}", xstudio_resources_dir("preference"));
+        return false;
+    }
+
+    // prefs files *might* be located in a 'preference' subfolder under XSTUDIO_PLUGIN_PATH
+    // folders
+    char *plugin_path = std::getenv("XSTUDIO_PLUGIN_PATH");
+    if (plugin_path) {
+        for (const auto &p : xstudio::utility::split(plugin_path, ':')) {
+            if (fs::is_directory(p + "/preferences"))
+                preference_load_defaults(prefs, p + "/preferences");
+        }
+    }
+
+    // now set-up our list of preference paths to try and load over the top
+    // of the application defaults ....
+    std::vector<std::string> pref_paths = extra_prefs_paths;
+
+    if (load_user_prefs) {
+        // user preference files will override all other prefs except
+        // 'override' predfs
+        for (const auto &i : global_store::PreferenceContexts)
+            pref_paths.push_back(preference_path_context(i));
+    }
+
+    // These prefs files will override user prefs. This allows us to have per
+    // machine preference files, for example, to force certain layouts on
+    // special machines like in a playback suite, say.
+    for (const auto &p : override_prefs_paths) {
+        pref_paths.push_back(p);
+    }
+
+    preference_load_overrides(prefs, pref_paths);
+    return true;
 }
 
 bool xstudio::global_store::preference_load_defaults(
@@ -71,6 +122,7 @@ bool xstudio::global_store::preference_load_defaults(
     bool result = false;
     try {
         for (const auto &entry : fs::directory_iterator(path)) {
+
             if (not fs::is_regular_file(entry.status()) or
                 not(get_path_extension(entry.path()) == ".json")) {
                 continue;
@@ -139,7 +191,6 @@ void load_from_list(const std::string &path, std::vector<fs::path> &overrides) {
     }
 }
 // parse json, should be jsonpointers and values..
-// parse json, should be jsonpointers and values..
 void load_override(utility::JsonStore &json, const fs::path &path) {
     std::ifstream i(path);
     nlohmann::json j;
@@ -150,7 +201,8 @@ void load_override(utility::JsonStore &json, const fs::path &path) {
     // should be dict ..
     for (auto it : j.items()) {
         try {
-            if (not ends_with(it.key(), "/value") and not ends_with(it.key(), "/locked")) {
+            if (not ends_with(it.key(), "/value") and not ends_with(it.key(), "/locked") and
+                not ends_with(it.key(), "/default_value")) {
                 spdlog::warn("Property key is restricted {} {}", it.key(), path.string());
                 continue;
             }
@@ -187,8 +239,9 @@ void load_override(utility::JsonStore &json, const fs::path &path) {
             // override it.
             json.set(it.value(), it.key());
 
-            spdlog::debug(
-                "Property overriden {} {} {}", it.key(), to_string(it.value()), path.string());
+            // spdlog::debug(
+            //     "Property overriden {} {} {}", it.key(), to_string(it.value()),
+            //     path.string());
             // tag it.
             set_preference_overridden_path(json, path.string(), property);
             if (set_as_overridden)
@@ -199,6 +252,7 @@ void load_override(utility::JsonStore &json, const fs::path &path) {
         }
     }
 }
+
 void xstudio::global_store::preference_load_overrides(
     utility::JsonStore &js, const std::vector<std::string> &paths) {
     // we get a collection of JSONPOINTERS and values.
@@ -295,6 +349,7 @@ utility::JsonStore xstudio::global_store::get_preference_values(
     std::set<std::string> prefs = get_preferences(json, context);
 
     for (auto i : prefs) {
+
         try {
             /*
             // For now putting the get(i + "/overridden_value") in a try
@@ -304,7 +359,8 @@ utility::JsonStore xstudio::global_store::get_preference_values(
             bool is_overridden = false;
             try {
                 is_overridden = json.get(i + "/overridden_value") != json.get(i + "/value");
-            } catch (...) {
+            } catch (std::exception &e) {
+                std::cerr << "WWWW " << e.what() << "\n";
             }
 
             std::string tmp_path;
@@ -312,7 +368,6 @@ utility::JsonStore xstudio::global_store::get_preference_values(
                 tmp_path = preference_overridden_path(json, i);
             } catch (...) {
             }
-
 
             if (not only_changed or is_overridden or override_path == tmp_path)
                 js[i + "/value"] = json.get(i + "/value");
@@ -324,22 +379,6 @@ utility::JsonStore xstudio::global_store::get_preference_values(
 
     return js;
 }
-
-void xstudio::global_store::to_json(nlohmann::json &j, const GlobalStoreDef &gsd) { j = gsd; }
-
-void xstudio::global_store::from_json(const nlohmann::json &j, GlobalStoreDef &gsd) {
-    j.at("path").get_to(gsd.path_);
-    gsd.value_ = j.at("value");
-    if (gsd.value_.is_null())
-        gsd.value_ = j.at("default_value");
-    gsd.default_value_   = j.at("default_value");
-    gsd.maximum_value_   = j.at("maximum");
-    gsd.minimum_value_   = j.at("minimum");
-    gsd.datatype_        = j.value("datatype", "");
-    gsd.description_     = j.value("description", "");
-    gsd.overridden_path_ = j.value("overridden_path", "");
-}
-
 
 GlobalStore::GlobalStore(const JsonStore &jsn)
     : Container(static_cast<utility::JsonStore>(jsn["container"])),
@@ -362,27 +401,45 @@ utility::JsonStore GlobalStoreHelper::get_existing_or_create_new_preference(
     const std::string &path,
     const utility::JsonStore &default_,
     const bool async,
-    const bool broacast_change,
+    const bool broadcast_change,
     const std::string &context) {
+
+    // Preferences can be fully defined in a .json file that ships with the
+    // application. However, we've found this to be a burden when creating
+    // Python plugins which need preference driven attributes but where we
+    // don't want to be building .json files to install at the same time.
+
+    // To get around this, here create a new preference entry if there isn't
+    // one already coming from the .json files. We have to fill in essential
+    // preference entry fields which are needed later when preferences are
+    // written to the users home dir when xstudio exits.
+
     try {
 
         utility::JsonStore v = get(path);
         if (!v.contains("overridden_value")) {
             v["overridden_value"] = default_;
-            v["path"]             = path;
-            v["context"]          = std::vector<std::string>({"APPLICATION"});
-            JsonStoreHelper::set(v, path, async, broacast_change);
         }
+        if (!v.contains("path")) {
+            v["path"] = path;
+        }
+        if (!v.contains("context")) {
+            v["context"] = std::vector<std::string>({"APPLICATION"});
+        }
+        JsonStoreHelper::set(v, path, async, broadcast_change);
         return v["value"];
 
     } catch (...) {
 
+        // No such preference was found in the .json files that ship with the
+        // app OR with the .json pref files that are saved into the user's
+        // home dir
         utility::JsonStore v;
         v["value"]            = default_;
         v["overridden_value"] = default_;
         v["path"]             = path;
         v["context"]          = std::vector<std::string>({"APPLICATION"});
-        JsonStoreHelper::set(v, path, async, broacast_change);
+        JsonStoreHelper::set(v, path, async, broadcast_change);
     }
     return default_;
 }

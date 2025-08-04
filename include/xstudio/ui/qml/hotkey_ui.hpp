@@ -29,15 +29,41 @@ namespace ui {
 
             Q_OBJECT
 
+            enum HotkeyRoles {
+                keyboardKey = Qt::UserRole + 1,
+                keyModifiers,
+                hotkeyName,
+                hotkeyCategory,
+                hotkeyDescription,
+                hotkeySequence,
+                hotkeyErrorMessage
+            };
+
+            static inline const QMap<HotkeyRoles, QByteArray> hotkeyRoleNames = {
+                {keyboardKey, "keyboardKey"},
+                {keyModifiers, "keyModifiers"},
+                {hotkeyName, "hotkeyName"},
+                {hotkeyCategory, "hotkeyCategory"},
+                {hotkeyDescription, "hotkeyDescription"},
+                {hotkeySequence, "hotkeySequence"},
+                {hotkeyErrorMessage, "hotkeyErrorMessage"}};
+
           public:
             using super = caf::mixin::actor_object<QAbstractListModel>;
 
             Q_PROPERTY(int rowCount READ rowCount NOTIFY rowCountChanged)
+            Q_PROPERTY(QStringList categories READ categories NOTIFY categoriesChanged)
+            Q_PROPERTY(QString currentCategory READ currentCategory WRITE setCurrentCategory
+                           NOTIFY currentCategoryChanged)
 
             HotkeysUI(QObject *parent = nullptr);
             ~HotkeysUI() override = default;
 
             [[nodiscard]] int rowCount() { return rowCount(QModelIndex()); }
+
+            [[nodiscard]] QStringList categories() { return categories_; }
+
+            [[nodiscard]] QString currentCategory() { return current_category_; }
 
             [[nodiscard]] int rowCount(const QModelIndex &parent) const override;
 
@@ -51,21 +77,40 @@ namespace ui {
                 return Qt::ItemIsEnabled | Qt::ItemIsEditable;
             }
 
+            void setCurrentCategory(const QString &category) {
+                if (category != current_category_) {
+                    current_category_ = category;
+                    emit currentCategoryChanged();
+                    beginResetModel();
+                    endResetModel();
+                    emit rowCountChanged();
+                }
+            }
+
+            Q_INVOKABLE QString hotkey_sequence(const QVariant &hotkey_uuid);
+
+            Q_INVOKABLE QString hotkey_sequence_from_hotkey_name(const QString &hotkey_name);
+
+
           signals:
 
             void rowCountChanged();
+            void categoriesChanged();
+            void currentCategoryChanged();
 
           public slots:
 
           private:
             void update_hotkeys_model_data(const std::vector<Hotkey> &new_hotkeys_data);
+            void checkCategories();
 
             caf::actor_system &system() { return self()->home_system(); }
             virtual void init(caf::actor_system &system) { super::init(system); }
 
-            std::vector<QMap<int, QVariant>> hotkeys_data_;
+            std::vector<Hotkey> hotkeys_data_;
+            QStringList categories_;
+            QString current_category_;
         };
-
 
         class VIEWPORT_QML_EXPORT HotkeyUI : public QMLActor {
 
@@ -81,6 +126,7 @@ namespace ui {
             Q_PROPERTY(QString context READ context WRITE setContext NOTIFY contextChanged)
             Q_PROPERTY(
                 bool autoRepeat READ autoRepeat WRITE setAutoRepeat NOTIFY autoRepeatChanged)
+            Q_PROPERTY(QUuid uuid READ uuid NOTIFY uuidChanged)
 
           public:
             explicit HotkeyUI(QObject *parent = nullptr);
@@ -125,6 +171,7 @@ namespace ui {
             [[nodiscard]] const QString &errorMessage() const { return error_message_; }
             [[nodiscard]] const QString &context() const { return context_; }
             [[nodiscard]] bool autoRepeat() const { return autorepeat_; }
+            [[nodiscard]] QUuid uuid() const { return hotkey_uuid_; }
 
           public slots:
 
@@ -140,6 +187,8 @@ namespace ui {
             void contextChanged();
             void activated();
             void autoRepeatChanged();
+            void uuidChanged();
+            void released();
 
           private:
             QString sequence_;
@@ -148,38 +197,87 @@ namespace ui {
             QString description_;
             QString error_message_;
             QString context_ = QString("any");
+            QString window_name_;
             bool autorepeat_ = {false};
 
-            utility::Uuid hotkey_uuid_;
+            QUuid hotkey_uuid_;
         };
 
+        /*XsPressedKeysMonitor item. This simple item has a single attribute that
+        provides a string description of the current presswed kweys.*/
+        class VIEWPORT_QML_EXPORT PressedKeysMonitor : public QMLActor {
+
+            Q_OBJECT
+
+            Q_PROPERTY(QString pressedKeys READ pressedKeys NOTIFY pressedKeysChanged)
+
+          public:
+            explicit PressedKeysMonitor(QObject *parent = nullptr);
+
+            void init(caf::actor_system &system) override;
+
+            [[nodiscard]] const QString &pressedKeys() const { return pressed_keys_; }
+
+          signals:
+
+            void pressedKeysChanged();
+
+          private:
+
+            QString pressed_keys_;
+        };
+
+        /*XsHotkeyReference item. This lets us 'watch' an already existing hotkey.
+        We use the name of the hotkey to identify it.*/
         class VIEWPORT_QML_EXPORT HotkeyReferenceUI : public QMLActor {
 
             Q_OBJECT
 
             Q_PROPERTY(QString sequence READ sequence NOTIFY sequenceChanged)
             Q_PROPERTY(
-                QUuid hotkeyUuid READ hotkeyUuid WRITE setHotkeyUuid NOTIFY hotkeyUuidChanged)
+                QString hotkeyName READ hotkeyName WRITE setHotkeyName NOTIFY hotkeyNameChanged)
+            Q_PROPERTY(QUuid uuid READ uuid NOTIFY uuidChanged)
+            Q_PROPERTY(QString context READ context WRITE setContext NOTIFY contextChanged)
+            Q_PROPERTY(bool exclusive READ exclusive WRITE setExclusive NOTIFY exclusiveChanged)
 
           public:
             explicit HotkeyReferenceUI(QObject *parent = nullptr);
-            ~HotkeyReferenceUI() override = default;
+            ~HotkeyReferenceUI() override;
 
             void init(caf::actor_system &system) override;
 
-            void setHotkeyUuid(const QUuid &uuid);
+            void setHotkeyName(const QString &name);
 
-            [[nodiscard]] const QUuid &hotkeyUuid() const { return uuid_; }
+            [[nodiscard]] const QString &hotkeyName() const { return hotkey_name_; }
             [[nodiscard]] const QString &sequence() const { return sequence_; }
+            [[nodiscard]] QUuid uuid() const { return hotkey_uuid_; }
+            [[nodiscard]] const QString context() const { return QStringFromStd(context_); }
+            [[nodiscard]] bool exclusive() const { return exclusive_; }
+
+            void setContext(const QString &context) {
+                context_ = StdFromQString(context);
+                emit contextChanged();
+            }
+
+            void setExclusive(const bool exclusive);
 
           signals:
 
             void sequenceChanged();
-            void hotkeyUuidChanged();
+            void hotkeyNameChanged();
+            void activated(const QString context);
+            void uuidChanged();
+            void contextChanged();
+            void exclusiveChanged();
 
           private:
+            void notifyExclusiveChanged();
+
             QString sequence_;
-            QUuid uuid_;
+            QString hotkey_name_;
+            QUuid hotkey_uuid_;
+            std::string context_;
+            bool exclusive_ = {false};
         };
 
     } // namespace qml

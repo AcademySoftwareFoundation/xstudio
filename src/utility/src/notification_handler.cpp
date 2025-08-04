@@ -1,0 +1,243 @@
+// SPDX-License-Identifier: Apache-2.0
+
+#include "xstudio/atoms.hpp"
+#include "xstudio/utility/notification_handler.hpp"
+
+namespace xstudio::utility {
+
+Notification::Notification(const JsonStore &jsn) {
+    uuid_ = jsn.value("uuid", Uuid());
+
+    auto type = jsn.value("type", "UNKNOWN");
+    type_     = NT_UNKNOWN;
+
+    if (type == "INFO")
+        type_ = NT_INFO;
+    else if (type == "WARN")
+        type_ = NT_WARN;
+    else if (type == "PROCESSING")
+        type_ = NT_PROCESSING;
+    else if (type == "PROGRESS_RANGE")
+        type_ = NT_PROGRESS_RANGE;
+    else if (type == "PROGRESS_PERCENTAGE")
+        type_ = NT_PROGRESS_PERCENTAGE;
+
+    expires_ = jsn.value("expires", utility::sysclock::now());
+
+    if (type_ == NT_PROGRESS_RANGE) {
+        progress_minimum_ = jsn.value("min_progress", 0.f);
+        progress_maximum_ = jsn.value("max_progress", 0.f);
+        progress_         = jsn.value("progress", 0.f);
+        text_             = jsn.value("_text", "");
+    } else if (type_ == NT_PROGRESS_PERCENTAGE) {
+        progress_minimum_ = jsn.value("min_progress", 0.f);
+        progress_maximum_ = jsn.value("max_progress", 0.f);
+        progress_         = jsn.value("progress", 0.f);
+        text_             = jsn.value("_text", "");
+    } else {
+        text_ = jsn.value("_text", "");
+    }
+}
+
+
+void to_json(nlohmann::json &j, const Notification &n) {
+    j["uuid"] = n.uuid_;
+    switch (n.type_) {
+    case NT_INFO:
+        j["type"] = "INFO";
+        break;
+    case NT_WARN:
+        j["type"] = "WARN";
+        break;
+    case NT_PROGRESS_RANGE:
+        j["type"] = "PROGRESS_RANGE";
+        break;
+    case NT_PROGRESS_PERCENTAGE:
+        j["type"] = "PROGRESS_PERCENTAGE";
+        break;
+    case NT_PROCESSING:
+        j["type"] = "PROCESSING";
+        break;
+    default:
+        j["type"] = "UNKNOWN";
+        break;
+    }
+    j["expires"] = n.expires_;
+
+    if (n.type_ == NT_PROGRESS_RANGE) {
+        j["min_progress"]     = n.progress_minimum_;
+        j["max_progress"]     = n.progress_maximum_;
+        j["progress"]         = n.progress_;
+        j["progress_percent"] = n.progress_percentage();
+        j["text"]             = n.progress_text_range();
+        j["_text"]            = n.text_;
+    } else if (n.type_ == NT_PROGRESS_PERCENTAGE) {
+        j["min_progress"]     = n.progress_minimum_;
+        j["max_progress"]     = n.progress_maximum_;
+        j["progress"]         = n.progress_;
+        j["progress_percent"] = n.progress_percentage();
+        j["text"]             = n.progress_text_percentage();
+        j["_text"]            = n.text_;
+    } else {
+        j["text"]  = n.text_;
+        j["_text"] = n.text_;
+    }
+}
+
+caf::message_handler NotificationHandler::default_event_handler() {
+    return {[=](utility::event_atom, notification_atom, const JsonStore &) {}};
+}
+
+caf::message_handler
+NotificationHandler::message_handler(caf::event_based_actor *act, caf::actor event_group) {
+    actor_       = act;
+    event_group_ = event_group;
+
+    return caf::message_handler(
+        {[=](notification_atom) -> JsonStore { return digest(); },
+         [=](notification_atom, notification_atom) -> std::vector<Notification> {
+             auto result = std::vector<Notification>();
+             result.reserve(notifications_.size());
+             result.insert(result.end(), notifications_.begin(), notifications_.end());
+             return result;
+         },
+         [=](notification_atom, const Uuid &uuid) -> bool {
+             auto result = remove_notification(uuid);
+             if (result)
+                 actor_->mail(utility::event_atom_v, notification_atom_v, digest())
+                     .send(event_group_);
+             return result;
+         },
+         [=](notification_atom, const bool check_expire) {
+             if (check_expired()) {
+                 actor_->mail(utility::event_atom_v, notification_atom_v, digest())
+                     .send(event_group_);
+                 utility::sys_time_point next_expires = next_expire();
+                 if (next_expires != utility::sys_time_point()) {
+                     if (next_expires > utility::sysclock::now())
+                         anon_mail(notification_atom_v, true)
+                             .delay(next_expires - utility::sysclock::now())
+                             .send(act, weak_ref);
+                     else
+                         anon_mail(notification_atom_v, true).send(act);
+                 }
+             }
+         },
+         [=](notification_atom, const Notification &notification) -> bool {
+             auto result = add_update_notification(notification);
+             if (result) {
+                 actor_->mail(utility::event_atom_v, notification_atom_v, digest())
+                     .send(event_group_);
+                 utility::sys_time_point next_expires = next_expire();
+                 if (next_expires != utility::sys_time_point()) {
+                     if (next_expires > utility::sysclock::now())
+                         anon_mail(notification_atom_v, true)
+                             .delay(next_expires - utility::sysclock::now())
+                             .send(act, weak_ref);
+                     else
+                         anon_mail(notification_atom_v, true).send(act);
+                 }
+             }
+             return result;
+         },
+         [=](notification_atom, const Uuid &uuid, const float progress) -> bool {
+             auto result = update_progress(uuid, progress);
+             if (result)
+                 actor_->mail(utility::event_atom_v, notification_atom_v, digest())
+                     .send(event_group_);
+             return result;
+         }});
+}
+
+utility::sys_time_point NotificationHandler::next_expire() const {
+    utility::sys_time_point result;
+
+    if (not notifications_.empty())
+        result = notifications_.front().expires_;
+
+    for (const auto &i : notifications_) {
+        if (i.expires_ < result)
+            result = i.expires_;
+    }
+
+    return result;
+}
+
+
+bool NotificationHandler::add_update_notification(const Notification &notification) {
+    auto result = false;
+
+    for (auto it = notifications_.begin(); not result and it != notifications_.end(); ++it) {
+        if (it->uuid_ == notification.uuid_) {
+            result = true;
+            *it    = notification;
+            it->update_expires();
+        }
+    }
+
+    if (not result) {
+        result = true;
+        notifications_.push_back(notification);
+        notifications_.back().update_expires();
+    }
+
+    return result;
+}
+
+
+JsonStore NotificationHandler::digest() const {
+    auto result = R"([])"_json;
+
+    for (const auto &i : notifications_)
+        result.push_back(i);
+
+    return result;
+}
+
+bool NotificationHandler::check_expired() {
+    auto now    = utility::sysclock::now();
+    auto result = false;
+    auto it     = notifications_.begin();
+
+    while (it != notifications_.end()) {
+        if (it->expires_ < now) {
+            result = true;
+            it     = notifications_.erase(it);
+        } else
+            it++;
+    }
+
+    return result;
+}
+
+bool NotificationHandler::remove_notification(const Uuid &uuid) {
+    auto result = false;
+
+    for (auto it = notifications_.begin(); not result and it != notifications_.end(); ++it) {
+        if (it->uuid_ == uuid) {
+            result = true;
+            it     = notifications_.erase(it);
+        }
+    }
+
+    return result;
+}
+
+bool NotificationHandler::update_progress(const Uuid &uuid, const float value) {
+    auto result = false;
+
+    for (auto it = notifications_.begin(); not result and it != notifications_.end(); ++it) {
+        if (it->uuid_ == uuid) {
+            if (it->progress_ != value) {
+                result        = true;
+                it->progress_ = value;
+            }
+            break;
+        }
+    }
+
+    return result;
+}
+
+
+} // namespace xstudio::utility

@@ -29,15 +29,12 @@ namespace ui {
           private:
             void init_gl();
             void cleanup_gl();
-            void resize_ssbo(std::size_t size);
-            void upload_ssbo(const std::vector<Imath::V2f> &points);
+
+            GLuint vbo_;
+            GLuint vao_;
 
             const void *last_data_{nullptr};
-
             std::unique_ptr<xstudio::ui::opengl::GLShaderProgram> shader_;
-            GLuint ssbo_id_{0};
-            GLuint ssbo_size_{0};
-            std::size_t ssbo_data_hash_{0};
         };
 
     } // namespace opengl

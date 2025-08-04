@@ -1,0 +1,811 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>xstudio.api.module &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link href="../../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            xStudio
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user_docs/index.html">xSTUDIO User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">xSTUDIO Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">xStudio</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../api.html">xstudio.api</a></li>
+      <li class="breadcrumb-item active">xstudio.api.module</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for xstudio.api.module</h1><div class="highlight"><pre>
+<span></span><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">add_attribute_atom</span><span class="p">,</span> <span class="n">connect_to_ui_atom</span><span class="p">,</span> <span class="n">remove_attribute_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">disconnect_from_ui_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">attribute_role_data_atom</span><span class="p">,</span> <span class="n">change_attribute_event_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">attribute_value_atom</span><span class="p">,</span> <span class="n">register_hotkey_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_global_playhead_events_atom</span><span class="p">,</span> <span class="n">join_broadcast_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">viewport_playhead_atom</span><span class="p">,</span> <span class="n">hotkey_event_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">attribute_uuids_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">AttributeRole</span><span class="p">,</span> <span class="n">get_event_group_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">event_atom</span><span class="p">,</span> <span class="n">show_atom</span><span class="p">,</span> <span class="n">module_add_menu_item_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">module_remove_menu_item_atom</span><span class="p">,</span> <span class="n">uuid_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">menu_node_activated_atom</span><span class="p">,</span> <span class="n">set_node_data_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">ColourTriplet</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.auxiliary</span><span class="w"> </span><span class="kn">import</span> <span class="n">ActorConnection</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">JsonStore</span><span class="p">,</span> <span class="n">Uuid</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.auxiliary.helpers</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_event_group</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.session.media</span><span class="w"> </span><span class="kn">import</span> <span class="n">Media</span><span class="p">,</span> <span class="n">MediaSource</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span>
+
+<div class="viewcode-block" id="ModuleAttribute">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.api.module.ModuleAttribute">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ModuleAttribute</span><span class="p">:</span>
+
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Simple wrapper providing attribute object interface&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">connection</span><span class="p">,</span>
+        <span class="n">parent_remote</span><span class="p">,</span>
+        <span class="n">attribute_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">attribute_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">attribute_role_data</span><span class="o">=</span><span class="p">{},</span>
+        <span class="n">uuid</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create python module base class.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            connection(Connection): xStudio API connection object</span>
+<span class="sd">            parent_remote(actor): The parent actor - must derived from Module</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span> <span class="o">=</span> <span class="n">connection</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parent_remote</span> <span class="o">=</span> <span class="n">parent_remote</span>
+
+        <span class="k">if</span> <span class="n">uuid</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">uuid</span> <span class="o">=</span> <span class="n">uuid</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># as yet, I haven&#39;t worked out how to allow type conversion from</span>
+            <span class="c1"># custom python type (like ColourTriplet) and JsonStore !!</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attribute_value</span><span class="p">,</span> <span class="n">ColourTriplet</span><span class="p">):</span>
+                <span class="c1"># backend knows to interpret this back into a ColourTriplet</span>
+                <span class="n">attribute_value</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;colour&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">attribute_value</span><span class="o">.</span><span class="n">red</span><span class="p">,</span> <span class="n">attribute_value</span><span class="o">.</span><span class="n">green</span><span class="p">,</span> <span class="n">attribute_value</span><span class="o">.</span><span class="n">blue</span><span class="p">]</span>
+
+            <span class="n">converted_val</span> <span class="o">=</span> <span class="n">JsonStore</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">attribute_value</span><span class="p">)</span> <span class="o">==</span> <span class="nb">dict</span> <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">attribute_value</span><span class="p">)</span> <span class="o">==</span> <span class="nb">list</span><span class="p">:</span>
+                <span class="n">converted_val</span><span class="o">.</span><span class="n">parse_string</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">attribute_value</span><span class="p">))</span> 
+            <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">attribute_value</span><span class="p">)</span> <span class="o">==</span> <span class="nb">type</span><span class="p">(</span><span class="n">JsonStore</span><span class="p">()):</span>
+                <span class="n">converted_val</span> <span class="o">=</span> <span class="n">attribute_value</span>                
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">converted_val</span> <span class="o">=</span> <span class="n">JsonStore</span><span class="p">(</span><span class="n">attribute_value</span><span class="p">)</span>                
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">uuid</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+                <span class="n">parent_remote</span><span class="p">,</span>
+                <span class="n">add_attribute_atom</span><span class="p">(),</span>
+                <span class="n">attribute_name</span><span class="p">,</span>
+                <span class="n">converted_val</span><span class="p">,</span>
+                <span class="n">JsonStore</span><span class="p">(</span><span class="n">attribute_role_data</span><span class="p">)</span>
+            <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">role_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role_name</span><span class="p">):</span>
+
+        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parent_remote</span><span class="p">,</span>
+            <span class="n">attribute_role_data_atom</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">uuid</span><span class="p">,</span>
+            <span class="n">role_name</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dump</span><span class="p">())</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">expose_in_ui_attrs_group</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group_name</span><span class="p">):</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">group_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">role_data</span><span class="p">(</span><span class="s2">&quot;groups&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">group_name</span><span class="p">)</span> <span class="o">==</span> <span class="nb">str</span><span class="p">:</span>
+                <span class="n">group_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">group_name</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">group_name</span><span class="p">)</span> <span class="o">==</span> <span class="nb">list</span><span class="p">:</span>
+                <span class="n">group_list</span> <span class="o">=</span> <span class="n">group_list</span><span class="o">+</span><span class="n">group_name</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">group_name</span><span class="p">)</span> <span class="o">==</span> <span class="nb">str</span><span class="p">:</span>
+                <span class="n">group_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">group_name</span><span class="p">]</span>
+            <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">group_name</span><span class="p">)</span> <span class="o">==</span> <span class="nb">list</span><span class="p">:</span>
+                <span class="n">group_list</span> <span class="o">=</span> <span class="n">group_name</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parent_remote</span><span class="p">,</span>
+            <span class="n">attribute_role_data_atom</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">uuid</span><span class="p">,</span>
+            <span class="s2">&quot;groups&quot;</span><span class="p">,</span>
+            <span class="n">JsonStore</span><span class="p">(</span><span class="n">group_list</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_tool_tip</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tool_tip</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parent_remote</span><span class="p">,</span>
+            <span class="n">attribute_role_data_atom</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">uuid</span><span class="p">,</span>
+            <span class="s2">&quot;tooltip&quot;</span><span class="p">,</span>
+            <span class="n">JsonStore</span><span class="p">(</span><span class="n">tool_tip</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_role_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role_name</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+
+        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parent_remote</span><span class="p">,</span>
+            <span class="n">attribute_role_data_atom</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">uuid</span><span class="p">,</span>
+            <span class="n">role_name</span><span class="p">,</span>
+            <span class="n">JsonStore</span><span class="p">(</span><span class="n">data</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">r</span> <span class="o">!=</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;set_role_data with rolename: </span><span class="si">{0}</span><span class="s2">, data: </span><span class="si">{1}</span><span class="s2"> failed with error </span><span class="si">{2}</span><span class="s2">:&quot;</span><span class="p">,</span>
+                <span class="n">role_name</span><span class="p">,</span>
+                <span class="n">data</span><span class="p">,</span>
+                <span class="n">r</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_redraw_viewport_on_change</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+
+        <span class="k">pass</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parent_remote</span><span class="p">,</span>
+            <span class="n">attribute_value_atom</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">uuid</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parent_remote</span><span class="p">,</span>
+            <span class="n">attribute_value_atom</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">uuid</span><span class="p">,</span>
+            <span class="nb">int</span><span class="p">(</span><span class="n">AttributeRole</span><span class="o">.</span><span class="n">Title</span><span class="p">)</span>
+            <span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">JsonStore</span><span class="p">()</span>
+            <span class="n">v</span><span class="o">.</span><span class="n">parse_string</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">v</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">JsonStore</span><span class="p">):</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">JsonStore</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parent_remote</span><span class="p">,</span>
+            <span class="n">attribute_value_atom</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">uuid</span><span class="p">,</span>
+            <span class="n">value</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_to_preferences</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parent_remote</span><span class="p">,</span>
+            <span class="n">attribute_value_atom</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">as_json</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parent_remote</span><span class="p">,</span>
+            <span class="n">attribute_value_atom</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">uuid</span><span class="p">,</span>
+            <span class="kc">True</span>
+            <span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span></div>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ModuleMeta</span><span class="p">(</span><span class="nb">type</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">instance</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__call__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">instance</span><span class="o">.</span><span class="n">setup_message_handler</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">instance</span>
+
+<div class="viewcode-block" id="ModuleBase">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.api.module.ModuleBase">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ModuleBase</span><span class="p">(</span><span class="n">ActorConnection</span><span class="p">,</span> <span class="n">metaclass</span><span class="o">=</span><span class="n">ModuleMeta</span><span class="p">):</span>
+
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Wrapper for Module class instances&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">connection</span><span class="p">,</span>
+            <span class="n">remote</span>
+            <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create python module base class.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            connection(Connection): The global API connection object</span>
+<span class="sd">            remote(Actor): The backend Module &#39;actor&#39; that we wish to wrap.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">ActorConnection</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">)</span>
+
+        <span class="n">attr_uuids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
+            <span class="n">attribute_uuids_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">attrs_by_name_</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attrs_by_uuid_</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">menu_trigger_callbacks</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">menu_item_ids</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hotkey_callbacks</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_uuid</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">for</span> <span class="n">attr_uuid</span> <span class="ow">in</span> <span class="n">attr_uuids</span><span class="p">:</span>
+            <span class="n">attr_wrapper</span> <span class="o">=</span> <span class="n">ModuleAttribute</span><span class="p">(</span>
+                <span class="n">connection</span><span class="p">,</span>
+                <span class="n">remote</span><span class="p">,</span>
+                <span class="n">uuid</span><span class="o">=</span><span class="n">attr_uuid</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">attrs_by_name_</span><span class="p">[</span><span class="n">attr_wrapper</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">attr_wrapper</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">attrs_by_uuid_</span><span class="p">[</span><span class="n">attr_uuid</span><span class="p">]</span> <span class="o">=</span> <span class="n">attr_wrapper</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">__attribute_changed</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">setup_message_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="c1"># this call gets the event group for Module attribute change events</span>
+        <span class="n">remote_event_group</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_event_group_atom</span><span class="p">(),</span> <span class="kc">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">link</span><span class="o">.</span><span class="n">add_message_callback</span><span class="p">(</span>
+            <span class="n">remote_event_group</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">message_handler</span>
+            <span class="p">)</span>
+
+<div class="viewcode-block" id="ModuleBase.connect_to_ui">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.api.module.ModuleBase.connect_to_ui">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">connect_to_ui</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Call this method to &#39;activate&#39; the plugin and forward live data about</span>
+<span class="sd">        the attributes to the UI layer. QML code that builds widgets and so-on</span>
+<span class="sd">        based on the state of plugin attributes will be executed and updated</span>
+<span class="sd">        in real time.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
+            <span class="n">connect_to_ui_atom</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="ModuleBase.disconnect_from_ui">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.api.module.ModuleBase.disconnect_from_ui">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">disconnect_from_ui</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Call this method to de-activate the plugin and hide or stop updating</span>
+<span class="sd">        any UI elemnts that were created by the plugin&quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
+            <span class="n">disconnect_from_ui_atom</span><span class="p">())</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">attributes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Access the attributes map for this Module</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">attrs_by_name_</span>
+
+<div class="viewcode-block" id="ModuleBase.list_attributes">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.api.module.ModuleBase.list_attributes">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">list_attributes</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a list of attribute titles for this Module</span>
+<span class="sd">        </span>
+<span class="sd">        Returns: </span>
+<span class="sd">            list(str): List of attribute names</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">attrs_by_name_</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="ModuleBase.get_attribute">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.api.module.ModuleBase.get_attribute">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_attribute</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">attribute_name</span>
+        <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get an attribute with the given name. Throws and exception if the</span>
+<span class="sd">        attribute does not exist</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            attribute_name(str): Name of attribute</span>
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">attribute_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">attrs_by_name_</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">attrs_by_name_</span><span class="p">[</span><span class="n">attribute_name</span><span class="p">]</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;No such attribute </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">attribute_name</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="ModuleBase.add_attribute">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.api.module.ModuleBase.add_attribute">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_attribute</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">attribute_name</span><span class="p">,</span>
+        <span class="n">attribute_value</span><span class="p">,</span>
+        <span class="n">attribute_role_data</span><span class="o">=</span><span class="p">{},</span>
+        <span class="n">preference_path</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add an attribute to your plugin class. Attributes provide a flexible</span>
+<span class="sd">        way to store data and/or pass data between your plugin and the xStudio</span>
+<span class="sd">        UI. An attribute can have multiple &#39;role&#39; values - each role value can</span>
+<span class="sd">        be made accessible in the QML layer. See demo plugins for more details.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            attribute_name(str): Name of the attribute</span>
+<span class="sd">            attribute_value(int,float,bool,str, list(str)): The value of the</span>
+<span class="sd">                attribute</span>
+<span class="sd">            attribute_role_data(dict): Other role data of the attribute</span>
+<span class="sd">            preference_path(str): If provided the attribute value will be</span>
+<span class="sd">                recorded in the users preferences data when xstudio closes and</span>
+<span class="sd">                the value restored next time xstudio starts up.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">new_attr</span> <span class="o">=</span> <span class="n">ModuleAttribute</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
+            <span class="n">attribute_name</span><span class="p">,</span>
+            <span class="n">attribute_value</span><span class="p">,</span>
+            <span class="n">attribute_role_data</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">attrs_by_name_</span><span class="p">[</span><span class="n">attribute_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_attr</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attrs_by_uuid_</span><span class="p">[</span><span class="n">new_attr</span><span class="o">.</span><span class="n">uuid</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_attr</span>
+
+        <span class="k">if</span> <span class="n">preference_path</span><span class="p">:</span>
+            <span class="n">new_attr</span><span class="o">.</span><span class="n">set_role_data</span><span class="p">(</span><span class="s2">&quot;preference_path&quot;</span><span class="p">,</span> <span class="n">preference_path</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">new_attr</span></div>
+
+
+<div class="viewcode-block" id="ModuleBase.remove_attribute">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.api.module.ModuleBase.remove_attribute">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_attribute</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">attribute_uuid</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove (and delete) an attribute from your plugin class..</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            attribute_uuid(Uuid): Uuid of the attribute to be removed</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
+                <span class="n">remove_attribute_atom</span><span class="p">(),</span>
+                <span class="n">attribute_uuid</span>
+            <span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="ModuleBase.set_attribute">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.api.module.ModuleBase.set_attribute">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_attribute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr_name</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the value on the named attribute</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            attr_name(str): Name of attribute</span>
+<span class="sd">            value: Value to set</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">attr_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">attrs_by_name_</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">attrs_by_name_</span><span class="p">[</span><span class="n">attr_name</span><span class="p">]</span><span class="o">.</span><span class="n">set_value</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;No attribute named </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">attr_name</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="ModuleBase.attribute_changed">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.api.module.ModuleBase.attribute_changed">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">attribute_changed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">,</span> <span class="n">role</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Override this method to get callbacks when an attribute&#39;s role</span>
+<span class="sd">        data has changed</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            attr(ModuleAttribute): The attribute that has changed</span>
+<span class="sd">            role(int): The index for the role data that has changed</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="ModuleBase.subscribe_to_global_playhead_events">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.api.module.ModuleBase.subscribe_to_global_playhead_events">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subscribe_to_global_playhead_events</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">playhead_event_callback</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the callback function for receiving events specific to</span>
+<span class="sd">        changes in the active playhead, such as which playhead is driving</span>
+<span class="sd">        which viewport and what viewports are active</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            playhead_event_callback(Callable): Call back function</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">gphev</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">remote</span><span class="p">(),</span>
+            <span class="n">get_global_playhead_events_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">link</span><span class="o">.</span><span class="n">add_message_callback</span><span class="p">(</span>
+            <span class="n">gphev</span><span class="p">,</span> <span class="n">playhead_event_callback</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ModuleBase.subscribe_to_event_group">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.api.module.ModuleBase.subscribe_to_event_group">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subscribe_to_event_group</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event_source</span><span class="p">,</span> <span class="n">callback_method</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set-up a subscription to the event group of some other actor </span>
+<span class="sd">        component of xSTUDIO. Events broadcast by the event source will be</span>
+<span class="sd">        passed you the provided callback method</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            event_source(ActorConnection): The actor whose event group</span>
+<span class="sd">            we want to join.</span>
+<span class="sd">            callback_method(Callable): The function which will be called</span>
+<span class="sd">            with event. Must take a single argument (a tuple of the event</span>
+<span class="sd">            data)</span>
+<span class="sd">        </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            uuid (callback id): A uuid for the subscription. Pass to</span>
+<span class="sd">            unsubscribe_from_event_group to cancel an event subscription</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">event_group</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="n">event_source</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
+            <span class="n">get_event_group_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">event_group</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Actor has no event group.&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">link</span><span class="o">.</span><span class="n">add_message_callback</span><span class="p">(</span>
+            <span class="n">event_group</span><span class="p">,</span> <span class="n">callback_method</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ModuleBase.unsubscribe_from_event_group">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.api.module.ModuleBase.unsubscribe_from_event_group">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unsubscribe_from_event_group</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">uuid</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Unsubscribe from an event group.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            uuid(Uuid): The id of the subscription</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">link</span><span class="o">.</span><span class="n">remove_message_callback</span><span class="p">(</span><span class="n">uuid</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">menu_item_activated</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">menu_item_data</span><span class="p">,</span> <span class="n">user_data</span><span class="p">):</span>
+        <span class="k">pass</span>
+
+<div class="viewcode-block" id="ModuleBase.register_hotkey">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.api.module.ModuleBase.register_hotkey">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register_hotkey</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                        <span class="n">hotkey_callback</span><span class="p">,</span>
+                        <span class="n">default_keycode</span><span class="p">,</span>
+                        <span class="n">default_modifier</span><span class="p">,</span>
+                        <span class="n">hotkey_name</span><span class="p">,</span>
+                        <span class="n">description</span><span class="p">,</span>
+                        <span class="n">auto_repeat</span><span class="p">,</span>
+                        <span class="n">component</span><span class="p">,</span>
+                        <span class="n">context</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Register a hotkey with xSTUDIO&#39;s central hotkey manager.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            hotkey_callback(Callable): Call back function that is executed</span>
+<span class="sd">            when the hotkey is pressed</span>
+<span class="sd">            default_keycode(str): Hotkey key (e.g. &#39;D&#39; or &#39;Backspace&#39;)</span>
+<span class="sd">            default_modifier(xstudio.core import KeyboardModifier): Specify</span>
+<span class="sd">            a modifier key (e.g. KeyboardModifier.ShiftModifier)</span>
+<span class="sd">            hotkey_name(str): A unique name for the hotkey</span>
+<span class="sd">            description(str): A full description of what the hotkey does</span>
+<span class="sd">            auto_repeat(bool): Should the callback be executed on key</span>
+<span class="sd">                autorepeats?</span>
+<span class="sd">            component(str): The xSTUDIO component that your hotkey came from.</span>
+<span class="sd">                Use your plugin name here, for example.</span>
+<span class="sd">            context(str): When a hotkey is pressed, the name of the UI element</span>
+<span class="sd">                that was active when the key is pressed is noted as the</span>
+<span class="sd">                &#39;context&#39;. This might be &#39;viewport&#39; or &#39;popout_viewport&#39; for</span>
+<span class="sd">                example. Your callback is executed only if your context string</span>
+<span class="sd">                supplied here matches the context of the key press. Use &#39;any&#39;</span>
+<span class="sd">                to ensure your hokey callback is executed regardless.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">hotkey_uuid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
+            <span class="n">register_hotkey_atom</span><span class="p">(),</span>
+            <span class="nb">ord</span><span class="p">(</span><span class="n">default_keycode</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span>
+                <span class="n">default_keycode</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">default_keycode</span><span class="p">,</span>
+            <span class="nb">int</span><span class="p">(</span><span class="n">default_modifier</span><span class="p">),</span>
+            <span class="n">hotkey_name</span><span class="p">,</span>
+            <span class="n">description</span><span class="p">,</span>
+            <span class="n">auto_repeat</span><span class="p">,</span>
+            <span class="n">component</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">hotkey_callbacks</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">hotkey_uuid</span><span class="p">)]</span> <span class="o">=</span> <span class="n">hotkey_callback</span>
+        <span class="k">return</span> <span class="n">hotkey_uuid</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_menu_item</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">menu_item_name</span><span class="p">,</span>
+        <span class="n">menu_path</span><span class="p">,</span>
+        <span class="n">menu_trigger_callback</span><span class="p">,</span>
+        <span class="n">hotkey_uuid</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()</span>
+    <span class="p">):</span>
+
+        <span class="n">role_data</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;menu_paths&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">menu_path</span><span class="p">]</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">hotkey_uuid</span><span class="o">.</span><span class="n">is_null</span><span class="p">():</span>
+            <span class="n">role_data</span><span class="p">[</span><span class="s2">&quot;hotkey_uuid&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">hotkey_uuid</span><span class="p">)</span>
+
+        <span class="n">menu_item_uuid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
+            <span class="n">add_attribute_atom</span><span class="p">(),</span>
+            <span class="n">menu_item_name</span><span class="p">,</span>
+            <span class="n">JsonStore</span><span class="p">(),</span>
+            <span class="n">JsonStore</span><span class="p">(</span><span class="n">role_data</span><span class="p">),</span>
+        <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">menu_item_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">menu_item_uuid</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">menu_trigger_callbacks</span><span class="p">[</span>
+            <span class="n">menu_item_uuid</span><span class="p">]</span> <span class="o">=</span> <span class="n">menu_trigger_callback</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">insert_menu_item</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">menu_model_name</span><span class="p">,</span>
+        <span class="n">menu_text</span><span class="p">,</span>
+        <span class="n">menu_path</span><span class="p">,</span>
+        <span class="n">menu_item_position</span><span class="p">,</span>
+        <span class="n">attr_id</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span>
+        <span class="n">divider</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">hotkey_uuid</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span>
+        <span class="n">callback</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">user_data</span><span class="o">=</span><span class="s2">&quot;&quot;</span>
+    <span class="p">):</span>
+
+        <span class="n">menu_item_uuid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
+            <span class="n">module_add_menu_item_atom</span><span class="p">(),</span>
+            <span class="n">menu_model_name</span><span class="p">,</span>
+            <span class="n">menu_text</span><span class="p">,</span>
+            <span class="n">menu_path</span><span class="p">,</span>
+            <span class="n">menu_item_position</span><span class="p">,</span>
+            <span class="n">attr_id</span><span class="p">,</span>
+            <span class="n">divider</span><span class="p">,</span>
+            <span class="n">hotkey_uuid</span><span class="p">,</span>
+            <span class="n">user_data</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">menu_item_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">menu_item_uuid</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">callback</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">menu_trigger_callbacks</span><span class="p">[</span>
+                <span class="n">menu_item_uuid</span><span class="p">]</span> <span class="o">=</span> <span class="n">callback</span>
+
+        <span class="k">return</span> <span class="n">menu_item_uuid</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">insert_hotkey_into_menu</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">menu_model_name</span><span class="p">,</span>
+        <span class="n">menu_path</span><span class="p">,</span>
+        <span class="n">menu_item_position</span><span class="p">,</span>
+        <span class="n">hotkey_uuid</span>
+    <span class="p">):</span>
+
+        <span class="n">menu_item_uuid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
+            <span class="n">module_add_menu_item_atom</span><span class="p">(),</span>
+            <span class="n">menu_model_name</span><span class="p">,</span>
+            <span class="n">menu_path</span><span class="p">,</span>
+            <span class="n">menu_item_position</span><span class="p">,</span>
+            <span class="n">hotkey_uuid</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">menu_item_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">menu_item_uuid</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">menu_item_uuid</span>
+
+<div class="viewcode-block" id="ModuleBase.set_submenu_position">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.api.module.ModuleBase.set_submenu_position">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_submenu_position</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">menu_model_name</span><span class="p">,</span>
+        <span class="n">submenu_path</span><span class="p">,</span>
+        <span class="n">menu_item_position</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;When adding menu items that are placed under a submenu, the position</span>
+<span class="sd">        of the submenu in the parent menu is not set by default. Use this method</span>
+<span class="sd">        to ensure the submenu appears in the parent menu at the position you</span>
+<span class="sd">        prefer</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            menu_model_name(str): The name of the menu model</span>
+<span class="sd">            submenu_path(str): The submenu name (preceded by parent submenus</span>
+<span class="sd">                separated by a pipe symbol e.g. &#39;Publish|Notes&#39; if you wish to</span>
+<span class="sd">                set the position of the Notes submenu within the Publish submenu.</span>
+<span class="sd">            menu_item_position(float): The relative position in the parent menu.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
+            <span class="n">set_node_data_atom</span><span class="p">(),</span>
+            <span class="n">menu_model_name</span><span class="p">,</span>
+            <span class="n">submenu_path</span><span class="p">,</span>
+            <span class="n">menu_item_position</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ModuleBase.remove_menu_item">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.api.module.ModuleBase.remove_menu_item">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_menu_item</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">menu_uuid</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove a menu item from the xSTUDIO menu models</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            menu_uuid(Uuid): Id of menu item</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
+            <span class="n">module_remove_menu_item_atom</span><span class="p">(),</span>
+            <span class="n">menu_uuid</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ModuleBase.remove_menu_items">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.api.module.ModuleBase.remove_menu_items">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_menu_items</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">menu_uuids</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove menu items from the xSTUDIO menu models</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            menu_uuid(list(Uuid)): list of ids of menu items</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">for</span> <span class="n">menu_uuid</span> <span class="ow">in</span> <span class="n">menu_uuids</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
+                <span class="n">module_remove_menu_item_atom</span><span class="p">(),</span>
+                <span class="n">menu_uuid</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ModuleBase.cleanup">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.api.module.ModuleBase.cleanup">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cleanup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Called on python connection shutdown. Reimplement</span>
+<span class="sd">        to enact any necessary cleanup like closing/joining threads</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">message_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message_content</span><span class="p">):</span>
+
+        <span class="k">try</span><span class="p">:</span>
+
+            <span class="n">atom</span> <span class="o">=</span> <span class="n">message_content</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">message_content</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+
+            <span class="c1"># message handler for attribute change</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">atom</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">change_attribute_event_atom</span><span class="p">())):</span>
+                <span class="n">role</span> <span class="o">=</span> <span class="n">message_content</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+                <span class="n">attr_uuid</span> <span class="o">=</span> <span class="n">message_content</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span>
+                    <span class="n">message_content</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span> <span class="k">else</span> <span class="n">Uuid</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">attr_uuid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">attrs_by_uuid_</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">attribute_changed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">attrs_by_uuid_</span><span class="p">[</span><span class="n">attr_uuid</span><span class="p">],</span> <span class="n">role</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">attr_uuid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">menu_trigger_callbacks</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">menu_trigger_callbacks</span><span class="p">[</span><span class="n">attr_uuid</span><span class="p">]()</span>
+
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">atom</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">hotkey_event_atom</span><span class="p">())):</span>
+                <span class="n">hotkey_uuid</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">message_content</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span>
+                    <span class="n">message_content</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+                <span class="n">activated</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">message_content</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span>
+                    <span class="n">message_content</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span> <span class="k">else</span> <span class="kc">False</span>
+                <span class="n">context</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">message_content</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span>
+                    <span class="n">message_content</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">3</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+                <span class="k">if</span> <span class="n">hotkey_uuid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">hotkey_callbacks</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">hotkey_callbacks</span><span class="p">[</span><span class="n">hotkey_uuid</span><span class="p">](</span><span class="n">activated</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
+
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">atom</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">menu_node_activated_atom</span><span class="p">())):</span>
+                <span class="n">menu_item_data</span> <span class="o">=</span> <span class="n">message_content</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span>
+                    <span class="n">message_content</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="kc">None</span>
+                <span class="n">user_data</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">message_content</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span>
+                    <span class="n">message_content</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+                <span class="k">if</span> <span class="s2">&quot;uuid&quot;</span> <span class="ow">in</span> <span class="n">menu_item_data</span><span class="p">:</span>
+                    <span class="n">uuid</span> <span class="o">=</span> <span class="n">Uuid</span><span class="p">(</span><span class="n">menu_item_data</span><span class="p">[</span><span class="s2">&quot;uuid&quot;</span><span class="p">])</span>
+                    <span class="k">if</span> <span class="n">uuid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">menu_item_ids</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">menu_item_activated</span><span class="p">(</span><span class="n">menu_item_data</span><span class="p">,</span> <span class="n">user_data</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">uuid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">menu_trigger_callbacks</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">menu_trigger_callbacks</span><span class="p">[</span><span class="n">uuid</span><span class="p">]()</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="nb">print</span> <span class="p">(</span><span class="n">err</span><span class="p">)</span>
+            <span class="nb">print</span> <span class="p">(</span><span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">())</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">uuid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get Module uuid</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            uuid(Uuid): Uuid of actor container.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_uuid</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_uuid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
+                <span class="n">uuid_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_uuid</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DNeg.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

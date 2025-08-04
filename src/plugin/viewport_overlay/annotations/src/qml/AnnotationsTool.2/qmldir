@@ -1,0 +1,10 @@
+module AnnotationsTool
+
+XsDrawingTools          2.0 XsDrawingTools.qml
+XsToolActions           2.0 XsToolActions.qml
+XsToolDisplay           2.0 XsToolDisplay.qml
+XsToolProperties        2.0 XsToolProperties.qml
+XsToolSelector          2.0 XsToolSelector.qml
+XsColourPresets         2.0 XsColourPresets.qml
+XsTextCategories        2.0 XsTextCategories.qml
+XsColourPick            2.0 XsColourPick.qml

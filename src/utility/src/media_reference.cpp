@@ -58,7 +58,7 @@ MediaReference::MediaReference(
 MediaReference::MediaReference(const JsonStore &jsn)
     : container_(jsn.at("container")), duration_(jsn.at("duration")) {
 
-    auto uri = caf::make_uri(jsn.at("uri"));
+    auto uri = caf::make_uri(jsn.at("uri").get<std::string>());
     if (uri)
         uri_ = *uri;
     else {
@@ -74,20 +74,22 @@ MediaReference::MediaReference(const JsonStore &jsn)
             throw XStudioError("Invalid URI " + jsn.at("uri").get<std::string>());
     }
 
-    frame_list_ = jsn.at("frame_list");
-    timecode_   = jsn.at("timecode");
-    offset_     = jsn.value("offset", 0);
+    frame_list_         = jsn.at("frame_list");
+    timecode_           = jsn.at("timecode");
+    offset_             = jsn.value("offset", 0);
+    start_frame_offset_ = jsn.value("start_frame_offset", 0);
 }
 
 JsonStore MediaReference::serialise() const {
     JsonStore jsn;
 
-    jsn["uri"]        = to_string(uri_);
-    jsn["container"]  = container_;
-    jsn["duration"]   = duration_;
-    jsn["frame_list"] = static_cast<nlohmann::json>(frame_list_);
-    jsn["timecode"]   = static_cast<nlohmann::json>(timecode_);
-    jsn["offset"]     = offset_;
+    jsn["uri"]                = to_string(uri_);
+    jsn["container"]          = container_;
+    jsn["duration"]           = duration_;
+    jsn["frame_list"]         = static_cast<nlohmann::json>(frame_list_);
+    jsn["timecode"]           = static_cast<nlohmann::json>(timecode_);
+    jsn["offset"]             = offset_;
+    jsn["start_frame_offset"] = start_frame_offset_;
 
     return jsn;
 }
@@ -111,7 +113,54 @@ void MediaReference::set_frame_list(const FrameList &fl) {
 
 void MediaReference::set_rate(const FrameRate &rate) { duration_.set_rate(rate, true); }
 
-caf::uri MediaReference::uri() const { return uri_; }
+caf::uri MediaReference::uri(const FramePadFormat fpf) const {
+    auto result = uri_;
+
+    if (not container_) {
+        switch (fpf) {
+        case FramePadFormat::FPF_SHAKE:
+            // replace formet string with correct number of #/@
+            {
+                auto str = uri_decode(to_string(uri_));
+                std::cmatch m;
+                if (std::regex_match(str.c_str(), m, std::regex(".*\\{:(\\d+)d\\}.*"))) {
+                    auto repstr = std::string(std::stoi(m[1].str()), '#');
+
+                    result = *caf::make_uri(uri_encode(std::regex_replace(
+                        str,
+                        std::regex("(\\{:\\d+d\\})"),
+                        repstr,
+                        std::regex_constants::format_first_only)));
+                }
+            }
+            break;
+
+        case FramePadFormat::FPF_NUKE:
+            // replace format string with %04d etc.
+            // file://localhost//tmp/test/test.{:04d}.exr
+
+            {
+                result = *caf::make_uri(uri_encode(std::regex_replace(
+                    uri_decode(to_string(uri_)),
+                    std::regex("\\{:(\\d+d)\\}"),
+                    "%$1",
+                    std::regex_constants::format_first_only)));
+            }
+            break;
+
+        case FramePadFormat::FPF_XSTUDIO:
+        default:
+            break;
+        }
+    }
+
+    return result;
+}
+
+// EXPECT_EQ(mr2.uri(), posix_path_to_uri("/tmp/test/test.{:03d}.exr"));
+// EXPECT_EQ(mr2.uri(MediaReference::FramePadFormat::FPF_NUKE),
+// posix_path_to_uri("/tmp/test/test.%03d.exr"));
+
 
 void MediaReference::set_uri(const caf::uri &uri) { uri_ = uri; }
 
@@ -150,10 +199,16 @@ std::optional<caf::uri> MediaReference::uri_from_frame(const int sequence_frame)
     if (container_)
         return uri_;
 
-    auto _uri =
-        caf::make_uri(uri_encode(fmt::format(uri_decode(to_string(uri_)), sequence_frame)));
+    try {
+
+    auto _uri = caf::make_uri(
+        uri_encode(fmt::format(fmt::runtime(uri_decode(to_string(uri_))), sequence_frame)));
     if (_uri)
         return *_uri;
+
+    } catch ( std::exception & e) {
+        spdlog::debug("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
 
     return {};
 }
@@ -175,4 +230,13 @@ std::optional<caf::uri> MediaReference::uri(const int logical_frame, int &file_f
 
     return {};
 }
+
+void MediaReference::fill_partial_sequences() {
+    // any frame sequence that has gaps, steps etc. will have the frame list
+    // filled out so we have a contiguous set of frames.
+    if (!frame_list_.empty()) {
+        set_frame_list(FrameList(frame_list_.start(), frame_list_.frames().back()));
+    }
+}
+
 } // namespace xstudio::utility

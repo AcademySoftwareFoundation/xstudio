@@ -27,33 +27,53 @@ namespace ui {
             void update_attrs_from_preferences(const utility::JsonStore &) override;
 
             void register_hotkeys() override;
-            void hotkey_pressed(const utility::Uuid &uuid, const std::string &context) override;
-            void
-            hotkey_released(const utility::Uuid &uuid, const std::string &context) override;
+            void hotkey_pressed(
+                const utility::Uuid &uuid,
+                const std::string &context,
+                const std::string &window) override;
+            void hotkey_released(
+                const utility::Uuid &uuid,
+                const std::string &context,
+                const bool due_to_focus_change) override;
             bool pointer_event(const ui::PointerEvent &e) override;
             void text_entered(const std::string &text, const std::string &context) override;
             void key_pressed(
                 const int key, const std::string &context, const bool auto_repeat) override;
 
-            utility::BlindDataObjectPtr onscreen_render_data(
-                const media_reader::ImageBufPtr &,
-                const std::string &viewport_name) const override;
-
             plugin::ViewportOverlayRendererPtr
-            make_overlay_renderer(const int viewer_index) override;
+            make_overlay_renderer(const std::string &viewport_name) override;
 
             bookmark::AnnotationBasePtr
             build_annotation(const utility::JsonStore &anno_data) override;
 
             void images_going_on_screen(
-                const std::vector<media_reader::ImageBufPtr> &images,
+                const media_reader::ImageBufDisplaySetPtr &images,
                 const std::string viewport_name,
                 const bool playhead_playing) override;
+
+            utility::BlindDataObjectPtr onscreen_render_data(
+                const media_reader::ImageBufPtr &,
+                const std::string & /*viewport_name*/,
+                const utility::Uuid & /*playhead_uuid*/,
+                const bool is_hero_image) const override;
+
+            void viewport_dockable_widget_activated(std::string &widget_name) override;
+
+            void viewport_dockable_widget_deactivated(std::string &widget_name) override;
+
+            void turn_off_overlay_interaction() override;
 
           private:
             bool is_laser_mode() const;
 
-            void start_editing(const std::string &viewport_name);
+            media_reader::ImageBufPtr image_under_pointer(
+                const std::string &viewport_name,
+                const Imath::V2f &pointer_position,
+                Imath::V2i *pixel_position = nullptr);
+
+            void start_editing(
+                const std::string &viewport_name,
+                const Imath::V2f &pointer_position = Imath::V2f(-1e6f, -1e6f));
 
             void start_stroke(const Imath::V2f &point);
             void update_stroke(const Imath::V2f &point);
@@ -78,18 +98,43 @@ namespace ui {
             void restore_onscreen_annotations();
             void clear_edited_annotation();
             void update_bookmark_annotation_data();
+            Imath::V2f image_transformed_ptr_pos(const Imath::V2f &p) const;
+            void do_redraw();
+            caf::actor get_colour_pipeline_actor(const std::string &viewport_name);
+            void update_colour_picker_info(const ui::PointerEvent &e);
+
+#ifdef ANNO_SYNC_EXTENSIONS
+            void paint_start_event(const Imath::V2f &point);
+            void paint_point_event(const Imath::V2f &point);
+            void paint_end_event();
+            void incoming_paint_event(const utility::JsonStore &event_data);
+#endif
 
           private:
-            enum Tool { Draw, Shapes, Text, Erase, None };
-            enum ShapeTool { Square, Circle, Arrow, Line };
-            enum DisplayMode { OnlyWhenPaused, Always, WithDrawTool };
-            enum ScribbleTool { Sketch, Laser, Onion };
 
-            const std::map<int, std::string> tool_names_ = {
-                {Draw, "Draw"}, {Shapes, "Shapes"}, {Text, "Text"}, {Erase, "Erase"}};
+            enum Tool { Draw, Laser, Square, Circle, Arrow, Line, Text, Erase, Dropper, None };
+            enum DisplayMode { OnlyWhenPaused, Always };
 
-            const std::map<int, std::string> draw_mode_names_ = {
-                {Sketch, "Sketch"}, {Laser, "Laser"}, {Onion, "Onion"}};
+            [[nodiscard]] Tool current_tool() const { return current_tool_; }
+
+            const std::map<Tool, std::string> tool_names_ = {
+                {Draw, "Draw"},
+                {Laser, "Laser"},
+                {Square, "Square"},
+                {Circle, "Circle"},
+                {Arrow, "Arrow"},
+                {Line, "Line"},
+                {Text, "Text"},
+                {Erase, "Erase"},
+                {Dropper, "Colour Picker"},
+                {None, "None"}};
+
+            const std::string &tool_name(const Tool t) const {
+                auto p = tool_names_.find(t);
+                if (p != tool_names_.end())
+                    return p->second;
+                return tool_names_.rbegin()->second;
+            }
 
             module::StringChoiceAttribute *active_tool_{nullptr};
 
@@ -103,14 +148,17 @@ namespace ui {
             module::IntegerAttribute *text_bgr_opacity_{nullptr};
 
             module::BooleanAttribute *text_cursor_blink_attr_{nullptr};
-            module::BooleanAttribute *tool_is_active_{nullptr};
             module::StringAttribute *action_attribute_{nullptr};
-            module::IntegerAttribute *shape_tool_{nullptr};
-            module::StringChoiceAttribute *draw_mode_{nullptr};
             module::IntegerAttribute *moving_scaling_text_attr_{nullptr};
             module::StringChoiceAttribute *font_choice_{nullptr};
 
             module::StringChoiceAttribute *display_mode_attribute_{nullptr};
+
+            module::BooleanAttribute *colour_picker_take_average_{nullptr};
+            module::BooleanAttribute *colour_picker_take_show_magnifier_{nullptr};
+            module::BooleanAttribute *colour_picker_hide_drawings_{nullptr};
+
+            module::Attribute *dockable_widget_attr_{nullptr};
 
             DisplayMode display_mode_{OnlyWhenPaused};
             bool playhead_is_playing_{false};
@@ -118,6 +166,9 @@ namespace ui {
             utility::Uuid toggle_active_hotkey_;
             utility::Uuid undo_hotkey_;
             utility::Uuid redo_hotkey_;
+            utility::Uuid clear_hotkey_;
+            utility::Uuid colour_picker_hotkey_;
+            utility::Uuid paint_stroke_id_;
 
             // Annotations
             utility::Uuid current_bookmark_uuid_;
@@ -127,6 +178,8 @@ namespace ui {
             // AnnotationsRenderer which has a direct access to it for on-screen
             // rendering of brush-strokes during user interaction.
             xstudio::ui::canvas::Canvas interaction_canvas_;
+
+            PixelPatch pixel_patch_;
 
             std::string current_interaction_viewport_name_;
 
@@ -140,10 +193,16 @@ namespace ui {
             Imath::V2f caption_drag_caption_start_pos_;
             Imath::V2f caption_drag_width_height_;
             Imath::V2f shape_anchor_;
+            Imath::V4f cumulative_picked_colour_ = Imath::V4f(0.0f, 0.0f, 0.0f, 0.0f);
+
+            Tool current_tool_ = None;
+            Tool last_tool_    = Draw;
 
             bool fade_looping_{false};
-            std::map<std::string, std::vector<media_reader::ImageBufPtr>>
-                viewport_current_images_;
+            std::map<std::string, media_reader::ImageBufDisplaySetPtr> viewport_current_images_;
+            media_reader::ImageBufPtr image_being_annotated_;
+            std::map<std::string, caf::actor> colour_pipelines_;
+
         };
 
     } // namespace viewport

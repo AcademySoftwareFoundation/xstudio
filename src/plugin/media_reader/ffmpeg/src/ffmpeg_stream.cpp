@@ -3,7 +3,6 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
-#include <cmath>
 
 #include "ffmpeg_stream.hpp"
 #include "xstudio/media/media_error.hpp"
@@ -22,8 +21,13 @@ void xstudio::media_reader::ffmpeg::AVC_CHECK_THROW(int errorNum, const char *av
     std::array<char, 4096> buf;
 
     if (!av_strerror(errorNum, buf.data(), buf.size())) {
-        throw media_corrupt_error(
-            std::string() + avc_command + " " + buf.data() + " (ffmpeg reader).");
+        if (-errorNum == ENOENT) {
+            throw media_missing_error(
+                std::string() + avc_command + " " + buf.data() + " (ffmpeg reader).");
+        } else {
+            throw media_corrupt_error(
+                std::string() + avc_command + " " + buf.data() + " (ffmpeg reader).");
+        }
     } else {
         throw media_corrupt_error(
             std::string("FFMPEG reader: ") + avc_command + " unknown error num " +
@@ -141,11 +145,6 @@ void set_shader_pix_format_info(
         yuv_to_rgb = YCbCr_to_RGB_709;
     }
 
-    // TODO: ColSci
-    // Remove DNxHD Video range override when moved in MediaHook
-    if (codec_id == AV_CODEC_ID_DNXHD)
-        color_range = AVCOL_RANGE_MPEG;
-
     switch (color_range) {
     case AVCOL_RANGE_JPEG: {
         Imath::V3f offset(1, 128, 128);
@@ -164,23 +163,12 @@ void set_shader_pix_format_info(
         yuv_to_rgb *= scale;
 
         Imath::V3f offset(16, 128, 128);
-        offset *= std::pow(2.0f, float(bitdepth - 8));
+        offset *= std::pow(2, bitdepth - 8);
         jsn["yuv_offsets"] = {"ivec3", 1, offset[0], offset[1], offset[2]};
     }
     }
 
-    jsn["yuv_conv"] = {
-        "mat3",
-        1,
-        yuv_to_rgb[0][0],
-        yuv_to_rgb[0][1],
-        yuv_to_rgb[0][2],
-        yuv_to_rgb[1][0],
-        yuv_to_rgb[1][1],
-        yuv_to_rgb[1][2],
-        yuv_to_rgb[2][0],
-        yuv_to_rgb[2][1],
-        yuv_to_rgb[2][2]};
+    jsn["yuv_conv"] = yuv_to_rgb.transposed();
 }
 
 
@@ -274,6 +262,10 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
     if (shader_supported_pix_formats.find(ffmpeg_pixel_format) ==
         shader_supported_pix_formats.end()) {
 
+        if (ffmpeg_pixel_format == -1) {
+            throw media_corrupt_error("FFMPEG could not decode the image.");
+        }
+
         if (!format_conversion_warning_issued) {
             format_conversion_warning_issued = true;
             spdlog::warn(
@@ -286,6 +278,7 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
         image_buffer.reset(new ImageBuffer());
         auto buffer = (uint8_t *)image_buffer->allocate(4 * frame->width * frame->height);
         // not one of the ffmpeg pixel formats that our shader can deal with, so convert to
+
         // something we can
         sws_context_ = sws_getCachedContext(
             sws_context_,
@@ -383,13 +376,25 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
         jsn["a_plane_bytes_offset"] = offsets[3];
     }
 
+    jsn["frame_width_pixels"] = frame->width;
+
     image_buffer->set_image_dimensions(Imath::V2i(frame->width, frame->height));
+
+    // TODO: ColSci
+    // Remove DNxHD Video range override
+    // Shows created after March 2022 do not need this override
+    // See http://stash/projects/RND/repos/showsetup_data/pull-requests/794/overview
+    const bool is_dneg_mov = utility::ends_with(format_context_->url, ".dneg.mov");
+    AVColorRange color_range = frame->color_range;
+    if (is_dneg_mov && codec_->id == AV_CODEC_ID_DNXHD) {
+        color_range = AVCOL_RANGE_MPEG;
+    }
 
     set_shader_pix_format_info(
         jsn,
         codec_->id,
         (AVPixelFormat)ffmpeg_pixel_format,
-        frame->color_range,
+        color_range,
         frame->colorspace);
 
     image_buffer->set_shader_params(jsn);
@@ -397,21 +402,6 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
     image_buffer->set_display_timestamp_seconds(
         double(frame->pts) * double(avc_stream_->time_base.num) /
         double(avc_stream_->time_base.den));
-
-    AVRational aspect = av_guess_sample_aspect_ratio(format_context_, avc_stream_, frame);
-
-    if (aspect.den && aspect.num) {
-        image_buffer->set_pixel_aspect(float(aspect.num) / float(aspect.den));
-    } else {
-        image_buffer->set_pixel_aspect(1.0f);
-    }
-
-    if (fpsNum_) {
-        if (fpsDen_)
-            image_buffer->set_duration_seconds(double(fpsDen_) / double(fpsNum_));
-        else
-            image_buffer->set_duration_seconds(1.0 / double(fpsNum_));
-    }
 
     // determine if image has alpha - if planar, look for 'a_linesize' != 0.
     // Otherwise check for interleaved RGB pix formats that have an alpha
@@ -521,7 +511,7 @@ AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio(const int soundcard_
     case audio::SampleFormat::INT16:
         target_sample_format_ = AV_SAMPLE_FMT_S16;
         break;
-    case audio::SampleFormat::INT32:
+    case audio::SampleFormat::SFINT32:
         target_sample_format_ = AV_SAMPLE_FMT_S32;
         break;
     case audio::SampleFormat::FLOAT32:
@@ -536,7 +526,6 @@ AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio(const int soundcard_
     default:
         throw media_corrupt_error("Audio buffer format is not set.");
     }
-
     target_sample_rate_    = audio_buffer->sample_rate();
     target_audio_channels_ = audio_buffer->num_channels();
 
@@ -544,17 +533,10 @@ AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio(const int soundcard_
         double(frame->pts) * double(avc_stream_->time_base.num) /
         double(avc_stream_->time_base.den));
 
-    // spdlog::info(
-    //     "Calculated display timestamp: {} seconds.",
-    //     double(frame->pts) * double(avc_stream_->time_base.num) /
-    //         double(avc_stream_->time_base.den));
-
     resample_audio(frame, audio_buffer, -1);
 
     return audio_buffer;
 }
-
-static int asd = 0;
 
 FFMpegStream::FFMpegStream(
     AVFormatContext *fmt_ctx, AVStream *stream, int index, int thread_count, std::string path)
@@ -577,13 +559,22 @@ FFMpegStream::FFMpegStream(
         AVC_CHECK_THROW(
             avcodec_parameters_to_context(codec_context_, avc_stream_->codecpar),
             "avcodec_parameters_to_context");
+            
         if (avc_stream_->codecpar->codec_tag == MKTAG('t', 'm', 'c', 'd')) {
             stream_type_ = TIMECODE_STREAM;
+            is_drop_frame_timecode_ = false;
+
+#if LIBAVFORMAT_VERSION_MAJOR > 59
+            // TODO: Work out how to get timecode drop frame out of avcodec!! 
+            // for current version of ffmpeg. Nothing in ffmpeg 'documentation' 
+            // as far as I can tell.
+#else
             if (codec_context_->flags2 & AV_CODEC_FLAG2_DROP_FRAME_TIMECODE) {
                 is_drop_frame_timecode_ = true;
             } else {
                 is_drop_frame_timecode_ = false;
             }
+#endif            
         }
 
     } else if (codec_type_ == AVMEDIA_TYPE_VIDEO && codec_) {
@@ -638,21 +629,32 @@ FFMpegStream::FFMpegStream(
         throw std::runtime_error("No decoder found.");
     }
 
-    // Set the fps if it has been set correctly in the stream
-    if (avc_stream_->avg_frame_rate.num != 0 && avc_stream_->avg_frame_rate.den != 0) {
-        fpsNum_     = avc_stream_->avg_frame_rate.num;
-        fpsDen_     = avc_stream_->avg_frame_rate.den;
-        frame_rate_ = xstudio::utility::FrameRate(
-            static_cast<double>(fpsDen_) / static_cast<double>(fpsNum_));
-    } else if (avc_stream_->r_frame_rate.num != 0 && avc_stream_->r_frame_rate.den != 0) {
-        fpsNum_     = avc_stream_->r_frame_rate.num;
-        fpsDen_     = avc_stream_->r_frame_rate.den;
-        frame_rate_ = xstudio::utility::FrameRate(
-            static_cast<double>(fpsDen_) / static_cast<double>(fpsNum_));
+    if ((avc_stream_->disposition & AV_DISPOSITION_ATTACHED_PIC) ==
+        AV_DISPOSITION_ATTACHED_PIC) {
+
+        // for attached pic stream, we override frame rate to 24pfs
+        frame_rate_      = xstudio::utility::FrameRate(timebase::k_flicks_24fps);
+        is_attached_pic_ = true;
+        decode_attached_pic();
+
     } else {
-        fpsNum_     = 0;
-        fpsDen_     = 0;
-        frame_rate_ = xstudio::utility::FrameRate(timebase::k_flicks_24fps);
+
+        // Set the fps if it has been set correctly in the stream
+        if (avc_stream_->avg_frame_rate.num != 0 && avc_stream_->avg_frame_rate.den != 0) {
+            fpsNum_     = avc_stream_->avg_frame_rate.num;
+            fpsDen_     = avc_stream_->avg_frame_rate.den;
+            frame_rate_ = xstudio::utility::FrameRate(
+                static_cast<double>(fpsDen_) / static_cast<double>(fpsNum_));
+        } else if (avc_stream_->r_frame_rate.num != 0 && avc_stream_->r_frame_rate.den != 0) {
+            fpsNum_     = avc_stream_->r_frame_rate.num;
+            fpsDen_     = avc_stream_->r_frame_rate.den;
+            frame_rate_ = xstudio::utility::FrameRate(
+                static_cast<double>(fpsDen_) / static_cast<double>(fpsNum_));
+        } else {
+            fpsNum_     = 0;
+            fpsDen_     = 0;
+            frame_rate_ = xstudio::utility::FrameRate(timebase::k_flicks_24fps);
+        }
     }
 }
 
@@ -704,6 +706,54 @@ size_t FFMpegStream::resample_audio(
     AVFrame *frame, AudioBufPtr &audio_buffer, int offset_into_output_buffer) {
 
     // N.B. this method is based loosely on the audio resampling in ffplay.c in ffmpeg source
+#if LIBAVFORMAT_VERSION_MAJOR > 59
+
+    const int wanted_nb_samples = frame->nb_samples * target_sample_rate_ / frame->sample_rate;
+
+    if (!audio_resampler_ctx_ || frame->format != src_audio_fmt_ ||
+        frame->sample_rate != src_audio_sample_rate_ ||
+        frame->ch_layout.nb_channels != 2) {
+
+        swr_free(&audio_resampler_ctx_);
+        audio_resampler_ctx_ = NULL;
+
+        auto dest_layout = AVChannelLayout(AV_CHANNEL_LAYOUT_STEREO);
+
+        int ret = swr_alloc_set_opts2(&audio_resampler_ctx_,         // we're allocating a new context
+            &dest_layout, // out_ch_layout
+            target_sample_format_,    // out_sample_fmt
+            target_sample_rate_,                // out_sample_rate
+            &(frame->ch_layout), // in_ch_layout
+            (AVSampleFormat)frame->format,   // in_sample_fmt
+            frame->sample_rate,                // in_sample_rate
+            0,                    // log_offset
+            NULL);                // log_ctx
+
+        if (!audio_resampler_ctx_ || swr_init(audio_resampler_ctx_) < 0) {
+            std::array<char, 4096> errbuf;
+
+            // naughty naughty.. don't use sprintf when you can't guarantee len..
+            // this is open to overflow..
+            // this is safe..
+            snprintf(
+                errbuf.data(),
+                errbuf.size(),
+                "Cannot create sample rate converter for conversion of %d"
+                " Hz %s %d channels to %d Hz %s %d channels!\n",
+                frame->sample_rate,
+                av_get_sample_fmt_name((AVSampleFormat)frame->format),
+                frame->ch_layout.nb_channels,
+                target_sample_rate_,
+                av_get_sample_fmt_name(target_sample_format_),
+                target_audio_channels_);
+            throw media_corrupt_error(errbuf.data());
+        }
+
+        src_audio_fmt_            = (AVSampleFormat)frame->format;
+        src_audio_sample_rate_    = frame->sample_rate;
+    }
+#else
+
     const int64_t target_channel_layout = av_get_default_channel_layout(2);
 
     av_samples_get_buffer_size(
@@ -757,6 +807,8 @@ size_t FFMpegStream::resample_audio(
         src_audio_sample_rate_    = frame->sample_rate;
         src_audio_channel_layout_ = dec_channel_layout;
     }
+
+#endif
 
     const auto in       = (const uint8_t **)frame->extended_data;
     int out_count       = wanted_nb_samples + 256;
@@ -905,12 +957,18 @@ int FFMpegStream::duration_frames() const {
 }
 
 
-/* Note 1: this experiment is disabled for now. The idea is that we circumvent
-// ffmpeg's buffer allocation and insert our own pixel buffer (owned by video_frame)
-// into which ffmpeg decodes. This will avoid the data copy happening in the
-// call to FFMPegStream::copy_avframe_to_xstudio_buffer and does indeed speed up
-// decoding. 2-3ms for typical HD res frame, more for UHD and so-on. However, the
-// approach doesn't work when ffmpeg is doing multithreading on frames as the buffer
-// allocation happens out of sync with the decode of a given video frame. Some more
-// work could be done to fix that problem and gain a few ms per frame which may
-// be needed for high res playback */
+void FFMpegStream::decode_attached_pic() {
+
+    int rx = send_packet(&(avc_stream_->attached_pic));
+    av_frame_unref(frame);
+    int rt = avcodec_receive_frame(codec_context_, frame);
+    if (rt == 0) {
+        attached_pic_ = get_ffmpeg_frame_as_xstudio_image();
+    } else {
+        try {
+            AVC_CHECK_THROW(rt, "avcodec_receive_frame");
+        } catch (std::exception &e) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+        }
+    }
+}

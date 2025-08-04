@@ -12,7 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(INSTALL_ROOT ${CMAKE_INSTALL_PREFIX})
 
-find_package(Qt5 COMPONENTS Core Quick REQUIRED)
+find_package(Qt6 COMPONENTS Core Quick REQUIRED)
 
 if(NOT DEFINED STATIC)
   set(STATIC OFF)
@@ -29,7 +29,7 @@ set(QML_FILES
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${PROJECT_SOURCE_DIR}/qml)
 
 # Approximates RESOURCES
-qt5_add_resources(RESOURCES ${PROJECT_SOURCE_DIR}/qml/quickpromise.qrc)
+qt6_add_resources(RESOURCES ${PROJECT_SOURCE_DIR}/qml/quickpromise.qrc)
 
 # Add the library
 if(${STATIC})
@@ -38,18 +38,15 @@ else()
     add_library(quickpromise SHARED)
 endif()
 
-target_link_libraries(quickpromise PRIVATE Qt5::Core Qt5::Quick)
+target_link_libraries(quickpromise PRIVATE Qt6::Core Qt6::Quick)
 
 # Add resource and header files to the library
 target_sources(quickpromise PRIVATE ${QML_FILES} ${RESOURCES})
 
-# Set install paths
-set(QML_INSTALL_DIR ${INSTALL_ROOT}/bin/QuickPromise)
-
 # Install the library and qml files
 if(WIN32)
-    install(TARGETS quickpromise DESTINATION ${INSTALL_ROOT}/bin)
-    install(FILES ${QML_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/plugin/qml/QuickPromise)
+    install(TARGETS quickpromise DESTINATION bin)
+    install(FILES ${QML_FILES} DESTINATION share/xstudio/plugin/qml/QuickPromise)
 else()
     install(TARGETS quickpromise DESTINATION ${INSTALL_ROOT})
     install(FILES ${QML_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/share/xstudio/plugin/qml/QuickPromise)
@@ -61,7 +58,14 @@ endif()
 # do a 'make install' moving it to the build destination allows us to
 # run xstudio without an install for development environment.
 add_custom_target(COPY_PROMISE_QML)
+
+if (APPLE)
+    set(QML_DEST_DIR ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/PlugIns/xstudio/qml/QuickPromise)
+else()
+    set(QML_DEST_DIR ${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickPromise)
+endif()
+
 add_custom_command(TARGET COPY_PROMISE_QML POST_BUILD
                   COMMAND ${CMAKE_COMMAND} -E
-                      copy_directory ${PROJECT_SOURCE_DIR}/qml/QuickPromise ${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickPromise)
+                      copy_directory ${PROJECT_SOURCE_DIR}/qml/QuickPromise ${QML_DEST_DIR})
 add_dependencies(quickpromise COPY_PROMISE_QML)

@@ -15,7 +15,6 @@ ContactSheet::ContactSheet(const JsonStore &jsn)
     : Container(static_cast<utility::JsonStore>(jsn["container"])),
       media_list_(static_cast<utility::JsonStore>(jsn["media"])) {
     playhead_rate_ = jsn["playhead_rate"];
-    compare_mode_  = jsn["compare_mode"];
 }
 
 JsonStore ContactSheet::serialise() const {
@@ -23,7 +22,6 @@ JsonStore ContactSheet::serialise() const {
 
     jsn["container"]     = Container::serialise();
     jsn["playhead_rate"] = playhead_rate_;
-    jsn["compare_mode"]  = compare_mode_;
 
     // identify actors that are media..
     jsn["media"] = media_list_.serialise();

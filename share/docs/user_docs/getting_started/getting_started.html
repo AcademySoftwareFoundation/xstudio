@@ -1,92 +1,51 @@
 
 
 <!DOCTYPE html>
-<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8">
-  
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
-  <title>Getting Started &mdash; xStudio 0.10.0 documentation</title>
-  
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Getting Started &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
 
   
-  
-  
-  
-
-  
-  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
-  
-    
-      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/language_data.js"></script>
-    
-    <script type="text/javascript" src="../../_static/js/theme.js"></script>
-
-    
-
-  
-  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="../../_static/graphviz.css" type="text/css" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="The xSTUDIO Interface" href="../interface/interface.html" />
-    <link rel="prev" title="Introduction" href="../overview.html" /> 
+    <link rel="prev" title="Introduction" href="../overview.html" />
+    <link href="../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
 </head>
 
-<body class="wy-body-for-nav">
-
-   
+<body class="wy-body-for-nav"> 
   <div class="wy-grid-for-nav">
-    
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-          
 
           
-            <a href="../../index.html" class="icon icon-home"> xStudio
           
-
-          
+          <a href="../../index.html" class="icon icon-home">
+            xStudio
           </a>
-
-          
-            
-            
-              <div class="version">
-                0.10.0
-              </div>
-            
-          
-
-          
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-
-          
-        </div>
-
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-          
-            
-            
-              
-            
-            
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../../index.html">Welcome to xStudio’s documentation!</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../index.html">xSTUDIO User Guide</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="../overview.html">Introduction</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Getting Started</a><ul>
@@ -95,116 +54,107 @@
 <li class="toctree-l3"><a class="reference internal" href="#loading-media-filesystem-browser">Loading Media (filesystem browser)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#loading-media-command-line">Loading Media (command line)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#viewing-media">Viewing Media</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#creating-a-sequence-timeline">Creating a Sequence (Timeline)</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../interface/interface.html">The xSTUDIO Interface</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../playback.html">Video Playback</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../notes.html">Notes and Annotations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../preferences.html">Preferences</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../workflow/workflow.html">Workflow Tools</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../appendix/index.html">Appendix</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../release_notes/index.html">Release Notes</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">xSTUDIO Reference</a></li>
 </ul>
 
-            
-          
         </div>
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-
-      
-      <nav class="wy-nav-top" aria-label="top navigation">
-        
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="../../index.html">xStudio</a>
-        
       </nav>
 
-
       <div class="wy-nav-content">
-        
         <div class="rst-content">
-        
-          
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<div role="navigation" aria-label="breadcrumbs navigation">
-
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-    
-      <li><a href="../../index.html">Docs</a> &raquo;</li>
-        
-          <li><a href="../index.html">xSTUDIO User Guide</a> &raquo;</li>
-        
-      <li>Getting Started</li>
-    
-    
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">xSTUDIO User Guide</a></li>
+      <li class="breadcrumb-item active">Getting Started</li>
       <li class="wy-breadcrumbs-aside">
-        
-            
             <a href="../../_sources/user_docs/getting_started/getting_started.rst.txt" rel="nofollow"> View page source</a>
-          
-        
       </li>
-    
   </ul>
-
-  
   <hr/>
 </div>
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
-            
-  <div class="section" id="getting-started">
-<h1>Getting Started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="building-xstudio">
-<h2>Building xSTUDIO<a class="headerlink" href="#building-xstudio" title="Permalink to this headline">¶</a></h2>
-<p>These user guide pages are built as part of the xSTUDIO product, so we assume that you or someone at your organisation has successfully built it! If not, build instructions for some of the most popular Linux distributions can be found in the README.md file in the root of xSTUDIO source code repository.</p>
-</div>
-<div class="section" id="launching-xstudio">
-<h2>Launching xSTUDIO<a class="headerlink" href="#launching-xstudio" title="Permalink to this headline">¶</a></h2>
-<p>To launch an empty xSTUDIO “Session” type <code class="docutils literal notranslate"><span class="pre">xstudio</span></code> on the Linux command line and press enter.</p>
-<p>You can drag-and-drop files into the main window from Ivy Browser or the file system, or use the “Load” layout to add Shotgun playlists.</p>
-<p>You can also launch xSTUDIO with one or more media files on the command line.</p>
-<p>Note: If an xSTUDIO session is already running on your system, nothing will happen! This is because the xSTUDIO command checks if a session is already running on your system, and if so it will forward the command line options to the already running session. This is really useful for building playlists and adding media to an xSTUDIO session from a terminal. If you just need to open a NEW xSTUDIO session use ‘xstudio -n’ - the extra flag tells it to launch a new session.</p>
-<img alt="../../_images/interface-01.png" src="../../_images/interface-01.png" />
-</div>
-<div class="section" id="loading-media-filesystem-browser">
-<h2>Loading Media (filesystem browser)<a class="headerlink" href="#loading-media-filesystem-browser" title="Permalink to this headline">¶</a></h2>
+             
+  <section id="getting-started">
+<span id="id1"></span><h1>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading"></a></h1>
+<section id="building-xstudio">
+<h2>Building xSTUDIO<a class="headerlink" href="#building-xstudio" title="Link to this heading"></a></h2>
+<p>Follow our comprehensive <a class="reference internal" href="../../reference/build_guides/index.html#build-guides"><span class="std std-ref">build guide documentation</span></a>: for instructions on building xSTUDIO.</p>
+</section>
+<section id="launching-xstudio">
+<h2>Launching xSTUDIO<a class="headerlink" href="#launching-xstudio" title="Link to this heading"></a></h2>
+<p>This depends somewhat on how you have installed xSTUDIO, but generally the method for launching xSTUDIO will be:</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>Linux</dt><dd><p>On most Linux desktops To launch an empty xSTUDIO “Session” type <code class="docutils literal notranslate"><span class="pre">xstudio</span></code> on the Linux command line and press enter.
+Note that <em>if xstudio is already running</em> the ‘xstudio’ command on its own will not launch a new xstudio interface but rather communicate with the exsiting instance. This is how xSTUDIO’s fast media <em>push</em> loading works. To ensure you get a new xSTUDIO GUI session, you can add the ‘-n’ command line option: <code class="docutils literal notranslate"><span class="pre">xstudio</span> <span class="pre">-n</span></code>.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Windows</dt><dd><p>xSTUDIO installation on Windows should add a shortcut to the Windows start menu.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>MacOS</dt><dd><p>xSTUDIO is deployed as an application bundle on MacOS, just double click on the application icon as with any other App.</p>
+</dd>
+</dl>
+</li>
+</ul>
+<img alt="../../_images/default-interface.png" src="../../_images/default-interface.png" />
+</section>
+<section id="loading-media-filesystem-browser">
+<h2>Loading Media (filesystem browser)<a class="headerlink" href="#loading-media-filesystem-browser" title="Link to this heading"></a></h2>
 <p>An easy way to load media is to drag-and-drop files or folders into the main window from the file system. If you drop a folder, the directory will be recursively searched for media files and they will all be added.</p>
-<p>There are 4 destinations into which you can drag-and-drop from the filesystem browser:</p>
+<p>There are 3 destinations into which you can drag-and-drop from the filesystem browser:</p>
 <blockquote>
 <div><ul class="simple">
-<li><p>The Viewer : this will add the media to the currently viewed playlist.</p></li>
-<li><p>The empty space of the Playlists panel : this will create a new playlist and add the media.</p></li>
+<li><p>The empty space of the Playlists panel : this will create a new playlist and add the media.
+- Subfolders of the top-level folder that was dropped into xSTUDIO will create a <em>subset</em></p></li>
 <li><p>An existing playlist entry in the Playlists panel : this will add the media to the playlist that you dropped the file into.</p></li>
 <li><p>The Media List panel : this will add the media to the end of the playlist being inspected in the media List.</p></li>
 </ul>
 </div></blockquote>
+<center><video src="../../_static/drag-drop1.webm" width="720" height="366" controls></video></center><div class="line-block">
+<div class="line"><br /></div>
 </div>
-<div class="section" id="loading-media-command-line">
-<h2>Loading Media (command line)<a class="headerlink" href="#loading-media-command-line" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="loading-media-command-line">
+<span id="command-line-loading"></span><h2>Loading Media (command line)<a class="headerlink" href="#loading-media-command-line" title="Link to this heading"></a></h2>
 <p>Media can be loaded using the xSTUDIO command line from a terminal window which will be convenient and powerful for users familiar with shell syntax. By default, if xSTUDIO is already running, files will be added to the existing session instead of starting a new session. If you want to launch a new session, use the -n flag.</p>
-<p>xSTUDIO supports various modes for loading sequences outlined in Appendix Pt. 1. You can mix different modes as required:</p>
-<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span>xstudio /path/to/test.mov /path/to/\*.jpg /path/to/frames.####.exr=1-10
+<p>xSTUDIO supports various modes for loading sequences. You can mix different modes as required</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>xstudio<span class="w"> </span>/path/to/test.mov<span class="w"> </span>/path/to/<span class="se">\*</span>.jpg<span class="w"> </span>/path/to/frames.####.exr<span class="o">=</span><span class="m">1</span>-10<span class="w"> </span>/path/to/other_frames.####.exr
 </pre></div>
+</div>
+<p>On Windows your command might look like this, but by using simple command aliasing in Powershell can simplify this</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>C:<span class="se">\P</span>rogram<span class="w"> </span>Files<span class="se">\x</span>STUDIO<span class="se">\b</span>in<span class="se">\x</span>studio.exe<span class="w"> </span>C:<span class="se">\U</span>sers<span class="se">\J</span>aneSmith<span class="se">\\</span>Media<span class="se">\t</span>est_movie.mp4<span class="w"> </span>C:<span class="se">\U</span>sers<span class="se">\J</span>aneSmith<span class="se">\M</span>edia<span class="se">\e</span>xrs<span class="se">\e</span>xr_sequence.####.exr
+</pre></div>
+</div>
+<p>Or, on MacOS you will need the path to the xSTUDIO app bundle, which <em>may</em> look like this</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/Applications/xSTUDIO.app/Contents/MacOS/xstudio.bin<span class="w"> </span>/Users/joe/Downloads/imported_media
+</pre></div>
+</div>
+<p>Note that a specific subset of frames can be loaded, or by ommitting a range all frames matching the pattern will be loaded.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Passing a filesystem directory rather than a filepath means the directory will be recursively searched for media that can be loaded into xSTUDIO.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -215,10 +165,10 @@
 <p>Image sequences (e.g. a series of JPEG or EXR files) default to 24fps (you can adjust this in preferences).</p>
 </div>
 <p>For more details on command line loading please see Appendix Pt.1.</p>
-</div>
-<div class="section" id="viewing-media">
-<h2>Viewing Media<a class="headerlink" href="#viewing-media" title="Permalink to this headline">¶</a></h2>
-<p>The first media item that is added to xSTUDIO will be made visible and you can start playing through / looping. To look at other media within the current playlist use the up/down arrow keys to cycle through the items that are in the playlist. See the section ‘The Media List Panel’ for more ways to select the media that you’re viewing.</p>
+</section>
+<section id="viewing-media">
+<h2>Viewing Media<a class="headerlink" href="#viewing-media" title="Link to this heading"></a></h2>
+<p>When you drag/drop into the xSTUDIO media list panel, the first item dropped will be put on screen immediately. To look at other media within the current playlist use the up/down arrow keys to cycle through the items that are in the playlist. See the section ‘The Media List Panel’ for more ways to select the media that you’re viewing. If you drag/drop into the playlists panel, media won’t be immediately loaded into the viewport. <strong>You need to double click on the newly created playlist to put its content into the viewport</strong></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The MediaList panel shows the content of the <em>selected</em> playlist. Be aware that the <em>selected playlist</em> maybe different to the <em>viewed playlist</em> that is showing images in the viewer.</p>
@@ -226,56 +176,48 @@
 <p>To select a playlist single click on it in the Playlist panel. To select a playlist and also start viewing its content, double click the playlist in the Playlist panel.</p>
 <p>If your selected playlist is the same as the viewed playlist, simply single click on a media item in the MediaList panel to view it in the viewer and start playing/looping on it. The up/down arrow hotkeys are also an easy way to cycle through the viewed media in the playlist.</p>
 <p>If your selected playlist is not the viewed playlist then double clicking on an item in the MediaList will switch your viewed playlist to the selected and the media you clicked on will start playing.</p>
+</section>
+<section id="creating-a-sequence-timeline">
+<span id="creating-a-sequence"></span><h2>Creating a Sequence (Timeline)<a class="headerlink" href="#creating-a-sequence-timeline" title="Link to this heading"></a></h2>
+<p>To start creating a multi track edit you must first have a Playlist because Sequences can only exist as a child of a Playlist (see <a class="reference internal" href="../interface/media_list.html#media-list-panel"><span class="std std-ref">Media List</span></a> for more details). One can right-mouse-button click with a Playlist selected, or hit the ‘More’ button (three dots to top right of Playlist panel) and choose <em>New Sequence</em>.</p>
+<p>Once a Sequence has been created, it can be populated with media by drag-dropping from the parent Playlist or even drag-dropping new media directly into the Media List with the Sequence selected in the Playlists panel.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Media can be loaded into a Sequence but not be within the edit. In this way the Sequence serves as its own <em>media bin</em> as well as containing the actual edit. Media loaded into the sequence will show in the Media List panel, and can be drag and dropped from there into the timeline interface to add to or create new video/audio tracks.</p>
 </div>
-</div>
+<p>This short video demonstrates Sequence creation.</p>
+<center><video src="../../_static/building-timeline-01.webm" width="720" height="366" controls></video></center></section>
+</section>
 
 
            </div>
-           
           </div>
-          <footer>
-  
-    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-      
-        <a href="../interface/interface.html" class="btn btn-neutral float-right" title="The xSTUDIO Interface" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
-      
-      
-        <a href="../overview.html" class="btn btn-neutral float-left" title="Introduction" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
-      
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../overview.html" class="btn btn-neutral float-left" title="Introduction" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../interface/interface.html" class="btn btn-neutral float-right" title="The xSTUDIO Interface" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
-  
 
   <hr/>
 
   <div role="contentinfo">
-    <p>
-        &copy; Copyright 2020, DNeg
-
-    </p>
+    <p>&#169; Copyright 2025, DNeg.</p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
 
 </footer>
-
         </div>
       </div>
-
     </section>
-
   </div>
-  
-
-
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script>
-
-  
-  
-    
-   
+  </script> 
 
 </body>
 </html>

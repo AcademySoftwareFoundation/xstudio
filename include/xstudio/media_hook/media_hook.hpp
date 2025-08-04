@@ -34,6 +34,11 @@ namespace media_hook {
             return utility::JsonStore{};
         }
 
+        virtual utility::JsonStore modify_clip_metadata(
+            const utility::JsonStore &clip_metadata, const utility::JsonStore &media_metadata) {
+            return utility::JsonStore{};
+        }
+
         virtual std::optional<utility::MediaReference>
         modify_media_reference(const utility::MediaReference &, const utility::JsonStore &) {
             return {};
@@ -53,6 +58,18 @@ namespace media_hook {
         }
 
         virtual void update_prefs(const utility::JsonStore &full_prefs_dict) {}
+
+        /* Allow custom display selection logic to be defined in MediaHook plugins.
+           This can be used to assign a specific OCIO display to the detected
+           monitor where the xStudio viewport is being shown. */
+        virtual std::string detect_display(
+            const std::string &name,
+            const std::string &model,
+            const std::string &manufacturer,
+            const std::string &serialNumber,
+            const utility::JsonStore &colour_params) {
+            return {};
+        }
 
       protected:
         MediaHook(std::string name) : module::Module(name), name_(std::move(name)) {}
@@ -142,12 +159,10 @@ namespace media_hook {
                 //         {
 
                 //         } else {
-                //             anon_send(
-                //                 media_actor,
-                //                 media::add_media_source_atom_v,
+                //             anon_mail(//                 media::add_media_source_atom_v,
                 //                 media_source_references,
                 //                 media_source_names,
-                //                 preferred_source);
+                //                 preferred_source).send(//                 media_actor);
                 //         }
                 //     }
                 //     return true;
@@ -161,10 +176,26 @@ namespace media_hook {
                     auto ref = media_hook_.modify_media_reference(mr, jsn);
                     if (ref) {
                         mr = *ref;
-                        anon_send(ua.actor(), media::media_reference_atom_v, mr);
+                        anon_mail(media::media_reference_atom_v, mr).send(ua.actor());
                     }
 
                     return media_hook_.modify_metadata(mr, jsn);
+                },
+
+                [=](media_hook::get_clip_hook_atom,
+                    const utility::JsonStore &clip,
+                    const utility::JsonStore &media) -> utility::JsonStore {
+                    return media_hook_.modify_clip_metadata(clip, media);
+                },
+
+                [=](media_hook::detect_display_atom,
+                    const std::string &name,
+                    const std::string &model,
+                    const std::string &manufacturer,
+                    const std::string &serialNumber,
+                    const utility::JsonStore &jsn) -> std::string {
+                    return media_hook_.detect_display(
+                        name, model, manufacturer, serialNumber, jsn);
                 },
 
                 [=](json_store::update_atom,
@@ -199,20 +230,19 @@ namespace media_hook {
             if (p != main_instances.end()) {
                 auto main_instance = caf::actor_cast<caf::actor>(p->second);
                 if (main_instance) {
-                    anon_send(
-                        main_instance,
+                    anon_mail(
                         module::link_module_atom_v,
                         actor_cast<caf::actor>(this),
                         true,
                         false,
-                        true);
+                        true)
+                        .send(main_instance);
                 }
             } else {
                 main_instances[hook_type_id] = actor_cast<caf::actor_addr>(this);
-                delayed_anon_send(
-                    actor_cast<caf::actor>(this),
-                    std::chrono::milliseconds(250),
-                    module::connect_to_ui_atom_v);
+                anon_mail(module::connect_to_ui_atom_v)
+                    .delay(std::chrono::milliseconds(250))
+                    .send(actor_cast<caf::actor>(this));
             }
             m.unlock();
         }

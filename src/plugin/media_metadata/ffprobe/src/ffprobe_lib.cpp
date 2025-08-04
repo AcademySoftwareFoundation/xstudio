@@ -385,8 +385,18 @@ nlohmann::json populate_stream(AVFormatContext *avfc, int index, MediaStream *is
             result["sample_fmt"] = s;
 
         result["sample_rate"] = par->sample_rate;
-        result["channels"]    = par->channels;
 
+#if LIBAVFORMAT_VERSION_MAJOR > 59
+        result["channels"]    = par->ch_layout.nb_channels;
+        {
+            AVBPrint buf;
+            av_bprint_init(&buf, 1, AV_BPRINT_SIZE_UNLIMITED);
+            av_channel_layout_describe_bprint(&(par->ch_layout), &buf);
+            result["channel_layout"] = buf.str;
+            av_bprint_finalize(&buf, nullptr);
+        }
+#else
+        result["channels"]    = par->channels;
         if (par->channel_layout) {
             AVBPrint buf;
             av_bprint_init(&buf, 1, AV_BPRINT_SIZE_UNLIMITED);
@@ -394,6 +404,7 @@ nlohmann::json populate_stream(AVFormatContext *avfc, int index, MediaStream *is
             result["channel_layout"] = buf.str;
             av_bprint_finalize(&buf, nullptr);
         }
+#endif
         result["bits_per_sample"] = av_get_bits_per_sample(par->codec_id);
     } break;
 
@@ -484,6 +495,17 @@ nlohmann::json populate_streams(MediaFile &src) {
 
     return result;
 }
+
+std::string uri_convert(const caf::uri &uri) {
+
+    // What other URI types do we need to support, if any?
+    const auto uri_string = to_string(uri);
+    if (uri_string.find("http") == 0) {
+        return utility::forward_remap_file_path(uri_string);
+    }
+    return utility::uri_to_posix_path(uri);
+
+}
 } // namespace
 
 
@@ -496,7 +518,8 @@ FFProbe::~FFProbe() { avformat_network_deinit(); }
 
 utility::JsonStore FFProbe::probe_file(const caf::uri &uri_path) {
     auto result = R"({})"_json;
-    auto ptr    = open_file(utility::uri_to_posix_path(uri_path));
+
+    auto ptr = open_file(uri_convert(uri_path));
 
     if (ptr) {
         try {
@@ -582,7 +605,7 @@ std::shared_ptr<MediaFile> FFProbe::open_file(const std::string &path) {
             if (not codec) {
                 spdlog::debug(
                     "Unsupported codec with id {} for input stream {}",
-                    stream->codecpar->codec_id,
+                    (int)stream->codecpar->codec_id,
                     stream->index);
                 continue;
             }

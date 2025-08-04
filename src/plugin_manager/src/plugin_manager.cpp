@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-#ifdef __linux__
+#ifndef _WIN32
 #include <dlfcn.h>
 #endif
-
 #include <filesystem>
 
 #include <fstream>
@@ -47,41 +46,23 @@ PluginManager::PluginManager(std::list<std::string> plugin_paths)
 size_t PluginManager::load_plugins() {
     // scan for .so or .dll for each path.
     size_t loaded = 0;
-    spdlog::debug("Loading Plugins");
 
     for (const auto &path : plugin_paths_) {
         try {
             // read dir content..
             for (const auto &entry : fs::directory_iterator(path)) {
-                if (not fs::is_regular_file(entry.status()) or
-                    not(entry.path().extension() == ".so" ||
-                        entry.path().extension() == ".dll"))
+                if (not fs::is_regular_file(entry.status()))
                     continue;
 
-#ifdef __linux__
-                // only want .so
-                // clear any errors..
-                dlerror();
+#ifdef _WIN32
 
-                // open .so
-                void *hndl = dlopen(entry.path().c_str(), RTLD_NOW);
-                if (hndl == nullptr) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, dlerror());
+                if (entry.path().extension() != ".dll")
                     continue;
-                }
 
-
-                plugin_factory_collection_ptr pfcp;
-                *(void **)(&pfcp) = dlsym(hndl, "plugin_factory_collection_ptr");
-                if (pfcp == nullptr) {
-                    spdlog::debug("{} {}", __PRETTY_FUNCTION__, dlerror());
-                    dlclose(hndl);
-                    continue;
-                }
-#elif defined(_WIN32)
                 // open .dll
                 std::string dllPath = entry.path().string();
-                HMODULE hndl        = LoadLibraryA(dllPath.c_str());
+
+                HMODULE hndl = LoadLibraryA(dllPath.c_str());
                 if (hndl == nullptr) {
                     DWORD errorCode = GetLastError();
                     LPSTR buffer    = nullptr;
@@ -107,6 +88,27 @@ size_t PluginManager::load_plugins() {
                 if (pfcp == nullptr) {
                     spdlog::debug("{} {}", __PRETTY_FUNCTION__, GetLastErrorAsString());
                     FreeLibrary(hndl);
+                    continue;
+                }
+#else
+                if (entry.path().extension() != ".so" && entry.path().extension() != ".dylib")
+                    continue;
+                // only want .so / .dylib
+                // clear any errors..
+                dlerror();
+
+                // open .so
+                void *hndl = dlopen(entry.path().c_str(), RTLD_NOW);
+                if (hndl == nullptr) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, dlerror());
+                    continue;
+                }
+
+                plugin_factory_collection_ptr pfcp;
+                *(void **)(&pfcp) = dlsym(hndl, "plugin_factory_collection_ptr");
+                if (pfcp == nullptr) {
+                    spdlog::debug("{} {}", __PRETTY_FUNCTION__, dlerror());
+                    dlclose(hndl);
                     continue;
                 }
 #endif

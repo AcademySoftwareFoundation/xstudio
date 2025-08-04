@@ -1,20 +1,62 @@
 {
 	"ui": {
 		"qml":{
+			"global_ui_scale_factor": {
+				"path": "/ui/qml/global_ui_scale_factor",
+				"default_value": 1.0,
+				"description": "Scales the entire xSTUDIO interface. Requires a restart after changing.",
+				"value": 1.0,
+				"datatype": "double",
+				"context": ["QML_UI"],
+				"category": "Interface",
+				"display_name": "Interface Scaling"
+			},
+			"use_flat_theme": {
+				"path": "/ui/qml/use_flat_theme",
+				"default_value": true,
+				"description": "Use the flat theme, instead of gradient backgrounds, in the xSTUDIO interface.",
+				"value": true,
+				"datatype": "bool",
+				"context": ["QML_UI"],
+				"category": "Interface",
+				"display_name": "Use Flat Theme"
+			},
+			"disable_quickview_windows": {
+				"path": "/ui/qml/disable_quickview_windows",
+				"default_value": false,
+				"description": "When media is added to the xSTUDIO session from an external command with the 'quick-view' flag to force the media to be loaded into a quickview pop-up window, the window will not be created if this option is set to On (the media is still added to the xSTUDIO session, however)",
+				"value": false,
+				"datatype": "bool",
+				"context": ["QML_UI"],
+				"category": "Interface",
+				"display_name": "Disable QuickView Windows"
+			},
+			"ui_brightness": {
+				"path": "/ui/qml/ui_brightness",
+				"default_value": 60.0,
+				"description": "Decrease this value to make the xSTUDIO interface darker.",
+				"value": 60.0,
+				"datatype": "double",
+				"context": ["QML_UI"],
+				"category": "Interface",
+				"display_name": "UI Brightness"
+			},
+			"ui_text_brightness": {
+				"path": "/ui/qml/ui_text_brightness",
+				"default_value": 90.0,
+				"description": "Decrease this value to make the xSTUDIO text elements darker.",
+				"value": 90.0,
+				"datatype": "double",
+				"context": ["QML_UI"],
+				"category": "Interface",
+				"display_name": "UI Text Brightness"
+			},
 			"custom_help_menu": {
 				"path": "/ui/qml/custom_help_menu",
 				"default_value": {"title": "", "url": ""},
 				"description": "Custom help menu item.",
 				"value":  {"title": "", "url": ""},
 				"datatype": "json",
-				"context": ["QML_UI"]
-			},
-			"enable_presentation_mode": {
-				"path": "/ui/qml/enable_presentation_mode",
-				"default_value": false,
-				"description": "Enable presentation mode.",
-				"value": false,
-				"datatype": "bool",
 				"context": ["QML_UI"]
 			},
 			"feedback": {
@@ -33,21 +75,14 @@
 				"datatype": "string",
 				"context": ["QML_UI"]
 			},
-			"autosave": {
-				"path": "/ui/qml/autosave",
-				"default_value": true,
-				"description": "Enable autosave.",
-				"value": true,
-				"datatype": "bool",
-				"context": ["QML_UI"]
-			},
 			"start_play_on_load": {
 				"path": "/ui/qml/start_play_on_load",
 				"default_value": true,
 				"description": "Start playing on load.",
 				"value": true,
 				"datatype": "bool",
-				"context": ["QML_UI"]
+				"context": ["QML_UI"],
+				"category": "Playback"
 			},
 			"do_overlay_messages": {
 				"path": "/ui/qml/do_overlay_messages",
@@ -71,7 +106,8 @@
 				"description": "Warn user on quiting with unsaved session.",
 				"value": true,
 				"datatype": "bool",
-				"context": ["QML_UI"]
+				"context": ["QML_UI"],
+				"category": "General"
 			},
 			"cycle_through_playlist": {
 				"path": "/ui/qml/cycle_through_playlist",
@@ -87,7 +123,18 @@
 				"description": "Restore play state after scrub.",
 				"value": true,
 				"datatype": "bool",
-				"context": ["QML_UI"]
+				"context": ["QML_UI"],
+				"category": "Playback"
+			},
+			"stop_playing_when_not_visible": {
+				"path": "/ui/qml/stop_playing_when_not_visible",
+				"default_value": true,
+				"description": "When xSTUDIO goes offscreen (either minimised or desktop changes) playback will automatically stop if this option is selected.",
+				"value": true,
+				"datatype": "bool",
+				"context": ["QML_UI"],
+				"category": "Playback",
+				"display_name": "Stop Playback when xSTUDIO is Hidden"
 			},
 			"view_top_toolbar": {
 				"path": "/ui/qml/view_top_toolbar",
@@ -97,197 +144,14 @@
 				"datatype": "bool",
 				"context": ["QML_UI"]
 			},
-			"main_window_viewer": {
-				"path": "/ui/qml/main_window_viewer",
-				"default_value": "{}",
-				"description": "Prefs relating to viewer.",
-				"value": {
-                    "__ignore__": true,
-                    "transportControlsVisible": true,
-                    "mediaInfoBarVisible": true,
-                    "statusBarVisible": true,
-                    "tabBarVisible": true,
-                    "toolBarVisible": true,
-					"layoutBarVisible": true,
-					"viewportTitleBarVisible": true,
-					"compactMode": false,
-					"menuBarVisible": true
-                },
-				"datatype": "json",
-				"context": ["QML_UI"]
-			},
-			"second_window_viewer": {
-				"path": "/ui/qml/second_window_viewer",
-				"default_value": "{}",
-				"description": "Prefs relating to pop-out viewer.",
-				"value": {
-                    "__ignore__": true,
-                    "transportControlsVisible": true,
-                    "mediaInfoBarVisible": true,
-                    "statusBarVisible": true,
-                    "tabBarVisible": true,
-                    "toolBarVisible": true,
-					"layoutBarVisible": true,
-					"viewportTitleBarVisible": true,
-					"compactMode": true,
-					"menuBarVisible": false
-                },
-				"datatype": "json",
-				"context": ["QML_UI"]
-			},
-			"note_window_settings": {
-				"path": "/ui/qml/note_window_settings",
-				"default_value": "{}",
-				"description": "Prefs relating to window position.",
-				"value": {
-                    "__ignore__": true,
-                    "x": 100,
-                    "y": 100,
-                    "width": 700,
-					"height": 400,
-					"visibility": 0
-                },
-				"datatype": "json",
-				"context": ["QML_UI"]
-			},
-			"main_window_settings": {
-				"path": "/ui/qml/main_window_settings",
-				"default_value": "{}",
-				"description": "Prefs relating to window position.",
-				"value": {
-                    "__ignore__": true,
-                    "x": 100,
-                    "y": 100,
-                    "width": 1200,
-					"height": 800,
-					"visibility": 1,
-					"layout_name": "review_layout",
-					"menu_bar_visible": 1
-                },
-				"datatype": "json",
-				"context": ["QML_UI"]
-			},
-			"second_window_settings": {
-				"path": "/ui/qml/second_window_settings",
-				"default_value": "{}",
-				"description": "Prefs relating to window position.",
-				"value": {
-                    "__ignore__": true,
-                    "x": 100,
-                    "y": 100,
-                    "width": 950,
-					"height": 540,
-					"visibility": 0,
-					"layout_name": "presentation_layout",
-					"menu_bar_visible": 0
-                },
-				"datatype": "json",
-				"context": ["QML_UI"]
-			},
-			"media_list_thumbnail_size": {
-				"path": "/ui/qml/media_list_thumbnail_size",
-				"default_value": 1.0,
-				"description": "Thumbnail size in media list.",
-				"value": 100.0,
-				"datatype": "double",
-				"context": ["QML_UI"]
-			},
-			"main_window_edit_layout": {
-				"path": "/ui/qml/main_window_edit_layout",
-				"default_value": "{}",
-				"description": "A list of window splitter ratios to remember positions of split handles",
-				"value": {
-                    "__ignore__": true,
-                    "divider_positions": [0.75, 0.16, 0.24]
-                },
-				"datatype": "json",
-				"context": ["QML_UI"]
-			},
-			"main_window_review_layout": {
-				"path": "/ui/qml/main_window_review_layout",
-				"default_value": "{}",
-				"description": "A list of window splitter ratios to remember positions of split handles",
-				"value": {
-                    "__ignore__": true,
-                    "divider_positions": [0.18, 0.4]
-                },
-				"datatype": "json",
-				"context": ["QML_UI"]
-			},
-			"main_window_shotgun_layout": {
-				"path": "/ui/qml/main_window_shotgun_layout",
-				"default_value": "{}",
-				"description": "A list of window splitter ratios to remember positions of split handles",
-				"value": {
-                    "__ignore__": true,
-                    "divider_positions": [0.15, 0.7, 0.3]
-                },
-				"datatype": "json",
-				"context": ["QML_UI"]
-			},
-			"main_window_browse_layout": {
-				"path": "/ui/qml/main_window_browse_layout",
-				"default_value": "{}",
-				"description": "A list of window splitter ratios to remember positions of split handles",
-				"value": {
-                    "__ignore__": true,
-                    "divider_positions": [0.18]
-                },
-				"datatype": "json",
-				"context": ["QML_UI"]
-			},
-			"second_window_edit_layout": {
-				"path": "/ui/qml/second_window_edit_layout",
-				"default_value": "{}",
-				"description": "A list of window splitter ratios to remember positions of split handles",
-				"value": {
-                    "__ignore__": true,
-                    "divider_positions": [0.18, 0.7, 0.5]
-                },
-				"datatype": "json",
-				"context": ["QML_UI"]
-			},
-			"second_window_review_layout": {
-				"path": "/ui/qml/second_window_review_layout",
-				"default_value": "{}",
-				"description": "A list of window splitter ratios to remember positions of split handles",
-				"value": {
-                    "__ignore__": true,
-                    "divider_positions": [0.18, 0.7]
-                },
-				"datatype": "json",
-				"context": ["QML_UI"]
-			},
-			"second_window_browse_layout": {
-				"path": "/ui/qml/second_window_browse_layout",
-				"default_value": "{}",
-				"description": "A list of window splitter ratios to remember positions of split handles",
-				"value": {
-                    "__ignore__": true,
-                    "divider_positions": [0.18]
-                },
-				"datatype": "json",
-				"context": ["QML_UI"]
-			},
-			"colour_pipe": {
-				"path": "/ui/qml/colour_pipe",
-				"default_value": "{}",
-				"description": "Prefs relating to colour pipeline.",
-				"value": {
-                    "__ignore__": true,
-                    "view": 0,
-                    "display": 0
-                },
-				"datatype": "json",
-				"context": ["QML_UI"]
-			},
 			"click_to_toggle_play": {
 				"path": "/ui/qml/click_to_toggle_play",
 				"default_value": false,
 				"description": "Click to toggle playback.",
 				"value": false,
 				"datatype": "bool",
-				"context": ["QML_UI"]
+				"context": ["QML_UI"],
+				"category": "Playback"
 			},
 			"timeline_units": {
 				"path": "/ui/qml/timeline_units",
@@ -310,8 +174,10 @@
 				"default_value": "#bb7700",
 				"description": "Colour of accents.",
 				"value": "#bb7700",
-				"datatype": "string",
-				"context": ["QML_UI"]
+				"datatype": "colour",
+				"options": { "Blue": "#307bf6", "Purple" : "#9b56a3", "Pink": "#e65d9c", "Red": "#ed5f5d", "Orange": "#e9883a", "Yellow": "#f3ba4b", "Green" : "#77b756", "Graphite" : "#999999" },
+				"context": ["QML_UI"],
+				"category": "Interface"
 			},
 			"latest_version": {
 				"path": "/ui/qml/latest_version",
@@ -337,93 +203,6 @@
 				"datatype": "string",
 				"context": ["QML_UI"]
 			},
-			"second_window_fit_mode": {
-				"path": "/ui/qml/second_window_fit_mode",
-				"default_value": "best",
-				"description": "Fit mode.",
-				"value": "best",
-				"datatype": "string",
-				"context": ["QML_UI"]
-			},
-			"control_values": {
-				"path": "/ui/qml/control_values",
-				"default_value": "{}",
-				"description": "Dump these.",
-				"value": "{}",
-				"datatype": "json",
-				"context": ["QML_UI"]
-			},
-			"channel": {
-				"path": "/ui/qml/channel",
-				"default_value": 0,
-				"description": "XPlayer channel modes.",
-				"value": 0,
-				"datatype": "int"
-			},
-			"xplayer_window": {
-				"path": "/ui/qml/xplayer_window",
-				"default_value": "{}",
-				"description": "XPlayer window geometries.",
-				"value": "{}",
-				"datatype": "json",
-				"context": ["QML_UI"]
-			},
-			"compare": {
-				"path": "/ui/qml/compare",
-				"default_value": 0,
-				"description": "XPlayer compare modes.",
-				"value": 0,
-				"datatype": "int",
-				"context": ["QML_UI"]
-			},
-			"exposure": {
-				"path": "/ui/qml/exposure",
-				"default_value": 0.0,
-				"description": "XPlayer exposure.",
-				"value": 0.0,
-				"datatype": "double",
-				"context": ["QML_UI"]
-			},
-			"velocity": {
-				"path": "/ui/qml/velocity",
-				"default_value": 1.0,
-				"description": "XPlayer velocity.",
-				"value": 1.0,
-				"datatype": "double",
-				"context": ["QML_UI"]
-			},
-			"source": {
-				"path": "/ui/qml/source",
-				"default_value": "none",
-				"description": "Media source.",
-				"value": "none",
-				"datatype": "string",
-				"context": ["QML_UI"]
-			},
-			"view": {
-				"path": "/ui/qml/view",
-				"default_value": "",
-				"description": "OCIO view.",
-				"value": "",
-				"datatype": "string",
-				"context": ["QML_UI"]
-			},
-			"display": {
-				"path": "/ui/qml/display",
-				"default_value": "",
-				"description": "OCIO display.",
-				"value": "",
-				"datatype": "string",
-				"context": ["QML_UI"]
-			},
-			"popout_viewer_visible": {
-				"path": "/ui/qml/popout_viewer_visible",
-				"default_value": false,
-				"description": "The 2nd pop-out window is visible.",
-				"value": false,
-				"datatype": "bool",
-				"context": ["QML_UI"]
-			},
 			"recent_history": {
 				"path": "/ui/qml/recent_history",
 				"default_value": [],
@@ -442,9 +221,9 @@
 			},
 			"default_playhead_compare_mode": {
 				"path": "/ui/qml/default_playhead_compare_mode",
-				"default_value": "A/B",
+				"default_value": "Off",
 				"description": "Default Compare Mode.",
-				"value": "A/B",
+				"value": "Off",
 				"datatype": "string",
 				"context": ["QML_UI"]
 			},
@@ -456,97 +235,408 @@
 				"datatype": "string",
 				"context": ["QML_UI"]
 			},
+			"tabs_visibility": {
+				"path": "/ui/qml/tabs_visibility",
+				"default_value": 2,
+				"description": "Visibility of tabs in layouts",
+				"value": 2,
+				"datatype": "int",
+				"context": ["QML_UI"]
+			},
+			"floating_panel_window_positions": {
+				"path": "/ui/qml/floating_panel_window_positions",
+				"default_value": {},
+				"description": "For remembering position and size of floating panel windows",
+				"value": {},
+				"datatype": "json",
+				"context": ["QML_UI"]
+			},
 			"reskin_windows_and_panels_model": {
 				"path": "/ui/qml/reskin_windows_and_panels_model",
-				"default_value": "{}",
+				"default_value": {
+					"children": [
+						{
+							"children": [
+								{
+									"children": [
+										{
+											"children": [
+												{
+													"tab_view": "Viewport",
+													"user_data": [
+														[
+															"Annotate",
+															false,
+															"left"
+														]
+													]
+												}
+											],
+											"current_tab": 0,
+											"tabs_hidden": false,
+											"user_data": {
+												"category": "Tree",
+												"left_panel_width": 267,
+												"project": "FUR",
+												"quick_load": "",
+												"right_panel_width": 200
+											}
+										}
+									],
+									"enabled": true,
+									"layout_name": "Present"
+								},
+								{
+									"children": [
+										{
+											"child_dividers": [
+												0.2639399609144996
+											],
+											"children": [
+												{
+													"child_dividers": [
+														0.5111100077629089
+													],
+													"children": [
+														{
+															"children": [
+																{
+																	"tab_view": "Playlists"
+																}
+															],
+															"current_tab": 0
+														},
+														{
+															"children": [
+																{
+																	"current_tab": 0,
+																	"tab_view": "Media",
+																	"user_data": {
+																		"cellSize": 200,
+																		"viewType": "list"
+																	}
+																}
+															]
+														}
+													],
+													"split_horizontal": false
+												},
+												{
+													"children": [
+														{
+															"current_tab": 0,
+															"tab_view": "Viewport",
+															"user_data": [
+																[
+																	"Annotate",
+																	false,
+																	"left"
+																]
+															]
+														}
+													]
+												}
+											],
+											"split_horizontal": true
+										}
+									],
+									"enabled": true,
+									"layout_name": "Review"
+								},
+								{
+									"children": [
+										{
+											"child_dividers": [
+												0.2543601384519992
+											],
+											"children": [
+												{
+													"child_dividers": [
+														0.4885725844704628
+													],
+													"children": [
+														{
+															"children": [
+																{
+																	"tab_view": "Playlists"
+																}
+															],
+															"current_tab": 0
+														},
+														{
+															"children": [
+																{
+																	"tab_view": "Media",
+																	"user_data": "87519a92-a3b7-4b57-899a-574c6a48357b"
+																}
+															],
+															"current_tab": 0,
+															"user_data": "Ref"
+														}
+													],
+													"split_horizontal": false
+												},
+												{
+													"child_dividers": [
+														0.7026894017605045
+													],
+													"children": [
+														{
+															"children": [
+																{
+																	"tab_view": "Viewport",
+																	"user_data": [
+																		[
+																			"Annotate",
+																			false,
+																			"left"
+																		]
+																	]
+																}
+															],
+															"current_tab": 0,
+															"user_data": {
+																"category": "Tree",
+																"left_panel_width": 316,
+																"project": "FUR",
+																"quick_load": "Latest Anim",
+																"right_panel_width": 200
+															}
+														},
+														{
+															"children": [
+																{
+																	"tab_view": "Timeline"
+																}
+															],
+															"current_tab": 0,
+															"user_data": "Stream"
+														}
+													],
+													"split_horizontal": false
+												}
+											],
+											"split_horizontal": true
+										}
+									],
+									"enabled": true,
+									"layout_name": "Timeline"
+								}
+							],
+							"current_layout": 0,
+							"height": 1057,
+							"position_x": 181,
+							"position_y": 30,
+							"width": 2176,
+							"window_name": "main_window"
+						},
+						{
+							"height": 813,
+							"position_x": 1269,
+							"position_y": 553,
+							"user_data": [
+								[
+									"Annotate",
+									true,
+									"right"
+								]
+							],
+							"width": 1074,
+							"window_name": "popout_window"
+						}
+					]
+				},
 				"description": "Windows layouts",
 				"value": {
 					"children": [
 						{
-							"window_name": "main_window",
-							"width": 800,
-							"height": 800,
-							"current_layout": 0,
-							"position_x": 100,
-							"position_y": 100,
 							"children": [
 								{
-									"layout_name": "Review",
-									"enabled": true,
 									"children": [
 										{
-											"split_horizontal": false, 
-											"child_dividers": [0.5],
 											"children": [
 												{
-													"split_horizontal": true, 
-													"child_dividers": [0.5],
-													"children": [
-														{
-															"current_tab": 2,
-															"children": [
-																{ "tab_view" : "Media" },
-																{ "tab_view" : "Timeline" },
-																{ "tab_view" : "Viewport" }
-															]
-														},
-														{
-															"current_tab": 0,
-															"children": [
-																{ "tab_view" : "Playlists" }
-															]
-														}
-													]
-												},
-												{
-													"current_tab": 0,
-													"children": [
-														{ "tab_view" : "Timeline" }
+													"tab_view": "Viewport",
+													"user_data": [
+														[
+															"Annotate",
+															false,
+															"left"
+														]
 													]
 												}
-											]
+											],
+											"current_tab": 0,
+											"tabs_hidden": false,
+											"user_data": {
+												"category": "Tree",
+												"left_panel_width": 267,
+												"project": "FUR",
+												"quick_load": "",
+												"right_panel_width": 200
+											}
 										}
-									]
+									],
+									"enabled": true,
+									"layout_name": "Present"
 								},
 								{
-									"layout_name": "Present",
-									"enabled": true,
 									"children": [
 										{
-											"split_horizontal": false, 
-											"child_dividers": [0.5],
+											"child_dividers": [
+												0.2639399609144996
+											],
 											"children": [
 												{
-													"split_horizontal": true, 
-													"child_dividers": [0.5],
+													"child_dividers": [
+														0.5111100077629089
+													],
 													"children": [
 														{
-															"current_tab": 2,
 															"children": [
-																{ "tab_view" : "Media" },
-																{ "tab_view" : "Timeline" },
-																{ "tab_view" : "Viewport" }
-															]
+																{
+																	"tab_view": "Playlists"
+																}
+															],
+															"current_tab": 0
 														},
 														{
-															"current_tab": 0,
 															"children": [
-																{ "tab_view" : "Playlists" }
+																{
+																	"current_tab": 0,
+																	"tab_view": "Media",
+																	"user_data": {
+																		"cellSize": 200,
+																		"viewType": "list"
+																	}
+																}
+															]
+														}
+													],
+													"split_horizontal": false
+												},
+												{
+													"children": [
+														{
+															"current_tab": 0,
+															"tab_view": "Viewport",
+															"user_data": [
+																[
+																	"Annotate",
+																	false,
+																	"left"
+																]
 															]
 														}
 													]
+												}
+											],
+											"split_horizontal": true
+										}
+									],
+									"enabled": true,
+									"layout_name": "Review"
+								},
+								{
+									"children": [
+										{
+											"child_dividers": [
+												0.2543601384519992
+											],
+											"children": [
+												{
+													"child_dividers": [
+														0.4885725844704628
+													],
+													"children": [
+														{
+															"children": [
+																{
+																	"tab_view": "Playlists"
+																}
+															],
+															"current_tab": 0
+														},
+														{
+															"children": [
+																{
+																	"tab_view": "Media",
+																	"user_data": "87519a92-a3b7-4b57-899a-574c6a48357b"
+																}
+															],
+															"current_tab": 0,
+															"user_data": "Ref"
+														}
+													],
+													"split_horizontal": false
 												},
 												{
-													"current_tab": 0,
+													"child_dividers": [
+														0.7026894017605045
+													],
 													"children": [
-														{ "tab_view" : "Timeline" }
-													]
+														{
+															"children": [
+																{
+																	"tab_view": "Viewport",
+																	"user_data": [
+																		[
+																			"Annotate",
+																			false,
+																			"left"
+																		]
+																	]
+																}
+															],
+															"current_tab": 0,
+															"user_data": {
+																"category": "Tree",
+																"left_panel_width": 316,
+																"project": "FUR",
+																"quick_load": "Latest Anim",
+																"right_panel_width": 200
+															}
+														},
+														{
+															"children": [
+																{
+																	"tab_view": "Timeline"
+																}
+															],
+															"current_tab": 0,
+															"user_data": "Stream"
+														}
+													],
+													"split_horizontal": false
 												}
-											]
+											],
+											"split_horizontal": true
 										}
-									]
+									],
+									"enabled": true,
+									"layout_name": "Timeline"
 								}
-							]
+							],
+							"current_layout": 1,
+							"height": 1057,
+							"position_x": 181,
+							"position_y": 30,
+							"width": 2176,
+							"window_name": "main_window"
+						},
+						{
+							"height": 813,
+							"position_x": 1269,
+							"position_y": 553,
+							"user_data": [
+								[
+									"Annotate",
+									true,
+									"right"
+								]
+							],
+							"width": 1074,
+							"window_name": "popout_window"
 						}
 					]
 				},
@@ -556,106 +646,74 @@
 			"media_list_columns_config": {
 				"path": "/ui/qml/media_list_columns_config",
 				"default_value": "{}",
-				"description": "Media List Columns Configuration",
+				"description": "Default set-up for columns in a new media list panel",
 				"value": {
-					"target_role_data_slot": 0,
 					"children": [
-					{
-						"title": "",
-						"size": 10,
-						"resizable": false,
-						"data_type": "flag",
-						"sortable": false
-					},
-					{
-						"title": "",
-						"size": 40,
-						"resizable": false,
-						"data_type": "index",
-						"sortable": true
-					},
-					{
-						"title": "Image",
-						"size": 70,
-						"resizable": true,
-						"data_type": "thumbnail",
-						"sortable": false
-					},
-					{
-						"title": "File",
-						"size": 300,
-						"role_name": "pathRole",
-						"object": "MediaSource",
-						"resizable": true,
-						"data_type": "role_data",
-						"sortable": false,
-						"format_regex": ".+\\/([^\\/]+)$",
-						"format_out": "$1"
-					},
-					{
-						"title": "Resolution",
-						"size": 70,
-						"object": "MediaSource",
-						"role_name": "resolutionRole",
-						"resizable": true,
-						"data_type": "role_data",
-						"sortable": false
-					},
-					{
-						"title": "Notes",
-						"size": 50,
-						"resizable": false,
-						"data_type": "notes",
-						"sortable": false
-					},
-					{
-						"title": "Shot",
-						"metadata_path": "/metadata/shotgun/shot/attributes/code",
-						"object": "Media",
-						"size": 120,
-						"data_type": "metadata",
-						"resizable": true,
-						"sortable": false					
-					},
-					{
-						"title": "Pipeline Step",
-						"metadata_path": "/metadata/shotgun/version/attributes/sg_pipeline_step",
-						"object": "Media",
-						"size": 120,
-						"data_type": "metadata",
-						"resizable": true,
-						"sortable": true
-					},
-					{
-						"title": "Version",
-						"metadata_path": "/metadata/shotgun/version/attributes/sg_dneg_version",
-						"object": "Media",
-						"size": 80,
-						"data_type": "metadata",
-						"resizable": true,
-						"sortable": true
-					},
-					{
-						"title": "Author",
-						"metadata_path": "/metadata/shotgun/version/relationships/created_by/data/name",
-						"object": "Media",
-						"size": 120,
-						"data_type": "metadata",
-						"resizable": true,
-						"sortable": true
-					},
-					{
-						"title": "Date",
-						"metadata_path": "/metadata/shotgun/version/attributes/created_at",
-						"object": "Media",
-						"size": 120,
-						"data_type": "metadata",
-						"resizable": true,
-						"sortable": true,
-						"format_regex": "([0-9]+\\-[0-9]+\\-[0-9]+).+",
-						"format_out": "$1"
-					}
-				]},
+						{
+							"data_type": "flag",
+							"resizable": false,
+							"size": 10,
+							"sortable": false,
+							"title": ""
+						},
+						{
+							"data_type": "index",
+							"resizable": false,
+							"size": 40,
+							"sortable": true,
+							"title": ""
+						},
+						{
+							"data_type": "thumbnail",
+							"resizable": true,
+							"size": 81,
+							"sortable": false,
+							"title": "Image"
+						},
+						{
+							"data_type": "media_standard_details",
+							"info_key": "File Path - MediaSource (Image)",
+							"regex_format": "",
+							"regex_match": "",
+							"resizable": true,
+							"size": 511,
+							"sortable": false,
+							"title": "File"
+						},
+						{
+							"data_type": "notes",
+							"resizable": true,
+							"size": 100,
+							"sortable": false,
+							"title": "Notes"
+						},
+						{
+							"data_type": "media_standard_details",
+							"info_key": "Frame Range - MediaSource (Image)",
+							"resizable": true,
+							"size": 120,
+							"sortable": false,
+							"title": "Frame Range"
+						},
+						{
+							"data_type": "metadata",
+							"metadata_path": "regex:/metadata/media/.*standard_fields/format",
+							"object": "MediaSource (Image)",
+							"resizable": true,
+							"size": 120,
+							"sortable": false,
+							"title": "Codec"
+						},
+						{
+							"data_type": "media_standard_details",
+							"info_key": "Frame Rate - MediaSource (Image)",
+							"resizable": true,
+							"size": 98,
+							"sortable": false,
+							"title": "Frame Rate"
+						}
+					]
+				},
 				"datatype": "json",
 				"context": ["QML_UI"]
 			}

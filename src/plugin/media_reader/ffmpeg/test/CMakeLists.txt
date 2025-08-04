@@ -12,6 +12,7 @@ target_link_libraries(ffmpeg_test
 		xstudio::playhead
 		xstudio::timeline
 		xstudio::colour_pipeline
+		fmt::fmt
 		${GTEST_LDFLAGS}
 )
 target_include_directories(ffmpeg_test

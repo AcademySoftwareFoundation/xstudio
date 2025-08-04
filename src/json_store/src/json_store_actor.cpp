@@ -16,6 +16,25 @@ using namespace xstudio::utility;
 using namespace xstudio;
 using namespace caf;
 
+namespace {
+
+void recursive_get_all_paths(
+    std::string curr_path,
+    std::vector<std::string> &allpaths,
+    nlohmann::json::const_iterator b,
+    nlohmann::json::const_iterator e) {
+    allpaths.push_back(curr_path);
+    for (auto p = b; p != e; ++p) {
+        if (p.value().is_object() && !p.value().is_array()) {
+            recursive_get_all_paths(
+                curr_path + "/" + p.key(), allpaths, p.value().cbegin(), p.value().cend());
+        } else {
+            allpaths.push_back(curr_path + "/" + p.key());
+        }
+    }
+}
+} // namespace
+
 JsonStoreActor::JsonStoreActor(
     caf::actor_config &cfg,
     const Uuid &uuid,
@@ -33,21 +52,60 @@ JsonStoreActor::JsonStoreActor(
     link_to(broadcast_);
 
     behavior_.assign(
+        make_get_event_group_handler(broadcast_),
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
         [=](get_json_atom) -> JsonStore { return json_store_; },
 
         [=](get_json_atom, const std::string &path) -> caf::result<JsonStore> {
             try {
+
+                if (path.find("regex:") == 0) {
+                    // if the 'path' starts with 'regex:' we do regex matching
+                    // between path and the actual paths available in the json
+                    // returning the data at the first path that matches
+                    std::vector<std::string> allpaths;
+                    recursive_get_all_paths(
+                        "", allpaths, json_store_.cbegin(), json_store_.cend());
+                    std::regex path_re(std::string(path, 6)); // strip the 'regex:' token
+                    std::cmatch m;
+                    for (const auto &a : allpaths) {
+                        if (std::regex_match(a.c_str(), m, path_re)) {
+                            std::string np = a;
+                            return JsonStore(json_store_.get(np));
+                        }
+                    }
+                    // Instead of returning an error which can cause spamming
+                    // of the log, we can will a null here as we haven't
+                    // managed a reg-ex match to metadata path.
+                    return JsonStore();
+                    /*return make_error(
+                        xstudio_error::error,
+                        std::string("Failed to do regex json path match to ") +
+                            std::string(path, 6));*/
+                }
                 std::string np = path;
                 return JsonStore(json_store_.get(np));
+
             } catch (const std::exception &e) {
                 return make_error(
                     xstudio_error::error, std::string("get_json_atom ") + e.what());
             }
         },
 
+        [=](get_json_atom, const std::vector<std::string> &paths) -> JsonStore {
+            JsonStore result;
+            for (const auto &path : paths) {
+                try {
+                    result[path] = json_store_.get(path);
+                } catch (...) {
+                    result[path] = nlohmann::json();
+                }
+            }
+            return result;
+        },
+
         [=](jsonstore_change_atom) {
-            send(broadcast_, update_atom_v, json_store_);
+            mail(update_atom_v, json_store_).send(broadcast_);
             update_pending_ = false;
         },
 
@@ -60,8 +118,7 @@ JsonStoreActor::JsonStoreActor(
         },
 
         [=](patch_atom, const JsonStore &json) -> bool {
-            const JsonStore j = json;
-            json_store_       = json_store_.patch(j);
+            json_store_ = json_store_.patch(json);
             broadcast_change();
             return true;
         },
@@ -72,12 +129,11 @@ JsonStoreActor::JsonStoreActor(
             broadcast_change();
             return true;
         },
-
         [=](utility::serialise_atom) -> JsonStore { return json_store_; },
 
         [=](set_json_atom atom, const JsonStore &json, const std::string &path) {
             std::string p = path;
-            delegate(caf::actor_cast<actor>(this), atom, json, p, false);
+            return mail(atom, json, p, false).delegate(caf::actor_cast<actor>(this));
         },
 
         [=](set_json_atom, const JsonStore &json) -> bool {
@@ -103,6 +159,7 @@ JsonStoreActor::JsonStoreActor(
             return true;
         },
 
+
         [=](set_json_atom,
             const JsonStore &json,
             const std::string &path,
@@ -124,22 +181,24 @@ JsonStoreActor::JsonStoreActor(
 
         [=](subscribe_atom, const std::string &path, caf::actor _actor) -> caf::result<bool> {
             // delegate to reader, return promise ?
-            std::string p = path;
-            auto rp       = make_response_promise<bool>();
-            this->request(_actor, caf::infinite, utility::get_group_atom_v)
+            auto rp = make_response_promise<bool>();
+            mail(utility::get_group_atom_v)
+                .request(_actor, caf::infinite)
                 .then(
-                    [&, p, _actor, rp](const std::pair<caf::actor, JsonStore> &data) mutable {
-                        const auto [grp, json]                       = data;
+                    [&, path, _actor, rp](
+                        const std::tuple<caf::actor, caf::actor, JsonStore> &data) mutable {
+                        const auto [jsa, grp, json]                  = data;
                         actor_group_[actor_cast<actor_addr>(_actor)] = grp;
-                        group_path_[grp]                             = p;
+                        group_path_[grp]                             = path;
 
-                        this->request(grp, caf::infinite, broadcast::join_broadcast_atom_v)
+                        mail(broadcast::join_broadcast_atom_v)
+                            .request(grp, caf::infinite)
                             .then(
                                 [=](const bool) mutable {},
                                 [=](const error &err) mutable {
                                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                                 });
-                        json_store_.set(json, p);
+                        json_store_.set(json, path);
                         broadcast_change();
                         rp.deliver(true);
                     },
@@ -158,7 +217,7 @@ JsonStoreActor::JsonStoreActor(
             const JsonStore & /*change*/,
             const std::string & /*path*/,
             const JsonStore &full) {
-            delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+            return mail(json_store::update_atom_v, full).delegate(actor_cast<caf::actor>(this));
         },
 
         [=](update_atom, const JsonStore &json) {
@@ -174,8 +233,8 @@ JsonStoreActor::JsonStoreActor(
             broadcast_change();
         },
 
-        [=](utility::get_group_atom) -> std::pair<caf::actor, JsonStore> {
-            return std::make_pair(broadcast_, json_store_);
+        [=](utility::get_group_atom) -> std::tuple<caf::actor, caf::actor, JsonStore> {
+            return std::make_tuple(caf::actor_cast<caf::actor>(this), broadcast_, json_store_);
         },
 
         [=](utility::uuid_atom) -> Uuid { return uuid_; });
@@ -193,11 +252,13 @@ void JsonStoreActor::broadcast_change(
     std::string p = path;
     if (broadcast_delay_.count() and async) {
         if (not update_pending_) {
-            delayed_anon_send(this, broadcast_delay_, jsonstore_change_atom_v);
+            anon_mail(jsonstore_change_atom_v)
+                .delay(broadcast_delay_)
+                .send(caf::actor_cast<caf::actor>(this), weak_ref);
             update_pending_ = true;
         }
     } else {
         // minor change, send now (DANGER MAYBE CAUSE ASYNC ISSUES)
-        send(broadcast_, update_atom_v, change, p, json_store_);
+        mail(update_atom_v, change, p, json_store_).send(broadcast_);
     }
 }

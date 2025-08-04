@@ -12,6 +12,7 @@
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/caf_helpers.hpp"
 #include "xstudio/playhead/playhead_actor.hpp"
+#include "xstudio/global/xstudio_actor_system.hpp"
 
 #include "xstudio/ui/keyboard.hpp"
 #include "xstudio/ui/mouse.hpp"
@@ -21,9 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef __linux__
 #include <unistd.h>
-#endif
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <GL/gl.h>
@@ -119,17 +118,19 @@ class GLXWindowViewportActor : public caf::event_based_actor {
             glViewport(0, 0, width, height);
             viewport_renderer->render();
             auto n = utility::clock::now();
-            std::cerr << "Redraw interval / microseconds: "
+            /*std::cerr << "Redraw interval / microseconds: "
                       << std::chrono::duration_cast<std::chrono::microseconds>(
                              utility::clock::now() - then)
                              .count()
-                      << "\n";
+                      << "\n";*/
             then = n;
             glXSwapBuffers(display, win);
 
             // this is crucial for video refresh sync, the viewport
             // needs to know when the image was put on the screen
             viewport_renderer->framebuffer_swapped(utility::clock::now());
+
+            viewport_renderer->prepare_render_data();
         }
 
         glXMakeCurrent(display, 0, 0); // releases the context so that this function can be
@@ -164,11 +165,7 @@ GLXWindowViewportActor::GLXWindowViewportActor(caf::actor_config &cfg)
     /* Here we create the xstudio OpenGLViewportRenderer class that actually draws video to the
      * screen
      */
-    viewport_renderer = new ui::viewport::Viewport(
-        jsn,
-        caf::actor_cast<caf::actor>(this),
-        true,
-        ui::viewport::ViewportRendererPtr(new opengl::OpenGLViewportRenderer(true, false)));
+    viewport_renderer = new ui::viewport::Viewport(jsn, caf::actor_cast<caf::actor>(this));
 
     /* Provide a callback so the xstudio OpenGLViewportRenderer can tell this class when some
     property of the viewport has changed, or a redraw is needed, so the window
@@ -208,56 +205,38 @@ void GLXWindowViewportActor::execute() {
 }
 
 void GLXWindowViewportActor::resizeGL(int w, int h) {
+    std::cerr << "resizeGL " << w << " " << h << "\n";
     width  = w;
     height = h;
-    anon_send(
-        caf::actor_cast<caf::actor>(this),
+    mail(
         ui::viewport::viewport_set_scene_coordinates_atom_v,
-        Imath::V2f(0, 0),
-        Imath::V2f(w, 0),
-        Imath::V2f(w, h),
-        Imath::V2f(0, h),
-        Imath::V2i(w, h),
-        1.0f);
+        0.0f,
+        0.0f,
+        float(w),
+        float(h),
+        float(w),
+        float(h),
+        1.0f)
+        .send(caf::actor_cast<caf::actor>(this));
 }
 
 int main(int argc, char *argv[]) {
 
     using namespace xstudio;
 
-    // utility::start_logger(spdlog::level::debug);
+    utility::start_logger();
 
-    ACTOR_INIT_GLOBAL_META()
+    // this call sets up the CAF actor system
+    CafActorSystem::instance();
 
+    // creates the 'global' actor that manages many of xstudio's core components
+    auto global_actor = CafActorSystem::global_actor(true, false, "XStudio");
 
-    caf::core::init_global_meta_objects();
-    caf::io::middleman::init_global_meta_objects();
-
-    // As far as I can tell caf only allows config to be modified
-    // through cli args. We prefer the 'sharing' policy rather than
-    // 'stealing'. The latter results in multiple threads spinning
-    // aggressively pushing CPU load very high during playback.
-    const char *args[] = {argv[0], "--caf.scheduler.policy=sharing"};
-    caf_utility::caf_config config{2, const_cast<char **>(args)};
-
-    caf::actor_system system{config};
-
-    // we need a handle on the system actor which we use to spawn components
-    // (actors), or send and receive messages here to set-up the xstudio session
-    caf::scoped_actor self{system};
-
-    // Create the global actor that manages highest level objects
-    caf::actor global_actor = self->spawn<global::GlobalActor>();
-
-    // Tell the global_actor to create the 'studio' top level object that manages the 'session'
-    // object(s)
-    utility::request_receive<caf::actor>(
-        *self, global_actor, global::create_studio_atom_v, "XStudio");
+    caf::scoped_actor self{CafActorSystem::system()};
 
     // Create a session object
     auto session =
         utility::request_receive<caf::actor>(*self, global_actor, session::session_atom_v);
-
 
     caf::actor viewport_actor = self->spawn<GLXWindowViewportActor>();
 
@@ -299,18 +278,12 @@ int main(int argc, char *argv[]) {
 
     // pass the playhead to the viewport - it will 'attach' itself to the playhead
     // so that it is receiving video frames for display
-    utility::request_receive_wait<bool>(
-        *self,
-        viewport_actor,
-        std::chrono::milliseconds(2000),
-        viewport::viewport_playhead_atom_v,
-        playhead);
+    self->send(viewport_actor, viewport::viewport_playhead_atom_v, playhead);
 
     // start playback
-    self->send(playhead, playhead::play_atom_v, true);
+    anon_mail(playhead::play_atom_v, true).delay(std::chrono::seconds(5)).send(playhead);
 
-    system.await_actors_before_shutdown(true);
-
+    sleep(20000);
     return 0;
 }
 
@@ -547,7 +520,7 @@ void GLXWindowViewportActor::event_loop_func() {
             XNextEvent(display, &ev);
 
             // see viewport.cpp ... this message will cause a redraw
-            anon_send(self, show_buffer_atom_v, true);
+            anon_mail(show_buffer_atom_v, true).send(self);
             // render();
 
             switch (ev.type) {

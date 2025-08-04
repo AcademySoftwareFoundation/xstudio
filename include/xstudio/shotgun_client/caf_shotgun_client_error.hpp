@@ -27,7 +27,7 @@ namespace shotgun_client {
         }
     }
 
-    inline bool from_string(caf::string_view in, shotgun_client_error &out) {
+    inline bool from_string(std::string_view in, shotgun_client_error &out) {
         if (in == "connection_error") {
             out = shotgun_client_error::connection_error;
             return true;

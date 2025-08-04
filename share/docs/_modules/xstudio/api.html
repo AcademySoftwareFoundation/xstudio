@@ -1,174 +1,101 @@
 
 
 <!DOCTYPE html>
-<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8">
-  
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
-  <title>xstudio.api &mdash; xStudio 0.10.0 documentation</title>
-  
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>xstudio.api &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
 
   
-  
-  
-  
-
-  
-  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
-  
-    
-      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/language_data.js"></script>
-    
-    <script type="text/javascript" src="../../_static/js/theme.js"></script>
-
-    
-
-  
-  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="../../_static/graphviz.css" type="text/css" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
-    <link rel="search" title="Search" href="../../search.html" /> 
+    <link rel="search" title="Search" href="../../search.html" />
+    <link href="../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
 </head>
 
-<body class="wy-body-for-nav">
-
-   
+<body class="wy-body-for-nav"> 
   <div class="wy-grid-for-nav">
-    
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-          
 
           
-            <a href="../../index.html" class="icon icon-home"> xStudio
           
-
-          
+          <a href="../../index.html" class="icon icon-home">
+            xStudio
           </a>
-
-          
-            
-            
-              <div class="version">
-                0.10.0
-              </div>
-            
-          
-
-          
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-
-          
-        </div>
-
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-          
-            
-            
-              
-            
-            
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../index.html">Welcome to xStudio’s documentation!</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../user_docs/index.html">xSTUDIO User Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">xSTUDIO Reference</a></li>
 </ul>
 
-            
-          
         </div>
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-
-      
-      <nav class="wy-nav-top" aria-label="top navigation">
-        
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="../../index.html">xStudio</a>
-        
       </nav>
 
-
       <div class="wy-nav-content">
-        
         <div class="rst-content">
-        
-          
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<div role="navigation" aria-label="breadcrumbs navigation">
-
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-    
-      <li><a href="../../index.html">Docs</a> &raquo;</li>
-        
-          <li><a href="../index.html">Module code</a> &raquo;</li>
-        
-      <li>xstudio.api</li>
-    
-    
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">xstudio.api</li>
       <li class="wy-breadcrumbs-aside">
-        
       </li>
-    
   </ul>
-
-  
   <hr/>
 </div>
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
-            
+             
   <h1>Source code for xstudio.api</h1><div class="highlight"><pre>
 <span></span><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">get_studio_atom</span><span class="p">,</span> <span class="n">get_global_image_cache_atom</span><span class="p">,</span> <span class="n">get_global_audio_cache_atom</span><span class="p">,</span> <span class="n">get_global_thumbnail_atom</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">get_global_store_atom</span><span class="p">,</span> <span class="n">get_plugin_manager_atom</span><span class="p">,</span> <span class="n">get_scanner_atom</span><span class="p">,</span> <span class="n">exit_atom</span>
-<span class="kn">from</span> <span class="nn">xstudio.common_api</span> <span class="kn">import</span> <span class="n">CommonAPI</span>
-<span class="kn">from</span> <span class="nn">xstudio.api.studio</span> <span class="kn">import</span> <span class="n">Studio</span>
-<span class="kn">from</span> <span class="nn">xstudio.api.intrinsic</span> <span class="kn">import</span> <span class="n">GlobalStore</span>
-<span class="kn">from</span> <span class="nn">xstudio.api.intrinsic</span> <span class="kn">import</span> <span class="n">Thumbnail</span>
-<span class="kn">from</span> <span class="nn">xstudio.api.intrinsic</span> <span class="kn">import</span> <span class="n">MediaCache</span>
-<span class="kn">from</span> <span class="nn">xstudio.api.intrinsic</span> <span class="kn">import</span> <span class="n">PluginManager</span>
-<span class="kn">from</span> <span class="nn">xstudio.api.intrinsic</span> <span class="kn">import</span> <span class="n">Scanner</span>
-<span class="kn">from</span> <span class="nn">xstudio.api.auxiliary.helpers</span> <span class="kn">import</span> <span class="n">Filesize</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_studio_atom</span><span class="p">,</span> <span class="n">get_global_image_cache_atom</span><span class="p">,</span> <span class="n">get_global_audio_cache_atom</span><span class="p">,</span> <span class="n">get_global_thumbnail_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_global_store_atom</span><span class="p">,</span> <span class="n">get_plugin_manager_atom</span><span class="p">,</span> <span class="n">get_scanner_atom</span><span class="p">,</span> <span class="n">exit_atom</span><span class="p">,</span> <span class="n">get_python_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_actor_from_registry_atom</span><span class="p">,</span> <span class="n">log_atom</span><span class="p">,</span> <span class="n">set_clipboard_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">LogLevel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.common_api</span><span class="w"> </span><span class="kn">import</span> <span class="n">CommonAPI</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.studio</span><span class="w"> </span><span class="kn">import</span> <span class="n">Studio</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.intrinsic</span><span class="w"> </span><span class="kn">import</span> <span class="n">GlobalStore</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.intrinsic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Thumbnail</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.intrinsic</span><span class="w"> </span><span class="kn">import</span> <span class="n">MediaCache</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.intrinsic</span><span class="w"> </span><span class="kn">import</span> <span class="n">PluginManager</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.intrinsic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scanner</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.auxiliary.helpers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Filesize</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.auxiliary</span><span class="w"> </span><span class="kn">import</span> <span class="n">ActorConnection</span>
 
-<div class="viewcode-block" id="API"><a class="viewcode-back" href="../../python_api/api.html#xstudio.api.API">[docs]</a><span class="k">class</span> <span class="nc">API</span><span class="p">(</span><span class="n">CommonAPI</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;API connection.</span>
+<div class="viewcode-block" id="API">
+<a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">API</span><span class="p">(</span><span class="n">CommonAPI</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;API connection.</span>
 
 <span class="sd">    Subclass connection for full API.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Create API object.</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create API object.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">           connection (object): Connection object.</span>
@@ -183,8 +110,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_plugin_manager</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">app</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Studio object.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">app</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Studio object.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Studio(object): If connected, `None` otherwise</span>
@@ -205,8 +132,10 @@
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_app</span>
 
-<div class="viewcode-block" id="API.shutdown"><a class="viewcode-back" href="../../python_api/api.html#xstudio.api.API.shutdown">[docs]</a>    <span class="k">def</span> <span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Shutdown xStudio app.</span>
+<div class="viewcode-block" id="API.shutdown">
+<a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.shutdown">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Shutdown xStudio app.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Success(bool): Shutting down.</span>
@@ -217,9 +146,10 @@
                         <span class="n">exit_atom</span><span class="p">()</span>
                     <span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
 
+
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">host</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Current connection host.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">host</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Current connection host.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">            host(str): host address</span>
@@ -229,8 +159,8 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">link</span><span class="o">.</span><span class="n">host</span><span class="p">()</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">port</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Current connection port.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">port</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Current connection port.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">            port(int): host port</span>
@@ -239,17 +169,115 @@
 
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">session</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Session object.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">session</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Session object.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Session(object): If connected, `None` otherwise</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">session</span>
 
+<div class="viewcode-block" id="API.get_actor_from_registry">
+<a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.get_actor_from_registry">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_actor_from_registry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get actor fro registry name</span>
+
+<span class="sd">       Args:</span>
+<span class="sd">            name(str): Registry name</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            remote actor(ActorConnection): Requested actor.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">ActorConnection</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">remote</span><span class="p">(),</span> <span class="n">get_actor_from_registry_atom</span><span class="p">(),</span> <span class="n">name</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="API.log">
+<a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.log">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">level</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Log msg at level</span>
+<span class="sd">        Args:</span>
+<span class="sd">            level(str): Log message level</span>
+<span class="sd">            messge(str): Log message</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">remote</span><span class="p">(),</span> <span class="n">log_atom</span><span class="p">(),</span> <span class="n">level</span><span class="p">,</span> <span class="n">messge</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="API.log_trace">
+<a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.log_trace">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_trace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Log msg at level</span>
+<span class="sd">        Args:</span>
+<span class="sd">            messge(str): Log message</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">LogLevel</span><span class="o">.</span><span class="n">SPDLOG_LEVEL_TRACE</span><span class="p">,</span> <span class="n">messge</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="API.log_debug">
+<a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.log_debug">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_debug</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Log msg at level</span>
+<span class="sd">        Args:</span>
+<span class="sd">            messge(str): Log message</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">LogLevel</span><span class="o">.</span><span class="n">SPDLOG_LEVEL_DEBUG</span><span class="p">,</span> <span class="n">messge</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="API.log_info">
+<a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.log_info">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Log msg at level</span>
+<span class="sd">        Args:</span>
+<span class="sd">            messge(str): Log message</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">LogLevel</span><span class="o">.</span><span class="n">SPDLOG_LEVEL_INFO</span><span class="p">,</span> <span class="n">messge</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="API.log_warn">
+<a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.log_warn">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_warn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Log msg at level</span>
+<span class="sd">        Args:</span>
+<span class="sd">            messge(str): Log message</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">LogLevel</span><span class="o">.</span><span class="n">SPDLOG_LEVEL_WARN</span><span class="p">,</span> <span class="n">messge</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="API.log_err">
+<a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.log_err">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_err</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Log msg at level</span>
+<span class="sd">        Args:</span>
+<span class="sd">            messge(str): Log message</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">LogLevel</span><span class="o">.</span><span class="n">SPDLOG_LEVEL_ERROR</span><span class="p">,</span> <span class="n">messge</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="API.log_critical">
+<a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.log_critical">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_critical</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Log msg at level</span>
+<span class="sd">        Args:</span>
+<span class="sd">            messge(str): Log message</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">LogLevel</span><span class="o">.</span><span class="n">SPDLOG_LEVEL_CRITICAL</span><span class="p">,</span> <span class="n">messge</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="API.set_clipboard">
+<a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.set_clipboard">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_clipboard</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">content</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set UI clipboard</span>
+<span class="sd">        Args:</span>
+<span class="sd">            content(str): content</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">set_clipboard</span><span class="p">(</span><span class="n">content</span><span class="p">)</span></div>
+
+
+
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">global_store</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Global JSON store object.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">global_store</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Global JSON store object.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            GlobalStore(object): If connected, `None` otherwise</span>
@@ -266,8 +294,8 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_store</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">thumbnail</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Global thumbnail object.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">thumbnail</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Global thumbnail object.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Thumbnail(object): If connected, `None` otherwise</span>
@@ -284,8 +312,8 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_thumbnail</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">scanner</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Global scanner object.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">scanner</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Global scanner object.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Scanner(object): If connected, `None` otherwise</span>
@@ -302,8 +330,8 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scanner</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">plugin_manager</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Global thumbnail object.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plugin_manager</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Global plugin manager actor.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            PluginManager(object): If connected, `None` otherwise</span>
@@ -321,8 +349,8 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_plugin_manager</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">image_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Global image cache object.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">image_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Global image cache object.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            MediaCache(object): If connected, `None` otherwise</span>
@@ -339,8 +367,8 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_image_cache</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">audio_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Global audio cache object.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">audio_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Global audio cache object.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            MediaCache(object): If connected, `None` otherwise</span>
@@ -356,8 +384,10 @@
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_audio_cache</span>
 
-<div class="viewcode-block" id="API.status"><a class="viewcode-back" href="../../python_api/api.html#xstudio.api.API.status">[docs]</a>    <span class="k">def</span> <span class="nf">status</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Return status of application</span>
+<div class="viewcode-block" id="API.status">
+<a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.status">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">status</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return status of application</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            status(dict): Dict with status.</span>
@@ -374,7 +404,6 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="c1"># connection stats</span>
                 <span class="n">stat</span><span class="p">[</span><span class="s2">&quot;connection&quot;</span><span class="p">][</span><span class="s2">&quot;connected&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
-                <span class="n">stat</span><span class="p">[</span><span class="s2">&quot;connection&quot;</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">api_type</span>
                 <span class="n">stat</span><span class="p">[</span><span class="s2">&quot;connection&quot;</span><span class="p">][</span><span class="s2">&quot;version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">app_version</span>
                 <span class="n">stat</span><span class="p">[</span><span class="s2">&quot;connection&quot;</span><span class="p">][</span><span class="s2">&quot;application&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">app_type</span>
                 <span class="n">stat</span><span class="p">[</span><span class="s2">&quot;connection&quot;</span><span class="p">][</span><span class="s2">&quot;host&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">host</span>
@@ -400,8 +429,11 @@
         <span class="k">return</span> <span class="n">stat</span></div>
 
 
-<div class="viewcode-block" id="API.print_status"><a class="viewcode-back" href="../../python_api/api.html#xstudio.api.API.print_status">[docs]</a>    <span class="k">def</span> <span class="nf">print_status</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Print status nicely.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="API.print_status">
+<a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.print_status">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">print_status</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Print status nicely.&quot;&quot;&quot;</span>
         <span class="n">s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">status</span><span class="p">()</span>
 
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;xStudio status&quot;</span><span class="p">)</span>
@@ -409,7 +441,7 @@
         <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;connection&quot;</span><span class="p">][</span><span class="s2">&quot;connected&quot;</span><span class="p">]:</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Connection:&quot;</span><span class="p">)</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  Remote:&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;connection&quot;</span><span class="p">][</span><span class="s2">&quot;host&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;:&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;connection&quot;</span><span class="p">][</span><span class="s2">&quot;port&quot;</span><span class="p">]))</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  Detail:&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;connection&quot;</span><span class="p">][</span><span class="s2">&quot;application&quot;</span><span class="p">],</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;connection&quot;</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">],</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;connection&quot;</span><span class="p">][</span><span class="s2">&quot;version&quot;</span><span class="p">])</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  Detail:&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;connection&quot;</span><span class="p">][</span><span class="s2">&quot;application&quot;</span><span class="p">],</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;connection&quot;</span><span class="p">][</span><span class="s2">&quot;version&quot;</span><span class="p">])</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Cache:&quot;</span><span class="p">)</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  Image:&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;cache&quot;</span><span class="p">][</span><span class="s2">&quot;image&quot;</span><span class="p">][</span><span class="s2">&quot;count&quot;</span><span class="p">],</span> <span class="nb">str</span><span class="p">(</span><span class="n">Filesize</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;cache&quot;</span><span class="p">][</span><span class="s2">&quot;image&quot;</span><span class="p">][</span><span class="s2">&quot;size&quot;</span><span class="p">])),)</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  Audio:&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;cache&quot;</span><span class="p">][</span><span class="s2">&quot;audio&quot;</span><span class="p">][</span><span class="s2">&quot;count&quot;</span><span class="p">],</span> <span class="nb">str</span><span class="p">(</span><span class="n">Filesize</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;cache&quot;</span><span class="p">][</span><span class="s2">&quot;audio&quot;</span><span class="p">][</span><span class="s2">&quot;size&quot;</span><span class="p">])),)</span>
@@ -420,46 +452,36 @@
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  Playlists:&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;session&quot;</span><span class="p">][</span><span class="s2">&quot;playlist&quot;</span><span class="p">][</span><span class="s2">&quot;count&quot;</span><span class="p">])</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  Media:&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;session&quot;</span><span class="p">][</span><span class="s2">&quot;media&quot;</span><span class="p">][</span><span class="s2">&quot;count&quot;</span><span class="p">])</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Not connected.&quot;</span><span class="p">)</span></div></div>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Not connected.&quot;</span><span class="p">)</span></div>
+</div>
+
 </pre></div>
 
            </div>
-           
           </div>
           <footer>
-  
 
   <hr/>
 
   <div role="contentinfo">
-    <p>
-        &copy; Copyright 2020, DNeg
-
-    </p>
+    <p>&#169; Copyright 2025, DNeg.</p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
 
 </footer>
-
         </div>
       </div>
-
     </section>
-
   </div>
-  
-
-
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script>
-
-  
-  
-    
-   
+  </script> 
 
 </body>
 </html>

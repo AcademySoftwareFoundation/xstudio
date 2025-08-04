@@ -5,6 +5,7 @@
 #include "xstudio/ui/opengl/shader_program_base.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/string_helpers.hpp"
+#include "xstudio/media_reader/image_buffer_set.hpp"
 
 #include "grading.h"
 #include "grading_mask_render_data.h"
@@ -17,221 +18,127 @@ using namespace xstudio::colour_pipeline;
 using namespace xstudio::ui::viewport;
 
 
+namespace {
+
+std::vector<float> array4d_to_vector4f(const std::array<double, 4> &arr) {
+    return std::vector<float>{
+        static_cast<float>(arr[0]),
+        static_cast<float>(arr[1]),
+        static_cast<float>(arr[2]),
+        static_cast<float>(arr[3])};
+}
+
+std::array<double, 4> vector4f_to_array4d(const std::vector<float> &vec) {
+    return std::array<double, 4>{vec[0], vec[1], vec[2], vec[3]};
+}
+
+} // anonymous namespace
+
+
 GradingTool::GradingTool(caf::actor_config &cfg, const utility::JsonStore &init_settings)
     : plugin::StandardPlugin(cfg, "GradingTool", init_settings) {
 
-    module::QmlCodeAttribute *button = add_qml_code_attribute(
-        "MyCode",
-        R"(
-    import Grading 1.0
-    GradingButton {
-        anchors.fill: parent
-    }
-    )");
-
-    button->expose_in_ui_attrs_group("media_tools_buttons_0");
-    button->set_role_data(module::Attribute::ToolbarPosition, 500.0);
-
     // General
 
-    tool_is_active_ =
-        add_boolean_attribute("grading_tool_active", "grading_tool_active", false);
-    tool_is_active_->expose_in_ui_attrs_group("grading_settings");
-    tool_is_active_->set_role_data(
-        module::Attribute::MenuPaths,
-        std::vector<std::string>({"panels_main_menu_items|Grading Tool"}));
-
-    mask_is_active_ = add_boolean_attribute("mask_tool_active", "mask_tool_active", false);
-    mask_is_active_->expose_in_ui_attrs_group("grading_settings");
+    tool_opened_count_ = add_integer_attribute("tool_opened_count", "tool_opened_count", 0);
+    tool_opened_count_->expose_in_ui_attrs_group("grading_settings");
 
     grading_action_ = add_string_attribute("grading_action", "grading_action", "");
     grading_action_->expose_in_ui_attrs_group("grading_settings");
 
-    drawing_action_ = add_string_attribute("drawing_action", "drawing_action", "");
-    drawing_action_->expose_in_ui_attrs_group("grading_settings");
+    grading_bypass_ = add_boolean_attribute("grading_bypass", "grading_bypass", false);
+    grading_bypass_->expose_in_ui_attrs_group("grading_settings");
+
+    media_colour_managed_ =
+        add_boolean_attribute("media_colour_managed", "media_colour_managed", false);
+    media_colour_managed_->expose_in_ui_attrs_group("grading_settings");
 
     // Grading elements
 
-    grading_panel_ = add_string_choice_attribute(
-        "grading_panel",
-        "grading_panel",
-        utility::map_value_to_vec(grading_panel_names_).front(),
-        utility::map_value_to_vec(grading_panel_names_));
-    grading_panel_->expose_in_ui_attrs_group("grading_settings");
-    grading_panel_->set_preference_path("/plugin/grading/grading_panel");
+    grading_bookmark_ = add_string_attribute("grading_bookmark", "grading_bookmark", "");
+    grading_bookmark_->expose_in_ui_attrs_group("grading_settings");
 
-    grading_layer_ = add_string_choice_attribute("grading_layer", "grading_layer");
-    grading_layer_->expose_in_ui_attrs_group("grading_settings");
-    grading_layer_->expose_in_ui_attrs_group("grading_layers");
+    colour_space_ = add_string_choice_attribute(
+        "colour_space", "colour_space", "scene_linear", {"scene_linear", "compositing_log"});
+    colour_space_->expose_in_ui_attrs_group("grading_settings");
 
-    grading_bypass_ = add_boolean_attribute("drawing_bypass", "drawing_bypass", false);
-    grading_bypass_->expose_in_ui_attrs_group("grading_settings");
-
-    grading_buffer_ = add_string_choice_attribute("grading_buffer", "grading_buffer");
-    grading_buffer_->expose_in_ui_attrs_group("grading_settings");
+    working_space_ = add_string_attribute("working_space", "working_space", "");
+    working_space_->expose_in_ui_attrs_group("grading_settings");
 
     // Slope
-    slope_red_ = add_float_attribute("Red Slope", "Red", 1.0f, 0.0f, 4.0f, 0.005f);
-    slope_red_->set_redraw_viewport_on_change(true);
-    slope_red_->set_role_data(module::Attribute::DefaultValue, 1.0f);
-    slope_red_->set_role_data(module::Attribute::ToolTip, "Red slope");
-    slope_red_->expose_in_ui_attrs_group("grading_settings");
-    slope_red_->expose_in_ui_attrs_group("grading_slope");
-    slope_red_->set_role_data(
-        module::Attribute::Colour, utility::ColourTriplet(1.0f, 0.0f, 0.0f));
-
-    slope_green_ = add_float_attribute("Green Slope", "Green", 1.0f, 0.0f, 4.0f, 0.005f);
-    slope_green_->set_redraw_viewport_on_change(true);
-    slope_green_->set_role_data(module::Attribute::DefaultValue, 1.0f);
-    slope_green_->set_role_data(module::Attribute::ToolTip, "Green slope");
-    slope_green_->expose_in_ui_attrs_group("grading_settings");
-    slope_green_->expose_in_ui_attrs_group("grading_slope");
-    slope_green_->set_role_data(
-        module::Attribute::Colour, utility::ColourTriplet(0.0f, 1.0f, 0.0f));
-
-    slope_blue_ = add_float_attribute("Blue Slope", "Blue", 1.0f, 0.0f, 4.0f, 0.005f);
-    slope_blue_->set_redraw_viewport_on_change(true);
-    slope_blue_->set_role_data(module::Attribute::DefaultValue, 1.0f);
-    slope_blue_->set_role_data(module::Attribute::ToolTip, "Blue slope");
-    slope_blue_->expose_in_ui_attrs_group("grading_settings");
-    slope_blue_->expose_in_ui_attrs_group("grading_slope");
-    slope_blue_->set_role_data(
-        module::Attribute::Colour, utility::ColourTriplet(0.0f, 0.0f, 1.0f));
-
-    slope_master_ = add_float_attribute(
-        "Master Slope", "Master", 1.0f, std::pow(2.0, -6.0), std::pow(2.0, 6.0), 0.005f);
-    slope_master_->set_redraw_viewport_on_change(true);
-    slope_master_->set_role_data(module::Attribute::DefaultValue, 1.0f);
-    slope_master_->set_role_data(module::Attribute::ToolTip, "Master slope");
-    slope_master_->expose_in_ui_attrs_group("grading_settings");
-    slope_master_->expose_in_ui_attrs_group("grading_slope");
-    slope_master_->set_role_data(
-        module::Attribute::Colour, utility::ColourTriplet(1.0f, 1.0f, 1.0f));
+    slope_ = add_float_vector_attribute(
+        "Slope",
+        "Slope",
+        std::vector<float>({1.0, 1.0, 1.0, 1.0}),        // initial value
+        std::vector<float>({0.0, 0.0, 0.0, 0.0}),        // min
+        std::vector<float>({4.0, 4.0, 4.0, 4.0}),        // max
+        std::vector<float>({0.005, 0.005, 0.005, 0.005}) // step
+    );
+    slope_->expose_in_ui_attrs_group("grading_settings");
+    slope_->expose_in_ui_attrs_group("grading_wheels");
 
     // Offset
-    offset_red_ = add_float_attribute("Red Offset", "Red", 0.0f, -0.2f, 0.2f, 0.005f);
-    offset_red_->set_redraw_viewport_on_change(true);
-    offset_red_->set_role_data(module::Attribute::DefaultValue, 0.0f);
-    offset_red_->set_role_data(module::Attribute::ToolTip, "Red offset");
-    offset_red_->expose_in_ui_attrs_group("grading_settings");
-    offset_red_->expose_in_ui_attrs_group("grading_offset");
-    offset_red_->set_role_data(
-        module::Attribute::Colour, utility::ColourTriplet(1.0f, 0.0f, 0.0f));
-
-    offset_green_ = add_float_attribute("Green Offset", "Green", 0.0f, -0.2f, 0.2f, 0.005f);
-    offset_green_->set_redraw_viewport_on_change(true);
-    offset_green_->set_role_data(module::Attribute::DefaultValue, 0.0f);
-    offset_green_->set_role_data(module::Attribute::ToolTip, "Green offset");
-    offset_green_->expose_in_ui_attrs_group("grading_settings");
-    offset_green_->expose_in_ui_attrs_group("grading_offset");
-    offset_green_->set_role_data(
-        module::Attribute::Colour, utility::ColourTriplet(0.0f, 1.0f, 0.0f));
-
-    offset_blue_ = add_float_attribute("Blue Offset", "Blue", 0.0f, -0.2f, 0.2f, 0.005f);
-    offset_blue_->set_redraw_viewport_on_change(true);
-    offset_blue_->set_role_data(module::Attribute::DefaultValue, 0.0f);
-    offset_blue_->set_role_data(module::Attribute::ToolTip, "Blue offset");
-    offset_blue_->expose_in_ui_attrs_group("grading_settings");
-    offset_blue_->expose_in_ui_attrs_group("grading_offset");
-    offset_blue_->set_role_data(
-        module::Attribute::Colour, utility::ColourTriplet(0.0f, 0.0f, 1.0f));
-
-    offset_master_ = add_float_attribute("Master Offset", "Master", 0.0f, -0.2f, 0.2f, 0.005f);
-    offset_master_->set_redraw_viewport_on_change(true);
-    offset_master_->set_role_data(module::Attribute::DefaultValue, 0.0f);
-    offset_master_->set_role_data(module::Attribute::ToolTip, "Master offset");
-    offset_master_->expose_in_ui_attrs_group("grading_settings");
-    offset_master_->expose_in_ui_attrs_group("grading_offset");
-    offset_master_->set_role_data(
-        module::Attribute::Colour, utility::ColourTriplet(1.0f, 1.0f, 1.0f));
+    offset_ = add_float_vector_attribute(
+        "Offset",
+        "Offset",
+        std::vector<float>({0.0, 0.0, 0.0, 0.0}),        // initial value
+        std::vector<float>({-0.2, -0.2, -0.2, -0.2}),    // min
+        std::vector<float>({0.2, 0.2, 0.2, 0.2}),        // max
+        std::vector<float>({0.005, 0.005, 0.005, 0.005}) // step
+    );
+    offset_->expose_in_ui_attrs_group("grading_settings");
+    offset_->expose_in_ui_attrs_group("grading_wheels");
 
     // Power
-    power_red_ = add_float_attribute("Red Power", "Red", 1.0f, 0.2f, 4.0f, 0.005f);
-    power_red_->set_redraw_viewport_on_change(true);
-    power_red_->set_role_data(module::Attribute::DefaultValue, 1.0f);
-    power_red_->set_role_data(module::Attribute::ToolTip, "Red power");
-    power_red_->expose_in_ui_attrs_group("grading_settings");
-    power_red_->expose_in_ui_attrs_group("grading_power");
-    power_red_->set_role_data(
-        module::Attribute::Colour, utility::ColourTriplet(1.0f, 0.0f, 0.0f));
-
-    power_green_ = add_float_attribute("Green Power", "Green", 1.0f, 0.2f, 4.0f, 0.005f);
-    power_green_->set_redraw_viewport_on_change(true);
-    power_green_->set_role_data(module::Attribute::DefaultValue, 1.0f);
-    power_green_->set_role_data(module::Attribute::ToolTip, "Green power");
-    power_green_->expose_in_ui_attrs_group("grading_settings");
-    power_green_->expose_in_ui_attrs_group("grading_power");
-    power_green_->set_role_data(
-        module::Attribute::Colour, utility::ColourTriplet(0.0f, 1.0f, 0.0f));
-
-    power_blue_ = add_float_attribute("Blue Power", "Blue", 1.0f, 0.2f, 4.0f, 0.005f);
-    power_blue_->set_redraw_viewport_on_change(true);
-    power_blue_->set_role_data(module::Attribute::DefaultValue, 1.0f);
-    power_blue_->set_role_data(module::Attribute::ToolTip, "Blue power");
-    power_blue_->expose_in_ui_attrs_group("grading_settings");
-    power_blue_->expose_in_ui_attrs_group("grading_power");
-    power_blue_->set_role_data(
-        module::Attribute::Colour, utility::ColourTriplet(0.0f, 0.0f, 1.0f));
-
-    power_master_ = add_float_attribute("Master Power", "Master", 1.0f, 0.2f, 4.0f, 0.005f);
-    power_master_->set_redraw_viewport_on_change(true);
-    power_master_->set_role_data(module::Attribute::DefaultValue, 1.0f);
-    power_master_->set_role_data(module::Attribute::ToolTip, "Master power");
-    power_master_->expose_in_ui_attrs_group("grading_settings");
-    power_master_->expose_in_ui_attrs_group("grading_power");
-    power_master_->set_role_data(
-        module::Attribute::Colour, utility::ColourTriplet(1.0f, 1.0f, 1.0f));
-
-    // Basic controls
-    // These directly maps to the CDL parameters above
-
-    basic_exposure_ =
-        add_float_attribute("Basic Exposure", "Exposure", 0.0f, -6.0f, 6.0f, 0.1f);
-    basic_exposure_->set_redraw_viewport_on_change(true);
-    basic_exposure_->set_role_data(module::Attribute::DefaultValue, 0.0f);
-    basic_exposure_->set_role_data(module::Attribute::ToolTip, "Exposure");
-    basic_exposure_->expose_in_ui_attrs_group("grading_settings");
-    basic_exposure_->expose_in_ui_attrs_group("grading_simple");
-    basic_exposure_->set_role_data(
-        module::Attribute::Colour, utility::ColourTriplet(1.0f, 1.0f, 1.0f));
-
-    basic_offset_ = add_float_attribute("Basic Offset", "Offset", 0.0f, -0.2f, 0.2f, 0.005f);
-    basic_offset_->set_redraw_viewport_on_change(true);
-    basic_offset_->set_role_data(module::Attribute::DefaultValue, 0.0f);
-    basic_offset_->set_role_data(module::Attribute::ToolTip, "Offset");
-    basic_offset_->expose_in_ui_attrs_group("grading_settings");
-    basic_offset_->expose_in_ui_attrs_group("grading_simple");
-    basic_offset_->set_role_data(
-        module::Attribute::Colour, utility::ColourTriplet(1.0f, 1.0f, 1.0f));
-
-    basic_power_ = add_float_attribute("Basic Power", "Gamma", 1.0f, 0.2f, 4.0f, 0.005f);
-    basic_power_->set_redraw_viewport_on_change(true);
-    basic_power_->set_role_data(module::Attribute::DefaultValue, 1.0f);
-    basic_power_->set_role_data(module::Attribute::ToolTip, "Gamma");
-    basic_power_->expose_in_ui_attrs_group("grading_settings");
-    basic_power_->expose_in_ui_attrs_group("grading_simple");
-    basic_power_->set_role_data(
-        module::Attribute::Colour, utility::ColourTriplet(1.0f, 1.0f, 1.0f));
+    power_ = add_float_vector_attribute(
+        "Power",
+        "Power",
+        std::vector<float>({1.0, 1.0, 1.0, 1.0}),        // initial value
+        std::vector<float>({0.2, 0.2, 0.2, 0.2}),        // min
+        std::vector<float>({4.0, 4.0, 4.0, 4.0}),        // max
+        std::vector<float>({0.005, 0.005, 0.005, 0.005}) // step
+    );
+    power_->expose_in_ui_attrs_group("grading_settings");
+    power_->expose_in_ui_attrs_group("grading_wheels");
 
     // Sat
-    sat_ = add_float_attribute("Saturation", "Sat", 1.0f, 0.0f, 4.0f, 0.005f);
-    sat_->set_redraw_viewport_on_change(true);
-    sat_->set_role_data(module::Attribute::DefaultValue, 1.0f);
-    sat_->set_role_data(module::Attribute::ToolTip, "Saturation");
-    sat_->expose_in_ui_attrs_group("grading_settings");
-    sat_->expose_in_ui_attrs_group("grading_saturation");
-    sat_->expose_in_ui_attrs_group("grading_simple");
-    sat_->set_role_data(module::Attribute::Colour, utility::ColourTriplet(1.0f, 1.0f, 1.0f));
+    saturation_ = add_float_attribute("Saturation", "Sat.", 1.0f, 0.0f, 4.0f, 0.005f);
+    saturation_->set_redraw_viewport_on_change(true);
+    saturation_->set_role_data(module::Attribute::DefaultValue, 1.0f);
+    saturation_->expose_in_ui_attrs_group("grading_settings");
+    saturation_->expose_in_ui_attrs_group("grading_sliders");
+
+    // Exposure
+    exposure_ = add_float_attribute("Exposure", "Exp.", 0.0f, -8.0f, 8.0f, 0.1f);
+    exposure_->set_redraw_viewport_on_change(true);
+    exposure_->set_role_data(module::Attribute::DefaultValue, 0.0f);
+    exposure_->expose_in_ui_attrs_group("grading_settings");
+    exposure_->expose_in_ui_attrs_group("grading_sliders");
+
+    // Contrast
+    contrast_ = add_float_attribute("Contrast", "Cont.", 1.0f, 0.001f, 4.0f, 0.005f);
+    contrast_->set_redraw_viewport_on_change(true);
+    contrast_->set_role_data(module::Attribute::DefaultValue, 1.0f);
+    contrast_->expose_in_ui_attrs_group("grading_settings");
+    contrast_->expose_in_ui_attrs_group("grading_sliders");
 
     // Masking elements
 
     drawing_tool_ = add_string_choice_attribute(
         "drawing_tool",
         "drawing_tool",
-        utility::map_value_to_vec(drawing_tool_names_).front(),
+        "Shape",
         utility::map_value_to_vec(drawing_tool_names_));
     drawing_tool_->expose_in_ui_attrs_group("mask_tool_settings");
     drawing_tool_->expose_in_ui_attrs_group("mask_tool_types");
+
+    // Not using preference for drawing_tool attr for now, as it should
+    // be set to 'Shape' always as mask painting is disabled
+    // drawing_tool_->set_preference_path("/plugin/grading/drawing_tool");
+
+    drawing_action_ = add_string_attribute("drawing_action", "drawing_action", "");
+    drawing_action_->expose_in_ui_attrs_group("grading_settings");
+    drawing_action_->expose_in_ui_attrs_group("mask_tool_settings");
 
     draw_pen_size_ = add_integer_attribute("Draw Pen Size", "Draw Pen Size", 10, 1, 300);
     draw_pen_size_->expose_in_ui_attrs_group("mask_tool_settings");
@@ -250,9 +157,30 @@ GradingTool::GradingTool(caf::actor_config &cfg, const utility::JsonStore &init_
     pen_opacity_->expose_in_ui_attrs_group("mask_tool_settings");
     pen_opacity_->set_preference_path("/plugin/grading/pen_opacity");
 
-    pen_softness_ = add_integer_attribute("Pen Softness", "Pen Softness", 0, 0, 100);
+    pen_softness_ = add_integer_attribute("Pen Softness", "Pen Softness", 100, 0, 500);
     pen_softness_->expose_in_ui_attrs_group("mask_tool_settings");
     pen_softness_->set_preference_path("/plugin/grading/pen_softness");
+
+    shape_invert_ = add_boolean_attribute("shape_invert", "shape_invert", false);
+    shape_invert_->set_redraw_viewport_on_change(true);
+    shape_invert_->expose_in_ui_attrs_group("mask_tool_settings");
+
+    polygon_init_ = add_boolean_attribute("polygon_init", "polygon_init", false);
+    polygon_init_->set_redraw_viewport_on_change(true);
+    polygon_init_->expose_in_ui_attrs_group("mask_tool_settings");
+
+    interacting_ = add_boolean_attribute("interacting", "interacting", false);
+    interacting_->set_redraw_viewport_on_change(true);
+    interacting_->expose_in_ui_attrs_group("mask_tool_settings");
+
+    mask_selected_shape_ =
+        add_integer_attribute("mask_selected_shape", "mask_selected_shape", -1);
+    mask_selected_shape_->expose_in_ui_attrs_group("mask_tool_settings");
+
+    mask_shapes_visible_ =
+        add_boolean_attribute("mask_shapes_visible", "mask_shapes_visible", true);
+    mask_shapes_visible_->set_redraw_viewport_on_change(true);
+    mask_shapes_visible_->expose_in_ui_attrs_group("mask_tool_settings");
 
     display_mode_attribute_ = add_string_choice_attribute(
         "display_mode",
@@ -262,32 +190,55 @@ GradingTool::GradingTool(caf::actor_config &cfg, const utility::JsonStore &init_
     display_mode_attribute_->expose_in_ui_attrs_group("mask_tool_settings");
     display_mode_attribute_->set_preference_path("/plugin/grading/display_mode");
 
-    // This allows for quick toggle between masking & layering options enabled or disabled
-    mvp_1_release_ = add_boolean_attribute("mvp_1_release", "mvp_1_release", true);
-    mvp_1_release_->expose_in_ui_attrs_group("grading_settings");
-
     make_behavior();
     listen_to_playhead_events(true);
 
-    reset_grade_layers();
+    connect_to_ui();
 
-    // we have to maintain a list of GradingColourOperator instances that are
-    // alive to send them messages about our state (currently only the state
-    // of the bypass attr)
-    set_down_handler([=](down_msg &msg) {
-        auto it = grading_colour_op_actors_.begin();
-        while (it != grading_colour_op_actors_.end()) {
-            if (msg.source == *it) {
-                it = grading_colour_op_actors_.erase(it);
-            } else {
-                it++;
+    // Register the QML code that instances the grading tool UI in an
+    // xstudio 'panel'. It will show as 'Grading Tools' under the tabs
+    register_ui_panel_qml(
+        "Grading Tools",
+        R"(
+            
+            import QtQuick
+            import Grading 2.0
+
+            import xStudio 1.0
+
+            Item {
+                anchors.fill: parent
+
+                XsGradientRectangle{
+                    anchors.fill: parent
+                }
+
+                GradingTools {
+                    anchors.fill: parent
+                }
             }
-        }
-    });
+        )",
+        6.0f,
+        "qrc:/icons/instant_mix.svg",
+        2.0f);
+
+    // here is where we declare the singleton overlay item that will draw
+    // our graphics and handle mouse interaction
+    qml_viewport_overlay_code(
+        R"(
+            import Grading 2.0
+
+            GradingOverlay {
+                anchors.fill: parent
+            }
+        )");
 }
 
-utility::BlindDataObjectPtr GradingTool::prepare_overlay_data(
-    const media_reader::ImageBufPtr &image, const bool offscreen) const {
+utility::BlindDataObjectPtr GradingTool::onscreen_render_data(
+    const media_reader::ImageBufPtr &image,
+    const std::string & /*viewport_name*/,
+    const utility::Uuid & /*playhead_uuid*/,
+    const bool is_hero_image) const {
 
     // This callback is made just before viewport redraw. We want to check
     // if the image to be drawn is from the same media to which a grade is
@@ -303,6 +254,7 @@ utility::BlindDataObjectPtr GradingTool::prepare_overlay_data(
                 break;
             }
         }
+
         if (we_are_editing_grade_on_this_image) {
 
             auto render_data = std::make_shared<GradingMaskRenderData>();
@@ -314,6 +266,7 @@ utility::BlindDataObjectPtr GradingTool::prepare_overlay_data(
             // reference/pointer to grading_data_ here so when drawing happens we're
             // using the interaction member data of this class.
             render_data->interaction_grading_data_ = grading_data_;
+
             return render_data;
         }
     }
@@ -326,93 +279,100 @@ AnnotationBasePtr GradingTool::build_annotation(const utility::JsonStore &data) 
 }
 
 void GradingTool::images_going_on_screen(
-    const std::vector<media_reader::ImageBufPtr> &images,
+    const media_reader::ImageBufDisplaySetPtr &images,
     const std::string viewport_name,
     const bool playhead_playing) {
 
-    // this callback happens just before every viewport refresh
+    // Only care about the main viewport(s), lightweight viewport will
+    // be named like quick_viewport_n.
+    if (!utility::starts_with(viewport_name, "viewport")) {
+        return;
+    }
 
-    // for now, we only care about monitoring what's going on
-    // in the main viewport
-    if (viewport_name == "viewport0") {
-        if (images.size()) {
+    // It's useful to keep a hold of the images that are on-screen so if the
+    // user starts drawing when there is a bookmark on screen then we can
+    // add the strokes to that existing bookmark instead of making a brand
+    // new note
+    if (images && current_frame_id_ != images->hero_image().frame_id()) {
 
-            current_on_screen_frame_  = images[0];
-            int n                     = 0;
-            GradingData *grading_data = nullptr;
-            for (auto &bookmark : images[0].bookmarks()) {
+        current_viewport_        = viewport_name;
+        viewport_current_images_ = images;
+        playhead_media_frame_    = images->hero_image().frame_id().frame() -
+                                images->hero_image().frame_id().first_frame();
+        current_frame_id_ = images->hero_image().frame_id();
 
-                auto data = dynamic_cast<GradingData *>(bookmark->annotation_.get());
-                if (data && !grading_data) {
-                    grading_data = data;
-                    n++;
-                } else if (data) {
-                    n++;
+        if (!grading_data_.bookmark_uuid_.is_null()) {
+            // here we check if the current edited bookmark is still on-screen,
+            // i.e. has the user scrubbed away from the frame with a grade on
+            // that they were editing?
+            bool current_grade_is_onscreen = false;
+            for (const auto &bm : images->hero_image().bookmarks()) {
+                if (bm->detail_.uuid_ == grading_data_.bookmark_uuid_) {
+                    current_grade_is_onscreen = true;
+                    break;
                 }
             }
-
-            if (n > 1) {
-                spdlog::warn("Only one grading bookmark can be active at once, found {}", n);
-            }
-
-            if (grading_data && grading_data->bookmark_uuid_ != grading_data_.bookmark_uuid_) {
-
-                // there is a grade attached to the image but its not the one
-                // that we have been editing. Load the data for the new incoming
-                // grade ready for us to edit it.
-                load_grade_layers(grading_data);
-
-            } else if (
-                !grading_data && !grading_data_.identity() &&
-                current_on_screen_frame_ != grading_data_creation_frame_) {
-
-                // we have been editing a grade but there is no grading data for
-                // the on screen frame and the frame has changed since we
-                // created the edited grade. Thus we clear the edited grade as
-                // the playhead must have moved off the media that we had been
-                // grading
-                reset_grade_layers();
+            if (!current_grade_is_onscreen) {
+                select_bookmark(utility::Uuid());
             }
         }
+
+    } else if (!images) {
+        viewport_current_images_.reset();
+        select_bookmark(utility::Uuid());
+        current_frame_id_ = media::AVFrameID();
     }
+}
+
+void GradingTool::on_screen_media_changed(
+    caf::actor media_actor,
+    const utility::MediaReference &media_ref,
+    const utility::JsonStore &colour_params) {
+
+    const std::string config_name = colour_params.get_or("ocio_config", std::string(""));
+    const std::string working_space =
+        colour_params.get_or("working_space", std::string("scene_linear"));
+    // Only medias that are fully inverted to scene_linear currently support custom colour space
+    // This exclude medias that are only inverted to display_linear.
+    // TODO: Detect when display_linear input space and un-tone-mapped view are used
+    const bool is_unmanaged =
+        config_name == "" || config_name == "__raw__" || working_space != "scene_linear";
+
+    working_space_->set_value(working_space);
+    media_colour_managed_->set_value(!is_unmanaged);
 }
 
 void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const int role) {
 
-    if (attribute_uuid == tool_is_active_->uuid()) {
+    // Only care about attribute value update.
+    if (role != module::Attribute::Value)
+        return;
 
-        if (tool_is_active_->value()) {
-            if (drawing_tool_->value() == "None")
-                drawing_tool_->set_value("Draw");
-            grab_mouse_focus();
-        } else {
+    if (attribute_uuid == tool_opened_count_->uuid()) {
+
+
+        if (tool_opened_count_->value() < 0) {
+            tool_opened_count_->set_value(0);
+        }
+
+        if (!grading_tools_active()) {
+
             release_mouse_focus();
             release_keyboard_focus();
             end_drawing();
         }
 
-    } else if (attribute_uuid == mask_is_active_->uuid()) {
+    } else if (attribute_uuid == grading_bookmark_->uuid()) {
 
-        if (mask_is_active_->value()) {
-            if (drawing_tool_->value() == "None") {
-                drawing_tool_->set_value("Draw");
-            }
-            grab_mouse_focus();
-
-        } else {
-            release_mouse_focus();
-            release_keyboard_focus();
-            end_drawing();
-        }
-
-        refresh_current_layer_from_ui();
+        utility::Uuid bookmark_uuid(grading_bookmark_->value());
+        select_bookmark(bookmark_uuid);
 
     } else if (attribute_uuid == grading_action_->uuid() && grading_action_->value() != "") {
 
         if (grading_action_->value() == "Clear") {
 
-            clear_cdl();
-            refresh_current_layer_from_ui();
+            clear_grade();
+            refresh_current_grade_from_ui();
 
         } else if (utility::starts_with(grading_action_->value(), "Save CDL ")) {
 
@@ -421,28 +381,53 @@ void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const i
                 prefix_length, grading_action_->value().size() - prefix_length);
             save_cdl(filepath);
 
-        } else if (grading_action_->value() == "Prev Layer") {
+        } else if (grading_action_->value() == "Add CC") {
 
-            toggle_grade_layer(active_layer_ - 1);
+            save_bookmark();
+            grading_data_ = GradingData();
+            create_bookmark();
+            save_bookmark();
 
-        } else if (grading_action_->value() == "Next Layer") {
+        } else if (grading_action_->value() == "Remove CC") {
 
-            toggle_grade_layer(active_layer_ + 1);
+            remove_bookmark();
 
-        } else if (grading_action_->value() == "Add Layer") {
+        } else if (utility::starts_with(grading_action_->value(), "Set Bookmark Full Range")) {
 
-            add_grade_layer();
+            auto d = utility::split(grading_action_->value(), '|');
+            if (d.size() != 2)
+                return;
+            utility::Uuid bm_uuid(d[1]);
+            auto bmd = get_bookmark_detail(bm_uuid);
+            if (bmd.media_reference_) {
 
-        } else if (grading_action_->value() == "Remove Layer") {
+                bmd.start_    = timebase::k_flicks_low;
+                bmd.duration_ = timebase::k_flicks_max;
+                update_bookmark_detail(bm_uuid, bmd);
+            }
+            select_bookmark(bm_uuid);
 
-            delete_grade_layer();
+        } else if (utility::starts_with(grading_action_->value(), "Set Bookmark One Frame")) {
+
+            auto d = utility::split(grading_action_->value(), '|');
+            if (d.size() != 3)
+                return;
+            utility::Uuid bm_uuid(d[1]);
+            auto bmd        = get_bookmark_detail(bm_uuid);
+            int media_frame = std::atoi(d[2].c_str());
+            if (bmd.media_reference_) {
+                auto &media   = bmd.media_reference_.value();
+                bmd.start_    = media_frame * media.rate().to_flicks();
+                bmd.duration_ = timebase::k_flicks_zero_seconds;
+                update_bookmark_detail(bm_uuid, bmd);
+            }
+
+            select_bookmark(bm_uuid);
         }
 
         grading_action_->set_value("");
 
-    } else if (
-
-        attribute_uuid == drawing_action_->uuid() && drawing_action_->value() != "") {
+    } else if (attribute_uuid == drawing_action_->uuid() && drawing_action_->value() != "") {
 
         if (drawing_action_->value() == "Clear") {
             clear_mask();
@@ -450,12 +435,41 @@ void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const i
             undo();
         } else if (drawing_action_->value() == "Redo") {
             redo();
+        } else if (drawing_action_->value() == "Add quad") {
+            create_bookmark_if_empty();
+            start_quad(
+                {Imath::V2f(-0.5, -0.5),
+                 Imath::V2f(-0.5, 0.5),
+                 Imath::V2f(0.5, 0.5),
+                 Imath::V2f(0.5, -0.5)});
+            update_boomark_shape(current_bookmark());
+        } else if (utility::starts_with(drawing_action_->value(), "Add Polygon ")) {
+            create_bookmark_if_empty();
+            const auto points = utility::split(drawing_action_->value().substr(12), ',');
+            if (points.size() % 2 == 0) {
+                std::vector<Imath::V2f> poly_points;
+                for (size_t i = 0; i < points.size(); i += 2) {
+                    poly_points.push_back(
+                        Imath::V2f(std::stof(points[i]), std::stof(points[i + 1])));
+                }
+                start_polygon(poly_points);
+            }
+            update_boomark_shape(current_bookmark());
+        } else if (drawing_action_->value() == "Add ellipse") {
+            cancel_other_drawing_tools();
+            create_bookmark_if_empty();
+            start_ellipse(Imath::V2f(0.0, 0.0), Imath::V2f(0.35, 0.25), 90.0);
+            update_boomark_shape(current_bookmark());
+        } else if (drawing_action_->value() == "Remove shape") {
+            create_bookmark_if_empty();
+            remove_shape(mask_selected_shape_->value());
+            update_boomark_shape(current_bookmark());
         }
         drawing_action_->set_value("");
 
     } else if (attribute_uuid == drawing_tool_->uuid()) {
 
-        if (tool_is_active_->value()) {
+        if (grading_tools_active()) {
 
             if (drawing_tool_->value() == "None") {
                 release_mouse_focus();
@@ -469,49 +483,139 @@ void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const i
 
     } else if (attribute_uuid == display_mode_attribute_->uuid()) {
 
-        refresh_current_layer_from_ui();
+        refresh_current_grade_from_ui();
+
+    } else if (colour_space_ && attribute_uuid == colour_space_->uuid()) {
+
+        refresh_current_grade_from_ui();
+        save_bookmark();
 
     } else if (attribute_uuid == grading_bypass_->uuid()) {
 
         for (auto &a : grading_colour_op_actors_) {
-            send(a, utility::event_atom_v, "bypass", grading_bypass_->value());
+            mail(utility::event_atom_v, "bypass", grading_bypass_->value()).send(a);
         }
 
     } else if (
-        (slope_red_ && slope_green_ && slope_blue_ && slope_master_) &&
-        (offset_red_ && offset_green_ && offset_blue_ && offset_master_) &&
-        (power_red_ && power_green_ && power_blue_ && power_master_) &&
-        (basic_power_ && basic_offset_ && basic_exposure_) && (sat_) &&
-        (attribute_uuid == slope_red_->uuid() || attribute_uuid == slope_green_->uuid() ||
-         attribute_uuid == slope_blue_->uuid() || attribute_uuid == slope_master_->uuid() ||
-         attribute_uuid == offset_red_->uuid() || attribute_uuid == offset_green_->uuid() ||
-         attribute_uuid == offset_blue_->uuid() || attribute_uuid == offset_master_->uuid() ||
-         attribute_uuid == power_red_->uuid() || attribute_uuid == power_green_->uuid() ||
-         attribute_uuid == power_blue_->uuid() || attribute_uuid == power_master_->uuid() ||
-         attribute_uuid == basic_power_->uuid() || attribute_uuid == basic_offset_->uuid() ||
-         attribute_uuid == basic_exposure_->uuid() || attribute_uuid == sat_->uuid())) {
+        attribute_uuid == slope_->uuid() || attribute_uuid == offset_->uuid() ||
+        attribute_uuid == power_->uuid() || attribute_uuid == saturation_->uuid() ||
+        attribute_uuid == exposure_->uuid() || attribute_uuid == contrast_->uuid()) {
 
-        // Make sure basic controls are in sync
-        if (attribute_uuid == basic_power_->uuid() || attribute_uuid == basic_offset_->uuid() ||
-            attribute_uuid == basic_exposure_->uuid()) {
+        refresh_current_grade_from_ui();
+        create_bookmark_if_empty();
+        save_bookmark();
 
-            slope_master_->set_value(std::pow(2.0, basic_exposure_->value()), false);
-            offset_master_->set_value(basic_offset_->value(), false);
-            power_master_->set_value(basic_power_->value(), false);
+    } else if (attribute_uuid == mask_selected_shape_->uuid()) {
 
-        } else if (
-            attribute_uuid == slope_master_->uuid() ||
-            attribute_uuid == offset_master_->uuid() ||
-            attribute_uuid == power_master_->uuid()) {
-
-            basic_exposure_->set_value(std::log2(slope_master_->value()), false);
-            basic_offset_->set_value(offset_master_->value(), false);
-            basic_power_->set_value(power_master_->value(), false);
+        // Refresh UI settings according to selected shape
+        const int id = mask_selected_shape_->value();
+        if (id >= 0 && id < mask_shapes_.size()) {
+            auto value = mask_shapes_[id]->role_data_as_json(module::Attribute::Value);
+            pen_opacity_->set_value(
+                value["opacity"], false); // 2nd flag means we don't get notified
+            pen_softness_->set_value(value["softness"], false);
+            // TODO: Fix colour json <-> qvariant conversion
+            // pen_colour_->set_value(value["colour"]);
+            shape_invert_->set_value(value["invert"], false);
         }
 
-        refresh_current_layer_from_ui();
-        create_bookmark();
-        save_bookmark();
+    } else if (attribute_uuid == pen_softness_->uuid()) {
+
+        // set softness on current shape
+        const int id = mask_selected_shape_->value();
+        if (id >= 0 && id < mask_shapes_.size()) {
+            auto user_data = mask_shapes_[id]->role_data_as_json(module::Attribute::Value);
+            user_data["softness"] = pen_softness_->value();
+            mask_shapes_[id]->set_role_data(module::Attribute::Value, user_data);
+        }
+
+    } else if (attribute_uuid == pen_opacity_->uuid()) {
+
+        // set opacity on current shape
+        const int id = mask_selected_shape_->value();
+        if (id >= 0 && id < mask_shapes_.size()) {
+            auto user_data = mask_shapes_[id]->role_data_as_json(module::Attribute::Value);
+            user_data["opacity"] = pen_opacity_->value();
+            mask_shapes_[id]->set_role_data(module::Attribute::Value, user_data);
+        }
+
+    } else if (attribute_uuid == shape_invert_->uuid()) {
+
+        // set invert on current shape
+        const int id = mask_selected_shape_->value();
+        if (id >= 0 && id < mask_shapes_.size()) {
+            auto user_data      = mask_shapes_[id]->role_data_as_json(module::Attribute::Value);
+            user_data["invert"] = shape_invert_->value();
+            mask_shapes_[id]->set_role_data(module::Attribute::Value, user_data);
+        }
+
+    } else if (attribute_uuid == interacting_->uuid()) {
+
+        // this toggle allows us to 'grab' all mouse events, so that they arent'
+        // passwed on to the playhead, for example, which would otherwise mean
+        // the playhead would scrub frames when we drag a grading shape point to
+        // move it in the viewport
+        if (interacting_->value()) {
+            grab_mouse_focus();
+        } else {
+            release_mouse_focus();
+        }
+
+    } else if (attribute_uuid == polygon_init_->uuid()) {
+
+        if (polygon_init_->value()) {
+            cancel_other_drawing_tools();
+            grab_mouse_focus();
+        } else {
+            release_mouse_focus();
+        }
+
+    } else {
+
+        for (auto &attr : mask_shapes_) {
+            if (attribute_uuid == attr->uuid()) {
+                auto value     = attr->role_data_as_json(module::Attribute::Value);
+                auto user_data = attr->role_data_as_json(module::Attribute::UserData);
+
+                if (value["type"] == "quad") {
+                    grading_data_.mask().update_quad(
+                        user_data,
+                        // TODO: Fix colour json <-> qvariant conversion
+                        // value["colour"],
+                        pen_colour_->value(),
+                        {value["bl"], value["tl"], value["tr"], value["br"]},
+                        value["softness"],
+                        value["opacity"],
+                        value["invert"]);
+                } else if (value["type"] == "polygon") {
+                    grading_data_.mask().update_polygon(
+                        user_data,
+                        // TODO: Fix colour json <-> qvariant conversion
+                        // value["colour"],
+                        pen_colour_->value(),
+                        value["points"],
+                        value["softness"],
+                        value["opacity"],
+                        value["invert"]);
+                } else if (value["type"] == "ellipse") {
+                    grading_data_.mask().update_ellipse(
+                        user_data,
+                        // TODO: Fix colour json <-> qvariant conversion
+                        // value["colour"],
+                        pen_colour_->value(),
+                        value["center"],
+                        value["radius"],
+                        value["angle"],
+                        value["softness"],
+                        value["opacity"],
+                        value["invert"]);
+                }
+
+                save_bookmark();
+
+                break;
+            }
+        }
     }
 
     redraw_viewport();
@@ -519,17 +623,11 @@ void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const i
 
 void GradingTool::register_hotkeys() {
 
-    toggle_active_hotkey_ = register_hotkey(
-        int('G'),
+    bypass_hotkey_ = register_hotkey(
+        int('B'),
         ui::ControlModifier,
-        "Toggle Grading Tool",
-        "Show or hide the grading toolbox");
-
-    toggle_mask_hotkey_ = register_hotkey(
-        int('M'),
-        ui::NoModifier,
-        "Toggle masking",
-        "Use drawing tools to apply a matte or apply grading to whole frame");
+        "Bypass all grades",
+        "Bypass all grades applied on all media");
 
     undo_hotkey_ = register_hotkey(
         int('Z'),
@@ -545,22 +643,22 @@ void GradingTool::register_hotkeys() {
 }
 
 void GradingTool::hotkey_pressed(
-    const utility::Uuid &hotkey_uuid, const std::string & /*context*/) {
+    const utility::Uuid &hotkey_uuid,
+    const std::string & /*context*/,
+    const std::string & /*window*/) {
 
-    if (hotkey_uuid == toggle_active_hotkey_) {
+    // This shortcut should be active even when no grading panel is visible
+    if (hotkey_uuid == bypass_hotkey_) {
 
-        tool_is_active_->set_value(!tool_is_active_->value());
+        grading_bypass_->set_value(!grading_bypass_->value());
+        redraw_viewport();
 
-    } else if (hotkey_uuid == toggle_mask_hotkey_ && tool_is_active_->value()) {
-
-        mask_is_active_->set_value(!mask_is_active_->value());
-
-    } else if (hotkey_uuid == undo_hotkey_ && tool_is_active_->value()) {
+    } else if (hotkey_uuid == undo_hotkey_ && grading_tools_active()) {
 
         undo();
         redraw_viewport();
 
-    } else if (hotkey_uuid == redo_hotkey_ && tool_is_active_->value()) {
+    } else if (hotkey_uuid == redo_hotkey_ && grading_tools_active()) {
 
         redo();
         redraw_viewport();
@@ -569,7 +667,7 @@ void GradingTool::hotkey_pressed(
 
 bool GradingTool::pointer_event(const ui::PointerEvent &e) {
 
-    if (!tool_is_active_->value() || !mask_is_active_->value())
+    if (!grading_tools_active())
         return false;
 
     bool redraw = true;
@@ -578,14 +676,13 @@ bool GradingTool::pointer_event(const ui::PointerEvent &e) {
 
     if (drawing_tool_->value() == "Draw" || drawing_tool_->value() == "Erase") {
 
-        if (e.type() == ui::Signature::EventType::ButtonDown &&
+        if (e.type() == ui::EventType::ButtonDown &&
             e.buttons() == ui::Signature::Button::Left) {
             start_stroke(pointer_pos);
         } else if (
-            e.type() == ui::Signature::EventType::Drag &&
-            e.buttons() == ui::Signature::Button::Left) {
+            e.type() == ui::EventType::Drag && e.buttons() == ui::Signature::Button::Left) {
             update_stroke(pointer_pos);
-        } else if (e.type() == ui::Signature::EventType::ButtonRelease) {
+        } else if (e.type() == ui::EventType::ButtonRelease) {
             end_drawing();
         }
     } else {
@@ -598,119 +695,174 @@ bool GradingTool::pointer_event(const ui::PointerEvent &e) {
     return false;
 }
 
+void GradingTool::turn_off_overlay_interaction() {
+    polygon_init_->set_value(false);
+    release_mouse_focus();
+    release_keyboard_focus();
+    end_drawing();
+}
+
+bool GradingTool::grading_tools_active() const { return tool_opened_count_->value() > 0; }
+
 void GradingTool::start_stroke(const Imath::V2f &point) {
 
-    LayerData *layer = current_layer();
-    if (!layer) {
-        return;
-    }
-
     if (drawing_tool_->value() == "Draw") {
-        layer->mask().start_stroke(
+        grading_data_.mask().start_stroke(
             pen_colour_->value(),
             draw_pen_size_->value() / PEN_STROKE_THICKNESS_SCALE,
             pen_softness_->value() / 100.0,
             pen_opacity_->value() / 100.0);
     } else if (drawing_tool_->value() == "Erase") {
-        layer->mask().start_erase_stroke(erase_pen_size_->value() / PEN_STROKE_THICKNESS_SCALE);
+        grading_data_.mask().start_erase_stroke(
+            erase_pen_size_->value() / PEN_STROKE_THICKNESS_SCALE);
     }
 
     update_stroke(point);
+
+    create_bookmark_if_empty();
 }
 
 void GradingTool::update_stroke(const Imath::V2f &point) {
 
-    LayerData *layer = current_layer();
-    if (!layer) {
-        return;
-    }
+    grading_data_.mask().update_stroke(point);
+}
 
-    layer->mask().update_stroke(point);
+void GradingTool::start_quad(const std::vector<Imath::V2f> &corners) {
+
+    uint32_t id = grading_data_.mask().start_quad(pen_colour_->value(), corners);
+
+    utility::JsonStore shape_data;
+    shape_data["type"]     = "quad";
+    shape_data["bl"]       = corners[0];
+    shape_data["tl"]       = corners[1];
+    shape_data["tr"]       = corners[2];
+    shape_data["br"]       = corners[3];
+    shape_data["colour"]   = pen_colour_->value();
+    shape_data["softness"] = 0.f;
+    shape_data["opacity"]  = 100.f;
+    shape_data["invert"]   = false;
+
+    utility::JsonStore additional_roles;
+    additional_roles["user_data"] = id;
+
+    const std::string name = fmt::format("Quad{}", id);
+    mask_shapes_.push_back(add_attribute(name, shape_data, additional_roles));
+    expose_attribute_in_model_data(mask_shapes_.back(), "grading_tool_overlay_shapes");
+
+    end_drawing();
+}
+
+void GradingTool::start_polygon(const std::vector<Imath::V2f> &points) {
+
+    uint32_t id = grading_data_.mask().start_polygon(pen_colour_->value(), points);
+
+    utility::JsonStore shape_data;
+    shape_data["type"]     = "polygon";
+    shape_data["points"]   = points;
+    shape_data["count"]    = points.size();
+    shape_data["colour"]   = pen_colour_->value();
+    shape_data["softness"] = 0.f;
+    shape_data["opacity"]  = 100.f;
+    shape_data["invert"]   = false;
+
+    utility::JsonStore additional_roles;
+    additional_roles["user_data"] = id;
+
+    const std::string name = fmt::format("Polygon{}", id);
+    mask_shapes_.push_back(add_attribute(name, shape_data, additional_roles));
+    expose_attribute_in_model_data(mask_shapes_.back(), "grading_tool_overlay_shapes");
+    end_drawing();
+    // calling this runs our code to update the mask data on the grading_data_ object
+    attribute_changed(mask_shapes_.back()->uuid(), module::Attribute::Value);
+}
+
+void GradingTool::start_ellipse(
+    const Imath::V2f &center, const Imath::V2f &radius, float angle) {
+
+    uint32_t id =
+        grading_data_.mask().start_ellipse(pen_colour_->value(), center, radius, angle);
+
+    utility::JsonStore shape_data;
+    shape_data["type"]     = "ellipse";
+    shape_data["center"]   = center;
+    shape_data["radius"]   = radius;
+    shape_data["angle"]    = angle;
+    shape_data["colour"]   = pen_colour_->value();
+    shape_data["softness"] = 0.f;
+    shape_data["opacity"]  = 100.f;
+    shape_data["invert"]   = false;
+
+    utility::JsonStore additional_roles;
+    additional_roles["user_data"] = id;
+
+    std::string name = fmt::format("Ellipse{}", id);
+    mask_shapes_.push_back(add_attribute(name, shape_data, additional_roles));
+    expose_attribute_in_model_data(mask_shapes_.back(), "grading_tool_overlay_shapes");
+    end_drawing();
+    // calling this runs our code to update the mask data on the grading_data_ object
+    attribute_changed(mask_shapes_.back()->uuid(), module::Attribute::Value);
+}
+
+void GradingTool::remove_shape(int id) {
+
+    if (id >= 0 && id < mask_shapes_.size()) {
+        auto canvas_id = mask_shapes_[id]->role_data_as_json(module::Attribute::UserData);
+        grading_data_.mask().remove_shape(canvas_id);
+
+        remove_attribute(mask_shapes_[id]->uuid());
+        mask_shapes_.erase(mask_shapes_.begin() + id);
+
+        save_bookmark();
+    }
 }
 
 void GradingTool::end_drawing() {
 
-    LayerData *layer = current_layer();
-    if (!layer) {
-        return;
-    }
-
-    layer->mask().end_draw();
+    grading_data_.mask().end_draw();
     save_bookmark();
 }
 
 void GradingTool::undo() {
 
-    LayerData *layer = current_layer();
-    if (!layer) {
-        return;
-    }
-
-    if (mask_is_active_->value()) {
-
-        layer->mask().undo();
-    }
-
-    // TODO: Support undo / redo for grading
+    grading_data_.mask().undo();
+    save_bookmark();
 }
 
 void GradingTool::redo() {
 
-    LayerData *layer = current_layer();
-    if (!layer) {
-        return;
-    }
-
-    if (mask_is_active_->value()) {
-
-        layer->mask().redo();
-    }
-
-    // TODO: Support undo / redo for grading
+    grading_data_.mask().redo();
+    save_bookmark();
 }
 
 void GradingTool::clear_mask() {
 
-    LayerData *layer = current_layer();
-    if (!layer) {
-        return;
-    }
+    grading_data_.mask().clear();
 
-    layer->mask().clear();
+    clear_shapes();
+
+    save_bookmark();
 }
 
-void GradingTool::clear_cdl() {
+void GradingTool::clear_shapes() {
 
-    slope_red_->set_value(slope_red_->get_role_data<float>(module::Attribute::DefaultValue));
-    slope_green_->set_value(
-        slope_green_->get_role_data<float>(module::Attribute::DefaultValue));
-    slope_blue_->set_value(slope_blue_->get_role_data<float>(module::Attribute::DefaultValue));
-    slope_master_->set_value(
-        slope_master_->get_role_data<float>(module::Attribute::DefaultValue));
+    for (size_t i = 0; i < mask_shapes_.size(); ++i) {
+        expose_attribute_in_model_data(mask_shapes_[i], "grading_tool_overlay_shapes", false);
+        remove_attribute(mask_shapes_[i]->uuid());
+    }
+    mask_shapes_.clear();
+}
 
-    offset_red_->set_value(offset_red_->get_role_data<float>(module::Attribute::DefaultValue));
-    offset_green_->set_value(
-        offset_green_->get_role_data<float>(module::Attribute::DefaultValue));
-    offset_blue_->set_value(
-        offset_blue_->get_role_data<float>(module::Attribute::DefaultValue));
-    offset_master_->set_value(
-        offset_master_->get_role_data<float>(module::Attribute::DefaultValue));
+void GradingTool::clear_grade() {
 
-    power_red_->set_value(power_red_->get_role_data<float>(module::Attribute::DefaultValue));
-    power_green_->set_value(
-        power_green_->get_role_data<float>(module::Attribute::DefaultValue));
-    power_blue_->set_value(power_blue_->get_role_data<float>(module::Attribute::DefaultValue));
-    power_master_->set_value(
-        power_master_->get_role_data<float>(module::Attribute::DefaultValue));
-
-    basic_exposure_->set_value(
-        basic_exposure_->get_role_data<float>(module::Attribute::DefaultValue));
-    basic_offset_->set_value(
-        basic_offset_->get_role_data<float>(module::Attribute::DefaultValue));
-    basic_power_->set_value(
-        basic_power_->get_role_data<float>(module::Attribute::DefaultValue));
-
-    sat_->set_value(sat_->get_role_data<float>(module::Attribute::DefaultValue));
+    slope_->set_value(
+        slope_->get_role_data<std::vector<float>>(module::Attribute::DefaultValue));
+    offset_->set_value(
+        offset_->get_role_data<std::vector<float>>(module::Attribute::DefaultValue));
+    power_->set_value(
+        power_->get_role_data<std::vector<float>>(module::Attribute::DefaultValue));
+    saturation_->set_value(saturation_->get_role_data<float>(module::Attribute::DefaultValue));
+    exposure_->set_value(exposure_->get_role_data<float>(module::Attribute::DefaultValue));
+    contrast_->set_value(contrast_->get_role_data<float>(module::Attribute::DefaultValue));
 }
 
 void GradingTool::save_cdl(const std::string &filepath) const {
@@ -718,22 +870,24 @@ void GradingTool::save_cdl(const std::string &filepath) const {
     OCIO::CDLTransformRcPtr cdl = OCIO::CDLTransform::Create();
 
     std::array<double, 3> slope{
-        slope_red_->value() * slope_master_->value(),
-        slope_green_->value() * slope_master_->value(),
-        slope_blue_->value() * slope_master_->value()};
+        slope_->value()[0] * slope_->value()[3] * std::pow(2.f, exposure_->value()),
+        slope_->value()[1] * slope_->value()[3] * std::pow(2.f, exposure_->value()),
+        slope_->value()[2] * slope_->value()[3] * std::pow(2.f, exposure_->value())};
+
     std::array<double, 3> offset{
-        offset_red_->value() + offset_master_->value(),
-        offset_green_->value() + offset_master_->value(),
-        offset_blue_->value() + offset_master_->value()};
+        offset_->value()[0] + offset_->value()[3],
+        offset_->value()[1] + offset_->value()[3],
+        offset_->value()[2] + offset_->value()[3]};
+
     std::array<double, 3> power{
-        power_red_->value() * power_master_->value(),
-        power_green_->value() * power_master_->value(),
-        power_blue_->value() * power_master_->value()};
+        power_->value()[0] * power_->value()[3],
+        power_->value()[1] * power_->value()[3],
+        power_->value()[2] * power_->value()[3]};
 
     cdl->setSlope(slope.data());
     cdl->setOffset(offset.data());
     cdl->setPower(power.data());
-    cdl->setSat(sat_->value());
+    cdl->setSat(saturation_->value());
 
     OCIO::FormatMetadata &metadata = cdl->getFormatMetadata();
     metadata.setID("0");
@@ -763,195 +917,237 @@ void GradingTool::save_cdl(const std::string &filepath) const {
     }
 }
 
-void GradingTool::load_grade_layers(GradingData *grading_data) {
+void GradingTool::refresh_current_grade_from_ui() {
 
-    // Load layer(s)
+    auto &grade = grading_data_.grade();
 
-    grading_data_ = *grading_data;
-    active_layer_ = grading_data_.size() - 1;
+    grade.slope    = vector4f_to_array4d(slope_->value());
+    grade.offset   = vector4f_to_array4d(offset_->value());
+    grade.power    = vector4f_to_array4d(power_->value());
+    grade.sat      = saturation_->value();
+    grade.exposure = exposure_->value();
+    grade.contrast = contrast_->value();
 
-    // Shader (re) construction
+    grading_data_.set_colour_space(colour_space_->value());
+    grading_data_.set_mask_editing(display_mode_attribute_->value() == "Mask");
+}
 
+void GradingTool::refresh_ui_from_current_grade() {
 
-    // Update UI
+    auto &grade = grading_data_.grade();
 
-    std::vector<std::string> layer_choices;
-    for (int i = 0; i < grading_data_.size(); ++i) {
-        layer_choices.push_back(fmt::format("Layer {}", i + 1));
+    slope_->set_value(array4d_to_vector4f(grade.slope), false);
+    offset_->set_value(array4d_to_vector4f(grade.offset), false);
+    power_->set_value(array4d_to_vector4f(grade.power), false);
+    saturation_->set_value(float(grade.sat), false);
+    exposure_->set_value(float(grade.exposure), false);
+    contrast_->set_value(float(grade.contrast), false);
+
+    colour_space_->set_value(grading_data_.colour_space(), false);
+    display_mode_attribute_->set_value(grading_data_.mask_editing() ? "Mask" : "Grade", false);
+
+    // Initialize shapes overlay
+    using Quad    = xstudio::ui::canvas::Quad;
+    using Polygon = xstudio::ui::canvas::Polygon;
+    using Ellipse = xstudio::ui::canvas::Ellipse;
+
+    clear_shapes();
+    mask_selected_shape_->set_value(-1, false);
+
+    // Please make sure that attribute_changed don't listen to
+    // Group change notification to avoid dealock acquiring the
+    // Canvas mutex when processing shapes event.
+    grading_data_.mask().read_lock();
+
+    for (const auto &item : grading_data_.mask()) {
+        if (std::holds_alternative<Quad>(item)) {
+
+            const Quad &quad = std::get<Quad>(item);
+
+            utility::JsonStore shape_data;
+            shape_data["type"]     = "quad";
+            shape_data["bl"]       = quad.bl;
+            shape_data["tl"]       = quad.tl;
+            shape_data["tr"]       = quad.tr;
+            shape_data["br"]       = quad.br;
+            shape_data["colour"]   = quad.colour;
+            shape_data["softness"] = quad.softness;
+            shape_data["opacity"]  = quad.opacity;
+            shape_data["invert"]   = quad.invert;
+
+            utility::JsonStore additional_roles;
+            additional_roles["user_data"] = quad._id;
+
+            const std::string name = fmt::format("Quad{}", quad._id);
+            mask_shapes_.push_back(add_attribute(name, shape_data, additional_roles));
+            expose_attribute_in_model_data(mask_shapes_.back(), "grading_tool_overlay_shapes");
+
+        } else if (std::holds_alternative<Polygon>(item)) {
+
+            const Polygon &polygon = std::get<Polygon>(item);
+
+            utility::JsonStore shape_data;
+            shape_data["type"]     = "polygon";
+            shape_data["points"]   = polygon.points;
+            shape_data["count"]    = polygon.points.size();
+            shape_data["colour"]   = polygon.colour;
+            shape_data["softness"] = polygon.softness;
+            shape_data["opacity"]  = polygon.opacity;
+            shape_data["invert"]   = polygon.invert;
+
+            utility::JsonStore additional_roles;
+            additional_roles["user_data"] = polygon._id;
+
+            const std::string name = fmt::format("Polygon{}", polygon._id);
+            mask_shapes_.push_back(add_attribute(name, shape_data, additional_roles));
+            expose_attribute_in_model_data(mask_shapes_.back(), "grading_tool_overlay_shapes");
+
+        } else if (std::holds_alternative<Ellipse>(item)) {
+
+            const Ellipse &ellipse = std::get<Ellipse>(item);
+
+            utility::JsonStore shape_data;
+            shape_data["type"]     = "ellipse";
+            shape_data["center"]   = ellipse.center;
+            shape_data["radius"]   = ellipse.radius;
+            shape_data["angle"]    = ellipse.angle;
+            shape_data["colour"]   = ellipse.colour;
+            shape_data["softness"] = ellipse.softness;
+            shape_data["opacity"]  = ellipse.opacity;
+            shape_data["invert"]   = ellipse.invert;
+
+            utility::JsonStore additional_roles;
+            additional_roles["user_data"] = ellipse._id;
+
+            std::string name = fmt::format("Ellipse{}", ellipse._id);
+            mask_shapes_.push_back(add_attribute(name, shape_data, additional_roles));
+            expose_attribute_in_model_data(mask_shapes_.back(), "grading_tool_overlay_shapes");
+        }
     }
-    grading_layer_->set_role_data(module::Attribute::StringChoices, layer_choices, false);
-    grading_layer_->set_value(layer_choices.back(), false);
+    grading_data_.mask().read_unlock();
 
-    refresh_ui_from_current_layer();
+    // Auto select the last shape, this will force shape controls
+    // (softness, opacity, etc) to refresh when changing selected layer.
+    if (!mask_shapes_.empty())
+        mask_selected_shape_->set_value(mask_shapes_.size());
+    else
+        mask_selected_shape_->set_value(-1);
 }
 
-void GradingTool::reset_grade_layers() {
+utility::Uuid GradingTool::current_bookmark() const {
 
-    grading_data_ = GradingData();
-    grading_layer_->set_role_data(
-        module::Attribute::StringChoices, std::vector<std::string>(), false);
-    grading_layer_->set_value("", false);
-    grading_data_creation_frame_ = media_reader::ImageBufPtr();
-    add_grade_layer();
+    return utility::Uuid(grading_bookmark_->value());
 }
 
-void GradingTool::add_grade_layer() {
+utility::UuidList GradingTool::current_clip_bookmarks() {
 
-    if (grading_data_.size() >= maximum_layers_) {
-        spdlog::warn("Maximum number of layers reached ({})", maximum_layers_);
-        return;
+    // const utility::UuidList bookmarks_list =
+    utility::UuidList d = get_bookmarks_on_current_media(current_viewport_);
+
+    utility::UuidList filtered_list;
+    if (viewport_current_images_ && viewport_current_images_->hero_image()) {
+
+        for (auto &bookmark : viewport_current_images_->hero_image().bookmarks()) {
+
+            if (bookmark->detail_.user_type_.value_or("") == "Grading") {
+                filtered_list.push_back(bookmark->detail_.uuid_);
+            }
+        }
     }
-
-    // Add layer on top
-
-    active_layer_ = grading_data_.size();
-    grading_data_.push_layer();
-
-    // Update UI
-
-    auto layer_name = std::string(fmt::format("Layer {}", active_layer_ + 1));
-
-    auto layer_choices = grading_layer_->get_role_data<std::vector<std::string>>(
-        module::Attribute::StringChoices);
-    layer_choices.push_back(layer_name);
-    grading_layer_->set_role_data(module::Attribute::StringChoices, layer_choices, false);
-    grading_layer_->set_value(layer_choices.back(), false);
-
-    refresh_ui_from_current_layer();
+    return filtered_list;
 }
 
-void GradingTool::toggle_grade_layer(size_t layer) {
+void GradingTool::create_bookmark_if_empty() {
 
-    if (layer >= grading_data_.size() || layer < 0) {
-        spdlog::warn("Trying to toggle to non-existing layer {}", layer);
-        return;
+    if (!current_bookmark()) {
+        create_bookmark();
     }
-
-    active_layer_ = layer;
-
-    // Update UI
-
-    auto layer_name = std::string(fmt::format("Layer {}", active_layer_ + 1));
-    grading_layer_->set_value(layer_name, false);
-
-    refresh_ui_from_current_layer();
 }
-
-void GradingTool::delete_grade_layer() {
-
-    if (grading_data_.size() < 2) {
-        spdlog::warn("Can't delete base grade layer");
-        return;
-    }
-
-    // Delete top layer
-
-    grading_data_.pop_layer();
-    active_layer_ = grading_data_.size() - 1;
-
-    // Update UI
-
-    auto layer_choices = grading_layer_->get_role_data<std::vector<std::string>>(
-        module::Attribute::StringChoices);
-    layer_choices.pop_back();
-    grading_layer_->set_role_data(module::Attribute::StringChoices, layer_choices, false);
-    grading_layer_->set_value(layer_choices.back(), false);
-
-    refresh_ui_from_current_layer();
-}
-
-ui::viewport::LayerData *GradingTool::current_layer() {
-
-    return grading_data_.layer(active_layer_);
-}
-
-void GradingTool::refresh_current_layer_from_ui() {
-
-    LayerData *layer = current_layer();
-    if (!layer) {
-        return;
-    }
-
-    auto &grade = layer->grade();
-
-    grade.slope = {
-        slope_red_->value(),
-        slope_green_->value(),
-        slope_blue_->value(),
-        basic_exposure_->value()};
-    grade.offset = {
-        offset_red_->value(),
-        offset_green_->value(),
-        offset_blue_->value(),
-        offset_master_->value()};
-    grade.power = {
-        power_red_->value(),
-        power_green_->value(),
-        power_blue_->value(),
-        power_master_->value()};
-    grade.sat = sat_->value();
-
-    layer->set_mask_active(mask_is_active_->value());
-    layer->set_mask_editing(display_mode_attribute_->value() == "Mask");
-}
-
-void GradingTool::refresh_ui_from_current_layer() {
-
-    LayerData *layer = current_layer();
-    if (!layer) {
-        return;
-    }
-
-    auto &grade = layer->grade();
-
-    slope_red_->set_value(grade.slope[0], false);
-    slope_green_->set_value(grade.slope[1], false);
-    slope_blue_->set_value(grade.slope[2], false);
-    slope_master_->set_value(std::pow(2.0, grade.slope[3]), false);
-    basic_exposure_->set_value(grade.slope[3], false);
-
-    offset_red_->set_value(grade.offset[0], false);
-    offset_green_->set_value(grade.offset[1], false);
-    offset_blue_->set_value(grade.offset[2], false);
-    offset_master_->set_value(grade.offset[3], false);
-    basic_offset_->set_value(grade.offset[3], false);
-
-    power_red_->set_value(grade.power[0], false);
-    power_green_->set_value(grade.power[1], false);
-    power_blue_->set_value(grade.power[2], false);
-    power_master_->set_value(grade.power[3], false);
-    basic_power_->set_value(grade.power[3], false);
-
-    sat_->set_value(grade.sat, false);
-
-    // mask_is_active_->set_value(layer->mask_active());
-    display_mode_attribute_->set_value(layer->mask_editing() ? "Mask" : "Grade");
-}
-
-utility::Uuid GradingTool::current_bookmark() const { return grading_data_.bookmark_uuid_; }
 
 void GradingTool::create_bookmark() {
 
-    if (current_bookmark().is_null()) {
+    if (viewport_current_images_ && viewport_current_images_->hero_image()) {
 
         bookmark::BookmarkDetail bmd;
-        /*std::string name = on_screen_media_name_;
-        if (name.rfind("/") != std::string::npos) {
-            name = std::string(name, name.rfind("/") + 1);
-        }
-        std::ostringstream oss;
-        oss << name << " grading @ " << media_logical_frame_;
-        bmd.subject_ = oss.str();*/
-
         // Hides bookmark from timeline
-        bmd.colour_  = "transparent";
-        bmd.visible_ = false;
+        bmd.colour_    = "transparent";
+        bmd.visible_   = false;
+        bmd.user_type_ = "Grading";
 
-        grading_data_.bookmark_uuid_ = StandardPlugin::create_bookmark_on_current_media(
-            "viewport0", "Grading Note", bmd, true);
-        grading_data_creation_frame_ = current_on_screen_frame_;
+        utility::JsonStore user_data;
+        user_data["grade_active"] = true;
+        user_data["mask_active"]  = false;
 
-        // StandardPlugin::update_bookmark_detail(grading_data_.bookmark_uuid_, bmd);
+        auto clip_layers        = current_clip_bookmarks();
+        user_data["layer_name"] = "Grade Layer " + std::to_string(clip_layers.size() + 1);
+
+        bmd.user_data_ = user_data;
+
+        auto uuid = StandardPlugin::create_bookmark_on_frame(
+            viewport_current_images_->hero_image().frame_id(),
+            "Grading Note", // bookmark_subject
+            bmd,            // detail
+            true            // bookmark_entire_duration
+        );
+
+        grading_data_.bookmark_uuid_ = uuid;
+        grading_data_.set_colour_space(working_space_->value());
+        grading_bookmark_->set_value(utility::to_string(uuid), false);
+
+        refresh_ui_from_current_grade();
+    }
+
+    spdlog::debug("Created bookmark {}", utility::to_string(grading_data_.bookmark_uuid_));
+}
+
+void GradingTool::select_bookmark(const utility::Uuid &uuid) {
+
+    if (grading_data_.bookmark_uuid_ == uuid)
+        return;
+
+    GradingData *grading_data_ptr = nullptr;
+    if (uuid) {
+        auto base_ptr    = get_bookmark_annotation(uuid);
+        grading_data_ptr = dynamic_cast<GradingData *>(base_ptr.get());
+    }
+
+    if (grading_data_ptr) {
+        grading_data_ = *grading_data_ptr;
+    } else {
+        grading_data_ = GradingData();
+        grading_data_.set_colour_space(working_space_->value());
+    }
+
+    grading_data_.bookmark_uuid_ = uuid;
+    grading_bookmark_->set_value(utility::to_string(uuid), false);
+
+    refresh_ui_from_current_grade();
+}
+
+void GradingTool::update_boomark_shape(const utility::Uuid &uuid) {
+
+    auto bmd    = get_bookmark_detail(uuid);
+    bool update = false;
+    if (bmd.user_data_) {
+
+        (*bmd.user_data_)["mask_active"] = !mask_shapes_.empty();
+        update                           = true;
+    }
+
+    // First shape added on the layer, switch to Single frame mode
+    if (mask_shapes_.size() == 1) {
+
+        if (bmd.media_reference_) {
+
+            auto &media   = bmd.media_reference_.value();
+            bmd.start_    = playhead_media_frame_ * media.rate().to_flicks();
+            bmd.duration_ = timebase::k_flicks_zero_seconds;
+            update        = true;
+        }
+    }
+
+    if (update) {
+        update_bookmark_detail(uuid, bmd);
     }
 }
 
@@ -960,13 +1156,19 @@ void GradingTool::save_bookmark() {
     if (current_bookmark()) {
 
         StandardPlugin::update_bookmark_annotation(
-            current_bookmark(),
-            std::make_shared<GradingData>(grading_data_),
-            grading_data_.identity() // this will delete the bookmark if true
-        );
-        if (grading_data_.identity()) {
-            reset_grade_layers();
-        }
+            current_bookmark(), std::make_shared<GradingData>(grading_data_), false);
+        // spdlog::warn("Saved bookmark {}", utility::to_string(current_bookmark()));
+    }
+}
+
+void GradingTool::remove_bookmark() {
+
+    if (current_bookmark()) {
+
+        // spdlog::warn("Removing bookmark {}", utility::to_string(current_bookmark()));
+        auto bm = current_bookmark();
+        select_bookmark(utility::Uuid());
+        StandardPlugin::remove_bookmark(bm);
     }
 }
 
@@ -974,12 +1176,25 @@ caf::message_handler GradingTool::message_handler_extensions() {
     return caf::message_handler({[=](const std::string &desc, caf::actor grading_colour_op) {
                if (desc == "follow_bypass") {
                    grading_colour_op_actors_.push_back(grading_colour_op);
-                   monitor(grading_colour_op);
-                   send(
+
+                   // we have to maintain a list of GradingColourOperator instances that are
+                   // alive to send them messages about our state (currently only the state
+                   // of the bypass attr)
+                   monitor(
                        grading_colour_op,
-                       utility::event_atom_v,
-                       "bypass",
-                       grading_bypass_->value());
+                       [this, addr = grading_colour_op.address()](const error &) {
+                           auto it = grading_colour_op_actors_.begin();
+                           while (it != grading_colour_op_actors_.end()) {
+                               if (addr == *it) {
+                                   it = grading_colour_op_actors_.erase(it);
+                               } else {
+                                   it++;
+                               }
+                           }
+                       });
+
+                   mail(utility::event_atom_v, "bypass", grading_bypass_->value())
+                       .send(grading_colour_op);
                }
            }})
         .or_else(StandardPlugin::message_handler_extensions());

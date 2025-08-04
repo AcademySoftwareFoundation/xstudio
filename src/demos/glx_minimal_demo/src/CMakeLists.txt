@@ -24,9 +24,10 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::ui::viewport
 		xstudio::ui::opengl::viewport
 		xstudio::utility
+		xstudio::media
+		xstudio::media_reader
 	PUBLIC
-		caf::core
-		$<$<BOOL:${NVIDIA_HACK}>:GLdispatch>
+		CAF::core
 		OpenSSL::SSL
 		ZLIB::ZLIB
 		X11

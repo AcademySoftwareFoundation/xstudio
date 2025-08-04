@@ -47,5 +47,7 @@ This is the documentation for xStudio builtin OpenColorIO plugin.
       "dynamic_cdl": {
         "primary": "GRD_primary",
         "neutral": "GRD_neutral",
-      }
+      },
+      // Two modes are available for CDL replacement (config and processor)
+      "dynamic_cdl_mode": "config",
     }

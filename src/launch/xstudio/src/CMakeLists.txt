@@ -1,23 +1,28 @@
 project(xstudio VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
+find_package(OpenGL REQUIRED)
+find_package(GLEW REQUIRED)
+find_package(Qt6 COMPONENTS Core Quick Gui Widgets OpenGL OpenGLWidgets Svg REQUIRED)
+find_package(OpenSSL)
+find_package(ZLIB)
+find_package(fmt REQUIRED)
+
+if(WIN32)
 set(SOURCES
 	xstudio.cpp
-	../../../../ui/qml/reskin/qml_reskin.qrc
+	xstudio_win_resource.rc
 	../../../../ui/qml/xstudio/qml.qrc
-)
-
+	)	
+else()
+set(SOURCES
+	xstudio.cpp
+	../../../../ui/qml/xstudio/qml.qrc
+	)	
+endif()
 if(WIN32)
     # Add the /bigobj option for xstudio.cpp
     set_source_files_properties(xstudio.cpp PROPERTIES COMPILE_FLAGS "/bigobj")
 endif()
-
-find_package(OpenGL REQUIRED)
-find_package(GLEW REQUIRED)
-find_package(Qt5 COMPONENTS Core Quick Gui Widgets OpenGL REQUIRED)
-find_package(OpenSSL)
-find_package(ZLIB)
-#find_package(OpenTime REQUIRED)
-#find_package(OpenTimelineIO REQUIRED)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
@@ -33,49 +38,54 @@ else()
 	configure_file(xstudio.sh.in xstudio.sh @ONLY)
 endif()
 
-default_options(${PROJECT_NAME})
+default_options_local(${PROJECT_NAME})
 
 target_link_libraries(${PROJECT_NAME}
 	PRIVATE
 		xstudio::caf_utility
 		xstudio::global
+		xstudio::ui::model_data
 		xstudio::ui::opengl::viewport
 		xstudio::ui::qml::bookmark
+		xstudio::ui::qml::conform
 		xstudio::ui::qml::embedded_python
-		xstudio::ui::qml::event
 		xstudio::ui::qml::global_store
 		xstudio::ui::qml::helper
 		xstudio::ui::qml::log
-		xstudio::ui::qml::module
-		xstudio::ui::qml::playhead
-		xstudio::ui::model_data
 		xstudio::ui::qml::session
 		xstudio::ui::qml::studio
-		xstudio::ui::qml::tag
 		xstudio::ui::qml::viewport
-		xstudio::ui::viewport
 		xstudio::ui::qt::viewport_widget
+		xstudio::ui::viewport
+		xstudio::media
+		xstudio::media_reader
 		xstudio::utility
+		fmt::fmt
 	PUBLIC
-		caf::core
+		fmt::fmt
+		spdlog::spdlog
+		CAF::core
+		CAF::io
 		$<$<BOOL:${NVIDIA_HACK}>:GLdispatch>
-		Qt5::Gui
-		Qt5::Core
-		Qt5::Qml
-		Qt5::Quick
-		Qt5::Widgets
+		# quickfuture
+		Qt6::Core
+		Qt6::Gui
+		Qt6::Quick
+		Qt6::OpenGLWidgets
+		Qt6::Widgets
+		Qt6::Svg
 		OpenSSL::SSL
 		ZLIB::ZLIB
-		#OTIO::opentime
-		#OTIO::opentimelineio
-		quickfuture
 )
 
 if(WIN32)
     target_link_libraries(${PROJECT_NAME} PRIVATE dbghelp)
+elseif(NOT APPLE)
+	target_link_libraries(${PROJECT_NAME} PUBLIC uuid)
 endif()
 
 if(WIN32)
+
 	set_target_properties(${PROJECT_NAME}
 		PROPERTIES
 		RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
@@ -83,24 +93,59 @@ if(WIN32)
 		VS_DEBUGGER_ENVIRONMENT XSTUDIO_ROOT=${CMAKE_BINARY_DIR}/bin/$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>
 		LINK_DEPENDS_NO_SHARED true
 	)
-else()
-	set_target_properties(${PROJECT_NAME}
-		PROPERTIES
-		RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-		OUTPUT_NAME "${PROJECT_NAME}.bin"	
-		LINK_DEPENDS_NO_SHARED true
-	)
-endif()
 
-install(TARGETS ${PROJECT_NAME}
+	install(TARGETS ${PROJECT_NAME}
         RUNTIME DESTINATION bin)
 
-if(WIN32)
 	install(PROGRAMS
 	  ${CMAKE_CURRENT_BINARY_DIR}/xstudio.bat
 	  DESTINATION bin
 	  RENAME xstudio)
+
+    get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)
+    get_filename_component(_qt_bin_dir "${_qmake_executable}" DIRECTORY)
+    find_program(windeployqt_exe windeployqt HINTS "${_qt_bin_dir}")
+        configure_file(windeploy.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/windeploy.cmake @ONLY)
+    install(SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/windeploy.cmake)
+
+elseif(APPLE)
+
+	set_target_properties(${PROJECT_NAME}
+		PROPERTIES
+		RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/MacOS"
+		OUTPUT_NAME "${PROJECT_NAME}.bin"
+		LINK_DEPENDS_NO_SHARED true
+	)
+
+	add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources")
+
+	add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/")
+
+	add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_CURRENT_SOURCE_DIR}/xstudio_app.ico "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/")
+
+    get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)
+    get_filename_component(_qt_bin_dir "${_qmake_executable}" DIRECTORY)
+    find_program(macdeployqt_exe macdeployqt HINTS "${_qt_bin_dir}")
+        configure_file(macdeploy.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/macdeploy.cmake @ONLY)
+    install(SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/macdeploy.cmake)
+
 else()
+
+	set_target_properties(${PROJECT_NAME}
+		PROPERTIES
+		RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+		OUTPUT_NAME "${PROJECT_NAME}.bin"
+		LINK_DEPENDS_NO_SHARED true
+	)
+
+	install(TARGETS ${PROJECT_NAME}
+      RUNTIME DESTINATION bin)
+
 	install(PROGRAMS
 	  ${CMAKE_CURRENT_BINARY_DIR}/xstudio.sh
 	  DESTINATION bin
@@ -110,4 +155,5 @@ else()
 	  ${CMAKE_CURRENT_SOURCE_DIR}/xstudio_desktop_integration.sh
 	  DESTINATION bin
 	  RENAME xstudio_desktop_integration)
+
 endif()

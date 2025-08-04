@@ -1,0 +1,203 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MacOS (Intel/ARM) &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Windows 10/11" href="windows.html" />
+    <link rel="prev" title="xSTUDIO Build Guides" href="index.html" />
+    <link href="../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            xStudio
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../user_docs/index.html">xSTUDIO User Guide</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">xSTUDIO Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">xSTUDIO Build Guides</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="index.html#post-production-studios-and-other-organisations">Post Production Studios and Other Organisations</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="index.html#individual-users">Individual Users</a><ul class="current">
+<li class="toctree-l4 current"><a class="current reference internal" href="#">MacOS (Intel/ARM)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="windows.html">Windows 10/11</a></li>
+<li class="toctree-l4"><a class="reference internal" href="linux_generic.html">Linux Generic Guide</a></li>
+<li class="toctree-l4"><a class="reference internal" href="rocky_linux_9_1.html">Rocky Linux 9.1</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ubuntu_22_04.html">Ubuntu 22.04 LTS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="centos_7.html">Centos 7 (deprecated)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="dependencies.html">xSTUDIO Library Dependencies List</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html">API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../python_api/index.html">Python API</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">xStudio</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">xSTUDIO Reference</a></li>
+          <li class="breadcrumb-item"><a href="index.html">xSTUDIO Build Guides</a></li>
+      <li class="breadcrumb-item active">MacOS (Intel/ARM)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/reference/build_guides/macos.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="macos-intel-arm">
+<h1>MacOS (Intel/ARM)<a class="headerlink" href="#macos-intel-arm" title="Link to this heading"></a></h1>
+<p>To build xSTUDIO on MacOS you must download and install some build dependencies. Once these are in place xSTUDIO can be built with just two commands. Please read these notes carefully, particulary if you are not experienced in software development.</p>
+<section id="download-apple-xcode">
+<h2>Download Apple XCode<a class="headerlink" href="#download-apple-xcode" title="Link to this heading"></a></h2>
+<p>From the App store, locate and download XCode. Note that it is a large package and may take some time to download. Once downloaded, launch XCode and agree to the license terms &amp; conditions.</p>
+</section>
+<section id="install-homebrew-package-manager">
+<h2>Install ‘homebrew’ package manager<a class="headerlink" href="#install-homebrew-package-manager" title="Link to this heading"></a></h2>
+<p>Some of xSTUDIO’s dependencies require ‘homebrew’, the MacOS open source software package manager. The homepage is <a class="reference external" href="https://brew.sh">here</a> but you can simply run this command in a terminal</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>/bin/bash -c &quot;$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)&quot;
+</pre></div>
+</div>
+<p>We require 5 packages to be installed to proceed. Run these commands in a terminal:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>brew install cmake
+brew install pkg-config
+brew install nasm
+brew install autoconf
+brew install autoconf-archive
+</pre></div>
+</div>
+</section>
+<section id="download-and-install-qt-6-5-3-sdk">
+<h2>Download and install Qt 6.5.3 SDK<a class="headerlink" href="#download-and-install-qt-6-5-3-sdk" title="Link to this heading"></a></h2>
+<p>Follow <a class="reference internal" href="downloading_qt.html"><span class="std std-doc">these instructions</span></a></p>
+</section>
+<section id="download-the-vcpkg-repo">
+<h2>Download the VCPKG repo<a class="headerlink" href="#download-the-vcpkg-repo" title="Link to this heading"></a></h2>
+<p>To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo and run the bootstrap script before we build xstudio.</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/microsoft/vcpkg.git
+./vcpkg/bootstrap-vcpkg.sh
+</pre></div>
+</div>
+</section>
+<section id="download-the-xstudio-repo">
+<h2>Download the xSTUDIO repo<a class="headerlink" href="#download-the-xstudio-repo" title="Link to this heading"></a></h2>
+<p>Download from github in the usual manner. Enter the root folder of the repo and ensure you are building from the correct branch. Example terminal commands might be as follows, to build from the develop branch:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/AcademySoftwareFoundation/xstudio.git
+cd xstudio
+git checkout develop
+</pre></div>
+</div>
+<p>You must run these commands to add the OpenTimelineIO submodule to the tree and apply a small patch</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git submodule init
+git submodule update
+git apply cmake/otio_patch.diff
+</pre></div>
+</div>
+</section>
+<section id="modify-the-cmakepresets-json-file">
+<h2>Modify the CMakePresets.json file<a class="headerlink" href="#modify-the-cmakepresets-json-file" title="Link to this heading"></a></h2>
+<p>Open the CMakePresets.json file (which is in the root of the xstudio repo) in a text editor. You must look for the entry “Qt6_DIR” and modify the value that follows it to point to your installation of the Qt SDK. Specifically, you need to point to a directory named ‘Qt6’ which is in a directory named ‘cmake’, which is in a directory named ‘lib’. For example, on MacOS where user Mary Jane downloaded Qt into her home folder the entry should look like this:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>&quot;Qt6_DIR&quot;: &quot;/Users/maryjane/Qt/6.5.3/macos/lib/cmake/Qt6&quot;,
+</pre></div>
+</div>
+</section>
+<section id="build-xstudio">
+<h2>Build xSTUDIO<a class="headerlink" href="#build-xstudio" title="Link to this heading"></a></h2>
+<p>Run the appropriate command for your platform (whether you have an older Intel or a newer Apple Silicon machine) to set-up for building. Note that this cmake command <em><strong>may take several hours to complete</strong></em>. This is because xSTUDIO’s dependencies (particularly ffmpeg) take a long time to download and build from the source code, which is what VCPKG is doing.</p>
+<p><strong>Apple Silicon (ARM) Machines:</strong></p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cmake -B build --preset MacOSRelease
+</pre></div>
+</div>
+<p><strong>Intel Machines:</strong></p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cmake -B build --preset MacOSIntelRelease
+</pre></div>
+</div>
+<p>When this has finished, you can build xSTUDIO with this command.</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cmake --build build --parallel 16 --target install
+</pre></div>
+</div>
+<p>If the build is successful, you should have an application bundle in the ‘build’ folder called ‘xSTUDIO.app’. This can be drag &amp; dropped into your applications folder, desktop and dock as for any other application.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="xSTUDIO Build Guides" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="windows.html" class="btn btn-neutral float-right" title="Windows 10/11" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DNeg.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -73,8 +73,8 @@ namespace utility {
 
     //! Stop logger
     void stop_logger();
-    /*! @} End of Doxygen Groups*/
+    /*! @} End of Doxygen UIDataModels*/
 
 } // namespace utility
-/*! @} End of Doxygen Groups*/
+/*! @} End of Doxygen UIDataModels*/
 } // namespace xstudio

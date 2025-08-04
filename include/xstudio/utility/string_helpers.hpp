@@ -4,7 +4,6 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #endif
-
 #include <filesystem>
 #include <algorithm>
 #include <cctype>
@@ -56,6 +55,23 @@ namespace utility {
         size_t start_pos = str.find(from);
         if (start_pos != std::string::npos)
             str.replace(start_pos, from.length(), to);
+        return str;
+    }
+
+    static inline std::string title_case(std::string str) {
+        static std::regex whitespace(R"([_\s]+)");
+        static std::regex specials(R"([^\sa-zA-Z0-9])");
+        str = std::regex_replace(str, whitespace, " ");
+        str = std::regex_replace(str, specials, "");
+
+        char last = ' ';
+        for (auto it = str.begin(); it != str.end(); ++it) {
+            if (last == ' ')
+                *it = toupper(*it);
+            else
+                *it = tolower(*it);
+            last = *it;
+        }
         return str;
     }
 
@@ -205,12 +221,12 @@ namespace utility {
         return result;
     }
 
-    // TODO: Ahead to refactor
+    // This is used on WIN build only. There was a note to refactor
+    // here. TODO: check what it's for and why it might need refactor.
     inline std::string to_upper_path(const std::filesystem::path &path) {
         static std::locale loc;
         std::string result;
         result.reserve(path.string().size());
-
         for (auto elem : path.string())
             result += std::toupper(elem, loc);
 
@@ -222,6 +238,13 @@ namespace utility {
         if (val)
             return std::string(val);
         return {};
+    }
+
+    inline std::string get_env(const std::string &key, const std::string &default_value) {
+        const char *val = std::getenv(key.c_str());
+        if (val)
+            return std::string(val);
+        return default_value;
     }
 
     inline std::string get_hostname() {

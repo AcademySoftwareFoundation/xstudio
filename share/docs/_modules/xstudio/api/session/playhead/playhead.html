@@ -1,174 +1,97 @@
 
 
 <!DOCTYPE html>
-<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<html class="writer-html5" lang="en" data-content_root="../../../../../">
 <head>
-  <meta charset="utf-8">
-  
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
-  <title>xstudio.api.session.playhead.playhead &mdash; xStudio 0.10.0 documentation</title>
-  
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>xstudio.api.session.playhead.playhead &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/graphviz.css?v=4ae1632d" />
 
   
-  
-  
-  
-
-  
-  <script type="text/javascript" src="../../../../../_static/js/modernizr.min.js"></script>
-  
-    
-      <script type="text/javascript" id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
-        <script src="../../../../../_static/jquery.js"></script>
-        <script src="../../../../../_static/underscore.js"></script>
-        <script src="../../../../../_static/doctools.js"></script>
-        <script src="../../../../../_static/language_data.js"></script>
-    
-    <script type="text/javascript" src="../../../../../_static/js/theme.js"></script>
-
-    
-
-  
-  <link rel="stylesheet" href="../../../../../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="../../../../../_static/graphviz.css" type="text/css" />
+      <script src="../../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../../genindex.html" />
-    <link rel="search" title="Search" href="../../../../../search.html" /> 
+    <link rel="search" title="Search" href="../../../../../search.html" />
+    <link href="../../../../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
 </head>
 
-<body class="wy-body-for-nav">
-
-   
+<body class="wy-body-for-nav"> 
   <div class="wy-grid-for-nav">
-    
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-          
 
           
-            <a href="../../../../../index.html" class="icon icon-home"> xStudio
           
-
-          
+          <a href="../../../../../index.html" class="icon icon-home">
+            xStudio
           </a>
-
-          
-            
-            
-              <div class="version">
-                0.10.0
-              </div>
-            
-          
-
-          
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-
-          
-        </div>
-
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-          
-            
-            
-              
-            
-            
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../index.html">Welcome to xStudio’s documentation!</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../user_docs/index.html">xSTUDIO User Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../api/index.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../reference/index.html">xSTUDIO Reference</a></li>
 </ul>
 
-            
-          
         </div>
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-
-      
-      <nav class="wy-nav-top" aria-label="top navigation">
-        
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="../../../../../index.html">xStudio</a>
-        
       </nav>
 
-
       <div class="wy-nav-content">
-        
         <div class="rst-content">
-        
-          
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<div role="navigation" aria-label="breadcrumbs navigation">
-
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-    
-      <li><a href="../../../../../index.html">Docs</a> &raquo;</li>
-        
-          <li><a href="../../../../index.html">Module code</a> &raquo;</li>
-        
-          <li><a href="../../../api.html">xstudio.api</a> &raquo;</li>
-        
-      <li>xstudio.api.session.playhead.playhead</li>
-    
-    
+      <li><a href="../../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../api.html">xstudio.api</a></li>
+      <li class="breadcrumb-item active">xstudio.api.session.playhead.playhead</li>
       <li class="wy-breadcrumbs-aside">
-        
       </li>
-    
   </ul>
-
-  
   <hr/>
 </div>
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
-            
+             
   <h1>Source code for xstudio.api.session.playhead.playhead</h1><div class="highlight"><pre>
 <span></span><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">play_atom</span><span class="p">,</span> <span class="n">loop_atom</span><span class="p">,</span> <span class="n">compare_mode_atom</span><span class="p">,</span> <span class="n">play_forward_atom</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">logical_frame_atom</span><span class="p">,</span> <span class="n">play_rate_mode_atom</span><span class="p">,</span> <span class="n">source_atom</span><span class="p">,</span> <span class="n">media_atom</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">simple_loop_start_atom</span><span class="p">,</span> <span class="n">simple_loop_end_atom</span><span class="p">,</span> <span class="n">use_loop_range_atom</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">viewport_playhead_atom</span><span class="p">,</span> <span class="n">media_logical_frame_atom</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">JsonStore</span><span class="p">,</span> <span class="n">change_attribute_value_atom</span><span class="p">,</span> <span class="n">jump_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">play_atom</span><span class="p">,</span> <span class="n">loop_atom</span><span class="p">,</span> <span class="n">compare_mode_atom</span><span class="p">,</span> <span class="n">play_forward_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">logical_frame_atom</span><span class="p">,</span> <span class="n">play_rate_mode_atom</span><span class="p">,</span> <span class="n">source_atom</span><span class="p">,</span> <span class="n">media_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">simple_loop_start_atom</span><span class="p">,</span> <span class="n">simple_loop_end_atom</span><span class="p">,</span> <span class="n">use_loop_range_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">viewport_playhead_atom</span><span class="p">,</span> <span class="n">media_logical_frame_atom</span><span class="p">,</span> <span class="n">playhead_rate_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">JsonStore</span><span class="p">,</span> <span class="n">change_attribute_value_atom</span><span class="p">,</span> <span class="n">jump_atom</span>
 
-<span class="kn">from</span> <span class="nn">xstudio.api.module</span> <span class="kn">import</span> <span class="n">ModuleBase</span>
-<span class="kn">from</span> <span class="nn">xstudio.api.session</span> <span class="kn">import</span> <span class="n">Container</span>
-<span class="kn">from</span> <span class="nn">xstudio.api.session.playhead.playhead_selection</span> <span class="kn">import</span> <span class="n">PlayheadSelection</span>
-<span class="kn">from</span> <span class="nn">xstudio.api.session.media.media</span> <span class="kn">import</span> <span class="n">Media</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.module</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModuleBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.session</span><span class="w"> </span><span class="kn">import</span> <span class="n">Container</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.session.playhead.playhead_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">PlayheadSelection</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.session.media.media</span><span class="w"> </span><span class="kn">import</span> <span class="n">Media</span>
 
-<div class="viewcode-block" id="Playhead"><a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playhead.Playhead">[docs]</a><span class="k">class</span> <span class="nc">Playhead</span><span class="p">(</span><span class="n">ModuleBase</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;MediaStream object, represents playhead.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="Playhead">
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playhead.Playhead">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Playhead</span><span class="p">(</span><span class="n">ModuleBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;MediaStream object, represents playhead.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Create Playhead object.</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create Playhead object.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            connection(Connection): Connection object</span>
@@ -179,14 +102,17 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">ModuleBase</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Playhead.show_in_viewport"><a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playhead.Playhead.show_in_viewport">[docs]</a>    <span class="k">def</span> <span class="nf">show_in_viewport</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Connect this playhead to the viewport.</span>
+<div class="viewcode-block" id="Playhead.show_in_viewport">
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playhead.Playhead.show_in_viewport">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">show_in_viewport</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Connect this playhead to the viewport.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">viewport_playhead_atom</span><span class="p">())</span></div>
 
+
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">playing</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Is playing.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">playing</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Is playing.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            playing(bool): Is playhead playing..</span>
@@ -194,8 +120,8 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">play_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="nd">@playing</span><span class="o">.</span><span class="n">setter</span>
-    <span class="k">def</span> <span class="nf">playing</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set playing.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">playing</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set playing.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            playing(bool): Set playing.</span>
@@ -203,8 +129,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">play_atom</span><span class="p">(),</span> <span class="n">x</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">use_loop_range</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Using loop range</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">use_loop_range</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Using loop range</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            use_loop_range(bool): Playhead will loop over specified range (or over whole range of source)</span>
@@ -212,8 +138,8 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">use_loop_range_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="nd">@use_loop_range</span><span class="o">.</span><span class="n">setter</span>
-    <span class="k">def</span> <span class="nf">use_loop_range</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set playing.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">use_loop_range</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set playing.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            use_loop_range(bool): Sets if playhead loops over specified range</span>
@@ -221,8 +147,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">use_loop_range_atom</span><span class="p">(),</span> <span class="n">x</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">loop_in_point</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Loop in point.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">loop_in_point</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Loop in point.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            loop_in_point(int): Start frame of loop range</span>
@@ -230,8 +156,8 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">simple_loop_start_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="nd">@loop_in_point</span><span class="o">.</span><span class="n">setter</span>
-    <span class="k">def</span> <span class="nf">loop_in_point</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set playing.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">loop_in_point</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set playing.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            loop_in_point(int): Set start frame of loop range.</span>
@@ -239,8 +165,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">simple_loop_start_atom</span><span class="p">(),</span> <span class="n">x</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">loop_out_point</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Loop out point.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">loop_out_point</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Loop out point.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            loop_out_point(int): End frame of loop range</span>
@@ -248,8 +174,8 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">simple_loop_end_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="nd">@loop_out_point</span><span class="o">.</span><span class="n">setter</span>
-    <span class="k">def</span> <span class="nf">loop_out_point</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set loop out point.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">loop_out_point</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set loop out point.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            loop_out_point(int): Set end frame of loop range.</span>
@@ -257,8 +183,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">simple_loop_end_atom</span><span class="p">(),</span> <span class="n">x</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">looping</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Is looping.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">looping</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Is looping.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            looping(LoopMode): Current loop mode.</span>
@@ -266,8 +192,8 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">loop_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="nd">@looping</span><span class="o">.</span><span class="n">setter</span>
-    <span class="k">def</span> <span class="nf">looping</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set loop mode.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">looping</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set loop mode.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            loop(LoopMode): Set loop mode.</span>
@@ -275,33 +201,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">loop_atom</span><span class="p">(),</span> <span class="n">x</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">compare_mode</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Playhead compare mode.</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            compare_mode(str): Current compare mode.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">attribute_value_atom</span><span class="p">(),</span> <span class="s2">&quot;Compare&quot;</span><span class="p">)</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">dequeue_message</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-
-    <span class="nd">@compare_mode</span><span class="o">.</span><span class="n">setter</span>
-    <span class="k">def</span> <span class="nf">compare_mode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set compare mode.</span>
-
-<span class="sd">        Args:</span>
-<span class="sd">            mode(str): Set compare mode.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
-            <span class="n">change_attribute_value_atom</span><span class="p">(),</span>
-            <span class="s2">&quot;Compare&quot;</span><span class="p">,</span>
-            <span class="n">JsonStore</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-            <span class="p">)</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">play_forward</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Is playing forwards.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">play_forward</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Is playing forwards.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            play_forward(bool): Is playhead playing forwards.</span>
@@ -309,8 +210,8 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">play_forward_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="nd">@play_forward</span><span class="o">.</span><span class="n">setter</span>
-    <span class="k">def</span> <span class="nf">play_forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set play forward mode.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">play_forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set play forward mode.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            mode(bool): Set playing forward.</span>
@@ -318,8 +219,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">play_forward_atom</span><span class="p">(),</span> <span class="n">x</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">position</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Current frame position.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">position</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Current frame position.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            position(int): Current frame.</span>
@@ -327,8 +228,8 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">logical_frame_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">media_frame</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Current (media) frame of on-screen media.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">media_frame</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Current (media) frame of on-screen media.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            position(int): Current media frame showing on-screen</span>
@@ -336,8 +237,8 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">media_logical_frame_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="nd">@position</span><span class="o">.</span><span class="n">setter</span>
-    <span class="k">def</span> <span class="nf">position</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_position</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set current frame.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">position</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_position</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set current frame.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            new_position(int): Set current frame to this.</span>
@@ -345,8 +246,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">jump_atom</span><span class="p">(),</span> <span class="n">new_position</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">play_mode</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Current play mode.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">play_mode</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Current play mode.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            play_mode(TimeSourceMode): Current play mode .</span>
@@ -354,8 +255,8 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">play_rate_mode_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">on_screen_media</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Current on-screen media sequence.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_screen_media</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Current on-screen media sequence.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            source(Media): Currently playing this.</span>
@@ -363,52 +264,70 @@
         <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">media_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">Media</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Playhead.source"><a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playhead.Playhead.source">[docs]</a>    <span class="k">def</span> <span class="nf">source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_source</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set source to play (e.g. Media or Timeline).</span>
+<div class="viewcode-block" id="Playhead.source">
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playhead.Playhead.source">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_source</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set source to play (e.g. Media or Timeline).</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            new_source(actor): Set playable source to this.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">source_atom</span><span class="p">(),</span> <span class="n">new_source</span><span class="p">)</span></div></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">source_atom</span><span class="p">(),</span> <span class="n">new_source</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">frame_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get playhead rate.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            playhead_rate(core.FrameRate): Rate for new playheads.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">playhead_rate_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compare_mode</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the current compare mode for the playhead. e.g. &quot;Grid&quot; or &quot;A/B&quot;</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            compare_mode(str): The compare mode.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">attrs_by_name_</span><span class="p">[</span><span class="s2">&quot;Compare&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="p">()</span>
+
+    <span class="nd">@compare_mode</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compare_mode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">compare_mode</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the compare mode for the playhead. e.g. &quot;Grid&quot;, &quot;A/B&quot;, &quot;Off&quot; etc.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            compare_mode(str): The compare mode.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attrs_by_name_</span><span class="p">[</span><span class="s2">&quot;Compare&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">set_value</span><span class="p">(</span><span class="n">compare_mode</span><span class="p">)</span></div>
+
 </pre></div>
 
            </div>
-           
           </div>
           <footer>
-  
 
   <hr/>
 
   <div role="contentinfo">
-    <p>
-        &copy; Copyright 2020, DNeg
-
-    </p>
+    <p>&#169; Copyright 2025, DNeg.</p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
 
 </footer>
-
         </div>
       </div>
-
     </section>
-
   </div>
-  
-
-
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script>
-
-  
-  
-    
-   
+  </script> 
 
 </body>
 </html>

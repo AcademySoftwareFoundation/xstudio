@@ -34,63 +34,53 @@
 
 namespace fs = std::filesystem;
 
-
 using namespace xstudio;
 using namespace xstudio::global_store;
 using namespace xstudio::media_reader;
 using namespace xstudio::utility;
 
+namespace xstudio {
+namespace exr_reader {
+    bool dump_json_headers(const Imf::Header &h, nlohmann::json &root);
+}
+} // namespace xstudio
 
 namespace {
-
 static Uuid s_plugin_uuid("9fd34c7e-8b35-44c7-8976-387bae1e35e0");
 
 /* Given an image display and data window and a maximum
 overscan amount, compute the cropped data window that limits
 the overscan in the data window.
 
-Returns true if a crop is required to meet max overscan requirement
+Returns true if a crop is required to meet max overscan requirement*/
 bool crop_data_window(
-        Imath::Box2i &data_window,
-        const Imath::Box2i &display_window,
-        const float overscan_percent
-)
-{
+    Imath::Box2i &data_window,
+    const Imath::Box2i &display_window,
+    const float overscan_percent) {
 
-        const int width = display_window.size().x+1;
-        const int height = display_window.size().y+1;
+    const int width  = display_window.size().x + 1;
+    const int height = display_window.size().y + 1;
 
-        const Imath::Box2i in_data_window = data_window;
+    const Imath::Box2i in_data_window = data_window;
 
-        data_window.min.x = std::max(
-                data_window.min.x,
-                (int)round(-float(width)*overscan_percent/100.0f)
-                );
+    data_window.min.x =
+        std::max(data_window.min.x, (int)round(-float(width) * overscan_percent / 100.0f));
 
-        data_window.max.x = std::min(
-                data_window.max.x,
-                (int)round(float(width)*(overscan_percent/100.0f + 1.0f))
-                );
+    data_window.max.x = std::min(
+        data_window.max.x, (int)round(float(width) * (overscan_percent / 100.0f + 1.0f)));
 
-        data_window.min.y = std::max(
-                data_window.min.y,
-                (int)round(-float(height)*overscan_percent/100.0f)
-                );
+    data_window.min.y =
+        std::max(data_window.min.y, (int)round(-float(height) * overscan_percent / 100.0f));
 
-        data_window.max.y = std::min(
-                data_window.max.y,
-                (int)round(float(height)*(overscan_percent/100.0f + 1.0f))
-                );
+    data_window.max.y = std::min(
+        data_window.max.y, (int)round(float(height) * (overscan_percent / 100.0f + 1.0f)));
 
-        return in_data_window != data_window;
-
+    return in_data_window != data_window;
 }
-*/
-
 
 static Uuid openexr_shader_uuid{"1c9259fc-46a5-11ea-87fe-989096adb429"};
 static std::string shader{R"(
-#version 430 core
+#version 410 core
 uniform int width;
 uniform int height;
 uniform int num_channels;
@@ -215,184 +205,165 @@ void OpenEXRMediaReader::update_preferences(const utility::JsonStore &prefs) {
 }
 
 ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
-    try {
 
-        std::string path = uri_to_posix_path(mptr.uri_);
+    std::string path = uri_to_posix_path(mptr.uri());
 
-        // DebugTimer dd(path);
+    // DebugTimer dd(path);
 
-        Imf::MultiPartInputFile input(path.c_str());
-        int parts    = input.parts();
-        int part_idx = -1;
-        std::array<Imf::PixelType, 4> pix_type;
-        std::vector<std::string> exr_channels_to_load;
+    Imf::MultiPartInputFile input(path.c_str());
+    int parts    = input.parts();
+    int part_idx = -1;
+    std::array<Imf::PixelType, 4> pix_type;
+    std::vector<std::string> exr_channels_to_load;
 
-        for (int prt = 0; prt < parts; ++prt) {
-            // skip incomplete parts - maybe better error/handling messaging required?
-            if (!input.partComplete(prt))
-                continue;
-            const Imf::Header &part_header = input.header(prt);
-            std::vector<std::string> stream_ids;
-            stream_ids_from_exr_part(part_header, stream_ids);
-            for (const auto &stream_id : stream_ids) {
-                if (stream_id == mptr.stream_id_) {
-                    pix_type = pick_exr_channels_from_stream_id(
-                        part_header, mptr.stream_id_, exr_channels_to_load);
-                    part_idx = prt;
-                }
+    for (int prt = 0; prt < parts; ++prt) {
+        // skip incomplete parts - maybe better error/handling messaging required?
+        const Imf::Header &part_header = input.header(prt);
+        std::vector<std::string> stream_ids;
+        stream_ids_from_exr_part(part_header, stream_ids);
+        for (const auto &stream_id : stream_ids) {
+            if (stream_id == mptr.stream_id()) {
+                pix_type = pick_exr_channels_from_stream_id(
+                    part_header, mptr.stream_id(), exr_channels_to_load);
+                part_idx = prt;
             }
         }
+    }
 
-        if (part_idx == -1 && mptr.stream_id_ == "Main" && input.partComplete(0)) {
-            // Older version of exr reader only provided a stream called "Main".
-            // For backwards compatibility map this to the first stream from the
-            // first 'part' (which is what you got with the old reader)
-            const Imf::Header &part_header = input.header(0);
-            std::vector<std::string> stream_ids;
-            stream_ids_from_exr_part(part_header, stream_ids);
-            if (stream_ids.empty()) {
-                std::stringstream ss;
-                ss << "Unable to find readable layer/stream in part 0 for file \"" << path
-                   << "\"\n";
-                throw std::runtime_error(ss.str().c_str());
-            }
-            pix_type = pick_exr_channels_from_stream_id(
-                part_header, stream_ids[0], exr_channels_to_load);
-            part_idx = 0;
-        } else if (part_idx == -1) {
+    if (part_idx == -1) {
+        // When an EXR sequence is added to an xSTUDIO session, xSTUDIO opens
+        // the middle frame in the sequence and inspects it to see what parts
+        // and channels there are in that file. A MediaStream is then created
+        // for each part or layer in that EXR.
+        // It is possible that other EXRs in the sequence have different parts
+        // or layers, however. What do we do then? All we can do is just pick
+        // the first part to load as a dumb fallback.
+        // It's not reasonable to expect xSTUDIO to be able to predict how to
+        // load an EXR sequence where the parts/layers in the files are not
+        // consistent
+        const Imf::Header &part_header = input.header(0);
+        std::vector<std::string> stream_ids;
+        stream_ids_from_exr_part(part_header, stream_ids);
+        if (stream_ids.empty()) {
             std::stringstream ss;
-            ss << "Failed to pick exr channels for file \"" << path << "\"\n";
+            ss << "Unable to find readable layer/stream in part 0 for file \"" << path
+               << "\"\n";
             throw std::runtime_error(ss.str().c_str());
         }
+        pix_type =
+            pick_exr_channels_from_stream_id(part_header, stream_ids[0], exr_channels_to_load);
+        part_idx = 0;
+    }
 
-        Imf::InputPart in(input, part_idx);
+    if (exr_channels_to_load.empty()) {
+        std::stringstream ss;
+        ss << "The parts, channels or layers in file \"" << path
+           << "\" are inconsistent with other EXR files in the sequence.\n";
+        throw std::runtime_error(ss.str().c_str());
+    }
 
-        Imath::Box2i data_window    = in.header().dataWindow();
-        Imath::Box2i display_window = in.header().displayWindow();
+    Imf::InputPart in(input, part_idx);
 
-        // decide the area of the image we want to load
-        const bool cropped_data_window = false; /*crop_data_window(
-                 data_window,
-                 display_window,
-                 max_exr_overscan_percent_
-                 );*/
+    utility::JsonStore part_metadata;
+    try {
+        const Imf::Header &h = in.header();
+        exr_reader::dump_json_headers(h, part_metadata.ref());
+    } catch (const std::exception &e) {
+        part_metadata["METADATA LOAD ERROR"] = e.what();
+    }
 
-        // compute the size of the buffer we need
-        const size_t n_pixels = (data_window.size().x + 1) * (data_window.size().y + 1);
-        const size_t bytes_per_channel_r =
-            (pix_type[0] == -1                     ? 0
-             : pix_type[0] == Imf::PixelType::HALF ? 2
-                                                   : 4);
-        const size_t bytes_per_channel_g =
-            (pix_type[1] == -1                     ? 0
-             : pix_type[1] == Imf::PixelType::HALF ? 2
-                                                   : 4);
-        const size_t bytes_per_channel_b =
-            (pix_type[2] == -1                     ? 0
-             : pix_type[2] == Imf::PixelType::HALF ? 2
-                                                   : 4);
-        const size_t bytes_per_channel_a =
-            (pix_type[3] == -1                     ? 0
-             : pix_type[3] == Imf::PixelType::HALF ? 2
-                                                   : 4);
-        const size_t bytes_per_pixel = bytes_per_channel_r + bytes_per_channel_g +
-                                       bytes_per_channel_b + bytes_per_channel_a;
-        const size_t buf_size = n_pixels * bytes_per_pixel;
+    Imath::Box2i data_window    = in.header().dataWindow();
+    Imath::Box2i display_window = in.header().displayWindow();
 
-        // const size_t gl_line_size = 8192*4;
-        // const size_t padded_buf_size = (buf_size & (gl_line_size-1)) ?
-        // ((buf_size/gl_line_size) + 1)*gl_line_size : buf_size;
+    // decide the area of the image we want to load
+    const bool cropped_data_window =
+        crop_data_window(data_window, display_window, max_exr_overscan_percent_);
 
-        JsonStore jsn;
-        jsn["num_channels"]    = exr_channels_to_load.size();
-        jsn["pix_type_r"]      = int(pix_type[0]);
-        jsn["pix_type_g"]      = int(pix_type[1]);
-        jsn["pix_type_b"]      = int(pix_type[2]);
-        jsn["pix_type_a"]      = int(pix_type[3]);
-        jsn["bytes_per_pixel"] = int(bytes_per_pixel);
-        // jsn["path"] = to_string(mptr.uri_);
+    // compute the size of the buffer we need
+    const size_t n_pixels = (data_window.size().x + 1) * (data_window.size().y + 1);
+    const size_t bytes_per_channel_r =
+        (pix_type[0] == -1                     ? 0
+         : pix_type[0] == Imf::PixelType::HALF ? 2
+                                               : 4);
+    const size_t bytes_per_channel_g =
+        (pix_type[1] == -1                     ? 0
+         : pix_type[1] == Imf::PixelType::HALF ? 2
+                                               : 4);
+    const size_t bytes_per_channel_b =
+        (pix_type[2] == -1                     ? 0
+         : pix_type[2] == Imf::PixelType::HALF ? 2
+                                               : 4);
+    const size_t bytes_per_channel_a =
+        (pix_type[3] == -1                     ? 0
+         : pix_type[3] == Imf::PixelType::HALF ? 2
+                                               : 4);
+    const size_t bytes_per_pixel =
+        bytes_per_channel_r + bytes_per_channel_g + bytes_per_channel_b + bytes_per_channel_a;
+    const size_t buf_size = n_pixels * bytes_per_pixel;
 
-        ImageBufPtr buf(new ImageBuffer(openexr_shader_uuid, jsn));
-        buf->allocate(buf_size);
-        buf->set_pixel_aspect(in.header().pixelAspectRatio());
+    // const size_t gl_line_size = 8192*4;
+    // const size_t padded_buf_size = (buf_size & (gl_line_size-1)) ?
+    // ((buf_size/gl_line_size) + 1)*gl_line_size : buf_size;
 
-        // 4th channel is always put into 'alpha' channel as per shader code
-        // above
-        buf->set_has_alpha(exr_channels_to_load.size() > 3);
+    JsonStore jsn;
+    jsn["num_channels"]    = exr_channels_to_load.size();
+    jsn["pix_type_r"]      = int(pix_type[0]);
+    jsn["pix_type_g"]      = int(pix_type[1]);
+    jsn["pix_type_b"]      = int(pix_type[2]);
+    jsn["pix_type_a"]      = int(pix_type[3]);
+    jsn["bytes_per_pixel"] = int(bytes_per_pixel);
+    // jsn["path"] = to_string(mptr.uri());
 
-        buf->set_shader(openexr_shader);
-        buf->set_image_dimensions(
-            display_window.size(),
-            Imath::Box2i(
-                data_window.min, Imath::V2i(data_window.max.x + 1, data_window.max.y + 1)));
+    ImageBufPtr buf(new ImageBuffer(openexr_shader_uuid, jsn));
 
-        buf->params()["path"]          = to_string(mptr.uri_);
-        buf->params()["channel_names"] = exr_channels_to_load;
-        buf->params()["stream_id"]     = mptr.stream_id_;
+    auto b = buf->allocate(buf_size);
 
-        if (cropped_data_window) {
-            // if we are not loading the whole data window, we need to provide a temporary
-            // buffer that matches the EXR data window width for OpenEXR to load pixels into, we
-            // then copy the pixels we want into our cropped image buffer. We do this in chunks
-            // in the Y dimension to take advantage of OpenEXR decompress threads that are
-            // (possibly) more efficient when decoding blocks of pixels at once
-            const Imath::Box2i actual_data_window = in.header().dataWindow();
-            const size_t actual_data_window_width = actual_data_window.size().x + 1;
-            const size_t line_stride              = actual_data_window_width * bytes_per_pixel;
-            const size_t cropped_line_stride = (data_window.size().x + 1) * bytes_per_pixel;
-            Imf::FrameBuffer fb;
+    if (!input.partComplete(part_idx)) {
+        // expecting to read only part of the image, so clear the buffer
+        memset(b, 0, buf_size);
+    }
 
-            std::vector<uint8_t> tmp_buf(
-                bytes_per_pixel * actual_data_window_width * EXR_READ_BLOCK_HEIGHT);
-            byte *buffer = buf->buffer();
+    buf->set_metadata(part_metadata);
 
-            for (int chunk_y_min = data_window.min.y; chunk_y_min < data_window.max.y;
-                 chunk_y_min += EXR_READ_BLOCK_HEIGHT) {
+    // 4th channel is always put into 'alpha' channel as per shader code
+    // above
+    buf->set_has_alpha(exr_channels_to_load.size() > 3);
 
-                uint8_t *fPtr = tmp_buf.data() - actual_data_window.min.x * bytes_per_pixel -
-                                chunk_y_min * line_stride;
+    buf->set_shader(openexr_shader);
+    buf->set_image_dimensions(
+        Imath::V2i(
+            display_window.max.x - display_window.min.x + 1,
+            display_window.max.y - display_window.min.y + 1),
+        Imath::Box2i(
+            data_window.min, Imath::V2i(data_window.max.x + 1, data_window.max.y + 1)));
 
-                Imf::FrameBuffer fb;
-                int ii = 0;
-                std::for_each(
-                    exr_channels_to_load.begin(),
-                    exr_channels_to_load.end(),
-                    [&](const std::string chan_name) {
-                        Imf::PixelType channel_type = pix_type[ii++];
-                        fb.insert(
-                            chan_name.c_str(),
-                            Imf::Slice(
-                                channel_type,
-                                (char *)fPtr,
-                                bytes_per_pixel,
-                                line_stride,
-                                1,
-                                1,
-                                0));
-                        fPtr += channel_type == Imf::PixelType::HALF ? 2 : 4;
-                    });
-                in.setFrameBuffer(fb);
+    buf->params()["path"]          = to_string(mptr.uri());
+    buf->params()["channel_names"] = exr_channels_to_load;
+    buf->params()["stream_id"]     = mptr.stream_id();
 
-                const int ymax =
-                    std::min(chunk_y_min + EXR_READ_BLOCK_HEIGHT - 1, data_window.max.y);
-                in.readPixels(chunk_y_min, ymax);
+    if (cropped_data_window) {
+        // if we are not loading the whole data window, we need to provide a temporary
+        // buffer that matches the EXR data window width for OpenEXR to load pixels into, we
+        // then copy the pixels we want into our cropped image buffer. We do this in chunks
+        // in the Y dimension to take advantage of OpenEXR decompress threads that are
+        // (possibly) more efficient when decoding blocks of pixels at once
+        const Imath::Box2i actual_data_window = in.header().dataWindow();
+        const size_t actual_data_window_width = actual_data_window.size().x + 1;
+        const size_t line_stride              = actual_data_window_width * bytes_per_pixel;
+        const size_t cropped_line_stride      = (data_window.size().x + 1) * bytes_per_pixel;
+        Imf::FrameBuffer fb;
 
-                // TODO: this copy may benefit from threading
-                fPtr = tmp_buf.data() +
-                       (data_window.min.x - actual_data_window.min.x) * bytes_per_pixel;
-                for (int l = chunk_y_min; l < ymax; ++l) {
-                    memcpy(buffer, fPtr, cropped_line_stride);
-                    buffer += cropped_line_stride;
-                    fPtr += line_stride;
-                }
-            }
+        std::vector<uint8_t> tmp_buf(
+            bytes_per_pixel * actual_data_window_width * EXR_READ_BLOCK_HEIGHT);
+        byte *buffer = buf->buffer();
 
-        } else {
+        int good_scanline = data_window.min.y;
+        bool partial      = false;
+        for (int chunk_y_min = data_window.min.y; chunk_y_min < data_window.max.y;
+             chunk_y_min += EXR_READ_BLOCK_HEIGHT) {
 
-            const size_t line_stride =
-                (data_window.max.x - data_window.min.x + 1) * bytes_per_pixel;
-            byte *buffer = buf->buffer() - data_window.min.x * bytes_per_pixel -
-                           data_window.min.y * line_stride;
+            uint8_t *fPtr = tmp_buf.data() - actual_data_window.min.x * bytes_per_pixel -
+                            chunk_y_min * line_stride;
 
             Imf::FrameBuffer fb;
             int ii = 0;
@@ -400,31 +371,81 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
                 exr_channels_to_load.begin(),
                 exr_channels_to_load.end(),
                 [&](const std::string chan_name) {
-                    std::string chan_lower_case = to_lower(chan_name);
                     Imf::PixelType channel_type = pix_type[ii++];
-
                     fb.insert(
                         chan_name.c_str(),
                         Imf::Slice(
-                            channel_type,
-                            (char *)buffer,
-                            bytes_per_pixel,
-                            line_stride,
-                            1,
-                            1,
-                            0));
-                    buffer += channel_type == Imf::PixelType::HALF ? 2 : 4;
+                            channel_type, (char *)fPtr, bytes_per_pixel, line_stride, 1, 1, 0));
+                    fPtr += channel_type == Imf::PixelType::HALF ? 2 : 4;
                 });
             in.setFrameBuffer(fb);
-            in.readPixels(data_window.min.y, data_window.max.y);
-        }
-        return buf;
-    } catch (const std::exception &err) {
-        throw media_corrupt_error(err.what());
-    }
 
-    spdlog::error("SHouldn't reach this");
-    return ImageBufPtr();
+            const int ymax =
+                std::min(chunk_y_min + EXR_READ_BLOCK_HEIGHT - 1, data_window.max.y);
+
+            try {
+                in.readPixels(chunk_y_min, ymax);
+                good_scanline = ymax;
+            } catch (Iex::InputExc &e) {
+                partial = true;
+            }
+
+            // TODO: this copy may benefit from threading
+            fPtr = tmp_buf.data() +
+                   (data_window.min.x - actual_data_window.min.x) * bytes_per_pixel;
+            for (int l = chunk_y_min; l <= ymax; ++l) {
+                memcpy(buffer, fPtr, cropped_line_stride);
+                buffer += cropped_line_stride;
+                fPtr += line_stride;
+            }
+        }
+
+        if (partial) {
+            // probably a partial EXR, but we've loaded some scanlines.
+            // We need a unique key incase the user hits reload and we load
+            // the same frame again but get a different result (in terms
+            // of pixels). The Viewport uses the image key to tell if it
+            // needs to re-upload texture data ....
+            std::string key = to_string(mptr.key()) + fmt::format("-partial-{}", good_scanline);
+            buf->set_media_key(media::MediaKey(key));
+        }
+
+    } else {
+
+        const size_t line_stride =
+            (data_window.max.x - data_window.min.x + 1) * bytes_per_pixel;
+        byte *buffer = buf->buffer() - data_window.min.x * bytes_per_pixel -
+                       data_window.min.y * line_stride;
+
+        Imf::FrameBuffer fb;
+        int ii = 0;
+        std::for_each(
+            exr_channels_to_load.begin(),
+            exr_channels_to_load.end(),
+            [&](const std::string chan_name) {
+                std::string chan_lower_case = to_lower(chan_name);
+                Imf::PixelType channel_type = pix_type[ii++];
+
+                fb.insert(
+                    chan_name.c_str(),
+                    Imf::Slice(
+                        channel_type, (char *)buffer, bytes_per_pixel, line_stride, 1, 1, 0));
+                buffer += channel_type == Imf::PixelType::HALF ? 2 : 4;
+            });
+        in.setFrameBuffer(fb);
+        try {
+            in.readPixels(data_window.min.y, data_window.max.y);
+        } catch (Iex::InputExc &e) {
+            // probably a partial EXR, but we've loaded some scanlines.
+            // We need a unique key incase the user hits reload and we load
+            // the same frame again but get a different result (in terms
+            // of pixels). The Viewport uses the image key to tell if it
+            // needs to re-upload texture data ....
+            std::string key = to_string(mptr.key()) + e.what();
+            buf->set_media_key(media::MediaKey(key));
+        }
+    }
+    return buf;
 }
 
 MRCertainty
@@ -483,7 +504,17 @@ void OpenEXRMediaReader::stream_ids_from_exr_part(
     if (channel_names_by_layer.find("RGBA") != channel_names_by_layer.end()) {
         // make sure RGBA layer is first Stream
         stream_ids.emplace_back("RGBA");
+    } else {
+        // optherwise look for a layer matching *.rgb to pick as the first one
+        for (auto p = channel_names_by_layer.begin(); p != channel_names_by_layer.end(); ++p) {
+            if (utility::to_lower(p->first).find(".rgb") != std::string::npos) {
+                stream_ids.emplace_back(p->first);
+                channel_names_by_layer.erase(p);
+                break;
+            }
+        }
     }
+
     if (channel_names_by_layer.find("XYZ") != channel_names_by_layer.end()) {
         // make sure XYZ layer is first or second Stream
         stream_ids.emplace_back("XYZ");
@@ -581,85 +612,86 @@ xstudio::media::MediaDetail OpenEXRMediaReader::detail(const caf::uri &uri) cons
     utility::Timecode tc("00:00:00:00");
     std::vector<media::StreamDetail> streams;
 
-    try {
+    Imf::MultiPartInputFile input(path.c_str());
+    double fr = 0.0;
 
-        Imf::MultiPartInputFile input(path.c_str());
-        double fr = 0.0;
+    int parts = input.parts();
+    // bool fileComplete = true;
 
-        int parts = input.parts();
-        // bool fileComplete = true;
+    // we use timecode from the primary 'part' only - xSTUDIO doesn't yet handle streams
+    // with different frame rates
+    const Imf::Header &h     = input.header(0);
+    const auto rate          = h.findTypedAttribute<Imf::RationalAttribute>("framesPerSecond");
+    const auto rate_bogus    = h.findTypedAttribute<Imf::V2iAttribute>("framesPerSecond");
+    const auto rate_nuke     = h.findTypedAttribute<Imf::V2iAttribute>("nuke/input/frame_rate");
+    const auto timecode      = h.findTypedAttribute<Imf::TimeCodeAttribute>("timeCode");
+    const auto timecode_rate = h.findTypedAttribute<Imf::IntAttribute>("timecodeRate");
 
-        // we use timecode from the primary 'part' only - xSTUDIO doesn't yet handle streams
-        // with different frame rates
-        const Imf::Header &h  = input.header(0);
-        const auto rate       = h.findTypedAttribute<Imf::RationalAttribute>("framesPerSecond");
-        const auto rate_bogus = h.findTypedAttribute<Imf::V2iAttribute>("framesPerSecond");
-        const auto rate_nuke = h.findTypedAttribute<Imf::V2iAttribute>("nuke/input/frame_rate");
-        const auto timecode  = h.findTypedAttribute<Imf::TimeCodeAttribute>("timeCode");
-        const auto timecode_rate = h.findTypedAttribute<Imf::IntAttribute>("timecodeRate");
+    // Note - possible bug in Nuke where denominator of 'framesPerSecond'
+    // metadata value gets set to 1 on file write.
+    // For 23.976 framesPerSecond would be 24000/1001 but you might get a
+    // value of 24000 here if Nuke has knackered the data. Hence extra
+    // sanity check on the 'rate' metadata value here
 
-        // Note - possible bug in Nuke where denominator of 'framesPerSecond'
-        // metadata value gets set to 1 on file write.
-        // For 23.976 framesPerSecond would be 24000/1001 but you might get a
-        // value of 24000 here if Nuke has knackered the data. Hence extra
-        // sanity check on the 'rate' metadata value here
+    if (rate && rate->value() < 1000.0 && rate->value() > 1.0)
+        fr = static_cast<double>(rate->value());
+    else if (rate_nuke and rate_nuke->value().y > 0)
+        fr = static_cast<double>(rate_nuke->value().x) /
+             static_cast<double>(rate_nuke->value().y);
+    else if (rate_bogus and rate_bogus->value().y > 0)
+        fr = static_cast<double>(rate_bogus->value().x) /
+             static_cast<double>(rate_bogus->value().y);
+    else if (timecode_rate)
+        fr = static_cast<double>(timecode_rate->value());
 
-        if (rate && rate->value() < 1000.0 && rate->value() > 1.0)
-            fr = static_cast<double>(rate->value());
-        else if (rate_nuke and rate_nuke->value().y > 0)
-            fr = static_cast<double>(rate_nuke->value().x) /
-                 static_cast<double>(rate_nuke->value().y);
-        else if (rate_bogus and rate_bogus->value().y > 0)
-            fr = static_cast<double>(rate_bogus->value().x) /
-                 static_cast<double>(rate_bogus->value().y);
-        else if (timecode_rate)
-            fr = static_cast<double>(timecode_rate->value());
+    if (timecode) {
+        // note if frame rate is no known from metadata we use 24pfs
+        // as a default
+        tc = utility::Timecode(
+            timecode->value().hours(),
+            timecode->value().minutes(),
+            timecode->value().seconds(),
+            timecode->value().frame(),
+            fr == 0.0 ? 24.0 : fr,
+            timecode->value().dropFrame());
+    } else if (rate) {
+        tc = utility::Timecode("00:00:00:00", fr);
+    }
 
-        if (timecode) {
-            // note if frame rate is no known from metadata we use 24pfs
-            // as a default
-            tc = utility::Timecode(
-                timecode->value().hours(),
-                timecode->value().minutes(),
-                timecode->value().seconds(),
-                timecode->value().frame(),
-                fr == 0.0 ? 24.0 : fr,
-                timecode->value().dropFrame());
-        } else if (rate) {
-            tc = utility::Timecode("00:00:00:00", fr);
-        }
+    // if frame rate is not known, return null frame rate so xSTUDIO will
+    // apply its global frame rate
+    frd.set_rate(fr == 0.0 ? utility::FrameRate() : utility::FrameRate(1.0 / fr));
 
-        // if frame rate is not known, return null frame rate so xSTUDIO will
-        // apply its global frame rate
-        frd.set_rate(fr == 0.0 ? utility::FrameRate() : utility::FrameRate(1.0 / fr));
-
+    struct PartDetail {
         std::vector<std::string> stream_ids;
-        std::vector<Imath::V2i> resolutions;
-        std::vector<float> pixel_aspects;
-        std::vector<int> part_number;
-        for (int prt = 0; prt < parts; ++prt) {
-            // skip incomplete parts - maybe better error/handling messaging required?
-            if (!input.partComplete(prt))
-                continue;
-            const Imf::Header &part_header = input.header(prt);
-            stream_ids_from_exr_part(part_header, stream_ids);
-            resolutions.emplace_back(
-                part_header.displayWindow().max.x - part_header.displayWindow().min.x,
-                part_header.displayWindow().max.y - part_header.displayWindow().min.y);
-            pixel_aspects.emplace_back(part_header.pixelAspectRatio());
-            part_number.emplace_back(prt);
-        }
+        Imath::V2i resolution;
+        float pixel_aspect;
+        int part_number;
+    };
 
-        int ct = 0;
-        for (const auto &stream_id : stream_ids) {
+    std::vector<PartDetail> parts_detail;
+
+    for (int prt = 0; prt < parts; ++prt) {
+
+        const Imf::Header &part_header = input.header(prt);
+
+        PartDetail pd;
+        stream_ids_from_exr_part(part_header, pd.stream_ids);
+        pd.resolution = {
+            part_header.displayWindow().max.x - part_header.displayWindow().min.x,
+            part_header.displayWindow().max.y - part_header.displayWindow().min.y};
+        pd.pixel_aspect = part_header.pixelAspectRatio();
+        pd.part_number  = prt;
+        parts_detail.push_back(pd);
+    }
+
+    for (const auto &part : parts_detail) {
+        for (const auto &stream_id : part.stream_ids) {
             streams.emplace_back(media::StreamDetail(frd, stream_id));
-            streams.back().resolution_   = resolutions[ct];
-            streams.back().pixel_aspect_ = pixel_aspects[ct];
-            streams.back().index_        = part_number[ct++];
+            streams.back().resolution_   = part.resolution;
+            streams.back().pixel_aspect_ = part.pixel_aspect;
+            streams.back().index_        = part.part_number;
         }
-
-    } catch (const std::exception &e) {
-        throw media_corrupt_error(e.what());
     }
 
     return xstudio::media::MediaDetail(name(), streams, tc);
@@ -668,7 +700,7 @@ xstudio::media::MediaDetail OpenEXRMediaReader::detail(const caf::uri &uri) cons
 thumbnail::ThumbnailBufferPtr
 OpenEXRMediaReader::thumbnail(const media::AVFrameID &mptr, const size_t thumb_size) {
 
-    Imf::RgbaInputFile file(uri_to_posix_path(mptr.uri_).c_str());
+    Imf::RgbaInputFile file(uri_to_posix_path(mptr.uri()).c_str());
 
     if (file.header().hasPreviewImage()) {
         const Imf::PreviewImage &preview = file.header().previewImage();
@@ -690,7 +722,7 @@ OpenEXRMediaReader::thumbnail(const media::AVFrameID &mptr, const size_t thumb_s
 
         int exr_width     = full_image_buffer->image_size_in_pixels().x;
         int exr_height    = full_image_buffer->image_size_in_pixels().y;
-        int adj_exr_width = (int)round(float(exr_width) * full_image_buffer->pixel_aspect());
+        int adj_exr_width = (int)round(float(exr_width) * mptr.pixel_aspect());
 
         int thumb_width =
             adj_exr_width > exr_height ? thumb_size : (thumb_size * adj_exr_width) / exr_height;
@@ -707,7 +739,7 @@ OpenEXRMediaReader::thumbnail(const media::AVFrameID &mptr, const size_t thumb_s
 
         return thumb;
     }
-    throw media_corrupt_error("Failed to read preview " + uri_to_posix_path(mptr.uri_));
+    throw media_corrupt_error("Failed to read preview " + uri_to_posix_path(mptr.uri()));
 }
 
 /*
@@ -716,7 +748,9 @@ OpenEXRMediaReader::thumbnail(const media::AVFrameID &mptr, const size_t thumb_s
  *
  */
 PixelInfo OpenEXRMediaReader::exr_buffer_pixel_picker(
-    const ImageBuffer &buf, const Imath::V2i &pixel_location) {
+    const ImageBuffer &buf,
+    const Imath::V2i &pixel_location,
+    const std::vector<Imath::V2i> &extra_pixel_locations) {
     int width                         = buf.image_size_in_pixels().x;
     int height                        = buf.image_size_in_pixels().y;
     int num_channels                  = buf.shader_params().value("num_channels", 0);
@@ -761,6 +795,56 @@ PixelInfo OpenEXRMediaReader::exr_buffer_pixel_picker(
         return Imath::V2f(v[0], v[1]);
     };
 
+    auto get_pixel_rgba = [&](int pixel_address_bytes) -> Imath::V4f {
+        Imath::V2f pixRG = get_image_data_2xhalf_float(pixel_address_bytes);
+
+        Imath::V4f result;
+
+        if (pix_type_r == 1) {
+            result.x = pixRG.x;
+            pixel_address_bytes += 2;
+        } else {
+            result.x = get_image_data_float32(pixel_address_bytes);
+            pixel_address_bytes += 4;
+        }
+
+        if (num_channels >= 2) {
+
+            if (pix_type_g == 1) {
+                result.y = pixRG.y;
+                pixel_address_bytes += 2;
+            } else {
+                result.y = get_image_data_float32(pixel_address_bytes);
+                pixel_address_bytes += 4;
+            }
+
+            if (num_channels == 2) {
+                return Imath::V4f(
+                    result.x, result.x, result.x, result.y); // using Luminance/Alpha layout
+            }
+
+            Imath::V2f pixBA = get_image_data_2xhalf_float(pixel_address_bytes);
+
+            if (pix_type_b == 1) {
+                result.z = pixBA.x;
+                pixel_address_bytes += 2;
+            } else {
+                result.z = get_image_data_float32(pixel_address_bytes);
+                pixel_address_bytes += 4;
+            }
+
+            if (num_channels == 3)
+                return Imath::V4f(result.x, result.y, result.z, 0.0f);
+
+            if (pix_type_a == 1) {
+                result.w = pixBA.y;
+            } else {
+                result.w = get_image_data_float32(pixel_address_bytes);
+            }
+        } // else 1 channel, assume luminance
+        return result;
+    };
+
     if (pixel_location.x < image_bounds_min.x || pixel_location.x >= image_bounds_max.x)
         return r;
     if (pixel_location.y < image_bounds_min.y || pixel_location.y >= image_bounds_max.y)
@@ -792,30 +876,45 @@ PixelInfo OpenEXRMediaReader::exr_buffer_pixel_picker(
             r.add_raw_channel_info(channel_names[1], G);
         }
 
-        if (num_channels == 2)
-            return r; // using Luminance/Alpha layout
+        if (num_channels > 2) {
 
-        Imath::V2f pixBA = get_image_data_2xhalf_float(pixel_address_bytes);
+            Imath::V2f pixBA = get_image_data_2xhalf_float(pixel_address_bytes);
 
-        if (pix_type_b == 1) {
-            r.add_raw_channel_info(channel_names[2], pixBA.x);
-            pixel_address_bytes += 2;
-        } else {
-            float B = get_image_data_float32(pixel_address_bytes);
-            pixel_address_bytes += 4;
-            r.add_raw_channel_info(channel_names[2], B);
-        }
+            if (pix_type_b == 1) {
+                r.add_raw_channel_info(channel_names[2], pixBA.x);
+                pixel_address_bytes += 2;
+            } else {
+                float B = get_image_data_float32(pixel_address_bytes);
+                pixel_address_bytes += 4;
+                r.add_raw_channel_info(channel_names[2], B);
+            }
 
-        if (num_channels == 3)
-            return r;
+            if (num_channels > 3) {
 
-        if (pix_type_a == 1) {
-            r.add_raw_channel_info(channel_names[3], pixBA.y);
-        } else {
-            float A = get_image_data_float32(pixel_address_bytes);
-            r.add_raw_channel_info(channel_names[3], A);
+                if (pix_type_a == 1) {
+                    r.add_raw_channel_info(channel_names[3], pixBA.y);
+                } else {
+                    float A = get_image_data_float32(pixel_address_bytes);
+                    r.add_raw_channel_info(channel_names[3], A);
+                }
+            }
         }
     } // else 1 channel, assume luminance
+
+
+    for (const auto &p : extra_pixel_locations) {
+
+        if (p.x < image_bounds_min.x || p.x >= image_bounds_max.x || p.y < image_bounds_min.y ||
+            p.y >= image_bounds_max.y) {
+            r.add_extra_pixel_raw_rgba(Imath::V4f(0.0f, 0.0f, 0.0f, 0.0f));
+        } else {
+            int pixel_address_bytes =
+                ((p.x - image_bounds_min.x) +
+                 (p.y - image_bounds_min.y) * (image_bounds_max.x - image_bounds_min.x)) *
+                bytes_per_pixel;
+            r.add_extra_pixel_raw_rgba(get_pixel_rgba(pixel_address_bytes));
+        }
+    }
 
     return r;
 }

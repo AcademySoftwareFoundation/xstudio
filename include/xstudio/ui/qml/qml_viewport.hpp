@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#include <caf/actor_companion.hpp>
+
 // include CMake auto-generated export hpp
 #include "xstudio/ui/qml/viewport_qml_export.h"
-
-#include <caf/actor_companion.hpp>
 
 CAF_PUSH_WARNINGS
 
 #include <QCursor>
 #include <QObject>
 #include <QPointF>
-#include <QQuickItem>
+#include <QQuickPaintedItem>
 #include <QVector3D>
 #include <QtQml>
 #include <QScreen>
@@ -30,52 +30,37 @@ namespace ui {
     namespace qml {
 
         class QMLViewportRenderer;
-        class PlayheadUI;
 
         class VIEWPORT_QML_EXPORT QMLViewport : public QQuickItem {
             Q_OBJECT
 
-            Q_PROPERTY(float zoom READ zoom WRITE setZoom NOTIFY zoomChanged)
-            Q_PROPERTY(bool frameOutOfRange READ frameOutOfRange NOTIFY frameOutOfRangeChanged)
-            Q_PROPERTY(bool noAlphaChannel READ noAlphaChannel NOTIFY noAlphaChannelChanged)
-            Q_PROPERTY(QString fpsExpression READ fpsExpression NOTIFY fpsExpressionChanged)
-            Q_PROPERTY(float scale READ scale WRITE setScale NOTIFY scaleChanged)
-            Q_PROPERTY(
-                QVector2D translate READ translate WRITE setTranslate NOTIFY translateChanged)
-            Q_PROPERTY(QObject *playhead READ playhead NOTIFY playheadChanged)
-            Q_PROPERTY(int mouseButtons READ mouseButtons NOTIFY mouseButtonsChanged)
-            Q_PROPERTY(QPoint mouse READ mouse NOTIFY mouseChanged)
-            Q_PROPERTY(int onScreenImageLogicalFrame READ onScreenImageLogicalFrame NOTIFY
-                           onScreenImageLogicalFrameChanged)
-            Q_PROPERTY(QRectF imageBoundaryInViewport READ imageBoundaryInViewport NOTIFY
-                           imageBoundaryInViewportChanged)
-            Q_PROPERTY(QSize imageResolution READ imageResolution NOTIFY imageResolutionChanged)
-            Q_PROPERTY(bool enableShortcuts READ enableShortcuts NOTIFY enableShortcutsChanged)
+            Q_PROPERTY(QPointF mousePosition READ mousePosition NOTIFY mousePositionChanged)
+            Q_PROPERTY(QVariantList imageBoundariesInViewport READ imageBoundariesInViewport
+                           NOTIFY imageBoundariesInViewportChanged)
+            Q_PROPERTY(QVariantList imageResolutions READ imageResolutions NOTIFY
+                           imageResolutionsChanged)
             Q_PROPERTY(QString name READ name NOTIFY nameChanged)
-            Q_PROPERTY(bool isQuickViewer READ isQuickViewer WRITE setIsQuickViewer NOTIFY
-                           isQuickViewerChanged)
+            Q_PROPERTY(QUuid playheadUuid READ playheadUuid NOTIFY playheadUuidChanged)
+            Q_PROPERTY(bool hasPlayhead READ hasPlayhead NOTIFY playheadUuidChanged)
 
           public:
             QMLViewport(QQuickItem *parent = nullptr);
             virtual ~QMLViewport();
-            float zoom();
-            QString fpsExpression();
-            float scale();
-            QVector2D translate();
-            QObject *playhead();
+
+            [[nodiscard]] QUuid playheadUuid() const { return playhead_uuid_; }
             [[nodiscard]] QString name() const;
-            [[nodiscard]] int mouseButtons() const { return mouse_buttons; }
-            [[nodiscard]] QPoint mouse() const { return mouse_position; }
-            [[nodiscard]] int onScreenImageLogicalFrame() const {
-                return on_screen_logical_frame_;
-            }
-            [[nodiscard]] bool frameOutOfRange() const { return frame_out_of_range_; }
-            [[nodiscard]] bool noAlphaChannel() const { return no_alpha_channel_; }
-            [[nodiscard]] bool enableShortcuts() const { return enable_shortcuts_; }
-            void setPlayhead(caf::actor playhead);
+            [[nodiscard]] QPointF mousePosition() const { return mouse_position; }
+            [[nodiscard]] bool hasPlayhead() const { return !playhead_uuid_.isNull(); }
+
             QMLViewportRenderer *viewportActor() { return renderer_actor; }
             void deleteRendererActor();
-            bool isQuickViewer() const { return is_quick_viewer_; }
+
+            void setPlayheadUuid(const QUuid &uuid) {
+                if (uuid != playhead_uuid_) {
+                    playhead_uuid_ = uuid;
+                    emit playheadUuidChanged();
+                }
+            }
 
           protected:
             void hoverEnterEvent(QHoverEvent *event) override;
@@ -94,33 +79,23 @@ namespace ui {
 
             void sync();
             void cleanup();
-            void setZoom(const float z);
-            void revertFitZoomToPrevious(const bool ignoreOtherViewport = false);
-            void linkToViewport(QObject *other_viewport);
             void handleScreenChanged(QScreen *screen);
 
             void hideCursor();
             void showCursor();
-            QSize imageResolution();
-            QVector2D bboxCornerInViewport(const int min_x, const int min_y);
-            void setScale(const float s);
-            void setTranslate(const QVector2D &tr);
-            void setOnScreenImageLogicalFrame(const int frame_num);
-            QRectF imageBoundaryInViewport();
-            void setFrameOutOfRange(bool frame_out_of_range);
-            void setNoAlphaChannel(bool no_alpha_channel);
-            void renderImageToFile(
-                const QUrl filePath,
-                const int format,
-                const int compression,
-                const int width,
-                const int height,
-                const bool bakeColor);
+            QVariantList imageResolutions();
+            QVariantList imageBoundariesInViewport();
             void sendResetShortcut();
-            void setOverrideCursor(const QString &name, const bool centerOffset);
+            void setOverrideCursor(
+                const QString &name,
+                const int size     = 24,
+                const int x_offset = -1,
+                const int y_offset = -1);
             void setOverrideCursor(const Qt::CursorShape cname);
-            void setRegularCursor(const Qt::CursorShape cname);
-            void setIsQuickViewer(const bool is_quick_viewer);
+            void setPlayhead(const QString actorAddress);
+            void reset();
+            QString playheadActorAddress();
+            void onVisibleChanged();
 
           private slots:
 
@@ -128,53 +103,48 @@ namespace ui {
 
           signals:
 
-            void zoomChanged(float);
-            void fpsExpressionChanged(QString);
-            void scaleChanged(float);
-            void playheadChanged(QObject *);
-            void translateChanged(QVector2D);
-            void mouseButtonsChanged();
-            void mouseChanged();
-            void onScreenImageLogicalFrameChanged();
-            void imageBoundaryInViewportChanged();
-            void imageResolutionChanged();
-            void frameOutOfRangeChanged();
-            void noAlphaChannelChanged();
-            void enableShortcutsChanged();
+            void mouseRelease(Qt::MouseButtons buttons);
+            void mouseDoubleClick(
+                QPointF position, Qt::MouseButtons buttons, Qt::KeyboardModifiers modifiers);
+            void mousePress(
+                QPointF position, Qt::MouseButtons buttons, Qt::KeyboardModifiers modifiers);
+            void mousePositionChanged(
+                QPointF position, Qt::MouseButtons buttons, Qt::KeyboardModifiers modifiers);
+            void mousePressScreenPixels(
+                QPointF position, Qt::MouseButtons buttons, Qt::KeyboardModifiers modifiers);
+
+            void imageBoundariesInViewportChanged();
+            void imageResolutionsChanged();
             void doSnapshot(QString, QString, int, int, bool);
             void nameChanged();
-            void quickViewSource(QStringList mediaActors, QString compareMode);
+            void quickViewSource(
+                QStringList mediaActors, QString compareMode, int in_pt, int out_pt);
             void quickViewBackendRequest(QStringList mediaActors, QString compareMode);
             void quickViewBackendRequestWithSize(
                 QStringList mediaActors, QString compareMode, QPoint position, QSize size);
             void snapshotRequestResult(QString resultMessage);
             void pointerEntered();
             void pointerExited();
-            void isQuickViewerChanged();
+            void playheadUuidChanged();
 
           private:
             void releaseResources() override;
-            PointerEvent makePointerEvent(
-                Signature::EventType t, QMouseEvent *event, int force_modifiers = 0);
-            PointerEvent makePointerEvent(
-                Signature::EventType t, int buttons, int x, int y, int w, int h, int modifiers);
+
+            void sendPointerEvent(EventType t, QMouseEvent *event, int force_modifiers = 0);
+            void sendPointerEvent(QHoverEvent *event);
+            QPointF toViewportCoords(const QPointF &in) const;
 
             QQuickWindow *m_window = {nullptr};
             QMLViewportRenderer *renderer_actor{nullptr};
-            PlayheadUI *playhead_{nullptr};
-            static qt::OffscreenViewport *offscreen_viewport_;
 
             bool connected_{false};
             QCursor cursor_;
             bool cursor_hidden{false};
-            int mouse_buttons = {0};
-            QPoint mouse_position;
-            int on_screen_logical_frame_ = {0};
-            bool frame_out_of_range_     = {false};
-            bool no_alpha_channel_       = {false};
-            bool enable_shortcuts_       = {true};
-            int viewport_index_          = {0};
-            bool is_quick_viewer_        = {false};
+            QPointF mouse_position;
+            bool is_quick_viewer_ = {false};
+            QUuid playhead_uuid_;
+
+            caf::actor keypress_monitor_;
         };
 
     } // namespace qml

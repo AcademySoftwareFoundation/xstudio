@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <algorithm>
+#include <Python.h>
+#define PYBIND11_DETAILED_ERROR_MESSAGES
+
 #include <pybind11/embed.h> // everything needed for embedding
 #include <pybind11_json/pybind11_json.hpp>
 
@@ -9,13 +12,17 @@
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/logging.hpp"
 
+#ifdef WIN32
+#else
+#include <dlfcn.h>
+#include <codecvt>
+#endif
+
 using namespace xstudio;
 using namespace xstudio::embedded_python;
 using namespace xstudio::utility;
 using namespace pybind11::literals;
 namespace py = pybind11;
-
-// EmbeddedPython *EmbeddedPython::s_instance_ = nullptr;
 
 EmbeddedPython::EmbeddedPython(const std::string &name, EmbeddedPythonActor *parent)
     : Container(name, "EmbeddedPython"), parent_(parent) {
@@ -31,11 +38,70 @@ void EmbeddedPython::setup() {
     try {
         if (not Py_IsInitialized()) {
             spdlog::debug("py::initialize_interpreter");
-            py::initialize_interpreter();
+
+            PyConfig config;
+            PyConfig_InitPythonConfig(&config);
+
+#ifndef _WIN32
+            // Since we're running embedded python, we need to set the PYTHONHOME
+            // correctly at runtime. We can use dladdr to get to the filesystem
+            // location of the Py_IsInitialized symbol, say, to get the path of
+            // the python.dylib - this should be in the same location as the
+            // rest of the python installation
+            Dl_info info;
+            // Some of the libc headers miss `const` in `dladdr(const void*, Dl_info*)`
+            const int res = dladdr((void *)(&Py_IsInitialized), &info);
+            if (res) {
+                auto p = fs::path(info.dli_fname);
+                std::string python_home;
+                if (p.string().find("Contents/Frameworks") != std::string::npos) {
+                    // String match will happen On MacOS install, here python
+                    // installation is in Frameworks colder in the app bundle
+                    python_home = p.parent_path();
+                } else {
+                    // Otherwise, we jump up twice to get above the 'lib' folder
+                    // where python310.so is installed, as python home should
+                    // be the parent folder of where the main python DSO is
+                    // installed
+                    python_home = p.parent_path().parent_path();
+                }
+                std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+                std::wstring wstr = converter.from_bytes(python_home.data());
+                PyConfig_SetString(&config, &config.home, wstr.data());
+
+                std::string xstudio_python_path;
+                auto pythonpath_env = get_env("PYTHONPATH");
+                if (pythonpath_env) {
+                    xstudio_python_path = *pythonpath_env + ":";
+                }
+                xstudio_python_path += utility::xstudio_resources_dir("python/lib/");
+                wstr = converter.from_bytes(xstudio_python_path.data());
+                PyConfig_SetString(&config, &config.pythonpath_env, wstr.data());
+            }
+#else
+            // Win32 python home setup. Not 100% sure about this, I can't find any docs on how
+            // python should be packaged with an application that embeds python.
+            auto p =  fs::path(fs::path(utility::xstudio_root()).parent_path().parent_path().string() + "\\bin\\python3");
+            PyConfig_SetBytesString(&config, &config.home, p.string().data());
+            /*std::string xstudio_python_path;
+            auto pythonpath_env = get_env("PYTHONPATH");
+            if (pythonpath_env) {
+                xstudio_python_path = *pythonpath_env + ";";
+            }
+            xstudio_python_path += fs::path(utility::xstudio_resources_dir("plugin-python")).string();
+            PyConfig_SetBytesString(&config, &config.pythonpath_env, xstudio_python_path.data());*/
+
+
+#endif
+
+            py::initialize_interpreter(&config);
             inited_ = true;
         }
+
         if (Py_IsInitialized() and not setup_) {
             exec(R"(
+import site
+import sys
 import xstudio
 from xstudio.connection import Connection
 from xstudio.core import *
@@ -72,7 +138,6 @@ EmbeddedPython::~EmbeddedPython() { finalize(); }
 
 void EmbeddedPython::disconnect() {
 
-    message_handler_callbacks_.clear();
     try {
         exec(R"(
 if 'XSTUDIO' in globals():
@@ -117,8 +182,8 @@ bool EmbeddedPython::connect(caf::actor actor) {
         // spdlog::warn("connect 1.5");
         auto pyactor = py::cast(actor);
         // spdlog::warn("connect 2.5");
-        auto local = py::dict("actor"_a = pyactor);
-
+        py::dict local;
+        local["actor"] = pyactor;
         // spdlog::warn("connect 2");
         exec(R"(
 XSTUDIO = Connection(
@@ -207,13 +272,17 @@ bool EmbeddedPython::remove_session(const utility::Uuid &session_uuid) {
 bool EmbeddedPython::input_session(
     const utility::Uuid &session_uuid, const std::string &input) {
     if (sessions_.count(session_uuid)) {
-        std::string clean_input = replace_all(input, "'", R"(\')");
+        std::string clean_input = rtrim(input);
         py::object scope        = py::module::import("__main__").attr("__dict__");
         py::exec(
-            "xstudio_sessions['" + to_string(session_uuid) + "'].interact_more('" +
-                rtrim(clean_input) + "')",
+            "xstudio_sessions['" + to_string(session_uuid) + "'].interact_more(\"\"\"" +
+                clean_input + "\"\"\")",
             scope);
         return true;
+    } else if (session_uuid.is_null()) {
+        std::string clean_input = rtrim(input);
+        py::object scope        = py::module::import("__main__").attr("__dict__");
+        py::exec(clean_input, scope);
     }
 
     return false;
@@ -228,75 +297,4 @@ bool EmbeddedPython::input_ctrl_c_session(const utility::Uuid &session_uuid) {
     }
 
     return false;
-}
-
-void EmbeddedPython::add_message_callback(const py::tuple &cb_particulars) {
-
-    try {
-
-        if (cb_particulars.size() == 2) {
-
-            auto i            = cb_particulars.begin();
-            auto remote_actor = (*i).cast<caf::actor>();
-            i++;
-            auto callback_func = (*i).cast<py::function>();
-            auto addr          = caf::actor_cast<caf::actor_addr>(remote_actor);
-
-            message_handler_callbacks_[addr].push_back(callback_func);
-            parent_->join_broadcast(remote_actor);
-
-        } else {
-
-            if (cb_particulars.size() != 3) {
-                throw std::runtime_error("Set message callback expecting tuple of size 3 "
-                                         "(remote_actor, callack_func, py_plugin_name).");
-            }
-            auto i            = cb_particulars.begin();
-            auto remote_actor = (*i).cast<caf::actor>();
-            i++;
-            auto callback_func = (*i).cast<py::function>();
-            i++;
-            auto plugin_name = (*i).cast<std::string>();
-            auto addr        = caf::actor_cast<caf::actor_addr>(remote_actor);
-
-            message_handler_callbacks_[addr].push_back(callback_func);
-            parent_->join_broadcast(remote_actor, plugin_name);
-        }
-
-    } catch (std::exception &e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-    }
-}
-
-void EmbeddedPython::s_add_message_callback(const py::tuple &cb_particulars) {
-    if (s_instance_) {
-        s_instance_->add_message_callback(cb_particulars);
-    }
-}
-
-PYBIND11_EMBEDDED_MODULE(XStudioExtensions, m) {
-    // `m` is a `py::module_` which is used to bind functions and classes
-    m.def("add_message_callback", &EmbeddedPython::s_add_message_callback);
-    py::class_<caf::message>(m, "CafMessage", py::module_local());
-}
-
-void EmbeddedPython::push_caf_message_to_py_callbacks(caf::actor sender, caf::message &m) {
-
-    try {
-
-        caf::message r = m;
-        py::tuple result(1);
-        PyTuple_SetItem(result.ptr(), 0, py::cast(r).release().ptr());
-
-        auto addr = caf::actor_cast<caf::actor_addr>(sender);
-
-        for (auto &p : message_handler_callbacks_) {
-            for (auto &func : p.second) {
-                func(result);
-            }
-        }
-
-    } catch (std::exception &e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-    }
 }

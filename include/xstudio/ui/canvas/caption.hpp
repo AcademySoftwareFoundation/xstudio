@@ -64,3 +64,12 @@ namespace ui {
     } // end namespace canvas
 } // end namespace ui
 } // end namespace xstudio
+
+namespace std {
+template <> struct hash<xstudio::ui::canvas::Caption> {
+    std::size_t operator()(const xstudio::ui::canvas::Caption &item) const {
+        std::hash<std::string> hasher;
+        return hasher(item.hash());
+    }
+};
+} // namespace std

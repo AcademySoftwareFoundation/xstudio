@@ -6,7 +6,7 @@
 #include <string>
 
 #include "xstudio/utility/container.hpp"
-#include "xstudio/utility/edit_list.hpp"
+#include "xstudio/utility/frame_rate.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/uuid.hpp"
 
@@ -14,7 +14,10 @@ namespace xstudio {
 namespace subset {
     class Subset : public utility::Container {
       public:
-        Subset(const std::string &name = "Subset", const std::string &type = "Subset");
+        Subset(
+            const std::string &name   = "Subset",
+            const std::string &type   = "Subset",
+            const utility::Uuid &uuid = utility::Uuid::generate());
         Subset(const utility::JsonStore &jsn);
 
         ~Subset() override = default;

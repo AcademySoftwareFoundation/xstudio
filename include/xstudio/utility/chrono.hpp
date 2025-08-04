@@ -18,7 +18,7 @@ namespace utility {
     using milliseconds = std::chrono::milliseconds;
 
 #ifdef _WIN32
-    using sysclock = std::chrono::high_resolution_clock;
+    using sysclock = std::chrono::system_clock;
 #else
     using sysclock = std::chrono::system_clock;
 #endif

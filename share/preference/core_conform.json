@@ -10,6 +10,18 @@
 				"maximum": 100,
 				"datatype": "int",
 				"context": ["APPLICATION"]
+			},
+			"conform_sibling_count": {
+				"path": "/core/conform/conform_sibling_count",
+				"default_value": 2,
+				"description": "Conform with N siblings",
+				"value": 2,
+				"minimum": -1,
+				"maximum": 10,
+				"datatype": "int",
+				"context": ["APPLICATION"],
+				"category": "Conform",
+				"display_name": "Conform Siblings Count"
 			}
 		}
 	}

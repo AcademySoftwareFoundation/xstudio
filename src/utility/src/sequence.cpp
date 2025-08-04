@@ -74,6 +74,7 @@ std::vector<UriSequence> uri_from_file(const std::string &path) {
 Entry::Entry(const std::string path) : name_(std::move(path)) {
     std::memset(&stat_, 0, sizeof stat_);
 }
+
 #ifdef _WIN32
 uint64_t get_block_size_windows(const xstudio::utility::Entry &entry) {
     const std::string &path = entry.name_; // Assuming 'name_' contains the path
@@ -102,9 +103,12 @@ Sequence::Sequence(const Entry &entry)
       size_(entry.stat_.st_blocks * 512),
 #endif
       apparent_size_(entry.stat_.st_size),
-#ifdef _WIN32
+#if defined(_WIN32)
       mtim_(get_mtim(entry.stat_)),
       ctim_(get_ctim(entry.stat_)),
+#elif defined(__apple__)
+      mtim_(entry.stat_.st_mtimespec.tv_sec),
+      ctim_(entry.stat_.st_mtimespec.tv_sec),
 #else
       mtim_(entry.stat_.st_mtim.tv_sec),
       ctim_(entry.stat_.st_ctim.tv_sec),
@@ -243,21 +247,15 @@ std::optional<DefaultSequenceHelper> create_default_seq(const Entry &entry) {
             R"((.+\.)([-]?\d+)(\.[^.\d]{1,4}\.[^.]{1,3}))", std::regex::optimize);
         static const std::regex body_dot_number_and_ext(
             R"((.+\.)([-]?\d+)(\.[^.]+))", std::regex::optimize);
-        // static const std::regex body_number_and_ext(
-        //     R"((.+?)([-]?\d+)(\.[^.]+))", std::regex::optimize);
-        // static const std::regex body_number_body("(.+)([-]?\\d{3,})(.+)$");
-        // if (std::regex_match(entry.name_.c_str(), m, bare_number) or
-        //     std::regex_match(entry.name_.c_str(), m, number_and_ext) or
-        //     std::regex_match(entry.name_.c_str(), m, body_dot_number_and_double_ext) or
-        //     std::regex_match(entry.name_.c_str(), m, body_dot_number_and_ext) or
-        //     std::regex_match(entry.name_.c_str(), m, body_number_and_ext)) {
+        static const std::regex body_no_dot_number_and_ext(
+            R"((.+[^0-9])(\d+)(\.[^.]+))", std::regex::optimize);
 
         if (std::regex_match(entry.name_.c_str(), m, bare_number) or
             std::regex_match(entry.name_.c_str(), m, number_and_ext) or
             std::regex_match(entry.name_.c_str(), m, body_dot_number_and_double_ext) or
-            std::regex_match(entry.name_.c_str(), m, body_dot_number_and_ext)
-            // std::regex_match(entry.name_.c_str(), m, body_number_and_ext)
-        ) {
+            std::regex_match(entry.name_.c_str(), m, body_dot_number_and_ext) or
+            std::regex_match(entry.name_.c_str(), m, body_no_dot_number_and_ext)) {
+
             // skip versions..
             if (ends_with(m[1].str(), "_v"))
                 return {};

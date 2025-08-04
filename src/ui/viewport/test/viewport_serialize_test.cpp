@@ -88,7 +88,7 @@ TEST(PointerEventSerializerTest, Test) {
     binary_serializer bs{f.system, buf};
 
     PointerEvent u1(
-        Signature::EventType::ButtonRelease,
+        EventType::ButtonRelease,
         Signature::Button::Middle,
         10,
         20,

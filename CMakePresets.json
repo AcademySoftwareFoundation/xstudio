@@ -2,32 +2,38 @@
   "version": 3,
   "configurePresets": [
     { 
+      "name": "default",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/../vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "Qt6_DIR": "/Users/tedwaine/Qt6/6.5.3/macos/lib/cmake/Qt6",
+        "CMAKE_INSTALL_PREFIX": "xstudio_install",
+        "X_VCPKG_APPLOCAL_DEPS_INSTALL": "ON",
+        "BUILD_DOCS": "OFF",
+        "USE_VCPKG": "ON"
+      }
+    },
+    { 
       "name": "windows-base",
+      "inherits": "default",
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
       },
       "hidden": true,
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build",
-      "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "Qt5_DIR": "C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5/",
-        "CMAKE_INSTALL_PREFIX": "C:/xstudio_install",
-        "X_VCPKG_APPLOCAL_DEPS_INSTALL": "ON",
-        "BUILD_DOCS": "OFF"
-      }
+      "generator": "Visual Studio 17 2022"
     },
     {
-      "name": "Release",
+      "name": "WinRelease",
       "inherits": ["windows-base"],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
     },
     {
-      "name": "RelWithDebInfo",
+      "name": "WinRelWithDebInfo",
       "inherits": ["windows-base"],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
@@ -35,9 +41,106 @@
       }
     },
     {
-      "name": "Debug",
+      "name": "WinDebug",
       "hidden":  true,
       "inherits": ["windows-base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "USE_SANITIZER": "address"
+      }
+    },
+    { 
+      "name": "macos-base-arm",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
+      "inherits": "default",
+      "generator": "Unix Makefiles",
+      "cacheVariables": {
+        "VCPKG_OVERLAY_TRIPLETS" : "${sourceDir}/cmake/vcpkg_triplets",
+        "VCPKG_TARGET_TRIPLET": "arm-osx"
+      }
+    },
+    { 
+      "name": "macos-base-intel",
+      "inherits": "macos-base-arm",
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-osx"
+      }
+    },
+    {
+      "name": "MacOSRelease",
+      "inherits": ["macos-base-arm"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "MacOSRelWithDebInfo",
+      "inherits": ["macos-base-arm"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "USE_SANITIZER": "address"
+      }
+    },
+    {
+      "name": "MacOSDebug",
+      "inherits": ["macos-base-arm"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "USE_SANITIZER": "address"
+      }
+    },
+    {
+      "name": "MacOSIntelRelease",
+      "inherits": ["macos-base-intel"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "MacOSIntelRelWithDebInfo",
+      "inherits": ["macos-base-intel"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "USE_SANITIZER": "address"
+      }
+    },
+    {
+      "name": "MacOSIntelDebug",
+      "inherits": ["macos-base-intel"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "USE_SANITIZER": "address"
+      }
+    },
+    { 
+      "name": "linux-base",
+      "inherits": "default",
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-xstudio-linux"
+      }
+    },
+    {
+      "name": "LinuxRelease",
+      "inherits": ["linux-base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "LinuxRelWithDebInfo",
+      "inherits": ["linux-base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "USE_SANITIZER": "address"
+      }
+    },
+    {
+      "name": "LinuxDebug",
+      "inherits": ["linux-base"],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "USE_SANITIZER": "address"

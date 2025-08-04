@@ -22,10 +22,16 @@ namespace bookmark {
 
         const char *name() const override { return NAME.c_str(); }
 
+        void on_exit() override;
+
       private:
         inline static const std::string NAME = "BookmarkActor";
         void init();
-        caf::behavior make_behavior() override { return behavior_; }
+        caf::message_handler message_handler();
+
+        caf::behavior make_behavior() override {
+            return message_handler().or_else(base_.container_message_handler(this));
+        }
 
         void build_annotation_via_plugin(const utility::JsonStore &anno_data);
 
@@ -33,11 +39,10 @@ namespace bookmark {
 
 
       private:
-        caf::behavior behavior_;
         Bookmark base_;
-        caf::actor event_group_;
         caf::actor_addr owner_;
         caf::actor json_store_;
+        caf::disposable monitor_;
     };
 
 } // namespace bookmark

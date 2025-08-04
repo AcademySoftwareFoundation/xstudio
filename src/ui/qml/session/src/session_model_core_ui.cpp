@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "xstudio/session/session_actor.hpp"
-#include "xstudio/tag/tag.hpp"
 #include "xstudio/media/media.hpp"
 #include "xstudio/ui/qml/job_control_ui.hpp"
 #include "xstudio/ui/qml/session_model_ui.hpp"
@@ -9,9 +8,6 @@
 
 CAF_PUSH_WARNINGS
 #include <QThreadPool>
-#include <QFutureWatcher>
-#include <QtConcurrent>
-#include <QSignalSpy>
 CAF_POP_WARNINGS
 
 using namespace caf;
@@ -21,75 +17,72 @@ using namespace xstudio::ui::qml;
 
 
 SessionModel::SessionModel(QObject *parent) : super(parent) {
-    tag_manager_ = new TagManagerUI(this);
     init(CafSystemObject::get_actor_system());
 
-    auto role_names = std::vector<std::string>({
-        {"activeDurationRole"},
-        {"activeStartRole"},
-        {"actorRole"},
-        {"actorUuidRole"},
-        {"audioActorUuidRole"},
-        {"availableDurationRole"},
-        {"availableStartRole"},
-        {"bitDepthRole"},
-        {"busyRole"},
-        {"childrenRole"},
-        {"clipMediaUuidRole"},
-        {"containerUuidRole"},
-        {"enabledRole"},
-        {"errorRole"},
-        {"flagColourRole"},
-        {"flagTextRole"},
-        {"formatRole"},
-        {"groupActorRole"},
-        {"idRole"},
-        {"imageActorUuidRole"},
-        {"mediaCountRole"},
-        {"mediaStatusRole"},
-        {"metadataSet0Role"},
-        {"metadataSet10Role"},
-        {"metadataSet1Role"},
-        {"metadataSet2Role"},
-        {"metadataSet3Role"},
-        {"metadataSet4Role"},
-        {"metadataSet5Role"},
-        {"metadataSet6Role"},
-        {"metadataSet7Role"},
-        {"metadataSet8Role"},
-        {"metadataSet9Role"},
-        {"mtimeRole"},
-        {"nameRole"},
-        {"parentStartRole"},
-        {"pathRole"},
-        {"pixelAspectRole"},
-        {"placeHolderRole"},
-        {"rateFPSRole"},
-        {"resolutionRole"},
-        {"selectionRole"},
-        {"thumbnailURLRole"},
-        {"trackIndexRole"},
-        {"trimmedDurationRole"},
-        {"trimmedStartRole"},
-        {"typeRole"},
-        {"uuidRole"},
-    });
+    auto role_names = std::vector<std::string>(
+        {{"activeDurationRole"},
+         {"activeRangeValidRole"},
+         {"activeStartRole"},
+         {"actorRole"},
+         {"actorUuidRole"},
+         {"audioActorUuidRole"},
+         {"availableDurationRole"},
+         {"availableStartRole"},
+         {"bitDepthRole"},
+         {"bookmarkUuidsRole"},
+         {"busyRole"},
+         {"clipMediaUuidRole"},
+         {"containerUuidRole"},
+         {"enabledRole"},
+         {"errorRole"},
+         {"expandedRole"},
+         {"flagColourRole"},
+         {"flagTextRole"},
+         {"formatRole"},
+         {"groupActorRole"},
+         {"imageActorUuidRole"},
+         {"lockedRole"},
+         {"markersRole"},
+         {"mediaCountRole"},
+         {"mediaDisplayInfoRole"},
+         {"mediaStatusRole"},
+         {"metadataChangedRole"},
+         {"mtimeRole"},
+         {"nameRole"},
+         {"notificationRole"},
+         {"pathRole"},
+         {"pathShakeRole"},
+         {"pixelAspectRole"},
+         {"placeHolderRole"},
+         {"propertyRole"},
+         {"rateFPSRole"},
+         {"resolutionRole"},
+         {"selectionRole"},
+         {"thumbnailImageRole"},
+         {"thumbnailURLRole"},
+         {"timecodeAsFramesRole"},
+         {"trackIndexRole"},
+         {"trimmedDurationRole"},
+         {"trimmedStartRole"},
+         {"typeRole"},
+         {"uuidRole"},
+         {"userDataRole"}});
 
     setRoleNames(role_names);
     request_handler_ = new QThreadPool(this);
+    request_handler_->setMaxThreadCount(8);
 }
 
 void SessionModel::fetchMore(const QModelIndex &parent) {
     try {
-        if (parent.isValid() and canFetchMore(parent)) {
+        if (canFetchMore(parent)) {
             const auto &j = indexToData(parent);
-
             requestData(
                 QVariant::fromValue(QUuidFromUuid(j.at("id"))),
                 idRole,
                 parent,
                 parent,
-                Roles::childrenRole);
+                JSONTreeModel::Roles::childrenRole);
         }
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -97,7 +90,7 @@ void SessionModel::fetchMore(const QModelIndex &parent) {
 }
 
 
-QModelIndexList SessionModel::search_recursive_list_base(
+QModelIndexList SessionModel::searchRecursiveListBase(
     const QVariant &value,
     const int role,
     const QModelIndex &parent,
@@ -128,15 +121,15 @@ QModelIndexList SessionModel::search_recursive_list_base(
                 }
             }
         } else {
+            // spdlog::warn("not cached idRole");
             cached_result = false;
-            results       = JSONTreeModel::search_recursive_list_base(
-                value, role, parent, start, hits, depth);
+            results =
+                JSONTreeModel::searchRecursiveListBase(value, role, parent, start, hits, depth);
             for (const auto &i : results) {
                 add_id_uuid_lookup(uuid, i);
             }
         }
-    }
-    if (role == actorUuidRole or role == containerUuidRole) {
+    } else if (role == actorUuidRole or role == containerUuidRole) {
         auto uuid = UuidFromQUuid(value.toUuid());
         if (uuid.is_null()) {
             return QModelIndexList();
@@ -157,9 +150,10 @@ QModelIndexList SessionModel::search_recursive_list_base(
                 }
             }
         } else {
+            // spdlog::warn("not cached actorUuidRole / containerUuidRole");
             cached_result = false;
-            results       = JSONTreeModel::search_recursive_list_base(
-                value, role, parent, start, hits, depth);
+            results =
+                JSONTreeModel::searchRecursiveListBase(value, role, parent, start, hits, depth);
             for (const auto &i : results) {
                 add_uuid_lookup(uuid, i);
             }
@@ -184,8 +178,10 @@ QModelIndexList SessionModel::search_recursive_list_base(
         } else {
             //  back populate..
             cached_result = false;
-            results       = JSONTreeModel::search_recursive_list_base(
-                value, role, parent, start, hits, depth);
+            // spdlog::warn("not cached actorRole {}",
+            // StdFromQString(parent.data(typeRole).toString()));
+            results =
+                JSONTreeModel::searchRecursiveListBase(value, role, parent, start, hits, depth);
             for (const auto &i : results) {
                 add_string_lookup(str, i);
             }
@@ -198,7 +194,7 @@ QModelIndexList SessionModel::search_recursive_list_base(
     if (results.empty()) {
         cached_result = false;
         results =
-            JSONTreeModel::search_recursive_list_base(value, role, parent, start, hits, depth);
+            JSONTreeModel::searchRecursiveListBase(value, role, parent, start, hits, depth);
     } else if (cached_result) {
         // spdlog::info("have cached result {} {}", parent.isValid(), depth);
 
@@ -288,7 +284,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                     result = QVariant::fromValue(j.at("error_count").get<int>());
                 break;
 
-            case Roles::idRole:
+            case JSONTreeModel::Roles::idRole:
                 if (j.count("id"))
                     result = QVariant::fromValue(QUuidFromUuid(j.at("id")));
                 break;
@@ -315,12 +311,75 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                             index,
                             role);
                     } else {
-                        auto uri = caf::make_uri(j.at("path"));
+                        auto uri = caf::make_uri(j.at("path").get<std::string>());
                         if (uri)
                             result = QVariant::fromValue(QUrlFromUri(*uri));
                     }
                 }
                 break;
+
+                // case Roles::metadataChangedRole: {
+                //         auto tmp = Uuid::generate();
+                //         result = QVariant::fromValue(QUuidFromUuid(tmp));
+                //     }
+                //     break;
+
+            case Roles::pathShakeRole:
+                if (j.count("path_shake")) {
+                    if (j.at("path_shake").is_null()) {
+                        requestData(
+                            QVariant::fromValue(QUuidFromUuid(j.at("id"))),
+                            idRole,
+                            index,
+                            index,
+                            role);
+                    } else {
+                        auto uri = caf::make_uri(j.at("path_shake").get<std::string>());
+                        if (uri)
+                            result = QVariant::fromValue(QUrlFromUri(*uri));
+                    }
+                }
+                break;
+
+            case Roles::timecodeAsFramesRole:
+                if (j.count("timecode_as_frames")) {
+                    if (j.at("timecode_as_frames").is_null()) {
+                        requestData(
+                            QVariant::fromValue(QUuidFromUuid(j.at("id"))),
+                            idRole,
+                            index,
+                            index,
+                            role);
+                    } else {
+                        result = QVariant::fromValue(j.at("timecode_as_frames").get<int>());
+                    }
+                }
+                break;
+
+            case Roles::bookmarkUuidsRole: {
+                auto type = j.value("type", "");
+                if (type == "Media" && j.count("bookmark_uuids")) {
+                    if (j.at("bookmark_uuids").is_null()) {
+                        requestData(
+                            QVariant::fromValue(QUuidFromUuid(j.at("id"))),
+                            idRole,
+                            index,
+                            index,
+                            role);
+                    } else {
+                        const auto &uuids = j.at("bookmark_uuids");
+                        if (uuids.is_array()) {
+                            QList<QVariant> rt;
+                            for (auto p = uuids.begin(); p != uuids.end(); ++p) {
+                                rt.append(QVariant(QUuidFromUuid((*p).get<utility::Uuid>())));
+                            }
+                            result = QVariant(rt);
+                        } else {
+                            result = json_to_qvariant(uuids);
+                        }
+                    }
+                }
+            } break;
 
             case Roles::trackIndexRole: {
                 auto type = j.value("type", "");
@@ -359,7 +418,9 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
             } break;
 
             case Roles::rateFPSRole:
-                if (j.count("rate")) {
+                if (j.count("placeholder")) {
+                    result = QVariant::fromValue(0.0);
+                } else if (j.count("rate")) {
                     if (j.at("rate").is_null()) {
                         requestData(
                             QVariant::fromValue(QUuidFromUuid(j.at("id"))),
@@ -403,6 +464,39 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
             case clipMediaUuidRole:
                 if (j.count("prop") and j.at("prop").count("media_uuid")) {
                     result = QVariant::fromValue(QUuidFromUuid(j.at("prop").at("media_uuid")));
+                }
+                break;
+
+            case propertyRole:
+                if (j.count("prop")) {
+                    result = QVariant::fromValue(mapFromValue(j.at("prop")));
+                }
+                break;
+
+            case notificationRole:
+                if (j.count("notification")) {
+                    try {
+                        auto type = j.value("type", "");
+                        if (j.at("notification").is_null()) {
+                            if (type == "Audio Track" or type == "Video Track")
+                                requestData(
+                                    QVariant::fromValue(QUuidFromUuid(j.at("id"))),
+                                    idRole,
+                                    index,
+                                    index,
+                                    role);
+                            else
+                                requestData(
+                                    QVariant::fromValue(QUuidFromUuid(j.at("actor_uuid"))),
+                                    actorUuidRole,
+                                    getPlaylistIndex(index),
+                                    index,
+                                    role);
+                        } else {
+                            result = QVariant::fromValue(mapFromValue(j.at("notification")));
+                        }
+                    } catch (...) {
+                    }
                 }
                 break;
 
@@ -475,6 +569,21 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                 }
                 break;
 
+            case Roles::mediaDisplayInfoRole: {
+                if (j.count("media_display_info")) {
+
+                    if (j.at("media_display_info").is_null())
+                        requestData(
+                            QVariant::fromValue(QUuidFromUuid(j.at("actor_uuid"))),
+                            actorUuidRole,
+                            getPlaylistIndex(index),
+                            index,
+                            role);
+                    else
+                        result = json_to_qvariant(j.at("media_display_info"));
+                }
+            } break;
+
             case Roles::audioActorUuidRole:
                 if (j.count("audio_actor_uuid")) {
                     if (j.at("audio_actor_uuid").is_null())
@@ -514,7 +623,18 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                             role);
                     else
                         result = QString::fromStdString(j.at("actor"));
+                } else if (j.count("actor_owner")) {
+                    if (j.at("actor_owner").is_null())
+                        requestData(
+                            QVariant::fromValue(QUuidFromUuid(j.at("id"))),
+                            idRole,
+                            index,
+                            index,
+                            role);
+                    else
+                        result = QString::fromStdString(j.at("actor_owner"));
                 }
+
                 break;
 
             case Roles::groupActorRole:
@@ -550,6 +670,34 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                 if (j.count("uuid"))
                     result = QVariant::fromValue(QUuidFromUuid(j.at("uuid")));
                 break;
+            case Roles::expandedRole:
+                if (j.count("expanded")) {
+                    if (j.at("expanded").is_null())
+                        requestData(
+                            QVariant::fromValue(QUuidFromUuid(j.at("actor_uuid"))),
+                            actorUuidRole,
+                            index,
+                            index,
+                            role);
+                    else {
+                        result = json_to_qvariant(j.at("expanded"));
+                    }
+                }
+                break;
+            case Roles::thumbnailImageRole: {
+                auto type = j.value("type", "");
+                if (type == "Media" && j.count("actor") and not j.at("actor").is_null()) {
+                    auto actor_str = j.at("actor");
+                    auto p         = media_thumbnails_.find(QStringFromStd(actor_str));
+                    if (p != media_thumbnails_.end()) {
+                        result = p.value();
+                    } else {
+                        auto actor = actorFromString(system(), actor_str);
+                        if (actor)
+                            anon_mail(media_reader::get_thumbnail_atom_v, 0.5f).send(actor);
+                    }
+                }
+            } break;
 
             case Roles::thumbnailURLRole:
                 if (j.count("thumbnail_url")) {
@@ -561,7 +709,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                             index,
                             role);
                     else {
-                        auto uri = caf::make_uri(j.at("thumbnail_url"));
+                        auto uri = caf::make_uri(j.at("thumbnail_url").get<std::string>());
                         if (uri)
                             result = QVariant::fromValue(QUrlFromUri(*uri));
                     }
@@ -582,13 +730,25 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                             index,
                             index,
                             role);
-                    } else
-                        result = json_to_qvariant(j.at("playhead_selection"));
+                    } else {
+                        const auto &uuids = j.at("playhead_selection");
+                        if (uuids.is_array()) {
+                            QList<QVariant> rt;
+                            for (auto p = uuids.begin(); p != uuids.end(); ++p) {
+                                rt.append(QVariant(QUuidFromUuid((*p).get<utility::Uuid>())));
+                            }
+                            result = QVariant(rt);
+                        } else {
+                            result = json_to_qvariant(uuids);
+                        }
+                    }
                 }
                 break;
 
             case Roles::flagColourRole:
-                if (j.count("flag")) {
+                if (j.count("placeholder")) {
+                    result = QString("");
+                } else if (j.count("flag")) {
                     if (j.at("flag").is_null()) {
                         requestData(
                             QVariant::fromValue(QUuidFromUuid(j.at("id"))),
@@ -596,8 +756,12 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                             index,
                             index,
                             role);
-                    } else
+                    } else {
                         result = QString::fromStdString(j.at("flag"));
+                    }
+                } else if (j.count("type") and j.at("type") == "MediaSource") {
+                    // helper for media Sources.
+                    result = index.parent().data(role);
                 }
                 break;
 
@@ -612,18 +776,69 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                             role);
                     } else
                         result = QString::fromStdString(j.at("flag_text"));
+                } else if (j.count("type") and j.at("type") == "MediaSource") {
+                    // helper for media Sources.
+                    result = index.parent().data(role);
                 }
                 break;
 
 
             case Roles::enabledRole:
-                if (j.count("enabled")) {
+                if (j.count("placeholder")) {
+                    result = QVariant::fromValue(true);
+                } else if (j.count("enabled")) {
                     result = QVariant::fromValue(j.value("enabled", true));
                 }
                 break;
 
+            case Roles::lockedRole:
+                if (j.count("placeholder")) {
+                    result = QVariant::fromValue(false);
+                } else if (j.count("locked")) {
+                    result = QVariant::fromValue(j.value("locked", false));
+                }
+                break;
+
+            case Roles::markersRole:
+                if (j.count("placeholder")) {
+                    result = QVariant::fromValue(mapFromValue(R"([])"_json));
+                } else if (j.count("markers")) {
+                    result =
+                        QVariant::fromValue(mapFromValue(j.value("markers", R"([])"_json)));
+                }
+                break;
+
+
+            case Roles::activeRangeValidRole:
+                if (j.count("placeholder")) {
+                    result = QVariant::fromValue(true);
+                } else if (
+                    j.at("type") != "Gap" and j.count("active_range") and
+                    j.at("active_range").is_object() and j.count("available_range") and
+                    j.at("available_range").is_object()) {
+                    try {
+                        const auto active = j.value("active_range", FrameRange());
+                        const auto avail  = j.value("available_range", FrameRange());
+                        result = QVariant::fromValue(avail.intersect(active) == active);
+                    } catch (...) {
+                        result = QVariant::fromValue(true);
+                    }
+                } else {
+                    result = QVariant::fromValue(true);
+                }
+                break;
+
+            case Roles::userDataRole:
+                if (j.count("user_data"))
+                    result = mapFromValue(j.at("user_data"));
+                else
+                    result = mapFromValue(R"({})"_json);
+                break;
+
             case Roles::trimmedStartRole:
-                if (j.count("active_range") and j.at("active_range").is_object()) {
+                if (j.count("placeholder")) {
+                    result = QVariant::fromValue(0);
+                } else if (j.count("active_range") and j.at("active_range").is_object()) {
                     auto fr = j.value("active_range", FrameRange());
                     result  = QVariant::fromValue(fr.frame_start().frames());
                 } else if (j.count("available_range") and j.at("available_range").is_object()) {
@@ -634,30 +849,35 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                 }
                 break;
 
-            case Roles::parentStartRole:
-                // requires access to parent item.
-                if (j.count("active_range")) {
-                    auto p = index.parent();
-                    auto t = getTimelineIndex(index);
+                // case Roles::parentStartRole:
+                //     // requires access to parent item.
+                //     if (j.count("placeholder")) {
+                //         result = QVariant::fromValue(0);
+                //     } else if (j.count("active_range")) {
+                //         spdlog::warn("PARENTSTARTROLE {}", index.row());
+                //         auto p = index.parent();
+                //         auto t = getTimelineIndex(index);
 
-                    if (p.isValid() and t.isValid()) {
-                        auto tactor = actorFromIndex(t);
-                        auto puuid  = UuidFromQUuid(p.data(idRole).toUuid());
+                //         if (p.isValid() and t.isValid()) {
+                //             auto tactor = actorFromIndex(t);
+                //             auto puuid  = UuidFromQUuid(p.data(idRole).toUuid());
 
-                        if (timeline_lookup_.count(tactor)) {
-                            auto pitem = timeline::find_item(
-                                timeline_lookup_.at(tactor).children(), puuid);
-                            if (pitem)
-                                result =
-                                    QVariant::fromValue((*pitem)->frame_at_index(index.row()));
-                        }
-                    } else
-                        result = QVariant::fromValue(0);
-                }
-                break;
+                //             if (timeline_lookup_.count(tactor)) {
+                //                 auto pitem = timeline::find_item(
+                //                     timeline_lookup_.at(tactor).children(), puuid);
+                //                 if (pitem)
+                //                     result =
+                //                         QVariant::fromValue((*pitem)->frame_at_index(index.row()));
+                //             }
+                //         } else
+                //             result = QVariant::fromValue(0);
+                //     }
+                //     break;
 
             case Roles::trimmedDurationRole:
-                if (j.count("active_range") and j.at("active_range").is_object()) {
+                if (j.count("placeholder")) {
+                    result = QVariant::fromValue(0);
+                } else if (j.count("active_range") and j.at("active_range").is_object()) {
                     auto fr = j.value("active_range", FrameRange());
                     result  = QVariant::fromValue(fr.frame_duration().frames());
                 } else if (j.count("available_range") and j.at("available_range").is_object()) {
@@ -692,7 +912,9 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                 break;
 
             case Roles::availableDurationRole:
-                if (j.count("available_range")) {
+                if (j.count("placeholder")) {
+                    result = QVariant::fromValue(0);
+                } else if (j.count("available_range")) {
                     if (j.at("available_range").is_object()) {
                         auto fr = j.value("available_range", FrameRange());
                         result  = QVariant::fromValue(fr.frame_duration().frames());
@@ -703,7 +925,9 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                 break;
 
             case Roles::availableStartRole:
-                if (j.count("available_range")) {
+                if (j.count("placeholder")) {
+                    result = QVariant::fromValue(0);
+                } else if (j.count("available_range")) {
                     if (j.at("available_range").is_object()) {
                         auto fr = j.value("available_range", FrameRange());
                         result  = QVariant::fromValue(fr.frame_start().frames());
@@ -715,7 +939,9 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
 
             case Qt::DisplayRole:
             case Roles::nameRole:
-                if (j.count("name")) {
+                if (j.count("placeholder")) {
+                    result = QString("");
+                } else if (j.count("name")) {
                     if (j.at("name").is_null())
                         requestData(
                             QVariant::fromValue(QUuidFromUuid(j.at("id"))),
@@ -727,7 +953,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                         result = QString::fromStdString(j.at("name"));
                 }
                 break;
-            case Roles::childrenRole:
+            case JSONTreeModel::Roles::childrenRole:
                 if (j.count("children")) {
                     if (j.at("children").is_null()) {
                         // stop more requests being sent..
@@ -743,29 +969,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                 }
                 break;
             default: {
-                // are we looking for one of the flexible metadata set roles?
-                int did = role - Roles::metadataSet0Role;
-                if (did >= 0 && did <= 9) {
-                    const std::string key = fmt::format("metadata_set{}", did);
-                    if (j.count(key)) {
-                        if (j.at(key).is_null() && !metadata_sets_.empty()) {
-
-                            requestData(
-                                QVariant::fromValue(QUuidFromUuid(j.at("id"))),
-                                idRole,
-                                index,
-                                index,
-                                role,
-                                metadata_sets_.find(did)->second);
-
-                        } else {
-                            result = json_to_qvariant(j.at(key));
-                        }
-                    }
-
-                } else {
-                    result = JSONTreeModel::data(index, role);
-                }
+                result = JSONTreeModel::data(index, role);
             } break;
             }
         }
@@ -797,7 +1001,9 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
             auto type  = j.count("type") ? j.at("type").get<std::string>() : std::string();
             auto actor = j.count("actor") and not j.at("actor").is_null()
                              ? actorFromString(system(), j.at("actor"))
-                             : caf::actor();
+                             : (j.count("actor_owner") and not j.at("actor_owner").is_null()
+                                    ? actorFromString(system(), j.at("actor_owner"))
+                                    : caf::actor());
 
             switch (role) {
 
@@ -806,6 +1012,10 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                     j["busy"] = value;
                     result    = true;
                 }
+                break;
+
+            case metadataChangedRole:
+                result = true;
                 break;
 
             case errorRole:
@@ -820,6 +1030,41 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                     j["id"] = value;
                     result  = true;
                 }
+                break;
+
+
+            case Roles::clipMediaUuidRole:
+                if (type == "Clip") {
+                    // find media actor..
+                    auto timeline = getTimelineIndex(index);
+                    // find media in timeline..
+                    auto media_index = searchRecursive(qvalue, actorUuidRole, timeline);
+
+                    if (media_index.isValid()) {
+                        nlohmann::json &mj = indexToData(media_index);
+                        auto ua            = UuidActor(
+                            value,
+                            mj.count("actor") and not mj.at("actor").is_null()
+                                           ? actorFromString(system(), mj.at("actor"))
+                                           : (mj.count("actor_owner") and
+                                           not mj.at("actor_owner").is_null()
+                                                  ? actorFromString(system(), mj.at("actor_owner"))
+                                                  : caf::actor()));
+
+                        if (ua.actor()) {
+                            j["prop"]["media_uuid"] = value;
+
+                            if (actor)
+                                anon_mail(timeline::link_media_atom_v, ua).send(actor);
+                            result = true;
+                        }
+                    }
+                }
+                break;
+
+            case Roles::userDataRole:
+                j["user_data"] = value;
+                result         = true;
                 break;
 
             case activeStartRole:
@@ -844,8 +1089,36 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                         j["active_range"] = fr;
                         // probably pointless, as this will trigger from the backend update
                         roles.push_back(trimmedStartRole);
+                        roles.push_back(activeRangeValidRole);
                         if (actor)
-                            anon_send(actor, timeline::active_range_atom_v, fr);
+                            anon_mail(timeline::active_range_atom_v, fr).send(actor);
+                    }
+                }
+                break;
+
+            case Roles::markersRole:
+                if (j.count("markers")) {
+                    if (j.at("markers") != value.at("children")) {
+                        j["markers"] = value.at("children");
+                        result       = true;
+                        if (actor) {
+                            auto markers = std::vector<timeline::Marker>();
+                            for (const auto &i : j.at("markers"))
+                                markers.emplace_back(timeline::Marker(JsonStore(i)));
+                            anon_mail(timeline::item_marker_atom_v, markers).send(actor);
+                        }
+                    }
+                }
+                break;
+
+            case propertyRole:
+                if (j.count("prop")) {
+                    if (j.at("prop") != value) {
+                        j["prop"] = value;
+                        result    = true;
+                        roles.push_back(clipMediaUuidRole);
+                        if (actor)
+                            anon_mail(timeline::item_prop_atom_v, JsonStore(value)).send(actor);
                     }
                 }
                 break;
@@ -872,8 +1145,9 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                         j["active_range"] = fr;
                         // probably pointless, as this will trigger from the backend update
                         roles.push_back(trimmedDurationRole);
+                        roles.push_back(activeRangeValidRole);
                         if (actor)
-                            anon_send(actor, timeline::active_range_atom_v, fr);
+                            anon_mail(timeline::active_range_atom_v, fr).send(actor);
                     }
                 }
                 break;
@@ -890,8 +1164,10 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                         j["available_range"] = fr;
                         // probably pointless, as this will trigger from the backend update
                         roles.push_back(trimmedStartRole);
+                        roles.push_back(activeRangeValidRole);
+
                         if (actor)
-                            anon_send(actor, timeline::available_range_atom_v, fr);
+                            anon_mail(timeline::available_range_atom_v, fr).send(actor);
                     }
                 }
                 break;
@@ -908,8 +1184,9 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                         j["available_range"] = fr;
                         // probably pointless, as this will trigger from the backend update
                         roles.push_back(trimmedDurationRole);
+                        roles.push_back(activeRangeValidRole);
                         if (actor)
-                            anon_send(actor, timeline::available_range_atom_v, fr);
+                            anon_mail(timeline::available_range_atom_v, fr).send(actor);
                     }
                 }
                 break;
@@ -920,7 +1197,18 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                     result       = true;
                     if (type == "Clip" or type == "Gap" or type == "Audio Track" or
                         type == "Video Track" or type == "Stack") {
-                        anon_send(actor, plugin_manager::enable_atom_v, value.get<bool>());
+                        anon_mail(plugin_manager::enable_atom_v, value.get<bool>()).send(actor);
+                    }
+                }
+                break;
+
+            case lockedRole:
+                if (j.count("locked") and j["locked"] != value) {
+                    j["locked"] = value;
+                    result      = true;
+                    if (type == "Clip" or type == "Gap" or type == "Audio Track" or
+                        type == "Video Track" or type == "Stack" or type == "Timeline") {
+                        anon_mail(timeline::item_lock_atom_v, value.get<bool>()).send(actor);
                     }
                 }
                 break;
@@ -953,6 +1241,7 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                     result = true;
                 }
                 break;
+
             case actorRole:
                 if (j.count("actor") and j.at("actor") != value) {
                     j["actor"] = value;
@@ -973,17 +1262,17 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                     j["image_actor_uuid"] = value;
                     result                = true;
                     if (type == "MediaSource") {
-                        anon_send(
-                            actor,
+                        anon_mail(
                             media::current_media_stream_atom_v,
                             media::MT_IMAGE,
-                            j["image_actor_uuid"].get<utility::Uuid>());
+                            j["image_actor_uuid"].get<utility::Uuid>())
+                            .send(actor);
                     } else if (type == "Media") {
-                        anon_send(
-                            actor,
+                        anon_mail(
                             media::current_media_source_atom_v,
                             j["image_actor_uuid"].get<utility::Uuid>(),
-                            media::MT_IMAGE);
+                            media::MT_IMAGE)
+                            .send(actor);
                     }
                 }
                 break;
@@ -1013,21 +1302,31 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                             auto mr = request_receive<MediaReference>(
                                 *sys, actor, media::media_reference_atom_v);
                             mr.set_rate(fr);
-                            anon_send(actor, media::media_reference_atom_v, mr);
+                            anon_mail(media::media_reference_atom_v, mr).send(actor);
                         } else if (type == "Session") {
-                            anon_send(session_actor_, session::media_rate_atom_v, fr);
+                            anon_mail(session::media_rate_atom_v, fr).send(session_actor_);
                         }
                     }
                 }
                 break;
 
+            case pixelAspectRole: {
+                auto image_source_actor = j.count("actor") and not j.at("actor").is_null()
+                                              ? actorFromString(system(), j.at("actor"))
+                                              : caf::actor();
+                if (image_source_actor) {
+                    anon_mail(media::pixel_aspect_atom_v, value.get<double>())
+                        .send(image_source_actor);
+                }
+            }
+
             case nameRole:
                 if (j.count("name") and j["name"] != value) {
-                    if ((type == "Session" or type == "Subset" or type == "Timeline" or
-                         type == "Playlist") and
+                    if ((type == "Session" or type == "ContactSheet" or type == "Subset" or
+                         type == "Timeline" or type == "Playlist") and
                         actor) {
                         // spdlog::warn("Send update {} {}", j["name"], value);
-                        anon_send(actor, utility::name_atom_v, value.get<std::string>());
+                        anon_mail(utility::name_atom_v, value.get<std::string>()).send(actor);
                         j["name"] = value;
                         result    = true;
                         emit playlistsChanged();
@@ -1048,11 +1347,11 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
 
                             if (pactor) {
                                 // spdlog::warn("Send update {} {}", j["name"], value);
-                                anon_send(
-                                    pactor,
+                                anon_mail(
                                     playlist::rename_container_atom_v,
                                     value.get<std::string>(),
-                                    j.at("container_uuid").get<Uuid>());
+                                    j.at("container_uuid").get<Uuid>())
+                                    .send(pactor);
                                 j["name"] = value;
                                 result    = true;
                             }
@@ -1060,7 +1359,8 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                     } else if (
                         type == "Clip" or type == "Gap" or type == "Stack" or
                         type == "Audio Track" or type == "Video Track") {
-                        anon_send(actor, timeline::item_name_atom_v, value.get<std::string>());
+                        anon_mail(timeline::item_name_atom_v, value.get<std::string>())
+                            .send(actor);
                         j["name"] = value;
                         result    = true;
                     }
@@ -1076,12 +1376,12 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                                                     : caf::actor();
                             if (actor) {
                                 // spdlog::warn("Send update {} {}", j["flag"], value);
-                                anon_send(
-                                    actor,
+                                anon_mail(
                                     playlist::reflag_container_atom_v,
                                     std::make_tuple(
                                         std::optional<std::string>(),
-                                        std::optional<std::string>(value.get<std::string>())));
+                                        std::optional<std::string>(value.get<std::string>())))
+                                    .send(actor);
                                 j["flag_text"] = value;
                                 result         = true;
                             }
@@ -1099,18 +1399,18 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                                                 : caf::actor();
                         if (actor) {
                             // spdlog::warn("Send update {} {}", j["flag"], value);
-                            anon_send(
-                                actor,
+                            anon_mail(
                                 playlist::reflag_container_atom_v,
                                 std::make_tuple(
                                     std::optional<std::string>(value.get<std::string>()),
-                                    std::optional<std::string>()));
+                                    std::optional<std::string>()))
+                                .send(actor);
                             j["flag"] = value;
                             result    = true;
                         }
                     } else if (
                         type == "ContainerDivider" or type == "Subset" or type == "Timeline" or
-                        type == "Playlist") {
+                        type == "Playlist" or type == "ContactSheet") {
                         auto p = index.parent();
                         if (p.isValid()) {
                             nlohmann::json &pj = indexToData(p);
@@ -1126,11 +1426,11 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
 
                             if (pactor) {
                                 // spdlog::warn("Send update {} {}", j["flag"], value);
-                                anon_send(
-                                    pactor,
+                                anon_mail(
                                     playlist::reflag_container_atom_v,
                                     value.get<std::string>(),
-                                    j.at("container_uuid").get<Uuid>());
+                                    j.at("container_uuid").get<Uuid>())
+                                    .send(pactor);
                                 j["flag"] = value;
                                 result    = true;
                             }
@@ -1143,8 +1443,8 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                                                 ? actorFromString(system(), j.at("actor"))
                                                 : caf::actor();
                         if (actor) {
-                            anon_send(
-                                actor, timeline::item_flag_atom_v, value.get<std::string>());
+                            anon_mail(timeline::item_flag_atom_v, value.get<std::string>())
+                                .send(actor);
                             j["flag"] = value;
                             result    = true;
                         }
@@ -1152,8 +1452,23 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                 }
                 break;
 
+            case expandedRole:
+                if (type == "Playlist" && j.count("expanded") and j["expanded"] != value) {
+                    nlohmann::json &j = indexToData(index);
+                    auto actor        = j.count("actor") and not j.at("actor").is_null()
+                                            ? actorFromString(system(), j.at("actor"))
+                                            : caf::actor();
+                    if (actor) {
+                        // spdlog::warn("Send update {} {}", j["flag"], value);
+                        anon_mail(playlist::expanded_atom_v, value.get<bool>()).send(actor);
+                        j["expanded"] = value;
+                        result        = true;
+                    }
+                }
+                break;
+
             default:
-                throw std::runtime_error("Unsupported");
+                throw std::runtime_error("Unsupported Role");
                 break;
             }
         }
@@ -1166,9 +1481,9 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
             mapFromValue(qvalue).dump());
     }
 
-    if (result) {
+    if (result)
         emit dataChanged(index, index, roles);
-    }
+
     CHECK_SLOW_WATCHER_FAST()
 
     return result;
@@ -1176,21 +1491,4 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
 
 bool SessionModel::removeRows(int row, int count, const QModelIndex &parent) {
     return removeRows(row, count, false, parent);
-}
-
-void SessionModel::updateMetadataSelection(const int slot, QStringList metadata_paths) {
-
-    // This SLOT lets us decide which Media metadata fields are put into one
-    // of the metadataSet0Role, metadataSet1Role etc...
-    // A 'slot' of 2 would correspond to metadataSet2Role, for example
-
-    // When this is set-up, the  metadataSetXRole will be an array of metadata
-    // VALUES whose metadata KEYS (or PATHS) are defined by metadata_paths.
-    // Empry strings are allowed and the array element will be empty
-
-    int idx = 0;
-    metadata_sets_[slot].clear();
-    for (const auto &path : metadata_paths) {
-        metadata_sets_[slot][idx++] = StdFromQString(path);
-    }
 }

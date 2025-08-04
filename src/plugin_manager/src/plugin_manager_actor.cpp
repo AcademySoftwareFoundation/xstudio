@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/policy/select_all.hpp>
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
@@ -9,6 +10,7 @@
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/string_helpers.hpp"
+#include "xstudio/plugin_manager/hud_plugin.hpp"
 
 using namespace xstudio;
 using namespace xstudio::utility;
@@ -22,8 +24,7 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
 
     system().registry().put(plugin_manager_registry, this);
 
-
-    manager_.emplace_front_path(xstudio_root("/plugin"));
+    manager_.emplace_front_path(xstudio_plugin_dir());
 
     // use env var 'XSTUDIO_PLUGIN_PATH' to extend the folders searched for
     // xstudio plugins
@@ -53,13 +54,14 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
             const JsonStore & /*change*/,
             const std::string & /*path*/,
             const JsonStore &full) {
-            delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+            return mail(json_store::update_atom_v, full).delegate(actor_cast<caf::actor>(this));
         },
 
         // helper for dealing with URI's
         [=](data_source::use_data_atom,
             const caf::uri &uri,
-            const FrameRate &media_rate) -> result<UuidActorVector> {
+            const FrameRate &media_rate,
+            const bool create_playlist) -> result<UuidActorVector> {
             // send to resident enabled datasource plugins
             auto actors = std::vector<caf::actor>();
 
@@ -75,7 +77,12 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
             auto rp = make_response_promise<UuidActorVector>();
 
             fan_out_request<policy::select_all>(
-                actors, infinite, data_source::use_data_atom_v, uri, media_rate)
+                actors,
+                infinite,
+                data_source::use_data_atom_v,
+                uri,
+                media_rate,
+                create_playlist)
                 .then(
                     [=](const std::vector<UuidActorVector> results) mutable {
                         for (const auto &i : results) {
@@ -164,12 +171,8 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
             const FrameRate &media_rate) -> result<UuidActorVector> {
             auto rp = make_response_promise<UuidActorVector>();
 
-            request(
-                caf::actor_cast<caf::actor>(this),
-                infinite,
-                data_source::use_data_atom_v,
-                uri,
-                media_rate)
+            mail(data_source::use_data_atom_v, uri, media_rate, playlist ? false : true)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const UuidActorVector &results) mutable {
                         // uri can contain playlist or media currently.
@@ -180,19 +183,16 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
                             try {
                                 auto type =
                                     request_receive<std::string>(*sys, i.actor(), type_atom_v);
-                                if (type == "Media" && playlist) {
-                                    anon_send(
-                                        playlist,
-                                        playlist::add_media_atom_v,
-                                        i,
-                                        utility::Uuid());
+                                if (type == "Media" and playlist) {
+                                    anon_mail(playlist::add_media_atom_v, i, utility::Uuid())
+                                        .send(playlist);
                                 } else if (type == "Playlist" && session) {
-                                    anon_send(
-                                        session,
+                                    anon_mail(
                                         session::add_playlist_atom_v,
                                         i.actor(),
                                         utility::Uuid(),
-                                        false);
+                                        false)
+                                        .send(session);
                                 }
                                 // spdlog::warn("type {}", type);
                             } catch (const std::exception &err) {
@@ -263,7 +263,8 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
         },
 
         [=](spawn_plugin_atom atom, const utility::Uuid &uuid) {
-            delegate(actor_cast<caf::actor>(this), atom, uuid, utility::JsonStore());
+            return mail(atom, uuid, utility::JsonStore())
+                .delegate(actor_cast<caf::actor>(this));
         },
 
         [=](spawn_plugin_atom,
@@ -312,12 +313,53 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
 
         [=](spawn_plugin_base_atom,
             const std::string name,
-            const utility::JsonStore &json) -> result<caf::actor> {
+            const utility::JsonStore &json,
+            const std::string class_name) -> result<caf::actor> {
             /*if (base_plugins_.find(name) == base_plugins_.end()) {
                 base_plugins_[name] = spawn<plugin::StandardPlugin>(name, json);
                 link_to(base_plugins_[name]);
             }*/
-            return spawn<plugin::StandardPlugin>(name, json); // base_plugins_[name];
+            caf::actor result;
+            if (class_name == "HUDPlugin") {
+                result = spawn<plugin::HUDPluginBase>(name, json); // base_plugins_[name];
+            } else if (class_name == "ViewportLayoutPlugin") {
+                // slightly awkward. We want to spawn an instance of
+                // ViewportLayoutPlugin class to back a Python plugin for
+                // managing viewport layouts. To avoid making the plugin_manager
+                // component link-dependent on the ui::viewport component we
+                // spawn via the viewport_layouts_manager
+                std::vector<PluginDetail> details = manager_.plugin_detail();
+                for (auto &detail : details) {
+                    if (detail.name_ == "DefaultViewportLayout") {
+                        try {
+                            auto j         = json;
+                            j["name"]      = name;
+                            j["is_python"] = true;
+                            result = 
+                                manager_.spawn(*scoped_actor(system()), detail.uuid_, j);
+
+                        } catch (std::exception &e) {
+                            return make_error(xstudio_error::error, e.what());
+                        }
+                    }
+                }
+                if (!result) {
+                    return make_error(
+                        xstudio_error::error, "Failed to spawn base ViewportLayoutPlugin");
+                }
+            } else {
+                result = spawn<plugin::StandardPlugin>(name, json); // base_plugins_[name];
+            }
+
+            // When plugin manager exits, we want python plugin backend to exit too
+            link_to(result);
+
+            monitor(result, [this, result](const error &err) {
+                // python plugin has exited before us. unlink.
+                unlink_from(result);
+            });
+
+            return result;
         },
 
         [=](spawn_plugin_base_atom, const std::string name) -> result<caf::actor> {
@@ -360,22 +402,16 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
             if (manager_.factories().at(uuid).factory()->resident())
                 enable_resident(uuid, enabled);
 
-            send(
-                event_group_,
-                utility::event_atom_v,
-                utility::detail_atom_v,
-                manager_.plugin_detail());
+            mail(utility::event_atom_v, utility::detail_atom_v, manager_.plugin_detail())
+                .send(event_group_);
 
             return true;
         },
 
         [=](json_store::update_atom) -> int {
             int result = manager_.load_plugins();
-            send(
-                event_group_,
-                utility::event_atom_v,
-                utility::detail_atom_v,
-                manager_.plugin_detail());
+            mail(utility::event_atom_v, utility::detail_atom_v, manager_.plugin_detail())
+                .send(event_group_);
             return result;
         },
 

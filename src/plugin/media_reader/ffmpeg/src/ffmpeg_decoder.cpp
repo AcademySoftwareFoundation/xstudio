@@ -23,12 +23,16 @@ std::string make_stream_id(const int stream_index) {
 int FFMpegDecoder::ffmpeg_threads = 8;
 
 FFMpegDecoder::FFMpegDecoder(
-    std::string path, const int soundcard_sample_rate, std::string stream_id)
+    std::string path,
+    const int soundcard_sample_rate,
+    const utility::FrameRate default_rate,
+    std::string stream_id)
     : movie_file_path_(std::move(path)),
       last_requested_frame_(-100),
       avc_packet_(nullptr),
       av_format_ctx_(nullptr),
       soundcard_sample_rate_(soundcard_sample_rate),
+      default_rate_(default_rate),
       last_decoded_frame_(-100),
       stream_id_(std::move(stream_id))
 
@@ -37,7 +41,6 @@ FFMpegDecoder::FFMpegDecoder(
 }
 
 FFMpegDecoder::~FFMpegDecoder() { close_handles(); }
-
 
 void FFMpegDecoder::open_handles() {
 
@@ -133,8 +136,7 @@ void FFMpegDecoder::calc_duration_frames() {
         // account as it streams audio frames to the soundcard.
         for (auto &stream : streams_) {
 
-            stream.second->set_virtual_frame_rate(
-                utility::FrameRate(timebase::k_flicks_one_sixtieth_second));
+            stream.second->set_virtual_frame_rate(default_rate_);
         }
     }
 
@@ -436,6 +438,11 @@ void FFMpegDecoder::decode_video_frame(
 
     try {
 
+        if (decode_stream_ && decode_stream_->is_attached_pic()) {
+            image_buffer = decode_stream_->attached_pic();
+            return;
+        }
+
         requested_decode_frame_ = frame_num;
 
         decoding_backwards_ = (last_requested_frame_ - frame_num) == 1 ||
@@ -616,7 +623,6 @@ void FFMpegDecoder::pull_video_buffer_from_stream(StreamPtr &video_stream) {
         // an appropriate timestamp ... we can then attach audio frames to this
         // video buffer to send back to playback engine.
         buf.reset(new ImageBuffer("No Video"));
-        buf->set_duration_seconds(frame_rate().to_seconds());
         buf->set_display_timestamp_seconds(requested_decode_frame_ * frame_rate().to_seconds());
         buf->set_decoder_frame_number(requested_decode_frame_);
     }
@@ -648,6 +654,7 @@ void FFMpegDecoder::pull_audio_buffer_from_stream(StreamPtr &audio_stream) {
         // the samples in the audio output loop.
         double xstudio_frame_dts = virtual_frame * audio_stream->frame_rate().to_seconds();
         double ffmpeg_frame_dts  = buf->display_timestamp_seconds();
+
         buf->set_time_delta_to_video_frame(std::chrono::microseconds(
             (int)round((ffmpeg_frame_dts - xstudio_frame_dts) * 1000000.0)));
 

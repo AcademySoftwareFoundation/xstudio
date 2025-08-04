@@ -1,0 +1,38 @@
+{
+	"plugin": {
+		"dneg_media_hook": {
+			"default_trim_slate_behaviour": {
+				"path": "/plugin/dneg_media_hook/default_trim_slate_behaviour",
+				"default_value": "Don't Trim First Frame",
+				"description": "If Auto Trim Slate slate is disabled, or if auto trim slate metadata is missing, choose if pipeline movies have their first frame trimmed by default.",
+				"value": "Trim First Frame",
+				"datatype": "multichoice string",
+				"context": ["APPLICATION"],
+				"category": "DNEG",
+				"display_name": "Default Slate Frame Trimming",
+				"options": ["Trim First Frame", "Don't Trim First Frame"]
+			},
+			"auto_trim_slate": {
+				"path": "/plugin/dneg_media_hook/auto_trim_slate",
+				"default_value": true,
+				"description": "For 'dneg' movies, use embedded metadata to determine if there is a slate frame and trim it off if so",
+				"value": true,
+				"datatype": "bool",
+				"context": ["APPLICATION"],
+				"category": "DNEG",
+				"display_name": "Auto Trim Slate"
+			},
+			"adjust_timecode": {
+				"path": "/plugin/dneg_media_hook/adjust_timecode",
+				"default_value": true,
+				"description": "Use timeline_range from pipequery to adjust timecode",
+				"value": true,
+				"datatype": "bool",
+				"context": ["APPLICATION"],
+				"category": "DNEG",
+				"display_name": "Adjust TimeCode"
+			}
+		}
+	}
+}
+

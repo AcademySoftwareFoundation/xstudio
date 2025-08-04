@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: Apache-2.0
+import QtQuick
+
+
+
+// 
+
+import xStudio 1.0
+import xstudio.qml.models 1.0
+
+Rectangle {
+
+    id: widget
+    color: isActive? Qt.darker(palette.highlight,2) : palette.base
+    border.color: isHovered? palette.highlight : "transparent"
+    property var fontFamily: XsStyleSheet.fontFamily
+    property var fontSize: XsStyleSheet.fontSize
+
+    property alias text: textDiv.text
+    property color textColor: palette.highlight
+    property bool isHovered: mArea.containsMouse
+    property bool isActive: btnMenu.visible
+    property alias textWidth: textDiv.textWidth
+
+    property var modelDataName
+    property alias menuWidth: btnMenu.menuWidth
+
+    XsText {
+        id: textDiv
+        text: ""
+        color: textColor
+        width: parent.width
+        anchors.centerIn: parent
+        font.family: widget.fontFamily
+        font.pixelSize: widget.fontSize
+        MouseArea{
+            id: mm
+            anchors.fill: parent
+            hoverEnabled: true
+            propagateComposedEvents: true
+        }
+        XsToolTip {
+            text: textDiv.text
+            visible: mm.containsMouse && parent.truncated
+            x: 0 //#TODO: flex/pointer
+        }
+    }
+
+    MouseArea{
+        id: mArea
+        anchors.fill: parent
+        hoverEnabled: true
+        onClicked: {
+            btnMenu.x = x //-btnMenu.width
+            btnMenu.y = y-btnMenu.height
+            btnMenu.visible = !btnMenu.visible
+        }
+    }
+
+    XsPopupMenu {
+        id: btnMenu
+        visible: false
+        menu_model_name: widget.modelDataName
+    }
+
+}

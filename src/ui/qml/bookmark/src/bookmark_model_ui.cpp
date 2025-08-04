@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
-// CAF_PUSH_WARNINGS
-// CAF_POP_WARNINGS
 
 // #include "xstudio/atoms.hpp"
 #include "xstudio/ui/qml/bookmark_model_ui.hpp"
 #include "xstudio/ui/qml/json_tree_model_ui.hpp"
 #include "xstudio/bookmark/bookmark.hpp"
+#include "xstudio/thumbnail/thumbnail.hpp"
 // #include "xstudio/utility/helpers.hpp"
 // #include "xstudio/utility/json_store.hpp"
 // #include "xstudio/utility/logging.hpp"
 // #include "xstudio/global_store/global_store.hpp"
+CAF_PUSH_WARNINGS
+#include <QColorSpace>
+CAF_POP_WARNINGS
 
 using namespace caf;
 using namespace xstudio;
@@ -72,9 +74,75 @@ QVariant BookmarkCategoryModel::data(const QModelIndex &index, int role) const {
 }
 
 BookmarkFilterModel::BookmarkFilterModel(QObject *parent) : QSortFilterProxyModel(parent) {
+
+    connect(
+        this, &QSortFilterProxyModel::rowsInserted, this, &BookmarkFilterModel::lengthChanged);
+    connect(
+        this, &QSortFilterProxyModel::modelReset, this, &BookmarkFilterModel::lengthChanged);
+    connect(
+        this, &QSortFilterProxyModel::rowsRemoved, this, &BookmarkFilterModel::lengthChanged);
+
+
     setDynamicSortFilter(true);
     sort(0, Qt::DescendingOrder);
 }
+
+QModelIndex
+BookmarkFilterModel::nextBookmark(const int mediaFrame, const QUuid &ownerUuid) const {
+    // find last match
+    auto result          = QModelIndex();
+    auto startedMatching = false;
+
+    for (auto i = 0; i < rowCount(); i++) {
+        auto ind = index(i, 0);
+        if (ind.isValid()) {
+            auto owner      = ind.data(BookmarkModel::Roles::ownerRole).toUuid();
+            auto startFrame = ind.data(BookmarkModel::Roles::startFrameRole).toInt();
+            auto endFrame   = ind.data(BookmarkModel::Roles::endFrameRole).toInt();
+
+            if (ownerUuid == owner and mediaFrame >= startFrame and mediaFrame <= endFrame) {
+                startedMatching = true;
+            } else if (not startedMatching and ownerUuid == owner and mediaFrame < startFrame) {
+                result = ind;
+                break;
+            } else if (startedMatching) {
+                result = ind;
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+
+QModelIndex
+BookmarkFilterModel::previousBookmark(const int mediaFrame, const QUuid &ownerUuid) const {
+    auto result          = QModelIndex();
+    auto startedMatching = false;
+
+    for (auto i = rowCount() - 1; i >= 0; i--) {
+        auto ind = index(i, 0);
+
+        if (ind.isValid()) {
+            auto owner      = ind.data(BookmarkModel::Roles::ownerRole).toUuid();
+            auto startFrame = ind.data(BookmarkModel::Roles::startFrameRole).toInt();
+            auto endFrame   = ind.data(BookmarkModel::Roles::endFrameRole).toInt();
+
+            if (ownerUuid == owner and endFrame < mediaFrame) {
+                result = ind;
+                break;
+            } else if (ownerUuid == owner) {
+                startedMatching = true;
+            } else if (startedMatching) {
+                result = ind;
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+
 
 bool BookmarkFilterModel::filterAcceptsRow(
     int source_row, const QModelIndex &source_parent) const {
@@ -83,7 +151,7 @@ bool BookmarkFilterModel::filterAcceptsRow(
     QModelIndex index = sourceModel()->index(source_row, 0, source_parent);
     auto visible      = sourceModel()->data(index, BookmarkModel::Roles::visibleRole).toBool();
 
-    if (not visible)
+    if (not visible and not showHidden_)
         return false;
 
     auto owner = sourceModel()->data(index, BookmarkModel::Roles::ownerRole).toString();
@@ -92,10 +160,27 @@ bool BookmarkFilterModel::filterAcceptsRow(
         "--:--:--:--")
         return false;
 
+    if (!showUserType_.isEmpty()) {
+        if (showUserType_ != index.data(BookmarkModel::Roles::userTypeRole).toString())
+            return false;
+    } else {
+        if (!index.data(BookmarkModel::Roles::userTypeRole).toString().isEmpty())
+            return false;
+    }
+
+    if (included_categories_.size()) {
+        if (!included_categories_.contains(
+                index.data(BookmarkModel::Roles::categoryRole).toString()))
+            return false;
+    } else if (excluded_categories_.size()) {
+        if (excluded_categories_.contains(
+                index.data(BookmarkModel::Roles::categoryRole).toString()))
+            return false;
+    }
+
     switch (depth_) {
-    case 3:
-        break;
     case 2:
+        break;
     case 1:
         result = media_order_.contains(owner);
         break;
@@ -113,19 +198,28 @@ bool BookmarkFilterModel::lessThan(
     const QModelIndex &source_left, const QModelIndex &source_right) const {
     bool result = false;
 
-    auto lor = source_left.data(BookmarkModel::Roles::ownerRole);
-    auto ror = source_right.data(BookmarkModel::Roles::ownerRole);
+    if (sortbyCreated_) {
 
-    if (lor == ror) {
-        result = source_left.data(BookmarkModel::Roles::startTimecodeRole).toString() >
-                 source_right.data(BookmarkModel::Roles::startTimecodeRole).toString();
+        auto lcr = source_left.data(BookmarkModel::Roles::createdEpochRole).toLongLong();
+        auto rcr = source_right.data(BookmarkModel::Roles::createdEpochRole).toLongLong();
+        result   = lcr > rcr;
+
     } else {
-        auto lors = lor.toString();
-        auto rors = ror.toString();
 
-        result =
-            ((media_order_.contains(lors) ? media_order_[lors].toInt() : -1) >
-             (media_order_.contains(rors) ? media_order_[rors].toInt() : -1));
+        auto lor = source_left.data(BookmarkModel::Roles::ownerRole);
+        auto ror = source_right.data(BookmarkModel::Roles::ownerRole);
+
+        if (lor == ror) {
+            result = source_left.data(BookmarkModel::Roles::startTimecodeRole).toString() >
+                     source_right.data(BookmarkModel::Roles::startTimecodeRole).toString();
+        } else {
+            auto lors = lor.toString();
+            auto rors = ror.toString();
+
+            result =
+                ((media_order_.contains(lors) ? media_order_[lors].toInt() : -1) >
+                 (media_order_.contains(rors) ? media_order_[rors].toInt() : -1));
+        }
     }
 
     return result;
@@ -156,34 +250,78 @@ void BookmarkFilterModel::setCurrentMedia(const QVariant &value) {
     }
 }
 
+void BookmarkFilterModel::setShowHidden(const bool value) {
+    if (value != showHidden_) {
+        showHidden_ = value;
+        emit showHiddenChanged();
+        invalidateFilter();
+    }
+}
+
+void BookmarkFilterModel::setShowUserType(const QString &value) {
+    if (value != showUserType_) {
+        showUserType_ = value;
+        emit showUserTypeChanged();
+        invalidateFilter();
+    }
+}
+
+void BookmarkFilterModel::setExcludedCategories(const QStringList value) {
+    if (value != excluded_categories_) {
+        excluded_categories_ = value;
+        emit excludedCategoriesChanged();
+        invalidateFilter();
+    }
+}
+
+void BookmarkFilterModel::setIncludedCategories(const QStringList value) {
+    if (value != included_categories_) {
+        included_categories_ = value;
+        emit includedCategoriesChanged();
+        invalidateFilter();
+    }
+}
+
+void BookmarkFilterModel::setsortbyCreated(const bool value) {
+    if (value != sortbyCreated_) {
+        sortbyCreated_ = value;
+        emit sortbyCreatedChanged();
+        invalidateFilter();
+    }
+}
+
 BookmarkModel::BookmarkModel(QObject *parent) : super(parent) {
     init(CafSystemObject::get_actor_system());
 
     setRoleNames(std::vector<std::string>(
-        {"enabledRole",
-         "focusRole",
-         "frameRole",
-         "frameFromTimecodeRole",
-         "startTimecodeRole",
-         "endTimecodeRole",
-         "durationTimecodeRole",
-         "startFrameRole",
-         "endFrameRole",
-         "hasNoteRole",
-         "subjectRole",
-         "noteRole",
-         "authorRole",
+        {"authorRole",
          "categoryRole",
          "colourRole",
+         "createdEpochRole",
          "createdRole",
-         "hasAnnotationRole",
-         "thumbnailRole",
-         "ownerRole",
-         "uuidRole",
-         "objectRole",
-         "startRole",
-         "durationRole",
          "durationFrameRole",
+         "durationRole",
+         "durationTimecodeRole",
+         "enabledRole",
+         "endFrameRole",
+         "endTimecodeRole",
+         "focusRole",
+         "frameFromTimecodeRole",
+         "frameRole",
+         "hasAnnotationRole",
+         "hasNoteRole",
+         "metadataChangedRole",
+         "noteRole",
+         "objectRole",
+         "ownerRole",
+         "startFrameRole",
+         "startRole",
+         "startTimecodeRole",
+         "subjectRole",
+         "thumbnailRole",
+         "userDataRole",
+         "userTypeRole",
+         "uuidRole",
          "visibleRole"}));
 }
 
@@ -191,6 +329,10 @@ BookmarkModel::BookmarkModel(QObject *parent) : super(parent) {
 QVector<int> BookmarkModel::getRoleChanges(
     const bookmark::BookmarkDetail &ood, const bookmark::BookmarkDetail &nbd) const {
     QVector<int> roles;
+    if (ood.annotation_hash_ && nbd.annotation_hash_ &&
+        *(ood.annotation_hash_) != *(nbd.annotation_hash_)) {
+        roles.push_back(thumbnailRole);
+    }
     return roles;
 }
 
@@ -217,25 +359,47 @@ BookmarkModel::getJSONFuture(const QModelIndex &index, const QString &path) cons
     });
 }
 
+// special handing for media!!
+QFuture<QVariant>
+BookmarkModel::getJSONObjectFuture(const QModelIndex &index, const QString &path) const {
+    return QtConcurrent::run([=]() {
+        if (bookmark_actor_) {
+            std::string path_string = StdFromQString(path);
+            try {
+                scoped_actor sys{system()};
+                auto addr   = UuidFromQUuid(index.data(uuidRole).toUuid());
+                auto result = request_receive<JsonStore>(
+                    *sys, bookmark_actor_, json_store::get_json_atom_v, addr, path_string);
+
+                return mapFromValue(result);
+
+            } catch ([[maybe_unused]] const std::exception &err) {
+                // spdlog::warn("{} {}", __PRETTY_FUNCTION__,  err.what());
+                return QVariant(); // QStringFromStd(err.what());
+            }
+        }
+        return QVariant();
+    });
+}
+
 void BookmarkModel::init(caf::actor_system &_system) {
     super::init(_system);
-
-    self()->set_default_handler(caf::drop);
 
     set_message_handler([=](caf::actor_companion * /*self*/) -> caf::message_handler {
         return {
             [=](utility::event_atom, utility::last_changed_atom, const time_point &) {},
             [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-            [=](const group_down_msg &) {},
             [=](utility::event_atom, utility::change_atom) {},
+            [=](utility::event_atom, utility::name_atom, const std::string &) {},
+            [=](utility::event_atom, bookmark::bookmark_change_atom, const utility::Uuid &) {},
 
             [=](utility::event_atom,
                 bookmark::bookmark_change_atom,
                 const utility::UuidActor &ua) {
-                // spdlog::warn("bookmark::bookmark_change_atom {}", to_string(ua.uuid()) );
-                auto ind = search_recursive(QUuidFromUuid(ua.uuid()), "uuidRole");
+                auto ind = searchRecursive(QUuidFromUuid(ua.uuid()), "uuidRole");
 
                 if (ind.isValid()) {
+
                     try {
 
                         auto detail = getDetail(ua.actor());
@@ -245,11 +409,20 @@ void BookmarkModel::init(caf::actor_system &_system) {
                         auto node = indexToTree(ind);
                         node->data().update(jsn);
 
+                        // Needs optimising!! Currently this leaves 'change'
+                        // empty, meaning all roles are changing. This means
+                        // thumbnail role is always updated so thumbnail is
+                        // re-rendered for every character the user enters into
+                        // a note, for example
                         auto change = getRoleChanges(bookmarks_.at(ua.uuid()), detail);
-                        // if(not change.isEmpty()) {
+
+                        if (change.contains(thumbnailRole)) {
+                            out_of_date_thumbnails_.insert(detail.uuid_);
+                        }
+
                         bookmarks_[ua.uuid()] = detail;
                         emit dataChanged(ind, ind, change);
-                        // }
+
                     } catch (const std::exception &err) {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                     }
@@ -259,23 +432,33 @@ void BookmarkModel::init(caf::actor_system &_system) {
                 bookmark::remove_bookmark_atom,
                 const utility::Uuid &uuid) {
                 // find in model, remove row and delete from helper map.
-                auto ind = search_recursive(QUuidFromUuid(uuid), "uuidRole");
+                auto ind = searchRecursive(QUuidFromUuid(uuid), "uuidRole");
                 if (ind.isValid()) {
                     removeRows(ind.row(), 1, ind.parent());
                     bookmarks_.erase(uuid);
                     emit lengthChanged();
                 }
+                // may need to unsubscribe!!
             },
             [=](utility::event_atom,
                 bookmark::add_bookmark_atom,
                 const utility::UuidActor &ua) {
                 // spdlog::warn("bookmark::add_bookmark_atom {}", to_string(ua.uuid()) );
                 // spdlog::warn("bookmark::add_bookmark_atom {}", data_.dump(2) );
-                auto ind = search_recursive(QUuidFromUuid(ua.uuid()), "uuidRole");
+                auto ind = searchRecursive(QUuidFromUuid(ua.uuid()), "uuidRole");
+
 
                 if (not ind.isValid()) {
+                    // join events from bookmark.
+                    scoped_actor sys{system()};
+
                     // request detail.
                     try {
+                        auto adetail =
+                            request_receive<ContainerDetail>(*sys, ua.actor(), detail_atom_v);
+                        request_receive<bool>(
+                            *sys, adetail.group_, broadcast::join_broadcast_atom_v, as_actor());
+
                         auto detail = getDetail(ua.actor());
 
                         if (JSONTreeModel::insertRows(rowCount(), 1)) {
@@ -295,14 +478,64 @@ void BookmarkModel::init(caf::actor_system &_system) {
                 // populateBookmarks();
             },
 
-            [=](utility::event_atom, utility::name_atom, const std::string &) {},
+            [=](media_reader::get_thumbnail_atom,
+                const bookmark::BookmarkDetail &detail,
+                const thumbnail::ThumbnailBufferPtr &thumbnail) {
+                // this is the response we made for a thumbnail, sent to us
+                // from the global BookmarksActor
+                thumbnail_cache_[detail.uuid_] =
+                    QImage(thumbnail->width(), thumbnail->height(), QImage::Format_RGB888);
+                auto p = out_of_date_thumbnails_.find(detail.uuid_);
+                if (p != out_of_date_thumbnails_.end())
+                    out_of_date_thumbnails_.erase(p);
+
+                uint8_t *bits = thumbnail_cache_[detail.uuid_].bits();
+                memcpy(
+                    bits,
+                    (uchar *)&(thumbnail->data()[0]),
+                    3 * thumbnail->width() * thumbnail->height());
+                auto ind = searchRecursive(QUuidFromUuid(detail.uuid_), "uuidRole");
+                if (ind.isValid()) {
+                    dataChanged(ind, ind, QVector<int>({thumbnailRole}));
+                }
+            },
+
             [=](json_store::update_atom,
                 const JsonStore & /*change*/,
                 const std::string &,
-                const JsonStore &) {},
+                const JsonStore &) {
+                // copied from session model..
+                try {
+                    auto src = caf::actor_cast<caf::actor_addr>(self()->current_sender());
 
-            [=](json_store::update_atom, const JsonStore &) {},
-        };
+                    for (const auto &i : bookmarks_) {
+                        if (i.second.actor_addr_ == src) {
+                            auto ind = searchRecursive(QUuidFromUuid(i.first), "uuidRole");
+                            if (ind.isValid())
+                                emit dataChanged(ind, ind, QVector<int>({metadataChangedRole}));
+                            break;
+                        }
+                    }
+                } catch (...) {
+                }
+            },
+            [=](json_store::update_atom, const JsonStore &) {
+                // // emit metadata changed if we get an event from a bookmark
+                try {
+                    auto src = caf::actor_cast<caf::actor_addr>(self()->current_sender());
+
+                    for (const auto &i : bookmarks_) {
+                        if (i.second.actor_addr_ == src) {
+                            auto ind = searchRecursive(QUuidFromUuid(i.first), "uuidRole");
+                            if (ind.isValid())
+                                emit dataChanged(ind, ind, QVector<int>({metadataChangedRole}));
+                            break;
+                        }
+                    }
+                } catch (...) {
+                }
+            },
+            [=](caf::message) {}};
     });
 }
 
@@ -348,6 +581,7 @@ void BookmarkModel::setBookmarkActorAddr(const QString &addr) {
         // we now need to pull all the bookmarks and reset the model.
         //  we might want to spin this off..
         setModelData(jsonFromBookmarks());
+
         emit lengthChanged();
     }
 }
@@ -357,6 +591,9 @@ BookmarkModel::createJsonFromDetail(const bookmark::BookmarkDetail &detail) cons
     auto result = R"({"uuid": null, "thumbnailURL": "qrc:///feather_icons/film.svg"})"_json;
 
     result["uuid"] = detail.uuid_;
+    if (detail.annotation_hash_) {
+        result["annotation_hash"] = *(detail.annotation_hash_);
+    }
     // spdlog::warn("{} {} {}", bool(detail.owner_) , to_string((*(detail.owner_)).actor()),
     // bool(detail.logical_start_frame_) );
 
@@ -381,6 +618,12 @@ nlohmann::json BookmarkModel::jsonFromBookmarks() {
 
             // we now need to build json data from these...
             for (const auto &i : details) {
+
+                auto adetail = request_receive<ContainerDetail>(
+                    *sys, caf::actor_cast<caf::actor>(i.actor_addr_), detail_atom_v);
+                request_receive<bool>(
+                    *sys, adetail.group_, broadcast::join_broadcast_atom_v, as_actor());
+
                 bookmarks_[i.uuid_] = i;
                 result.emplace_back(createJsonFromDetail(i));
             }
@@ -407,7 +650,7 @@ bool BookmarkModel::removeRows(int row, int count, const QModelIndex &parent) {
         }
 
         for (const auto &i : uuids) {
-            anon_send(bookmark_actor_, bookmark::remove_bookmark_atom_v, i);
+            anon_mail(bookmark::remove_bookmark_atom_v, i).send(bookmark_actor_);
             bookmarks_.erase(i);
         }
     }
@@ -444,9 +687,21 @@ QVariant BookmarkModel::data(const QModelIndex &index, int role) const {
                 break;
 
             case durationFrameRole:
-                if (detail.media_reference_) {
+                if (detail.media_reference_ && detail.duration_) {
                     result = QVariant::fromValue(
-                        *(detail.duration_) / detail.media_reference_->rate());
+                        detail.duration_->count() / detail.media_reference_->rate().count());
+                }
+                break;
+
+            case userTypeRole:
+                if (detail.user_type_) {
+                    result = QVariant::fromValue(QStringFromStd(*(detail.user_type_)));
+                }
+                break;
+
+            case userDataRole:
+                if (detail.user_data_) {
+                    result = QVariantMapFromJson(*(detail.user_data_));
                 }
                 break;
 
@@ -556,12 +811,35 @@ QVariant BookmarkModel::data(const QModelIndex &index, int role) const {
                         QDateTime::currentDateTime(), QLocale::ShortFormat));
                 }
                 break;
+            case createdEpochRole:
+                if (detail.created_) {
+                    result = QVariant::fromValue(
+                        std::chrono::duration_cast<std::chrono::milliseconds>(
+                            (*(detail.created_)).time_since_epoch())
+                            .count());
+                } else {
+                    result = QVariant::fromValue(
+                        std::chrono::duration_cast<std::chrono::milliseconds>(
+                            utility::sysclock::now().time_since_epoch())
+                            .count());
+                }
+                break;
             case hasAnnotationRole:
                 result = QVariant::fromValue(*(detail.has_annotation_));
                 break;
-            case thumbnailRole:
-                result = QVariant::fromValue(QStringFromStd(j.at("thumbnailURL")));
-                break;
+            case thumbnailRole: {
+                bool get_thumbnail = true;
+                if (thumbnail_cache_.count(detail.uuid_)) {
+                    result = thumbnail_cache_.at(detail.uuid_);
+                    if (!out_of_date_thumbnails_.count(detail.uuid_)) {
+                        get_thumbnail = false;
+                    }
+                }
+                if (get_thumbnail) {
+                    anon_mail(media_reader::get_thumbnail_atom_v, detail, 256, as_actor())
+                        .send(bookmark_actor_);
+                }
+            } break;
             case ownerRole:
                 result = QVariant::fromValue(QUuidFromUuid((*(detail.owner_)).uuid()));
                 break;
@@ -607,7 +885,12 @@ bool BookmarkModel::setData(const QModelIndex &index, const QVariant &value, int
                         sendDetail(bm);
                         result = true;
                     }
+                } else {
                 }
+                break;
+
+            case metadataChangedRole:
+                result = true;
                 break;
 
             case endFrameRole:
@@ -687,6 +970,15 @@ bool BookmarkModel::setData(const QModelIndex &index, const QVariant &value, int
                 }
             } break;
 
+            case createdEpochRole: {
+                auto created = utility::sys_time_point(milliseconds(value.toLongLong()));
+                if (not detail.created_ or (*detail.created_) != created) {
+                    detail.created_ = bm.created_ = created;
+                    sendDetail(bm);
+                    result = true;
+                }
+            } break;
+
             case ownerRole: {
                 auto str = UuidFromQUuid(value.toUuid());
                 if (not detail.owner_ or (*detail.owner_).uuid() != str) {
@@ -697,7 +989,7 @@ bool BookmarkModel::setData(const QModelIndex &index, const QVariant &value, int
             } break;
 
             case startRole: {
-                timebase::flicks val = timebase::to_flicks(value.toDouble());
+                timebase::flicks val(value.toLongLong());
                 if (not detail.start_ or (*detail.start_) != val) {
                     detail.start_ = bm.start_ = val;
                     sendDetail(bm);
@@ -730,6 +1022,36 @@ bool BookmarkModel::setData(const QModelIndex &index, const QVariant &value, int
                     }
                 }
             } break;
+
+            case userTypeRole: {
+                auto str = StdFromQString(value.toString());
+                if (not detail.user_type_ or (*detail.user_type_) != str) {
+                    detail.user_type_ = bm.user_type_ = str;
+                    sendDetail(bm);
+                    result = true;
+                }
+            } break;
+
+            case userDataRole: {
+                // Copied from shotgun_model_ui.cpp setData()
+                nlohmann::json jval;
+                if (std::string(value.typeName()) == "QJSValue") {
+                    jval = nlohmann::json::parse(
+                        QJsonDocument::fromVariant(value.value<QJSValue>().toVariant())
+                            .toJson(QJsonDocument::Compact)
+                            .constData());
+                } else {
+                    jval = nlohmann::json::parse(QJsonDocument::fromVariant(value)
+                                                     .toJson(QJsonDocument::Compact)
+                                                     .constData());
+                }
+
+                if (not detail.user_data_ or (*detail.user_data_) != jval) {
+                    detail.user_data_ = bm.user_data_ = jval;
+                    sendDetail(bm);
+                    result = true;
+                }
+            } break;
             }
         }
     } catch (const std::exception &err) {
@@ -745,7 +1067,7 @@ bool BookmarkModel::setData(const QModelIndex &index, const QVariant &value, int
 
 void BookmarkModel::sendDetail(const bookmark::BookmarkDetail &detail) const {
     if (bookmark_actor_)
-        anon_send(bookmark_actor_, bookmark::bookmark_detail_atom_v, detail.uuid_, detail);
+        anon_mail(bookmark::bookmark_detail_atom_v, detail.uuid_, detail).send(bookmark_actor_);
 }
 
 Q_INVOKABLE bool BookmarkModel::insertRows(int row, int count, const QModelIndex &parent) {
@@ -761,6 +1083,11 @@ Q_INVOKABLE bool BookmarkModel::insertRows(int row, int count, const QModelIndex
                     auto ua = request_receive<utility::UuidActor>(
                         *sys, bookmark_actor_, bookmark::add_bookmark_atom_v);
                     auto detail = getDetail(ua.actor());
+
+                    auto adetail =
+                        request_receive<ContainerDetail>(*sys, ua.actor(), detail_atom_v);
+                    request_receive<bool>(
+                        *sys, adetail.group_, broadcast::join_broadcast_atom_v, as_actor());
 
                     bookmarks_[ua.uuid()] = detail;
                     auto ind              = index(row + i, 0);
@@ -782,18 +1109,21 @@ Q_INVOKABLE bool BookmarkModel::insertRows(int row, int count, const QModelIndex
 }
 
 
-QFuture<QString> BookmarkModel::exportCSVFuture(const QUrl &path) {
+QFuture<QString> BookmarkModel::exportCSVFuture(
+    const QUrl &path, const bool with_annotations, const bool with_images) {
     return QtConcurrent::run([=]() {
         auto failed = std::string("CSV Export failed: ");
         if (bookmark_actor_) {
             try {
                 scoped_actor sys{system()};
+                auto format = session::ExportFormat::EF_CSV;
+                if (with_annotations)
+                    format = session::ExportFormat::EF_CSV_WITH_ANNOTATIONS;
+                if (with_images)
+                    format = session::ExportFormat::EF_CSV_WITH_IMAGES;
 
                 auto data = request_receive<std::pair<std::string, std::vector<std::byte>>>(
-                    *sys,
-                    bookmark_actor_,
-                    session::export_atom_v,
-                    session::ExportFormat::EF_CSV);
+                    *sys, bookmark_actor_, session::export_atom_v, format, UriFromQUrl(path));
                 // write data to path..
                 // this maybe a symlink in which case we should resolve it.
                 std::ofstream o(uri_to_posix_path(UriFromQUrl(path)));

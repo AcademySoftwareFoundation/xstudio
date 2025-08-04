@@ -39,7 +39,7 @@ class IvyDataSource : public DataSource, public module::Module {
         return utility::JsonStore();
     }
 
-    std::string url() const { return "http://pipequery.zro"; }
+    std::string url() const { return "http://pipequery"; }
     std::string path() const { return "/v1/graphql"; }
     std::string show() const { return show_; }
     std::string content_type() const { return "application/graphql"; }
@@ -66,6 +66,14 @@ template <typename T> class IvyDataSourceActor : public caf::event_based_actor {
     void on_exit() override;
 
   private:
+    void get_version(
+        caf::typed_response_promise<utility::JsonStore> rp,
+        const std::string &show,
+        const utility::Uuid &id);
+
+    void
+    pipequery(caf::typed_response_promise<utility::JsonStore> rp, const std::string &query);
+
     void ivy_load(
         caf::typed_response_promise<utility::UuidActorVector> rp,
         const caf::uri &uri,
@@ -85,6 +93,7 @@ template <typename T> class IvyDataSourceActor : public caf::event_based_actor {
         caf::typed_response_promise<utility::UuidActorVector> rp,
         const std::string &show,
         const utility::Uuid &stalk_dnuuid,
+        const caf::actor &media_actor,
         const utility::FrameRate &media_rate);
 
     void ivy_load_audio_sources(
@@ -103,9 +112,12 @@ template <typename T> class IvyDataSourceActor : public caf::event_based_actor {
         const utility::JsonStore &jsn,
         const utility::FrameRate &media_rate);
 
+    void update_preferences(const utility::JsonStore &js);
+
     caf::behavior behavior_;
     T data_source_;
     caf::actor http_;
     caf::actor pool_;
+    bool enable_audio_autoload_{true};
     utility::Uuid uuid_ = {utility::Uuid::generate()};
 };

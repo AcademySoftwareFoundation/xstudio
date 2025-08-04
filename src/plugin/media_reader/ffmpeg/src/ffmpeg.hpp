@@ -37,16 +37,19 @@ namespace media_reader {
         }
 
       private:
-        static PixelInfo
-        ffmpeg_buffer_pixel_picker(const ImageBuffer &buf, const Imath::V2i &pixel_location);
+        static PixelInfo ffmpeg_buffer_pixel_picker(
+            const ImageBuffer &buf,
+            const Imath::V2i &pixel_location,
+            const std::vector<Imath::V2i> &extra_pixel_locationss);
 
         std::shared_ptr<ffmpeg::FFMpegDecoder> decoder;
         std::shared_ptr<ffmpeg::FFMpegDecoder> audio_decoder;
         std::shared_ptr<ffmpeg::FFMpegDecoder> thumbnail_decoder;
 
         int readers_per_source_;
-        int soundcard_sample_rate_ = {4000};
-        int channels_ = 2;
+        int soundcard_sample_rate_       = {48000};
+        int channels_                    = 2;
+        utility::FrameRate default_rate_ = {utility::FrameRate(timebase::k_flicks_24fps)};
 
         ImageBufPtr last_decoded_image_;
     };

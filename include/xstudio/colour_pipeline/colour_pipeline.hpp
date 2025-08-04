@@ -31,13 +31,18 @@ namespace colour_pipeline {
         ColourOperationData(const std::string name) : name_(name) {}
         utility::Uuid uuid_;
         std::string name_;
-        std::string cache_id_;
         std::vector<ColourLUTPtr> luts_;
         std::vector<ColourTexture> textures_;
         ui::viewport::GPUShaderPtr shader_;
         float order_index_;
         [[nodiscard]] size_t size() const;
         std::any user_data_;
+
+        void set_cache_id(const std::string &id) { cache_id_ = id; }
+        [[nodiscard]] const std::string &cache_id() const { return cache_id_; }
+
+      private:
+        std::string cache_id_;
     };
 
     typedef std::shared_ptr<ColourOperationData> ColourOperationDataPtr;
@@ -46,8 +51,6 @@ namespace colour_pipeline {
 
         ColourPipelineData()                            = default;
         ColourPipelineData(const ColourPipelineData &o) = default;
-
-        std::string cache_id_;
 
         void add_operation(const ColourOperationDataPtr &op) {
             auto p = std::lower_bound(
@@ -87,7 +90,12 @@ namespace colour_pipeline {
             return ordered_colour_operations_;
         }
 
+        void set_cache_id(const std::string &id) { cache_id_ = id; }
+        [[nodiscard]] const std::string &cache_id() const { return cache_id_; }
+
       private:
+        std::string cache_id_;
+
         /*Apply grades and other colour manipulations after stage_zero_operation_*/
         std::vector<ColourOperationDataPtr> ordered_colour_operations_;
     };
@@ -106,51 +114,42 @@ namespace colour_pipeline {
 
         virtual ~ColourPipeline();
 
-        /* Given the colour related metadata of a media source, evaluate a hash
-        that is unique for any unique set of LUTs and/or GPU shaders necessary
-        to display the given source on the screen. You must also vary the hash
-        with the attributes/state of the ColourPipeline itself when this will
-        change the GPU shaders or LUTs required for the display of an image
-        coming from the given source. For example, if your display shader applies
-        a simple Exposure operation you would probably omit this from the hash
-        evaluation. However, the 'Display' attribute will probably affect the
-        shader/LUTs so it should be factored into the hash computation.
+        /*! Create the ColourOperationDataPtr containing the necessary LUT and
+        *shader data for linearising the source colourspace RGB data from the
+        *given media source on the screen.
+        *
+        *You MUST add an appropriate cache_id key value that is unqique for a
+        *given transform for efficient cache retrieval to prevent computing this
+        *data again unnecessarily.
 
-        This function should be as fast as possible as it is called every time
-        an image is displayed. Implement your own cacheing system if necessary
-        to avoid expensive evaluations that can otherwise be stored.
-        */
-        [[nodiscard]] virtual std::string linearise_op_hash(
-            const utility::Uuid &source_uuid,
-            const utility::JsonStore &media_source_colour_metadata) = 0;
+        *See OCIO plugin for rederence implementation. */
+        virtual void linearise_op_data(
+            caf::typed_response_promise<ColourOperationDataPtr> &rp,
+            const media::AVFrameID &media_ptr) = 0;
 
-        [[nodiscard]] virtual std::string linear_to_display_op_hash(
-            const utility::Uuid &source_uuid,
-            const utility::JsonStore &media_source_colour_metadata) = 0;
-
-        /* Create the ColourOperationDataPtr containing the necessary LUT and
-        shader data for linearising the source colourspace RGB data from the
-        given media source on the screen */
-        virtual ColourOperationDataPtr linearise_op_data(
-            const utility::Uuid &source_uuid,
-            const utility::JsonStore &media_source_colour_metadata) = 0;
-
-        /* If desired, override to return one or more colour operations that
-        are applied to the linear colour value before the display space is applied.
-        This could be employed for gamma/saturation viewer controls, for example */
+        /*! If desired, override to return one or more colour operations that
+        *are applied to the linear colour value before the display space is applied.
+        *This could be employed for gamma/saturation viewer controls, for example */
         virtual std::vector<ColourOperationDataPtr> intermediate_operations(
             const utility::Uuid &source_uuid,
             const utility::JsonStore &media_source_colour_metadata) {
             return std::vector<ColourOperationDataPtr>{};
         }
 
-        /* Create the ColourOperationDataPtr containing the necessary LUT and
-        shader data for transforming linear colour values into display space */
-        virtual ColourOperationDataPtr linear_to_display_op_data(
-            const utility::Uuid &source_uuid,
-            const utility::JsonStore &media_source_colour_metadata) = 0;
+        /*! Create the ColourOperationDataPtr containing the necessary LUT and
+        *shader data for transforming linear colour values into display space.
+        *rp.deliver() MUST be called by your function to deliver the resulting
+        *ColourOperationDataPtr OR the rp must be passed to a worker actor that
+        *will call rp.deliver(). See OCIO plugin for reference implementation.
 
-        /* For the given image build a dictionary of shader uniform names and
+        *You MUST add an appropriate cache_id key value that is unqique for a
+        *given transform for efficient cache retrieval to prevent computing this
+        *data again unnecessarily. */
+        virtual void linear_to_display_op_data(
+            caf::typed_response_promise<ColourOperationDataPtr> &rp,
+            const media::AVFrameID &media_ptr) = 0;
+
+        /*! For the given image build a dictionary of shader uniform names and
         their corresponding values to be used to set the uniform values in your
         shader at draw-time - keys should match the names of uniforms in your
         shader and values should match the type of your uniform.
@@ -168,51 +167,61 @@ namespace colour_pipeline {
             const std::string &manufacturer,
             const std::string &serialNumber) = 0;
 
-        /* Re-implement and return true if your class supports a design that
-        allows for 'workers'. Workers are clones of your main class instance
-        that expensive 'work' can be delegated to. In this case the following
-        five functions could be called on the workers instead of the main class:
-            - linearise_op_hash
-            - linear_to_display_op_hash
-            - linearise_op_data
-            - linear_to_display_op_data
-            - intermediate_operations
-        The mechanism relies on (automatic) syncing the Attributes on the
-        workers with the main instance: if the above five functions will always
-        return the same result for a given state of the Attributes belonging to
-        your class then workers can be used to paralellise colour operations.
-        If these functions in your ColourPipeline rely on state data other than
-        Attributes, however, you cannot use workers. */
-        virtual bool allow_workers() const { return false; }
-
-        /* In conjunction with the allow_wokers method, you will also need to
-        re-implement this function. If your class is called MyColourPipe the
-        reimplementation would look exactly like this:
-        caf::actor self_spawn(const utility::JsonStore &s) override { return
-        spawn<MyColourPipe>(s); }
-        */
-        virtual caf::actor self_spawn(const utility::JsonStore &s) { return caf::actor(); }
-
         /* implement this method to extend information about a pixel that is under the
         mouse pointer. For example, pixel_info might include linear RGB information, but
         we want to add RGB information after a viewing transform has been applied, say. */
         virtual void extend_pixel_info(
             media_reader::PixelInfo &pixel_info, const media::AVFrameID &frame_id) {}
 
-        virtual thumbnail::ThumbnailBufferPtr process_thumbnail(
-            const media::AVFrameID &media_ptr, const thumbnail::ThumbnailBufferPtr &buf) = 0;
+        /* Implement this method for converting the colourspace of a thumbnail
+        buffer from media source colourspace to a DISPLAY colourspace.
 
-        virtual std::string fast_display_transform_hash(const media::AVFrameID &media_ptr) = 0;
+        The incoming buffer is RGB float 32 pixel format and in the native
+        colourspace of the source media.
+
+        Information about the source colourspace should be available in the json
+        dict returned by 'params()' method on the media_ptr (as well as other
+        info provided by AVFrameID such as the URI, frame number etc iuf you
+        need it.)
+
+        For example, a thumbnail from an EXR source would most likely be in a
+        linear colourspace which we want to convert into a display space.
+
+        The resulting buffer, or an error if one occurs, MUST be delivered by
+        calling rp.deliver(). You can call rp.deliver within your function or
+        delegate the work to a worker actor which then MUST call rp.deliver.
+
+        See the OCIO plugin for a reference implementation. */
+        virtual void process_thumbnail(
+            caf::typed_response_promise<thumbnail::ThumbnailBufferPtr> &rp,
+            const media::AVFrameID &media_ptr,
+            const thumbnail::ThumbnailBufferPtr &buf) = 0;
+
+        /* This function should return a unique string based on the current
+        statue of the plugin plus RELEVANT properties of the media_ptr that
+        influence its colourpsace transforms to display the corresponding image
+        on screen correctly.
+
+        For example, you can make a hash from the OCIO View & Display values
+        plus the source colourspace and optionally grading data attached to
+        the media. This should be sufficient to tell the calling class when it
+        needs to compute new colour opration data and when it can use cached
+        data.
+
+        This function must be as fast as possible as it is called on every frame
+        refresh.
+
+        See the OCIO plugin for a reference implementation. */
+        virtual size_t fast_display_transform_hash(const media::AVFrameID &media_ptr) = 0;
 
       protected:
         void make_pre_draw_gpu_hook(
-            caf::typed_response_promise<plugin::GPUPreDrawHookPtr> rp, const int viewer_index);
+            const std::string &viewport_name,
+            caf::typed_response_promise<plugin::GPUPreDrawHookPtr> rp);
 
         void attribute_changed(const utility::Uuid &attr_uuid, const int role) override;
 
         caf::message_handler message_handler_extensions() override;
-
-        bool is_worker() const { return is_worker_; }
 
         utility::Uuid uuid_;
 
@@ -252,17 +261,14 @@ namespace colour_pipeline {
             in_flight_requests_;
         std::map<std::string, std::pair<std::string, std::string>> cache_keys_cache_;
 
-        utility::JsonStore init_data_;
-        caf::actor worker_pool_;
         caf::actor thumbnail_processor_pool_;
-        caf::actor pixel_probe_worker_;
         caf::actor cache_;
         std::vector<caf::actor> workers_;
-        bool is_worker_         = false;
         bool colour_ops_loaded_ = false;
 
         std::vector<caf::actor> colour_op_plugins_;
-        std::vector<std::pair<caf::typed_response_promise<plugin::GPUPreDrawHookPtr>, int>>
+        std::vector<
+            std::pair<std::string, caf::typed_response_promise<plugin::GPUPreDrawHookPtr>>>
             hook_requests_;
     };
 

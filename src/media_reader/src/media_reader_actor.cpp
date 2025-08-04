@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/sec.hpp>
 #include <caf/policy/select_all.hpp>
-#include <limits>
+#include <caf/actor_registry.hpp>
 
+#include <limits>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/global_store/global_store.hpp"
@@ -177,8 +178,11 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
         }
     }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
     pool_ = caf::actor_pool::make(
-        system().dummy_execution_unit(),
+        system(),
         5,
         [&] { return system().spawn<ReaderHelper>(plugins_, plugins_map_); },
         caf::actor_pool::round_robin());
@@ -186,17 +190,28 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
 
     system().registry().put(media_reader_registry, this);
 
-    delayed_anon_send(this, std::chrono::seconds(max_source_age_), retire_readers_atom_v);
+    anon_mail(retire_readers_atom_v).delay(std::chrono::seconds(max_source_age_)).send(this);
 
     image_cache_ = system().registry().template get<caf::actor>(image_cache_registry);
     audio_cache_ = system().registry().template get<caf::actor>(audio_cache_registry);
 
-    auto media_detail_and_thumbnail_reader_pool = caf::actor_pool::make(
-        system().dummy_execution_unit(),
+    auto media_detail_reader_pool = caf::actor_pool::make(
+        system(),
         4, // hardcoding to 4 media detail fetchers
         [&] { return system().spawn<MediaDetailAndThumbnailReaderActor>(); },
         caf::actor_pool::round_robin());
-    link_to(media_detail_and_thumbnail_reader_pool);
+    link_to(media_detail_reader_pool);
+
+    auto thumbnail_reader_pool = caf::actor_pool::make(
+        system(),
+        1, // hardcoding to 1 thumbnail reader. The reader doesn't actually do
+        // the work, it just delegates to the global media reader but via a
+        // queue of requests
+        [&] { return system().spawn<MediaDetailAndThumbnailReaderActor>(); },
+        caf::actor_pool::round_robin());
+    link_to(thumbnail_reader_pool);
+
+#pragma GCC diagnostic pop
 
     behavior_.assign(
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
@@ -208,12 +223,10 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
             // this marks all cache entries for this playhead as 'stale' by
             // moving their timestamps to 1 hour in the past - hence they
             // will be dropped if the cache fills up
-            anon_send(image_cache_, media_cache::unpreserve_atom_v, playhead_uuid);
+            anon_mail(media_cache::unpreserve_atom_v, playhead_uuid).send(image_cache_);
 
-            /*anon_send(
-                audio_cache_,
-                media_cache::unpreserve_atom_v,
-                playhead_uuid);*/
+            /*anon_mail(media_cache::unpreserve_atom_v,
+                playhead_uuid).send(audio_cache_);*/
 
             return true;
         },
@@ -227,47 +240,42 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
                 // moving their timestamps to 1 hour in the past - hence they
                 // will be dropped if the cache fills up
 
-                anon_send(image_cache_, media_cache::unpreserve_atom_v, playhead_uuid);
-
-                /*anon_send(
-                    audio_cache_,
-                    media_cache::unpreserve_atom_v,
-                    playhead_uuid);*/
+                anon_mail(media_cache::unpreserve_atom_v, playhead_uuid).send(image_cache_);
             }
             return true;
         },
 
-        [=](const group_down_msg &) {},
-
         [=](retire_readers_atom, const media::AVFrameID &mptr) -> bool {
-            return prune_reader(reader_key(mptr.uri_, mptr.actor_addr_));
+            return prune_reader(reader_key(mptr.uri(), mptr.media_source_addr()));
         },
 
         [=](get_image_atom,
             const media::AVFrameID &mptr,
             const bool
                 pin, // stamp the frame 10 minutes in the future so it sticks in the cache
-            const utility::Uuid &playhead_uuid) -> result<ImageBufPtr> {
+            const utility::Uuid &playhead_uuid,
+            const timebase::flicks plahead_position) -> result<ImageBufPtr> {
             auto rp = make_response_promise<media_reader::ImageBufPtr>();
-            request(image_cache_, infinite, media_cache::retrieve_atom_v, mptr.key_)
+            mail(media_cache::retrieve_atom_v, mptr.key())
+                .request(image_cache_, infinite)
                 .then(
                     [=](media_reader::ImageBufPtr buf) mutable {
                         if (buf) {
                             rp.deliver(buf);
                         } else {
                             // check for existing reader.
-                            auto reader =
-                                check_cached_reader(reader_key(mptr.uri_, mptr.actor_addr_));
+                            auto reader = check_cached_reader(
+                                reader_key(mptr.uri(), mptr.media_source_addr()));
 
                             if (reader) {
                                 // was using await, not sure why, but I've changed it to then
-                                request(
-                                    *reader,
-                                    infinite,
+                                mail(
                                     get_image_atom_v,
                                     mptr,
                                     pin,
-                                    playhead_uuid)
+                                    playhead_uuid,
+                                    plahead_position)
+                                    .request(*reader, infinite)
                                     .then(
                                         [=](media_reader::ImageBufPtr buf) mutable {
                                             rp.deliver(buf);
@@ -281,23 +289,25 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
                                         });
                             } else {
                                 // request new reader instance.
-                                request(
-                                    pool_, infinite, get_reader_atom_v, mptr.uri_, mptr.reader_)
+                                auto tp = utility::clock::now();
+                                mail(get_reader_atom_v, mptr.uri(), mptr.reader())
+                                    .request(pool_, infinite)
                                     .then(
                                         [=](caf::actor &new_reader) mutable {
                                             new_reader = add_reader(
                                                 new_reader,
-                                                reader_key(mptr.uri_, mptr.actor_addr_));
+                                                reader_key(
+                                                    mptr.uri(), mptr.media_source_addr()));
 
                                             // was using await, not sure why, but I've changed
                                             // it to then
-                                            request(
-                                                new_reader,
-                                                infinite,
+                                            mail(
                                                 get_image_atom_v,
                                                 mptr,
                                                 pin,
-                                                playhead_uuid)
+                                                playhead_uuid,
+                                                plahead_position)
+                                                .request(new_reader, infinite)
                                                 .then(
                                                     [=](media_reader::ImageBufPtr buf) mutable {
                                                         rp.deliver(buf);
@@ -312,7 +322,7 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
                                                     });
                                         },
                                         [=](const caf::error &err) mutable {
-                                            send_error_to_source(mptr.actor_addr_, err);
+                                            send_error_to_source(mptr.media_source_addr(), err);
 
                                             media_reader::ImageBufPtr buf(
                                                 new media_reader::ImageBuffer(to_string(err)));
@@ -337,7 +347,8 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
             // made via another channel, we don't bother asking readers for
             // these images we just get the cache to return whatever it has (and
             // blanks if the images aren't cached)
-            delegate(image_cache_, media_cache::retrieve_atom_v, mptr_and_timepoints);
+            return mail(media_cache::retrieve_atom_v, mptr_and_timepoints)
+                .delegate(image_cache_);
         },
 
         [=](get_audio_atom,
@@ -347,7 +358,8 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
             // similar to images,during playback we need to fetch several audio frames
             // ahead of time due to soundcard latency. We assume that the 'precache'
             // mechanism has already decoded and stored those frames.
-            delegate(audio_cache_, media_cache::retrieve_atom_v, mptr_and_timepoints);
+            return mail(media_cache::retrieve_atom_v, mptr_and_timepoints)
+                .delegate(audio_cache_);
         },
 
         [=](get_image_atom,
@@ -355,72 +367,121 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
             caf::actor playhead,
             const utility::Uuid playhead_uuid,
             const utility::time_point &tp,
-            const int /*logical_frame*/
-        ) {
-            request(image_cache_, infinite, media_cache::retrieve_atom_v, mptr.key_)
+            const timebase::flicks playhead_position) {
+            mail(media_cache::retrieve_atom_v, mptr.key())
+                .request(image_cache_, infinite)
                 .then(
                     [=](const media_reader::ImageBufPtr &buf) mutable {
                         if (buf) {
-                            send(playhead, push_image_atom_v, buf, mptr, tp);
+                            mail(push_image_atom_v, buf, mptr, tp, playhead_position)
+                                .send(playhead);
                         } else {
-                            auto reader =
-                                check_cached_reader(reader_key(mptr.uri_, mptr.actor_addr_));
+                            auto reader = check_cached_reader(
+                                reader_key(mptr.uri(), mptr.media_source_addr()));
                             if (reader) {
-                                anon_send(
-                                    *reader,
-                                    get_image_atom_v,
-                                    mptr,
-                                    playhead,
-                                    playhead_uuid,
-                                    tp);
+                                mail(get_image_atom_v, mptr, playhead_uuid)
+                                    .request(*reader, infinite)
+                                    .then(
+                                        [=](const media_reader::ImageBufPtr &buf) mutable {
+                                            mail(
+                                                push_image_atom_v,
+                                                buf,
+                                                mptr,
+                                                tp,
+                                                playhead_position)
+                                                .send(playhead);
+                                        },
+                                        [=](caf::error &err) {});
                             } else {
+
+                                // This prevents a load of requests for new readers to pile up
+                                // on pool_ when the same image is requested multiple times
+                                auto request_details =
+                                    std::make_shared<ImmediateFrameRequest>();
+                                auto rkey = reader_key(mptr.uri(), mptr.media_source_addr());
+                                request_details->mptr              = mptr;
+                                request_details->playhead          = playhead;
+                                request_details->playhead_uuid     = playhead_uuid;
+                                request_details->tp                = tp;
+                                request_details->playhead_position = playhead_position;
+                                immediate_frame_requests_[rkey].push_back(request_details);
+
+                                if (immediate_frame_requests_[rkey].size() > 1)
+                                    return;
+
                                 // get reader..
-                                request(
-                                    pool_, infinite, get_reader_atom_v, mptr.uri_, mptr.reader_)
+                                auto tp2 = utility::clock::now();
+                                mail(get_reader_atom_v, mptr.uri(), mptr.reader())
+                                    .request(pool_, infinite)
                                     .then(
                                         [=](caf::actor &new_reader) mutable {
-                                            new_reader = add_reader(
-                                                new_reader,
-                                                reader_key(mptr.uri_, mptr.actor_addr_));
-                                            anon_send(
-                                                new_reader,
-                                                get_image_atom_v,
-                                                mptr,
-                                                playhead,
-                                                playhead_uuid,
-                                                tp);
+                                            new_reader = add_reader(new_reader, rkey);
+
+                                            auto p = immediate_frame_requests_.find(rkey);
+                                            if (p == immediate_frame_requests_.end())
+                                                return;
+                                            auto rr = p->second;
+                                            immediate_frame_requests_.erase(p);
+
+                                            for (size_t i = 0; i < rr.size(); ++i) {
+
+                                                std::shared_ptr<ImmediateFrameRequest> r =
+                                                    rr[i];
+
+                                                mail(
+                                                    get_image_atom_v, r->mptr, r->playhead_uuid)
+                                                    .request(new_reader, infinite)
+                                                    .then(
+                                                        [=](const media_reader::ImageBufPtr
+                                                                &buf) mutable {
+                                                            mail(
+                                                                push_image_atom_v,
+                                                                buf,
+                                                                r->mptr,
+                                                                r->tp,
+                                                                r->playhead_position)
+                                                                .send(r->playhead);
+                                                        },
+                                                        [=](caf::error &err) {});
+                                            }
                                         },
                                         [=](const caf::error &err) mutable {
-                                            send_error_to_source(mptr.actor_addr_, err);
+                                            send_error_to_source(mptr.media_source_addr(), err);
 
                                             media_reader::ImageBufPtr buf(
                                                 new media_reader::ImageBuffer(to_string(err)));
-                                            send(playhead, push_image_atom_v, buf, mptr, tp);
+                                            mail(
+                                                push_image_atom_v,
+                                                buf,
+                                                mptr,
+                                                tp,
+                                                playhead_position)
+                                                .send(playhead);
                                         });
                             }
                         }
                     },
                     [=](const caf::error &err) mutable {
                         spdlog::warn(
-                            "Failed cache retrieve buffer {} {}", mptr.key_, to_string(err));
+                            "Failed cache retrieve buffer {} {}", to_string(mptr.key()), to_string(err));
                     });
         },
 
         [=](get_media_detail_atom _get_media_detail_atom,
             const caf::uri &_uri,
             const caf::actor_addr &key) {
-            delegate(media_detail_and_thumbnail_reader_pool, _get_media_detail_atom, _uri, key);
+            return mail(_get_media_detail_atom, _uri, key).delegate(media_detail_reader_pool);
         },
 
         [=](get_thumbnail_atom atom, const media::AVFrameID &mptr, const size_t size) {
-            delegate(media_detail_and_thumbnail_reader_pool, atom, mptr, size);
+            return mail(atom, mptr, size).delegate(thumbnail_reader_pool);
         },
 
         [=](json_store::update_atom,
             const JsonStore & /*change*/,
             const std::string & /*path*/,
             const JsonStore &full) {
-            delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+            return mail(json_store::update_atom_v, full).delegate(actor_cast<caf::actor>(this));
         },
 
         [&](json_store::update_atom, const JsonStore &json) {
@@ -442,56 +503,64 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
 
         [=](playback_precache_atom,
             const media::AVFrameIDsAndTimePoints media_ptrs,
-            const Uuid &playhead_uuid) -> result<bool> {
+            const Uuid &playhead_uuid,
+            const media::MediaType mt) -> result<bool> {
             // we've received fresh lookahead read requests from the playhead
             // during playback. We want to ask the cache actors if they already
             // have those frames, and if not we need to queue read requests to
             // start reading/decoding those frames
-
-
             auto rp = make_response_promise<bool>();
-            request(
-                image_cache_,
-                std::chrono::seconds(1),
-                media_cache::preserve_atom_v,
-                media_ptrs,
-                playhead_uuid)
-                .await(
-                    [=](const media::AVFrameIDsAndTimePoints
-                            media_ptrs_not_in_image_cache) mutable {
-                        request(
-                            audio_cache_,
-                            std::chrono::seconds(1),
-                            media_cache::preserve_atom_v,
-                            media_ptrs,
-                            playhead_uuid)
-                            .await(
-                                [=](const media::AVFrameIDsAndTimePoints
-                                        &media_ptrs_not_in_audio_cache) mutable {
-                                    if (media_ptrs_not_in_image_cache.size() ||
-                                        media_ptrs_not_in_audio_cache.size()) {
+            if (mt == MT_IMAGE) {
+                mail(media_cache::preserve_atom_v, media_ptrs, playhead_uuid)
+                    .request(image_cache_, std::chrono::seconds(1))
+                    .await(
+                        [=](const media::AVFrameIDsAndTimePoints
+                                media_ptrs_not_in_image_cache) mutable {
+                            if (media_ptrs_not_in_image_cache.size()) {
 
-                                        // clear all pending requests
-                                        playback_precache_request_queue_.clear_pending_requests(
-                                            playhead_uuid);
-                                        background_precache_request_queue_
-                                            .clear_pending_requests(playhead_uuid);
+                                // clear all pending requests
+                                playback_precache_request_queue_.clear_pending_requests(
+                                    playhead_uuid);
+                                background_precache_request_queue_.clear_pending_requests(
+                                    playhead_uuid);
 
-                                        playback_precache_request_queue_.add_frame_requests(
-                                            media_ptrs_not_in_image_cache, playhead_uuid);
-                                        playback_precache_request_queue_.add_frame_requests(
-                                            media_ptrs_not_in_audio_cache, playhead_uuid);
+                                playback_precache_request_queue_.add_frame_requests(
+                                    media_ptrs_not_in_image_cache, playhead_uuid);
 
-                                        if (media_ptrs.size())
-                                            background_cached_ref_timepoint_[playhead_uuid] =
-                                                media_ptrs.front().first;
-                                        continue_precacheing();
-                                    }
-                                    rp.deliver(true);
-                                },
-                                [=](const caf::error &err) mutable { rp.deliver(err); });
-                    },
-                    [=](const caf::error &err) mutable { rp.deliver(err); });
+                                if (media_ptrs.size())
+                                    background_cached_ref_timepoint_[playhead_uuid] =
+                                        media_ptrs.front().first;
+                                continue_precacheing();
+                            }
+                            rp.deliver(true);
+                        },
+                        [=](const caf::error &err) mutable { rp.deliver(err); });
+            } else {
+                mail(media_cache::preserve_atom_v, media_ptrs, playhead_uuid)
+                    .request(audio_cache_, std::chrono::seconds(1))
+                    .await(
+                        [=](const media::AVFrameIDsAndTimePoints
+                                &media_ptrs_not_in_audio_cache) mutable {
+                            if (media_ptrs_not_in_audio_cache.size()) {
+
+                                // clear all pending requests
+                                playback_precache_request_queue_.clear_pending_requests(
+                                    playhead_uuid);
+                                background_precache_request_queue_.clear_pending_requests(
+                                    playhead_uuid);
+
+                                playback_precache_request_queue_.add_frame_requests(
+                                    media_ptrs_not_in_audio_cache, playhead_uuid);
+
+                                if (media_ptrs.size())
+                                    background_cached_ref_timepoint_[playhead_uuid] =
+                                        media_ptrs.front().first;
+                                continue_precacheing();
+                            }
+                            rp.deliver(true);
+                        },
+                        [=](const caf::error &err) mutable { rp.deliver(err); });
+            }
             return rp;
         },
 
@@ -501,12 +570,15 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
             auto rp = make_response_promise<bool>();
             auto tt = utility::clock::now();
 
-            // we've been told to start background cacheing, so assume playback
-            // read-ahead can be cancelled. Keep a note of the timepoint of the
-            // first frame in the request queue - anything with an older time
-            // in the cache can be discarded when the cache is full
+            // we've been told to start background cacheing - this should only happen
+            // when playback has halted and the user isn't actively scrubbing the
+            // playhead, so we assume playback read-ahead can be cancelled.
+            // We keep a note of the timepoint of the first frame in the request
+            // queue - anything with an older time in the cache can be discarded
+            // when the cache is full
             if (mptrs.size()) {
-                request(image_cache_, infinite, media_cache::unpreserve_atom_v, playhead_uuid)
+                mail(media_cache::unpreserve_atom_v, playhead_uuid)
+                    .request(image_cache_, infinite)
                     .then(
                         [=](bool) mutable {
                             background_precache_request_queue_.clear_pending_requests(
@@ -530,8 +602,9 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
 
         [=](retire_readers_atom) {
             prune_readers();
-            delayed_anon_send(
-                this, std::chrono::seconds(max_source_age_), retire_readers_atom_v);
+            anon_mail(retire_readers_atom_v)
+                .delay(std::chrono::seconds(max_source_age_))
+                .send(this);
         },
 
         [=](do_precache_work_atom) { do_precache(); },
@@ -575,25 +648,21 @@ caf::actor GlobalMediaReaderActor::get_reader(
     if (cached_reader)
         return *cached_reader;
 
-    caf::actor reader;
-
-    try {
-        scoped_actor sys{system()};
-        // spdlog::stopwatch sw;
-        reader = request_receive<caf::actor>(*sys, pool_, get_reader_atom_v, _uri, hint);
-        if (reader)
-            reader = add_reader(reader, key);
-
-        // spdlog::warn("get_reader {} {:.3f}", to_string(_uri), sw);
-    } catch (const std::exception &err) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-    }
-
-    return reader;
+    return caf::actor();
 }
 
 std::string
 GlobalMediaReaderActor::reader_key(const caf::uri &_uri, const caf::actor_addr &_key) const {
+
+    // if _uri is for a 'blank' frame, we don't want to use the media source
+    // actor address as a key to cache the reader. The reason is that we might
+    // get blank frames for a media source that is still building itself and
+    // later we get non-blank frames from it. In other words, if uri is for
+    // a blank frame, the uri for the given _key may change later.
+    static const auto blank_uri = *caf::make_uri("xstudio://blank/?colour=gray");
+    if (_uri == blank_uri)
+        return to_string(_uri);
+
     if (_key) {
         return to_string(_key);
     }
@@ -708,16 +777,11 @@ void GlobalMediaReaderActor::do_precache() {
     // which would otherwise block this crucial actor
 
     caf::actor cache_actor =
-        mptr->media_type_ == media::MediaType::MT_IMAGE ? image_cache_ : audio_cache_;
+        mptr->media_type() == media::MediaType::MT_IMAGE ? image_cache_ : audio_cache_;
     mark_playhead_waiting_for_precache_result(playhead_uuid);
 
-    request(
-        cache_actor,
-        std::chrono::milliseconds(500),
-        media_cache::preserve_atom_v,
-        mptr->key_,
-        predicted_time,
-        playhead_uuid)
+    mail(media_cache::preserve_atom_v, mptr->key(), predicted_time, playhead_uuid)
+        .request(cache_actor, std::chrono::milliseconds(500))
         .then(
 
             [=](const bool exists) mutable {
@@ -725,15 +789,40 @@ void GlobalMediaReaderActor::do_precache() {
                     // already have in the cache, but might still have work to do
                     mark_playhead_received_precache_result(playhead_uuid);
                     // if (is_background_cache) {
-                    // keep_cache_hot(mptr.key_, predicted_time, playhead_uuid);
+                    // keep_cache_hot(mptr.key(), predicted_time, playhead_uuid);
                     // }
                     continue_precacheing();
                 } else {
                     try {
-                        auto reader = get_reader(mptr->uri_, mptr->actor_addr_, mptr->reader_);
+                        auto reader =
+                            get_reader(mptr->uri(), mptr->media_source_addr(), mptr->reader());
                         if (not reader) {
-                            mark_playhead_received_precache_result(playhead_uuid);
-                            continue_precacheing();
+                            // we need a new reader
+                            mail(get_reader_atom_v, mptr->uri(), mptr->reader())
+                                .request(pool_, infinite)
+                                .then(
+                                    [=](caf::actor new_reader) mutable {
+                                        auto key =
+                                            reader_key(mptr->uri(), mptr->media_source_addr());
+                                        new_reader = add_reader(new_reader, key);
+                                        if (cache_actor == image_cache_) {
+                                            read_and_cache_image(
+                                                new_reader,
+                                                *fr,
+                                                cache_out_of_date_threshold,
+                                                is_background_cache);
+                                        } else {
+                                            read_and_cache_audio(
+                                                new_reader,
+                                                *fr,
+                                                cache_out_of_date_threshold,
+                                                is_background_cache);
+                                        }
+                                    },
+                                    [=](caf::error &err) {
+                                        mark_playhead_received_precache_result(playhead_uuid);
+                                        continue_precacheing();
+                                    });
                         } else {
                             if (cache_actor == image_cache_) {
                                 read_and_cache_image(
@@ -767,7 +856,7 @@ void GlobalMediaReaderActor::do_precache() {
             },
             [=](const caf::error &err) {
                 mark_playhead_received_precache_result(playhead_uuid);
-                spdlog::warn("Failed preserve buffer {} {}", mptr->key_, to_string(err));
+                spdlog::warn("Failed preserve buffer {} {}", to_string(mptr->key()), to_string(err));
             });
 }
 
@@ -777,10 +866,8 @@ void GlobalMediaReaderActor::keep_cache_hot(
     const utility::Uuid &playhead_uuid) {
 
     background_cached_frames_[playhead_uuid].push_back(std::make_pair(new_entry, tp));
-    /*anon_send(
-        image_cache_,
-        media_cache::preserve_atom_v,
-        background_cached_frames_[playhead_uuid]);*/
+    /*anon_mail(media_cache::preserve_atom_v,
+        background_cached_frames_[playhead_uuid]).send(image_cache_);*/
 }
 
 void GlobalMediaReaderActor::read_and_cache_image(
@@ -793,21 +880,21 @@ void GlobalMediaReaderActor::read_and_cache_image(
     const time_point predicted_time                    = fr.required_by_;
     const utility::Uuid playhead_uuid                  = fr.requesting_playhead_uuid_;
 
-    request(reader, std::chrono::seconds(60), read_precache_image_atom_v, *mptr)
+    mail(read_precache_image_atom_v, *mptr)
+        .request(reader, std::chrono::seconds(60))
         .then(
             [=](media_reader::ImageBufPtr buf) mutable {
                 // store the image in our cache. We use a different store message
                 // if background cacheing
                 if (is_background_cache) {
-                    request(
-                        image_cache_,
-                        std::chrono::milliseconds(500),
+                    mail(
                         media_cache::store_atom_v,
-                        mptr->key_,
+                        mptr->key(),
                         buf,
                         predicted_time,
                         playhead_uuid,
                         cache_out_of_date_threshold)
+                        .request(image_cache_, std::chrono::milliseconds(500))
                         .then(
                             [=](const bool stored) {
                                 mark_playhead_received_precache_result(playhead_uuid);
@@ -826,14 +913,13 @@ void GlobalMediaReaderActor::read_and_cache_image(
                                 spdlog::warn("Cache store error {}", to_string(err));
                             });
                 } else {
-                    request(
-                        image_cache_,
-                        std::chrono::milliseconds(500),
+                    mail(
                         media_cache::store_atom_v,
-                        mptr->key_,
+                        mptr->key(),
                         buf,
                         predicted_time,
                         playhead_uuid)
+                        .request(image_cache_, std::chrono::milliseconds(500))
                         .then(
                             [=](const bool stored) {
                                 if (!stored) {
@@ -856,7 +942,7 @@ void GlobalMediaReaderActor::read_and_cache_image(
             },
             [=](const caf::error &err) mutable {
                 mark_playhead_received_precache_result(playhead_uuid);
-                send_error_to_source(mptr->actor_addr_, err);
+                send_error_to_source(mptr->media_source_addr(), err);
                 // we might still have more work to do so keep going
                 continue_precacheing();
             });
@@ -872,19 +958,19 @@ void GlobalMediaReaderActor::read_and_cache_audio(
     const time_point predicted_time                    = fr.required_by_;
     const utility::Uuid playhead_uuid                  = fr.requesting_playhead_uuid_;
 
-    request(reader, std::chrono::seconds(60), read_precache_audio_atom_v, *mptr)
+    mail(read_precache_audio_atom_v, *mptr)
+        .request(reader, std::chrono::seconds(60))
         .then(
             [=](media_reader::AudioBufPtr buf) mutable {
                 // store the image in our cache
-                request(
-                    audio_cache_,
-                    std::chrono::milliseconds(500),
+                mail(
                     media_cache::store_atom_v,
-                    mptr->key_,
+                    mptr->key(),
                     buf,
                     predicted_time,
                     playhead_uuid,
                     cache_out_of_date_threshold)
+                    .request(audio_cache_, std::chrono::milliseconds(500))
                     .then(
                         [=](const bool stored) {
                             mark_playhead_received_precache_result(playhead_uuid);
@@ -896,7 +982,8 @@ void GlobalMediaReaderActor::read_and_cache_audio(
                             } else {
                                 continue_precacheing();
                                 if (is_background_cache) {
-                                    // keep_cache_hot(mptr.key_, predicted_time, playhead_uuid);
+                                    // keep_cache_hot(mptr.key(), predicted_time,
+                                    // playhead_uuid);
                                 }
                             }
                         },
@@ -907,7 +994,7 @@ void GlobalMediaReaderActor::read_and_cache_audio(
             },
             [=](const caf::error &err) mutable {
                 mark_playhead_received_precache_result(playhead_uuid);
-                send_error_to_source(mptr->actor_addr_, err);
+                send_error_to_source(mptr->media_source_addr(), err);
                 // we might still have more work to do so keep going
                 continue_precacheing();
             });
@@ -922,7 +1009,7 @@ void GlobalMediaReaderActor::continue_precacheing() {
     // coming into this actor can get blocked. This is why a slight delay is
     // employed here - to ensure new incoming messages can get handled and not
     // left in the queue
-    anon_send(caf::actor_cast<caf::actor>(this), do_precache_work_atom_v);
+    anon_mail(do_precache_work_atom_v).send(caf::actor_cast<caf::actor>(this));
 }
 
 void GlobalMediaReaderActor::mark_playhead_waiting_for_precache_result(
@@ -958,16 +1045,16 @@ void GlobalMediaReaderActor::send_error_to_source(
             from_integer(err.code(), me);
             switch (me) {
             case media_error::corrupt:
-                anon_send(dest, media_status_atom_v, MediaStatus::MS_CORRUPT);
+                anon_mail(media_status_atom_v, MediaStatus::MS_CORRUPT).send(dest);
                 break;
             case media_error::unsupported:
-                anon_send(dest, media_status_atom_v, MediaStatus::MS_UNSUPPORTED);
+                anon_mail(media_status_atom_v, MediaStatus::MS_UNSUPPORTED).send(dest);
                 break;
             case media_error::unreadable:
-                anon_send(dest, media_status_atom_v, MediaStatus::MS_UNREADABLE);
+                anon_mail(media_status_atom_v, MediaStatus::MS_UNREADABLE).send(dest);
                 break;
             case media_error::missing:
-                anon_send(dest, media_status_atom_v, MediaStatus::MS_MISSING);
+                anon_mail(media_status_atom_v, MediaStatus::MS_MISSING).send(dest);
                 break;
             }
         }

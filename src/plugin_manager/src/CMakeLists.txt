@@ -1,13 +1,14 @@
 SET(LINK_DEPS
-	caf::core
-	xstudio::broadcast
+	CAF::core
 	xstudio::module
 	xstudio::utility
 )
 
-if(UNIX AND NOT APPLE)
-    list(APPEND LINK_DEPS stdc++fs dl)
+if(UNIX)
+	list(APPEND LINK_DEPS dl)  # Link against stdc++fs for Linux
+	if (NOT APPLE)
+		list(APPEND LINK_DEPS stdc++fs)  # Link against stdc++fs for Linux
+	endif()
 endif()
 
-create_component(plugin_manager 0.1.0 "${LINK_DEPS}")
-
+create_component(plugin_manager ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}")

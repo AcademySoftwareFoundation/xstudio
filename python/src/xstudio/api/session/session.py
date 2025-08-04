@@ -3,15 +3,20 @@ from xstudio.core import get_playlists_atom, get_playlist_atom, add_playlist_ato
 from xstudio.core import get_container_atom, create_group_atom, remove_container_atom, path_atom, get_media_atom
 from xstudio.core import rename_container_atom, create_divider_atom, media_rate_atom, playhead_rate_atom
 from xstudio.core import reflag_container_atom, merge_playlist_atom, copy_container_to_atom
-from xstudio.core import get_bookmark_atom, save_atom, current_playlist_atom
-from xstudio.core import URI, Uuid, UuidVec
+from xstudio.core import get_bookmark_atom, save_atom, active_media_container_atom, current_media_atom, name_atom
+from xstudio.core import viewport_active_media_container_atom
+from xstudio.core import URI, Uuid, VectorUuid, item_selection_atom, type_atom
 
 from xstudio.api.session.container import Container, PlaylistTree, PlaylistItem
 from xstudio.api.session.playlist import Playlist
 from xstudio.api.session.media.media import Media
 from xstudio.api.session.bookmark import Bookmarks
+from xstudio.api.session.playlist.subset import Subset
+from xstudio.api.session.playlist.contact_sheet import ContactSheet
+from xstudio.api.session.playlist.timeline import Timeline
+from xstudio.api.auxiliary import NotificationHandler
 
-class Session(Container):
+class Session(Container, NotificationHandler):
     """Session object."""
 
     def __init__(self, connection, remote, uuid=None):
@@ -27,6 +32,132 @@ class Session(Container):
             uuid(Uuid): Uuid of remote actor.
         """
         Container.__init__(self, connection, remote, uuid)
+        NotificationHandler.__init__(self, self)
+
+    @property
+    def selected_media(self):
+        """Get currently selected media.
+
+        Returns:
+            Media(): Media.
+        """
+
+        result = self.connection.request_receive(self.remote, current_media_atom())[0]
+        media = []
+        for i in result:
+            media.append(Media(self.connection, i.actor, i.uuid))
+
+        return media
+
+    @property
+    def selected_containers(self):
+        """Get currently selected containers.
+
+        Returns:
+            container(Playlist,Subset,Timelime,ContactSheet): Container.
+        """
+
+        items = self.connection.request_receive(self.remote, item_selection_atom())[0]
+        result = []
+
+        for i in items:
+            item_type = self.connection.request_receive(i.actor, type_atom())[0]
+            if item_type == "Timeline":
+                result.append(
+                    Timeline(self.connection, i.actor, i.uuid)
+                )
+            elif item_type == "Subset":
+                result.append(
+                    Subset(self.connection, i.actor, i.uuid)
+                )
+            elif item_type == "ContactSheet":
+                result.append(
+                    ContactSheet(self.connection, i.actor, i.uuid)
+                )
+            elif item_type == "Playlist":
+                result.append(
+                    Playlist(self.connection, i.actor, i.uuid)
+                )
+
+
+        return result
+
+    @property
+    def viewed_playlist(self):
+        """Get currently viewed (Playlist,Subset,Timelime,ContactSheet).
+
+        Returns:
+            Playlist(): Playlist.
+        """
+        return self.viewed_container
+
+    @property
+    def viewed_container(self):
+        """Get currently viewed container.
+
+        Returns:
+            container(Playlist,Subset,Timelime,ContactSheet): Container.
+        """
+
+        result = self.connection.request_receive(self.remote, viewport_active_media_container_atom())[0]
+        c = Container(self.connection, result.actor)
+
+        if c.type == "Timeline":
+            return Timeline(self.connection, result.actor, result.uuid)
+        elif c.type == "Subset":
+            return Subset(self.connection, result.actor, result.uuid)
+        elif c.type == "ContactSheet":
+            return ContactSheet(self.connection, result.actor, result.uuid)
+
+        return Playlist(self.connection, result.actor, result.uuid)
+
+    @viewed_container.setter
+    def viewed_container(self, container):
+        """Set the current, on-screen playlist
+
+        Args:
+            container(Playlist,Subset,Timelime,ContactSheet): playlist, subset or timeline(sequence)
+        """
+        self.connection.send(self.remote, viewport_active_media_container_atom(), container.uuid)
+
+    @property
+    def inspected_playlist(self):
+        """Get currently inspected playlist/subset/timeline etc.
+
+        Returns:
+            container(Playlist,Subset,Timelime,ContactSheet): Container.
+        """
+        return self.inspected_container
+
+
+    @property
+    def inspected_container(self):
+        """Get currently inspected container.
+
+        Returns:
+            container(Playlist,Subset,Timelime,ContactSheet): Container.
+        """
+
+        result = self.connection.request_receive(self.remote, active_media_container_atom())[0]
+        c = Container(self.connection, result.actor)
+
+        if c.type == "Timeline":
+            return Timeline(self.connection, result.actor, result.uuid)
+        elif c.type == "Subset":
+            return Subset(self.connection, result.actor, result.uuid)
+        elif c.type == "ContactSheet":
+            return ContactSheet(self.connection, result.actor, result.uuid)
+
+        return Playlist(self.connection, result.actor, result.uuid)
+
+    @inspected_container.setter
+    def inspected_container(self, container):
+        """Set the current, *inspected* playlist
+
+        Args:
+            container(Playlist,Subset,Timelime,ContactSheet): playlist, subset or timeline(sequence)
+        """
+        self.connection.send(self.remote, active_media_container_atom(), container.uuid)
 
     @property
     def path(self):
@@ -128,16 +259,16 @@ class Session(Container):
         Returns:
             playlist(Uuid,Playlist): Returns container Uuid and Playlist
         """
-        uuids = UuidVec()
+        uuids = []
         for i in playlists:
             if not isinstance(i, Uuid):
                 i = i.uuid
-            uuids.push_back(i)
+            uuids.append(i)
 
         if not isinstance(before, Uuid):
             before = before.uuid
 
-        result = self.connection.request_receive(self.remote, merge_playlist_atom(), name, before, uuids)[0]
+        result = self.connection.request_receive(self.remote, merge_playlist_atom(), name, before, VectorUuid(uuids))[0]
         return (result[0], Playlist(self.connection, result[1].actor, result[1].uuid))
 
         # return (result[0], Playlist(self.connection, result[1][1], result[1][0]))
@@ -218,7 +349,7 @@ class Session(Container):
         """
         self.connection.send(
             self.remote,
-            current_playlist_atom(),
+            active_media_container_atom(),
             src.uuid_actor().actor
             )
 
@@ -290,18 +421,18 @@ class Session(Container):
         Returns:
             uuids(list[Uuid]): Returns list of new container uuids.
         """
-        uuids = UuidVec()
+        uuids = []
         for i in containers:
             if not isinstance(i, Uuid):
                 i = i.uuid
-            uuids.push_back(i)
+            uuids.append(i)
 
         if not isinstance(before, Uuid):
             before = before.uuid
         if not isinstance(playlist, Uuid):
             playlist = playlist.uuid
 
-        return self.connection.request_receive(self.remote, copy_container_to_atom(), playlist, uuids, before, into)[0]
+        return self.connection.request_receive(self.remote, copy_container_to_atom(), playlist, VectorUuid(uuids), before, into)[0]
 
     def get_media(self):
         """Return all media over all playlists
@@ -333,3 +464,38 @@ class Session(Container):
             path = URI(path)
 
         return self.connection.request_receive(self.remote, save_atom(), path)[0]
+
+    def quickview_media(self, media_paths, compare_mode="Grid"):
+        """Load media item(s) into a QuickView playlist and show in a QuickView
+        window
+        Args:
+            media_paths(str or list[str] or list[Uri]): media to load
+            compare_mode(str): Compare mode where multiple media items are to
+            be loaded. Options are "Grid"/"Off"/"A/B"/"Over" etc.
+        """
+
+        quickview_playlist = None
+        for playlist in self.playlists:
+            if playlist.name == "QuickView":
+                quickview_playlist = playlist
+        if not quickview_playlist:
+            quickview_playlist = self.create_playlist("QuickView")[1]
+
+        new_media = []
+        if isinstance(media_paths, list):
+            for mp in media_paths:
+                new_media.append(quickview_playlist.add_media(mp))
+        else:
+            new_media.append(quickview_playlist.add_media(media_paths))
+
+        from xstudio.core import UuidActorVec, UuidActor, open_quickview_window_atom
+
+        media_actors = UuidActorVec()
+        for m in new_media:
+            media_actors.push_back(UuidActor(m.uuid, m.remote))
+
+        self.connection.request_receive(
+            self.connection.api.app.remote,
+            open_quickview_window_atom(),
+            media_actors,
+            compare_mode)

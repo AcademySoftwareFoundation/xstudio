@@ -35,13 +35,16 @@ JsonStore xstudio::utility::open_session(const caf::uri &path) {
 
 JsonStore xstudio::utility::open_session(const std::string &path) {
     JsonStore js;
-
     zstr::ifstream i(path);
     i >> js;
-
     return js;
 }
 
+
+void JsonStore::parse_string(const std::string &data) {
+    auto n = nlohmann::json::parse(data);
+    *this  = nlohmann::json::parse(data);
+}
 
 // void JsonStore::merge(const JsonStore &json, const std::string &path) {
 //     merge(json, path);

@@ -1,0 +1,502 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>xstudio.plugin.plugin_base &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link href="../../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            xStudio
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user_docs/index.html">xSTUDIO User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">xSTUDIO Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">xStudio</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">xstudio.plugin.plugin_base</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for xstudio.plugin.plugin_base</h1><div class="highlight"><pre>
+<span></span><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.module</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModuleBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.session.playhead</span><span class="w"> </span><span class="kn">import</span> <span class="n">Playhead</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">JsonStore</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">,</span> <span class="n">AttributeRole</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.auxiliary.helpers</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_event_group</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">spawn_plugin_base_atom</span><span class="p">,</span> <span class="n">viewport_playhead_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_global_playhead_events_atom</span><span class="p">,</span> <span class="n">show_message_box_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">plugin_events_group_atom</span><span class="p">,</span> <span class="n">get_event_group_atom</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">make_simple_string</span><span class="p">(</span><span class="n">string_in</span><span class="p">):</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+    <span class="k">return</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s1">&#39;[^0-9a-zA-Z]+&#39;</span><span class="p">,</span> <span class="s1">&#39;_&#39;</span><span class="p">,</span> <span class="n">string_in</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+
+<div class="viewcode-block" id="PluginBase">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.plugin.PluginBase">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PluginBase</span><span class="p">(</span><span class="n">ModuleBase</span><span class="p">):</span>
+
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for python plugins&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">connection</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;GenericPlugin&quot;</span><span class="p">,</span>
+            <span class="n">base_class_name</span><span class="o">=</span><span class="s2">&quot;StandardPlugin&quot;</span><span class="p">,</span>
+            <span class="n">qml_folder</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="n">actor</span><span class="o">=</span><span class="kc">None</span>
+            <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create python plugin base class.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name(str): Name of pytho plugin</span>
+<span class="sd">            base_class_name(str): Name of underlying C++ plugin class. This</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">actor</span><span class="p">:</span>
+            <span class="n">actor</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+                <span class="n">connection</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">plugin_manager</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
+                <span class="n">spawn_plugin_base_atom</span><span class="p">(),</span>
+                <span class="n">name</span><span class="p">,</span>
+                <span class="n">JsonStore</span><span class="p">(),</span>
+                <span class="n">base_class_name</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">ModuleBase</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">actor</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">qml_folder</span> <span class="o">=</span> <span class="n">qml_folder</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plugin_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">realpath</span><span class="p">(</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span>
+                <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="vm">__module__</span><span class="p">]</span><span class="o">.</span><span class="vm">__file__</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">qml_item_attrs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">playhead_subscriptions</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">user_attr_handler_</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="PluginBase.add_attribute">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.plugin.PluginBase.add_attribute">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_attribute</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">attribute_name</span><span class="p">,</span>
+        <span class="n">attribute_value</span><span class="p">,</span>
+        <span class="n">attribute_role_data</span><span class="o">=</span><span class="p">{},</span>
+        <span class="n">register_as_preference</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add an attribute to your plugin class. Attributes provide a flexible</span>
+<span class="sd">        way to store data and/or pass data between your plugin and the xStudio</span>
+<span class="sd">        UI. An attribute can have multiple &#39;role&#39; values - each role value can</span>
+<span class="sd">        be made accessible in the QML layer. See demo plugins for more details.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            attribute_name(str): Name of the attribute</span>
+<span class="sd">            attribute_value(int,float,bool,str, list(str)): The value of the</span>
+<span class="sd">                attribute</span>
+<span class="sd">            attribute_role_data(dict): Other role data of the attribute</span>
+<span class="sd">            register_as_preference(bool): If true the attribute value will be</span>
+<span class="sd">                recorded in the users preferences data when xstudio closes and </span>
+<span class="sd">                the value restored next time xstudio starts up.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># if qml code is being added as attribute data and we also have qml_folder</span>
+        <span class="c1"># set we add an import directive to the qml code with the path to the</span>
+        <span class="c1"># plugin location. This allows plugins with qml to be relocatable.</span>
+        <span class="k">if</span> <span class="s2">&quot;qml_code&quot;</span> <span class="ow">in</span> <span class="n">attribute_role_data</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">qml_folder</span><span class="p">:</span>
+            <span class="n">uri</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span>
+                <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2">/</span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">plugin_path</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">qml_folder</span><span class="p">))</span><span class="o">.</span><span class="n">as_uri</span><span class="p">()</span>
+            <span class="n">attribute_role_data</span><span class="p">[</span><span class="s2">&quot;qml_code&quot;</span><span class="p">]</span> <span class="o">=</span>\
+                <span class="s2">&quot;import </span><span class="se">\&quot;</span><span class="si">{0}</span><span class="se">\&quot;\n</span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">uri</span><span class="p">,</span>
+                    <span class="n">attribute_role_data</span><span class="p">[</span><span class="s2">&quot;qml_code&quot;</span><span class="p">]</span>
+                <span class="p">)</span>
+
+        <span class="n">preference_path</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">register_as_preference</span><span class="p">:</span>
+            <span class="n">preference_path</span> <span class="o">=</span> <span class="s2">&quot;/plugin/&quot;</span> <span class="o">+</span> <span class="n">make_simple_string</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="o">+</span> \
+                <span class="s2">&quot;/&quot;</span> <span class="o">+</span> <span class="n">make_simple_string</span><span class="p">(</span><span class="n">attribute_name</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">add_attribute</span><span class="p">(</span>
+            <span class="n">attribute_name</span><span class="p">,</span>
+            <span class="n">attribute_value</span><span class="p">,</span>
+            <span class="n">attribute_role_data</span><span class="p">,</span>
+            <span class="n">preference_path</span><span class="o">=</span><span class="n">preference_path</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">current_playhead</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="n">gphev</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">remote</span><span class="p">(),</span>
+            <span class="n">get_global_playhead_events_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">Playhead</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="n">gphev</span><span class="p">,</span>
+            <span class="n">viewport_playhead_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">])</span>
+
+<div class="viewcode-block" id="PluginBase.popup_message_box">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.plugin.PluginBase.popup_message_box">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">popup_message_box</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">message_title</span><span class="p">,</span>
+        <span class="n">message_body</span><span class="p">,</span>
+        <span class="n">close_button</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">autohide_timeout_secs</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Pop-up a simple message box dialog in the xstudio GUI with only</span>
+<span class="sd">        a &#39;close&#39; button</span>
+<span class="sd">        Args:</span>
+<span class="sd">            message_title(str): This goes in the title bar of the dialog</span>
+<span class="sd">            message_body(str): The body of the text</span>
+<span class="sd">            close_button(bool): Add a close button to the box</span>
+<span class="sd">            autohide_timeout_secs(int): Optional timeout to auto-hide the message box</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">app</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">app</span>
+        <span class="n">cp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
+            <span class="n">app</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
+            <span class="n">show_message_box_atom</span><span class="p">(),</span>
+            <span class="n">message_title</span><span class="p">,</span>
+            <span class="n">message_body</span><span class="p">,</span>
+            <span class="n">close_button</span><span class="p">,</span>
+            <span class="nb">int</span><span class="p">(</span><span class="n">autohide_timeout_secs</span><span class="p">)</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PluginBase.create_qml_item">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.plugin.PluginBase.create_qml_item">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_qml_item</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">qml_item</span><span class="p">,</span>
+        <span class="n">callback_fn</span><span class="o">=</span><span class="kc">None</span>
+        <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create and show a qml item (typically a pop-up window, dialog etc.).</span>
+<span class="sd">        Args:</span>
+<span class="sd">            qml_item(str): The class name for the item to be created</span>
+<span class="sd">            callback_fn(method): Callback function that receives data from the</span>
+<span class="sd">            qml item (e.g. text entered by the user). On the qml side the </span>
+<span class="sd">            item can trigger the callback by calling xstudio_callback(JSON)</span>
+<span class="sd">            function somewhere in the qml signal handlers etc.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            item_id(uuid): The id of the attribute that injects the item into </span>
+<span class="sd">            the UI. Use this with &#39;delete_qml_item&#39; to destroy the item.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">attr_name</span> <span class="o">=</span> <span class="s2">&quot;QML item </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">hash</span><span class="p">(</span><span class="n">qml_item</span><span class="p">))</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">attr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_attribute</span><span class="p">(</span><span class="n">attr_name</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">attr</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">attr</span><span class="p">:</span>
+            <span class="n">attr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_attribute</span><span class="p">(</span>
+                <span class="n">attr_name</span><span class="p">,</span>
+                <span class="n">attribute_value</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="n">attribute_role_data</span><span class="o">=</span><span class="p">{</span>
+                    <span class="s2">&quot;qml_code&quot;</span><span class="p">:</span> <span class="n">qml_item</span><span class="p">,</span>
+                    <span class="s2">&quot;groups&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;dynamic qml items&quot;</span><span class="p">],</span>
+                    <span class="s2">&quot;enabled&quot;</span><span class="p">:</span> <span class="kc">False</span>
+                <span class="p">})</span>
+
+        <span class="k">if</span> <span class="n">callback_fn</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">qml_item_attrs</span><span class="p">[</span><span class="n">attr</span><span class="o">.</span><span class="n">uuid</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">attr</span><span class="p">,</span> <span class="n">callback_fn</span><span class="p">)</span>
+        <span class="c1"># &#39;attr_enabled&#39; controls the visibility of the widget</span>
+        <span class="n">attr</span><span class="o">.</span><span class="n">set_role_data</span><span class="p">(</span><span class="s2">&quot;attr_enabled&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span> 
+        <span class="k">return</span> <span class="n">attr</span><span class="o">.</span><span class="n">uuid</span></div>
+
+
+<div class="viewcode-block" id="PluginBase.delete_qml_item">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.plugin.PluginBase.delete_qml_item">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">delete_qml_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item_uuid</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Destroy / Clean up a QML item created with &#39;create_qml_item&#39;.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            item_uuid(uuid): The id of the item created by &#39;create_qml_item&#39;</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">remove_attribute</span><span class="p">(</span><span class="n">item_uuid</span><span class="p">)</span>        </div>
+
+
+<div class="viewcode-block" id="PluginBase.attribute_changed">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.plugin.PluginBase.attribute_changed">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">attribute_changed</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">attribute</span><span class="p">,</span>
+        <span class="n">role</span>
+        <span class="p">):</span>
+
+        <span class="c1"># check if &#39;CallbackData&#39; has been set - if the attribute is one of our </span>
+        <span class="c1"># qml_item_attrs then we execute the associated callback</span>
+        <span class="k">if</span> <span class="n">role</span> <span class="o">==</span> <span class="n">AttributeRole</span><span class="o">.</span><span class="n">CallbackData</span> <span class="ow">and</span> \
+            <span class="n">attribute</span><span class="o">.</span><span class="n">uuid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">qml_item_attrs</span> <span class="ow">and</span> \
+            <span class="n">attribute</span><span class="o">.</span><span class="n">role_data</span><span class="p">(</span><span class="s2">&quot;callback_data&quot;</span><span class="p">)</span> <span class="o">!=</span> <span class="p">{}:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">qml_item_attrs</span><span class="p">[</span><span class="n">attribute</span><span class="o">.</span><span class="n">uuid</span><span class="p">][</span><span class="mi">1</span><span class="p">](</span><span class="n">attribute</span><span class="o">.</span><span class="n">role_data</span><span class="p">(</span><span class="s2">&quot;callback_data&quot;</span><span class="p">))</span>
+            <span class="c1"># now reset the callback data so if the callback is called again with</span>
+            <span class="c1"># the same data as before we still get an &#39;attribute_changed&#39; signal</span>
+            <span class="n">attribute</span><span class="o">.</span><span class="n">set_role_data</span><span class="p">(</span><span class="s2">&quot;callback_data&quot;</span><span class="p">,</span> <span class="p">{})</span></div>
+
+
+<div class="viewcode-block" id="PluginBase.get_plugin">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.plugin.PluginBase.get_plugin">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_plugin</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">plugin_name</span>
+        <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get an/the instance of the named xSTUDIO plugin. If the plugin is </span>
+<span class="sd">        &#39;resident&#39; then the singleton instance of the plugin will be returned,</span>
+<span class="sd">        otherwise a new spawning of the plugin will be returned.</span>
+
+<span class="sd">        This can be useful to get to another plugin (e.g. &quot;AnnotationsPlugin&quot;)</span>
+<span class="sd">        to query its attributes, set its attributes and do other interactions</span>
+<span class="sd">        with it. See api.plugin_manager for more ways to query plugins.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            plugin_name(str): The name of the plugin.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            plugin(PluginBase/actor): Returns a PluginBase actor wrapper if the</span>
+<span class="sd">            plugin itself is derived from the StandardPlugin base class.</span>
+<span class="sd">            Otherwise an actor handle is returned</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">for</span> <span class="n">plugin_detail</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">plugin_manager</span><span class="o">.</span><span class="n">plugin_detail</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">plugin_detail</span><span class="o">.</span><span class="n">name</span><span class="p">()</span> <span class="o">==</span> <span class="n">plugin_name</span><span class="p">:</span>
+                <span class="n">plugin_actor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">plugin_manager</span><span class="o">.</span><span class="n">get_plugin_instance</span><span class="p">(</span><span class="n">plugin_detail</span><span class="o">.</span><span class="n">uuid</span><span class="p">())</span>
+                <span class="k">return</span> <span class="n">PluginBase</span><span class="p">(</span><span class="n">connection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">actor</span><span class="o">=</span><span class="n">plugin_actor</span><span class="p">)</span>
+        
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;No plugin found with name </span><span class="se">\&quot;</span><span class="si">{}</span><span class="se">\&quot;</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">plugin_name</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="PluginBase.subscribe_to_playhead_events">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.plugin.PluginBase.subscribe_to_playhead_events">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subscribe_to_playhead_events</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">playhead</span><span class="p">,</span> <span class="n">callback_method</span><span class="p">,</span> <span class="n">auto_cancel</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set-up a subscription to the events of an xstudio playhead. Can</span>
+<span class="sd">        automatically cancel previous subscription(s)</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            plugin(actor): The playhead that we want to watch</span>
+<span class="sd">            callback_method(Callable): The function which will be called</span>
+<span class="sd">            with playhead events. Must take a single argument (a tuple of the event</span>
+<span class="sd">            data)</span>
+<span class="sd">        </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            uuid (callback id): A uuid for the subscription. Pass to</span>
+<span class="sd">            unsubscribe_from_event_group to cancel an event subscription</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">event_group</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="n">playhead</span><span class="p">,</span>
+            <span class="n">get_event_group_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">event_group</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Actor has no event group.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">auto_cancel</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">playhead_subscriptions</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">sub</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">playhead_subscriptions</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">unsubscribe_from_event_group</span><span class="p">(</span><span class="n">sub</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">playhead_subscriptions</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">subscription_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">link</span><span class="o">.</span><span class="n">add_message_callback</span><span class="p">(</span>
+            <span class="n">event_group</span><span class="p">,</span> <span class="n">callback_method</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">playhead_subscriptions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subscription_id</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">subscription_id</span></div>
+
+
+<div class="viewcode-block" id="PluginBase.subscribe_to_plugin_events">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.plugin.PluginBase.subscribe_to_plugin_events">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subscribe_to_plugin_events</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">plugin</span><span class="p">,</span> <span class="n">callback_method</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set-up a subscription to the events of an xstudio plugin.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            plugin(PluginBase): The plugin whose event group (plugin events)</span>
+<span class="sd">            we want to join.</span>
+<span class="sd">            callback_method(Callable): The function which will be called</span>
+<span class="sd">            with event. Must take a single argument (a tuple of the event</span>
+<span class="sd">            data)</span>
+<span class="sd">        </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            uuid (callback id): A uuid for the subscription. Pass to</span>
+<span class="sd">            unsubscribe_from_event_group to cancel an event subscription</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">event_group</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="n">plugin</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
+            <span class="n">plugin_events_group_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">event_group</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Actor has no event group.&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">link</span><span class="o">.</span><span class="n">add_message_callback</span><span class="p">(</span>
+            <span class="n">event_group</span><span class="p">,</span> <span class="n">callback_method</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PluginBase.register_ui_panel_qml">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.plugin.PluginBase.register_ui_panel_qml">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register_ui_panel_qml</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+        <span class="n">panel_name</span><span class="p">,</span>
+        <span class="n">qml_code</span><span class="p">,</span>
+        <span class="n">position_in_menu</span><span class="p">,</span>
+        <span class="n">viewport_popout_button_icon</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="n">viewport_popout_button_position</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">toggle_hotkey_id</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Register a GUI interface as a panel and/or a floating window with a</span>
+<span class="sd">        button in the viewport button shelf.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            panel_name(str): The name of the panel (as displayed in the panels menu list)</span>
+<span class="sd">            qml_code(str): The qml code for the contents of the panel</span>
+<span class="sd">            position_in_menu(float): Where the panel entry appears in the panel menu</span>
+<span class="sd">            viewport_popout_button_icon(str): QML resource string for the icon, if a viewport shelf button is desired</span>
+<span class="sd">            viewport_popout_button_position(float): Position of button in shelf</span>
+<span class="sd">            toggle_hotkey_id(Uuid): Optional uuid for a hotkey that shows/hides the floating panel</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_actor_from_registry_atom</span><span class="p">,</span> <span class="n">insert_rows_atom</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">qml_folder</span><span class="p">:</span>
+            <span class="n">uri</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span>
+                <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2">/</span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">plugin_path</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">qml_folder</span><span class="p">))</span><span class="o">.</span><span class="n">as_uri</span><span class="p">()</span>
+            <span class="n">qml_code</span> <span class="o">=</span>\
+                <span class="s2">&quot;import </span><span class="se">\&quot;</span><span class="si">{0}</span><span class="se">\&quot;\n</span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">uri</span><span class="p">,</span>
+                    <span class="n">qml_code</span>
+                <span class="p">)</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">data</span><span class="p">[</span><span class="s2">&quot;view_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">panel_name</span>
+        <span class="n">data</span><span class="p">[</span><span class="s2">&quot;view_qml_source&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">qml_code</span>
+        <span class="n">data</span><span class="p">[</span><span class="s2">&quot;position&quot;</span><span class="p">]</span>  <span class="o">=</span> <span class="n">position_in_menu</span>
+
+        <span class="n">central_models_data_actor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">remote</span><span class="p">(),</span>
+            <span class="n">get_actor_from_registry_atom</span><span class="p">(),</span>
+            <span class="s2">&quot;GLOBALUIMODELDATA&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">j</span> <span class="o">=</span> <span class="n">JsonStore</span><span class="p">()</span>
+        <span class="n">j</span><span class="o">.</span><span class="n">parse_string</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">data</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
+            <span class="n">central_models_data_actor</span><span class="p">,</span>
+            <span class="n">insert_rows_atom</span><span class="p">(),</span>
+            <span class="s2">&quot;view widgets&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="mi">0</span><span class="p">,</span>
+            <span class="mi">1</span><span class="p">,</span>
+            <span class="n">j</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">viewport_popout_button_icon</span> <span class="ow">and</span> <span class="n">viewport_popout_button_position</span> <span class="o">!=</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">:</span>
+
+            <span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">data</span><span class="p">[</span><span class="s2">&quot;view_name&quot;</span><span class="p">]</span>         <span class="o">=</span> <span class="n">panel_name</span>
+            <span class="n">data</span><span class="p">[</span><span class="s2">&quot;icon_path&quot;</span><span class="p">]</span>         <span class="o">=</span> <span class="n">viewport_popout_button_icon</span>
+            <span class="n">data</span><span class="p">[</span><span class="s2">&quot;view_qml_source&quot;</span><span class="p">]</span>   <span class="o">=</span> <span class="n">qml_code</span>
+            <span class="n">data</span><span class="p">[</span><span class="s2">&quot;button_position&quot;</span><span class="p">]</span>   <span class="o">=</span> <span class="n">viewport_popout_button_position</span>
+            <span class="n">data</span><span class="p">[</span><span class="s2">&quot;window_is_visible&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">data</span><span class="p">[</span><span class="s2">&quot;hotkey_uuid&quot;</span><span class="p">]</span>       <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">toggle_hotkey_id</span><span class="p">)</span>
+            <span class="n">data</span><span class="p">[</span><span class="s2">&quot;module_uuid&quot;</span><span class="p">]</span>       <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+
+            <span class="n">j</span><span class="o">.</span><span class="n">parse_string</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">data</span><span class="p">))</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
+                <span class="n">central_models_data_actor</span><span class="p">,</span>
+                <span class="n">insert_rows_atom</span><span class="p">(),</span>
+                <span class="s2">&quot;popout windows&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                <span class="mi">0</span><span class="p">,</span>
+                <span class="mi">1</span><span class="p">,</span>
+                <span class="n">j</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DNeg.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

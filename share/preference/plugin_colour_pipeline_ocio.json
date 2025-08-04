@@ -2,35 +2,19 @@
 	"plugin": {
 		"colour_pipeline": {
 			"ocio": {
-				"linear_name": {
-					"path": "/plugin/colour_pipeline/ocio/linear_name",
-					"default_value": "linear",
-					"description": "Default config name for linear.",
-					"value": "linear",
-					"datatype": "string",
-					"context": ["APPLICATION"]
-				},
-				"log_name": {
-					"path": "/plugin/colour_pipeline/ocio/log_name",
-					"default_value": "log",
-					"description": "Default config name for log.",
-					"value": "log",
-					"datatype": "string",
-					"context": ["APPLICATION"]
-				},
-				"user_preferred_view": {
-					"path": "/plugin/colour_pipeline/ocio/user_preferred_view",
-					"default_value": "Default",
+				"preferred_view": {
+					"path": "/plugin/colour_pipeline/ocio/preferred_view",
+					"default_value": "Automatic",
 					"description": "User preferred ocio view.",
-					"value": "Default",
+					"value": "Automatic",
 					"datatype": "string",
 					"context": ["APPLICATION"]
 				},
-				"user_view_mode": {
-					"path": "/plugin/colour_pipeline/ocio/user_view_mode",
-					"default_value": true,
+				"global_view_mode": {
+					"path": "/plugin/colour_pipeline/ocio/global_view_mode",
+					"default_value": false,
 					"description": "User view mode (global if true, per media otherwise).",
-					"value": true,
+					"value": false,
 					"datatype": "bool",
 					"context": ["APPLICATION"]
 				},
@@ -42,22 +26,41 @@
 					"datatype": "bool",
 					"context": ["APPLICATION"]
 				},
-				"enable_gamma": {
-					"path": "/plugin/colour_pipeline/ocio/enable_gamma",
-					"default_value": true,
-					"description": "Enable the gamma control in the viewport toolbar.",
-					"value": false,
-					"datatype": "bool",
-					"context": ["APPLICATION"]
+				"default_ocio_config": {
+					"path": "/plugin/colour_pipeline/ocio/default_ocio_config",
+					"default_value": "xstudio-config-v2.1.0_aces-v1.3_ocio-v2.1.ocio",
+					"description": "Select the OpenColorIO config xSTUDIO should use. Note that this will NOT override colour management rules driven by pipeline integration plugins, if you have any installed, or the OpenColorIO Environment Variable if it is set.",
+					"value": "xstudio-config-v2.1.0_aces-v1.3_ocio-v2.1.ocio",
+					"options": [],
+					"datatype": "multichoice string",
+					"context": ["APPLICATION"],
+					"category": "Colour Management",
+					"display_name": "Default OpenColorIO Config",
+					"display_order": 2
 				},
-				"enable_saturation": {
-					"path": "/plugin/colour_pipeline/ocio/enable_saturation",
-					"default_value": true,
-					"description": "Enable the saturation control in the viewport toolbar.",
-					"value": false,
-					"datatype": "bool",
-					"context": ["APPLICATION"]
-				}
+				"custom_ocio_config": {
+					"path": "/plugin/colour_pipeline/ocio/custom_ocio_config",
+					"default_value": "",
+					"description": "Select the OpenColorIO config path, used if the default OCIO config setting is set to Custom",
+					"value": "",
+					"datatype": "file path",
+					"options": ["OCIO (*.ocio)", "All files (*)"],
+					"context": ["APPLICATION"],
+					"category": "Colour Management",
+					"display_name": "Custom OpenColorIO Config",
+					"display_order": 3
+				},
+				"ocio_env_var": {
+					"path": "/plugin/colour_pipeline/ocio/ocio_env_var",
+					"default_value": "",
+					"description": "This field shows you the OCIO environment variable. If set, it should point to an ocio config file on disk or a builtin config using the ocio:// syntax. Unless you have pipeline integration plugins installed, it will take precedence over the settings below.",
+					"value": "",
+					"datatype": "read only string",
+					"context": ["APPLICATION"],
+					"category": "Colour Management",
+					"display_name": "OpenColorIO Environment Variable",
+					"display_order": 1
+				}	
 			}
 		}
 	}

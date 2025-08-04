@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/policy/select_all.hpp>
+#include <caf/actor_registry.hpp>
+
 #include <tuple>
 
 #include "xstudio/atoms.hpp"
@@ -12,6 +14,7 @@
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/utility/csv.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
+#include "xstudio/thumbnail/thumbnail.hpp"
 
 using namespace xstudio;
 using namespace xstudio::utility;
@@ -30,7 +33,7 @@ BookmarksActor::BookmarksActor(caf::actor_config &cfg, const utility::JsonStore 
             auto uuid        = utility::Uuid(key);
             auto actor       = spawn<BookmarkActor>(static_cast<JsonStore>(value));
             bookmarks_[uuid] = actor;
-            monitor(actor);
+            monitor_bookmark(actor);
             join_event_group(this, actor);
         } catch (const std::exception &e) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -53,69 +56,47 @@ caf::message_handler BookmarksActor::default_event_handler() {
         [=](utility::event_atom, bookmark_change_atom, const utility::UuidActor &) {}};
 }
 
+void BookmarksActor::on_exit() {
+    for (auto &it : bookmarks_) {
+        send_exit(it.second, caf::exit_reason::user_shutdown);
+    }
+}
 
-void BookmarksActor::init() {
-    print_on_create(this, base_);
-    print_on_exit(this, base_);
-
-    event_group_ = spawn<broadcast::BroadcastActor>(this);
-    link_to(event_group_);
-
-    // JsonStore category;
-
-    // try {
-    //     auto prefs = GlobalStoreHelper(system());
-    //     JsonStore j;
-    //     join_broadcast(this, prefs.get_group(j));
-    //     category = preference_value<JsonStore>(j, "/core/bookmark/category");
-    // } catch (...) {
-    // }
-
-
-    set_down_handler([=](down_msg &msg) {
+void BookmarksActor::monitor_bookmark(const caf::actor &actor) {
+    monitor(actor, [this, addr = actor.address()](const error &) {
         // find in playhead list..
-        for (auto it = std::begin(bookmarks_); it != std::end(bookmarks_); ++it) {
-            if (msg.source == it->second) {
-                demonitor(it->second);
-                // spdlog::warn("bookmark exited {}", to_string(it->first));
-                base_.send_changed(event_group_, this);
-                send(event_group_, utility::event_atom_v, remove_bookmark_atom_v, it->first);
-                bookmarks_.erase(it);
-                break;
+
+        // why is this looping ?
+
+        auto it = bookmarks_.begin();
+        while (it != bookmarks_.end()) {
+            if (addr == it->second) {
+                base_.send_changed();
+                mail(utility::event_atom_v, remove_bookmark_atom_v, it->first)
+                    .send(base_.event_group());
+                it = bookmarks_.erase(it);
+            } else {
+                it++;
             }
         }
     });
+}
 
-    behavior_.assign(
-        base_.make_set_name_handler(event_group_, this),
-        base_.make_get_name_handler(),
-        base_.make_last_changed_getter(),
-        base_.make_last_changed_setter(event_group_, this),
-        base_.make_last_changed_event_handler(event_group_, this),
-        base_.make_get_uuid_handler(),
-        base_.make_get_type_handler(),
-        base_.make_ignore_error_handler(),
-        make_get_event_group_handler(event_group_),
-        base_.make_get_detail_handler(this, event_group_),
+
+caf::message_handler BookmarksActor::message_handler() {
+    return caf::message_handler{
+        make_ignore_error_handler(),
+
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
-        // [=](json_store::update_atom,
-        //     const JsonStore & /*change*/,
-        //     const std::string & /*path*/,
-        //     const JsonStore &full) {
-        //     delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
-        // },
+        // json events from bookmarks
+        [=](json_store::update_atom,
+            const JsonStore & /*change*/,
+            const std::string & /*path*/,
+            const JsonStore &full) {},
 
-        // [=](json_store::update_atom, const JsonStore &js) {
-        //     try {
-        //         auto new_category = preference_value<JsonStore>(js,
-        //         "/core/bookmark/category"); if (new_category != category){
-        //             category = new_category;
-        //         }
-        //     } catch (const std::exception &err) {
-        //         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-        //     }
-        // },
+        // json events from bookmarks
+        [=](json_store::update_atom, const JsonStore &js) {},
 
         [=](json_store::get_json_atom atom,
             const utility::UuidVector &uuids,
@@ -173,12 +154,25 @@ void BookmarksActor::init() {
             auto clients = std::vector<caf::actor>();
 
             // check for dead bookmarks
-            for (const auto &i : bookmarks_) {
+            {
+                auto i = bookmarks_.begin();
+                while (i != bookmarks_.end()) {
+                    if (not i->second) {
+                        i = bookmarks_.erase(i);
+                    } else {
+                        clients.push_back(i->second);
+                        i++;
+                    }
+                }
+            }
+
+            // Big NOPE, you can't erase with an iterator in a loop like this
+            /*for (auto i = bookmarks_) {
                 if (not i.second)
                     bookmarks_.erase(i.first);
                 else
                     clients.push_back(i.second);
-            }
+            }*/
 
             if (not clients.empty()) {
                 fan_out_request<policy::select_all>(clients, infinite, serialise_atom_v)
@@ -291,6 +285,63 @@ void BookmarksActor::init() {
             return make_error(xstudio_error::error, "Invalid uuid");
         },
 
+        [=](bookmark::render_annotations_atom,
+            const utility::Uuid bookmark_id,
+            const int width,
+            bool /*thumnail*/
+            ) -> result<thumbnail::ThumbnailBufferPtr> {
+            // render the first frame of the given bookmark with overlay annotations
+            auto rp = make_response_promise<thumbnail::ThumbnailBufferPtr>();
+            mail(bookmark_detail_atom_v, bookmark_id)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](const BookmarkDetail &detail) mutable {
+                        caf::actor owner        = detail.owner_->actor();
+                        auto offscreen_renderer = system().registry().template get<caf::actor>(
+                            offscreen_viewport_registry);
+
+                        rp.delegate(
+                            offscreen_renderer,
+                            ui::viewport::render_viewport_to_image_atom_v,
+                            owner,                                 // media used to fetch image
+                            *(detail.logical_start_frame_),        // media frame
+                            thumbnail::THUMBNAIL_FORMAT::TF_RGB24, // format
+                            width,                                 // output width
+                            false, // 'auto scale' (where width is set by source image)
+                            true   // render annotations
+                        );
+                    },
+                    [=](const caf::error &err) mutable { rp.deliver(err); });
+            return rp;
+        },
+
+        [=](bookmark::render_annotations_atom,
+            const utility::Uuid bookmark_id,
+            const int width) -> result<std::vector<std::byte>> {
+            // render the first frame of the given bookmark with overlay annotations
+            // and convert to a JPEG buffer
+
+            auto rp = make_response_promise<std::vector<std::byte>>();
+            mail(render_annotations_atom_v, bookmark_id, width, true)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](const thumbnail::ThumbnailBufferPtr &thumb) mutable {
+                        auto thumbnail_manager = system().registry().template get<caf::actor>(
+                            thumbnail_manager_registry);
+
+                        // badly named/atomed message - this gets the thumnail
+                        // manager to convert a thumb to JPEG (using Qt API)
+                        rp.delegate(
+                            thumbnail_manager,
+                            media_reader::get_thumbnail_atom_v,
+                            thumb,
+                            100 // jpeg quality = 100
+                        );
+                    },
+                    [=](const caf::error &err) mutable { rp.deliver(err); });
+            return rp;
+        },
+
         [=](get_bookmark_atom,
             const utility::UuidList &uuids) -> result<std::vector<UuidActor>> {
             std::vector<UuidActor> r;
@@ -309,20 +360,14 @@ void BookmarksActor::init() {
             if (bookmarks_.count(uuid)) {
                 // clone it..
                 auto rp = make_response_promise<utility::UuidActor>();
-                request(bookmarks_[uuid], infinite, utility::duplicate_atom_v)
+                mail(utility::duplicate_atom_v)
+                    .request(bookmarks_[uuid], infinite)
                     .then(
                         [=](const utility::UuidActor &ua) mutable {
                             // assign to src.
                             BookmarkDetail bd;
                             bd.owner_ = src;
-                            anon_send(ua.actor(), bookmark_detail_atom_v, bd);
-                            // add to manager.
-                            bookmarks_[ua.uuid()] = ua.actor();
-                            monitor(ua.actor());
-                            join_event_group(this, ua.actor());
-                            base_.send_changed(event_group_, this);
-                            send(event_group_, utility::event_atom_v, add_bookmark_atom_v, ua);
-
+                            anon_mail(bookmark_detail_atom_v, bd).send(ua.actor());
                             rp.deliver(ua);
                         },
                         [=](const caf::error &err) mutable { rp.deliver(err); });
@@ -334,24 +379,25 @@ void BookmarksActor::init() {
         [=](add_bookmark_atom, const UuidActorVector &bookmarks) -> bool {
             for (const auto &i : bookmarks) {
                 bookmarks_[i.uuid()] = i.actor();
-                monitor(i.actor());
+                monitor_bookmark(i.actor());
                 join_event_group(this, i.actor());
-                send(event_group_, utility::event_atom_v, add_bookmark_atom_v, i);
+                mail(utility::event_atom_v, add_bookmark_atom_v, i).send(base_.event_group());
             }
-            base_.send_changed(event_group_, this);
+            base_.send_changed();
             return true;
         },
 
         // create and assign.
         [=](add_bookmark_atom, const UuidActor &src) -> result<utility::UuidActor> {
             auto rp = make_response_promise<utility::UuidActor>();
-            request(caf::actor_cast<caf::actor>(this), infinite, add_bookmark_atom_v)
+            mail(add_bookmark_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const utility::UuidActor &ua) mutable {
                         // associate..
                         BookmarkDetail bd;
                         bd.owner_ = src;
-                        anon_send(ua.actor(), bookmark_detail_atom_v, bd);
+                        anon_mail(bookmark_detail_atom_v, bd).send(ua.actor());
                         rp.deliver(ua);
                     },
                     [=](const caf::error &err) mutable { rp.deliver(err); });
@@ -361,11 +407,11 @@ void BookmarksActor::init() {
 
         // change to bookmark
         [=](utility::event_atom, bookmark_change_atom, const utility::Uuid &uuid) {
-            send(
-                event_group_,
+            mail(
                 utility::event_atom_v,
                 bookmark_change_atom_v,
-                UuidActor(uuid, bookmarks_[uuid]));
+                UuidActor(uuid, bookmarks_[uuid]))
+                .send(base_.event_group());
         },
 
         [=](add_bookmark_atom) -> utility::UuidActor {
@@ -373,15 +419,12 @@ void BookmarksActor::init() {
             auto actor = spawn<BookmarkActor>(uuid);
 
             bookmarks_[uuid] = actor;
-            monitor(actor);
+            monitor_bookmark(actor);
             join_event_group(this, actor);
 
-            base_.send_changed(event_group_, this);
-            send(
-                event_group_,
-                utility::event_atom_v,
-                add_bookmark_atom_v,
-                UuidActor(uuid, actor));
+            base_.send_changed();
+            mail(utility::event_atom_v, add_bookmark_atom_v, UuidActor(uuid, actor))
+                .send(base_.event_group());
 
             return UuidActor(uuid, actor);
         },
@@ -396,11 +439,10 @@ void BookmarksActor::init() {
                 // data.
                 if (bookmark_serialised_data.contains("base") &&
                     bookmark_serialised_data["base"].contains("annotation")) {
-                    request(
-                        bookmarks_[bookmark_uuid],
-                        infinite,
+                    mail(
                         bookmark::add_annotation_atom_v,
                         utility::JsonStore(bookmark_serialised_data["base"]["annotation"]))
+                        .request(bookmarks_[bookmark_uuid], infinite)
                         .then(
                             [=](bool) mutable {
                                 utility::UuidActor ua(bookmark_uuid, bookmarks_[bookmark_uuid]);
@@ -416,15 +458,13 @@ void BookmarksActor::init() {
 
                 auto actor                = spawn<BookmarkActor>(bookmark_serialised_data);
                 bookmarks_[bookmark_uuid] = actor;
-                monitor(actor);
+                monitor_bookmark(actor);
                 join_event_group(this, actor);
-                base_.send_changed(event_group_, this);
-                send(
-                    event_group_,
-                    utility::event_atom_v,
-                    add_bookmark_atom_v,
-                    UuidActor(bookmark_uuid, actor));
-                anon_send(actor, associate_bookmark_atom_v, true);
+                base_.send_changed();
+                mail(
+                    utility::event_atom_v, add_bookmark_atom_v, UuidActor(bookmark_uuid, actor))
+                    .send(base_.event_group());
+                anon_mail(associate_bookmark_atom_v, true).send(actor);
                 rp.deliver(UuidActor(bookmark_uuid, actor));
             }
             return rp;
@@ -435,7 +475,7 @@ void BookmarksActor::init() {
                 return std::vector<BookmarkDetail>();
 
             auto rp = make_response_promise<std::vector<BookmarkDetail>>();
-
+            auto w  = map_value_to_vec(bookmarks_);
             fan_out_request<policy::select_all>(
                 map_value_to_vec(bookmarks_), infinite, bookmark_detail_atom_v)
                 .then(
@@ -568,12 +608,20 @@ void BookmarksActor::init() {
             return rp;
         },
 
-        [=](session::export_atom, const session::ExportFormat ef)
-            -> result<std::pair<std::string, std::vector<std::byte>>> {
-            if (ef != session::ExportFormat::EF_CSV)
+        [=](session::export_atom,
+            const session::ExportFormat ef,
+            const caf::uri &path) -> result<std::pair<std::string, std::vector<std::byte>>> {
+            switch (ef) {
+            case session::ExportFormat::EF_CSV:
+            case session::ExportFormat::EF_CSV_WITH_ANNOTATIONS:
+            case session::ExportFormat::EF_CSV_WITH_IMAGES:
+                break;
+            default:
                 return make_error(xstudio_error::error, "Unsupported export format.");
+                break;
+            }
             auto rp = make_response_promise<std::pair<std::string, std::vector<std::byte>>>();
-            csv_export(rp);
+            csv_export(rp, ef, path);
             return rp;
         },
 
@@ -581,42 +629,201 @@ void BookmarksActor::init() {
             default_category_ = category;
         },
 
-        [=](default_category_atom) -> std::string { return default_category_; });
+        [=](default_category_atom) -> std::string { return default_category_; },
+
+        [=](media_reader::get_thumbnail_atom,
+            const BookmarkDetail detail,
+            int width,
+            caf::actor receiver) {
+            auto offscreen_renderer =
+                system().registry().template get<caf::actor>(offscreen_viewport_registry);
+            if (!offscreen_renderer) {
+                spdlog::warn("{} : Offscreen viewport not found.", __PRETTY_FUNCTION__);
+                return;
+            }
+            if (!detail.owner_ || !detail.start_ | !detail.owner_->actor())
+                return;
+
+            mail(
+                ui::viewport::render_viewport_to_image_atom_v,
+                detail.owner_->actor(),
+                *(detail.start_),
+                thumbnail::THUMBNAIL_FORMAT::TF_RGB24,
+                width,
+                false, // autoscale (renders at source imate fomat if true)
+                true /*show annotations*/)
+                .request(offscreen_renderer, infinite)
+                .then(
+                    [=](const thumbnail::ThumbnailBufferPtr &thumbnail) {
+                        if (thumbnail)
+                            anon_mail(media_reader::get_thumbnail_atom_v, detail, thumbnail)
+                                .send(receiver);
+                        else
+                            spdlog::warn(
+                                "{} {}",
+                                __PRETTY_FUNCTION__,
+                                "Null thumbanil returned by offscreen renderer.");
+                    },
+                    [=](caf::error &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    });
+        }};
 }
 
-void BookmarksActor::csv_export(
-    caf::typed_response_promise<std::pair<std::string, std::vector<std::byte>>> rp) {
-    // collect all bookmark details..
-    request(actor_cast<caf::actor>(this), infinite, bookmark_detail_atom_v, UuidVector())
-        .then(
-            [=](std::vector<BookmarkDetail> details) mutable {
-                std::vector<std::vector<std::string>> data;
-                data.emplace_back(std::vector<std::string>(
-                    {"Subject",
-                     "Notes",
-                     "Start Frame",
-                     "End Frame",
-                     "Created",
-                     "User Name",
-                     "Note Type",
-                     "Media Flag"}));
-                sort(details.begin(), details.end(), [](const auto &lhs, const auto &rhs) {
-                    return (lhs.subject_ ? *(lhs.subject_) : "") <
-                           (rhs.subject_ ? *(rhs.subject_) : "");
-                });
-                for (const auto &i : details) {
-                    data.emplace_back(std::vector<std::string>(
-                        {i.subject_ ? *(i.subject_) : "",
-                         i.note_ ? *(i.note_) : "",
-                         i.start_timecode(),
-                         i.end_timecode(),
-                         i.created(),
-                         i.author_ ? *(i.author_) : "",
-                         i.category_ ? *(i.category_) : "",
-                         i.media_flag_ ? *(i.media_flag_) : ""}));
-                }
 
-                rp.deliver(std::make_pair(utility::to_csv(data), std::vector<std::byte>()));
+void BookmarksActor::init() {
+    print_on_create(this, base_);
+    print_on_exit(this, base_);
+}
+
+void csv_exporter(
+    blocking_actor *self,
+    caf::typed_response_promise<std::pair<std::string, std::vector<std::byte>>> rp,
+    const session::ExportFormat ef,
+    const caf::uri &path,
+    std::vector<BookmarkDetail> details) {
+
+    std::vector<std::vector<std::string>> data;
+
+    sort(details.begin(), details.end(), [](const auto &lhs, const auto &rhs) {
+        return (lhs.subject_ ? *(lhs.subject_) : "") < (rhs.subject_ ? *(rhs.subject_) : "");
+    });
+
+    data.emplace_back(std::vector<std::string>(
+        {"Subject",
+         "Notes",
+         "Start Frame",
+         "End Frame",
+         "Created",
+         "User Name",
+         "Note Type",
+         "Media Flag",
+         "Annotated",
+         "Image"}));
+
+    scoped_actor sys{self->system()};
+    fs::path fp       = uri_to_posix_path(path);
+    auto image_path   = fp.parent_path() / fp.stem();
+    auto render_image = ef == session::ExportFormat::EF_CSV_WITH_IMAGES;
+    auto render_annotation =
+        ef == session::ExportFormat::EF_CSV_WITH_ANNOTATIONS or render_image;
+
+    if (render_image or render_annotation) {
+        fs::create_directory(image_path);
+    }
+
+    auto image_count = 1;
+
+    for (const auto &i : details) {
+        std::string image = "";
+
+        auto has_annotation = i.has_annotation_ ? *(i.has_annotation_) : false;
+
+        if (render_image or render_annotation) {
+            auto image_file_path =
+                (image_path / fmt::format("image_{:04d}.jpg", image_count)).string();
+            auto image_name =
+                (fp.stem() / fmt::format("image_{:04d}.jpg", image_count)).string();
+
+            auto offscreen_renderer =
+                self->system().registry().template get<caf::actor>(offscreen_viewport_registry);
+            auto thumbnail_manager =
+                self->system().registry().template get<caf::actor>(thumbnail_manager_registry);
+
+            if ((render_image or render_annotation) and has_annotation) {
+                // render annotation
+                try {
+                    auto thumb = request_receive<thumbnail::ThumbnailBufferPtr>(
+                        *sys,
+                        offscreen_renderer,
+                        ui::viewport::render_viewport_to_image_atom_v,
+                        i.owner_->actor(),                     // media used to fetch image
+                        *(i.logical_start_frame_),             // media frame
+                        thumbnail::THUMBNAIL_FORMAT::TF_RGB24, // format
+                        2560,                                  // output width
+                        false, // 'auto scale' (where width is set by source image)
+                        true   // render annotations
+                    );
+
+                    auto jpeg_buf = request_receive<std::vector<std::byte>>(
+                        *sys,
+                        thumbnail_manager,
+                        media_reader::get_thumbnail_atom_v,
+                        thumb,
+                        100);
+
+                    std::ofstream o(image_file_path);
+                    o.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+                    o.write(reinterpret_cast<const char *>(jpeg_buf.data()), jpeg_buf.size());
+                    o.close();
+
+                    image = image_name;
+                    image_count++;
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                }
+            } else if (render_image) {
+                try {
+                    auto thumb = request_receive<thumbnail::ThumbnailBufferPtr>(
+                        *sys,
+                        offscreen_renderer,
+                        ui::viewport::render_viewport_to_image_atom_v,
+                        i.owner_->actor(),                     // media used to fetch image
+                        *(i.logical_start_frame_),             // media frame
+                        thumbnail::THUMBNAIL_FORMAT::TF_RGB24, // format
+                        2560,                                  // output width
+                        false, // 'auto scale' (where width is set by source image)
+                        false  // render annotations
+                    );
+
+                    auto jpeg_buf = request_receive<std::vector<std::byte>>(
+                        *sys,
+                        thumbnail_manager,
+                        media_reader::get_thumbnail_atom_v,
+                        thumb,
+                        100);
+
+                    std::ofstream o(image_file_path);
+                    o.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+                    o.write(reinterpret_cast<const char *>(jpeg_buf.data()), jpeg_buf.size());
+                    o.close();
+
+                    image = image_name;
+                    image_count++;
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                }
+            }
+        }
+
+
+        data.emplace_back(std::vector<std::string>(
+            {i.subject_ ? *(i.subject_) : "",
+             i.note_ ? *(i.note_) : "",
+             i.start_timecode(),
+             i.end_timecode(),
+             i.created(),
+             i.author_ ? *(i.author_) : "",
+             i.category_ ? *(i.category_) : "",
+             i.media_flag_ ? *(i.media_flag_) : "",
+             has_annotation ? "true" : "false",
+             image}));
+    }
+
+    rp.deliver(std::make_pair(utility::to_csv(data), std::vector<std::byte>()));
+}
+
+
+void BookmarksActor::csv_export(
+    caf::typed_response_promise<std::pair<std::string, std::vector<std::byte>>> rp,
+    const session::ExportFormat ef,
+    const caf::uri &path) {
+    // collect all bookmark details..
+    mail(bookmark_detail_atom_v, UuidVector())
+        .request(actor_cast<caf::actor>(this), infinite)
+        .then(
+            [=](const std::vector<BookmarkDetail> &details) mutable {
+                spawn(csv_exporter, rp, ef, path, details);
             },
             [=](error &err) mutable { rp.deliver(std::move(err)); });
 }

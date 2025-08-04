@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 #pragma once
 
 #include "xstudio/utility/blind_data.hpp"
@@ -10,21 +9,22 @@ namespace ui {
         class AnnotationRenderDataSet : public utility::BlindDataObject {
           public:
             AnnotationRenderDataSet(
-                const xstudio::ui::canvas::Canvas &interaction_canvas,
+                const bool show_annotations,
+                const xstudio::ui::canvas::HandleState &h,
                 const utility::Uuid &current_edited_bookmark_uuid,
-                const xstudio::ui::canvas::HandleState handle,
-                const std::string &interaction_frame_key)
-                : interaction_canvas_(interaction_canvas),
+                const media::MediaKey &frame_being_annotated,
+                bool laser_mode)
+                : show_annotations_(show_annotations),
+                  handle_(h),
                   current_edited_bookmark_uuid_(current_edited_bookmark_uuid),
-                  handle_(handle),
-                  interaction_frame_key_(interaction_frame_key) {}
+                  interaction_frame_key_(frame_being_annotated),
+                  laser_mode_(laser_mode) {}
 
-            // Canvas is thread safe
-            const xstudio::ui::canvas::Canvas &interaction_canvas_;
-
+            const bool show_annotations_;
             const utility::Uuid current_edited_bookmark_uuid_;
             const xstudio::ui::canvas::HandleState handle_;
-            const std::string interaction_frame_key_;
+            const media::MediaKey interaction_frame_key_;
+            const bool laser_mode_;
         };
 
     } // namespace viewport

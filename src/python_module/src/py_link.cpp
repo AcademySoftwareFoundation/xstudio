@@ -46,13 +46,18 @@ void py_link(py::module_ &m) {
             &caf::python::py_context::py_dequeue_with_timeout,
             "Receives the next message")
         .def(
-            "tuple_from_message",
-            &caf::python::py_context::py_tuple_from_wrapped_message,
-            "Convert an XStudioExtensions.CafMessage to tuple")
+            "add_message_callback",
+            &caf::python::py_context::py_add_message_callback,
+            "Add a python callback function, called every time the given Actor's event group "
+            "generates a message. ")
+        .def(
+            "remove_message_callback",
+            &caf::python::py_context::py_remove_message_callback,
+            "Remove a python callback function. ")
         .def("spawn", &caf::python::py_context::py_spawn, "Spawn actor")
         .def("remote_spawn", &caf::python::py_context::py_remote_spawn, "Spawn remote actor")
-        .def("join", &caf::python::py_context::py_join, "Join event group")
-        .def("leave", &caf::python::py_context::py_leave, "Leave event group")
+        // .def("join", &caf::python::py_context::py_join, "Join event group")
+        // .def("leave", &caf::python::py_context::py_leave, "Leave event group")
         .def("self", &caf::python::py_context::py_self, "Returns the global self handle")
         .def("remote", &caf::python::py_context::py_remote, "Returns the remote handle")
         .def("set_remote", &caf::python::py_context::py_set_remote, "Set the remote handle")

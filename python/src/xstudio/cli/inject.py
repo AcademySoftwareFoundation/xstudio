@@ -50,14 +50,14 @@ def inject_main():
         m = RemoteSessionManager(remote_session_path())
         s = m.find(args.session)
         conn = Connection()
-        conn.connect_remote(s.host(), s.port.port(), False)
+        conn.connect_remote(s.host(), s.port.port())
 
     elif args.host:
         conn = Connection()
-        conn.connect_remote(args.host, args.port, False)
+        conn.connect_remote(args.host, args.port)
     else:
         conn = Connection()
-        conn.connect_remote("localhost", args.port, False)
+        conn.connect_remote("localhost", args.port)
 
     pl = conn.api.app.session.create_playlist("Injected Media")[1]
 

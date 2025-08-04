@@ -1,0 +1,231 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>xstudio.plugin.hud_plugin &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link href="../../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            xStudio
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user_docs/index.html">xSTUDIO User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">xSTUDIO Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">xStudio</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">xstudio.plugin.hud_plugin</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for xstudio.plugin.hud_plugin</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.plugin.plugin_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">PluginBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">hud_settings_atom</span><span class="p">,</span> <span class="n">HUDElementPosition</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
+
+<div class="viewcode-block" id="HUDPlugin">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.plugin.HUDPlugin">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">HUDPlugin</span><span class="p">(</span><span class="n">PluginBase</span><span class="p">):</span>
+
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for HUD (Viewport Overlay) plugins&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">connection</span><span class="p">,</span>
+            <span class="n">name</span><span class="p">,</span>
+            <span class="n">qml_folder</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="n">position_in_hud_list</span><span class="o">=</span><span class="mf">0.0</span>
+            <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a plugin</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name(str): Name of HUD plugin - this will appear in the HUD toolbar menu</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">PluginBase</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="s2">&quot;HUDPlugin&quot;</span><span class="p">,</span> <span class="n">qml_folder</span><span class="o">=</span><span class="n">qml_folder</span><span class="p">)</span>
+
+        <span class="c1"># base class has added an attribute with the same name as the plugin</span>
+        <span class="c1"># name. This is how toggles for hud plugins are added to the HUD button</span>
+        <span class="c1"># in the viewport toolbar. The &#39;toolbar_position&#39; role data is used</span>
+        <span class="c1"># to sort the list of HUD items</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">toggle_attr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_attribute</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">toggle_attr</span><span class="o">.</span><span class="n">set_role_data</span><span class="p">(</span><span class="s2">&quot;toolbar_position&quot;</span><span class="p">,</span> <span class="n">position_in_hud_list</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">enabled</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">toggle_attr</span><span class="o">.</span><span class="n">value</span><span class="p">()</span>
+
+<div class="viewcode-block" id="HUDPlugin.add_hud_settings_attribute">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.plugin.HUDPlugin.add_hud_settings_attribute">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_hud_settings_attribute</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">attr</span>
+        <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add an attribute to the &#39;settings&#39; for the HUD plugin. This means</span>
+<span class="sd">        the attribute will appear in the settings interface for the plugin</span>
+<span class="sd">        via the HUD toolbar button.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            attr_uuid(ModuleAttribute): The attribute to be exposed in the</span>
+<span class="sd">                settings dialog.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">attr</span><span class="o">.</span><span class="n">expose_in_ui_attrs_group</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot; Settings&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="HUDPlugin.hud_element_qml">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.plugin.HUDPlugin.hud_element_qml">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">hud_element_qml</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">qml_code</span><span class="p">,</span>
+        <span class="n">hud_position</span><span class="o">=</span><span class="n">HUDElementPosition</span><span class="o">.</span><span class="n">FullScreen</span>
+        <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the QML code for the visual element of the HUD that appears in</span>
+<span class="sd">        the xSTUDIO viewport.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            qml_code(str): The qml code required to instance a visual element</span>
+<span class="sd">                that will be displayed over the viewport</span>
+<span class="sd">            hud_position(HUDElementPosition): The position in the viewport where the visual</span>
+<span class="sd">                element will be. Must be one of (HUDElementPosition.FullScreen,</span>
+<span class="sd">                HUDElementPosition.BottomLeft, HUDElementPosition.BottomCentre,</span>
+<span class="sd">                HUDElementPosition.TopLeft etc.). The FullScreen option requires that</span>
+<span class="sd">                the visual element manages its own transformation to draw</span>
+<span class="sd">                itself over the viewport as required.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">hud_attr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_attribute</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="c1"># if qml code is being added as attribute data and we also have qml_folder</span>
+        <span class="c1"># set we add an import directive to the qml code with the path to the</span>
+        <span class="c1"># plugin location. This allows plugins with qml to be relocatable.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">qml_folder</span><span class="p">:</span>
+
+            <span class="n">uri</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span>
+                <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2">/</span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">plugin_path</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">qml_folder</span><span class="p">))</span><span class="o">.</span><span class="n">as_uri</span><span class="p">()</span>
+
+            <span class="n">qml_code</span> <span class="o">=</span>\
+                <span class="s2">&quot;import </span><span class="se">\&quot;</span><span class="si">{0}</span><span class="se">\&quot;\n</span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">uri</span><span class="p">,</span>
+                    <span class="n">qml_code</span>
+                <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
+                <span class="n">hud_settings_atom</span><span class="p">(),</span>
+                <span class="n">qml_code</span><span class="p">,</span>
+                <span class="n">hud_position</span>
+            <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="HUDPlugin.set_custom_settings_qml">
+<a class="viewcode-back" href="../../../reference/python_api/api.html#xstudio.plugin.HUDPlugin.set_custom_settings_qml">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_custom_settings_qml</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">qml_code</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add qml for a custom dialog to control the settings for a HUD item</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            qml_code(str): The qml code required to instance a dialog that will</span>
+<span class="sd">            allow the user to adjust the settings for your HUD item.&quot;&quot;&quot;</span>
+
+        <span class="c1"># Note - HUD Plugins always have an attribute with the same name as</span>
+        <span class="c1"># the plugin itself. It&#39;s this attribute that toggles the HUD item on</span>
+        <span class="c1"># and off in the HUD toolbar button. We can also add custom qml to this</span>
+        <span class="c1"># attribute if the plugin author wants to provide a custom settings</span>
+        <span class="c1"># dialog.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">qml_folder</span><span class="p">:</span>
+            <span class="n">uri</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span>
+                <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2">/</span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">plugin_path</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">qml_folder</span><span class="p">))</span><span class="o">.</span><span class="n">as_uri</span><span class="p">()</span>
+
+            <span class="n">qml_code</span> <span class="o">=</span>\
+                <span class="s2">&quot;import </span><span class="se">\&quot;</span><span class="si">{0}</span><span class="se">\&quot;\n</span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">uri</span><span class="p">,</span>
+                    <span class="n">qml_code</span>
+                <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">get_attribute</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">set_role_data</span><span class="p">(</span><span class="s2">&quot;user_data&quot;</span><span class="p">,</span> <span class="n">qml_code</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DNeg.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

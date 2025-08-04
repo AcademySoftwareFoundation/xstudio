@@ -15,22 +15,22 @@ namespace global_store {
       public:
         GlobalStoreActor(
             caf::actor_config &cfg,
-            const std::string &name,
-            const std::vector<GlobalStoreDef> &defs = gsds,
-            std::string reg_value                   = global_store_registry);
-        GlobalStoreActor(
-            caf::actor_config &cfg,
             const std::string &name        = "GlobalStore",
             const utility::JsonStore &json = utility::JsonStore(),
+            const bool read_only           = false,
             std::string reg_value          = global_store_registry);
         GlobalStoreActor(
             caf::actor_config &cfg,
             const utility::JsonStore &json,
+            const bool read_only  = false,
             std::string reg_value = global_store_registry);
         void on_exit() override;
         const char *name() const override { return NAME.c_str(); }
+        caf::message_handler message_handler();
 
-        caf::behavior make_behavior() override { return behavior_; }
+        caf::behavior make_behavior() override {
+            return message_handler().or_else(base_.container_message_handler(this));
+        }
 
       private:
         inline static const std::string NAME = "GlobalStoreActor";
@@ -38,8 +38,10 @@ namespace global_store {
 
       private:
         const std::string reg_value_;
-        caf::behavior behavior_;
         GlobalStore base_;
+        bool read_only_ = {false};
+        caf::actor jsonactor_;
+        caf::actor ioactor_;
     };
 } // namespace global_store
 } // namespace xstudio

@@ -1,4 +1,4 @@
-project(audio_output VERSION 0.1.0 LANGUAGES CXX)
+project(audio_output VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 if(WIN32)
     # Additional Windows-specific configuration here.
 elseif(APPLE)
@@ -8,6 +8,8 @@ else()
     find_package(PulseAudio REQUIRED)
 endif()
 
+find_package(CAF COMPONENTS core io)
+
 set(SOURCES
     audio_output.cpp
     audio_output_actor.cpp
@@ -16,7 +18,7 @@ set(SOURCES
 if(WIN32)
     list(APPEND SOURCES windows_audio_output_device.cpp)
 elseif(APPLE)
-    # TODO: Apple-specific configuration here.
+    list(APPEND SOURCES macos_audio_output_device.cpp)
 else()
     list(APPEND SOURCES linux_audio_output_device.cpp)
 endif()
@@ -26,20 +28,23 @@ add_library(xstudio::audio_output ALIAS ${PROJECT_NAME})
 
 default_options(${PROJECT_NAME})
 
-target_link_libraries(${PROJECT_NAME}
+SET(LINK_DEPS
     PUBLIC
         xstudio::utility
         xstudio::media_reader
-        caf::core
+        xstudio::module
+        CAF::core
 )
 
 if(WIN32)
     # Link against Windows Core Audio libraries.
-    target_link_libraries(${PROJECT_NAME} PUBLIC "avrt.lib" "mmdevapi.lib")
+    list(APPEND LINK_DEPS PUBLIC "avrt.lib" "mmdevapi.lib")
 elseif(APPLE)
-    # TODO: Apple-specific audio libs
+	list(APPEND LINK_DEPS "-framework CoreFoundation" "-framework AudioToolbox")
 else()
-    target_link_libraries(${PROJECT_NAME} PUBLIC pulse pulse-simple)
+    list(APPEND LINK_DEPS PUBLIC pulse pulse-simple)
 endif()
+
+target_link_libraries(${PROJECT_NAME} ${LINK_DEPS})
 
 set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)

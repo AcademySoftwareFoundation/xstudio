@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
+
+#include <caf/actor_registry.hpp>
+
 #include "xstudio/ui/qml/qml_viewport_renderer.hpp"
 // leave space or clang format will cause problems
 
-#include "xstudio/ui/qml/playhead_ui.hpp"
 #include "xstudio/ui/qml/qml_viewport.hpp"
-#include "xstudio/ui/qt/viewport_widget.hpp"
 #include "xstudio/ui/viewport/viewport.hpp"
 #include "xstudio/utility/logging.hpp"
 
@@ -44,10 +45,10 @@ int qtModifierToOurs(const Qt::KeyboardModifiers qt_modifiers) {
     return result;
 }
 
-/*PointerEvent makePointerEvent(Signature::EventType t, QWheelEvent *event) {
+/*PointerEvent makePointerEvent(EventType t, QWheelEvent *event) {
 
         return PointerEvent(
-                        Signature::EventType::MouseWheel,
+                        EventType::MouseWheel,
                         static_cast<Signature::Button>((int)event->buttons()),
                         event->x(),
                         event->y(),
@@ -62,59 +63,28 @@ int qtModifierToOurs(const Qt::KeyboardModifiers qt_modifiers) {
 
 QMLViewport::QMLViewport(QQuickItem *parent) : QQuickItem(parent), cursor_(Qt::ArrowCursor) {
 
-    playhead_ = new PlayheadUI(this);
-    playhead_->init(CafSystemObject::get_actor_system());
-
     connect(this, &QQuickItem::windowChanged, this, &QMLViewport::handleWindowChanged);
     static int index = 0;
-    viewport_index_  = index++;
-    renderer_actor   = new QMLViewportRenderer(this, viewport_index_);
-    connect(renderer_actor, SIGNAL(zoomChanged(float)), this, SIGNAL(zoomChanged(float)));
-    connect(
-        renderer_actor,
-        SIGNAL(fpsChanged(QString)),
-        this,
-        SIGNAL(fpsExpressionChanged(QString)));
-    connect(renderer_actor, SIGNAL(scaleChanged(float)), this, SIGNAL(scaleChanged(float)));
-    connect(
-        renderer_actor,
-        SIGNAL(translateChanged(QVector2D)),
-        this,
-        SIGNAL(translateChanged(QVector2D)));
-    connect(
-        renderer_actor,
-        SIGNAL(onScreenFrameChanged(int)),
-        this,
-        SLOT(setOnScreenImageLogicalFrame(int)));
-    connect(renderer_actor, SIGNAL(outOfRange(bool)), this, SLOT(setFrameOutOfRange(bool)));
+
+    renderer_actor = new QMLViewportRenderer(this);
+
+    keypress_monitor_ = CafSystemObject::get_actor_system().registry().template get<caf::actor>(
+        xstudio::keyboard_events);
 
     connect(
         renderer_actor,
-        SIGNAL(zoomChanged(float)),
+        SIGNAL(translationChanged()),
         this,
-        SIGNAL(imageBoundaryInViewportChanged()));
-    connect(
-        renderer_actor,
-        SIGNAL(translateChanged(QVector2D)),
-        this,
-        SIGNAL(imageBoundaryInViewportChanged()));
-    connect(
-        renderer_actor,
-        SIGNAL(scaleChanged(float)),
-        this,
-        SIGNAL(imageBoundaryInViewportChanged()));
+        SIGNAL(imageBoundariesInViewportChanged()));
 
     connect(
-        renderer_actor,
-        SIGNAL(noAlphaChannelChanged(bool)),
-        this,
-        SLOT(setNoAlphaChannel(bool)));
+        renderer_actor, SIGNAL(resolutionsChanged()), this, SIGNAL(imageResolutionsChanged()));
 
     connect(
         this,
-        SIGNAL(quickViewSource(QStringList, QString)),
+        SIGNAL(quickViewSource(QStringList, QString, int, int)),
         renderer_actor,
-        SLOT(quickViewSource(QStringList, QString)));
+        SLOT(quickViewSource(QStringList, QString, int, int)));
 
     connect(
         renderer_actor,
@@ -134,13 +104,19 @@ QMLViewport::QMLViewport(QQuickItem *parent) : QQuickItem(parent), cursor_(Qt::A
         this,
         SIGNAL(snapshotRequestResult(QString)));
 
+    connect(this, SIGNAL(visibleChanged()), this, SLOT(onVisibleChanged()));
+
     setAcceptedMouseButtons(Qt::AllButtons);
     setAcceptHoverEvents(true);
+
+    if (renderer_actor)
+        renderer_actor->visibleChanged(isVisible());
 }
 
 QMLViewport::~QMLViewport() { delete renderer_actor; }
 
 void QMLViewport::handleWindowChanged(QQuickWindow *win) {
+
     spdlog::debug("QMLViewport::handleWindowChanged");
     if (win) {
         // Send screen info for the first time
@@ -163,93 +139,82 @@ void QMLViewport::handleWindowChanged(QQuickWindow *win) {
 
         connect(
             win,
-            &QQuickWindow::frameSwapped,
-            renderer_actor,
-            &QMLViewportRenderer::frameSwapped,
-            Qt::DirectConnection);
-
-        connect(renderer_actor, &QMLViewportRenderer::doRedraw, win, &QQuickWindow::update);
-
-        connect(
-            win,
             &QQuickWindow::screenChanged,
             this,
             &QMLViewport::handleScreenChanged,
             Qt::DirectConnection);
 
-        renderer_actor->setWindow(win);
+        if (renderer_actor) {
+            connect(
+                win,
+                &QQuickWindow::frameSwapped,
+                renderer_actor,
+                &QMLViewportRenderer::frameSwapped,
+                Qt::DirectConnection);
+
+            connect(renderer_actor, &QMLViewportRenderer::doRedraw, win, &QQuickWindow::update);
+
+            renderer_actor->setWindow(win);
+        }
 
         // This is crucial - we draw the viewport before QML renders to the screen.
         // If we don't turn off clear then the viewport gets wiped
-        win->setClearBeforeRendering(false);
+        // win->setColor(QColor(0,0,0,0));
         m_window = win;
-    }
-}
-
-void QMLViewport::linkToViewport(QObject *other_viewport) {
-
-    auto other = dynamic_cast<QMLViewport *>(other_viewport);
-    if (other) {
-        QMLViewportRenderer *otherActor = other->viewportActor();
-        renderer_actor->linkToViewport(otherActor);
-    } else {
-        qDebug() << "QMLViewport::linkToViewport failed because " << other_viewport
-                 << " is not derived from QMLViewport.";
     }
 }
 
 void QMLViewport::handleScreenChanged(QScreen *screen) {
 
     spdlog::debug("QMLViewport::handleScreenChanged");
-    renderer_actor->setScreenInfos(
-        screen->name(),
-        screen->model(),
-        screen->manufacturer(),
-        screen->serialNumber(),
-        screen->refreshRate());
+    if (renderer_actor)
+        renderer_actor->setScreenInfos(
+            screen->name(),
+            screen->model(),
+            screen->manufacturer(),
+            screen->serialNumber(),
+            screen->refreshRate());
 }
 
-
-PointerEvent
-QMLViewport::makePointerEvent(Signature::EventType t, QMouseEvent *event, int force_modifiers) {
+void QMLViewport::sendPointerEvent(EventType t, QMouseEvent *event, int force_modifiers) {
 
     PointerEvent p(
         t,
         static_cast<Signature::Button>((int)event->buttons()),
-        event->x(),
-        event->y(),
-        width(),  // FIXME should be width, but this function appears to never be called.
-        height(), // FIXME should be height
+        int(round(event->position().x() * window()->effectiveDevicePixelRatio())),
+        int(round(event->position().y() * window()->effectiveDevicePixelRatio())),
+        int(round(float(width()) * window()->effectiveDevicePixelRatio())),
+        int(round(float(height()) * window()->effectiveDevicePixelRatio())),
         qtModifierToOurs(event->modifiers()) + force_modifiers,
-        fmt::format("viewport{0}", viewport_index_));
+        renderer_actor ? renderer_actor->std_name() : "");
     p.w_ = utility::clock::now();
-    return p;
+    if (renderer_actor)
+        renderer_actor->pointerEvent(p);
 }
 
-PointerEvent QMLViewport::makePointerEvent(
-    Signature::EventType t, int buttons, int x, int y, int w, int h, int modifiers) {
+void QMLViewport::sendPointerEvent(QHoverEvent *event) {
 
-    return PointerEvent(
-        t,
-        static_cast<Signature::Button>(buttons),
-        x,
-        y,
-        w,
-        h,
-        modifiers,
-        fmt::format("viewport{0}", viewport_index_));
+    PointerEvent p(
+        EventType::Move,
+        static_cast<Signature::Button>(0),
+        int(round(float(event->position().x()) * window()->effectiveDevicePixelRatio())),
+        int(round(float(event->position().y()) * window()->effectiveDevicePixelRatio())),
+        int(round(float(width()) * window()->effectiveDevicePixelRatio())),
+        int(round(float(height()) * window()->effectiveDevicePixelRatio())),
+        Signature::Modifier::NoModifier,
+        renderer_actor ? renderer_actor->std_name() : "");
+    p.w_ = utility::clock::now();
+    if (renderer_actor)
+        renderer_actor->pointerEvent(p);
 }
-
-static QOpenGLContext *__aa = nullptr;
-static QOpenGLContext *__bb = nullptr;
 
 void QMLViewport::sync() {
 
     // TODO: this is a little clunky. Can we do this somewhere else?
-    if (!connected_) {
+    if (!connected_ && renderer_actor) {
         connect(
             window(),
-            &QQuickWindow::beforeRendering,
+            &QQuickWindow::beforeRenderPassRecording,
             renderer_actor,
             &QMLViewportRenderer::paint,
             Qt::DirectConnection);
@@ -261,29 +226,17 @@ void QMLViewport::sync() {
 
     // Tell the renderer the viewport coordinates. These are the 4 corners of the viewport
     // within the overall GL viewport,
-    renderer_actor->setSceneCoordinates(
-        mapToScene(boundingRect().topLeft()),
-        mapToScene(boundingRect().topRight()),
-        mapToScene(boundingRect().bottomRight()),
-        mapToScene(boundingRect().bottomLeft()),
-        window()->size(),
-        window()->devicePixelRatio());
+    if (renderer_actor) {
+        renderer_actor->setSceneCoordinates(
+            mapToScene(boundingRect().topLeft()),
+            mapToScene(boundingRect().topRight()),
+            mapToScene(boundingRect().bottomRight()),
+            mapToScene(boundingRect().bottomLeft()),
+            window()->size(),
+            window()->effectiveDevicePixelRatio());
 
-    /*static bool share = false;
-    if (window() && !share) {
-        // //qDebug() << this << " OGL CONTEXT " << window()->openglContext() << "\n";
-        if (window()->openglContext()) {
-            if (!__aa)
-                __aa = window()->openglContext();
-            if (__aa && __aa != window()->openglContext()) {
-                __bb = window()->openglContext();
-                window()->openglContext()->setShareContext(__aa);
-                share = true;
-            }
-            //qDebug() << this << " SHARE " << window()->openglContext()->shareContext() <<
-    "\n";
-        }
-    }*/
+        if (isVisible()) renderer_actor->prepareRenderData();
+    }
 }
 
 void QMLViewport::cleanup() {
@@ -314,68 +267,49 @@ void QMLViewport::hoverLeaveEvent(QHoverEvent *event) {
     QQuickItem::hoverLeaveEvent(event);
 }
 
+QPointF QMLViewport::toViewportCoords(const QPointF &in) const {
+
+    if (!renderer_actor)
+        return in;
+    return renderer_actor->toViewportCoords(QPointF(
+        2.0f * (in.x() - float(width()) * 0.5f) / float(width()),
+        2.0f * ((height() - in.y()) - float(height()) * 0.5f) / float(height())));
+}
 
 void QMLViewport::mousePressEvent(QMouseEvent *event) {
 
-    mouse_position = event->pos();
-    emit(mouseChanged());
-    mouse_buttons = event->buttons();
-    emit(mouseButtonsChanged());
-
+    mouse_position = event->position();
+    emit mousePress(toViewportCoords(mouse_position), event->buttons(), event->modifiers());
+    emit mousePressScreenPixels(mouse_position, event->buttons(), event->modifiers());
     event->accept();
-
-    if (renderer_actor) {
-        renderer_actor->pointerEvent(makePointerEvent(Signature::EventType::ButtonDown, event));
-    }
+    sendPointerEvent(EventType::ButtonDown, event);
 }
 
 void QMLViewport::mouseReleaseEvent(QMouseEvent *event) {
 
-    mouse_position = event->pos();
-    emit(mouseChanged());
-    mouse_buttons = event->buttons();
-    emit(mouseButtonsChanged());
+    mouse_position = event->position();
+    emit mouseRelease(event->buttons());
 
     event->accept();
 
-    if (renderer_actor) {
-        renderer_actor->pointerEvent(
-            makePointerEvent(Signature::EventType::ButtonRelease, event));
-    }
+    sendPointerEvent(EventType::ButtonRelease, event);
 }
 
 void QMLViewport::hoverMoveEvent(QHoverEvent *event) {
 
-    mouse_position = event->pos();
-
-    emit(mouseChanged());
-
-    if (renderer_actor) {
-
-        renderer_actor->pointerEvent(makePointerEvent(
-            Signature::EventType::Move,
-            0,
-            event->pos().x(),
-            event->pos().y(),
-            width(),
-            height(),
-            0));
-    }
+    mouse_position = event->position();
+    emit(mousePositionChanged(
+        toViewportCoords(mouse_position), event->buttons(), event->modifiers()));
+    sendPointerEvent(event);
     QQuickItem::hoverMoveEvent(event);
 }
 
 void QMLViewport::mouseMoveEvent(QMouseEvent *event) {
 
     mouse_position = event->pos();
-
-    emit(mouseChanged());
-
-    if (renderer_actor) {
-        renderer_actor->pointerEvent(makePointerEvent(
-            event->buttons() ? Signature::EventType::Drag : Signature::EventType::Move,
-            event,
-            0));
-    }
+    emit(mousePositionChanged(
+        toViewportCoords(mouse_position), event->buttons(), event->modifiers()));
+    sendPointerEvent(event->buttons() ? EventType::Drag : EventType::Move, event, 0);
     update();
     // event->ignore();
     // QQuickItem::mouseMoveEvent(event);
@@ -383,45 +317,75 @@ void QMLViewport::mouseMoveEvent(QMouseEvent *event) {
 
 void QMLViewport::mouseDoubleClickEvent(QMouseEvent *event) {
 
-    mouse_position = event->pos();
-    emit(mouseChanged());
-    if (renderer_actor) {
-        renderer_actor->pointerEvent(
-            makePointerEvent(Signature::EventType::DoubleClick, event));
-    }
+    mouse_position = event->position();
+    emit mouseDoubleClick(
+        toViewportCoords(mouse_position), event->buttons(), event->modifiers());
+    sendPointerEvent(EventType::DoubleClick, event);
 }
 
 void QMLViewport::keyPressEvent(QKeyEvent *key_event) {
 
-    if (key_event) {
-        // I don't think we need this, as key events are forwarded in
-        // QMLViewport::event
-        // renderer_actor->rawKeyDown(key_event->key(), key_event->isAutoRepeat());
+    // On some platforms (MacOS) backspace and delete aren't
+    // ASCII but widestring encoded. Hack here to get around
+    // that until we do propoer wstring handling in the
+    // backend
+    std::string text = StdFromQString(key_event->text());
+    if (key_event->key() == Qt::Key_Backspace) {
+        std::array<char,2> v;
+        v[0] = 8;
+        v[1] = 0;
+        text = v.data();
+    } else if (key_event->key() == Qt::Key_Delete) {
+        std::array<char,2> v;
+        v[0] = 127;
+        v[1] = 0;
+        text = v.data();
     }
-    renderer_actor->keyboardTextEntry(key_event->text());
+
+    anon_mail(
+        ui::keypress_monitor::text_entry_atom_v,
+        text,
+        renderer_actor ? renderer_actor->std_name() : "",
+        StdFromQString(m_window->objectName()))
+        .send(keypress_monitor_);
 }
 
 void QMLViewport::keyReleaseEvent(QKeyEvent *key_event) {
 
-    if (key_event && !key_event->isAutoRepeat()) {
-        renderer_actor->rawKeyUp(key_event->key());
+    if (!key_event->isAutoRepeat()) {
+        anon_mail(
+            ui::keypress_monitor::key_up_atom_v,
+            key_event->key(),
+            renderer_actor ? renderer_actor->std_name() : "",
+            StdFromQString(m_window->objectName()))
+            .send(keypress_monitor_);
     }
 }
 
 bool QMLViewport::event(QEvent *event) {
 
-    // qDebug() << event;
-
-    /* This is where keyboard events are captured and sent to the backend!! */
     if (event->type() == QEvent::KeyPress) {
+
         auto key_event = dynamic_cast<QKeyEvent *>(event);
         if (key_event) {
-            renderer_actor->rawKeyDown(key_event->key(), key_event->isAutoRepeat());
+            anon_mail(
+                ui::keypress_monitor::key_down_atom_v,
+                key_event->key(),
+                renderer_actor ? renderer_actor->std_name() : "",
+                StdFromQString(m_window->objectName()),
+                key_event->isAutoRepeat())
+                .send(keypress_monitor_);
         }
     } else if (event->type() == QEvent::KeyRelease) {
+
         auto key_event = dynamic_cast<QKeyEvent *>(event);
         if (key_event && !key_event->isAutoRepeat()) {
-            renderer_actor->rawKeyUp(key_event->key());
+            anon_mail(
+                ui::keypress_monitor::key_up_atom_v,
+                key_event->key(),
+                renderer_actor ? renderer_actor->std_name() : "",
+                StdFromQString(m_window->objectName()))
+                .send(keypress_monitor_);
         }
     } else if (
         event->type() == QEvent::Leave || event->type() == QEvent::HoverLeave ||
@@ -436,76 +400,41 @@ bool QMLViewport::event(QEvent *event) {
         // (in terms of whether a key is held down) but a false positive
         // (i.e. we think a key is down when it isn't) could really mess up the
         // UI behaviour
-        renderer_actor->allKeysUp();
+        anon_mail(
+            ui::keypress_monitor::all_keys_up_atom_v,
+            renderer_actor ? renderer_actor->std_name() : "")
+            .send(keypress_monitor_);
+    } else if (event->type() == QEvent::HoverEnter) {
+        forceActiveFocus(Qt::MouseFocusReason);
     }
     return QQuickItem::event(event);
 }
-
-float QMLViewport::zoom() {
-    if (renderer_actor)
-        return renderer_actor->zoom();
-    return 1.0f;
-}
-
-void QMLViewport::setZoom(const float z) {
-    if (renderer_actor)
-        renderer_actor->setZoom(z);
-}
-
-void QMLViewport::revertFitZoomToPrevious(const bool ignoreOtherViewport) {
-    if (renderer_actor)
-        renderer_actor->revertFitZoomToPrevious();
-    window()->update();
-}
-
-QString QMLViewport::fpsExpression() { return renderer_actor->fpsExpression(); }
-
-float QMLViewport::scale() { return renderer_actor->scale(); }
-
-QVector2D QMLViewport::translate() { return renderer_actor->translate(); }
-
-QObject *QMLViewport::playhead() { return static_cast<QObject *>(playhead_); }
-
-void QMLViewport::setOnScreenImageLogicalFrame(const int frame_num) {
-    if (frame_num != on_screen_logical_frame_) {
-        on_screen_logical_frame_ = frame_num;
-        emit onScreenImageLogicalFrameChanged();
-    }
-}
-
-void QMLViewport::setScale(const float s) { renderer_actor->setScale(s); }
-
-void QMLViewport::setTranslate(const QVector2D &t) { renderer_actor->setTranslate(t); }
 
 void QMLViewport::wheelEvent(QWheelEvent *event) {
 
     // make a mouse wheel event and pass to viewport to process
     PointerEvent ev(
-        Signature::EventType::MouseWheel,
+        EventType::MouseWheel,
         static_cast<Signature::Button>((int)event->buttons()),
         event->position().x(),
         event->position().y(),
         width(),  // FIXME should be width, but this function appears to never be called.
         height(), // FIXME should be height
         qtModifierToOurs(event->modifiers()),
-        fmt::format("viewport{0}", viewport_index_),
+        renderer_actor ? renderer_actor->std_name() : "",
         std::make_pair(event->angleDelta().rx(), event->angleDelta().ry()),
         std::make_pair(event->pixelDelta().rx(), event->pixelDelta().ry()));
 
-    if (!renderer_actor->pointerEvent(ev) && playhead_) {
+    if (renderer_actor && !renderer_actor->pointerEvent(ev) && renderer_actor->playhead()) {
         // If viewport hasn't acted on the mouse wheel event (because user pref
         // to zoom with mouse wheel is false), assume that we can instead use it
         // to step the playhead
-        playhead_->setPlaying(false);
-        playhead_->step(event->angleDelta().ry() > 0 ? 1 : -1);
+        anon_mail(playhead::play_atom_v, false).send(renderer_actor->playhead());
+        anon_mail(playhead::step_atom_v, event->angleDelta().ry() > 0 ? 1 : -1)
+            .send(renderer_actor->playhead());
     }
 
     QQuickItem::wheelEvent(event);
-}
-
-void QMLViewport::setPlayhead(caf::actor playhead) {
-    spdlog::debug("QMLViewport::setPlayhead");
-    playhead_->set_backend(playhead);
 }
 
 void QMLViewport::hideCursor() {
@@ -518,36 +447,6 @@ void QMLViewport::showCursor() {
     if (cursor_hidden) {
         cursor_hidden = false;
         setCursor(cursor_);
-    }
-}
-
-QSize QMLViewport::imageResolution() {
-    Imath::V2i resolution = renderer_actor->imageResolutionCoords();
-    return QSize(resolution.x, resolution.y);
-}
-
-QRectF QMLViewport::imageBoundaryInViewport() {
-    QRectF r = renderer_actor->imageBoundsInViewportPixels();
-    return QRectF(
-        r.x() * width(), r.y() * height(), r.width() * width(), r.height() * height());
-}
-
-QVector2D QMLViewport::bboxCornerInViewport(const int min_x, const int min_y) {
-    Imath::V2f corner_in_viewport = renderer_actor->imageCoordsToViewport(min_x, min_y);
-    return QVector2D(corner_in_viewport.x * width(), corner_in_viewport.y * height());
-}
-
-void QMLViewport::setFrameOutOfRange(bool frame_out_of_range) {
-    if (frame_out_of_range != frame_out_of_range_) {
-        frame_out_of_range_ = frame_out_of_range;
-        emit frameOutOfRangeChanged();
-    }
-}
-
-void QMLViewport::setNoAlphaChannel(bool no_alpha_channel) {
-    if (no_alpha_channel != no_alpha_channel_) {
-        no_alpha_channel_ = no_alpha_channel;
-        emit noAlphaChannelChanged();
     }
 }
 
@@ -565,6 +464,8 @@ class CleanupJob : public QRunnable {
 
 void QMLViewport::releaseResources() {
 
+    if (!renderer_actor)
+        return;
     /* This is the recommended way to delete the object that manages OpenGL
     resources. Scheduling a render job means that it is run when the OpenGL
     context is valid and as such in the destructor of the ViewportRenderer
@@ -573,19 +474,6 @@ void QMLViewport::releaseResources() {
         new CleanupJob(renderer_actor), QQuickWindow::BeforeSynchronizingStage);
     renderer_actor = nullptr;
 }
-
-void QMLViewport::renderImageToFile(
-    const QUrl filePath,
-    const int format,
-    const int compression,
-    const int width,
-    const int height,
-    const bool bakeColor) {
-
-    renderer_actor->renderImageToFile(
-        filePath, playhead_->backend(), format, compression, width, height, bakeColor);
-}
-
 
 void QMLViewport::sendResetShortcut() {
     /* This emulates keyboard events for Ctrl+R (viewer reset), and is called from QML when
@@ -606,13 +494,12 @@ void QMLViewport::sendResetShortcut() {
     qApp->postEvent((QObject *)this, (QEvent *)eventOff1);
 }
 
-void QMLViewport::setOverrideCursor(const QString &name, const bool centerOffset) {
+void QMLViewport::setOverrideCursor(
+    const QString &name, const int size, const int x_offset, const int y_offset) {
 
     if (name != "") {
         this->setCursor(QCursor(
-            QPixmap(name).scaledToWidth(32, Qt::SmoothTransformation),
-            centerOffset ? -1 : 0,
-            centerOffset ? -1 : 0));
+            QPixmap(name).scaledToWidth(size, Qt::SmoothTransformation), x_offset, y_offset));
     } else {
         this->setCursor(cursor_);
     }
@@ -623,18 +510,47 @@ void QMLViewport::setOverrideCursor(const Qt::CursorShape cname) {
     this->setCursor(QCursor(cname));
 }
 
-void QMLViewport::setRegularCursor(const Qt::CursorShape cname) {
+QString QMLViewport::name() const { return renderer_actor ? renderer_actor->name() : ""; }
 
-    cursor_ = QCursor(cname);
-    this->setCursor(cursor_);
+void QMLViewport::setPlayhead(const QString actorAddress) {
+
+    if (actorAddress != "") {
+        caf::actor playhead =
+            actorFromQString(CafSystemObject::get_actor_system(), actorAddress);
+        if (playhead && renderer_actor) {
+            renderer_actor->set_playhead(playhead);
+        } else {
+            spdlog::warn(
+                "{} bad playhead actor address: {}",
+                __PRETTY_FUNCTION__,
+                StdFromQString(actorAddress));
+        }
+    }
 }
 
-QString QMLViewport::name() const { return renderer_actor->name(); }
+void QMLViewport::reset() {
+    if (renderer_actor)
+        renderer_actor->reset();
+}
 
-void QMLViewport::setIsQuickViewer(bool is_quick_viewer) {
-    if (is_quick_viewer != is_quick_viewer_) {
-        renderer_actor->setIsQuickViewer(is_quick_viewer);
-        is_quick_viewer_ = is_quick_viewer;
-        emit isQuickViewerChanged();
-    }
+QString QMLViewport::playheadActorAddress() {
+
+    if (renderer_actor)
+        return actorToQString(CafSystemObject::get_actor_system(), renderer_actor->playhead());
+    return QString();
+}
+
+void QMLViewport::onVisibleChanged() {
+    if (renderer_actor)
+        renderer_actor->visibleChanged(isVisible());
+}
+
+QVariantList QMLViewport::imageResolutions() {
+    return renderer_actor ? renderer_actor->imageResolutions() : QVariantList();
+}
+
+QVariantList QMLViewport::imageBoundariesInViewport() {
+    if (renderer_actor)
+        return renderer_actor->imageBoundariesInViewport();
+    return QVariantList();
 }

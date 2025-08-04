@@ -3,12 +3,12 @@
 		"session":{
 			"play_rate": {
 				"path": "/core/session/play_rate",
-				"default_value": 24.0,
+				"default_value": "24.0",
 				"description": "Default playback rate.",
-				"value": 24.0,
-				"minimum": 1.0,
-				"maximum": 120.0,
-				"datatype": "double",
+				"value": "24.0",
+				"minimum": "1.0",
+				"maximum": "120.0",
+				"datatype": "string",
 				"context": ["NEW_SESSION"]
 			},
 			"session_link_prefix": {
@@ -21,14 +21,26 @@
 			},
 			"media_rate": {
 				"path": "/core/session/media_rate",
-				"default_value": 24.0,
-				"description": "Default media rate.",
-				"value": 24.0,
-				"minimum": 1.0,
-				"maximum": 120.0,
-				"datatype": "double",
-				"context": ["NEW_SESSION"]
+				"default_value": "24.0",
+				"description": "Default media rate for new sessions - sets the timeline frame rate and play rate of frame based media.",
+				"value": "24.0",
+				"context": ["NEW_SESSION"],
+				"datatype": "multichoice string",
+				"options": ["23.976", "24.0", "25.0", "29.97", "30.0", "48.0", "50.0", "59.94", "60.0", "90.0", "100.0", "119.88", "120.0"],
+				"category": "General",
+				"display_name": "Default media rate for new sessions"
 			},
+			"partial_sequence_behaviour": {
+				"path": "/core/session/partial_sequence_behaviour",
+				"default_value": "Hold Frames",
+				"description": "When loading a sequence of images, if sequential numbered frames are missing, this setting decides if the sequence is compacted into only the frames on disk, or whether it fills missing numbered frames with blanks, or whether it uses 'hold frame' behaviour",
+				"value": "Hold Frames",
+				"datatype": "multichoice string",
+				"context": ["APPLICATION"],
+				"category": "General",
+				"display_name": "Partial Sequence Behaviour",
+				"options": ["Insert Blank Frames", "Hold Frames", "Skip Missing Frames"]
+			},	
 			"compression": {
 				"path": "/core/session/compression",
 				"default_value": false,
@@ -44,6 +56,27 @@
 				"value": false,
 				"datatype": "bool",
 				"context": ["APPLICATION"]
+			},
+			"pushed_media_playlist_behaviour": {
+				"path": "/core/session/pushed_media_playlist_behaviour",
+				"default_value": "Push to Named Playlist",
+				"description": "When media is pushed to xstudio by something external (e.g. command line load when an xstudio session is running), this option let's you decide if you want the media to be added to the current playlist that you are viewing or to a named playlist.",
+				"value": "Push to Named Playlist",
+				"datatype": "multichoice string",
+				"context": ["APPLICATION"],
+				"category": "General",
+				"display_name": "Pushed Media Destination",
+				"options": ["Push to Named Playlist", "Push to Current Playlist"]
+			},
+			"pushed_media_playlist_name": {
+				"path": "/core/session/pushed_media_playlist_name",
+				"default_value": "Pushed Media",
+				"description": "Set the name of the playlist to which media is added if it is pushed by an external process.",
+				"value": "Added Media",
+				"datatype": "string",
+				"context": ["APPLICATION"],
+				"category": "General",
+				"display_name": "Pushed Media Playlist Name"
 			},
 			"media_flags": {
 				"path": "/core/session/media_flags",
@@ -80,6 +113,8 @@
 					"description": "Enable autosave of session.",
 					"value": true,
 					"datatype": "bool",
+					"display_name": "Enable Autosave",
+					"category": "General",
 					"context": ["APPLICATION"]
 				},
 				"interval": {

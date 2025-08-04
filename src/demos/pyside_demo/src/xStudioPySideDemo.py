@@ -1,41 +1,62 @@
-#! /usr/bin/env python
-# SPDX-License-Identifier: Apache-2.0
+#! /usr/bin/env bash
+'''':
+# Hack to enter the xstudio bob world and set-up environment before running
+# this script again as python
+# if root isn't set
+if [ -z "$XSTUDIO_ROOT" ]
+then
+	# use bob world path
+	if [ ! -z "$BOB_WORLD_SLOT_dneg_xstudio" ]
+	then
+		export XSTUDIO_ROOT=$BOB_WORLD_SLOT_dneg_xstudio/share/xstudio
+		export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$XSTUDIO_ROOT/lib
+        exec python "${BASH_SOURCE[0]}" "$@"
+	else
+        exec bob-world -t xstudio-pyside -d /builds/targets/gen-2025-05-20T16:03:54.596603 -- "${BASH_SOURCE[0]}" "$@"
+	fi
+fi
+'''
 
-from PySide2.QtWidgets import QApplication
-from PySide2.QtWidgets import QMainWindow
-from PySide2.QtWidgets import QVBoxLayout, QHBoxLayout, QGridLayout
-from PySide2.QtWidgets import QPushButton
-from PySide2.QtWidgets import QWidget
-from PySide2.QtWidgets import QCheckBox
-from PySide2.QtWidgets import QSlider
-from PySide2.QtWidgets import QLineEdit
-from PySide2.QtQuickWidgets import QQuickWidget
-from PySide2.QtWidgets import QFileDialog
-from PySide2.QtCore import QUrl
-from PySide2.QtCore import QTimer
-from PySide2.QtCore import Qt
-from xstudio.gui.__pyside2_xstudio import PlainViewport
 import sys
+import os
+
+if 'BOB_WORLD_SLOT_dneg_xstudio' in os.environ:
+    os.environ['XSTUDIO_ROOT'] = os.environ['BOB_WORLD_SLOT_dneg_xstudio'] + "/share/xstudio"
+    os.environ['LD_LIBRARY_PATH'] = os.environ['XSTUDIO_ROOT'] + "/lib"
+
+print (os.environ['LD_LIBRARY_PATH'])
+
+from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QMainWindow
+from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout
+from PySide6.QtWidgets import QPushButton
+from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QCheckBox
+from PySide6.QtWidgets import QSlider
+from PySide6.QtWidgets import QLineEdit
+from PySide6.QtWidgets import QFileDialog
+from PySide6.QtCore import QTimer
+from PySide6.QtCore import Qt
+from xstudio.gui import PySideQmlViewport, XstudioPyApp, PlainViewport
 import time
-import subprocess
 from xstudio.core import event_atom, add_media_atom, position_atom, duration_frames_atom
 
 from xstudio.connection import Connection
-from xstudio.core import CompareMode
-from xstudio.core import CompareMode
 from xstudio.api.session.media import Media
+from xstudio.api.app import Viewport
 
 XSTUDIO = None
 
 class PlayheadUI(QWidget):
 
-    def __init__(self, parent):
+    def __init__(self, parent, _playhead):
 
         super(PlayheadUI, self).__init__(parent)
 
         self.layout = QHBoxLayout(self)
         self.frame = QLineEdit(self)
         self.layout.addWidget(self.frame)
+        self.playhead = _playhead
 
         self.slider = QSlider(Qt.Horizontal, self)
         self.slider.valueChanged.connect(self.position_changed)
@@ -46,6 +67,7 @@ class PlayheadUI(QWidget):
 
     def set_duration(self, duration_frames):
         self.num_frames.setText(str(duration_frames))
+        self.slider.setMinimum(0)
         self.slider.setMaximum(duration_frames)
 
     def set_position(self, position):
@@ -55,22 +77,17 @@ class PlayheadUI(QWidget):
 
     def position_changed(self, new_position):
 
-        if self.backend_position != new_position:
+        if self.backend_position != new_position and self.slider.isSliderDown():
+            self.playhead.position = new_position
 
-            playlist = XSTUDIO.api.session.playlists[0]
-
-            # Ensure we have a playhead
-            if not playlist or not playlist.playheads:
-                return
-
-            playlist.playheads[0].position = new_position
 
 class PlaylistUI(QWidget):
 
-    def __init__(self, parent):
+    def __init__(self, parent, _playlist):
 
         super(PlaylistUI, self).__init__(parent)
 
+        self.playlist = _playlist
         self.layout = QVBoxLayout(self)
         self.playlistItems = []
 
@@ -91,13 +108,7 @@ class PlaylistUI(QWidget):
             if checkbox.checkState() == Qt.Checked:
                 selected_items.append(media_item.uuid)
 
-        playlist = XSTUDIO.api.session.playlists[0]
-
-        # Ensure we have a playhead
-        if not playlist.playheads:
-           return
-
-        playlist.playheads[0].source.set_selection(selected_items)
+        self.playlist.playhead_selection.set_selection(selected_items)
 
 class XsPysideDemo(QWidget):
 
@@ -105,18 +116,29 @@ class XsPysideDemo(QWidget):
 
         super(XsPysideDemo, self).__init__(parent)
 
+        # The xSTUDIO viewport needs a unique ID for the window that it is 
+        # embedded in. This assists the handling of keystrokes, so we know whether
+        # the user hit the 'play' hotkey, for example, in this window or another
+        # window
+        window_id = str(parent)
+
+        self.viewport = PlainViewport(
+            self, 
+            window_id
+            )
+
+        self.playlist = None
+        self.playhead = None
         self.playhead_event_handler = None
         self.playlist_event_handler = None
 
-        self.event_loop_timer = QTimer(self)
-        self.event_loop_timer.timeout.connect(self.process_playhead_events)
+        self.makePlaylist()
 
         layout = QVBoxLayout(self)
 
-        self.viewport = PlainViewport(self)
         layout.addWidget(self.viewport, 1)
 
-        self.playlist_ui = PlaylistUI(self)
+        self.playlist_ui = PlaylistUI(self, self.playlist)
         layout.addWidget(self.playlist_ui)
 
         buttonLayout = QHBoxLayout()
@@ -138,16 +160,12 @@ class XsPysideDemo(QWidget):
 
         layout.addLayout(buttonLayout)
 
-        self.playhead_ui = PlayheadUI(self)
+        self.playhead_ui = PlayheadUI(self, self.playhead)
         layout.addWidget(self.playhead_ui)
 
     def onLoad(self):
 
         self.setPlaying(False)
-
-        # Something we're working on ... processing events coming from xstudio
-        # can kill the Qt event loop.
-        self.event_loop_timer.stop()
 
         fname = QFileDialog.getOpenFileName(
             self,
@@ -155,7 +173,6 @@ class XsPysideDemo(QWidget):
             )
         if fname != "":
             self.load_media(fname[0])
-        self.event_loop_timer.start(200)
 
     def onSleep(self):
 
@@ -163,12 +180,7 @@ class XsPysideDemo(QWidget):
 
     def setPlaying(self, playing):
 
-        self.open_connection()
-
-        if XSTUDIO.api.session.playlists:
-            playlist = XSTUDIO.api.session.playlists[0]
-            if playlist.playheads:
-                playlist.playheads[0].playing = playing
+        self.playhead.playing = playing
 
     def onStartPlaying(self, playing):
 
@@ -178,76 +190,75 @@ class XsPysideDemo(QWidget):
 
         self.setPlaying(False)
 
-    def makePlayhead(self):
+    def makePlaylist(self):
 
-        playlist = XSTUDIO.api.session.playlists[0]
+        if not XSTUDIO.api.session.playlists:
+            XSTUDIO.api.session.create_playlist()
+            self.playlist = XSTUDIO.api.session.playlists[0]
+            self.playhead = self.playlist.playhead
 
-        # Ensure we have a playhead
-        if not playlist.playheads:
-            playlist.create_playhead()
+            # here we put the playhead into 'String' compare mode
+            self.playhead.get_attribute("Compare").set_value("String")
 
-        # Enter the 'string' compare mode and select all media so that loaded
-        # media is strung together
-        playlist.playheads[0].compare_mode = "String"
+            # this call is crucial. in xSTUDIO every playlist, subset, contact
+            # sheet and timeline has its own 'playhead' that controls playback
+            # and delivers video and audio.
+            # The xSTUDIO viewports have to be 'attached' to a playhead to 
+            # recieve the video frames and display them. By default viewports
+            # will automaticall attach to the global active playhead, but this
+            # must be set via the API. Thus, the UI can decide which playlist
+            # or timeline etc. is being viewed/played.
+            # (QuickView windows are an exception, where they ignore updates
+            # to the global active playhead but use their own internal 
+            # playhead.)
+            XSTUDIO.api.app.set_global_playhead(
+                self.playhead
+                )
+            
+        if not self.playlist_event_handler:
+            self.playlist_event_handler = self.playlist.add_event_callback(
+                self.playlist_events
+                )
 
         if not self.playhead_event_handler:
-            self.playhead_event_handler = playlist.playheads[0].add_handler(
+            self.playhead_event_handler = self.playhead.add_event_callback(
                 self.playhead_events
                 )
 
 
     def load_media(self, filename):
 
-        self.open_connection()
-
-        # Ensure we have a playlist
-        if not XSTUDIO.api.session.playlists:
-            XSTUDIO.api.session.create_playlist()
-            playlist = XSTUDIO.api.session.playlists[0]
-
-        playlist = XSTUDIO.api.session.playlists[0]
-
-        if not self.playlist_event_handler:
-            self.playlist_event_handler = playlist.add_handler(
-                self.playlist_events
-                )
-
         # Load the media item
-        media = playlist.add_media(filename)
-        self.makePlayhead()
+        self.playlist.add_media(filename)
 
-    def playhead_events(self, sender, req_id, event):
-        if type(event[0]) == position_atom and type(event[1]) == int:
-            self.playhead_ui.set_position(event[1])
-        elif (type(event[0]) == event_atom and
+    def playhead_events(self, event):
+
+        if len(event) >= 3 and type(event[1]) == position_atom and type(event[2]) == int:
+            self.playhead_ui.set_position(event[2])
+        elif len(event) >= 3 and (type(event[0]) == event_atom and
             type(event[1]) == duration_frames_atom and
             type(event[2])) == int:
             self.playhead_ui.set_duration(event[2])
 
-    def playlist_events(self, sender, req_id, event):
+    def playlist_events(self, event):
 
         if type(event[0]) == event_atom and type(event[1]) == add_media_atom:
-            # 3rd eement of event is a UuidActor of the new media item
-            self.playlist_ui.media_added(event[2].actor)
-
-
-    def process_playhead_events(self):
-        print (".")
-        # use a short 2 millisecond timeout so that we don't hang the UI
-        XSTUDIO.process_events()
-
-    def open_connection(self):
-
-        global XSTUDIO
-        if not XSTUDIO:
-            XSTUDIO = Connection(auto_connect=True)
-            self.event_loop_timer.start(200)
+            # 3rd eement of event is a UuidActorVector of the new media items
+            for media in event[2]:
+                self.playlist_ui.media_added(media.actor)
 
 if __name__=="__main__":
 
     app = QApplication(sys.argv)
-    appWindow = QMainWindow()
 
+    # this object is required to manage xstudio's core components
+    xstudio_py_app = XstudioPyApp()
+
+    # here we connect to the xstudio backend. XSTUDIO serves as the API entry
+    # point
+    XSTUDIO = Connection(auto_connect=True)
+
+    appWindow = QMainWindow()
     centralWidget = XsPysideDemo(appWindow)
     appWindow.setCentralWidget(centralWidget)
     appWindow.resize(960, 540)

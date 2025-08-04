@@ -34,6 +34,8 @@ namespace ui {
 
             bool operator==(const Stroke &o) const;
 
+            std::string hash() const;
+
             // TODO: Below are shapes and should be extracted to dedicated types
             // Rendering them as stroke seems like an implementation details and
             // will probably not hold if we need filled shape for example.
@@ -59,3 +61,12 @@ namespace ui {
     } // end namespace canvas
 } // end namespace ui
 } // end namespace xstudio
+
+namespace std {
+template <> struct hash<xstudio::ui::canvas::Stroke> {
+    std::size_t operator()(const xstudio::ui::canvas::Stroke &item) const {
+        std::hash<std::string> hasher;
+        return hasher(item.hash());
+    }
+};
+} // namespace std

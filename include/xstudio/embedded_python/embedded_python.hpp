@@ -4,6 +4,8 @@
 #include <caf/all.hpp>
 #include <list>
 #include <memory>
+#define PYBIND11_DETAILED_ERROR_MESSAGES
+
 #include <pybind11/embed.h> // everything needed for embedding
 #include <string>
 
@@ -52,17 +54,11 @@ namespace embedded_python {
         bool input_session(const utility::Uuid &session_uuid, const std::string &input);
         bool input_ctrl_c_session(const utility::Uuid &session_uuid);
 
-        void push_caf_message_to_py_callbacks(caf::actor sender, caf::message &m);
-
-        void add_message_callback(const py::tuple &xs);
-
-        static void s_add_message_callback(const py::tuple &xs);
-
         void finalize();
 
       private:
         // py::function cb_;
-        std::map<caf::actor_addr, std::vector<py::function>> message_handler_callbacks_;
+        std::map<utility::Uuid, py::object> plugin_registry_;
 
         EmbeddedPythonActor *parent_;
 

@@ -3,7 +3,9 @@
 
 #include "xstudio/media/media_actor.hpp"
 #include "xstudio/timeline/track.hpp"
+#include "xstudio/timeline/stack.hpp"
 #include "xstudio/timeline/gap.hpp"
+#include "xstudio/timeline/clip.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/uuid.hpp"
 
@@ -77,6 +79,68 @@ std::pair<JsonStore, JsonStore> doMoveTest(Track &t, int start, int count, int b
     EXPECT_EQ((*(t.item().item_at_index(3)))->name(), "Gap 4");
 
 
+TEST(TrackShapeTest, Test) {
+    Track t("Track", MediaType::MT_IMAGE);
+
+    auto gap1 = Gap("Gap 1", utility::FrameRateDuration(10, timebase::k_flicks_24fps));
+    auto gap2 = Gap("Gap 2", utility::FrameRateDuration(10, timebase::k_flicks_24fps));
+
+    t.children().push_back(gap1.item());
+    t.children().push_back(gap2.item());
+
+    t.refresh_item();
+
+    auto box = t.item().box();
+    EXPECT_EQ(box.first.first, 0);
+    EXPECT_EQ(box.first.second, 0);
+
+    EXPECT_EQ(box.second.first, 20);
+    EXPECT_EQ(box.second.second, 1);
+
+    auto s = Stack("Stack");
+
+    auto sgap1 = Gap("Stack Gap 1", utility::FrameRateDuration(10, timebase::k_flicks_24fps));
+    auto sgap2 = Gap("Stack Gap 2", utility::FrameRateDuration(10, timebase::k_flicks_24fps));
+
+    s.children().push_back(sgap1.item());
+    s.children().push_back(sgap2.item());
+    s.refresh_item();
+
+    t.children().push_back(s.item());
+    t.refresh_item();
+
+    box = t.item().box();
+    EXPECT_EQ(box.first.first, 0);
+    EXPECT_EQ(box.first.second, 0);
+    EXPECT_EQ(box.second.first, 30);
+    EXPECT_EQ(box.second.second, 2);
+
+    auto cbox = t.item().box(gap1.uuid());
+    EXPECT_EQ(cbox->first.first, 0);
+    EXPECT_EQ(cbox->first.second, 0);
+    EXPECT_EQ(cbox->second.first, 10);
+    EXPECT_EQ(cbox->second.second, 1);
+
+    cbox = t.item().box(gap2.uuid());
+    EXPECT_EQ(cbox->first.first, 10);
+    EXPECT_EQ(cbox->first.second, 0);
+    EXPECT_EQ(cbox->second.first, 20);
+    EXPECT_EQ(cbox->second.second, 1);
+
+    cbox = t.item().box(sgap1.uuid());
+    EXPECT_EQ(cbox->first.first, 20);
+    EXPECT_EQ(cbox->first.second, 0);
+    EXPECT_EQ(cbox->second.first, 30);
+    EXPECT_EQ(cbox->second.second, 1);
+
+    cbox = t.item().box(sgap2.uuid());
+    EXPECT_EQ(cbox->first.first, 20);
+    EXPECT_EQ(cbox->first.second, 1);
+    EXPECT_EQ(cbox->second.first, 30);
+    EXPECT_EQ(cbox->second.second, 2);
+}
+
+
 TEST(TrackMoveTest, Test) {
     Track t("Track", MediaType::MT_IMAGE);
 
@@ -139,4 +203,93 @@ TEST(TrackMoveTest, Test) {
 
         TESTMOVE()
     }
+}
+
+TEST(TrackResolveTest, Test) {
+    Track t("Track", MediaType::MT_IMAGE);
+
+    auto id1 = FrameRange(
+        utility::FrameRateDuration(0, timebase::k_flicks_24fps),
+        utility::FrameRateDuration(10, timebase::k_flicks_24fps));
+    auto i1 = Clip("Clip1");
+    i1.item().set_available_range(id1);
+
+    auto id2 = FrameRange(
+        utility::FrameRateDuration(0, timebase::k_flicks_24fps),
+        utility::FrameRateDuration(15, timebase::k_flicks_24fps));
+    auto i2 = Clip("Clip2");
+    i2.item().set_available_range(id2);
+
+    auto id3 = utility::FrameRateDuration(20, timebase::k_flicks_24fps);
+    auto i3  = Gap("Gap1", id3);
+
+    t.item().insert(t.item().end(), i1.item());
+    t.item().insert(t.item().end(), i2.item());
+    t.item().insert(t.item().end(), i3.item());
+
+    // we've added gaps so we need to refresh our state.
+    t.item().refresh(1);
+
+    // check get clip
+    auto r = t.item().resolve_time(timebase::k_flicks_24fps * 0, media::MediaType::MT_IMAGE);
+    EXPECT_TRUE(r);
+
+    // check get clip
+    r = t.item().resolve_time(
+        timebase::k_flicks_24fps * 0,
+        media::MediaType::MT_IMAGE,
+        utility::UuidSet({t.uuid(), i1.uuid()}));
+    EXPECT_TRUE(r);
+
+    // check get nothing as GAPS don't count
+    r = t.item().resolve_time(timebase::k_flicks_24fps * 26, media::MediaType::MT_IMAGE);
+    EXPECT_FALSE(r);
+
+    // neither in focus
+    r = t.item().resolve_time(
+        timebase::k_flicks_24fps * 0, media::MediaType::MT_IMAGE, utility::UuidSet({}), true);
+    EXPECT_FALSE(r);
+
+    // track is focused
+    r = t.item().resolve_time(
+        timebase::k_flicks_24fps * 0,
+        media::MediaType::MT_IMAGE,
+        utility::UuidSet({t.uuid()}),
+        true);
+    EXPECT_TRUE(r);
+
+    //  clip focused
+    r = t.item().resolve_time(
+        timebase::k_flicks_24fps * 0,
+        media::MediaType::MT_IMAGE,
+        utility::UuidSet({i1.uuid()}),
+        true);
+    EXPECT_TRUE(r);
+
+    //  both focused
+    r = t.item().resolve_time(
+        timebase::k_flicks_24fps * 0,
+        media::MediaType::MT_IMAGE,
+        utility::UuidSet({t.uuid(), i1.uuid()}),
+        true);
+    EXPECT_TRUE(r);
+
+    //  not clip focused
+    r = t.item().resolve_time(
+        timebase::k_flicks_24fps * 15,
+        media::MediaType::MT_IMAGE,
+        utility::UuidSet({i1.uuid()}),
+        true);
+    EXPECT_FALSE(r);
+
+    //  not clip focused
+    r = t.item().resolve_time(
+        timebase::k_flicks_24fps * 15,
+        media::MediaType::MT_IMAGE,
+        utility::UuidSet({i2.uuid()}),
+        true);
+
+    EXPECT_TRUE(r);
+    EXPECT_EQ(std::get<0>(*r).name(), i2.name());
+    EXPECT_EQ(std::get<0>(*r).uuid(), i2.uuid());
 }

@@ -6,7 +6,7 @@
 #include <string>
 
 #include "xstudio/utility/container.hpp"
-#include "xstudio/utility/edit_list.hpp"
+#include "xstudio/utility/frame_rate.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/uuid.hpp"
 
@@ -79,12 +79,16 @@ namespace playlist {
         [[nodiscard]] utility::FrameRate playhead_rate() const { return playhead_rate_; }
         void set_playhead_rate(const utility::FrameRate &rate) { playhead_rate_ = rate; }
 
+        [[nodiscard]] bool expanded() const { return expanded_; }
+        void set_expanded(const bool expanded) { expanded_ = expanded; }
+
       private:
         utility::UuidListContainer media_list_;
         utility::PlaylistTree container_tree_;
 
         utility::FrameRate media_rate_;
         utility::FrameRate playhead_rate_;
+        bool expanded_ = {false};
     };
 } // namespace playlist
 } // namespace xstudio
