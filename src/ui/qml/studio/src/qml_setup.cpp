@@ -27,6 +27,7 @@ void xstudio::ui::qml::setup_xstudio_qml_emgine(QQmlEngine *engine, caf::actor_s
     qmlRegisterType<HotkeyUI>("xstudio.qml.viewport", 1, 0, "XsHotkey");
     qmlRegisterType<HotkeysUI>("xstudio.qml.viewport", 1, 0, "XsHotkeysInfo");
     qmlRegisterType<HotkeyReferenceUI>("xstudio.qml.viewport", 1, 0, "XsHotkeyReference");
+    qmlRegisterType<PressedKeysMonitor>("xstudio.qml.viewport", 1, 0, "XsPressedKeysMonitor");
 
     qmlRegisterType<KeyEventsItem>("xstudio.qml.helpers", 1, 0, "XsHotkeyArea");
 

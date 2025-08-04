@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
@@ -5,25 +7,23 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Appendix &mdash; xStudio 1.0.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
-      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=eafc0fe6" />
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=8d563738"></script>
-        <script src="../../_static/doctools.js?v=888ff710"></script>
-        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Python Scripting Introduction" href="python_scripting.html" />
-    <link rel="prev" title="Preferences" href="../preferences.html" /> 
+    <link rel="next" title="xSTUDIO Preferences" href="preference_files.html" />
+    <link rel="prev" title="Hotkeys" href="../workflow/hotkeys.html" />
+    <link href="../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -37,9 +37,6 @@
           <a href="../../index.html" class="icon icon-home">
             xStudio
           </a>
-              <div class="version">
-                1.0.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -49,23 +46,24 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../../index.html">Welcome to xStudio’s documentation!</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../index.html">xSTUDIO User Guide</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="../overview.html">Introduction</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../getting_started/getting_started.html">Getting Started</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../interface/interface.html">The xSTUDIO Interface</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../playback.html">Video Playback</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../notes.html">Notes and Annotations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../preferences.html">Preferences</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../workflow/workflow.html">Workflow Tools</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Appendix</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="preference_files.html">xSTUDIO Preferences</a></li>
+<li class="toctree-l3"><a class="reference internal" href="media_items.html">xSTUDIO Media Item Structure</a></li>
 <li class="toctree-l3"><a class="reference internal" href="python_scripting.html">Python Scripting Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="python_snippets.html">Python ‘Snippets’</a></li>
+<li class="toctree-l3"><a class="reference internal" href="python_plugins.html">Python Plugins</a></li>
 <li class="toctree-l3"><a class="reference internal" href="colour_management.html">Colour Management</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../release_notes/index.html">Release Notes</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">xSTUDIO Reference</a></li>
 </ul>
 
         </div>
@@ -97,11 +95,27 @@
 <h1>Appendix<a class="headerlink" href="#appendix" title="Link to this heading"></a></h1>
 <div class="toctree-wrapper compound">
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="preference_files.html">xSTUDIO Preferences</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="preference_files.html#the-preferences-manager">The Preferences Manager</a></li>
+<li class="toctree-l2"><a class="reference internal" href="preference_files.html#clearing-user-preferences">Clearing User Preferences</a></li>
+<li class="toctree-l2"><a class="reference internal" href="preference_files.html#preference-files-for-developers">Preference Files (for developers)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="media_items.html">xSTUDIO Media Item Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="python_scripting.html">Python Scripting Introduction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="python_scripting.html#executing-python-code">Executing Python Code …</a></li>
 <li class="toctree-l2"><a class="reference internal" href="python_scripting.html#the-communications-port">The Communications Port</a></li>
-<li class="toctree-l2"><a class="reference internal" href="python_scripting.html#python-snippets">Python ‘Snippets’</a></li>
-<li class="toctree-l2"><a class="reference internal" href="python_scripting.html#python-plugins">Python Plugins</a></li>
 <li class="toctree-l2"><a class="reference internal" href="python_scripting.html#python-scripting-examples">Python Scripting Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="python_snippets.html">Python ‘Snippets’</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="python_snippets.html#creating-a-snippet">Creating a Snippet</a></li>
+<li class="toctree-l2"><a class="reference internal" href="python_snippets.html#example-snippet">Example Snippet</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="python_plugins.html">Python Plugins</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="python_plugins.html#introduction">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="python_plugins.html#authoring-plugins">Authoring Plugins</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="colour_management.html">Colour Management</a><ul>
@@ -116,14 +130,14 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="../preferences.html" class="btn btn-neutral float-left" title="Preferences" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="python_scripting.html" class="btn btn-neutral float-right" title="Python Scripting Introduction" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="../workflow/hotkeys.html" class="btn btn-neutral float-left" title="Hotkeys" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="preference_files.html" class="btn btn-neutral float-right" title="xSTUDIO Preferences" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2020, DNeg.</p>
+    <p>&#169; Copyright 2025, DNeg.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

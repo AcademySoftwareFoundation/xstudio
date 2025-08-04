@@ -13,10 +13,13 @@
 				"path": {
 					"path": "/core/python/snippets/path",
 					"default_value": ["${XSTUDIO_ROOT}/snippets","${HOME}/xStudio/snippets"],
-					"description": "Paths to snippet dirs",
-					"value": null,
+					"description": "This preference must be a json array. Each element of the array must be a path to a filesystem folder. xSTUDIO will search these folders for python 'snippets' - self contained python scripts.",
+					"value": ["${XSTUDIO_ROOT}/snippets","${HOME}/xStudio/snippets"],
 					"datatype": "json",
-					"context": ["APPLICATION"]
+					"context": ["APPLICATION"],
+					"category": "Python",
+					"options": "import xStudio 1.0; XsJsonPreference {}",
+					"display_name": "Snippets Paths"
 				}
 			},
 			"python_plugin_search_folders": {

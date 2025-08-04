@@ -599,6 +599,9 @@ QFuture<QList<QUuid>> SessionModel::handleDropFuture(
 
     try {
         auto jdrop = dropToJsonStore(drop);
+
+        std::cerr << "DROPPY " << jdrop.dump() << "\n";
+
         if (jdrop.count("xstudio/media-ids"))
             return handleMediaIdDropFuture(proposedAction_, jdrop, index);
         else if (jdrop.count("xstudio/timeline-ids"))

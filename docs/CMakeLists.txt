@@ -26,8 +26,11 @@ endforeach(target_var)
 set(DOXYGEN_INPUT_DIR ${PROJECT_SOURCE_DIR})
 set(DOXYGEN_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/docs/doxygen)
 set(DOXYGEN_INDEX_FILE ${DOXYGEN_OUTPUT_DIR}/xml/index.xml)
+
+# TODO: output config should be somewhere in CMAKE_CURRENT_BINARY_DIR, but
+# sphinx expects config.py to be in the docs source dir
 set(DOXYFILE_IN ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in)
-set(DOXYFILE_OUT ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
+set(DOXYFILE_OUT ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile)
 set(CONFFILE_IN ${CMAKE_CURRENT_SOURCE_DIR}/conf.py.in)
 set(CONFFILE_OUT ${CMAKE_CURRENT_SOURCE_DIR}/conf.py)
 
@@ -66,19 +69,8 @@ add_custom_target(Sphinx ALL
                   -D version=${PROJECT_VERSION}
                   -D release=${PROJECT_VERSION}
                   ${SPHINX_SOURCE} ${SPHINX_BUILD}
-                  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                   COMMENT "Generating documentation with Sphinx")
-
-set(USER_DOCS_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/user_docs)
-set(USER_DOCS_BUILD ${CMAKE_CURRENT_BINARY_DIR}/../bin/user_docs)
-
-add_custom_target(UserDocs ALL
-				  COMMAND ${SPHINX_EXECUTABLE} -q
-				  -D version=${PROJECT_VERSION}
-				  -D release=${PROJECT_VERSION}
-				  ${USER_DOCS_SOURCE} ${USER_DOCS_BUILD}
-				  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-                  COMMENT "Generating user documentation with Sphinx")
 
 if (APPLE)
 install(DIRECTORY ${SPHINX_BUILD}/ DESTINATION ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/docs)

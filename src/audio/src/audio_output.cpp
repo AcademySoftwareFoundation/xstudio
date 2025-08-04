@@ -423,6 +423,9 @@ void AudioOutputControl::queue_samples_for_playing(
         else
             continue;
 
+        // skip empty frames
+        if (!_frame->num_samples()) continue;
+
         media_reader::AudioBufPtr frame =
             audio_repitch_ && playback_velocity_ != 1.0f
                 ? super_simple_respeed_audio_buffer<int16_t>(_frame, playback_velocity_)

@@ -10,7 +10,7 @@
         "Qt6_DIR": "/Users/tedwaine/Qt6/6.5.3/macos/lib/cmake/Qt6",
         "CMAKE_INSTALL_PREFIX": "xstudio_install",
         "X_VCPKG_APPLOCAL_DEPS_INSTALL": "ON",
-        "BUILD_DOCS": "OFF",
+        "BUILD_DOCS": "ON",
         "USE_VCPKG": "ON"
       }
     },

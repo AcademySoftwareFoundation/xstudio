@@ -41,6 +41,7 @@ namespace ui {
             std::map<utility::Uuid, ui::Hotkey> active_hotkeys_;
             std::vector<caf::actor> actor_grabbing_all_mouse_input_;
             caf::actor actor_grabbing_all_keyboard_input_;
+            std::string pressed_keys_string_;
         };
     } // namespace keypress_monitor
 } // namespace ui

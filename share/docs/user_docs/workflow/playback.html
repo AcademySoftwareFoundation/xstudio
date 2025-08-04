@@ -1,0 +1,231 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Video Playback &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Compare Modes" href="compare_modes.html" />
+    <link rel="prev" title="Workflow Tools" href="workflow.html" />
+    <link href="../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            xStudio
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">xSTUDIO User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../overview.html">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/getting_started.html">Getting Started</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../interface/interface.html">The xSTUDIO Interface</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="workflow.html">Workflow Tools</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Video Playback</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#playheads">Playheads</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#playhead-loop-modes">Playhead Loop Modes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#playhead-rate">Playhead Rate</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#playhead-cache-behaviour">Playhead Cache Behaviour</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#missing-frames-behaviour">Missing Frames Behaviour</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="compare_modes.html">Compare Modes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notes.html">Notes and Annotations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="grading.html">Grading Tool</a></li>
+<li class="toctree-l3"><a class="reference internal" href="quick_view.html">QuickView</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hotkeys.html">Hotkeys</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../appendix/index.html">Appendix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../release_notes/index.html">Release Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">xSTUDIO Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">xStudio</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">xSTUDIO User Guide</a></li>
+          <li class="breadcrumb-item"><a href="workflow.html">Workflow Tools</a></li>
+      <li class="breadcrumb-item active">Video Playback</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/user_docs/workflow/playback.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="video-playback">
+<span id="playback"></span><h1>Video Playback<a class="headerlink" href="#video-playback" title="Link to this heading"></a></h1>
+<section id="playheads">
+<h2>Playheads<a class="headerlink" href="#playheads" title="Link to this heading"></a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The term ‘playhead’ comes from video playback and editing tools and refers to the indicator on a timeline showing the current on-screen video frame.</p>
+</div>
+<p>In xSTUDIO, each playlist has its own playhead object meaning that if you switch between playlists the playhead settings such as playback rate, loop mode, compare mode and so-on are remembered <em>per playlist</em>.</p>
+<figure class="align-center" id="id1">
+<a class="reference internal image-reference" href="../../_images/toolbar-01.png"><img alt="The toolbar and transport controls." src="../../_images/toolbar-01.png" style="width: 1242.9px; height: 252.0px;" />
+</a>
+<figcaption>
+<p><span class="caption-text">The Playback transport controls.</span><a class="headerlink" href="#id1" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<table class="docutils align-center" id="id2" style="width: 70%">
+<caption><span class="caption-text">Playhead Specific Hotkeys</span><a class="headerlink" href="#id2" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 16.7%" />
+<col style="width: 83.3%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head stub"><p>Default Keyboard Shortcut</p></th>
+<th class="head"><p>Action</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><th class="stub"><p>Spacebar</p></th>
+<td><p>Start/stop playback.</p></td>
+</tr>
+<tr class="row-odd"><th class="stub"><p>I</p></th>
+<td><p>Set the ‘in’ loop point.</p></td>
+</tr>
+<tr class="row-even"><th class="stub"><p>O</p></th>
+<td><p>Set the ‘out’ loop point.</p></td>
+</tr>
+<tr class="row-odd"><th class="stub"><p>P</p></th>
+<td><p>Toggle in/out loop region or full duration</p></td>
+</tr>
+<tr class="row-even"><th class="stub"><p>J</p></th>
+<td><p>Play backwards. Press repeatedly to got into fast rewind.</p></td>
+</tr>
+<tr class="row-odd"><th class="stub"><p>K</p></th>
+<td><p>Stop playback.</p></td>
+</tr>
+<tr class="row-even"><th class="stub"><p>L</p></th>
+<td><p>Play forwards. Press repeatedly to go into fast forward.</p></td>
+</tr>
+<tr class="row-odd"><th class="stub"><p>Left Arrow</p></th>
+<td><p>Step forwards one frame.</p></td>
+</tr>
+<tr class="row-even"><th class="stub"><p>Right Arrow</p></th>
+<td><p>Step backwards one frame.</p></td>
+</tr>
+<tr class="row-odd"><th class="stub"><p>Down Arrow</p></th>
+<td><p>Step to start of next media item in timeline/String compare mode</p></td>
+</tr>
+<tr class="row-even"><th class="stub"><p>Up Arrow</p></th>
+<td><p>Step to start of previous media item in timeline/String compare mode</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="playhead-loop-modes">
+<h2>Playhead Loop Modes<a class="headerlink" href="#playhead-loop-modes" title="Link to this heading"></a></h2>
+<p>Use the loop mode button to switch between ‘play once’, ‘loop’ and ‘ping-pong’ when playing through media.</p>
+</section>
+<section id="playhead-rate">
+<h2>Playhead Rate<a class="headerlink" href="#playhead-rate" title="Link to this heading"></a></h2>
+<p>The playhead rate can be adjusted by clicking and dragging left/right on the ‘Rate’ button in the toolbar. See <span class="xref std std-ref">Transport Controls</span> section. Rate is a simple multiplier applied to the speed that the playhead avances during playback. A value of 0.5 will play your media at half speed, for example. Double click on the button to reset to 1.0.</p>
+</section>
+<section id="playhead-cache-behaviour">
+<h2>Playhead Cache Behaviour<a class="headerlink" href="#playhead-cache-behaviour" title="Link to this heading"></a></h2>
+<p>xSTUDIO will always try to read and decode video data before it is needed for display. The image data is stored in the image cache ready for drawing to screen. xSTUDIO needs to be efficient in how it does this and it is useful if a user understands the behaviour.</p>
+<p>If you are not actively playing back media: when you select a new piece of media for viewing, or whenever the position of the playhead is moved, xSTUDIO will start loading images going forward from the playhead position until it has either exhausted the frame range of the clip that you are viewing or until the cache is full. Images that were previously loaded will be deleted from the cache in order to make space for the new images.</p>
+<p>The cache status is indicated in the timeline with a horizontal green bar - this should be obvious as you can see it growing as xSTUDIO loads frames in the background. Thus if you want to view media that is slow to read off disk, like high resolution EXR images, the workflow is to wait for xSTUDIO to cache the frames before starting playback/looping. The size of the cache (set via the Preferences panel) will limit the maximum number of frames that can be loaded.</p>
+<p>In most cases xSTUDIO should be able to play back through cached frames at the required frame rate of the media. Although the Viewer has been optimised to get the most out of your graphics card, slow playback can result if you are trying to view very high resolution images and your computer’s video hardware can’t match the required data transfer rates.</p>
+<p>For media that can be decoded faster than the playback rate, like many common compressed video stream codecs or EXRs compressed with the DWA/DWB, you should be able to largely ignore xSTUDIO’s cacheing activity as it will be able to stream data off the disk for playback on demand.</p>
+</section>
+<section id="missing-frames-behaviour">
+<h2>Missing Frames Behaviour<a class="headerlink" href="#missing-frames-behaviour" title="Link to this heading"></a></h2>
+<p>When xSTUDIO is loading media that is frame based (in other words each video frame is a discreet file on disk like EXR or JPEG files) there are 3 behaviours to choose between when the file corresponding to some frame number that falls in the expected range is <em>not</em> on disk. This is important when viewing a CG render, say, where some frames have not yet been rendered but other frames in the frame range are complete. To change the preference go to the File-&gt;Preferences-&gt;Preference Manager menu option and then go to the ‘General’ tab in the Preference Manager dialog.</p>
+<figure class="align-center" id="id3">
+<a class="reference internal image-reference" href="../../_images/missing-frames-01.png"><img alt="The missing frames preference" src="../../_images/missing-frames-01.png" style="width: 366.3px; height: 90.0px;" />
+</a>
+<figcaption>
+<p><span class="caption-text">The missing frames preference</span><a class="headerlink" href="#id3" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p><strong>Insert Blank Frames</strong> Missing frames are replaced with a blank frame, so the frame range of the image seuquence is preserved. Note that missing/unloadable frames in the transport bar time slider are shown by a red bar in the frame cache indicator</p></li>
+<li><p><strong>Hold Frames</strong> Missing frames are replaced with the previous frame that <em>could</em> be loaded. Held frames are indicated with an orange colour bar in the frame cache indicator</p></li>
+<li><p><strong>Skip Missing Frames</strong> With this option the frame range of the Media Source item in question will be collapsed to ignore missing frames. Thus, if you have an image sequence consisting of a sequence of files thus: render_v01.1001.exr, render_v01.1004.exr, render_v01.1011.exr, render_v01.1021.exr then the resulting Mwedia Source item will have a duration of only 4 frames.</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="workflow.html" class="btn btn-neutral float-left" title="Workflow Tools" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="compare_modes.html" class="btn btn-neutral float-right" title="Compare Modes" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DNeg.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

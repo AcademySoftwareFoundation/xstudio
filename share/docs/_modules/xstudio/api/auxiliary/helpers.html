@@ -1,26 +1,26 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>xstudio.api.auxiliary.helpers &mdash; xStudio 0.0.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=19f00094" />
-      <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css?v=eafc0fe6" />
+  <title>xstudio.api.auxiliary.helpers &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css?v=4ae1632d" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../../../_static/documentation_options.js?v=7026087e"></script>
-        <script src="../../../../_static/doctools.js?v=888ff710"></script>
-        <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
-    <link rel="search" title="Search" href="../../../../search.html" /> 
+    <link rel="search" title="Search" href="../../../../search.html" />
+    <link href="../../../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -34,9 +34,6 @@
           <a href="../../../../index.html" class="icon icon-home">
             xStudio
           </a>
-              <div class="version">
-                0.0.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -46,9 +43,8 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../index.html">Welcome to xStudio’s documentation!</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../user_docs/index.html">xSTUDIO User Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../api/index.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reference/index.html">xSTUDIO Reference</a></li>
 </ul>
 
         </div>
@@ -78,11 +74,11 @@
              
   <h1>Source code for xstudio.api.auxiliary.helpers</h1><div class="highlight"><pre>
 <span></span><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
-<span class="kn">import</span> <span class="nn">math</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">name_atom</span><span class="p">,</span> <span class="n">uuid_atom</span><span class="p">,</span> <span class="n">type_atom</span><span class="p">,</span> <span class="n">version_atom</span><span class="p">,</span> <span class="n">get_event_group_atom</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">name_atom</span><span class="p">,</span> <span class="n">uuid_atom</span><span class="p">,</span> <span class="n">type_atom</span><span class="p">,</span> <span class="n">version_atom</span><span class="p">,</span> <span class="n">get_event_group_atom</span>
 
-<span class="k">class</span> <span class="nc">ActorConnection</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ActorConnection</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create ActorConnection object.</span>
 
 <span class="sd">        Args:</span>
@@ -92,7 +88,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">connection</span> <span class="o">=</span> <span class="n">connection</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">remote</span> <span class="o">=</span> <span class="n">remote</span>
 
-    <span class="k">def</span> <span class="nf">add_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handler</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handler</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Add event handler</span>
 <span class="sd">        Args:</span>
 <span class="sd">            handler(fun(sender, req_id, event)): Handler function.</span>
@@ -102,7 +98,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">add_handler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">handler</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">remove_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handler_id</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handler_id</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Add event handler</span>
 <span class="sd">        Args:</span>
 <span class="sd">            handler_id(str): Handler id.</span>
@@ -112,7 +108,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">remove_handler</span><span class="p">(</span><span class="n">handler_id</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">add_event_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">callback</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_event_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">callback</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Add event message callback</span>
 <span class="sd">        Args:</span>
 <span class="sd">            callback(fun(sender, req_id, event)): Callback function.</span>
@@ -122,7 +118,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">add_event_callback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">callback</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">remove_event_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handler_id</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_event_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handler_id</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Add event handler</span>
 <span class="sd">        Args:</span>
 <span class="sd">            handler_id(str): Handler id.</span>
@@ -133,8 +129,8 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">remove_event_callback</span><span class="p">(</span><span class="n">handler_id</span><span class="p">)</span>
 
 <div class="viewcode-block" id="get_name">
-<a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.auxiliary.helpers.get_name">[docs]</a>
-<span class="k">def</span> <span class="nf">get_name</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.auxiliary.helpers.get_name">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_name</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Get actor name</span>
 
 <span class="sd">    Args:</span>
@@ -148,8 +144,8 @@
 
 
 <div class="viewcode-block" id="set_name">
-<a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.auxiliary.helpers.set_name">[docs]</a>
-<span class="k">def</span> <span class="nf">set_name</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.auxiliary.helpers.set_name">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">set_name</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Set actor name.</span>
 
 <span class="sd">    Args:</span>
@@ -161,8 +157,8 @@
 
 
 <div class="viewcode-block" id="get_event_group">
-<a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.auxiliary.helpers.get_event_group">[docs]</a>
-<span class="k">def</span> <span class="nf">get_event_group</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.auxiliary.helpers.get_event_group">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_event_group</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Get event actor.</span>
 
 <span class="sd">    Args:</span>
@@ -176,8 +172,8 @@
 
 
 <div class="viewcode-block" id="get_uuid">
-<a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.auxiliary.helpers.get_uuid">[docs]</a>
-<span class="k">def</span> <span class="nf">get_uuid</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.auxiliary.helpers.get_uuid">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_uuid</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Get actor uuid.</span>
 
 <span class="sd">    Args:</span>
@@ -191,8 +187,8 @@
 
 
 <div class="viewcode-block" id="get_type">
-<a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.auxiliary.helpers.get_type">[docs]</a>
-<span class="k">def</span> <span class="nf">get_type</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.auxiliary.helpers.get_type">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_type</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Get actor type name.</span>
 
 <span class="sd">    Args:</span>
@@ -206,8 +202,8 @@
 
 
 <div class="viewcode-block" id="get_version">
-<a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.auxiliary.helpers.get_version">[docs]</a>
-<span class="k">def</span> <span class="nf">get_version</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.auxiliary.helpers.get_version">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_version</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Get actor version.</span>
 
 <span class="sd">    Args:</span>
@@ -221,8 +217,8 @@
 
 
 <div class="viewcode-block" id="Filesize">
-<a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.auxiliary.helpers.Filesize">[docs]</a>
-<span class="k">class</span> <span class="nc">Filesize</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.auxiliary.helpers.Filesize">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Filesize</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Container for a size in bytes with a human readable representation</span>
 <span class="sd">    Use it like this::</span>
@@ -236,24 +232,24 @@
     <span class="n">units</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;K&quot;</span><span class="p">,</span> <span class="s2">&quot;M&quot;</span><span class="p">,</span> <span class="s2">&quot;G&quot;</span><span class="p">,</span> <span class="s2">&quot;T&quot;</span><span class="p">,</span> <span class="s2">&quot;P&quot;</span><span class="p">]</span>
     <span class="n">precisions</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">size</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">size</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">size</span>
 
-    <span class="k">def</span> <span class="fm">__int__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__int__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span>
 
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">return</span> <span class="s2">&quot;0&quot;</span>
-        <span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">log</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">math</span><span class="w"> </span><span class="kn">import</span> <span class="n">log</span>
         <span class="n">unit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">units</span><span class="p">[</span>
             <span class="nb">min</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk</span><span class="p">)),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">units</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
         <span class="p">]</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Filesize.format">
-<a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.auxiliary.helpers.Filesize.format">[docs]</a>
-    <span class="k">def</span> <span class="nf">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unit</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.auxiliary.helpers.Filesize.format">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unit</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">            Bumpf</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -270,8 +266,8 @@
 
 
 <div class="viewcode-block" id="millify">
-<a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.auxiliary.helpers.millify">[docs]</a>
-<span class="k">def</span> <span class="nf">millify</span><span class="p">(</span><span class="n">number</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.auxiliary.helpers.millify">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">millify</span><span class="p">(</span><span class="n">number</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Bumpf</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -296,7 +292,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2020, DNeg.</p>
+    <p>&#169; Copyright 2025, DNeg.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

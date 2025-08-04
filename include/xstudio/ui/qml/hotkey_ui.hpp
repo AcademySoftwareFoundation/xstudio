@@ -203,6 +203,30 @@ namespace ui {
             QUuid hotkey_uuid_;
         };
 
+        /*XsPressedKeysMonitor item. This simple item has a single attribute that
+        provides a string description of the current presswed kweys.*/
+        class VIEWPORT_QML_EXPORT PressedKeysMonitor : public QMLActor {
+
+            Q_OBJECT
+
+            Q_PROPERTY(QString pressedKeys READ pressedKeys NOTIFY pressedKeysChanged)
+
+          public:
+            explicit PressedKeysMonitor(QObject *parent = nullptr);
+
+            void init(caf::actor_system &system) override;
+
+            [[nodiscard]] const QString &pressedKeys() const { return pressed_keys_; }
+
+          signals:
+
+            void pressedKeysChanged();
+
+          private:
+
+            QString pressed_keys_;
+        };
+
         /*XsHotkeyReference item. This lets us 'watch' an already existing hotkey.
         We use the name of the hotkey to identify it.*/
         class VIEWPORT_QML_EXPORT HotkeyReferenceUI : public QMLActor {

@@ -387,6 +387,7 @@ GlobalUIModelData::GlobalUIModelData(caf::actor_config &cfg) : caf::event_based_
         [=](keypress_monitor::hotkey_event_atom, Hotkey &hotkey) {
             update_hotkeys_model_data(hotkey);
         },
+        [=](keypress_monitor::hotkey_event_atom, const std::string &/*pressed_keys*/) {},
         [=](keypress_monitor::hotkey_event_atom,
             const utility::Uuid kotkey_uuid,
             const bool pressed,

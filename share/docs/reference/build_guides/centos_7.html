@@ -1,0 +1,449 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Centos 7 (deprecated) &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="xSTUDIO Library Dependencies List" href="dependencies.html" />
+    <link rel="prev" title="Ubuntu 22.04 LTS" href="ubuntu_22_04.html" />
+    <link href="../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            xStudio
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../user_docs/index.html">xSTUDIO User Guide</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">xSTUDIO Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">xSTUDIO Build Guides</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="index.html#post-production-studios-and-other-organisations">Post Production Studios and Other Organisations</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="index.html#individual-users">Individual Users</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="macos.html">MacOS (Intel/ARM)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="windows.html">Windows 10/11</a></li>
+<li class="toctree-l4"><a class="reference internal" href="linux_generic.html">Linux Generic Guide</a></li>
+<li class="toctree-l4"><a class="reference internal" href="rocky_linux_9_1.html">Rocky Linux 9.1</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ubuntu_22_04.html">Ubuntu 22.04 LTS</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">Centos 7 (deprecated)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="dependencies.html">xSTUDIO Library Dependencies List</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html">API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../python_api/index.html">Python API</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">xStudio</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">xSTUDIO Reference</a></li>
+          <li class="breadcrumb-item"><a href="index.html">xSTUDIO Build Guides</a></li>
+      <li class="breadcrumb-item active">Centos 7 (deprecated)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/reference/build_guides/centos_7.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="centos-7-deprecated">
+<h1>Centos 7 (deprecated)<a class="headerlink" href="#centos-7-deprecated" title="Link to this heading"></a></h1>
+<section id="note-may-2025">
+<h2>Note (May 2025)<a class="headerlink" href="#note-may-2025" title="Link to this heading"></a></h2>
+<p>CentOS 7 is end of life and as such, xSTUDIO build compatibility is no longer provided for this operating system. In particular, note that xSTUDIO now uses Qt6.5 which is not trivial to build/obtain on this Linux distribution. The build notes below are somewhat out-of-date but we include them here for reference just in case there are facilities still using CentOS7 that wish to build xSTUDIO.</p>
+</section>
+<section id="distro-installs">
+<h2>Distro installs<a class="headerlink" href="#distro-installs" title="Link to this heading"></a></h2>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>sudo yum install -y centos-release-scl
+sudo yum install -y devtoolset-9
+sudo yum install -y alsa-lib-devel pulseaudio-libs-devel freeglut-devel
+sudo yum install -y python3-devel bzip2-devel freetype-devel zlib-devel
+sudo yum install -y libuuid-devel
+</pre></div>
+</div>
+<section id="qt-6-5">
+<h3>Qt 6.5<a class="headerlink" href="#qt-6-5" title="Link to this heading"></a></h3>
+<p>Qt SDK must be built from source on CentOS 7. We wish you the very best of luck!</p>
+</section>
+<section id="force-use-of-newer-gcc">
+<h3>Force use of newer GCC<a class="headerlink" href="#force-use-of-newer-gcc" title="Link to this heading"></a></h3>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>sudo -s
+echo &quot;source /opt/rh/devtoolset-9/enable&quot; &gt;&gt; /etc/bashrc
+
+*(New Shell to pick up change)*
+</pre></div>
+</div>
+</section>
+</section>
+<section id="local-installs">
+<h2>Local installs<a class="headerlink" href="#local-installs" title="Link to this heading"></a></h2>
+<section id="openssl">
+<h3>OPENSSL<a class="headerlink" href="#openssl" title="Link to this heading"></a></h3>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>wget https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_1_1_1s.tar.gz
+tar -xf OpenSSL_1_1_1s.tar.gz
+cd openssl-OpenSSL_1_1_1s/
+./config
+make -j $JOBS
+sudo make install
+cd -
+</pre></div>
+</div>
+</section>
+<section id="cmake">
+<h3>CMake<a class="headerlink" href="#cmake" title="Link to this heading"></a></h3>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>wget https://github.com/Kitware/CMake/releases/download/v3.25.1/cmake-3.25.1.tar.gz
+tar -xf cmake-3.25.1.tar.gz
+cd cmake-3.25.1/
+./configure
+gmake -j $JOBS
+sudo gmake install
+cd -
+</pre></div>
+</div>
+</section>
+<section id="nlohmann-json">
+<h3>NLOHMANN JSON<a class="headerlink" href="#nlohmann-json" title="Link to this heading"></a></h3>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>wget https://github.com/nlohmann/json/archive/refs/tags/v3.11.2.tar.gz
+tar -xf v3.11.2.tar.gz
+mkdir json-3.11.2/build
+cd json-3.11.2/build
+cmake .. -DJSON_BuildTests=Off
+make -j $JOBS
+sudo make  install
+cd -
+</pre></div>
+</div>
+</section>
+<section id="pybind11">
+<h3>PYBIND11<a class="headerlink" href="#pybind11" title="Link to this heading"></a></h3>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>wget https://github.com/pybind/pybind11/archive/refs/tags/v2.6.2.tar.gz
+tar -xf v2.6.2.tar.gz
+cd pybind11-2.6.2
+mkdir build
+cd build
+cmake ..
+make -j $JOBS
+sudo make install
+cd ../..
+</pre></div>
+</div>
+</section>
+<section id="spdlog">
+<h3>SPDLOG<a class="headerlink" href="#spdlog" title="Link to this heading"></a></h3>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>wget https://github.com/gabime/spdlog/archive/refs/tags/v1.9.2.tar.gz
+tar -xf v1.9.2.tar.gz
+cd spdlog-1.9.2
+mkdir build
+cd build
+cmake .. -DSPDLOG_BUILD_SHARED=On
+make -j $JOBS
+sudo make install
+cd ../..
+</pre></div>
+</div>
+</section>
+<section id="fmtlib">
+<h3>FMTLIB<a class="headerlink" href="#fmtlib" title="Link to this heading"></a></h3>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>wget https://github.com/fmtlib/fmt/archive/refs/tags/8.0.1.tar.gz
+tar -xf 8.0.1.tar.gz
+cd fmt-8.0.1/
+mkdir build
+cd build
+cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=1 -DFMT_DOC=Off -DFMT_TEST=Off
+make -j $JOBS
+sudo make install
+cd ../..
+</pre></div>
+</div>
+</section>
+<section id="openexr">
+<h3>OpenEXR<a class="headerlink" href="#openexr" title="Link to this heading"></a></h3>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/AcademySoftwareFoundation/openexr.git
+cd openexr/
+git checkout RB-3.1
+mkdir build
+cd build
+cmake .. -DOPENEXR_INSTALL_TOOLS=Off -DBUILD_TESTING=Off
+make -j $JOBS
+sudo make install
+cd ../..
+</pre></div>
+</div>
+</section>
+<section id="actorframework">
+<h3>ActorFramework<a class="headerlink" href="#actorframework" title="Link to this heading"></a></h3>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>wget https://github.com/actor-framework/actor-framework/archive/refs/tags/0.18.4.tar.gz
+tar -xf 0.18.4.tar.gz
+cd actor-framework-0.18.4
+./configure
+cd build
+make -j $JOBS
+sudo make install
+cd ../..
+</pre></div>
+</div>
+</section>
+<section id="ocio2">
+<h3>OCIO2<a class="headerlink" href="#ocio2" title="Link to this heading"></a></h3>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>wget https://github.com/AcademySoftwareFoundation/OpenColorIO/archive/refs/tags/v2.2.0.tar.gz
+tar -xf v2.2.0.tar.gz
+cd OpenColorIO-2.2.0/
+mkdir build
+cd build
+cmake -DOCIO_BUILD_APPS=OFF -DOCIO_BUILD_TESTS=OFF -DOCIO_BUILD_GPU_TESTS=OFF ../
+make -j $JOBS
+sudo make install
+cd ../..
+</pre></div>
+</div>
+</section>
+<section id="libglew">
+<h3>libGLEW<a class="headerlink" href="#libglew" title="Link to this heading"></a></h3>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>wget https://sourceforge.net/projects/glew/files/glew/2.1.0/glew-2.1.0.tgz
+tar -xf glew-2.1.0.tgz
+cd glew-2.1.0/
+make -j $JOBS
+sudo make install
+cd -
+</pre></div>
+</div>
+</section>
+<section id="opentimelineio">
+<h3>OpenTimelineIO<a class="headerlink" href="#opentimelineio" title="Link to this heading"></a></h3>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/AcademySoftwareFoundation/OpenTimelineIO.git
+cd OpenTimelineIO
+git checkout cxx17
+mkdir build
+cd build
+cmake -DOTIO_PYTHON_INSTALL=ON -DOTIO_DEPENDENCIES_INSTALL=OFF -DOTIO_FIND_IMATH=ON ..
+make -j $JOBS
+sudo make install
+cd ../..
+</pre></div>
+</div>
+</section>
+<section id="ffmpeg-and-deps">
+<h3>FFMPEG AND DEPS<a class="headerlink" href="#ffmpeg-and-deps" title="Link to this heading"></a></h3>
+<section id="nasm">
+<h4>NASM<a class="headerlink" href="#nasm" title="Link to this heading"></a></h4>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>wget https://www.nasm.us/pub/nasm/releasebuilds/2.15.05/nasm-2.15.05.tar.bz2
+tar -xf nasm-2.15.05.tar.bz2
+cd nasm-2.15.05
+./autogen.sh
+./configure
+make -j $JOBS
+sudo make install
+cd -
+</pre></div>
+</div>
+</section>
+<section id="yasm">
+<h4>YASM<a class="headerlink" href="#yasm" title="Link to this heading"></a></h4>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>wget https://www.tortall.net/projects/yasm/releases/yasm-1.3.0.tar.gz
+tar -xf yasm-1.3.0.tar.gz
+cd yasm-1.3.0
+./configure --prefix=&quot;$HOME/ffmpeg_build&quot; --bindir=&quot;$HOME/bin&quot;
+make -j $JOBS
+sudo make install
+cd -
+</pre></div>
+</div>
+</section>
+<section id="turbojpeg">
+<h4>TurboJPEG<a class="headerlink" href="#turbojpeg" title="Link to this heading"></a></h4>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>wget https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/2.1.4.tar.gz
+tar -xf 2.1.4.tar.gz
+cd libjpeg-turbo-2.1.4
+mkdir build
+cd build/
+cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local
+make -j $JOBS
+sudo make install
+cd ../..
+</pre></div>
+</div>
+</section>
+<section id="x264">
+<h4>x264<a class="headerlink" href="#x264" title="Link to this heading"></a></h4>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git clone --branch stable --depth 1 https://code.videolan.org/videolan/x264.git
+cd x264/
+./configure --enable-shared
+make -j $JOBS
+sudo make install
+cd -
+</pre></div>
+</div>
+</section>
+<section id="x265">
+<h4>x265<a class="headerlink" href="#x265" title="Link to this heading"></a></h4>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>wget https://bitbucket.org/multicoreware/x265_git/downloads/x265_3.5.tar.gz
+tar -xf x265_3.5.tar.gz
+cd x265_3.5/build/linux/
+cmake -G &quot;Unix Makefiles&quot; ../../source
+make -j $JOBS
+sudo make install
+cd -
+</pre></div>
+</div>
+</section>
+<section id="lame">
+<h4>LAME<a class="headerlink" href="#lame" title="Link to this heading"></a></h4>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>wget https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
+tar -xf lame-3.100.tar.gz
+cd lame-3.100
+./configure --enable-nasm
+make -j $JOBS
+sudo make install
+cd -
+</pre></div>
+</div>
+</section>
+<section id="fdk-aac">
+<h4>FDK-AAC<a class="headerlink" href="#fdk-aac" title="Link to this heading"></a></h4>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git clone --depth 1 https://github.com/mstorsjo/fdk-aac
+cd fdk-aac
+autoreconf -fiv
+./configure
+make -j $JOBS
+sudo make install
+cd -
+</pre></div>
+</div>
+</section>
+<section id="opus">
+<h4>OPUS<a class="headerlink" href="#opus" title="Link to this heading"></a></h4>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>wget https://archive.mozilla.org/pub/opus/opus-1.3.1.tar.gz
+tar xzvf opus-1.3.1.tar.gz
+cd opus-1.3.1
+./configure
+make -j $JOBS
+sudo make install
+cd -
+</pre></div>
+</div>
+</section>
+<section id="libvpx">
+<h4>LIBVPX<a class="headerlink" href="#libvpx" title="Link to this heading"></a></h4>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git clone --depth 1 https://chromium.googlesource.com/webm/libvpx.git
+cd libvpx
+./configure --enable-shared --disable-static --disable-examples --disable-unit-tests --enable-vp9-highbitdepth --as=yasm
+make -j $JOBS
+sudo make install
+cd -
+</pre></div>
+</div>
+</section>
+<section id="ffmpeg">
+<h4>FFMPEG<a class="headerlink" href="#ffmpeg" title="Link to this heading"></a></h4>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>wget https://ffmpeg.org/releases/ffmpeg-5.1.tar.bz2
+tar -xf ffmpeg-5.1.tar.bz2
+cd ffmpeg-5.1/
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+./configure --extra-libs=-lpthread   --extra-libs=-lm    --enable-gpl   --enable-libfdk_aac   --enable-libfreetype   --enable-libmp3lame   --enable-libopus   --enable-libvpx   --enable-libx264   --enable-libx265 --enable-shared --enable-nonfree
+make -j $JOBS
+sudo make install
+cd -
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+<section id="xstudio">
+<h2>xStudio<a class="headerlink" href="#xstudio" title="Link to this heading"></a></h2>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>export PKG_CONFIG_PATH=/usr/local/lib64/pkgconfig:/usr/local/lib64/pkgconfig
+export Qt5_DIR=/opt/Qt/5.15.2/gcc_64
+export LD_LIBRARY_PATH=/usr/local/lib:/usr/local/lib64
+export PYTHONPATH=./bin/python/lib/python3.6/site-packages:/home/xstudio/.local/lib/python3.6/site-packages:
+
+cd  xstudio
+mkdir build
+cd build
+cmake .. -DBUILD_DOCS=Off
+make -j $JOBS
+
+./bin/xstudio.bin
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="ubuntu_22_04.html" class="btn btn-neutral float-left" title="Ubuntu 22.04 LTS" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="dependencies.html" class="btn btn-neutral float-right" title="xSTUDIO Library Dependencies List" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DNeg.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -33,9 +33,6 @@ XsPrimaryButton{ id: control
             Layout.maximumWidth: parent.height
             Layout.preferredWidth: parent.height
             Layout.fillHeight: true
-            antialiasing: true
-            smooth: true
-            imgOverlayColor: palette.text
             source: ""
         }
         XsText { id: txtDiv

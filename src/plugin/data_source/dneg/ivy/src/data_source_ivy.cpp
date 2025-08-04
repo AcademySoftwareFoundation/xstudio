@@ -851,6 +851,12 @@ void IvyDataSourceActor<T>::ivy_load(
 
     auto query = uri.query();
 
+    for (const auto &p: query) {
+        std::cerr << p.first << " " << p.second << "\n";
+    }
+
+    std::cerr << "AA " << query.count("type") << " " << query.count("show") << " " << query.count("ids") << " " << (query["type"] == "File") << "\n";
+
     if (query.count("type") and query["type"] == "Version" and query.count("show") and
         query.count("ids")) {
         ivy_load_version(rp, uri, media_rate);
@@ -859,7 +865,7 @@ void IvyDataSourceActor<T>::ivy_load(
         query.count("ids")) {
         ivy_load_file(rp, uri, media_rate);
     } else {
-        spdlog::warn("Invalid Ivy action {}, requires type, id", to_string(uri));
+        spdlog::warn("Invalid Ivy action WOZZ {}, requires type, id", to_string(uri));
         rp.deliver(utility::UuidActorVector());
     }
 }
@@ -1228,9 +1234,9 @@ void IvyDataSourceActor<T>::handle_drop(
                     // name, and path are also available
                     auto uri = caf::make_uri(std::string(fmt::format(
                         "ivy://load?show={}&type={}&ids={}",
-                        entry.at("show").dump(),
-                        entry.at("type").dump(),
-                        entry.at("id").dump())));
+                        entry.at("show").get<std::string>(),
+                        entry.at("type").get<std::string>(),
+                        entry.at("id").get<std::string>())));
 
                     if (uri)
                         uris.push_back(*uri);

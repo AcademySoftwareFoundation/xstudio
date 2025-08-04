@@ -581,6 +581,7 @@ class DNegMediaHook : public MediaHook {
             r["ocio_config"]   = "__raw__";
             r["working_space"] = "raw";
         }
+        std::cerr << "\n\nR " << r.dump() << "\n";
         return r;
     }
 

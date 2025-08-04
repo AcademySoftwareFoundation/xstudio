@@ -498,6 +498,7 @@ OCIO::TransformRcPtr OCIOEngine::source_transform(
         dt->setSrc(working_cs.c_str());
         dt->setDisplay(display.c_str());
         dt->setView(view.c_str());
+        dt->setDirection(OCIO::TRANSFORM_DIR_INVERSE);
         return dt;
     } else {
         std::string auto_input_cs;

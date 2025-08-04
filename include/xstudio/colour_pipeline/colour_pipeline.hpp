@@ -114,42 +114,42 @@ namespace colour_pipeline {
 
         virtual ~ColourPipeline();
 
-        /* Create the ColourOperationDataPtr containing the necessary LUT and
-        shader data for linearising the source colourspace RGB data from the
-        given media source on the screen.
+        /*! Create the ColourOperationDataPtr containing the necessary LUT and
+        *shader data for linearising the source colourspace RGB data from the
+        *given media source on the screen.
+        *
+        *You MUST add an appropriate cache_id key value that is unqique for a
+        *given transform for efficient cache retrieval to prevent computing this
+        *data again unnecessarily.
 
-        You MUST add an appropriate cache_id key value that is unqique for a
-        given transform for efficient cache retrieval to prevent computing this
-        data again unnecessarily.
-
-        See OCIO plugin for rederence implementation. */
+        *See OCIO plugin for rederence implementation. */
         virtual void linearise_op_data(
             caf::typed_response_promise<ColourOperationDataPtr> &rp,
             const media::AVFrameID &media_ptr) = 0;
 
-        /* If desired, override to return one or more colour operations that
-        are applied to the linear colour value before the display space is applied.
-        This could be employed for gamma/saturation viewer controls, for example */
+        /*! If desired, override to return one or more colour operations that
+        *are applied to the linear colour value before the display space is applied.
+        *This could be employed for gamma/saturation viewer controls, for example */
         virtual std::vector<ColourOperationDataPtr> intermediate_operations(
             const utility::Uuid &source_uuid,
             const utility::JsonStore &media_source_colour_metadata) {
             return std::vector<ColourOperationDataPtr>{};
         }
 
-        /* Create the ColourOperationDataPtr containing the necessary LUT and
-        shader data for transforming linear colour values into display space.
-        rp.deliver() MUST be called by your function to deliver the resulting
-        ColourOperationDataPtr OR the rp must be passed to a worker actor that
-        will call rp.deliver(). See OCIO plugin for reference implementation.
+        /*! Create the ColourOperationDataPtr containing the necessary LUT and
+        *shader data for transforming linear colour values into display space.
+        *rp.deliver() MUST be called by your function to deliver the resulting
+        *ColourOperationDataPtr OR the rp must be passed to a worker actor that
+        *will call rp.deliver(). See OCIO plugin for reference implementation.
 
-        You MUST add an appropriate cache_id key value that is unqique for a
-        given transform for efficient cache retrieval to prevent computing this
-        data again unnecessarily. */
+        *You MUST add an appropriate cache_id key value that is unqique for a
+        *given transform for efficient cache retrieval to prevent computing this
+        *data again unnecessarily. */
         virtual void linear_to_display_op_data(
             caf::typed_response_promise<ColourOperationDataPtr> &rp,
             const media::AVFrameID &media_ptr) = 0;
 
-        /* For the given image build a dictionary of shader uniform names and
+        /*! For the given image build a dictionary of shader uniform names and
         their corresponding values to be used to set the uniform values in your
         shader at draw-time - keys should match the names of uniforms in your
         shader and values should match the type of your uniform.

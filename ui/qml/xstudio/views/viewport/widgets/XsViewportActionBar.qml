@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import xStudio 1.0
 import xstudio.qml.models 1.0
 import xstudio.qml.helpers 1.0
+import xstudio.qml.viewport 1.0
 import "."
 
 Item{id: actionDiv
@@ -28,6 +29,17 @@ Item{id: actionDiv
             return helpers.fileFromURL(currentOnScreenMediaSourceData.values.pathRole)
         }
         return ""
+    }
+
+    XsHotkey {
+        id: popout_viewer_hotkey
+        sequence: "Ctrl+P"
+        name: "Open Pop-Out Viewer"
+        description: "Open the secondary viewport window"
+        componentName: "Viewer"
+        onActivated: {
+            appWindow.toggle_popout_viewer()
+        }
     }
 
     /*************************************************************************/
@@ -145,6 +157,10 @@ Item{id: actionDiv
             onClicked: {
                 appWindow.toggle_popout_viewer()
             }
+
+            toolTip: "Open Pop-Out Viewer"
+            hotkeyNameForTooltip: "Open Pop-Out Viewer"
+
         }
 
         XsPrimaryButton {

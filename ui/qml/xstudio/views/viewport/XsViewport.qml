@@ -17,6 +17,30 @@ Viewport {
 
     property bool has_context_menu: true
 
+    /*XsPressedKeysMonitor {
+        id: monitor
+    }
+
+    property var fonk
+
+    XsText {
+        id: keyIndicator
+        anchors.left: parent.left
+        anchors.bottom: parent.bottom
+        anchors.margins: 40
+        font.pixelSize: 50
+        Behavior on opacity { NumberAnimation { easing.type: Easing.InQuart; duration: 1000; from: 1; to: 0; onRunningChanged: if(!running) keyIndicator.opacity = 0 } }
+
+        property var fonk: monitor.pressedKeys
+
+        onFonkChanged: {
+            opacity = 1
+            opacity = 0
+            if (fonk != "") text = "Hotkey Pressed : " + fonk
+        }
+
+    }*/
+
     /**************************************************************
 
     HOTKEYS

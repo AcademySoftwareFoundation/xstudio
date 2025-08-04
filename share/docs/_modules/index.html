@@ -1,26 +1,26 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Overview: module code &mdash; xStudio 1.0.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
-      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=eafc0fe6" />
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=8d563738"></script>
-        <script src="../_static/doctools.js?v=888ff710"></script>
-        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
-    <link rel="search" title="Search" href="../search.html" /> 
+    <link rel="search" title="Search" href="../search.html" />
+    <link href="../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -34,9 +34,6 @@
           <a href="../index.html" class="icon icon-home">
             xStudio
           </a>
-              <div class="version">
-                1.0.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -46,9 +43,8 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul>
-<li class="toctree-l1"><a class="reference internal" href="../index.html">Welcome to xStudio’s documentation!</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../user_docs/index.html">xSTUDIO User Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">xSTUDIO Reference</a></li>
 </ul>
 
         </div>
@@ -80,6 +76,7 @@
 <li><a href="xstudio/api/auxiliary/helpers.html">xstudio.api.auxiliary.helpers</a></li>
 <li><a href="xstudio/api/intrinsic/global_store.html">xstudio.api.intrinsic.global_store</a></li>
 <li><a href="xstudio/api/intrinsic/media_cache.html">xstudio.api.intrinsic.media_cache</a></li>
+<li><a href="xstudio/api/module.html">xstudio.api.module</a></li>
 <li><a href="xstudio/api/session/container.html">xstudio.api.session.container</a></li>
 <li><a href="xstudio/api/session/media/media.html">xstudio.api.session.media.media</a></li>
 <li><a href="xstudio/api/session/media/media_source.html">xstudio.api.session.media.media_source</a></li>
@@ -92,15 +89,16 @@
 <li><a href="xstudio/api/session/playlist/timeline.html">xstudio.api.session.playlist.timeline</a></li>
 <li><a href="xstudio/api/session/session.html">xstudio.api.session.session</a></li>
 <li><a href="xstudio/api/studio.html">xstudio.api.studio</a></li>
-</ul><li><a href="xstudio/cli/control.html">xstudio.cli.control</a></li>
-<li><a href="xstudio/common_api.html">xstudio.common_api</a></li>
-<li><a href="xstudio/connection.html">xstudio.connection</a></li>
+</ul><li><a href="xstudio/connection.html">xstudio.connection</a></li>
 <li><a href="xstudio/core/__pybind_xstudio.html">xstudio.core.__pybind_xstudio</a></li>
 <li><a href="xstudio/core/interactive.html">xstudio.core.interactive</a></li>
 <li><a href="xstudio/demo/capitalise.html">xstudio.demo.capitalise</a></li>
 <li><a href="xstudio/demo/flag_disco.html">xstudio.demo.flag_disco</a></li>
 <li><a href="xstudio/demo/make_playlists.html">xstudio.demo.make_playlists</a></li>
 <li><a href="xstudio/demo/sort_session.html">xstudio.demo.sort_session</a></li>
+<li><a href="xstudio/plugin/hud_plugin.html">xstudio.plugin.hud_plugin</a></li>
+<li><a href="xstudio/plugin/plugin_base.html">xstudio.plugin.plugin_base</a></li>
+<li><a href="xstudio/plugin/viewport_layout_plugin.html">xstudio.plugin.viewport_layout_plugin</a></li>
 </ul>
 
            </div>
@@ -110,7 +108,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2020, DNeg.</p>
+    <p>&#169; Copyright 2025, DNeg.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

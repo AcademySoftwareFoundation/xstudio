@@ -242,6 +242,21 @@ class ModuleBase(ActorConnection, metaclass=ModuleMeta):
             self.remote,
             disconnect_from_ui_atom())
 
+    @property
+    def attributes(self):
+        """Access the attributes map for this Module
+        """
+        return self.attrs_by_name_
+
+    def list_attributes(
+        self):
+        """Get a list of attribute titles for this Module
+        
+        Returns: 
+            list(str): List of attribute names
+        """
+        return self.attrs_by_name_.keys()
+
     def get_attribute(
         self,
         attribute_name

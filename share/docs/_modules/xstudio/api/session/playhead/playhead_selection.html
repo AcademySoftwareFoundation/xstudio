@@ -1,26 +1,26 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>xstudio.api.session.playhead.playhead_selection &mdash; xStudio 0.0.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../../../../../_static/css/theme.css?v=19f00094" />
-      <link rel="stylesheet" type="text/css" href="../../../../../_static/graphviz.css?v=eafc0fe6" />
+  <title>xstudio.api.session.playhead.playhead_selection &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/graphviz.css?v=4ae1632d" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../../../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../../../../_static/documentation_options.js?v=7026087e"></script>
-        <script src="../../../../../_static/doctools.js?v=888ff710"></script>
-        <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../../genindex.html" />
-    <link rel="search" title="Search" href="../../../../../search.html" /> 
+    <link rel="search" title="Search" href="../../../../../search.html" />
+    <link href="../../../../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -34,9 +34,6 @@
           <a href="../../../../../index.html" class="icon icon-home">
             xStudio
           </a>
-              <div class="version">
-                0.0.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -46,9 +43,8 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../index.html">Welcome to xStudio’s documentation!</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../user_docs/index.html">xSTUDIO User Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../api/index.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../reference/index.html">xSTUDIO Reference</a></li>
 </ul>
 
         </div>
@@ -78,19 +74,19 @@
              
   <h1>Source code for xstudio.api.session.playhead.playhead_selection</h1><div class="highlight"><pre>
 <span></span><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">monitored_atom</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">,</span> <span class="n">MT_IMAGE</span><span class="p">,</span> <span class="n">MT_AUDIO</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">move_atom</span><span class="p">,</span> <span class="n">remove_atom</span><span class="p">,</span> <span class="n">actor</span><span class="p">,</span> <span class="n">select_all_media_atom</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">select_media_atom</span><span class="p">,</span> <span class="n">get_selected_sources_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">monitored_atom</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">,</span> <span class="n">MT_IMAGE</span><span class="p">,</span> <span class="n">MT_AUDIO</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">move_atom</span><span class="p">,</span> <span class="n">remove_atom</span><span class="p">,</span> <span class="n">actor</span><span class="p">,</span> <span class="n">select_all_media_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">select_media_atom</span><span class="p">,</span> <span class="n">get_selected_sources_atom</span>
 
-<span class="kn">from</span> <span class="nn">xstudio.api.session</span> <span class="kn">import</span> <span class="n">Container</span>
-<span class="kn">from</span> <span class="nn">xstudio.api.session.media.media</span> <span class="kn">import</span> <span class="n">Media</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.session</span><span class="w"> </span><span class="kn">import</span> <span class="n">Container</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.session.media.media</span><span class="w"> </span><span class="kn">import</span> <span class="n">Media</span>
 
 <div class="viewcode-block" id="PlayheadSelection">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playhead.playhead_selection.PlayheadSelection">[docs]</a>
-<span class="k">class</span> <span class="nc">PlayheadSelection</span><span class="p">(</span><span class="n">Container</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playhead.playhead_selection.PlayheadSelection">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PlayheadSelection</span><span class="p">(</span><span class="n">Container</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Playhead selection object, what the playhead plays.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create PlayheadSelection object.</span>
 
 <span class="sd">        Args:</span>
@@ -104,7 +100,7 @@
         <span class="n">Container</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">monitored</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">monitored</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Current monitored Playhead selection.</span>
 
 <span class="sd">        Returns:</span>
@@ -115,7 +111,7 @@
         <span class="k">return</span> <span class="n">PlayheadSelection</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
 
     <span class="nd">@monitored</span><span class="o">.</span><span class="n">setter</span>
-    <span class="k">def</span> <span class="nf">monitored</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">monitored</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set current monitored Playhead selection.</span>
 
 <span class="sd">        Args:</span>
@@ -124,7 +120,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">monitored_atom</span><span class="p">(),</span> <span class="n">i</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">selected_sources</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">selected_sources</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get selected media objects.</span>
 
 <span class="sd">        Returns:</span>
@@ -140,8 +136,8 @@
         <span class="k">return</span> <span class="n">clips</span>
 
 <div class="viewcode-block" id="PlayheadSelection.set_selection">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playhead.playhead_selection.PlayheadSelection.set_selection">[docs]</a>
-    <span class="k">def</span> <span class="nf">set_selection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">media_uuids</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playhead.playhead_selection.PlayheadSelection.set_selection">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_selection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">media_uuids</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Select the media items</span>
 
 <span class="sd">        Args:</span>
@@ -156,7 +152,7 @@
         <span class="k">return</span> <span class="kc">True</span></div>
 
 
-    <span class="k">def</span> <span class="nf">insert</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">media</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">media_type</span><span class="o">=</span><span class="n">MT_IMAGE</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">insert</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">media</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">media_type</span><span class="o">=</span><span class="n">MT_IMAGE</span><span class="p">):</span>
 
         <span class="c1"># NEEDS FIXING!</span>
         <span class="c1">#</span>
@@ -175,8 +171,8 @@
         <span class="k">return</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="PlayheadSelection.move">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playhead.playhead_selection.PlayheadSelection.move">[docs]</a>
-    <span class="k">def</span> <span class="nf">move</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">to_move</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playhead.playhead_selection.PlayheadSelection.move">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">move</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">to_move</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Move clip.</span>
 
 <span class="sd">        Args:</span>
@@ -199,8 +195,8 @@
 
 
 <div class="viewcode-block" id="PlayheadSelection.remove">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playhead.playhead_selection.PlayheadSelection.remove">[docs]</a>
-    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">to_remove</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playhead.playhead_selection.PlayheadSelection.remove">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">to_remove</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove clip.</span>
 
 <span class="sd">        Args:</span>
@@ -219,8 +215,8 @@
 
 
 <div class="viewcode-block" id="PlayheadSelection.select_all">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playhead.playhead_selection.PlayheadSelection.select_all">[docs]</a>
-    <span class="k">def</span> <span class="nf">select_all</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playhead.playhead_selection.PlayheadSelection.select_all">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">select_all</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Select all media in playlist.</span>
 
 <span class="sd">        Args:</span>
@@ -242,7 +238,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2020, DNeg.</p>
+    <p>&#169; Copyright 2025, DNeg.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

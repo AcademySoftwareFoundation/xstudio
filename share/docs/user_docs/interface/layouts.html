@@ -1,0 +1,197 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Custom Interface Layouts &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="The Playlist Panel" href="playlists.html" />
+    <link rel="prev" title="The xSTUDIO Interface" href="interface.html" />
+    <link href="../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            xStudio
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">xSTUDIO User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../overview.html">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/getting_started.html">Getting Started</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="interface.html">The xSTUDIO Interface</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Custom Interface Layouts</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#scaling-and-dividing-the-panels-in-a-layout">Scaling and dividing the panels in a Layout</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#customising-the-interface-walkthrough">Customising the Interface Walkthrough</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#other-customisaions">Other Customisaions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="playlists.html">The Playlist Panel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="media_list.html">The Media List Panel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="viewport.html">The Viewport</a></li>
+<li class="toctree-l3"><a class="reference internal" href="timeline.html">The Timeline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="transport.html">Transport Controls and Toolbar</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../workflow/workflow.html">Workflow Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../appendix/index.html">Appendix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../release_notes/index.html">Release Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">xSTUDIO Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">xStudio</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">xSTUDIO User Guide</a></li>
+          <li class="breadcrumb-item"><a href="interface.html">The xSTUDIO Interface</a></li>
+      <li class="breadcrumb-item active">Custom Interface Layouts</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/user_docs/interface/layouts.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="custom-interface-layouts">
+<span id="interface-layouts"></span><h1>Custom Interface Layouts<a class="headerlink" href="#custom-interface-layouts" title="Link to this heading"></a></h1>
+<img alt="../../_images/default-interface-02.png" class="align-center" src="../../_images/default-interface-02.png" />
+<p>xSTUDIO’s main window provides 3 different default layouts (Timeline, Review, Present) which can be selected from the shelf to the top right of the window. They can also be cycled with the ‘F1’, ‘F2’ and ‘F3’ keys (and so-on if you have more than 3 layouts)</p>
+<p>You can modify the existing layouts (except for the Present layout) as much as you like and also create new layouts via the hamburger menu button to the very top-right of the xSTUDIO interface. This menu also gives you options to rename, remove or re-order any of the layouts (except for Present) in the list.</p>
+<p>This system is intended to give you total control over how the xSTUDIO GUI is configured so you can make it as simple or as complex as you wish to support your preferred way of working and organising your media and review sessions.</p>
+<section id="scaling-and-dividing-the-panels-in-a-layout">
+<h2>Scaling and dividing the panels in a Layout<a class="headerlink" href="#scaling-and-dividing-the-panels-in-a-layout" title="Link to this heading"></a></h2>
+<p>Apart from _Present_ each layout splits the xSTUDIO window into horizontal or vertical <em>panels</em>. Each panel can contain one or more of xSTUDIO’s interfaces - for example, Media List, Playlists, Viewport, Timeline etc. These panels can be resized by clicking and dragging the gutter (the thin space) that separates them. When a panel contains multiple interfaces they will be tabbed so that you can quickly switch which interface is active in the given panel.</p>
+<p>Panels can be sub-divided to create more panels in the interface, and this can done as many times as you like. To sub-divide an existing panel, look for the hamburger menu button that is at the top-right of the panel title bar. This menu has options to split the panel horizontally or verically or to destroy the panel (and thus make space for the remaining panels).</p>
+<p>To select the interface that fills a given panel, look for the tab selector that is at the top left of the panel area. There is a chevron button next to the tab title, click on this to get a pop-up option showing you the choices of interfaces that can be loaded into the panel. To use the multiple tabbed panel feature, click on the + button instead to add a new tabbed interface.</p>
+<figure class="align-default" id="id1">
+<img alt="../../_images/busy-interface.png" src="../../_images/busy-interface.png" />
+<figcaption>
+<p><span class="caption-text">A needlessly busy interface, where many panels have been added! Note there are 2 viewports. You are free to have multiple instances of the same interface in different panels if desired.</span><a class="headerlink" href="#id1" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<figure class="align-default" id="id2">
+<img alt="../../_images/clean-interface.png" src="../../_images/clean-interface.png" />
+<figcaption>
+<p><span class="caption-text">A more minimal interface with just a Viewport, Playlist and Media List interfaces. Note that some of the Viewport UI elements have been toggled off to reduce clutter further.</span><a class="headerlink" href="#id2" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>Tip: When you are happy with your layout, it is recommended to make the ‘Tab’ selectors invisible except for panels which have multiple tabs in them. Doing so reduces clutter in the interface and frees up a bit of real estate. This can be done with the hamburger menu button to the very top-right of the xSTUDIO window. Select ‘Hide All’ or ‘Hide Single Tabs’ under the <em>Tab Vsibility</em> section of the menu.</p>
+<p>Tip: Hit the ‘Tab’ key to toggle between the ‘Present’ layout and an alternative layout. This defaults to the most recently used layout before Preset.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>To get access to the Panel hamburger menu button in each panel (required for splitting or collapsing panels), you must ensure that the ‘Show All’ option is selected in the <em>Tab Visibility</em> section of the main Layouts menu (accessed from the hamburger menu button at the very top-right of the xSTUDIO window)</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>All aspects of your Layout and UI customisations are automatically saved so that they persist between future xSTUDIO session.</p>
+</div>
+</section>
+<section id="customising-the-interface-walkthrough">
+<h2>Customising the Interface Walkthrough<a class="headerlink" href="#customising-the-interface-walkthrough" title="Link to this heading"></a></h2>
+<p>This short video demonstrates some of these customisations in action:</p>
+<center><video src="../../_static/ui-customise.webm" width="720" height="366" controls></video></center><div class="line-block">
+<div class="line"><br /></div>
+</div>
+</section>
+<section id="other-customisaions">
+<h2>Other Customisaions<a class="headerlink" href="#other-customisaions" title="Link to this heading"></a></h2>
+<p>Via the <em>File-&gt;Preferences-&gt;Preferences Manager</em> you can launch the tool to set user-preferences. Go to the Interface tab to get some options for changing the appearance of the xSTUDIO interface.</p>
+<figure class="align-default" id="id3">
+<img alt="../../_images/ui-prefs.png" src="../../_images/ui-prefs.png" />
+<figcaption>
+<p><span class="caption-text">Control the UI brightness, scaling and gradient look through these user preference settings.</span><a class="headerlink" href="#id3" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>You can modify the overall tone of the interface, both the font/icon brightness and the background level. With the <em>flat</em> theme off, widgets are drawn with a subtle gradient effect for a more modern look, though some users might find that the gradients in the UI can subconciously affect perceptual assessment of image content in the viewport. A UI scaling option is</p>
+<figure class="align-default" id="id4">
+<img alt="../../_images/ui-bright-theme.png" src="../../_images/ui-bright-theme.png" />
+<figcaption>
+<p><span class="caption-text">The UI with higher brightness and flat theme disabled.</span><a class="headerlink" href="#id4" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<figure class="align-default" id="id5">
+<img alt="../../_images/ui-dark-theme.png" src="../../_images/ui-dark-theme.png" />
+<figcaption>
+<p><span class="caption-text">The UI with flat theme and darker settings. The best setting for you will most likely depend on your monitor/display properties and the ambient lighting in your working area.</span><a class="headerlink" href="#id5" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="interface.html" class="btn btn-neutral float-left" title="The xSTUDIO Interface" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="playlists.html" class="btn btn-neutral float-right" title="The Playlist Panel" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DNeg.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

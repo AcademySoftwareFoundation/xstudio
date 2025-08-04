@@ -210,6 +210,21 @@ void KeypressMonitor::held_keys_changed(
             }
         }*/
     } else {
+
+
+        std::stringstream ss;
+        for (const auto &k: held_keys_) {            
+            auto p = Hotkey::key_names.find(k);
+            if (p != Hotkey::key_names.end()) {
+                ss << p->second << " ";
+            }
+        }
+        if (ss.str() != pressed_keys_string_) {
+            pressed_keys_string_ = ss.str();
+            mail(hotkey_event_atom_v, pressed_keys_string_)
+                .send(hotkey_config_events_group_);
+        }
+
         for (auto &p : active_hotkeys_) {
             p.second.update_state(
                 held_keys_, context, window, auto_repeat, caf::actor_cast<caf::actor>(this));

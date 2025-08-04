@@ -145,11 +145,6 @@ void set_shader_pix_format_info(
         yuv_to_rgb = YCbCr_to_RGB_709;
     }
 
-    // TODO: ColSci
-    // Remove DNxHD Video range override when moved in MediaHook
-    if (codec_id == AV_CODEC_ID_DNXHD)
-        color_range = AVCOL_RANGE_MPEG;
-
     switch (color_range) {
     case AVCOL_RANGE_JPEG: {
         Imath::V3f offset(1, 128, 128);
@@ -385,11 +380,21 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
 
     image_buffer->set_image_dimensions(Imath::V2i(frame->width, frame->height));
 
+    // TODO: ColSci
+    // Remove DNxHD Video range override
+    // Shows created after March 2022 do not need this override
+    // See http://stash/projects/RND/repos/showsetup_data/pull-requests/794/overview
+    const bool is_dneg_mov = utility::ends_with(format_context_->url, ".dneg.mov");
+    AVColorRange color_range = frame->color_range;
+    if (is_dneg_mov && codec_->id == AV_CODEC_ID_DNXHD) {
+        color_range = AVCOL_RANGE_MPEG;
+    }
+
     set_shader_pix_format_info(
         jsn,
         codec_->id,
         (AVPixelFormat)ffmpeg_pixel_format,
-        frame->color_range,
+        color_range,
         frame->colorspace);
 
     image_buffer->set_shader_params(jsn);
