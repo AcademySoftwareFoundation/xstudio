@@ -1,3 +1,19 @@
 message("Running @macdeployqt_exe@ with args: ${CMAKE_BINARY_DIR}/xSTUDIO.app -qmldir=@CMAKE_SOURCE_DIR@/ui")
 execute_process(COMMAND "@macdeployqt_exe@" ${CMAKE_BINARY_DIR}/xSTUDIO.app -qmldir=@CMAKE_SOURCE_DIR@/ui
     WORKING_DIRECTORY "${CMAKE_INSTALL_PREFIX}")
+
+# Fix library paths to ensure they're relative to the bundle
+execute_process(
+    COMMAND
+    install_name_tool -id
+    "@rpath/libglobal.dylib"
+    ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Frameworks/libglobal.dylib
+)
+execute_process(
+    COMMAND
+    install_name_tool
+    -change
+    "@rpath/libglobal.dylib"
+    "@executable_path/../Frameworks/libglobal.dylib"
+    ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/MacOS/xstudio.bin
+)
