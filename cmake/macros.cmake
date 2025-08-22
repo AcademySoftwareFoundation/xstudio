@@ -101,10 +101,12 @@ macro(default_options_local name)
 	    	$<BUILD_INTERFACE:${ROOT_DIR}/extern/include>
 	)
 	if (APPLE)
-		set_target_properties(${name}
-	    	PROPERTIES
-	    	LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Frameworks"
-		)
+    set_target_properties(${name}
+        PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Frameworks"
+        INSTALL_RPATH "@executable_path/../Frameworks"
+        INSTALL_RPATH_USE_LINK_PATH TRUE
+    )
 	else()
 		set_target_properties(${name}
 	    	PROPERTIES
@@ -204,7 +206,7 @@ macro(default_plugin_options name)
 				COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${PROJECT_NAME}>" "${CMAKE_CURRENT_BINARY_DIR}/plugin"
 		)
 	endif()
-	
+
 endmacro()
 
 macro(add_plugin_qml name _dir)
@@ -366,7 +368,7 @@ macro(add_python_plugin NAME)
             copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/${NAME} ${CMAKE_BINARY_DIR}/bin/plugin-python/${NAME})
 
 	endif()
-	
+
 endmacro()
 
 macro(create_plugin NAME VERSION DEPS)
