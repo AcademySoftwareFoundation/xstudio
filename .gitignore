@@ -12,3 +12,5 @@ python/src/xstudio/version.py
 .vs/
 .DS_Store
 /build/
+xstudio_install/
+**/qml/*_qml_export.h
