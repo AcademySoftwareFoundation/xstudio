@@ -1508,10 +1508,16 @@ Rectangle {
             onWheel: {
                 // maintain position as we zoom..
                 if(wheel.modifiers == Qt.ShiftModifier) {
-                    if(wheel.angleDelta.y > 1) {
-                        scaleY += 0.2
+                    // wheel.angleDelta.y always return 0 on MacOS laptops
+                    // when SHIFT is pressed and a mouse wheel is used, but in
+                    // that case the x component is updating and usable.
+                    let deltaY = wheel.angleDelta.y == 0 ? wheel.angleDelta.x : wheel.angleDelta.y
+                    // Limit the scale to keep it within a usable range and
+                    // avoid a negative scaleY value.
+                    if(deltaY > 1) {
+                        scaleY = Math.min(2.0, scaleY + 0.2)
                     } else {
-                        scaleY -= 0.2
+                        scaleY = Math.max(0.6, scaleY - 0.2)
                     }
                     wheel.accepted = true
                 } else if(wheel.modifiers == Qt.ControlModifier) {
