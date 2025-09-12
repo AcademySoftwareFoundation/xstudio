@@ -3,7 +3,7 @@ project(annotations_tool VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 find_package(Imath)
 find_package(Qt6 COMPONENTS Core Quick Gui REQUIRED)
 
-set(ANNO_SYNC_EXTENSIONS On)
+set(ANNO_SYNC_EXTENSIONS Off)
 
 set(SOURCES
 	annotations_tool.cpp
