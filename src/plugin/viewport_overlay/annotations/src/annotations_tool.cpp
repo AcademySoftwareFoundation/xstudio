@@ -177,7 +177,6 @@ AnnotationsTool::AnnotationsTool(
             }
             )",
         toggle_active_hotkey_);
-
 }
 
 AnnotationsTool::~AnnotationsTool() { colour_pipelines_.clear(); }
@@ -214,10 +213,11 @@ caf::message_handler AnnotationsTool::message_handler_extensions() {
                 incoming_paint_event(utility::JsonStore(nlohmann::json::parse(data)));
             } catch (std::exception &e) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-                std::cerr << data  << "\n";
             }
         },
-        [=](utility::event_atom, ui::viewport::annotation_atom, const utility::JsonStore &data) {
+        [=](utility::event_atom,
+            ui::viewport::annotation_atom,
+            const utility::JsonStore &data) {
             // note Annotation::fade_all_strokes() returns false when all strokes have vanished
             incoming_paint_event(data);
         }
@@ -586,7 +586,8 @@ utility::BlindDataObjectPtr AnnotationsTool::onscreen_render_data(
     const media_reader::ImageBufPtr &image,
     const std::string & /*viewport_name*/,
     const utility::Uuid & /*playhead_uuid*/,
-    const bool is_hero_image) const {
+    const bool is_hero_image,
+    const bool images_are_in_grid_layout) const {
 
     bool show_annotations =
         (display_mode_ == Always) || (display_mode_ == OnlyWhenPaused && !playhead_is_playing_);
@@ -595,7 +596,7 @@ utility::BlindDataObjectPtr AnnotationsTool::onscreen_render_data(
         show_annotations,
         handle_state_,
         current_bookmark_uuid_,
-        image.frame_id().key(),
+        image_being_annotated_.frame_id().key(),
         is_laser_mode());
     return utility::BlindDataObjectPtr(data);
 }
@@ -867,7 +868,6 @@ void AnnotationsTool::start_stroke(const Imath::V2f &point) {
     paint_start_event(point);
 #endif
     update_stroke(point);
-
 }
 
 void AnnotationsTool::update_stroke(const Imath::V2f &point) {
@@ -876,7 +876,6 @@ void AnnotationsTool::update_stroke(const Imath::V2f &point) {
 #ifdef ANNO_SYNC_EXTENSIONS
     paint_point_event(point);
 #endif
-
 }
 
 void AnnotationsTool::start_shape(const Imath::V2f &p) {

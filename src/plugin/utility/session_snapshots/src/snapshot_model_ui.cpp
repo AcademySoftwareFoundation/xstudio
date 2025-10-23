@@ -370,7 +370,7 @@ plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
 }
 
 //![plugin]
-class SnapshotMenuModelQml : public QQmlExtensionPlugin {
+class SnapshotMenuModelQmlFoo : public QQmlExtensionPlugin {
     Q_OBJECT
     Q_PLUGIN_METADATA(IID QQmlEngineExtensionInterface_iid)
 

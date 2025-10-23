@@ -80,7 +80,7 @@ TEST(GlobalStoreActorTest, Test) {
 
     } catch (const std::exception &e) {
         std::cout << e.what() << std::endl;
-    }*/
+    }
 
-    f.self->send_exit(tmp, caf::exit_reason::user_shutdown);
+    f.self->send_exit(tmp, caf::exit_reason::user_shutdown);*/
 }

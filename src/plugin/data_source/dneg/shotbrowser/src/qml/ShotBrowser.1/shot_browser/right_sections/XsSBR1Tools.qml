@@ -73,8 +73,33 @@ ColumnLayout{
             Layout.minimumWidth: 50
 
             placeholderText: "Filter..."
-            onTextChanged: nameFilter = text
-            onEditingCompleted: toolDiv.focus = true
+            onTextChanged: {
+                nameFilter = text
+                defocus.restart()
+            }
+
+            onHoveredChanged: {
+                if(focus && !hovered)
+                    defocus.restart()
+            }
+
+            onFocusChanged: {
+                if(focus)
+                    defocus.restart()
+            }
+
+            Timer {
+                id: defocus
+                interval: 5000
+                running: false
+                repeat: false
+                onTriggered: {
+                    if(filterBtn.hovered)
+                        start()
+                    else
+                        filterBtn.focus = false
+                }
+            }
 
             Connections {
                 target: panel
@@ -135,6 +160,12 @@ ColumnLayout{
                 target: panel
                 function onPipeStepChanged() {
                     filterStep.currentIndex = filterStep.find(pipeStep)
+                }
+            }
+            Connections {
+                target: panel
+                function onCurrentPresetIndexChanged() {
+                    filterStep.currentIndex = -1
                 }
             }
         }

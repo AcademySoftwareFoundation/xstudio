@@ -1,0 +1,6 @@
+module VideoRenderer
+
+VideoRendererDialog 1.0 VideoRendererDialog.qml
+VideoRendererStatusIndicator 1.0 VideoRendererStatusIndicator.qml
+VideoRendererJobsQueueDialog 1.0 VideoRendererJobsQueueDialog.qml
+VideoRendererJobsQueueDialogOwner 1.0 VideoRendererJobsQueueDialogOwner.qml

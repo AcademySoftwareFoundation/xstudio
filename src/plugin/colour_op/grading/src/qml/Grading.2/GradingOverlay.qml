@@ -33,7 +33,7 @@ Item {
     // from keySubplayheadIndex so we use index zero.
     property var keyPlayheadIdx: viewportPlayhead.keySubplayheadIndex
     property var imBoundaries: view.imageBoundariesInViewport ? view.imageBoundariesInViewport : []
-    property var imResolutions: view.imageResolutions
+    property var imResolutions: view.imageResolutions ? view.imageResolutions : []
 
     property var viewportName: view.name
     property var imageBox: keyPlayheadIdx < imBoundaries.length ? imBoundaries[keyPlayheadIdx] : imBoundaries.length ? imBoundaries[0] : Qt.rect(0,0,0,0)
@@ -124,12 +124,16 @@ Item {
 
         function onMousePress(position, buttons, modifiers) {
 
-            if (construction_polygon.item.mousePressed(position, buttons, modifiers)) return
+            var im_pos = Qt.point(
+                2.0*(position.x-(imageBox.x+imageBox.width*0.5))/imageBox.width,
+                -2.0*(position.y-(imageBox.y+imageBox.height*0.5))/imageBox.width)
+
+            if (construction_polygon.item.mousePressed(im_pos, buttons, modifiers)) return
 
             if (!mask_shapes_visible) return;
 
             for (var i = 0; i < repeater.count; ++i) {
-                if (repeater.itemAt(i).item.mousePressed(position, buttons, modifiers)) {
+                if (repeater.itemAt(i).item.mousePressed(im_pos, buttons, modifiers)) {
                     return
                 }
             }
@@ -137,16 +141,25 @@ Item {
         }
 
         function onMouseDoubleClick(position, buttons, modifiers) {
+
+            var im_pos = Qt.point(
+                2.0*(position.x-(imageBox.x+imageBox.width*0.5))/imageBox.width,
+                -2.0*(position.y-(imageBox.y+imageBox.height*0.5))/imageBox.width)
+
             if (activeShape >= 0) {
-                repeater.itemAt(activeShape).item.mouseDoubleClicked(position, buttons, modifiers)
+                repeater.itemAt(activeShape).item.mouseDoubleClicked(im_pos, buttons, modifiers)
             }
         }
 
         function onMousePositionChanged(position, buttons, modifiers) {
 
-            construction_polygon.item.mouseMoved(position, buttons, modifiers)
+            var im_pos = Qt.point(
+                2.0*(position.x-(imageBox.x+imageBox.width*0.5))/imageBox.width,
+                -2.0*(position.y-(imageBox.y+imageBox.height*0.5))/imageBox.width)
+
+            construction_polygon.item.mouseMoved(im_pos, buttons, modifiers)
             for (var i = 0; i < repeater.count; ++i) {
-                repeater.itemAt(i).item.mouseMoved(position, buttons, modifiers)
+                repeater.itemAt(i).item.mouseMoved(im_pos, buttons, modifiers)
             }
 
         }

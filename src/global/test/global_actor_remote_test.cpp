@@ -21,6 +21,6 @@ using namespace caf;
 TEST(GlobalActorRemoteTest, Test) {
     fixture f;
 
-    auto remote = f.system.middleman().remote_actor("localhost", 45500);
+    auto remote = f.system.middleman().remote_actor("localhost", 14441);
     f.self->send(*remote, version_atom_v);
 }

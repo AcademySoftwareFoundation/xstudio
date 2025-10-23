@@ -594,6 +594,7 @@ PopoutWindowsData::PopoutWindowsData(QObject *parent) : UIModelData(parent) {
         "window_is_visible",
         "user_data",
         "hotkey_uuid",
+        "qml_widget",
         "module_uuid"});
 
     setModelDataName("popout windows");
@@ -608,12 +609,14 @@ void PopoutWindowsData::register_popout_window(
     QString qml_path,
     QString icon_path,
     float button_position,
+    QString qml_widget,
     const QUuid hotkey) {
 
     utility::JsonStore data;
     data["view_name"]         = StdFromQString(name);
     data["icon_path"]         = StdFromQString(icon_path);
     data["view_qml_source"]   = StdFromQString(qml_path);
+    data["qml_widget"]        = StdFromQString(qml_widget);
     data["button_position"]   = button_position;
     data["window_is_visible"] = false;
     if (!hotkey.isNull()) {
@@ -636,10 +639,9 @@ void PopoutWindowsData::register_popout_window(
     }
 }
 
-
 SingletonsModelData::SingletonsModelData(QObject *parent) : UIModelData(parent) {
 
-    setRoleNames(std::vector<std::string>{"source"});
+    setRoleNames(std::vector<std::string>{"source", "actor_address"});
     setModelDataName("singleton items");
 }
 
@@ -649,6 +651,23 @@ void SingletonsModelData::register_singleton_qml(const QString &qml_code) {
     insertRowsSync(rc, 1);
     QModelIndex idx = index(rc, 0);
     std::ignore     = set(idx, qml_code, "source");
+}
+
+
+PlaylistsPanelBarExtraWidgetsModelData::PlaylistsPanelBarExtraWidgetsModelData(QObject *parent)
+    : UIModelData(parent) {
+
+    setRoleNames(std::vector<std::string>{"qml_source", "position", "callback_data"});
+    setModelDataName("playlists header extra widgets");
+}
+
+void PlaylistsPanelBarExtraWidgetsModelData::register_main_menu_bar_widget(
+    const QString &qml_code) {
+
+    int rc = rowCount();
+    insertRowsSync(rc, 1);
+    QModelIndex idx = index(rc, 0);
+    std::ignore     = set(idx, qml_code, "qml_source");
 }
 
 PanelsModel::PanelsModel(QObject *parent)

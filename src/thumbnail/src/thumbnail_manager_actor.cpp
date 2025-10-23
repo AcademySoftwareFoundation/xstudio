@@ -55,18 +55,6 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
     behavior_.assign(
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
-        [=](media_reader::get_thumbnail_atom) { process_queue(); },
-
-        [=](media_reader::get_thumbnail_atom atom, const media::AVFrameID &mptr) {
-            return mail(atom, mptr, size_t(thumb_size_), size_t(0), true)
-                .delegate(caf::actor_cast<caf::actor>(this));
-        },
-
-        [=](media_reader::get_thumbnail_atom atom, const media::AVFrameID &mptr) {
-            return mail(atom, mptr, size_t(thumb_size_), size_t(0), true)
-                .delegate(caf::actor_cast<caf::actor>(this));
-        },
-
         [=](utility::clear_atom atom,
             const bool mem_cache,
             const bool disk_cache) -> result<bool> {
@@ -114,6 +102,20 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
                 return mail(atom).delegate(dsk_cache_);
         },
 
+        [=](media_cache::store_atom atom,
+            const std::string &key,
+            const size_t thumb_size,
+            const ThumbnailBufferPtr &buf) {
+            anon_mail(atom, ThumbnailKey(key, thumb_size).hash(), buf).send(mem_cache_);
+        },
+
+        [=](media_reader::get_thumbnail_atom) { process_queue(); },
+
+        [=](media_reader::get_thumbnail_atom atom, const media::AVFrameID &mptr) {
+            return mail(atom, mptr, size_t(thumb_size_), size_t(0), true)
+                .delegate(caf::actor_cast<caf::actor>(this));
+        },
+
         // get thumb from memory cache.
         [=](media_reader::get_thumbnail_atom,
             const std::string &key,
@@ -123,25 +125,12 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
             return rp;
         },
 
-        [=](media_cache::store_atom atom,
-            const std::string &key,
-            const size_t thumb_size,
-            const ThumbnailBufferPtr &buf) {
-            anon_mail(atom, ThumbnailKey(key, thumb_size).hash(), buf).send(mem_cache_);
-        },
-
-        [=](media_reader::get_thumbnail_atom,
+        [=](media_reader::get_thumbnail_atom atom,
             const media::AVFrameID &mptr,
-            const size_t thumb_size,
             const size_t hash,
-            const bool cache_to_disk) -> result<ThumbnailBufferPtr> {
-            // try cache..
-            // cache key will differ from media keys.
-            auto rp = make_response_promise<ThumbnailBufferPtr>();
-
-            request_buffer(rp, mptr, thumb_size, hash, cache_to_disk);
-
-            return rp;
+            const bool cache_to_disk) {
+            return mail(atom, mptr, thumb_size_, hash, cache_to_disk)
+                .delegate(caf::actor_cast<caf::actor>(this));
         },
 
         [=](media_reader::get_thumbnail_atom,
@@ -174,14 +163,6 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
         // convert from jpg
         [=](media_reader::get_thumbnail_atom, const std::vector<std::byte> &buffer) {
             return mail(media_reader::get_thumbnail_atom_v, buffer).delegate(dsk_cache_);
-        },
-
-        [=](media_reader::get_thumbnail_atom atom,
-            const media::AVFrameID &mptr,
-            const size_t hash,
-            const bool cache_to_disk) {
-            return mail(atom, mptr, thumb_size_, hash, cache_to_disk)
-                .delegate(caf::actor_cast<caf::actor>(this));
         },
 
         [=](json_store::update_atom,

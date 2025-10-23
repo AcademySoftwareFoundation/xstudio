@@ -1,22 +1,24 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>enums &mdash; xStudio 1.0.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
-      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+  <title>enums &mdash; xStudio 1.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=eafc0fe6" />
 
   
-      <script src="../../_static/jquery.js?v=5d32c60e"></script>
-      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=8d563738"></script>
-      <script src="../../_static/doctools.js?v=9bcbadda"></script>
-      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=fc837d61"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -37,6 +39,9 @@
           <a href="../../index.html" class="icon icon-home">
             xStudio
           </a>
+              <div class="version">
+                1.1.0
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -56,10 +61,104 @@
 <li class="toctree-l3"><a class="reference internal" href="utility.html">utility</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">enums</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#_CPPv47xstudio"><code class="docutils literal notranslate"><span class="pre">xstudio</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio5mediaE"><code class="docutils literal notranslate"><span class="pre">xstudio::media</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio5media9MediaTypeE"><code class="docutils literal notranslate"><span class="pre">MediaType</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio5media9MediaType8MT_IMAGEE"><code class="docutils literal notranslate"><span class="pre">MT_IMAGE</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio5media9MediaType8MT_AUDIOE"><code class="docutils literal notranslate"><span class="pre">MT_AUDIO</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio5media11MediaStatusE"><code class="docutils literal notranslate"><span class="pre">MediaStatus</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio5media11MediaStatus9MS_ONLINEE"><code class="docutils literal notranslate"><span class="pre">MS_ONLINE</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio5media11MediaStatus10MS_MISSINGE"><code class="docutils literal notranslate"><span class="pre">MS_MISSING</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio5media11MediaStatus10MS_CORRUPTE"><code class="docutils literal notranslate"><span class="pre">MS_CORRUPT</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio5media11MediaStatus14MS_UNSUPPORTEDE"><code class="docutils literal notranslate"><span class="pre">MS_UNSUPPORTED</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio5media11MediaStatus13MS_UNREADABLEE"><code class="docutils literal notranslate"><span class="pre">MS_UNREADABLE</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio5media19PartialSeqBehaviourE"><code class="docutils literal notranslate"><span class="pre">PartialSeqBehaviour</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio5media19PartialSeqBehaviour18PS_DONT_HOLD_FRAMEE"><code class="docutils literal notranslate"><span class="pre">PS_DONT_HOLD_FRAME</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio5media19PartialSeqBehaviour13PS_HOLD_FRAMEE"><code class="docutils literal notranslate"><span class="pre">PS_HOLD_FRAME</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio5media19PartialSeqBehaviour29PS_COLLAPSE_TO_ON_DISK_FRAMESE"><code class="docutils literal notranslate"><span class="pre">PS_COLLAPSE_TO_ON_DISK_FRAMES</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio5media11FrameStatusE"><code class="docutils literal notranslate"><span class="pre">FrameStatus</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio5media11FrameStatus10FS_ON_DISKE"><code class="docutils literal notranslate"><span class="pre">FS_ON_DISK</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio5media11FrameStatus14FS_NOT_ON_DISKE"><code class="docutils literal notranslate"><span class="pre">FS_NOT_ON_DISK</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio5media11FrameStatus13FS_HELD_FRAMEE"><code class="docutils literal notranslate"><span class="pre">FS_HELD_FRAME</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio5media11FrameStatus10FS_UNKNOWNE"><code class="docutils literal notranslate"><span class="pre">FS_UNKNOWN</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playheadE"><code class="docutils literal notranslate"><span class="pre">xstudio::playhead</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead11CompareModeE"><code class="docutils literal notranslate"><span class="pre">CompareMode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead11CompareMode9CM_STRINGE"><code class="docutils literal notranslate"><span class="pre">CM_STRING</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead11CompareMode5CM_ABE"><code class="docutils literal notranslate"><span class="pre">CM_AB</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead11CompareMode11CM_VERTICALE"><code class="docutils literal notranslate"><span class="pre">CM_VERTICAL</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead11CompareMode13CM_HORIZONTALE"><code class="docutils literal notranslate"><span class="pre">CM_HORIZONTAL</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead11CompareMode7CM_GRIDE"><code class="docutils literal notranslate"><span class="pre">CM_GRID</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead11CompareMode6CM_OFFE"><code class="docutils literal notranslate"><span class="pre">CM_OFF</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead12AssemblyModeE"><code class="docutils literal notranslate"><span class="pre">AssemblyMode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead12AssemblyMode9AM_STRINGE"><code class="docutils literal notranslate"><span class="pre">AM_STRING</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead12AssemblyMode6AM_ONEE"><code class="docutils literal notranslate"><span class="pre">AM_ONE</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead12AssemblyMode6AM_ALLE"><code class="docutils literal notranslate"><span class="pre">AM_ALL</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead12AssemblyMode6AM_TENE"><code class="docutils literal notranslate"><span class="pre">AM_TEN</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead13AutoAlignModeE"><code class="docutils literal notranslate"><span class="pre">AutoAlignMode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead13AutoAlignMode13AAM_ALIGN_OFFE"><code class="docutils literal notranslate"><span class="pre">AAM_ALIGN_OFF</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead13AutoAlignMode16AAM_ALIGN_FRAMESE"><code class="docutils literal notranslate"><span class="pre">AAM_ALIGN_FRAMES</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead13AutoAlignMode14AAM_ALIGN_TRIME"><code class="docutils literal notranslate"><span class="pre">AAM_ALIGN_TRIM</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead8LoopModeE"><code class="docutils literal notranslate"><span class="pre">LoopMode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead8LoopMode12LM_PLAY_ONCEE"><code class="docutils literal notranslate"><span class="pre">LM_PLAY_ONCE</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead8LoopMode7LM_LOOPE"><code class="docutils literal notranslate"><span class="pre">LM_LOOP</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead8LoopMode12LM_PING_PONGE"><code class="docutils literal notranslate"><span class="pre">LM_PING_PONG</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead12OverflowModeE"><code class="docutils literal notranslate"><span class="pre">OverflowMode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead12OverflowMode7OM_FAILE"><code class="docutils literal notranslate"><span class="pre">OM_FAIL</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead12OverflowMode7OM_NULLE"><code class="docutils literal notranslate"><span class="pre">OM_NULL</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead12OverflowMode7OM_HOLDE"><code class="docutils literal notranslate"><span class="pre">OM_HOLD</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead12OverflowMode7OM_LOOPE"><code class="docutils literal notranslate"><span class="pre">OM_LOOP</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead13SelectionModeE"><code class="docutils literal notranslate"><span class="pre">SelectionMode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead13SelectionMode12SM_NO_UPDATEE"><code class="docutils literal notranslate"><span class="pre">SM_NO_UPDATE</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead13SelectionMode8SM_CLEARE"><code class="docutils literal notranslate"><span class="pre">SM_CLEAR</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead13SelectionMode9SM_SELECTE"><code class="docutils literal notranslate"><span class="pre">SM_SELECT</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead13SelectionMode19SM_CLEAR_AND_SELECTE"><code class="docutils literal notranslate"><span class="pre">SM_CLEAR_AND_SELECT</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead13SelectionMode11SM_DESELECTE"><code class="docutils literal notranslate"><span class="pre">SM_DESELECT</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio8playhead13SelectionMode9SM_TOGGLEE"><code class="docutils literal notranslate"><span class="pre">SM_TOGGLE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio14shotgun_clientE"><code class="docutils literal notranslate"><span class="pre">xstudio::shotgun_client</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio14shotgun_client21AUTHENTICATION_METHODE"><code class="docutils literal notranslate"><span class="pre">AUTHENTICATION_METHOD</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio14shotgun_client21AUTHENTICATION_METHOD12AM_UNDEFINEDE"><code class="docutils literal notranslate"><span class="pre">AM_UNDEFINED</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio14shotgun_client21AUTHENTICATION_METHOD9AM_SCRIPTE"><code class="docutils literal notranslate"><span class="pre">AM_SCRIPT</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio14shotgun_client21AUTHENTICATION_METHOD8AM_LOGINE"><code class="docutils literal notranslate"><span class="pre">AM_LOGIN</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio14shotgun_client21AUTHENTICATION_METHOD10AM_SESSIONE"><code class="docutils literal notranslate"><span class="pre">AM_SESSION</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio14shotgun_client31authentication_method_to_stringEK21AUTHENTICATION_METHOD"><code class="docutils literal notranslate"><span class="pre">authentication_method_to_string()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio14shotgun_client33authentication_method_from_stringERKNSt6stringE"><code class="docutils literal notranslate"><span class="pre">authentication_method_from_string()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2uiE"><code class="docutils literal notranslate"><span class="pre">xstudio::ui</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewportE"><code class="docutils literal notranslate"><span class="pre">xstudio::ui::viewport</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport7FitModeE"><code class="docutils literal notranslate"><span class="pre">FitMode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport7FitMode4FreeE"><code class="docutils literal notranslate"><span class="pre">Free</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport7FitMode5WidthE"><code class="docutils literal notranslate"><span class="pre">Width</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport7FitMode6HeightE"><code class="docutils literal notranslate"><span class="pre">Height</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport7FitMode4FillE"><code class="docutils literal notranslate"><span class="pre">Fill</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport7FitMode7One2OneE"><code class="docutils literal notranslate"><span class="pre">One2One</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport7FitMode4BestE"><code class="docutils literal notranslate"><span class="pre">Best</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport10MirrorModeE"><code class="docutils literal notranslate"><span class="pre">MirrorMode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport10MirrorMode3OffE"><code class="docutils literal notranslate"><span class="pre">Off</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport10MirrorMode4FlipE"><code class="docutils literal notranslate"><span class="pre">Flip</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport10MirrorMode4FlopE"><code class="docutils literal notranslate"><span class="pre">Flop</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport10MirrorMode4BothE"><code class="docutils literal notranslate"><span class="pre">Both</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport11GraphicsAPIE"><code class="docutils literal notranslate"><span class="pre">GraphicsAPI</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport11GraphicsAPI4NoneE"><code class="docutils literal notranslate"><span class="pre">None</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport11GraphicsAPI6OpenGLE"><code class="docutils literal notranslate"><span class="pre">OpenGL</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport11GraphicsAPI5MetalE"><code class="docutils literal notranslate"><span class="pre">Metal</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport11GraphicsAPI6VulkanE"><code class="docutils literal notranslate"><span class="pre">Vulkan</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport11GraphicsAPI7DirectXE"><code class="docutils literal notranslate"><span class="pre">DirectX</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport11ImageFormatE"><code class="docutils literal notranslate"><span class="pre">ImageFormat</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport11ImageFormat6RGBA_8E"><code class="docutils literal notranslate"><span class="pre">RGBA_8</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport11ImageFormat15RGBA_10_10_10_2E"><code class="docutils literal notranslate"><span class="pre">RGBA_10_10_10_2</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport11ImageFormat7RGBA_16E"><code class="docutils literal notranslate"><span class="pre">RGBA_16</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport11ImageFormat8RGBA_16FE"><code class="docutils literal notranslate"><span class="pre">RGBA_16F</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio2ui8viewport11ImageFormat8RGBA_32FE"><code class="docutils literal notranslate"><span class="pre">RGBA_32F</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio7utilityE"><code class="docutils literal notranslate"><span class="pre">xstudio::utility</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio7utility14TimeSourceModeE"><code class="docutils literal notranslate"><span class="pre">TimeSourceMode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio7utility14TimeSourceMode5FIXEDE"><code class="docutils literal notranslate"><span class="pre">FIXED</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio7utility14TimeSourceMode8REMAPPEDE"><code class="docutils literal notranslate"><span class="pre">REMAPPED</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio7utility14TimeSourceMode7DYNAMICE"><code class="docutils literal notranslate"><span class="pre">DYNAMIC</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio7utility16NotificationTypeE"><code class="docutils literal notranslate"><span class="pre">NotificationType</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio7utility16NotificationType10NT_UNKNOWNE"><code class="docutils literal notranslate"><span class="pre">NT_UNKNOWN</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio7utility16NotificationType7NT_INFOE"><code class="docutils literal notranslate"><span class="pre">NT_INFO</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio7utility16NotificationType7NT_WARNE"><code class="docutils literal notranslate"><span class="pre">NT_WARN</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio7utility16NotificationType13NT_PROCESSINGE"><code class="docutils literal notranslate"><span class="pre">NT_PROCESSING</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio7utility16NotificationType17NT_PROGRESS_RANGEE"><code class="docutils literal notranslate"><span class="pre">NT_PROGRESS_RANGE</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N7xstudio7utility16NotificationType22NT_PROGRESS_PERCENTAGEE"><code class="docutils literal notranslate"><span class="pre">NT_PROGRESS_PERCENTAGE</span></code></a></li>
 </ul>
 </li>
 </ul>

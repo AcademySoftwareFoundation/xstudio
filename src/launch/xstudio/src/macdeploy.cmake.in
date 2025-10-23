@@ -1,3 +1,10 @@
+
+# This command manipulates the rpath in ffmpeg so it can find the ffmpeg libs in the Frameworks
+# folder in the app bundle
+execute_process(COMMAND install_name_tool ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/MacOS/ffmpeg -rpath @loader_path/../../lib @loader_path/../Frameworks WORKING_DIRECTORY "${CMAKE_INSTALL_PREFIX}")
+    
+# macdeployqt finds xSTUDIO's library dependencies and adds them to the app bundle, as well as
+# making necessary rpath manipulations
 message("Running @macdeployqt_exe@ with args: ${CMAKE_BINARY_DIR}/xSTUDIO.app -qmldir=@CMAKE_SOURCE_DIR@/ui")
 execute_process(COMMAND "@macdeployqt_exe@" ${CMAKE_BINARY_DIR}/xSTUDIO.app -qmldir=@CMAKE_SOURCE_DIR@/ui
     WORKING_DIRECTORY "${CMAKE_INSTALL_PREFIX}")

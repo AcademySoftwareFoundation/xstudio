@@ -463,7 +463,9 @@ UuidActorVector LoadUrisActor::load_uris(const bool single_playlist, const bool 
             fs::path p(uri_to_posix_path(i));
             if (fs::is_directory(p)) {
                 // if p ends with a "/" then 'filename' is empty.
-                const std::string fname = p.filename().string().empty() ? p.parent_path().filename().string() : p.filename().string();
+                const std::string fname = p.filename().string().empty()
+                                              ? p.parent_path().filename().string()
+                                              : p.filename().string();
                 mail(add_playlist_atom_v, fname)
                     .request(session_, infinite)
                     .then(
@@ -1291,6 +1293,36 @@ caf::message_handler SessionActor::message_handler() {
                     });
         },
 
+        [=](playlist::get_media_atom, const caf::uri uri) -> result<utility::UuidActorVector> {
+            auto rp               = make_response_promise<utility::UuidActorVector>();
+            const auto posix_path = utility::uri_to_posix_path(uri);
+
+            mail(playlist::get_media_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](const std::vector<UuidActor> &all_media) mutable {
+                        auto responder = utility::AutoResponder<utility::UuidActorVector>(
+                            all_media.size(), rp);
+
+                        for (const auto &m : all_media) {
+                            UuidActor media = m;
+                            mail(media::media_reference_atom_v, media::MT_IMAGE)
+                                .request(m.actor(), infinite)
+                                .then(
+                                    [=](const utility::MediaReference &mr) mutable {
+                                        if (utility::uri_to_posix_path(mr.uri()).find(
+                                                posix_path) != std::string::npos) {
+                                            responder.result().push_back(media);
+                                        }
+                                        responder.decrement();
+                                    },
+                                    [=](error &err) mutable { responder.decrement(err); });
+                        }
+                    },
+                    [=](error &err) mutable { rp.deliver(std::move(err)); });
+            return rp;
+        },
+
         [=](playlist::get_media_atom) -> result<std::vector<UuidActor>> {
             if (playlists_.empty()) {
                 return result<std::vector<UuidActor>>(std::vector<UuidActor>());
@@ -1990,6 +2022,16 @@ caf::message_handler SessionActor::message_handler() {
             caf::actor media,
             caf::actor media_source,
             const std::string &viewport_name) {
+            // event from 'global_playhead_events_actor'
+            // the onscreen media for the given viewport has changed
+        },
+
+        [=](utility::event_atom,
+            playhead::show_atom,
+            const utility::UuidActor & /*media*/,
+            const utility::UuidActor & /*media_source*/,
+            const std::string & /*viewport_name*/,
+            const int /*playhead_idx*/) {
             // event from 'global_playhead_events_actor'
             // the onscreen media for the given viewport has changed
         }};

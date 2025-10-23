@@ -13,36 +13,80 @@
 
 namespace caf::python {
 
-/* This actor receives event messages from a broadcast group. It then grabs the
-GIL, converts the message to a PyTuple and then calls a python callback function.
-This is the mechanism that lets us receive and process live broadcast messages
-in a python process (running in xSTUDIO's embedded interpreter, or in an
-independent interpreter)*/
+/* This actor receives event messages from actors (xstudio components) that
+Python plugins want to get messages from. It then sends the message back
+to the py_context object which has registered the python callback functions
+from the Python plugins, and executes the relevant callback function*/
 class EventToPythonThreadLockerActor : public caf::event_based_actor {
   public:
-    EventToPythonThreadLockerActor(
-        caf::actor_config &cfg,
-        const xstudio::utility::Uuid &uuid,
-        caf::actor events_source,
-        py_context *context)
-        : caf::event_based_actor(cfg), uuid_(uuid), context_(context) {
+    EventToPythonThreadLockerActor(caf::actor_config &cfg, py_context *context)
+        : caf::event_based_actor(cfg), context_(context) {
 
         behavior_.assign(
             [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {
                 // TODO: self clean up
             },
-            [=](message &_msg) { context_->execute_event_callback(_msg, uuid_); });
+            [=](const xstudio::utility::Uuid &callback_id) {
+                // stop watching
 
-        // join the events broadcast
-        mail(xstudio::broadcast::join_broadcast_atom_v, caf::actor_cast<caf::actor>(this))
-            .send(events_source);
+                // find actor that has its events forwarded to the callback with
+                // the given ID
+                auto p = actor_to_callback_uuid_.begin();
+                while (p != actor_to_callback_uuid_.end()) {
+
+                    auto q = p->second.begin();
+                    while (q != p->second.end()) {
+                        if (*q == callback_id) {
+                            q = p->second.erase(q);
+                        } else {
+                            q++;
+                        }
+                    }
+
+                    if (p->second.empty()) {
+                        // don't need to get events from this actor any more
+                        auto events_source = caf::actor_cast<caf::actor>(p->first);
+                        if (events_source) {
+                            mail(
+                                xstudio::broadcast::leave_broadcast_atom_v,
+                                caf::actor_cast<caf::actor>(this))
+                                .send(events_source);
+                        }
+                        p = actor_to_callback_uuid_.erase(p);
+                    } else {
+                        p++;
+                    }
+                }
+            },
+            [=](caf::actor events_source, const xstudio::utility::Uuid &callback_id) {
+                actor_to_callback_uuid_[caf::actor_cast<caf::actor_addr>(events_source)]
+                    .push_back(callback_id);
+                // join the events broadcast
+                mail(
+                    xstudio::broadcast::join_broadcast_atom_v,
+                    caf::actor_cast<caf::actor>(this))
+                    .send(events_source);
+            },
+            [=](bool) {},
+            [=](message &_msg) {
+                auto src = caf::actor_cast<caf::actor_addr>(current_sender());
+                auto p   = actor_to_callback_uuid_.find(src);
+                if (p == actor_to_callback_uuid_.end()) {
+                    spdlog::debug(
+                        "Python event group callback - getting messages from unknown source.");
+                } else {
+                    for (const auto &id : p->second) {
+                        context_->execute_event_callback(_msg, id);
+                    }
+                }
+            });
     }
 
     ~EventToPythonThreadLockerActor() = default;
 
     caf::behavior behavior_;
     py_context *context_;
-    const xstudio::utility::Uuid uuid_;
+    std::map<caf::actor_addr, std::vector<xstudio::utility::Uuid>> actor_to_callback_uuid_;
 
     caf::behavior make_behavior() override { return behavior_; }
 };
@@ -67,9 +111,7 @@ py_context::py_context(int argc, char **argv)
       py_local_system_(*this),
       system_(xstudio::utility::ActorSystemSingleton::actor_system_ref(py_local_system_)),
       self_(system_),
-      remote_() {
-
-}
+      remote_() {}
 
 py_context::~py_context() {
     // shutdown system
@@ -342,11 +384,16 @@ py_context::py_dequeue_with_timeout(xstudio::utility::absolute_receive_timeout t
 
 xstudio::utility::Uuid py_context::py_add_message_callback(const py::args &xs) {
 
+    // this is called from Python plugins so that event messages from some
+    // actor in xstudio's system can be watched via a python callback function
+    // in the plugin.
+
     xstudio::utility::Uuid uuid = xstudio::utility::Uuid::generate();
 
     if (xs.size() == 2) {
 
-        auto i            = xs.begin();
+        auto i = xs.begin();
+        // this is the xstudio actor that
         auto remote_actor = (*i).cast<caf::actor>();
         i++;
         auto callback_func = (*i).cast<py::function>();
@@ -354,9 +401,19 @@ xstudio::utility::Uuid py_context::py_add_message_callback(const py::args &xs) {
 
         // spawn a listener actor to receive the event messages. THis will
         // run the Python callback (after acquiring the GIL)
-        message_callback_handler_actors_[uuid] =
-            self_->spawn<EventToPythonThreadLockerActor>(uuid, remote_actor, this);
+        if (!message_callback_handler_actor_) {
+            message_callback_handler_actor_ =
+                self_->spawn<EventToPythonThreadLockerActor>(this);
+        }
+
+        // here we store the python function object - the callback in the Python
+        // code
         message_callback_funcs_[uuid] = callback_func;
+
+        // here we message our 'watcher'. It will join the event group of
+        // the 'remote_actor' and when it gets event messages from that actor
+        // it will run the py_callback
+        anon_mail(remote_actor, uuid).send(message_callback_handler_actor_);
 
     } else {
         throw std::runtime_error("Set message callback expecting tuple of size 2 "
@@ -367,10 +424,12 @@ xstudio::utility::Uuid py_context::py_add_message_callback(const py::args &xs) {
 
 void py_context::py_remove_message_callback(const xstudio::utility::Uuid &id) {
 
-    auto p = message_callback_handler_actors_.find(id);
-    if (p != message_callback_handler_actors_.end()) {
-        self_->send_exit(p->second, caf::exit_reason::user_shutdown);
-        message_callback_handler_actors_.erase(p);
+    if (message_callback_handler_actor_) {
+        anon_mail(id).send(message_callback_handler_actor_);
+    }
+    auto p = message_callback_funcs_.find(id);
+    if (p != message_callback_funcs_.end()) {
+        message_callback_funcs_.erase(p);
     } else {
         throw std::runtime_error(
             "py_remove_message_callback - callback handler ID not recognised.");
@@ -383,10 +442,8 @@ void py_context::disconnect() {
     port_                  = 0;
     remote_                = actor();
     embedded_python_actor_ = caf::actor();
-    for (auto p : message_callback_handler_actors_) {
-        self_->send_exit(p.second, caf::exit_reason::user_shutdown);
-    }
-    message_callback_handler_actors_.clear();
+    self_->send_exit(message_callback_handler_actor_, caf::exit_reason::user_shutdown);
+    message_callback_handler_actor_ = caf::actor();
     message_callback_funcs_.clear();
 }
 

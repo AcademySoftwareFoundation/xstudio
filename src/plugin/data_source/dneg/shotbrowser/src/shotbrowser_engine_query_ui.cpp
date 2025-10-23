@@ -19,9 +19,16 @@ void ShotBrowserEngine::updateQueryValueCache(
     if (type == "Sequence") {
         query_engine_.set_shot_sequence_lookup(
             QueryEngine::cache_name("ShotSequence", project_id), data);
+        query_engine_.set_lookup(QueryEngine::cache_name(type, project_id), data);
+    } else if (type == "Shot Type") {
+        query_engine_.set_shot_type_cache(
+            QueryEngine::cache_name("Shot Type", project_id), data);
+    } else if (type == "Asset Type") {
+        query_engine_.set_asset_type_cache(
+            QueryEngine::cache_name("Asset Type", project_id), data);
+    } else {
+        query_engine_.set_lookup(QueryEngine::cache_name(type, project_id), data);
     }
-
-    query_engine_.set_lookup(QueryEngine::cache_name(type, project_id), data);
 }
 
 // merge global filters with Preset.

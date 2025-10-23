@@ -1,22 +1,24 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>xstudio.connection &mdash; xStudio 1.0.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
-      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+  <title>xstudio.connection &mdash; xStudio 1.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=eafc0fe6" />
 
   
-      <script src="../../_static/jquery.js?v=5d32c60e"></script>
-      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=8d563738"></script>
-      <script src="../../_static/doctools.js?v=9bcbadda"></script>
-      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=fc837d61"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -37,6 +39,9 @@
           <a href="../../index.html" class="icon icon-home">
             xStudio
           </a>
+              <div class="version">
+                1.1.0
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -99,7 +104,7 @@
 <h2>Connection<a class="headerlink" href="#connection" title="Link to this heading"></a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="xstudio.connection.Connection">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xstudio.connection.</span></span><span class="sig-name descname"><span class="pre">Connection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">auto_connect</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">background_processing</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">debug</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">load_python_plugins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/connection.html#Connection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.connection.Connection" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xstudio.connection.</span></span><span class="sig-name descname"><span class="pre">Connection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">auto_connect</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">background_processing</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">debug</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">load_python_plugins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/connection.html#Connection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.connection.Connection" title="Link to this definition"></a></dt>
 <dd><p>Handle connection to xstudio.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="xstudio.connection.Connection.add_broadcast_handler">
@@ -143,7 +148,7 @@ handler (func(sender, req_id, event)): Handler to install.</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="xstudio.connection.Connection.api">
-<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">api</span></span><a class="headerlink" href="#xstudio.connection.Connection.api" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">api</span></span><a class="headerlink" href="#xstudio.connection.Connection.api" title="Link to this definition"></a></dt>
 <dd><p>Access API object.</p>
 <dl class="simple">
 <dt>Returns:</dt><dd><p>API(API): API object or None</p>
@@ -244,6 +249,19 @@ authentication_callback (func): Callback for authentication.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="xstudio.connection.Connection.get_named_python_plugin_instance">
+<span class="sig-name descname"><span class="pre">get_named_python_plugin_instance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plugin_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/connection.html#Connection.get_named_python_plugin_instance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.connection.Connection.get_named_python_plugin_instance" title="Link to this definition"></a></dt>
+<dd><p>Use this to retrieve the Plugin class instance for a given named
+python plugin.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>plugin_name (str): Name of the plugin</p>
+</dd>
+<dt>Returns:</dt><dd><p>plugin(PluginBase): the Python object, the plugin instance</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="xstudio.connection.Connection.get_plugin_instance">
 <span class="sig-name descname"><span class="pre">get_plugin_instance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plugin_uuid</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/connection.html#Connection.get_plugin_instance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.connection.Connection.get_plugin_instance" title="Link to this definition"></a></dt>
 <dd><p>Used internally to enable callbacks between QML UI code and
@@ -262,12 +280,24 @@ backend python plugins</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="xstudio.connection.Connection.host">
-<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">host</span></span><a class="headerlink" href="#xstudio.connection.Connection.host" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">host</span></span><a class="headerlink" href="#xstudio.connection.Connection.host" title="Link to this definition"></a></dt>
 <dd><p>Remote host name.</p>
 <dl class="simple">
 <dt>Returns:</dt><dd><p>host(str): remote host name</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="xstudio.connection.Connection.hud_plugins_onscreen_data">
+<span class="sig-name descname"><span class="pre">hud_plugins_onscreen_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">media_items</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/connection.html#Connection.hud_plugins_onscreen_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.connection.Connection.hud_plugins_onscreen_data" title="Link to this definition"></a></dt>
+<dd><p>This method is called by the xstudio offscreen viewport(s) when they
+need to render overlay data accurately (e.g. when doing a snapshot or
+video output render). We call HUD Plugin instances, passing in the media
+item that is on-screen. The HUD Plugin returns a JSON struct that 
+contains whatever data it needs to do the overlay graphics. The offscreen
+viewport then uses this data to set a special QML property that can
+then be used to drive the QML graphics element provided by the HUD plugin.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -332,7 +362,7 @@ XSTUDIO_PYTHON_PLUGIN_PATH</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="xstudio.connection.Connection.port">
-<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">port</span></span><a class="headerlink" href="#xstudio.connection.Connection.port" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">port</span></span><a class="headerlink" href="#xstudio.connection.Connection.port" title="Link to this definition"></a></dt>
 <dd><p>Remote host port.</p>
 <dl class="simple">
 <dt>Returns:</dt><dd><p>port(int): remote host port</p>

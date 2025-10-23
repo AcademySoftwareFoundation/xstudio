@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Basic
-import QtMultimedia
 
 import xStudio 1.0
 

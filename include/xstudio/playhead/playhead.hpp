@@ -163,6 +163,7 @@ namespace playhead {
         utility::Uuid play_backwards_hotkey_;
         utility::Uuid stop_play_hotkey_;
         utility::Uuid toggle_loop_range_;
+        utility::Uuid toggle_zoom_to_loop_;
         utility::Uuid set_loop_in_;
         utility::Uuid set_loop_out_;
         utility::Uuid step_forward_;
@@ -186,6 +187,7 @@ namespace playhead {
         module::FloatAttribute *velocity_;
         module::QmlCodeAttribute *source_;
         module::StringAttribute *image_source_name_;
+        module::StringAttribute *image_uri_;
         module::StringChoiceAttribute *image_source_;
         module::StringChoiceAttribute *image_stream_;
         module::StringChoiceAttribute *audio_source_;
@@ -223,6 +225,7 @@ namespace playhead {
         module::IntegerAttribute *current_frame_timecode_as_frame_;
         module::StringAttribute *current_media_uuid_;
         module::StringAttribute *current_media_source_uuid_;
+        module::BooleanAttribute *zoom_to_loop_;
         module::BooleanAttribute *loop_range_enabled_;
         module::BooleanAttribute *user_is_frame_scrubbing_;
         module::BooleanAttribute *pinned_source_mode_;

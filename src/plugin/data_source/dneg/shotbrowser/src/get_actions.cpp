@@ -1011,7 +1011,10 @@ void ShotBrowser::get_data(
                 get_data_user(rp, type, project_id);
             else if (type == "shot")
                 get_data_shot(rp, type, project_id);
-            else if (type == "sequence_shot")
+            else if (type == "is_shotgrid_login_allowed") {
+                nlohmann::json jsn = engine().is_shotgrid_login_allowed();
+                rp.deliver(JsonStore(jsn));
+            } else if (type == "sequence_shot")
                 get_data_shot_for_sequence(rp, type, project_id);
             else if (type == "pipe_step")
                 get_pipe_step(rp);

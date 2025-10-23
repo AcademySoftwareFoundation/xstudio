@@ -89,11 +89,20 @@ class ViewportFlagIndicatorPlugin(HUDPlugin):
         # expose our attributes in the UI layer
         self.connect_to_ui()
 
-        # store the current flag colours (per viewport) and current onscreen
-        # media (also per viewport)
-        self.flag_colours = {}
-        self.onscreen_media_items = {}
+    def media_item_hud_data(self, media_item = None):
 
+        # This method is called by the base class. media_item is an instance
+        # of the Media class, and is the media object for some image that is
+        # going on-screen. We use it to build data that we return which will
+        # subsequently be available in the property 'media_item_hud_data'
+        # in our QML item that draws the HUD graphics.
+        if media_item:
+            # display_info is an array of values corresponding to the columns
+            # of the Media List Panel in the xSTUDIO UI (the columns are fully
+            # user-configurable, by the way)
+            return media_item.flag_colour
+        else:
+            return "#00000000"
 
 # This method is required by xSTUDIO
 def create_plugin_instance(connection):

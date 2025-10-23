@@ -18,7 +18,7 @@ Item {
     property var text
 
     width: 200
-    property var delay: 500
+    property var delay: 750
     property var scaling: 1.0
     property var fixedWidth: 0.0
     property var maxWidth: 1024

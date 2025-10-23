@@ -15,7 +15,13 @@ Item {
     property var tickSpacings: [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000]
     property real tickSpacing: 1.0
     property real minTickSpacing: 5
-    property real scaleFactor: width / (viewportPlayhead.durationFrames-1)
+
+    property bool zoomToLoop: viewportPlayhead.zoomToLoop && viewportPlayhead.enableLoopRange
+    property var zoomStart: viewportPlayhead.loopStartFrame
+    property var zoomEnd: viewportPlayhead.loopEndFrame
+
+    property real scaleFactor: width / (zoomToLoop ? (zoomEnd - zoomStart) : (viewportPlayhead.durationFrames-1))
+
     onScaleFactorChanged: {
         if(isNaN(viewportPlayhead.durationFrames)) {
             enabled = false
@@ -79,7 +85,7 @@ Item {
         opacity: 0.2
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        x: scaleFactor*viewportPlayhead.loopStartFrame
+        x: scaleFactor * (viewportPlayhead.loopStartFrame - (zoomToLoop ? zoomStart : 0))
         width: scaleFactor*(viewportPlayhead.loopEndFrame - viewportPlayhead.loopStartFrame)
         property bool vis: viewportPlayhead.enableLoopRange === true && (viewportPlayhead.loopStartFrame !== 0 || viewportPlayhead.loopEndFrame < (viewportPlayhead.durationFrames-1))
         visible: vis == true
@@ -92,8 +98,9 @@ Item {
         Rectangle {
             height: parent.height
             width: scaleFactor*(viewportPlayhead.mediaTransitionFrames[index+1]-viewportPlayhead.mediaTransitionFrames[index])
-            x: scaleFactor*viewportPlayhead.mediaTransitionFrames[index]
+            x: scaleFactor * (viewportPlayhead.mediaTransitionFrames[index] - (zoomToLoop ? zoomStart : 0) )
             opacity: (index%2 == 0) ? 0.05 : 0.1
+            visible: !zoomToLoop || (viewportPlayhead.mediaTransitionFrames[index]  < zoomEnd && viewportPlayhead.mediaTransitionFrames[index+1] > zoomStart)
         }
     }
 
@@ -134,10 +141,11 @@ Item {
             Rectangle {
                 color: cache_indicator_colours[cachedFrames[index].colour_idx]
                 opacity: 0.5
-                x: scaleFactor*(cachedFrames[index].start - 0.5)
+                x: scaleFactor * (cachedFrames[index].start - (zoomToLoop ? zoomStart : 0) - 0.5)
                 width: scaleFactor*(cachedFrames[index].duration)
                 height: 5
                 y: 10
+                visible: !zoomToLoop || (cachedFrames[index].start  < zoomEnd && (cachedFrames[index].start+cachedFrames[index].duration) > zoomStart)
             }
         }
     }
@@ -150,7 +158,7 @@ Item {
 
     XsBufferedUIProperty {
         id: bufferedX
-        source: scaleFactor*viewportPlayhead.logicalFrame
+        source: scaleFactor * (viewportPlayhead.logicalFrame - (zoomToLoop ? zoomStart : 0))
         playing: viewportPlayhead.playing != undefined ? viewportPlayhead.playing : false
     }
 
@@ -208,10 +216,14 @@ Item {
                 radius: height/2
                 // if indicator width is less than diameter (5 pixels) of a dot then
                 // we need to adjust the x to ensure the dot is aligned with the frame number
-                x: scaleFactor*viewportPlayhead.bookmarkedFrames[index*2] - (w < 5 ? (5-w)/2 : 0.0)
-                property var w: scaleFactor*viewportPlayhead.bookmarkedFrames[index*2+1]
-                width: Math.max(5, w)
+                x: Math.max(0, xx)
+                property var xx: scaleFactor * (viewportPlayhead.bookmarkedFrames[index * 2] - (zoomToLoop ? zoomStart : 0)) - (w < 5 ? (5-w)/2 : 0.0)
+                property var w: scaleFactor * viewportPlayhead.bookmarkedFrames[index * 2 + 1]
+
+                width: Math.min( Math.min(Math.max(5, w), Math.max(5, w) + xx), control.width - x )
                 y: control.height - height + 1.2
+
+                visible: !zoomToLoop || (viewportPlayhead.bookmarkedFrames[index * 2]  < zoomEnd && (viewportPlayhead.bookmarkedFrames[index * 2] + viewportPlayhead.bookmarkedFrames[index * 2 + 1]) > zoomStart)
             }
         }
     }
@@ -220,17 +232,21 @@ Item {
 
         id: mouseArea
         cursorShape: Qt.PointingHandCursor
-        acceptedButtons: Qt.LeftButton
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
         anchors.fill: parent
         propagateComposedEvents: true
 
         property bool preScrubPlaying: false
 
-        onPressed: {
-            viewportPlayhead.scrubbingFrames = true
-            if (viewportPlayhead.playing) {
-                preScrubPlaying = true
-                viewportPlayhead.playing = false
+        onPressed: (mouse)=> {
+            if (mouse.button == Qt.RightButton) {
+                viewportPlayhead.zoomToLoop = !viewportPlayhead.zoomToLoop
+            } else {
+                viewportPlayhead.scrubbingFrames = true
+                if (viewportPlayhead.playing) {
+                    preScrubPlaying = true
+                    viewportPlayhead.playing = false
+                }
             }
         }
 
@@ -244,7 +260,10 @@ Item {
 
         onMouseXChanged: {
             if (pressed) {
-                viewportPlayhead.logicalFrame = Math.round(mouseX / scaleFactor)
+                if(zoomToLoop)
+                    viewportPlayhead.logicalFrame = Math.min( Math.max( Math.round(mouseX / scaleFactor) + zoomStart, zoomStart), zoomEnd)
+                else
+                    viewportPlayhead.logicalFrame = Math.round(mouseX / scaleFactor)
             }
         }
 

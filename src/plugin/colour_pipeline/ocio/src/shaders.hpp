@@ -18,13 +18,13 @@ float dot(vec3 a, vec3 b) {
 
 vec4 colour_transform_op(vec4 rgba, vec2 image_pos)
 {
-    rgba = OCIODisplay(rgba);
-
     if (saturation != 1.0) {
         vec3 luma_weights = vec3(0.2126f, 0.7152f, 0.0722f);
         float luma = dot(rgba.rgb, luma_weights);
         rgba.rgb = luma + saturation * (rgba.rgb - luma);
     }
+
+    rgba = OCIODisplay(rgba);
 
     if (show_chan == 1) {
         rgba = vec4(rgba.r);

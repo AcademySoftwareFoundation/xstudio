@@ -128,8 +128,8 @@ namespace colour_pipeline {
             const media::AVFrameID &media_ptr) = 0;
 
         /*! If desired, override to return one or more colour operations that
-        *are applied to the linear colour value before the display space is applied.
-        *This could be employed for gamma/saturation viewer controls, for example */
+         *are applied to the linear colour value before the display space is applied.
+         *This could be employed for gamma/saturation viewer controls, for example */
         virtual std::vector<ColourOperationDataPtr> intermediate_operations(
             const utility::Uuid &source_uuid,
             const utility::JsonStore &media_source_colour_metadata) {
@@ -160,6 +160,12 @@ namespace colour_pipeline {
         virtual void media_source_changed(
             const utility::Uuid &source_uuid,
             const utility::JsonStore &media_source_colour_metadata) = 0;
+
+        /* For the given colour management metadata, return a json dict specifying
+        the display and view options available and the default display and view
+        choices */
+        virtual utility::JsonStore get_display_and_view_options_for_media(
+            const utility::JsonStore &media_source_colour_metadata) const = 0;
 
         virtual void screen_changed(
             const std::string &name,
