@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.28 FATAL_ERROR)
 cmake_policy(VERSION 3.28)
 
-set(XSTUDIO_GLOBAL_VERSION "1.0.0" CACHE STRING "Version string")
+set(XSTUDIO_GLOBAL_VERSION "1.1.0" CACHE STRING "Version string")
 set(XSTUDIO_GLOBAL_NAME xStudio)
 
 # set(CMAKE_OSX_DEPLOYMENT_TARGET "14.5" CACHE STRING "Minimum OS X deployment version" FORCE)
@@ -109,8 +109,14 @@ if (USE_SANITIZER STREQUAL "Address")
         set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -fsanitize=address")
     endif()
 elseif (USE_SANITIZER STREQUAL "Thread")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=thread")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
+    if(MSVC)
+        target_compile_options(<target> PUBLIC /fsanitize=thread)
+    else()
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=thread")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=thread")
+        set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -fsanitize=thread")
+    endif()
 elseif (USE_SANITIZER STREQUAL "Undefined")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined")
@@ -197,7 +203,7 @@ if (USE_VCPKG)
     message(FATAL_ERROR "Failed to ensurepip.")
   else()
     execute_process(
-      COMMAND "${Python_EXECUTABLE}" -m pip install setuptools sphinx breathe sphinx-rtd-theme OpenTimelineIO-Plugins importlib_metadata myst-parser zipp
+      COMMAND "${Python_EXECUTABLE}" -m pip install setuptools sphinx breathe sphinx-rtd-theme OpenTimelineIO-Plugins importlib_metadata zipp
       RESULT_VARIABLE PIP_RESULT
     )
     if(PIP_RESULT)
@@ -299,9 +305,9 @@ if (WIN32)
 
   include(InstallRequiredSystemLibraries)
 
-  set(CPACK_PACKAGE_VERSION "1.0.0")
+  set(CPACK_PACKAGE_VERSION "1.1.0")
   set(CPACK_PACKAGE_VERSION_MAJOR "1")
-  set(CPACK_PACKAGE_VERSION_MINOR "0")
+  set(CPACK_PACKAGE_VERSION_MINOR "1")
   set(CPACK_PACKAGE_VERSION_PATCH "0")
   set(CPACK_PACKAGE_VENDOR "DNEG / Academy Software Foundation")
   set (CPACK_NSIS_MUI_ICON

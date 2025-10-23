@@ -11,6 +11,7 @@
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/plugin_manager/plugin_manager.hpp"
 #include "xstudio/playhead/playhead_actor.hpp"
+#include "xstudio/media/media_actor.hpp"
 
 #include "fps_monitor.hpp"
 
@@ -108,13 +109,18 @@ std::string make_viewport_name() {
 
 
 Viewport::Viewport(
-    const utility::JsonStore &state_data, caf::actor parent_actor, const std::string &_name)
+    const utility::JsonStore &state_data,
+    caf::actor parent_actor,
+    const bool sync_with_other_viewports,
+    const std::string &_name)
     : Module(_name.empty() ? make_viewport_name() : _name),
       parent_actor_(std::move(parent_actor)) {
-
+        
     if (state_data.contains("window_id") && state_data["window_id"].is_string()) {
         window_id_ = state_data["window_id"].get<std::string>();
     }
+
+    has_overlays_ = state_data.value("has_overlays", true);
 
     if (window_id_ == "xstudio_quickview_window") {
         // This is a hack - I've not worked out how to make unique window ID on construction
@@ -262,6 +268,14 @@ Viewport::Viewport(
         {"Mirror Horizontally", "Mirror Vertically", "Mirror Both", "Off"},
         {"Mirror Horizontally", "Mirror Vertically", "Mirror Both", "Off"});
 
+    fps_ = add_string_attribute("FPS", "Fps", "");
+    fps_->set_role_data(module::Attribute::Type, "QmlCode");
+    fps_->set_role_data(
+        module::Attribute::QmlCode,
+        R"(import xStudio 1.0
+            XsViewerFpsButton {})");
+    fps_->set_role_data(module::Attribute::ToolbarPosition, 8.5f);
+
     // window_id_ will be "xstudio_main_window" for any viewport embedded in
     // the main interface or "xstudio_popout_window" for the pop-out window.
     // These viewports should be zoom/pan/fit/compare mode synced. All other
@@ -269,7 +283,7 @@ Viewport::Viewport(
     sync_to_main_viewport_ = add_boolean_attribute(
         "Sync To Main Viewport",
         "Sync To Main Viewport",
-        window_id_ == "xstudio_main_window" || window_id_ == "xstudio_popout_window");
+        sync_with_other_viewports);
 
     filter_mode_preference_ = add_string_choice_attribute(
         "Viewport Filter Mode", "Vp. Filtering", ViewportRenderer::pixel_filter_mode_names);
@@ -360,31 +374,31 @@ Viewport::Viewport(
         utility::request_receive<bool>(
             *sys, group, broadcast::join_broadcast_atom_v, parent_actor_);
 
-        if (window_id_ == "xstudio_popout_window" || window_id_ == "xstudio_main_window") {
+        if (sync_to_main_viewport_->value()) {
 
             // is there an active viewport? If so, we want to sync our zoom/pan to the
             // active viewport
-            auto current_viewport =
-                request_receive<caf::actor>(*sys, global_playhead_events_group_, active_viewport_atom_v, true);
+            auto current_viewport = request_receive<caf::actor>(
+                *sys, global_playhead_events_group_, active_viewport_atom_v, true);
 
             if (current_viewport) {
-                // this message 
+                // this message
                 anon_mail(viewport_atom_v, parent_actor_).send(current_viewport);
             } else {
                 set_fit_mode(FitMode::Best, false);
             }
-                         
+
         } else {
             set_fit_mode(FitMode::Best, false);
         }
 
         // register with the global playhead events actor so other parts of the
         // application can talk directly to us
-        anon_mail(viewport_atom_v, name(), window_id_, parent_actor_).send(global_playhead_events_group_);
-
+        anon_mail(viewport_atom_v, name(), window_id_, parent_actor_)
+            .send(global_playhead_events_group_);
     }
 
-    
+
     // force update our internal filter mode enum
     attribute_changed(
         filter_mode_preference_->get_role_data<utility::Uuid>(module::Attribute::UuidRole),
@@ -392,6 +406,7 @@ Viewport::Viewport(
 
     make_attribute_visible_in_viewport_toolbar(fit_mode_);
     make_attribute_visible_in_viewport_toolbar(mirror_mode_);
+    make_attribute_visible_in_viewport_toolbar(fps_);
     make_attribute_visible_in_viewport_toolbar(hud_toggle_);
 
     module::QmlCodeAttribute *source_selector = add_qml_code_attribute(
@@ -418,7 +433,6 @@ Viewport::Viewport(
     // show up in our toolbar
     connect_to_viewport(name(), toolbar_name, true, parent_actor_);
 
-
     if (sync_to_main_viewport_->value()) {
         auto_connect_to_global_selected_playhead();
     }
@@ -428,7 +442,6 @@ Viewport::Viewport(
     }
 
     broadcast_fit_details_ = true;
-
 }
 
 Viewport::~Viewport() {
@@ -609,7 +622,7 @@ void Viewport::set_pointer_event_viewport_coords(PointerEvent &pointer_event) {
 
     Imath::V4f p = state_.pointer_position_;
 
-    pointer_event.set_pos_in_coord_sys(p.x, p.y, (d_zero - delta).x*state_.devicePixelRatio_);
+    pointer_event.set_pos_in_coord_sys(p.x, p.y, (d_zero - delta).x * state_.devicePixelRatio_);
 }
 
 bool Viewport::process_pointer_event(PointerEvent &pointer_event) {
@@ -656,8 +669,8 @@ bool Viewport::process_pointer_event(PointerEvent &pointer_event) {
             if (state_.translate_.x != 0.0f || state_.translate_.y != 0.0f ||
                 state_.scale_ != 1.0f) {
                 if (state_.fit_mode_ != Free) {
-                    previous_fit_mode_   = state_.fit_mode_;
-                    state_.fit_mode_ = Free;
+                    previous_fit_mode_ = state_.fit_mode_;
+                    state_.fit_mode_   = Free;
                     fit_mode_->set_value("Off");
                 }
             }
@@ -837,7 +850,6 @@ void Viewport::set_mirror_mode(const MirrorMode md) {
 void Viewport::revert_fit_zoom_to_previous(const bool synced) {
 
     set_fit_mode(previous_fit_mode_, true);
-
 }
 
 void Viewport::switch_mirror_mode() {
@@ -869,7 +881,7 @@ Imath::V2i Viewport::raw_pointer_position() const { return state_.raw_pointer_po
 
 void Viewport::update_matrix() {
 
-    if (broadcast_fit_details_) {
+    if (broadcast_fit_details_ && sync_to_main_viewport_->value()) {
         anon_mail(
             fit_mode_atom_v,
             state_.fit_mode_,
@@ -920,6 +932,12 @@ void Viewport::calc_image_bounds_in_viewport_pixels() {
     const auto old       = image_bounds_in_viewport_pixels_;
     const auto &im_order = on_screen_frames_->layout_data()->image_draw_order_hint_;
     image_bounds_in_viewport_pixels_.clear();
+
+    // first we want to check if the image layout isn't that the each image has
+    // the same transform ... if they all have the same transform (e.g. A/B
+    // mode) then image_bounds_in_viewport_pixels_ should only have one entry
+    const bool images_overlay_each_other = !on_screen_frames_->has_grid_layout();
+
     for (const auto &i : im_order) {
 
         const media_reader::ImageBufPtr &im = on_screen_frames_->onscreen_image(i);
@@ -947,6 +965,9 @@ void Viewport::calc_image_bounds_in_viewport_pixels() {
             std::max(y0, y1) * state_.size_.y / state_.devicePixelRatio_);
 
         image_bounds_in_viewport_pixels_.emplace_back(Imath::Box2f(bottomLeft, topRight));
+
+        if (images_overlay_each_other)
+            break;
     }
 
     if (old != image_bounds_in_viewport_pixels_) {
@@ -1027,13 +1048,10 @@ caf::message_handler Viewport::message_handler() {
                     const Imath::V2f pan,
                     const std::string &viewport_name,
                     const std::string &window_id) {
-
                     if (viewport_name == name())
                         return;
 
-                    if (sync_to_main_viewport_->value() &&
-                        (window_id == "xstudio_popout_window" ||
-                         window_id == "xstudio_main_window")) {
+                    if (sync_to_main_viewport_->value()) {
 
                         broadcast_fit_details_ = false;
 
@@ -1111,15 +1129,16 @@ caf::message_handler Viewport::message_handler() {
                     // To use
                     // we only sync changes in main window to popout and vice versa. Two
                     // viewport in the same window do not sync. quickview windows do not sync
-                    if (sync_to_main_viewport_->value() &&
-                        (window_id == "xstudio_popout_window" ||
-                         window_id == "xstudio_main_window")) {
+                    if (sync_to_main_viewport_->value()) {
                         set_pan(xpan, ypan);
                         event_callback(Redraw);
                     }
                 },
 
-                [=](viewport_playhead_atom, caf::actor playhead) { set_playhead(playhead); },
+                [=](viewport_playhead_atom, caf::actor playhead) -> bool {
+                    set_playhead(playhead);
+                    return true;
+                },
 
                 [=](viewport_playhead_atom) -> caf::actor {
                     return caf::actor_cast<caf::actor>(playhead_addr_);
@@ -1142,13 +1161,14 @@ caf::message_handler Viewport::message_handler() {
                     const std::string &window_id) {
                     // we only sync changes in main window to popout and vice versa. Two
                     // viewport in the same window do not sync. quickview windows do not sync
-                    if (sync_to_main_viewport_->value() &&
-                        (window_id == "xstudio_popout_window" ||
-                         window_id == "xstudio_main_window")) {
+                    if (sync_to_main_viewport_->value()) {
                         set_scale(scale);
                         event_callback(Redraw);
                     }
                 },
+
+                [=](quickview_media_atom,
+                    const caf::uri &uri) { quickview_media(uri); },
 
                 [=](quickview_media_atom,
                     std::vector<caf::actor> &media_items,
@@ -1231,7 +1251,8 @@ void Viewport::set_playhead(caf::actor playhead, const bool wait_for_refresh) {
     if (old_playhead && old_playhead == playhead) {
         return;
     } else if (old_playhead) {
-        if (window_id_ != "snapshot_viewport") {
+        if (!(window_id_ == "snapshot_viewport" ||
+              window_id_.find("offscreen") != std::string::npos)) {
             anon_mail(
                 connect_to_viewport_toolbar_atom_v, name(), name() + "_toolbar", self(), false)
                 .send(old_playhead);
@@ -1334,7 +1355,8 @@ void Viewport::set_playhead(caf::actor playhead, const bool wait_for_refresh) {
         anon_mail(viewport::viewport_playhead_atom_v, name(), playhead)
             .send(global_playhead_events_group_);
 
-        if (window_id_ != "snapshot_viewport") {
+        if (!(window_id_ == "snapshot_viewport" ||
+              window_id_.find("offscreen") != std::string::npos)) {
             // this message is also crucial - the playhead needs to connect to the viewport's
             // toolbar so that playhead attributes like compare mode, rate, source are exposed
             // in the UI via the viewport toolbar. For the offscreen snapshot viewer, we do NOT
@@ -1437,8 +1459,7 @@ void Viewport::attribute_changed(const utility::Uuid &attr_uuid, const int role)
                     "HUD",
                     role,
                     true,
-                    utility::JsonStore(hud_toggle_->role_data_as_json(role)),
-                    caf::actor_cast<caf::actor_addr>(self()))
+                    utility::JsonStore(hud_toggle_->role_data_as_json(role)))
                     .send(o);
             }
         } catch (std::exception &e) {
@@ -1459,6 +1480,41 @@ void Viewport::attribute_changed(const utility::Uuid &attr_uuid, const int role)
             set_mirror_mode(MirrorMode::Both);
         else
             set_mirror_mode(MirrorMode::Off);
+    } else if (attr_uuid == fps_->uuid() && role == module::Attribute::UserData) {
+
+        const auto user_fps =
+            fps_->get_role_data<std::string>(module::Attribute::UserData);
+
+        if (user_fps == "") return;
+
+        caf::actor media_source =
+            caf::actor_cast<caf::actor>(on_screen_hero_frame_.frame_id().media_source_addr());
+
+        if (media_source) {
+            try {
+                scoped_actor sys{self()->home_system()};
+                if (user_fps == "reset") {
+                    // this will reset the media rate
+                    anon_mail(utility::rate_atom_v, true).send(media_source);
+                } else {
+                    float v = std::atof(user_fps.c_str());
+                    if (v) {
+                        // this is how we override media frame rate
+                        auto mr = request_receive<MediaReference>(
+                            *sys, media_source, media::media_reference_atom_v);
+                        mr.set_rate(utility::FrameRate(1.0f / v));
+                        anon_mail(media::media_reference_atom_v, mr).send(media_source);
+                    }
+                }
+                // we need to blank 'userdata' so that next time the user sets FPS, if
+                // it's the same as the last time they set it, then we still get a 
+                // change notficiation
+                fps_->set_role_data(module::Attribute::UserData, "");
+
+            } catch (std::exception &e) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+            }
+        }
     }
 }
 
@@ -1571,10 +1627,10 @@ void Viewport::update_onscreen_frame_info(const media_reader::ImageBufDisplaySet
     on_screen_frames_ = images;
     needs_redraw_     = false;
 
-    if (images && images->images_layout_hash() != image_bounds_hash_) {
+    if (images && images->full_hash() != image_bounds_hash_) {
         calc_image_bounds_in_viewport_pixels();
         update_image_resolutions();
-        image_bounds_hash_ = images->images_layout_hash();
+        image_bounds_hash_ = images->full_hash();
     }
 
     // this should be called by the subclass of this Viewport class just
@@ -1596,6 +1652,19 @@ void Viewport::update_onscreen_frame_info(const media_reader::ImageBufDisplaySet
     // so we take a copy of frame and update on_screen_hero_frame_ after
     // the framebuffers are swapped
     next_on_screen_hero_frame_ = images->hero_image();
+
+    // Update our FPS attribute for the FPS toolbar button
+    if (current_media_fps_ != next_on_screen_hero_frame_.frame_id().rate()) {
+        current_media_fps_   = next_on_screen_hero_frame_.frame_id().rate();
+        std::string fps_disp = fmt::format("{:.3f}", current_media_fps_.to_fps());
+        // strip trailing zeros apart from first one after the decimal
+        static std::regex re(R"(([0-9]+\.[0-9][1-9]*))");
+        std::smatch match;
+        if (std::regex_search(fps_disp, match, re)) {
+            fps_disp = match[1].str();
+        }
+        fps_->set_value(fps_disp, false);
+    }
 }
 
 void Viewport::framebuffer_swapped(const utility::time_point swap_time) {
@@ -1707,6 +1776,14 @@ Viewport::prepare_image_for_display(const media_reader::ImageBufPtr &image_buf) 
 void Viewport::instance_overlay_plugins() {
 
     caf::scoped_actor sys(self()->home_system());
+
+    if (!has_overlays_) {
+        display_frames_queue_actor_ = sys->spawn<ViewportFrameQueueActor>(
+            self(), overlay_plugin_instances_, name(), colour_pipeline_);
+        auto a = caf::actor_cast<caf::event_based_actor *>(self());
+        a->link_to(display_frames_queue_actor_);
+        return;
+    }
 
     try {
 
@@ -1834,7 +1911,8 @@ void Viewport::get_colour_pipeline() {
             colour_pipe_manager,
             xstudio::colour_pipeline::colour_pipeline_atom_v,
             name(),
-            window_id_);
+            window_id_,
+            sync_to_main_viewport_->value());
 
         if (colour_pipeline_ != colour_pipe) {
             colour_pipeline_ = colour_pipe;
@@ -1888,10 +1966,37 @@ void Viewport::set_screen_infos(
     // Instead the ViewportFrameQueueActor will do a live statistical measurement
     // of the refresh period.
 
-#ifdef __apple__    
+#ifdef __apple__
     // On modern Apple hardware the refresh rate is accurate.
     screen_refresh_period_ = timebase::to_flicks(1.0 / refresh_rate);
 #endif
+}
+
+void Viewport::quickview_media(const caf::uri &file_uri) 
+{
+
+    // 'quickview' some media direct from a URI
+    caf::scoped_actor sys(self()->home_system());
+
+    // make the media source:
+    const utility::Uuid src_id = utility::Uuid::generate();
+    auto source = UuidActor(src_id, sys->spawn<media::MediaSourceActor>(
+        "Quickview Media Source",
+        file_uri,
+        utility::FrameRate(timebase::k_flicks_24fps),
+        src_id));
+
+    // make the media actor that wrapps the source
+    auto media = sys->spawn<media::MediaActor>(
+        "Quickview Media",
+        utility::Uuid::generate(), 
+        utility::UuidActorVector({source})
+        );
+
+    // pass on to our other quickview_media method
+    std::vector<caf::actor> m({media});
+    quickview_media(m, "Off");
+
 }
 
 void Viewport::quickview_media(

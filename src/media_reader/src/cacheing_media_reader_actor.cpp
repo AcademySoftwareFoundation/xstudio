@@ -345,7 +345,10 @@ caf::typed_response_promise<ImageBufPtr> CachingMediaReaderActor::receive_image_
             },
             [=](const caf::error &err) mutable {
                 rt.deliver(err);
-                spdlog::warn("Failed cache retrieve buffer {} {}", to_string(mptr.key()), to_string(err));
+                spdlog::warn(
+                    "Failed cache retrieve buffer {} {}",
+                    to_string(mptr.key()),
+                    to_string(err));
             });
     return rt;
 }

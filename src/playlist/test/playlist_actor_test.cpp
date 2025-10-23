@@ -197,7 +197,7 @@ TEST(PlaylistPlayheadActorTest, Test) {
     // 	}
     //    );
 
-    //  f.self->request(pa, infinite, buffer_atom_v).receive(
+    //  f.self->request(pa, infinite, image_buffer_atom_v).receive(
     //    [&](ImageBufPtr buf) {
     //        EXPECT_FALSE(buf);
     //      },

@@ -20,7 +20,7 @@ RowLayout {
             if(resultsBaseModel.groupDetail.flags.includes("Load Sequence"))
                 ShotBrowserHelpers.addSequencesToNewPlaylist(resultsSelectionModel.selectedIndexes)
             else
-                ShotBrowserHelpers.addToCurrent(resultsSelectionModel.selectedIndexes, false, addAfterSelection.value)
+                ShotBrowserHelpers.addToCurrent(resultsSelectionModel.selectedIndexes, false, addMode.value)
         }
     }
 

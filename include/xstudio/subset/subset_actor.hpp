@@ -54,6 +54,7 @@ namespace subset {
       protected:
         utility::JsonStore serialise() const { return base_.serialise(); }
         void monitor_media(const caf::actor &actor);
+        void duplicate_children(caf::actor duplicated_subset);
 
         std::map<caf::actor_addr, caf::disposable> monitor_;
 

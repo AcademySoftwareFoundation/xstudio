@@ -540,6 +540,22 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
+        text: "Relink Media (Loose)..."
+        menuPath: "Advanced"
+        menuItemPosition: 71
+        menuModelName: btnMenu.menu_model_name
+        onActivated: {
+           dialogHelpers.showFolderDialog(
+                function(path, chaserFunc) {
+                    theSessionData.relinkMedia(mediaSelectionModel.selectedIndexes, path, true)
+                },
+                file_functions.defaultSessionFolder(),
+                "Relink media files")
+        }
+        panelContext: btnMenu.panelContext
+    }
+
+    XsMenuModelItem {
         text: "Decompose Media"
         menuPath: "Advanced"
         menuItemPosition: 80

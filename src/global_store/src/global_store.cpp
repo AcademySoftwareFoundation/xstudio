@@ -360,7 +360,6 @@ utility::JsonStore xstudio::global_store::get_preference_values(
             try {
                 is_overridden = json.get(i + "/overridden_value") != json.get(i + "/value");
             } catch (std::exception &e) {
-                std::cerr << "WWWW " << e.what() << "\n";
             }
 
             std::string tmp_path;

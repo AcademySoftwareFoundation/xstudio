@@ -426,7 +426,7 @@ namespace utility {
     TimeCache<K, V>::erase(const typename cache_type::iterator &it) {
         typename cache_type::iterator nit;
         if (it->second)
-            size_ -= it->second->value->size();
+            size_ -= it->second->value ? it->second->value->size() : 0;
         count_--;
         call_change_callback({}, {it->first});
         nit = cache_.erase(it);

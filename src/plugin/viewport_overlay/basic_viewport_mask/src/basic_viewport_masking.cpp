@@ -136,9 +136,10 @@ void BasicMaskRenderer::render_image_overlay(
     // we scale the font plotting size with 'viewport_du_dx'
     auto font_scale = data->label_size_ * 1920.0f * viewport_du_dpixel * device_pixel_ratio;
 
-    auto mask_safety    = data->mask_shader_params_["mask_safety"].get<float>();
-    auto line_thickness = data->mask_shader_params_["line_thickness"].get<float>() * device_pixel_ratio;
-    auto ma             = mask_safety + aspect + line_thickness;
+    auto mask_safety = data->mask_shader_params_["mask_safety"].get<float>();
+    auto line_thickness =
+        data->mask_shader_params_["line_thickness"].get<float>() * device_pixel_ratio;
+    auto ma = mask_safety + aspect + line_thickness;
 
     if (text_ != data->mask_caption_ || font_scale != font_scale_ || ma != ma_) {
         font_scale_ = font_scale;
@@ -291,7 +292,8 @@ utility::BlindDataObjectPtr BasicViewportMasking::onscreen_render_data(
     const media_reader::ImageBufPtr &image,
     const std::string & /*viewport_name*/,
     const utility::Uuid &playhead_uuid,
-    const bool is_hero_image) const {
+    const bool is_hero_image,
+    const bool images_are_in_grid_layout) const {
 
     auto r = utility::BlindDataObjectPtr();
     if (visible() && mask_render_method_->value() == "OpenGL" && image) {

@@ -41,6 +41,7 @@ namespace ui {
             Q_INVOKABLE [[nodiscard]] QUrl userDocsUrl() const;
             Q_INVOKABLE [[nodiscard]] QUrl apiDocsUrl() const;
             Q_INVOKABLE [[nodiscard]] QUrl releaseDocsUrl() const;
+            Q_INVOKABLE [[nodiscard]] QUrl docsSectionUrl(const QString &section) const;
 
             Q_INVOKABLE void newSession(const QString &name);
 

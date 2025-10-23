@@ -1,0 +1,5 @@
+<RCC>
+	<qresource prefix="/video_renderer_icons">
+	    <file alias="monitor_heart.svg">VideoRenderer.1/monitor_heart.svg</file>
+	</qresource>
+</RCC>

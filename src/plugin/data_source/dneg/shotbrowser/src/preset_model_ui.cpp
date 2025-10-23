@@ -1019,6 +1019,12 @@ QModelIndex ShotBrowserPresetModel::insertGroup(const QString &entity, const int
     // data["children"][1]["id"] = Uuid::generate();
     data["name"] = "New Group";
 
+    if (data["entity"] == "Versions") {
+        data["flags"].push_back("Replace");
+        data["flags"].push_back("Compare");
+        data["flags"].push_back("Conform");
+    }
+
     QueryEngine::regenerate_ids(data);
 
     if (insertRows(real_row, 1, parent, data)) {

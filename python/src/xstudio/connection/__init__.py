@@ -8,7 +8,7 @@ from xstudio.core import absolute_receive_timeout
 from xstudio.core import version_atom, authenticate_atom
 from xstudio.core import get_application_mode_atom, broadcast_down_atom
 from xstudio.core import join_broadcast_atom, exit_atom, api_exit_atom, leave_broadcast_atom, get_event_group_atom
-from xstudio.core import error, Link
+from xstudio.core import error, Link, JsonStore
 from xstudio.core import XSTUDIO_LOCAL_PLUGIN_PATH
 from xstudio.api import API
 from xstudio.core import RemoteSessionManager, remote_session_path
@@ -48,6 +48,9 @@ class Connection(object):
         self.background_processing = background_processing
 
         self.plugins = {}
+        self.hud_plugins = {}
+        self.__last_hud_data_media_items = None
+        self.__last_hud_data = None
 
         if auto_connect:
             self.connect_remote_auto()
@@ -610,7 +613,12 @@ class Connection(object):
                 module = importlib.util.module_from_spec(spec)
                 sys.modules[plugin_name] = module
                 spec.loader.exec_module(module)
-                self.plugins[str(path) + plugin_name] = module.create_plugin_instance(self)
+                plugin_instance = module.create_plugin_instance(self)
+                self.plugins[str(path) + plugin_name] = plugin_instance
+                from xstudio.plugin.hud_plugin import HUDPlugin
+                if isinstance(plugin_instance, HUDPlugin):
+                    self.hud_plugins[plugin_instance.uuid] = plugin_instance
+
             else:
                 print ("Error loading plugin \"{0}\" from \"{1}\" - not python importable.".format(
                     plugin_name, path))
@@ -626,3 +634,46 @@ class Connection(object):
             if self.plugins[pn].uuid == plugin_uuid:
                 return self.plugins[pn]
         raise Exception("Plugin with uuid {} was not found".format(plugin_uuid))
+
+    def hud_plugins_onscreen_data2(self, media_items):
+        for pn in self.plugins:
+            print (pn)
+        return JsonStore()
+
+    def hud_plugins_onscreen_data(self, media_items):
+        """This method is called by the xstudio offscreen viewport(s) when they
+        need to render overlay data accurately (e.g. when doing a snapshot or
+        video output render). We call HUD Plugin instances, passing in the media
+        item that is on-screen. The HUD Plugin returns a JSON struct that 
+        contains whatever data it needs to do the overlay graphics. The offscreen
+        viewport then uses this data to set a special QML property that can
+        then be used to drive the QML graphics element provided by the HUD plugin.
+        """
+        if self.__last_hud_data_media_items == media_items:
+            return self.__last_hud_data
+        result = {}        
+        for plugin_id, plugin in self.hud_plugins.items():
+            result[plugin_id] = []
+            idx = 0
+            for media_item in media_items:
+                result[plugin_id].append(plugin.media_item_hud_data_rw(media_item))
+                idx+=1
+        self.__last_hud_data_media_items = media_items
+        self.__last_hud_data = JsonStore(result)
+        return JsonStore(result)
+
+    def get_named_python_plugin_instance(self, plugin_name):
+        """Use this to retrieve the Plugin class instance for a given named
+        python plugin.
+
+        Args:
+            plugin_name (str): Name of the plugin
+
+        Returns:
+            plugin(PluginBase): the Python object, the plugin instance
+        """
+
+        for pn in self.plugins:
+            if self.plugins[pn].name == plugin_name:
+                return self.plugins[pn]
+        raise Exception("Plugin with name {} was not found".format(plugin_name))

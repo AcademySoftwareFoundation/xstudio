@@ -103,6 +103,8 @@ namespace timeline {
       private:
         void monitor_media(const caf::actor &actor);
 
+        void duplicate_playhead(caf::actor duplicated_timeline);
+
         Timeline base_;
         caf::actor change_event_group_;
 

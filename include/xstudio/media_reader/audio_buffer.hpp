@@ -19,37 +19,12 @@ namespace media_reader {
             const int _num_channels,
             const uint64_t _num_samples,
             const audio::SampleFormat _sample_format) {
+
             sample_rate_   = _sample_rate;
             num_channels_  = _num_channels;
             num_samples_   = _num_samples;
             sample_format_ = _sample_format;
-
-            size_t samp_size = 1;
-            switch (_sample_format) {
-
-            case audio::SampleFormat::UINT8:
-                samp_size = 1;
-                break;
-            case audio::SampleFormat::INT16:
-                samp_size = 2;
-                break;
-            case audio::SampleFormat::SFINT32:
-                samp_size = 4;
-                break;
-            case audio::SampleFormat::FLOAT32:
-                samp_size = 4;
-                break;
-            case audio::SampleFormat::INT64:
-                samp_size = 8;
-                break;
-            case audio::SampleFormat::DOUBLE64:
-                samp_size = 8;
-                break;
-            default:
-                samp_size = 1;
-            }
-
-            Buffer::allocate(num_samples_ * num_channels_ * samp_size);
+            Buffer::allocate(actual_sample_data_size());
         }
 
         void extend_size(size_t size_extension) { Buffer::resize(size() + size_extension); }
@@ -74,6 +49,38 @@ namespace media_reader {
         [[nodiscard]] bool reversed() const { return reversed_; }
         [[nodiscard]] std::chrono::microseconds time_delta_to_video_frame() const {
             return time_delta_to_video_frame_;
+        }
+
+        [[nodiscard]] size_t sample_type_size_bytes() const {
+            size_t samp_size = 1;
+            switch (sample_format_) {
+
+            case audio::SampleFormat::UINT8:
+                samp_size = 1;
+                break;
+            case audio::SampleFormat::INT16:
+                samp_size = 2;
+                break;
+            case audio::SampleFormat::SFINT32:
+                samp_size = 4;
+                break;
+            case audio::SampleFormat::FLOAT32:
+                samp_size = 4;
+                break;
+            case audio::SampleFormat::INT64:
+                samp_size = 8;
+                break;
+            case audio::SampleFormat::DOUBLE64:
+                samp_size = 8;
+                break;
+            default:
+                samp_size = 1;
+            }
+            return samp_size;
+        }
+
+        [[nodiscard]] size_t actual_sample_data_size() const {
+            return num_samples_ * num_channels_ * sample_type_size_bytes();
         }
 
         void set_num_samples(const size_t n) { num_samples_ = n; }

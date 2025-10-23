@@ -152,7 +152,7 @@ bool copy_samples_to_scrub_buffer(
     const long num_channels);
 
 template <typename T>
-void reverse_audio_buffer(const T *in, T *out, const int num_channels, const int num_samples);
+void reverse_audio_buffer(const T *in, T *out, const int num_samples, const int num_channels);
 
 template <typename T>
 media_reader::AudioBufPtr
@@ -173,7 +173,7 @@ void AudioOutputControl::prepare_samples_for_soundcard_playback(
 
         while (n > 0) {
 
-            if (!current_buf_ && sample_data_.size()) {
+            if (not current_buf_ and not sample_data_.empty()) {
 
                 // when is the next sample that we copy into the buffer going to get played?
                 // We assume there are 'samples_in_soundcard_buffer + num_samps_pushed' audio
@@ -424,7 +424,8 @@ void AudioOutputControl::queue_samples_for_playing(
             continue;
 
         // skip empty frames
-        if (!_frame->num_samples()) continue;
+        if (!_frame->num_samples())
+            continue;
 
         media_reader::AudioBufPtr frame =
             audio_repitch_ && playback_velocity_ != 1.0f
@@ -517,6 +518,8 @@ media_reader::AudioBufPtr AudioOutputControl::pick_audio_buffer(
     if (p != sample_data_.end()) {
         if (playing_forward_) {
             p++;
+            if (p == sample_data_.end())
+                p--;
         } else if (!playing_forward_ && p != sample_data_.begin()) {
             p--;
         }

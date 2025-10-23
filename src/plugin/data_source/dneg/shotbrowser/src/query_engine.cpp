@@ -69,6 +69,43 @@ QueryEngine::QueryEngine() {
     initialise_presets();
 }
 
+JsonStore QueryEngine::get_user_data() const {
+    JsonStore result;
+
+    auto users = get_cache("User");
+    if (users) {
+        auto login = get_login_name();
+        try {
+            for (const auto &i : *users) {
+                if (i.at("attributes").at("login") == login) {
+                    result = i;
+                    break;
+                }
+            }
+
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+    }
+
+    return result;
+}
+
+bool QueryEngine::is_shotgrid_login_allowed() const {
+    bool result = true;
+
+    auto jsn = get_user_data();
+    if (not jsn.is_null()) {
+        try {
+            result = jsn.at("attributes").at("sg_login_allowed");
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+    }
+
+    return result;
+}
+
 
 std::optional<nlohmann::json>
 QueryEngine::find_by_id(const utility::Uuid &uuid, const utility::JsonStore &presets) {
@@ -704,6 +741,8 @@ void QueryEngine::set_shot_sequence_list_cache(
     const static auto sg_unit          = json::json_pointer("/relationships/sg_unit/data/name");
     const static auto sg_shot_type     = json::json_pointer("/attributes/sg_shot_type");
     const static auto sg_sequence_type = json::json_pointer("/attributes/sg_sequence_type");
+    const static auto sg_primary_shot_location =
+        json::json_pointer("/relationships/sg_primary_shot_location/data/name");
 
     auto result = R"([])"_json;
 
@@ -728,6 +767,12 @@ void QueryEngine::set_shot_sequence_list_cache(
                     row["relationships"]["sg_unit"]["data"]["name"] = s.at(sg_unit);
                 else
                     row["relationships"]["sg_unit"]["data"]["name"] = "";
+
+                if (s.contains(sg_primary_shot_location))
+                    row["relationships"]["sg_primary_shot_location"]["data"]["name"] =
+                        s.at(sg_primary_shot_location);
+                else
+                    row["relationships"]["sg_primary_shot_location"]["data"]["name"] = "";
 
                 row["subtype"] = s.at(sg_shot_type).is_null() ? "No Type" : s.at(sg_shot_type);
 
@@ -1596,8 +1641,6 @@ void QueryEngine::add_version_term_to_filter(
             qry->push_back(DateTime("sg_date_submitted_to_client").is_not_null());
         else
             throw XStudioError("Invalid query term " + term + " " + value);
-
-
     } else if (term == "Sent To Dailies") {
         if (value == "False")
             qry->push_back(FilterBy().And(
@@ -1632,6 +1675,16 @@ void QueryEngine::add_version_term_to_filter(
     } else if (term == "dnTag") {
         qry->push_back(QueryEngine::add_text_value(
             "entity.Shot.sg_dnbreakdown_tags.Tag.name", value, negated));
+    } else if (term == "Shot Type") {
+        if (negated)
+            qry->push_back(Text("entity.Shot.sg_shot_type").is_not(value));
+        else
+            qry->push_back(Text("entity.Shot.sg_shot_type").is(value));
+    } else if (term == "Asset Type") {
+        if (negated)
+            qry->push_back(Text("entity.Shot.sg_shot_type").is_not(value));
+        else
+            qry->push_back(Text("entity.Shot.sg_shot_type").is(value));
     } else if (term == "Reference Tag" or term == "Reference Tags") {
 
         if (value.find(',') != std::string::npos) {
@@ -1974,6 +2027,75 @@ void QueryEngine::set_shot_sequence_lookup(
         lookup_changed_callback_(key);
 }
 
+void QueryEngine::set_shot_type_cache(const std::string &key, const utility::JsonStore &data) {
+    set_shot_type_cache(key, data, lookup_);
+
+    if (cache_changed_callback_)
+        cache_changed_callback_(key);
+}
+
+void QueryEngine::set_shot_type_cache(
+    const std::string &key, const utility::JsonStore &data, utility::JsonStore &cache) {
+    auto tmp      = R"([])"_json;
+    const auto jp = json::json_pointer("/attributes/sg_shot_type");
+
+    // build lookup
+    try {
+        auto typeset = std::set<std::string>();
+
+        for (const auto &i : data) {
+            if (i.contains(jp) and i.at(jp).is_string())
+                typeset.insert(i.at(jp));
+        }
+
+        for (const auto &type : typeset) {
+            auto value       = R"({"id": null, "name": null})"_json;
+            value.at("name") = type;
+            value.at("id")   = type;
+            tmp.push_back(value);
+        }
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    cache[key] = tmp;
+}
+
+void QueryEngine::set_asset_type_cache(const std::string &key, const utility::JsonStore &data) {
+    set_asset_type_cache(key, data, lookup_);
+
+    if (cache_changed_callback_)
+        cache_changed_callback_(key);
+}
+
+void QueryEngine::set_asset_type_cache(
+    const std::string &key, const utility::JsonStore &data, utility::JsonStore &cache) {
+    auto tmp      = R"([])"_json;
+    const auto jp = json::json_pointer("/attributes/sg_asset_type");
+
+    // build lookup
+    try {
+        auto typeset = std::set<std::string>();
+
+        for (const auto &i : data) {
+            if (i.contains(jp) and i.at(jp).is_string())
+                typeset.insert(i.at(jp));
+        }
+
+        for (const auto &type : typeset) {
+            auto value       = R"({"id": null, "name": null})"_json;
+            value.at("name") = type;
+            value.at("id")   = type;
+            tmp.push_back(value);
+        }
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    cache[key] = tmp;
+}
+
+
 void QueryEngine::set_shot_sequence_lookup(
     const std::string &key, const utility::JsonStore &data, utility::JsonStore &lookup) {
     auto tmp = R"({})"_json;
@@ -2255,6 +2377,12 @@ utility::JsonStore QueryEngine::get_livelink_value(
             } else if (term == "Twig Type") {
                 result = metadata.at(
                     json::json_pointer("/metadata/shotgun/version/attributes/sg_twig_type"));
+            } else if (term == "Shot Type") {
+                result = metadata.at(
+                    json::json_pointer("/metadata/shotgun/shot/attributes/sg_shot_type"));
+            } else if (term == "Asset Type") {
+                result = metadata.at(
+                    json::json_pointer("/metadata/shotgun/shot/attributes/sg_asset_type"));
             } else if (term == "Episode") {
                 auto type = metadata.at(json::json_pointer(
                     "/metadata/shotgun/version/relationships/entity/data/type"));

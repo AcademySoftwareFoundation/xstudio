@@ -22,6 +22,7 @@ namespace playhead {
             const std::string &name,
             utility::UuidActor source,
             caf::actor parent,
+            const int index,
             const bool source_is_timeline,
             const timebase::flicks loop_in_point_,
             const timebase::flicks loop_out_point_,
@@ -88,7 +89,8 @@ namespace playhead {
         std::shared_ptr<const media::AVFrameID> get_frame(
             const timebase::flicks &time,
             timebase::flicks &frame_period,
-            timebase::flicks &timeline_pts);
+            timebase::flicks &timeline_pts,
+            int step_frames = 0);
 
         void get_position_after_step_by_frames(
             const timebase::flicks start_position,
@@ -123,6 +125,8 @@ namespace playhead {
 
         void bookmark_changed(const utility::UuidActor bookmark);
 
+        void check_if_media_changed(const media::AVFrameID *frame_id);
+
       protected:
         media::FrameTimeMap::iterator current_frame_iterator();
         media::FrameTimeMap::iterator current_frame_iterator(const timebase::flicks t);
@@ -141,6 +145,7 @@ namespace playhead {
 
         const std::string name_;
         const utility::Uuid uuid_;
+        const int sub_playhead_index_;
 
         int logical_frame_                = {0};
         timebase::flicks position_flicks_ = timebase::k_flicks_zero_seconds;
@@ -162,11 +167,9 @@ namespace playhead {
         caf::actor pre_reader_;
         utility::UuidActor source_;
         caf::actor parent_;
-        caf::actor current_media_actor_;
-        caf::actor global_prefs_actor_;
         caf::actor event_group_;
 
-        utility::Uuid current_media_source_uuid_;
+        utility::Uuid current_source_, current_media_;
         utility::time_point last_image_timepoint_;
         bool waiting_for_next_frame_ = {false};
         timebase::flicks loop_in_point_;

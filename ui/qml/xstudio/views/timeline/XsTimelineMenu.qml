@@ -95,7 +95,7 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
-        text: qsTr("Create Tracks")
+        text: qsTr("Track Templates")
         menuPath: ""
         menuItemPosition: 3
         menuModelName: timelineMenu.menu_model_name
@@ -122,7 +122,7 @@ XsPopupMenu {
                 panelContext: timelineMenu.panelContext
             }}
         }
-    } 
+    }
 
     XsMenuModelItem {
         menuItemType: "divider"
@@ -155,7 +155,7 @@ XsPopupMenu {
             XsMenuModelItem {
                 text: modelData["name"]
                 menuItemType: "button"
-                menuPath: "Create Tracks"
+                menuPath: "Track Templates"
                 menuItemPosition: index
                 menuModelName: timelineMenu.menu_model_name
                 onActivated: {

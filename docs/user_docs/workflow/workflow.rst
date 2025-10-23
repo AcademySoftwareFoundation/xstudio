@@ -12,4 +12,5 @@ Workflow Tools
    notes
    grading
    quick_view
+   video_output
    hotkeys

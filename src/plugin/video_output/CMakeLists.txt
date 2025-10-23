@@ -1,0 +1,1 @@
+add_src_and_test(video_renderer)
