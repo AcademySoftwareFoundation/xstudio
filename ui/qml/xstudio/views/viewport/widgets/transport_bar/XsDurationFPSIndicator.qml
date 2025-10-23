@@ -11,12 +11,20 @@ XsViewerTextDisplay
 {
 
     id: playheadPosition
-    Layout.preferredWidth: textWidth + 8
+    Layout.preferredWidth: metrics.width + 16
     Layout.preferredHeight: parent.height
     modelDataName: playheadPosition + "_menu"
     menuWidth: 175
     property int selected: 0
     fontFamily: XsStyleSheet.fixedWidthFontFamily
+
+    // fix width to widest text we might display
+    TextMetrics {
+        text: "29.97/29.97"
+        id: metrics
+        font.family: fontFamily
+        font.pixelSize: XsStyleSheet.fontSize
+    }
 
     XsModelProperty {
         id: durationPref

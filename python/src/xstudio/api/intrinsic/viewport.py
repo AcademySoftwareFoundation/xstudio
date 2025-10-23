@@ -62,7 +62,7 @@ class Viewport(ModuleBase):
         return ColourPipeline(self.connection, self.connection.request_receive(self.remote, colour_pipeline_atom())[0])
 
     def quickview(self, media_items, compare_mode="Off", position=(100,100), size=(1280,720)):
-        """Connect this playhead to the viewport.
+        """Launch a quickview window with one or more media items for viewing (and comparing).
 
         Args:
             media_items(list(Media)): A list of Media objects to be shown in quickview
@@ -72,7 +72,6 @@ class Viewport(ModuleBase):
             size(tuple(int,int)): X/Y Size of new window (default=(1280,720))
 
         """
-
         media_actors = UuidActorVec()
         for m in media_items:
             media_actors.push_back(UuidActor(m.uuid, m.remote))

@@ -36,6 +36,7 @@ namespace ui {
             Viewport(
                 const utility::JsonStore &state_data,
                 caf::actor parent_actor,
+                const bool sync_with_other_viewports,
                 const std::string &name = std::string());
             virtual ~Viewport();
 
@@ -269,6 +270,8 @@ namespace ui {
 
             void set_visibility(bool is_visible);
 
+            media_reader::ImageBufDisplaySetPtr on_screen_frames() { return on_screen_frames_; }
+
           protected:
             void register_hotkeys() override;
 
@@ -322,7 +325,7 @@ namespace ui {
                 float devicePixelRatio_ = 1.0f;
             } state_, interact_start_state_;
 
-            FitMode previous_fit_mode_     = {Height};
+            FitMode previous_fit_mode_ = {Height};
 
             struct RenderData {
                 media_reader::ImageBufDisplaySetPtr images;
@@ -359,6 +362,8 @@ namespace ui {
                 std::string compare_mode,
                 const int in_pt  = -1,
                 const int out_pt = -1);
+
+            void quickview_media(const caf::uri &file_uri);
 
             media_reader::ImageBufDisplaySetPtr
             prepare_image_for_display(const media_reader::ImageBufPtr &image_buf) const;
@@ -401,12 +406,13 @@ namespace ui {
             ChangeCallback event_callback_;
 
           protected:
-            bool done_init_          = {false};
-            bool playing_            = {false};
-            bool is_visible_         = {false};
-            size_t last_images_hash_ = {0};
-            bool needs_redraw_       = {true};
-            bool hover_image_select_ = {false};
+            bool done_init_                 = {false};
+            bool playing_                   = {false};
+            bool is_visible_                = {false};
+            size_t last_images_hash_        = {0};
+            bool needs_redraw_              = {true};
+            bool hover_image_select_        = {false};
+            bool has_overlays_              = {true};
             std::set<int> held_keys_;
             std::vector<Imath::Box2f> image_bounds_in_viewport_pixels_;
             std::vector<Imath::V2i> image_resolutions_;
@@ -416,6 +422,7 @@ namespace ui {
             std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr>
                 viewport_overlay_renderers_;
             std::map<utility::Uuid, plugin::GPUPreDrawHookPtr> overlay_pre_render_hooks_;
+            utility::FrameRate current_media_fps_;
 
             module::BooleanAttribute *zoom_mode_toggle_;
             module::BooleanAttribute *pan_mode_toggle_;
@@ -429,6 +436,7 @@ namespace ui {
             module::StringAttribute *frame_rate_expr_;
             module::JsonAttribute *custom_cursor_name_;
             module::BooleanAttribute *sync_to_main_viewport_;
+            module::StringAttribute *fps_;
 
             utility::Uuid zoom_hotkey_;
             utility::Uuid pan_hotkey_;

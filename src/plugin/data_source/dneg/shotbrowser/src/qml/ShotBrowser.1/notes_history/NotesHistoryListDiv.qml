@@ -17,6 +17,8 @@ XsListView{
     Behavior on rightSpacing {NumberAnimation {duration: 150}}
     readonly property int cellHeight: (XsStyleSheet.widgetStdHeight * 8) + 5
 
+    property alias delegateModel: chooserModel
+
     ScrollBar.vertical: XsScrollBar {
         visible: list.height < list.contentHeight
         parent: list.parent
@@ -61,16 +63,24 @@ XsListView{
         font.weight: Font.Medium
     }
 
-    model: DelegateModel {
+    DelegateModel {
         id: chooserModel
         model: dataModel
         delegate: NotesHistoryListDelegate{
+            property bool wasHovered: false
             width: list.width - rightSpacing
-            height: cellHeight + (isHovered ? Math.max(textHeightDiff, 0) : 0)
+
+            onIsHoveredChanged: {
+                if(isHovered)
+                    wasHovered = true
+            }
+            height: cellHeight + (wasHovered ? Math.max(textHeightDiff, 0) : 0)
 
             delegateModel: chooserModel
             popupMenu: resultPopup
             onShowImages: (images) => list.viewImages(images)
         }
     }
+
+    model: chooserModel
 }

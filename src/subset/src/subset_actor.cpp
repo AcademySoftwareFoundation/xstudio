@@ -133,23 +133,32 @@ caf::message_handler SubsetActor::message_handler() {
             return mail(atom).delegate(caf::actor_cast<caf::actor>(playlist_));
         },
 
+        [=](playhead::get_selection_atom atom) {
+            // returns UuidList
+            return mail(atom).delegate(caf::actor_cast<caf::actor>(selection_actor_));
+        },
+
+        [=](playlist::select_media_atom atom, const UuidList &media_uuids) {
+            // returns bool
+            return mail(atom, media_uuids)
+                .delegate(caf::actor_cast<caf::actor>(selection_actor_));
+        },
+
         [=](duplicate_atom) -> result<UuidActor> {
             // clone ourself..
-            auto rp   = make_response_promise<UuidActor>();
-            auto uuid = utility::Uuid::generate();
+            auto rp = make_response_promise<UuidActor>();
 
-            auto actor = spawn<subset::SubsetActor>(
+            auto uuid      = utility::Uuid::generate();
+            auto duplicate = spawn<subset::SubsetActor>(
                 caf::actor_cast<caf::actor>(playlist_), base_.name(), uuid);
-            anon_mail(playhead::playhead_rate_atom_v, base_.playhead_rate())
-                .send(caf::actor_cast<caf::actor>(actor));
+            anon_mail(playhead::playhead_rate_atom_v, base_.playhead_rate()).send(duplicate);
 
 
             mail(json_store::get_json_atom_v)
                 .request(jsn_handler_.json_actor(), infinite)
                 .then(
                     [=](const utility::JsonStore &meta) mutable {
-                        anon_mail(json_store::set_json_atom_v, meta)
-                            .send(caf::actor_cast<caf::actor>(actor));
+                        anon_mail(json_store::set_json_atom_v, meta).send(duplicate);
 
                         // maybe not be safe.. as ordering isn't implicit..
                         std::vector<UuidActor> media_actors;
@@ -157,10 +166,11 @@ caf::message_handler SubsetActor::message_handler() {
                             media_actors.emplace_back(UuidActor(i, actors_[i]));
 
                         mail(playlist::add_media_atom_v, media_actors, Uuid())
-                            .request(caf::actor_cast<caf::actor>(actor), infinite)
+                            .request(duplicate, infinite)
                             .then(
                                 [=](const bool meta) mutable {
-                                    rp.deliver(UuidActor(uuid, actor));
+                                    duplicate_children(duplicate);
+                                    rp.deliver(UuidActor(uuid, duplicate));
                                 },
                                 [=](caf::error &err) mutable { rp.deliver(err); });
                     },
@@ -185,7 +195,12 @@ caf::message_handler SubsetActor::message_handler() {
         },
 
         // set source (playlist), triggers relinking
-        [=](playhead::source_atom, caf::actor playlist, const UuidUuidMap &swap) -> bool {
+        [=](playhead::source_atom,
+            caf::actor new_parent_playlist,
+            const UuidUuidMap &swap) -> bool {
+            // swap maps media uuids for our current parent playlist to the corresponding
+            // media uuids of the cloned media in the NEW parent playlsit
+
             for (const auto &i : actors_) {
                 if (auto it = monitor_.find(caf::actor_cast<caf::actor_addr>(i.second));
                     it != std::end(monitor_)) {
@@ -194,12 +209,12 @@ caf::message_handler SubsetActor::message_handler() {
                 }
             }
             actors_.clear();
-            playlist_ = caf::actor_cast<actor_addr>(playlist);
+            playlist_ = caf::actor_cast<actor_addr>(new_parent_playlist);
 
             caf::scoped_actor sys(system());
             try {
                 auto media = request_receive<std::vector<UuidActor>>(
-                    *sys, playlist, playlist::get_media_atom_v);
+                    *sys, new_parent_playlist, playlist::get_media_atom_v);
 
                 // build map
                 UuidActorMap amap;
@@ -233,6 +248,15 @@ caf::message_handler SubsetActor::message_handler() {
                 base_.clear();
             }
             base_.send_changed();
+
+            anon_mail(playhead::source_atom_v, swap).send(selection_actor_);
+
+            // this is a bit of a hack ... we do this to force a ContactSheet
+            // to tell its Playhead that the media it should be showing has
+            // changed
+            anon_mail(utility::event_atom_v, utility::change_atom_v)
+                .send(caf::actor_cast<caf::actor>(this));
+
             return true;
         },
 
@@ -498,7 +522,7 @@ caf::message_handler SubsetActor::message_handler() {
             return true;
         },
 
-        [=](playlist::create_playhead_atom) -> UuidActor {
+        [=](playlist::create_playhead_atom) -> result<UuidActor> {
             if (playhead_)
                 return playhead_;
             auto uuid  = utility::Uuid::generate();
@@ -512,15 +536,20 @@ caf::message_handler SubsetActor::message_handler() {
 
             anon_mail(playhead::playhead_rate_atom_v, base_.playhead_rate()).send(actor);
 
-
             playhead_ = UuidActor(uuid, actor);
 
-            if (!playhead_serialisation_.is_null()) {
-                anon_mail(module::deserialise_atom_v, playhead_serialisation_)
-                    .send(playhead_.actor());
-            }
+            auto rp = make_response_promise<UuidActor>();
 
-            return playhead_;
+            mail(module::deserialise_atom_v, playhead_serialisation_)
+                .request(playhead_.actor(), infinite)
+                .then(
+                    [=](bool) mutable { rp.deliver(playhead_); },
+                    [=](caf::error &err) mutable {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        rp.deliver(playhead_);
+                    });
+
+            return rp;
         },
         [=](playlist::get_playhead_atom) {
             return mail(playlist::create_playhead_atom_v)
@@ -763,6 +792,8 @@ caf::message_handler SubsetActor::message_handler() {
             return rp;
         },
 
+        [=](utility::event_atom, utility::change_atom) {},
+
         // [=](json_store::get_json_atom atom, const std::string &path) {
         //     return mail(atom, path).delegate(caf::actor_cast<caf::actor>(playlist_));
         // },
@@ -941,5 +972,35 @@ void SubsetActor::sort_by_media_display_info(
                 [=](error &err) mutable {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                 });
+    }
+}
+
+void SubsetActor::duplicate_children(caf::actor duplicated_subset) {
+
+    caf::scoped_actor sys(system());
+    try {
+        auto dup_playhead = request_receive<utility::UuidActor>(
+                                *sys, duplicated_subset, playlist::create_playhead_atom_v)
+                                .actor();
+
+        if (playhead_) {
+            // serialise our playhead
+            playhead_serialisation_ =
+                request_receive<utility::JsonStore>(*sys, playhead_, utility::serialise_atom_v);
+        }
+
+        auto selection = request_receive<utility::UuidList>(
+            *sys, selection_actor_, playhead::get_selection_atom_v);
+
+        request_receive<bool>(
+            *sys, duplicated_subset, playlist::select_media_atom_v, selection);
+
+        // use our playhead serialisation to set the state of the duplicated
+        // subset's playhead
+        request_receive<bool>(
+            *sys, dup_playhead, module::deserialise_atom_v, playhead_serialisation_);
+
+    } catch (std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
 }

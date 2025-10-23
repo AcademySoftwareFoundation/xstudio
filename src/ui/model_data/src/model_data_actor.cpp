@@ -387,7 +387,7 @@ GlobalUIModelData::GlobalUIModelData(caf::actor_config &cfg) : caf::event_based_
         [=](keypress_monitor::hotkey_event_atom, Hotkey &hotkey) {
             update_hotkeys_model_data(hotkey);
         },
-        [=](keypress_monitor::hotkey_event_atom, const std::string &/*pressed_keys*/) {},
+        [=](keypress_monitor::hotkey_event_atom, const std::string & /*pressed_keys*/) {},
         [=](keypress_monitor::hotkey_event_atom,
             const utility::Uuid kotkey_uuid,
             const bool pressed,
@@ -1123,13 +1123,15 @@ void GlobalUIModelData::insert_into_menu_model(
             bool already_defined = false;
 
             for (auto p = menu_model_data->begin(); p != menu_model_data->end(); p++) {
-                if ((*p).data().is_object() &&
-                    (*p).data().value("uuid", std::string()) == menu_data["uuid"].get<std::string>()) {
+                if ((*p).data().is_object() && (*p).data().value("uuid", std::string()) ==
+                                                   menu_data["uuid"].get<std::string>()) {
                     already_defined = true;
                     menu_model_data = &(*p);
                     break;
                 }
             }
+
+            const auto old_data = menu_model_data->data();
 
             if (!already_defined) {
                 menu_model_data = &(*(menu_model_data->insert(
@@ -1137,7 +1139,6 @@ void GlobalUIModelData::insert_into_menu_model(
             } else {
                 // update - copy back in key/values that were there before but
                 // not defined in 'menu_data'
-                const auto old_data     = menu_model_data->data();
                 menu_model_data->data() = menu_data;
                 if (old_data.is_object() && menu_data.is_object()) {
                     for (auto it = old_data.begin(); it != old_data.end(); it++) {
@@ -1177,16 +1178,66 @@ void GlobalUIModelData::insert_into_menu_model(
                 }
             }
 
-            if (menu_model_data->parent())
+            utility::Uuid menu_uuid(menu_data["uuid"].get<std::string>());
+
+            bool needs_reorering = !already_defined;
+            if (already_defined) {
+                // We're here if we're not inserting a new node into the menu
+                // tree, we're just updating some vaule at a menu node.
+
+                // Let's see what has actually changed
+                const auto new_data = menu_model_data->data();
+                if (old_data.is_object() && new_data.is_object()) {
+
+                    for (auto it = new_data.begin(); it != new_data.end(); it++) {
+                        if ((!old_data.contains(it.key()) ||
+                             old_data[it.key()] != it.value()) &&
+                            it.key() == "menu_item_position") {
+                            // the 'menu_item_position' has changed. This means we need
+                            // to run the re-ordering step and broadcast the whole model
+                            needs_reorering = true;
+                            break;
+                        }
+                    }
+
+                    // Order hasn't changed and no insertion of new nodes was made.
+                    // Rather, data at an existing node was changed. For example,
+                    // a checkbox menu item has been clicked on. Let's  broadcast
+                    // the change to watchers
+                    if (!needs_reorering) {
+                        std::string path = path_from_node(menu_model_data);
+                        for (auto it = new_data.begin(); it != new_data.end(); it++) {
+                            if (!old_data.contains(it.key()) ||
+                                old_data[it.key()] != it.value()) {
+                                for (auto &client : models_[model_name]->clients_) {
+                                    if (client)
+                                        mail(
+                                            utility::event_atom_v,
+                                            set_node_data_atom_v,
+                                            model_name,
+                                            path,
+                                            utility::JsonStore(it.value()),
+                                            it.key(),
+                                            utility::Uuid())
+                                            .send(client);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (menu_model_data->parent() && needs_reorering)
                 do_ordering(menu_model_data->parent());
 
-            utility::Uuid uuid(menu_data["uuid"].get<std::string>());
-            auto &watchers = models_[model_name]->menu_watchers_[uuid];
+            auto &watchers = models_[model_name]->menu_watchers_[menu_uuid];
             if (std::find(watchers.begin(), watchers.end(), watcher) == watchers.end()) {
                 watchers.push_back(watcher);
             }
             monitor(watcher);
-            broadcast_whole_model_data(model_name);
+
+            if (!already_defined || needs_reorering)
+                broadcast_whole_model_data(model_name);
         }
 
     } catch (std::exception &e) {

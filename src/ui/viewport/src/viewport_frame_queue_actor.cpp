@@ -10,6 +10,11 @@ using namespace xstudio::ui::viewport;
 using namespace xstudio::utility;
 using namespace xstudio;
 
+namespace {
+static const std::vector<int>
+    common_refresh_rates({24, 25, 30, 48, 60, 75, 90, 120, 144, 240, 360});
+}
+
 ViewportFrameQueueActor::ViewportFrameQueueActor(
     caf::actor_config &cfg,
     caf::actor viewport,
@@ -72,7 +77,7 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
                 return;
             last_playhead_switch_tp_ = tp;
 
-            mail(playhead::buffer_atom_v)
+            mail(playhead::image_buffer_atom_v)
                 .request(sub_playhead.actor(), infinite)
                 .then(
                     [=](media_reader::ImageBufPtr &intial_frame) {
@@ -227,11 +232,12 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
 
         [=](utility::event_atom,
             playhead::media_source_atom,
-            caf::actor media_actor,
-            const utility::Uuid &media_uuid) {
-            anon_mail(
-                utility::event_atom_v, playhead::media_source_atom_v, media_actor, media_uuid)
+            utility::UuidActor &media_source) {
+            anon_mail(utility::event_atom_v, playhead::media_source_atom_v, media_source)
                 .send(colour_pipeline_);
+        },
+        [=](playhead::media_source_atom, utility::UuidActor &media_source) {
+            anon_mail(playhead::media_source_atom_v, media_source).send(colour_pipeline_);
         },
         [=](utility::event_atom, playhead::velocity_atom, const float velocity) {
             playhead_velocity_ = velocity;
@@ -317,7 +323,7 @@ void ViewportFrameQueueActor::get_frames_for_display_sync(
         // here we fetch the on-screen image buffer for the given sub-playhead
         // from the playhead
         const auto id = playhead_id;
-        mail(playhead::buffer_atom_v, playhead_id)
+        mail(playhead::image_buffer_atom_v, playhead_id)
             .request(playhead_.actor(), infinite)
             .then(
                 [=](const media_reader::ImageBufPtr &buf) mutable {
@@ -439,7 +445,48 @@ void ViewportFrameQueueActor::get_frames_for_display(
 
 void ViewportFrameQueueActor::append_overlays_data(
     caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp,
-    media_reader::ImageBufDisplaySet *result) {
+    media_reader::ImageBufDisplaySet *__rr) {
+
+    auto add_overlays_data = [=](media_reader::ImageBufDisplaySet *result) mutable {
+        // The last step here is to get plugins that want to add their own data
+        // to the images, if they need to, so that at draw-time they can retrieve
+        // that data from the images for graphics overlays like HUD info etc.
+
+        auto auto_responder = utility::AutoResponder<media_reader::ImageBufDisplaySetPtr>(
+            viewport_overlay_plugins_.size(), rp);
+        auto_responder.result().reset(result);
+
+        for (auto p : viewport_overlay_plugins_) {
+
+            utility::Uuid overlay_plugin_uuid = p.first;
+            caf::actor overlay_plugin         = p.second;
+
+            mail(
+                prepare_overlay_render_data_atom_v,
+                auto_responder.result(),
+                viewport_name_,
+                playhead_.uuid())
+                .request(overlay_plugin, infinite)
+                .then(
+                    [=](const utility::BlindDataObjectPtrVec &bdata) mutable {
+                        // each element of the vector is blind data pointer per
+                        // image in the image set.
+                        for (int i = 0;
+                             i < std::min(result->num_onscreen_images(), (int)bdata.size());
+                             ++i) {
+                            if (bdata[i]) {
+                                result->onscreen_image_m(i).add_plugin_blind_data(
+                                    overlay_plugin_uuid, bdata[i]);
+                            }
+                        }
+                        auto_responder.decrement();
+                    },
+                    [=](caf::error &err) mutable {
+                        spdlog::warn("G {} {}", __PRETTY_FUNCTION__, to_string(err));
+                        auto_responder.decrement();
+                    });
+        }
+    };
 
     // In the next steps we are doing a-sync requests to get data added to
     // 'result'... we make a counter of the number of requests we'll be making
@@ -447,132 +494,43 @@ void ViewportFrameQueueActor::append_overlays_data(
     // counter has to be a shared pointer as the lambda request response handlers
     // make their own copy of response_count. If it weren't a shared pointer the
     // handler would be decrementing their copy, not a global (shared) counter.
-    auto response_count = std::make_shared<int>(result->num_onscreen_images());
-    if (!*response_count) {
-        result->finalise();
-        rp.deliver(media_reader::ImageBufDisplaySetPtr(result));
-        return;
-    }
 
-    // In this loop, we add colour management data to each of the images that
-    // is about to go on-screen. Within the loop, we then give any overlay
-    // plugins an opportunity to add data to the images that they will need
-    // at draw time to draw graphics onto the screen
-    for (int img_idx = 0; img_idx < result->num_onscreen_images(); ++img_idx) {
-
-        if (!result->onscreen_image(img_idx)) {
-            // no image ? Not expected, but we'll handle this just in case. Skip
-            // adding overlay data or colour data as there is no image.
-            (*response_count)--;
-            if (!*response_count) {
-                result->finalise();
-                rp.deliver(media_reader::ImageBufDisplaySetPtr(result));
-                break;
-            } else {
-                continue;
-            }
-        }
-
-        append_overlays_data(rp, img_idx, result, response_count);
-    }
-}
-
-void ViewportFrameQueueActor::append_overlays_data(
-    caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp,
-    const int img_idx,
-    media_reader::ImageBufDisplaySet *result,
-    std::shared_ptr<int> response_count) {
-
-    auto check_and_respond = [=]() mutable {
-        (*response_count)--;
-        if (!*response_count) {
-            media_reader::ImageBufDisplaySetPtr v(result);
-            if (viewport_layout_manager_) {
-                // if we have a layout manager, get it to provide the transforms
-                // for the layout. Some layout plugins are provided by python,
-                // and could be slower so we have 0.25s timeout
-                result->finalise();
-                mail(viewport_layout_atom_v, viewport_layout_mode_name_, v)
-                    .request(viewport_layout_manager_, std::chrono::milliseconds(250))
-                    .then(
-                        [=](const media_reader::ImageSetLayoutDataPtr &layout_data) mutable {
-                            result->set_layout_data(layout_data);
-
-                            // here we set the layout transform matrix on the
-                            // image buffers, if available
-                            for (int i = 0; i < result->num_onscreen_images(); ++i) {
-                                if (i <= (int)layout_data->image_transforms_.size()) {
-                                    media_reader::ImageBufPtr &im = result->onscreen_image_m(i);
-                                    im.set_layout_transform(layout_data->image_transforms_[i]);
-                                }
-                            }
-
-                            rp.deliver(v);
-                        },
-                        [=](caf::error &err) mutable {
-                            spdlog::warn("C {} {}", __PRETTY_FUNCTION__, to_string(err));
-                            result->finalise();
-                            rp.deliver(v);
-                        });
-            } else {
-                result->finalise();
-                rp.deliver(v);
-            }
-        }
-    };
-
-    auto vcount = std::make_shared<int>(viewport_overlay_plugins_.size());
-
-    auto get_colour_management_data = [=]() mutable {
-        // when all viewport_overlay_plugins_ have responded (as per loop
-        // below) we request the colour pipeline plugin to attach colour management
-        // data to the image (like LUTs & shader components)
-        (*vcount)--;
-        if (!*vcount) {
-            mail(colour_pipeline::get_colour_pipe_data_atom_v, result->onscreen_image(img_idx))
-                .request(colour_pipeline_, infinite)
-                .then(
-                    [=](media_reader::ImageBufPtr image_with_colour_data) mutable {
-                        result->set_on_screen_image(img_idx, image_with_colour_data);
-                        check_and_respond();
-                    },
-                    [=](caf::error &err) mutable {
-                        spdlog::warn("B {} {}", __PRETTY_FUNCTION__, to_string(err));
-                        check_and_respond();
-                    });
-        }
-    };
-
-    // Loop over overlay plugins, get them to compute any dat they will need
-    // at draw time
-    for (auto p : viewport_overlay_plugins_) {
-
-        utility::Uuid overlay_plugin_uuid = p.first;
-        caf::actor overlay_plugin         = p.second;
-
-        mail(
-            prepare_overlay_render_data_atom_v,
-            result->onscreen_image(img_idx),
-            viewport_name_,
-            playhead_.uuid(),
-            result->hero_sub_playhead_index() == img_idx)
-            .request(overlay_plugin, infinite)
+    auto add_layout_data = [=](media_reader::ImageBufDisplaySetPtr result) mutable {
+        mail(viewport_layout_atom_v, viewport_layout_mode_name_, result)
+            .request(viewport_layout_manager_, std::chrono::milliseconds(250))
             .then(
-                [=](const utility::BlindDataObjectPtr &bdata) mutable {
-                    result->onscreen_image_m(img_idx).add_plugin_blind_data(
-                        overlay_plugin_uuid, bdata);
-                    get_colour_management_data();
+                [=](const media_reader::ImageSetLayoutDataPtr &layout_data) mutable {
+                    auto rr = new media_reader::ImageBufDisplaySet(*result);
+                    rr->set_layout_data(layout_data);
+                    // here we set the layout transform matrix on the
+                    // image buffers, if available
+                    for (int i = 0; i < rr->num_onscreen_images(); ++i) {
+                        if (i <= (int)layout_data->image_transforms_.size()) {
+                            media_reader::ImageBufPtr &im = rr->onscreen_image_m(i);
+                            im.set_layout_transform(layout_data->image_transforms_[i]);
+                        }
+                    }
+                    add_overlays_data(rr);
                 },
                 [=](caf::error &err) mutable {
-                    spdlog::warn("A {} {}", __PRETTY_FUNCTION__, to_string(err));
-                    get_colour_management_data();
+                    spdlog::warn("C {} {}", __PRETTY_FUNCTION__, to_string(err));
+                    auto rr = new media_reader::ImageBufDisplaySet(*result);
+                    add_overlays_data(rr);
                 });
-    }
+    };
 
-    if (!viewport_overlay_plugins_.size()) {
-        (*vcount)++;
-        get_colour_management_data();
-    }
+    media_reader::ImageBufDisplaySetPtr foo(__rr);
+    __rr->finalise();
+    mail(colour_pipeline::get_colour_pipe_data_atom_v, foo)
+        .request(colour_pipeline_, std::chrono::milliseconds(2000))
+        .then(
+            [=](media_reader::ImageBufDisplaySetPtr image_set_with_colour_data) mutable {
+                add_layout_data(image_set_with_colour_data);
+            },
+            [=](caf::error &err) mutable {
+                spdlog::warn("B {} {}", __PRETTY_FUNCTION__, to_string(err));
+                add_layout_data(foo);
+            });
 }
 
 void ViewportFrameQueueActor::clear_images_from_old_playheads() {
@@ -667,15 +625,16 @@ timebase::flicks ViewportFrameQueueActor::predicted_playhead_position_at_next_vi
     const timebase::flicks video_refresh_period     = compute_video_refresh();
     const utility::time_point next_video_refresh_tp = next_video_refresh(video_refresh_period);
 
-   /* static auto foo = next_video_refresh_tp;
-    std::cerr << std::chrono::duration_cast<std::chrono::milliseconds>(next_video_refresh_tp-foo).count() << "    ";
-    foo = next_video_refresh_tp;*/
+    /* static auto foo = next_video_refresh_tp;
+     std::cerr <<
+     std::chrono::duration_cast<std::chrono::milliseconds>(next_video_refresh_tp-foo).count() <<
+     "    "; foo = next_video_refresh_tp;*/
 
     return predicted_playhead_position(next_video_refresh_tp);
 }
 
-xstudio::utility::time_point ViewportFrameQueueActor::next_video_refresh(
-    const timebase::flicks &video_refresh_period) {
+xstudio::utility::time_point
+ViewportFrameQueueActor::next_video_refresh(const timebase::flicks &video_refresh_period) {
 
     // it's possible we are not receiving refresh signals from the UI layer on
     // completion of the glXSwapBuffers(), so we have to do some sanity checks
@@ -697,48 +656,55 @@ xstudio::utility::time_point ViewportFrameQueueActor::next_video_refresh(
         //
         // We might know the video refresh exactly, or we might have been lied to, but either
         // way we need to know the phase of the refresh beat to predict when the next refresh
-        // is due. 
-        // 
+        // is due.
+        //
         // It gets more complicated because it's quite possible that we have missed refresh
-        // beats if the UI can't draw within the refresh period, or if the OS/system is otherwise
-        // doing stuff that means we don't get opportunity to redraw on each vide refresh
+        // beats if the UI can't draw within the refresh period, or if the OS/system is
+        // otherwise doing stuff that means we don't get opportunity to redraw on each vide
+        // refresh
         //
         // Even worse ... the frameBufferSwapped signal that we get from Qt is really noisy
         // and innaccurate on MacOS with laptop displays. The refresh is 120Hz, but we get
         // fb swapped after 2ms, 24ms or anywhere in between. This makes it basically
         // impossible to compute the actual phase/cadence of the video refresh.
-        // 
+        //
         // The strategy here is to fit a regular beat to the video refresh time points
         // by overlaying the regular beat, and computing the error size from the nearest
         // regular beat to the actual time points. We sum the errors, and then slide the
         // regular beat pattern forwards. A bit like lining up the teeth on two combs,
-        // one of which has bent teeth and some teeth missing but they still have some 
+        // one of which has bent teeth and some teeth missing but they still have some
         // regularity to them.
 
         // It's an absolute bastard of a problem as there is also drift and lag in the
         // vide refresh beat. Still looking for a better solution than this expensive
-        // iterative loop. 
+        // iterative loop.
 
         // average cadence of video refresh (in microseconds)...
         const auto expected_video_refresh_period = average_video_refresh_period();
-        auto p                     = video_refresh_data_.refresh_history_.rbegin();
-        auto now = utility::clock::now();
+        auto p                   = video_refresh_data_.refresh_history_.rbegin();
+        auto now                 = utility::clock::now();
         auto last_actual_refresh = *p;
 
-        auto next_predicted_refresh = last_predicted_video_refresh_ + expected_video_refresh_period;
+        auto next_predicted_refresh =
+            last_predicted_video_refresh_ + expected_video_refresh_period;
         if (next_predicted_refresh < now) {
-            // we are predicting the next refresh in the past... this means there has been a delay > expected_video_refresh_period
-            // since the last refresh. We need to re-compute our cadence/phase for video refresh
-            next_predicted_refresh = now+expected_video_refresh_period/2;
-        } else if (std::chrono::duration_cast<std::chrono::microseconds>(next_predicted_refresh-now) > expected_video_refresh_period*2) {
-            // our predicted refresh is more than two refresh beats ahead of the last refresh (or now). This means that there has been
-            // drift in the actual video refresh beat vs. our predicted beat.            
-            next_predicted_refresh = now+expected_video_refresh_period/2;
+            // we are predicting the next refresh in the past... this means there has been a
+            // delay > expected_video_refresh_period since the last refresh. We need to
+            // re-compute our cadence/phase for video refresh
+            next_predicted_refresh = now + expected_video_refresh_period / 2;
+        } else if (
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                next_predicted_refresh - now) > expected_video_refresh_period * 2) {
+            // our predicted refresh is more than two refresh beats ahead of the last refresh
+            // (or now). This means that there has been drift in the actual video refresh beat
+            // vs. our predicted beat.
+            next_predicted_refresh = now + expected_video_refresh_period / 2;
         }
         last_predicted_video_refresh_ = next_predicted_refresh;
         return next_predicted_refresh;
 
-        /*const auto expected_video_refresh_period = std::chrono::duration_cast<std::chrono::microseconds>(compute_video_refresh());
+        /*const auto expected_video_refresh_period =
+        std::chrono::duration_cast<std::chrono::microseconds>(compute_video_refresh());
 
         // Here we are essentially fitting a straight line to the video refresh event
         // timepoints - we use the line to predict when the next video refresh is
@@ -749,7 +715,8 @@ xstudio::utility::time_point ViewportFrameQueueActor::next_video_refresh(
         // could start from the last actual refresh time point
         auto predicted_refresh = std::max(
             *p,
-            std::min(last_predicted_video_refresh_, utility::clock::now()+ expected_video_refresh_period/2)) + expected_video_refresh_period/2;
+            std::min(last_predicted_video_refresh_, utility::clock::now()+
+        expected_video_refresh_period/2)) + expected_video_refresh_period/2;
 
         auto try_refresh                 = predicted_refresh;
         double best_error = std::numeric_limits<double>::max();
@@ -760,16 +727,20 @@ xstudio::utility::time_point ViewportFrameQueueActor::next_video_refresh(
             while (ct--) {
 
                 // period from the result we are testing to an actual refresh time point
-                const auto y = std::chrono::duration_cast<std::chrono::microseconds>(try_refresh - *p);
+                const auto y = std::chrono::duration_cast<std::chrono::microseconds>(try_refresh
+        - *p);
 
                 // fractional number of refresh beats this represents
-                const double ep_frac = double(y.count())/double(expected_video_refresh_period.count());
+                const double ep_frac =
+        double(y.count())/double(expected_video_refresh_period.count());
 
                 // rounded number of beats
                 const auto i_beats = round(ep_frac);
 
-                // error between integer number of beats and fraction refresh beats. If this value
-                // is small across all refresh time points then the phase of 'try_refresh' is well
+                // error between integer number of beats and fraction refresh beats. If this
+        value
+                // is small across all refresh time points then the phase of 'try_refresh' is
+        well
                 // lined up with the measured refresh points
                 cum_err += fabs(ep_frac-i_beats);
                 p++;
@@ -782,7 +753,7 @@ xstudio::utility::time_point ViewportFrameQueueActor::next_video_refresh(
             }
             // advance the refresh estimate by 2 milliseconds
             try_refresh += std::chrono::milliseconds(2);
-            
+
         }
         last_predicted_video_refresh_ = predicted_refresh;
         return predicted_refresh;*/
@@ -823,8 +794,6 @@ timebase::flicks ViewportFrameQueueActor::compute_video_refresh() const {
         const int hertz_refresh =
             std::max(24, int(round(1000000 / average_video_refresh_period().count())));
 
-        static const std::vector<int> common_refresh_rates(
-            {24, 25, 30, 48, 60, 75, 90, 120, 144, 240, 360});
         auto match = std::lower_bound(
             common_refresh_rates.begin(), common_refresh_rates.end(), hertz_refresh);
         if (match != common_refresh_rates.end() && abs(*match - hertz_refresh) < 2) {

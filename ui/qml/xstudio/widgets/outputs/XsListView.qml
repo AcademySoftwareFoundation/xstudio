@@ -41,6 +41,8 @@ ListView { id: widget
     //     // role: "_type"
     // }
 
+    flickDeceleration: 100000
+
 
     add: Transition{
         NumberAnimation{ property:"opacity"; duration: 100; from: 0}

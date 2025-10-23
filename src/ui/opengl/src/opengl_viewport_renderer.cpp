@@ -325,15 +325,21 @@ void OpenGLViewportRenderer::render(
         glDisable(GL_SCISSOR_TEST);
     }
 
+    glEnable(GL_SCISSOR_TEST);
     // Some plugins want to draw on the whole viewport canvas (not over a particular
     // image)
     for (auto orf : overlay_renderers) {
         if (orf.second->preferred_render_pass() ==
             plugin::ViewportOverlayRenderer::BeforeImage) {
             orf.second->render_viewport_overlay(
-                window_to_viewport_matrix, viewport_to_image_space, abs(viewport_du_dx), device_pixel_ratio, false);
+                window_to_viewport_matrix,
+                viewport_to_image_space,
+                abs(viewport_du_dx),
+                device_pixel_ratio,
+                false);
         }
     }
+    glDisable(GL_SCISSOR_TEST);
 
 #ifdef DEBUG_GRAB_FRAMEBUFFER
     grab_framebuffer_to_disk();

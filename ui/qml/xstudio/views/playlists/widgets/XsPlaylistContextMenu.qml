@@ -30,7 +30,7 @@ XsPopupMenu {
 
     Component.onCompleted: {
         // make sure the 'Add' sub-menu appears in the correct place
-        helpers.setMenuPathPosition("Add", "playlist_context_menu", -2.0)
+        helpers.setMenuPathPosition("Add New", "playlist_context_menu", -2.0)
         helpers.setMenuPathPosition("Copy To Clipboard", "playlist_context_menu", 0.8)
         helpers.setMenuPathPosition("Cleanup", "playlist_context_menu", 22.0)
         helpers.setMenuPathPosition("Export", "playlist_context_menu", 4.0)

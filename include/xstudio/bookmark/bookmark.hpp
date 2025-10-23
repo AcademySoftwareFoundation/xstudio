@@ -344,8 +344,8 @@ namespace bookmark {
 
         BookmarkDetail detail_;
         std::shared_ptr<AnnotationBase> annotation_;
-        int start_frame_ = -1;
-        int end_frame_   = -1;
+        int start_frame_ = 0;
+        int end_frame_   = 240;
     };
 
     // BookmarkAndAnnotationPtrs can be shared across different parts of the

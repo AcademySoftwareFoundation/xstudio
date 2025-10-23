@@ -70,7 +70,8 @@ class IvyMediaWorker : public caf::event_based_actor {
     void add_media_source(
         caf::typed_response_promise<utility::UuidActor> rp,
         const JsonStore &jsn,
-        const FrameRate &media_rate);
+        const FrameRate &media_rate,
+        const bool use_stalk_name_for_audio_sources = false);
 
     void add_sources_to_media(
         caf::typed_response_promise<utility::UuidActorVector> rp,
@@ -105,6 +106,16 @@ IvyMediaWorker::IvyMediaWorker(caf::actor_config &cfg, caf::actor ivyactor)
             // should have obj..
             auto rp = make_response_promise<UuidActor>();
             add_media_source(rp, jsn, media_rate);
+            return rp;
+        },
+
+        [=](media::add_media_source_atom,
+            const JsonStore &jsn,
+            const FrameRate &media_rate,
+            const bool use_stalk_name_for_audio_sources) -> result<UuidActor> {
+            // should have obj..
+            auto rp = make_response_promise<UuidActor>();
+            add_media_source(rp, jsn, media_rate, use_stalk_name_for_audio_sources);
             return rp;
         },
 
@@ -161,6 +172,8 @@ IvyDataSource::IvyDataSource() : DataSource("Ivy"), module::Module("IvyDataSourc
 
 template <typename T> void IvyDataSourceActor<T>::update_preferences(const JsonStore &js) {
     try {
+        use_stalk_name_for_audio_sources_ = preference_value<bool>(
+            js, "/plugin/data_source/ivy/use_stalk_name_for_audio_sources");
         enable_audio_autoload_ =
             preference_value<bool>(js, "/plugin/data_source/ivy/enable_audio_autoload");
     } catch (const std::exception &err) {
@@ -168,41 +181,8 @@ template <typename T> void IvyDataSourceActor<T>::update_preferences(const JsonS
     }
 }
 
-template <typename T>
-IvyDataSourceActor<T>::IvyDataSourceActor(caf::actor_config &cfg, const utility::JsonStore &)
-    : caf::event_based_actor(cfg) {
-
-    spdlog::debug("Created IvyDataSourceActor {}", name());
-
-    data_source_.set_parent_actor_addr(actor_cast<caf::actor_addr>(this));
-
-    http_ = spawn<http_client::HTTPClientActor>(CPPHTTPLIB_CONNECTION_TIMEOUT_SECOND, 20, 20);
-    link_to(http_);
-
-    try {
-        auto prefs = GlobalStoreHelper(system());
-        JsonStore j;
-        join_broadcast(this, prefs.get_group(j));
-        update_preferences(j);
-    } catch (const std::exception &err) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-    }
-
-    size_t worker_count = 5;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-
-    pool_ = caf::actor_pool::make(
-        system(),
-        worker_count,
-        [&] { return system().template spawn<IvyMediaWorker>(actor_cast<caf::actor>(this)); },
-        caf::actor_pool::round_robin());
-    link_to(pool_);
-#pragma GCC diagnostic pop
-
-    system().registry().put(ivy_registry, this);
-
-    behavior_.assign(
+template <typename T> caf::message_handler IvyDataSourceActor<T>::message_handler_extensions() {
+    return caf::message_handler(
         [=](utility::name_atom) -> std::string { return name(); },
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
@@ -411,6 +391,42 @@ IvyDataSourceActor<T>::IvyDataSourceActor(caf::actor_config &cfg, const utility:
         });
 }
 
+
+template <typename T>
+IvyDataSourceActor<T>::IvyDataSourceActor(caf::actor_config &cfg, const utility::JsonStore &)
+    : caf::event_based_actor(cfg) {
+
+    spdlog::debug("Created IvyDataSourceActor {}", name());
+
+    data_source_.set_parent_actor_addr(actor_cast<caf::actor_addr>(this));
+
+    http_ = spawn<http_client::HTTPClientActor>(CPPHTTPLIB_CONNECTION_TIMEOUT_SECOND, 20, 20);
+    link_to(http_);
+
+    try {
+        auto prefs = GlobalStoreHelper(system());
+        JsonStore j;
+        join_broadcast(this, prefs.get_group(j));
+        update_preferences(j);
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    size_t worker_count = 5;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
+    pool_ = caf::actor_pool::make(
+        system(),
+        worker_count,
+        [&] { return system().template spawn<IvyMediaWorker>(actor_cast<caf::actor>(this)); },
+        caf::actor_pool::round_robin());
+    link_to(pool_);
+#pragma GCC diagnostic pop
+
+    system().registry().put(ivy_registry, this);
+}
+
 template <typename T> void IvyDataSourceActor<T>::on_exit() {
     system().registry().erase(ivy_registry);
 }
@@ -527,7 +543,8 @@ void IvyMediaWorker::add_sources_to_media(
 void IvyMediaWorker::add_media_source(
     caf::typed_response_promise<utility::UuidActor> rp,
     const JsonStore &jsn,
-    const FrameRate &media_rate) {
+    const FrameRate &media_rate,
+    const bool use_stalk_name_for_audio_sources) {
 
     // get info on file...
     FrameList frame_list;
@@ -552,6 +569,16 @@ void IvyMediaWorker::add_media_source(
 
             if (not label.empty() and not type.empty()) {
                 name = label + "-" + type;
+            } else if (
+                use_stalk_name_for_audio_sources && jsn.at("version").contains("name") &&
+                jsn.at("version").at("name").is_string()) {
+
+                // here, name == ivy leaf name. Sometimes ivy leaf name is useful, other times
+                // it's not.... that's the pipeline for you! When the ivy leaf name is not very
+                // useful (e.g. it's called 'main' or 'character') then the stalkname might be
+                // more useful. So here, we show the stalkname AND the ivy leaf name. This can
+                // make the final string pretty long but we'll have to live with that.
+                name = jsn.at("version").at("name").get<std::string>() + " (" + name + ")";
             }
         }
 
@@ -850,12 +877,6 @@ void IvyDataSourceActor<T>::ivy_load(
     const utility::FrameRate &media_rate) {
 
     auto query = uri.query();
-
-    for (const auto &p: query) {
-        std::cerr << p.first << " " << p.second << "\n";
-    }
-
-    std::cerr << "AA " << query.count("type") << " " << query.count("show") << " " << query.count("ids") << " " << (query["type"] == "File") << "\n";
 
     if (query.count("type") and query["type"] == "Version" and query.count("show") and
         query.count("ids")) {
@@ -1547,7 +1568,9 @@ void IvyDataSourceActor<T>::ivy_load_audio_sources(
         .then(
             [=](const httplib::Response &response) mutable {
                 try {
+
                     auto jsn = nlohmann::json::parse(response.body);
+
                     if (jsn.count("errors")) {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, jsn.dump(2));
                         rp.deliver(extend);
@@ -1589,7 +1612,11 @@ void IvyDataSourceActor<T>::ivy_load_audio_sources(
                             // spdlog::warn("{}", i.dump(2));
                             auto payload    = JsonStore(i);
                             payload["show"] = show;
-                            mail(media::add_media_source_atom_v, payload, media_rate)
+                            mail(
+                                media::add_media_source_atom_v,
+                                payload,
+                                media_rate,
+                                use_stalk_name_for_audio_sources_)
                                 .request(pool_, infinite)
                                 .then(
                                     [=](const UuidActor &ua) mutable {

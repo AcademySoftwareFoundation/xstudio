@@ -3,6 +3,7 @@
 
 #include "xstudio/ui/qt/viewport_widget.hpp"
 #include "xstudio/thumbnail/thumbnail.hpp"
+#include "xstudio/ui/viewport/viewport_gpu_post_processor.hpp"
 
 #include <QString>
 #include <QUrl>
@@ -37,7 +38,7 @@ namespace ui {
             using super = caf::mixin::actor_object<QObject>;
 
           public:
-            OffscreenViewport(const std::string name, bool include_qml_overlays = true);
+            OffscreenViewport(const std::string name, bool sync_to_other_viewports);
             ~OffscreenViewport() override;
 
             // Direct rendering to an output file
@@ -46,7 +47,7 @@ namespace ui {
 
             void setPlayhead(const QString &playheadAddress);
 
-            std::string name() { return viewport_renderer_->name(); }
+            std::string name() { return xstudio_viewport_->name(); }
 
             void stop();
 
@@ -76,6 +77,14 @@ namespace ui {
 
             thumbnail::ThumbnailBufferPtr renderToThumbnail(
                 const thumbnail::THUMBNAIL_FORMAT format, const int width, const int height);
+
+            void render(
+                const int w,
+                const int h,
+                const viewport::ImageFormat format,
+                const bool sync_fetch_playhead_image,
+                const utility::time_point &tp,
+                const media_reader::ImageBufPtr &image_to_use = media_reader::ImageBufPtr());
 
             void renderToImageBuffer(
                 const int w,
@@ -124,30 +133,30 @@ namespace ui {
 
             bool loadQMLOverlays();
 
+            void sync_python_hud_data();
+
             thumbnail::ThumbnailBufferPtr
             rgb96thumbFromHalfFloatImage(const media_reader::ImageBufPtr &image);
 
-            ui::viewport::Viewport *viewport_renderer_ = nullptr;
+            ui::viewport::Viewport *xstudio_viewport_ = nullptr;
             QOpenGLContext *gl_context_                = {nullptr};
             QOffscreenSurface *surface_                = {nullptr};
             QThread *thread_                           = {nullptr};
+            viewport::ViewportFramePostProcessorPtr post_draw_hook_;
 
             // TODO: will remove once everything done
             const char *formatSuffixes[4] = {"EXR", "JPG", "PNG", "TIFF"};
 
-            int tex_width_              = 0;
-            int tex_height_             = 0;
-            int pix_buf_size_           = 0;
-            GLuint texId_               = 0;
-            GLuint fboId_               = 0;
-            GLuint depth_texId_         = 0;
-            GLuint pixel_buffer_object_ = 0;
+            int tex_width_      = 0;
+            int tex_height_     = 0;
+            GLuint texId_       = 0;
+            GLuint fboId_       = 0;
+            GLuint depth_texId_ = 0;
 
             int vid_out_width_                    = 0;
             int vid_out_height_                   = 0;
             viewport::ImageFormat vid_out_format_ = viewport::ImageFormat::RGBA_16;
             caf::actor video_output_actor_;
-            std::vector<media_reader::ImageBufPtr> output_buffers_;
             media_reader::ImageBufPtr last_rendered_frame_;
             media_reader::ImageBufPtr image_to_render_;
             std::vector<uint32_t> half_to_int_32_lut_;
@@ -162,7 +171,6 @@ namespace ui {
             QQmlEngine *qml_engine_              = nullptr;
             ui::qml::Helpers *helper_            = nullptr;
             bool overlays_loaded_                = false;
-            bool include_qml_overlays_           = true;
         };
     } // namespace qt
 } // namespace ui

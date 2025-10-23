@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
-// 
+import Qt.labs.qmlmodels
+//
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -25,8 +26,8 @@ Item{id: actionDiv
     // this gives us access to the 'role' data of the entry in the session model
     // for the current on-screen media SOURCE
     property var fileName: {
-        if (currentOnScreenMediaSourceData.values.pathRole != undefined) {
-            return helpers.fileFromURL(currentOnScreenMediaSourceData.values.pathRole)
+        if (typeof(viewportPlayhead.playheadImageURI) == "string") {
+            return helpers.fileFromURL(viewportPlayhead.playheadImageURI)
         }
         return ""
     }
@@ -82,7 +83,7 @@ Item{id: actionDiv
                         activated = 0;
                     }
                 }
-            
+
                 // in the backend, if a hotkey was provided when the dockable
                 // widget was declared, the hotkey press is signalled to us
                 // by setting the user_data role data on the attribute - it
@@ -107,17 +108,37 @@ Item{id: actionDiv
         // e.g. grading tools, notes panel
         Repeater {
             model: orderedPopoutWindowsModel
-            XsPrimaryButton {
 
-                Layout.preferredWidth: 40
-                Layout.preferredHeight: parent.height
-                imgSrc: icon_path
-                text: view_name
-                isActive: window_is_visible
-                onClicked: {
-                    window_is_visible = !window_is_visible
+            delegate: chooser
+
+            DelegateChooser {
+                id: chooser
+                role: "qml_widget"
+
+                DelegateChoice {
+                    roleValue: ""
+
+                    XsPrimaryButton {
+
+                        Layout.preferredWidth: 40
+                        Layout.preferredHeight: parent.height
+                        imgSrc: icon_path
+                        text: view_name
+                        isActive: window_is_visible
+                        onClicked: window_is_visible = !window_is_visible
+                    }
                 }
-
+                DelegateChoice {
+                    Item {
+                        Layout.preferredWidth: dynamic_widget ? dynamic_widget.preferredWidth : 40
+                        Layout.preferredHeight: parent.height
+                        property var dynamic_widget: null
+                        property var qml_code_: qml_widget
+                        onQml_code_Changed: {
+                            dynamic_widget = Qt.createQmlObject(qml_widget, this)
+                        }
+                    }
+                }
             }
         }
 
@@ -198,7 +219,7 @@ Item{id: actionDiv
                 onClicked:{
                     value = !value
                 }
-    
+
             }
         }
 

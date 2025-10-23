@@ -85,6 +85,16 @@ void AudioOutputActor::init() {
                 clear_queued_samples();
         },
 
+        [=](utility::event_atom, playhead::play_atom) {
+            // this message will force the audio_output_device_ actor to start
+            // streaming samples to the soundcard (whether or not xSTUDIO playhead
+            // is delivering audio samples to us). This is useful for some video
+            // output plugins that might need to continually stream audio samples
+            // regardless of whether there is actually audio to play. So we can
+            // force it to stream silence this way.
+            mail(utility::event_atom_v, playhead::play_atom_v).send(audio_output_device_);
+        },
+
         [=](get_samples_for_soundcard_atom,
             const long num_samps_to_push,
             const long microseconds_delay,
@@ -95,7 +105,8 @@ void AudioOutputActor::init() {
 
             std::vector<int16_t> samples;
 
-            if (muted() || (!playing_ && !audio_scrubbing_))
+            if (audio_mode_on_silence_ == StopPushingSamplesOnSilence &&
+                (muted() || (!playing_ && !audio_scrubbing_)))
                 return samples;
 
             samples.resize(num_samps_to_push * num_channels);
@@ -106,7 +117,7 @@ void AudioOutputActor::init() {
                 if (!playing_) {
 
                     long n = copy_samples_to_buffer_for_scrubbing(samples, num_samps_to_push);
-                    if (!n) {
+                    if (audio_mode_on_silence_ == StopPushingSamplesOnSilence && !n) {
                         // we have no audio to play back (e.g. scrubbed audio)
                         // If more than 2s have elapsed since last samples then
                         // by clearing 'samples' here this stops the playback

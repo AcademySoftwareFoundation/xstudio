@@ -20,9 +20,21 @@ Item {
     // the xSTUDIO source code.
 
     id: control
-    width: view.width
-    height: view.height
-    property var imageBoxes: view.imageBoundariesInViewport
+
+    // imageBoundary & multiHUD are properties of the parent item that instances
+    // the HUD items in the xstudio viewport ....
+    // imageBoundary is the pixel coordinates of the area of the Viewport that
+    // is covered by an image. If 'multiHUD' is true it means that multiple
+    // images are on-screen (e.g. Grid compare mode) and the HUD items are 
+    // already scaled to track each image. Otherwise the HUD item is scaled to
+    // fit the whole of the viewport (so we can tuck HUD info into the corners
+    // independently of image pan/zoom). For this plugin we always want to
+    // track imageBoundary
+    width: multiHUD ? parent.width : imageBoundary.width
+    height: multiHUD ? parent.height : imageBoundary.height
+    x: multiHUD ? 0 : imageBoundary.x
+    y: multiHUD ? 0 : imageBoundary.y
+
     visible: renderMethod == "QML" && maskEnabled
 
     // access the attribute group that contains all the settings for the mask.
@@ -105,87 +117,78 @@ Item {
 
     property var safety: safetyPercent/200.0
 
-    Repeater {
+    property var l: width*safety
+    property var b: (height-(width*(1.0-safety*maskAspectRatio)/maskAspectRatio))/2.0
+    property var r: width*(1.0 - safety)
+    property var t: (height+(width*(1.0-safety*maskAspectRatio)/maskAspectRatio))/2.0
 
-        model: imageBoxes
-        Item {
+    Item {
 
-            // Viewport class provides imageBoxes - the coordinates of each
-            // image within the viewport, in viewport pixels
-            property var imageBox: imageBoxes[index] ? imageBoxes[index] : Qt.QRectF()
+        anchors.fill: parent
 
-            x: imageBox.x
-            y: imageBox.y
-            height: imageBox.height
-            width: imageBox.width
 
-            property var l: width*safety
-            property var b: (height-(width*(1.0-safety*maskAspectRatio)/maskAspectRatio))/2.0
-            property var r: width*(1.0 - safety)
-            property var t: (height+(width*(1.0-safety*maskAspectRatio)/maskAspectRatio))/2.0
+        Rectangle {
+            id: bottom_masking_rect
+            opacity: maskOpacity
+            color: "black"
+            x: 0
+            y: 0
+            width: parent.width
+            height: b
+        }
 
-            Rectangle {
-                id: bottom_masking_rect
-                opacity: maskOpacity
-                color: "black"
-                x: 0
-                y: 0
-                width: parent.width
-                height: b
-            }
+        Rectangle {
+            id: top_masking_rect
+            opacity: maskOpacity
+            color: "black"
+            x: 0
+            y: t
+            width: parent.width
+            height: parent.height-t
+        }
 
-            Rectangle {
-                id: top_masking_rect
-                opacity: maskOpacity
-                color: "black"
-                x: 0
-                y: t
-                width: parent.width
-                height: parent.height-t
-            }
+        Rectangle {
+            id: left_masking_rect
+            opacity: maskOpacity
+            color: "black"
+            x: 0
+            y: b
+            width: l
+            height: t-b
+        }
 
-            Rectangle {
-                id: left_masking_rect
-                opacity: maskOpacity
-                color: "black"
-                x: 0
-                y: b
-                width: l
-                height: t-b
-            }
+        Rectangle {
+            id: right_masking_rect
+            opacity: maskOpacity
+            color: "black"
+            x: r
+            y: b
+            width: parent.width-r
+            height: t-b
+        }
 
-            Rectangle {
-                id: right_masking_rect
-                opacity: maskOpacity
-                color: "black"
-                x: r
-                y: b
-                width: parent.width-r
-                height: t-b
-            }
+        Rectangle {
+            id: lines
+            opacity: maskLineOpacity
+            color: "transparent"
+            border.color: "white"
+            property var tt: maskLineThickness*scalingFactor
+            border.width: tt
+            x: l-tt/2
+            y: b-tt/2
+            width: r-l+tt
+            height: t-b+tt
+        }
 
-            Rectangle {
-                id: lines
-                opacity: maskLineOpacity
-                color: "transparent"
-                border.color: "white"
-                border.width: maskLineThickness
-                x: l-maskLineThickness/2
-                y: b-maskLineThickness/2
-                width: r-l+maskLineThickness
-                height: t-b+maskLineThickness
-            }
-
-            Text {
-                text: mask_name
-                opacity: maskLineOpacity
-                visible: showMaskLabel
-                color: "white"
-                font.pixelSize: labelSize
-                anchors.left: lines.left
-                anchors.bottom: lines.top
-                anchors.bottomMargin: 4
-            }
+        Text {
+            text: mask_name
+            opacity: maskLineOpacity
+            visible: showMaskLabel
+            color: "white"
+            font.pixelSize: Math.round(labelSize*scalingFactor)
+            anchors.left: lines.left
+            anchors.bottom: lines.top
+            anchors.bottomMargin: 4
         }
     }
 

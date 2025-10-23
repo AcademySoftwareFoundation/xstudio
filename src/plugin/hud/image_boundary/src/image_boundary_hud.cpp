@@ -121,7 +121,8 @@ utility::BlindDataObjectPtr ImageBoundaryHUD::onscreen_render_data(
     const media_reader::ImageBufPtr &image,
     const std::string & /*viewport_name*/,
     const utility::Uuid &playhead_uuid,
-    const bool is_hero_image) const {
+    const bool is_hero_image,
+    const bool images_are_in_grid_layout) const {
 
     auto r = utility::BlindDataObjectPtr();
 

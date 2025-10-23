@@ -181,7 +181,6 @@ Item {
                 id: volumeButton
                 Layout.preferredWidth: btnWidth
                 Layout.preferredHeight: parent.height
-                volume: 4
                 enabled: !volumeButton.muted
             }
 

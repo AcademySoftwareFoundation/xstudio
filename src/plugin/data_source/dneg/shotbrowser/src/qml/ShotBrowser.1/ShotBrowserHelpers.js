@@ -62,6 +62,25 @@ function revealPlaylistInShotgrid(indexes=[]) {
 }
 
 
+function getLink(indexes=[]) {
+	let result = []
+	if(indexes.length) {
+		indexes = mapIndexesToResultModel(indexes)
+
+		let m = indexes[0].model
+		for(let i = 0; i< indexes.length; i++) {
+			let t = m.get(indexes[i], "typeRole")
+
+			if(["Version", "Note", "Playlist"].includes(t)) {
+				let id = m.get(indexes[i], "idRole")
+				result.push("http://shotgun/detail/"+t+"/"+id)
+			}
+		}
+	}
+
+	return result;
+}
+
 function revealInShotgrid(indexes=[]) {
 	if(indexes.length) {
 		indexes = mapIndexesToResultModel(indexes)
@@ -80,6 +99,48 @@ function revealInShotgrid(indexes=[]) {
 		}
 	}
 }
+
+function loadAnnotations(indexes=[]) {
+    let images = []
+
+	if(indexes.length) {
+		indexes = mapIndexesToResultModel(indexes)
+
+		let m = indexes[0].model
+
+		for(let i = 0; i< indexes.length; i++) {
+			let anno =  m.get(indexes[i], "attachmentsRole")
+			let project =  m.get(indexes[i], "projectRole")
+
+            anno.forEach(function (item, index) {
+	            images.push(encodeURI(ShotBrowserEngine.downloadImage(
+    	            item.id,
+        	        "Attachment",
+            	    item.name,
+	            	project)))
+            	})
+        }
+	}
+
+	if(images.length) {
+        if(!sessionSelectionModel.currentIndex.valid) {
+            var index = theSessionData.createPlaylist("Add Media")
+            Future.promise(index.model.handleDropFuture(Qt.CopyAction, {"text/uri-list": images}, index)).then(function(quuids){
+                mediaSelectionModel.selectFirstNewMedia(index, quuids)
+            })
+        }
+        else {
+            let index = sessionSelectionModel.currentIndex
+			if(mediaSelectionModel.selectedIndexes.length && nextItem(mediaSelectionModel.selectedIndexes[0]).valid)
+				index = nextItem(mediaSelectionModel.selectedIndexes[0])
+
+            Future.promise(index.model.handleDropFuture(Qt.CopyAction, {"text/uri-list": images}, index)).then(function(quuids){
+                mediaSelectionModel.selectFirstNewMedia(index, quuids)
+            })
+        }
+	}
+}
+
 
 function getAllIndexes(model) {
 	// need to map from display model to selection model..
@@ -167,6 +228,24 @@ function getNote(indexes=[]) {
 	return txt
 }
 
+function getNoteHTML(indexes=[]) {
+	let txt = ""
+	if(indexes.length) {
+		indexes = mapIndexesToResultModel(indexes)
+		let m = indexes[0].model
+		for(let i = 0; i< indexes.length; i++) {
+			let t = m.get(indexes[i], "typeRole")
+			let id = m.get(indexes[i], "idRole")
+			let url = "http://shotgun/detail/" + t + "/" + id
+
+			txt += "<P>";
+			txt += "<A href=\"" + url + "\"><B>" + m.get(indexes[i], "subjectRole") + "</B></A><BR>";
+			txt += "<pre>"+m.get(indexes[i], "contentRole")+"</pre>";
+			txt += "</P>";
+		}
+	}
+	return txt
+}
 
 function downloadMissingMovies(indexes=[]) {
 	if(indexes.length) {
@@ -283,7 +362,7 @@ function conformToNewSequenceCallback(playlist_uuid, uuids) {
 		for(let i=0;i<uuids.length;i++) {
 			indexes.push(theSessionData.searchRecursive(uuids[i],"actorUuidRole", plindex))
 		}
-		appWindow.conformTool.conformToNewSequence(indexes, plindex)
+		appWindow.conformTool().conformToNewSequence(indexes, plindex)
 	}
 }
 
@@ -386,9 +465,9 @@ function _conformMediaCallback(playlist_uuid, uuids, conformTrackIndex) {
         }
 
         if(tmp.length)
-			appWindow.conformTool.conformToSequence(tmp, sindex, "Added Media", conformTrackIndex)
+			appWindow.conformTool().conformToSequence(tmp, sindex, "Added Media", conformTrackIndex)
     	else
-	        console.log("appWindow.conformTool.conformToSequence", tmp, sindex, "Added Media", conformTrackIndex)
+	        console.log("appWindow.conformTool().conformToSequence", tmp, sindex, "Added Media", conformTrackIndex)
 	}
 }
 
@@ -425,7 +504,8 @@ function replaceConformMediaCallback(playlist_uuid, uuids) {
         // we use the current active clip to select the conform track.
         let clipIndex = theSessionData.getTimelineClipIndex(sindex, currentPlayhead.logicalFrame)
         // assumes clips are not nested..
-		appWindow.conformTool.replaceToSequence(tmp, sindex, theSessionData.getTimelineTrackIndex(clipIndex))
+		appWindow.createConformTool()
+		appWindow.conformTool().replaceToSequence(tmp, sindex, theSessionData.getTimelineTrackIndex(clipIndex))
 	}
 }
 
@@ -449,8 +529,10 @@ function selectTimelineCallback(playlist_index, uuids, wait=4) {
     	let tindex = theSessionData.searchRecursive(helpers.QVariantFromUuidString(uuids[0]), "actorUuidRole", playlist_index)
     	if(tindex.valid) {
 
+			appWindow.createConformTool()
+
 			// prepare timeline...
-			appWindow.conformTool.conformPrepareSequence(tindex, false)
+			appWindow.conformTool().conformPrepareSequence(tindex, false)
 
 			// this puts the timeline into timeline panels
 			// give timeline time to prepare or it gets upset.
@@ -600,13 +682,23 @@ function loadShotgridPlaylists(indexes=[]) {
 	}
 }
 
-function addToCurrent(indexes=[], viewed=true, addAfterSelection=false) {
+function addToCurrent(indexes=[], viewed=true, addMode="After") {
 	if(viewedMediaSetProperties.values.typeRole == "Timeline") {
 		addToSequence(indexes, viewed)
 	} else {
+		// shouldn't this be before media uuid ?
+
 		let afterMediaUuid = null
-		if(addAfterSelection) {
+		if(addMode == "After") {
 			afterMediaUuid = getNextMediaUuid()
+		} else if(addMode == "Front") {
+			// need first entry in list..
+			let media_list = theSessionData.index(0, 0, viewed ? viewedMediaSetProperties.index : inspectedMediaSetProperties.index)
+			if(theSessionData.rowCount(media_list)){
+				afterMediaUuid = theSessionData.get(theSessionData.index(0,0,media_list), "actorUuidRole")
+			}
+		} else if(addMode == "End") {
+			//  null uuid == end.
 		}
 
         addToCurrentMediaContainer(indexes, afterMediaUuid, viewed)
@@ -831,9 +923,11 @@ function updateMetadata(enabled, mediaUuid) {
     return false;
 }
 
-function transfer(destination, indexes) {
+function transfer(destination, indexes, leafs=[]) {
     let project = null
 	indexes = mapIndexesToResultModel(indexes)
+
+	console.log(indexes, leafs)
 
     if(indexes.length) {
     	let model = indexes[0].model
@@ -841,19 +935,35 @@ function transfer(destination, indexes) {
 
 	    for(let i=0; i < indexes.length; i++) {
 	    	try {
+	    		let uuids = []
+
 		        if(project == null)
 		            project = model.get(indexes[i],"projectRole")
 
-		        let dnuuid = model.get(indexes[i],"stalkUuidRole")
  		    	let location = model.get(indexes[i],"locationRole")
+		        let dnuuid = model.get(indexes[i],"stalkUuidRole")
 
- 		    	if(location) {
+		        if(leafs.length) {
+		        	// need to get ivy entry for this uuid..
+		        	let versions = ShotBrowserEngine.getIvyVersion(project, dnuuid);
+		    		versions.files.forEach(function (item, index) {
+		    			if(leafs.includes(item.name)) {
+		    				uuids.push(helpers.QVariantFromUuidString(item.id))
+		    			}
+		    		});
+		        } else {
+		        	uuids.push(dnuuid);
+		        }
+
+ 		    	if(location && uuids.length) {
 			    	if(!sources.has(location))
 			    		sources.set(location, [])
 
-			        sources.get(location).push(dnuuid)
+			    	for(let j = 0; j < uuids.length; j++) {
+				        sources.get(location).push(uuids[j])
+			    	}
 			    } else {
-			    	console.log("No source location found for", dnuuid)
+			    	console.log("No source location found for", dnuuid, location, uuids)
 			    }
    	    	} catch (err) {
 	    		console.log(err)
@@ -875,30 +985,48 @@ function transfer(destination, indexes) {
 	}
 }
 
-function transferMedia(destination, indexes) {
+function transferMedia(destination, indexes, leafs=[]) {
     let project = null
 
     if(indexes.length) {
     	let model = indexes[0].model
-
     	let sources = new Map()
 
 	    for(let i=0; i < indexes.length; i++) {
 	    	try {
+	    		let uuids = []
+
 		        if(project == null)
 		            project = JSON.parse(theSessionData.getJSON(indexes[i], "/metadata/shotgun/version/relationships/project/data/name"))
-
-		    	let dnuuid = JSON.parse(theSessionData.getJSON(indexes[i], "/metadata/shotgun/version/attributes/sg_ivy_dnuuid"))
 		    	let source = JSON.parse(theSessionData.getJSON(indexes[i], "/metadata/shotgun/version/attributes/sg_location"))
 
-		    	if(!sources.has(source))
-		    		sources.set(source, [])
+		    	if(leafs.length) {
+		    		// search through ivy metadata for leaf dnuuids
+		    		let versions = JSON.parse(theSessionData.getJSON(indexes[i], "/metadata/ivy/version/files"))
+		    		versions.forEach(function (item, index) {
+		    			if(leafs.includes(item.name)) {
+		    				uuids.push(item.id)
+		    			}
+		    		});
+		    	} else {
+		    		uuids.push(JSON.parse(theSessionData.getJSON(indexes[i], "/metadata/shotgun/version/attributes/sg_ivy_dnuuid")))
+		    	}
 
-		        sources.get(source).push(helpers.QVariantFromUuidString(dnuuid))
+		    	if(source && uuids.length) {
+			    	if(!sources.has(source))
+			    		sources.set(source, []);
+
+			    	for(let j = 0; j < uuids.length; j++)
+				        sources.get(source).push(helpers.QVariantFromUuidString(uuids[j]))
+				} else {
+					console.log("No uuids or source");
+				}
 	    	} catch (err) {
 	    		console.log(err)
 	    		// failed try uri
 	    		// they need to use the transfertool
+
+	    		// path based seems to require filenames in a txt file, not are arguments.
 
                 // let ms = theSessionData.searchRecursive(theSessionData.get(indexes[i], "imageActorUuidRole"), "actorUuidRole", indexes[i])
 
@@ -959,7 +1087,6 @@ function publishPlaylistToShotGrid(playlistUuid, projectId, name, location, play
 		    	callback(json_string)
 	    },
 	    function() {
-
 	    }
     )
 }

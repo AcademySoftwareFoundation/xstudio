@@ -11,8 +11,12 @@
 					{"name": "ABC", "video tracks": [{"name":"A", "colour":"#ffff0000"},"B","C"], "audio tracks": ["A", "B","C"]}
 				],
 				"datatype": "json",
-				"context": ["APPLICATION"]
+				"context": ["APPLICATION"],
+				"category": "Conform",
+				"options": "import xStudio 1.0; XsJsonPreference {}",
+				"display_name": "Track Templates"
 			}
 		}
 	}
 }
+

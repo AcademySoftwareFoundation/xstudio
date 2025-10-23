@@ -28,7 +28,6 @@ class HudData : public utility::BlindDataObject {
 class EXRDataWindowRenderer : public plugin::ViewportOverlayRenderer {
 
   public:
-
     void render_image_overlay(
         const Imath::M44f &transform_window_to_viewport_space,
         const Imath::M44f &transform_viewport_to_image_space,
@@ -126,7 +125,8 @@ utility::BlindDataObjectPtr EXRDataWindowHUD::onscreen_render_data(
     const media_reader::ImageBufPtr &image,
     const std::string & /*viewport_name*/,
     const utility::Uuid &playhead_uuid,
-    const bool is_hero_image) const {
+    const bool is_hero_image,
+    const bool images_are_in_grid_layout) const {
 
     auto r = utility::BlindDataObjectPtr();
 

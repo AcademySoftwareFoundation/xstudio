@@ -46,7 +46,7 @@ HotkeysUI::HotkeysUI(QObject *parent) : super(parent) {
             [=](keypress_monitor::hotkey_event_atom, const std::vector<Hotkey> &hotkeys) {
                 update_hotkeys_model_data(hotkeys);
             },
-            [=](keypress_monitor::hotkey_event_atom, const std::string &/*pressed_keys*/) {},
+            [=](keypress_monitor::hotkey_event_atom, const std::string & /*pressed_keys*/) {},
             [=](keypress_monitor::hotkey_event_atom, Hotkey & /*hotkey*/) {
                 // update_hotkeys_model_data(hotkeys);
             },
@@ -356,7 +356,7 @@ void HotkeyReferenceUI::init(caf::actor_system &system_) {
                     }
                 }
             },
-            [=](keypress_monitor::hotkey_event_atom, const std::string &/*pressed_keys*/) {},
+            [=](keypress_monitor::hotkey_event_atom, const std::string & /*pressed_keys*/) {},
             [=](keypress_monitor::hotkey_event_atom,
                 const utility::Uuid kotkey_uuid,
                 const bool pressed,
@@ -465,22 +465,17 @@ void PressedKeysMonitor::init(caf::actor_system &system_) {
 
     set_message_handler([=](actor_companion * /*self_*/) -> message_handler {
         return {
-            [=](keypress_monitor::hotkey_event_atom, const std::vector<Hotkey> &hotkeys) {
-            },
-            [=](keypress_monitor::hotkey_event_atom, Hotkey &hotkey) {
-            },
+            [=](keypress_monitor::hotkey_event_atom, const std::vector<Hotkey> &hotkeys) {},
+            [=](keypress_monitor::hotkey_event_atom, Hotkey &hotkey) {},
             [=](keypress_monitor::hotkey_event_atom, const std::string &pressed_keys) {
-
                 pressed_keys_ = QStringFromStd(pressed_keys);
                 emit pressedKeysChanged();
-
             },
             [=](keypress_monitor::hotkey_event_atom,
                 const utility::Uuid kotkey_uuid,
                 const bool pressed,
                 const std::string &context,
                 const std::string &window,
-                const bool due_to_focus_change) {
-            }};
+                const bool due_to_focus_change) {}};
     });
 }

@@ -42,9 +42,7 @@ StandardPlugin::StandardPlugin(
 
     message_handler_ = {
 
-        [=](plugin::plugin_events_group_atom) -> caf::actor {
-            return plugin_events_;
-        },
+        [=](plugin::plugin_events_group_atom) -> caf::actor { return plugin_events_; },
 
         [=](utility::event_atom, session::session_atom, caf::actor session) {
             session_changed(session);
@@ -62,11 +60,23 @@ StandardPlugin::StandardPlugin(
         },
 
         [=](ui::viewport::prepare_overlay_render_data_atom,
-            const media_reader::ImageBufPtr &image,
+            const media_reader::ImageBufDisplaySetPtr &image_set,
             const std::string &viewport_name,
-            const utility::Uuid &playhead_id,
-            const bool hero_image) -> utility::BlindDataObjectPtr {
-            return onscreen_render_data(image, viewport_name, playhead_id, hero_image);
+            const utility::Uuid &playhead_id) -> utility::BlindDataObjectPtrVec {
+            // here for each image in the display set we generate the onscreen
+            // render data and return in a vector
+            utility::BlindDataObjectPtrVec result;
+            result.reserve(image_set->num_onscreen_images());
+            const bool is_grid_layout = image_set->has_grid_layout();
+            for (int i = 0; i < image_set->num_onscreen_images(); ++i) {
+                result.emplace_back(onscreen_render_data(
+                    image_set->onscreen_image(i),
+                    viewport_name,
+                    playhead_id,
+                    image_set->hero_sub_playhead_index() == i,
+                    is_grid_layout));
+            }
+            return result;
         },
 
         [=](playhead::colour_pipeline_lookahead_atom,
@@ -153,14 +163,23 @@ StandardPlugin::StandardPlugin(
             if (requester_id != uuid()) {
                 turn_off_overlay_interaction();
             }
+        },
+        [=](utility::event_atom,
+            module::attribute_value_atom,
+            const utility::Uuid &attr_id,
+            const int role_id,
+            const utility::JsonStore &role_data) {
+            auto p = watched_attr_event_handlers_.find(attr_id);
+            if (p != watched_attr_event_handlers_.end()) {
+                p->second(attr_id, role_id, role_data);
+            }
         }};
 }
 
-void StandardPlugin::on_exit() { 
+void StandardPlugin::on_exit() {
 
     parent_actor_exiting();
-    playhead_events_actor_ = caf::actor(); 
-
+    playhead_events_actor_ = caf::actor();
 }
 
 void StandardPlugin::on_screen_media_changed(caf::actor media) {
@@ -239,6 +258,12 @@ void StandardPlugin::join_studio_events() {
 
         anon_mail(broadcast::join_broadcast_atom_v, caf::actor_cast<caf::actor>(this))
             .send(playhead_events_actor_);
+
+        // join events of current playhead if there is one
+        auto current_active_playhead = utility::request_receive<caf::actor>(
+            *sys, playhead_events_actor_, ui::viewport::viewport_playhead_atom_v);
+
+        current_viewed_playhead_changed(current_active_playhead);
 
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -339,22 +364,17 @@ std::string StandardPlugin::active_viewport_name() const {
     try {
 
         caf::actor vp = utility::request_receive<caf::actor>(
-            *sys,
-            playhead_events_actor_,
-            ui::viewport::active_viewport_atom_v);
+            *sys, playhead_events_actor_, ui::viewport::active_viewport_atom_v);
 
-        if (!vp) return std::string();
+        if (!vp)
+            return std::string();
 
-        return utility::request_receive<std::string>(
-            *sys,
-            vp,
-            utility::name_atom_v);
+        return utility::request_receive<std::string>(*sys, vp, utility::name_atom_v);
 
-    } catch (std::exception & e) {
+    } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
     return std::string();
-
 }
 
 void StandardPlugin::start_stop_playback(const std::string viewport_name, bool play) {
@@ -732,4 +752,29 @@ void StandardPlugin::remove_bookmark(const utility::Uuid &bookmark_id) {
 
     mail(bookmark::remove_bookmark_atom_v, bookmark_id).send(bookmark_manager_);
     // request(bookmark_manager_, infinite, bookmark::remove_bookmark_atom_v, bookmark_id);
+}
+
+
+utility::Uuid StandardPlugin::watch_attribute(
+    caf::actor module, const std::string &attribute_name, AttributeChangedFunction fn) {
+    utility::Uuid attr_uuid;
+    if (module == self()) {
+        // avoid deadlock!
+    } else {
+        scoped_actor sys{system()};
+        try {
+            attr_uuid = utility::request_receive<utility::Uuid>(
+                *sys, module, module::watch_attribute_atom_v, attribute_name, self());
+
+            watched_attr_event_handlers_[attr_uuid] = fn;
+
+        } catch (std::exception &e) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+        }
+    }
+    return attr_uuid;
+}
+
+void StandardPlugin::unwatch_attributes(caf::actor module) {
+    mail(module::watch_attribute_atom_v, false, self()).send(module);
 }

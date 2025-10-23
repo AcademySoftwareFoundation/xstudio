@@ -17,7 +17,7 @@ if os.environ.get("XSTUDIOPY_HOST", None):
     )
     XSTUDIO.connect_remote(
         os.environ.get("XSTUDIOPY_HOST", "localhost"),
-        int(os.environ.get("XSTUDIOPY_PORT", "45500"))
+        int(os.environ.get("XSTUDIOPY_PORT", "14441"))
     )
 elif os.environ.get("XSTUDIOPY_SESSION", None):
     m = RemoteSessionManager(remote_session_path())

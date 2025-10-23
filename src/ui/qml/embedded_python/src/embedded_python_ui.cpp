@@ -73,7 +73,9 @@ void EmbeddedPythonUI::set_backend(caf::actor backend) {
         auto data =
             request_receive<JsonStore>(*sys, backend_, json_store::sync_atom_v, snippet_uuid_);
         setModelData(data);
+
     } catch (const std::exception &err) {
+
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
     emit backendChanged();
@@ -207,8 +209,20 @@ void EmbeddedPythonUI::init(actor_system &system_) {
     try {
         caf::scoped_actor sys(system());
         auto global = system().registry().template get<caf::actor>(global_registry);
-        auto actor  = request_receive<caf::actor>(*sys, global, global::get_python_atom_v);
-        set_backend(actor);
+        auto embedded_python_actor =
+            request_receive<caf::actor>(*sys, global, global::get_python_atom_v);
+        // here we send a message to the embedded python actor ... it's just the
+        // actor handle to this instance of EmbeddedPythonUI. The core embedded python actor
+        // responds by sending itself back to us. We recieve it just below in
+        // the message handler. We do this because otherwise while the embedded
+        // python is doing work like loading plugins the UI will block on
+        // set_backend
+        anon_mail(as_actor()).send(embedded_python_actor);
+
+        // This will block while embedded_python_actor does its initialisation (like
+        // loading plugins). So we need to use a-sync approach instead.
+        // set_backend(embedded_python_actor);
+
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
@@ -248,6 +262,8 @@ void EmbeddedPythonUI::init(actor_system &system_) {
                     emit waitingChanged();
                 }
             },
+
+            [=](caf::actor embedded_python) { set_backend(embedded_python); },
 
             [=](utility::event_atom, utility::change_atom) {},
 

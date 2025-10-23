@@ -4,6 +4,8 @@
 #include <memory>
 #include <functional>
 #include <Imath/ImathMatrix.h>
+#include <nlohmann/json.hpp>
+
 
 namespace xstudio {
 namespace utility {
@@ -26,7 +28,17 @@ namespace utility {
         virtual void debug() const {}
     };
 
+    class PacketData : public utility::BlindDataObject {
+      public:
+        PacketData(std::vector<std::vector<uint8_t>> &_vPacket)
+            : vPacket(std::move(_vPacket)) {}
+        const std::vector<std::vector<uint8_t>> vPacket;
+
+        nlohmann::json metadata_ = R"({})"_json;
+    };
+
     typedef std::shared_ptr<const BlindDataObject> BlindDataObjectPtr;
+    typedef std::vector<std::shared_ptr<const BlindDataObject>> BlindDataObjectPtrVec;
 
 } // namespace utility
 } // namespace xstudio

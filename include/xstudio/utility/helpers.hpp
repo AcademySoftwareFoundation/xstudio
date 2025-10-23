@@ -66,6 +66,107 @@ namespace utility {
         std::reference_wrapper<caf::actor_system> system_ref_;
     };
 
+
+    /* See notes on class below */
+    template <class T> class AutoResponderBase {
+      public:
+        AutoResponderBase(const int count, caf::typed_response_promise<T> &rp)
+            : count_(count), rp_(rp) {}
+
+        AutoResponderBase(const int count, caf::local_actor *local) : count_(count) {
+            rp_ = local->make_response_promise<T>();
+        }
+
+        ~AutoResponderBase() {
+            if (!count_ && rp_.pending()) {
+                rp_.deliver(result_);
+            }
+        }
+
+        void decrement(int ct) {
+            count_ -= ct;
+            if (count_ <= 0 && rp_.pending()) {
+                rp_.deliver(result_);
+            }
+        }
+
+        void decrement(const caf::error & /*err*/, int ct) {
+            count_ -= ct;
+            if (count_ <= 0 && rp_.pending()) {
+                rp_.deliver(result_);
+            }
+        }
+
+        caf::typed_response_promise<T> &response_promise() { return rp_; }
+
+        T &result() { return result_; }
+
+        bool delivered() const { return !rp_.pending(); }
+
+      private:
+        caf::typed_response_promise<T> rp_;
+        T result_;
+        int count_;
+    };
+
+    /* This helper class can be used in the situation where you have to execute
+    multiple A-sync requests to build a response for a single request. You can only
+    deliver your response promise when all the dependent requests have been
+    responded to, so you would need to keep count of the reponses until your
+    final reponse is ready. In practice in code this is awkward without something
+    like the AutoResponder.
+
+    For example, let's say you need to make a list of the names of all children
+    of some class. You have to ask for the names of N children actors within the parent
+    and count the number of responses and then deliver the response promise when
+    you've got all reponses in.
+
+    [=](get_child_names) -> result<std::vector<std::string>> {
+
+        auto auto_responder = AutoResponder<std::vector<std::string>>(children_.size());
+        auto_responder.result().resize(children_.size());
+        for (int i = 0; i < children_.size(); ++i) {
+
+            mail(get_name_atom).request(children_[i].actor(), infinite).then(
+                [=](const std::string &name) mutable {
+                    auto_responder.result()[i] = name;
+                    auto_responder.decrement();
+                },
+                [=](caf::error & e) mutable {
+                    auto_responder.decrement(e);
+                });
+
+        }
+        return auto_responder.response_promise();
+
+    }
+    */
+    template <class T> class AutoResponder : private std::shared_ptr<AutoResponderBase<T>> {
+
+      public:
+        AutoResponder(const int count, caf::typed_response_promise<T> &rp)
+            : std::shared_ptr<AutoResponderBase<T>>(new AutoResponderBase<T>(count, rp)) {}
+
+        AutoResponder(const int count, caf::local_actor *local)
+            : std::shared_ptr<AutoResponderBase<T>>(new AutoResponderBase<T>(count, local)) {}
+
+        AutoResponder(const AutoResponder &o) = default;
+
+
+        T &result() { return this->get()->result(); }
+
+        void decrement(int ct = 1) { this->get()->decrement(ct); }
+
+        void decrement(const caf::error &err, int ct = 1) { this->get()->decrement(err, ct); }
+
+        bool delivered() const { return this->get()->delivered(); }
+
+        caf::typed_response_promise<T> &response_promise() {
+            return this->get()->response_promise();
+        }
+    };
+
+
     const std::array supported_extensions{".AAF",  ".AIFF", ".AVI", ".CIN", ".DPX", ".EXR",
                                           ".GIF",  ".JPEG", ".JPG", ".MKV", ".MOV", ".MPG",
                                           ".MPEG", ".MP3",  ".MP4", ".MXF", ".PNG", ".PPM",
@@ -318,23 +419,23 @@ namespace utility {
         return path.string();
     }
 
-    inline std::string snippets_path(const std::string &append_path = "") {
-        const char *root;
-#ifdef _WIN32
-        root = std::getenv("USERPROFILE");
-#else
-        root = std::getenv("HOME");
-#endif
-        std::filesystem::path path;
-        if (root) {
-            path = std::filesystem::path(root) / ".config" / "DNEG" / "xstudio" / "snippets";
-            if (!append_path.empty()) {
-                path /= append_path;
-            }
-        }
+    //     inline std::string snippets_path(const std::string &append_path = "") {
+    //         const char *root;
+    // #ifdef _WIN32
+    //         root = std::getenv("USERPROFILE");
+    // #else
+    //         root = std::getenv("HOME");
+    // #endif
+    //         std::filesystem::path path;
+    //         if (root) {
+    //             path = std::filesystem::path(root) / ".config" / "DNEG" / "xstudio" /
+    //             "snippets"; if (!append_path.empty()) {
+    //                 path /= append_path;
+    //             }
+    //         }
 
-        return path.string();
-    }
+    //         return path.string();
+    //     }
 
     inline std::string preference_path_context(const std::string &context) {
         auto major = std::string(XSTUDIO_GLOBAL_VERSION);
@@ -379,7 +480,7 @@ namespace utility {
         std::string sanitized;
         try {
 
-            int zro = 0;
+            int zro   = 0;
             sanitized = fmt::vformat(sp, fmt::make_format_args(zro));
 
         } catch (...) {
