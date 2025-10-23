@@ -151,7 +151,8 @@ namespace media {
             const int logical_frame,
             int &frame,
             int &keyframe,
-            FrameStatus &frame_status);
+            FrameStatus &frame_status,
+            std::filesystem::file_time_type &mod_time);
 
         void update_stream_media_reference(
             StreamDetail &stream_detail,
@@ -173,15 +174,16 @@ namespace media {
         std::vector<caf::typed_response_promise<bool>> pending_stream_detail_requests_;
         bool media_metadata_up_to_date_ = {false};
         std::set<media::MediaKey> all_requested_frames_;
+        std::filesystem::file_time_type container_file_timestamp_;
 
         struct UriStatus {
             UriStatus(const UriStatus &o) = default;
             UriStatus()                   = default;
-            UriStatus(const caf::uri &_uri, const FrameStatus &status, const int f)
-                : uri_(_uri), status_(status), frame_(f) {}
+            UriStatus(const caf::uri &_uri, const FrameStatus &status, const int f);
             caf::uri uri_;
             FrameStatus status_;
             int frame_;
+            std::filesystem::file_time_type mod_timestamp_;
         };
 
         std::map<int, UriStatus> uri_status_cache_;

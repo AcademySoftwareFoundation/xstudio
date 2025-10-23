@@ -147,13 +147,13 @@ bool GlobalStoreModel::updateProperty(
 
     static const auto fields = std::map<std::string, int>(
         {{"default_value", Roles::defaultValueRole},
-            {"value", Roles::valueRole},
-            {"overridden_path", Roles::overriddenPathRole},
-            {"overridden_value", Roles::overriddenValueRole},
-            {"description", Roles::descriptionRole},
-            {"context", Roles::contextRole},
-            {"path", Roles::pathRole},
-            {"datatype", Roles::datatypeRole}});
+         {"value", Roles::valueRole},
+         {"overridden_path", Roles::overriddenPathRole},
+         {"overridden_value", Roles::overriddenValueRole},
+         {"description", Roles::descriptionRole},
+         {"context", Roles::contextRole},
+         {"path", Roles::pathRole},
+         {"datatype", Roles::datatypeRole}});
 
     try {
         // single term update
@@ -163,14 +163,14 @@ bool GlobalStoreModel::updateProperty(
                 QVariant::fromValue(QStringFromStd(path.substr(0, path.find_last_of('/')))),
                 QString("pathRole"));
             if (index.isValid()) {
-                std::string key = path.substr(path.find_last_of('/')+1);
+                std::string key   = path.substr(path.find_last_of('/') + 1);
                 nlohmann::json &j = indexToData(index);
                 if (j.contains(key) && fields.count(key)) {
                     if (j[key] != change) {
                         // spdlog::warn("json differ {} {}", j.dump(2), change.dump(2));
                         QVector<int> roles({fields.find(key)->second});
                         j[key] = change;
-                        result     = true;
+                        result = true;
                         emit dataChanged(index, index, roles);
                     }
                 } else {
@@ -458,16 +458,16 @@ bool PublicPreferencesModel::updateProperty(
 
     static const auto fields = std::map<std::string, int>(
         {{"default_value", Roles::defaultValueRole},
-            {"value", Roles::valueRole},
-            {"overridden_path", Roles::overriddenPathRole},
-            {"overridden_value", Roles::overriddenValueRole},
-            {"description", Roles::descriptionRole},
-            {"context", Roles::contextRole},
-            {"path", Roles::pathRole},
-            {"datatype", Roles::datatypeRole},
-            {"options", Roles::optionsRole},
-            {"display_name", Roles::displayNameRole},
-            {"category", Roles::categoryRole}});
+         {"value", Roles::valueRole},
+         {"overridden_path", Roles::overriddenPathRole},
+         {"overridden_value", Roles::overriddenValueRole},
+         {"description", Roles::descriptionRole},
+         {"context", Roles::contextRole},
+         {"path", Roles::pathRole},
+         {"datatype", Roles::datatypeRole},
+         {"options", Roles::optionsRole},
+         {"display_name", Roles::displayNameRole},
+         {"category", Roles::categoryRole}});
 
     try {
         // single term update
@@ -477,14 +477,14 @@ bool PublicPreferencesModel::updateProperty(
                 QVariant::fromValue(QStringFromStd(path.substr(0, path.find_last_of('/')))),
                 QString("pathRole"));
             if (index.isValid()) {
-                std::string key = path.substr(path.find_last_of('/')+1);
+                std::string key   = path.substr(path.find_last_of('/') + 1);
                 nlohmann::json &j = indexToData(index);
                 if (j.contains(key) && fields.count(key)) {
                     if (j[key] != change) {
                         // spdlog::warn("json differ {} {}", j.dump(2), change.dump(2));
                         QVector<int> roles({fields.find(key)->second});
                         j[key] = change;
-                        result     = true;
+                        result = true;
                         emit dataChanged(index, index, roles);
                     }
                 } else {
@@ -493,10 +493,10 @@ bool PublicPreferencesModel::updateProperty(
                 }
             } else {
                 // something changed in preferences that isn't in our 'public' preferences
-                // model (i.e. that shows up in the xSTUDIO Preferences Manager)                
+                // model (i.e. that shows up in the xSTUDIO Preferences Manager)
             }
         } else {
-            
+
             nlohmann::json &j = indexToData(index);
             // compare to current preset.
             if (change != j) {
@@ -506,7 +506,8 @@ bool PublicPreferencesModel::updateProperty(
 
 
                 for (const auto &i : fields) {
-                    if (j.count(i.first) and change.count(i.first) and j.at(i.first) != change.at(i.first)) {
+                    if (j.count(i.first) and change.count(i.first) and
+                        j.at(i.first) != change.at(i.first)) {
                         j[i.first] = change.at(i.first);
                         roles.push_back(i.second);
                     }

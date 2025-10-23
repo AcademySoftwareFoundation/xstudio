@@ -71,8 +71,8 @@ OCIO::TransformRcPtr to_dynamic_transform(
 
                 try {
                     // Make sure the file is really a CDL
-                    auto file_path =
-                        context->resolveFileLocation(std::string(dynamic_cdl.file_name).c_str());
+                    auto file_path = context->resolveFileLocation(
+                        std::string(dynamic_cdl.file_name).c_str());
                     OCIO::CDLTransform::CreateFromFile(file_path, "" /* cccid */);
                     dynamic_cdls[name].resolved_path = file_path;
 
@@ -82,11 +82,13 @@ OCIO::TransformRcPtr to_dynamic_transform(
 
                     auto cdl_transform = OCIO::CDLTransform::CreateFromFile(
                         dynamic_cdl.resolved_path.c_str(), "");
-                    dynamic_cdls[name].grading_primary = grading_primary_from_cdl(cdl_transform);;
-                    dynamic_cdls[name].in_use          = true;
+                    dynamic_cdls[name].grading_primary =
+                        grading_primary_from_cdl(cdl_transform);
+                    ;
+                    dynamic_cdls[name].in_use = true;
 
                     OCIO::GradingPrimary cdl_gp(OCIO::GRADING_LIN);
-                    int cdl_id = dynamic_cdls[name].id;
+                    int cdl_id      = dynamic_cdls[name].id;
                     cdl_gp.m_offset = OCIO::GradingRGBM(cdl_id, cdl_id, cdl_id, 0.0);
 
                     auto gp = OCIO::GradingPrimaryTransform::Create(OCIO::GRADING_LIN);
@@ -115,11 +117,12 @@ OCIO::TransformRcPtr to_dynamic_cdl_transform(
             if (dynamic_cdl.id == -1) {
                 dynamic_cdls[name].id = dynamic_cdls_start_idx++;
             }
-            dynamic_cdls[name].grading_primary = grading_primary_from_cdl(transform);;
-            dynamic_cdls[name].in_use          = true;
+            dynamic_cdls[name].grading_primary = grading_primary_from_cdl(transform);
+            ;
+            dynamic_cdls[name].in_use = true;
 
             OCIO::GradingPrimary cdl_gp(OCIO::GRADING_LIN);
-            int cdl_id = dynamic_cdls[name].id;
+            int cdl_id      = dynamic_cdls[name].id;
             cdl_gp.m_offset = OCIO::GradingRGBM(cdl_id, cdl_id, cdl_id, 0.0);
 
             auto gp = OCIO::GradingPrimaryTransform::Create(OCIO::GRADING_LIN);
@@ -159,13 +162,15 @@ OCIO::ConfigRcPtr to_dynamic_config(
 
         auto to_ref = cs->getTransform(OCIO::COLORSPACE_DIR_TO_REFERENCE);
         if (to_ref) {
-            auto new_tr = to_dynamic_transform(context, to_ref, dynamic_cdls, dynamic_cdls_start_idx);
+            auto new_tr =
+                to_dynamic_transform(context, to_ref, dynamic_cdls, dynamic_cdls_start_idx);
             cs_edit->setTransform(new_tr, OCIO::COLORSPACE_DIR_TO_REFERENCE);
         }
 
         auto from_ref = cs->getTransform(OCIO::COLORSPACE_DIR_FROM_REFERENCE);
         if (from_ref) {
-            auto new_tr = to_dynamic_transform(context, from_ref, dynamic_cdls, dynamic_cdls_start_idx);
+            auto new_tr =
+                to_dynamic_transform(context, from_ref, dynamic_cdls, dynamic_cdls_start_idx);
             cs_edit->setTransform(new_tr, OCIO::COLORSPACE_DIR_FROM_REFERENCE);
         }
 
@@ -180,13 +185,15 @@ OCIO::ConfigRcPtr to_dynamic_config(
 
         auto fwd_tr = look->getTransform();
         if (fwd_tr) {
-            auto new_tr = to_dynamic_transform(context, fwd_tr, dynamic_cdls, dynamic_cdls_start_idx);
+            auto new_tr =
+                to_dynamic_transform(context, fwd_tr, dynamic_cdls, dynamic_cdls_start_idx);
             look_edit->setTransform(new_tr);
         }
 
         auto inv_tr = look->getInverseTransform();
         if (inv_tr) {
-            auto new_tr = to_dynamic_transform(context, inv_tr, dynamic_cdls, dynamic_cdls_start_idx);
+            auto new_tr =
+                to_dynamic_transform(context, inv_tr, dynamic_cdls, dynamic_cdls_start_idx);
             look_edit->setInverseTransform(new_tr);
         }
 
@@ -202,13 +209,15 @@ OCIO::ConfigRcPtr to_dynamic_config(
 
         auto to_ref = vt->getTransform(OCIO::VIEWTRANSFORM_DIR_TO_REFERENCE);
         if (to_ref) {
-            auto new_tr = to_dynamic_transform(context, to_ref, dynamic_cdls, dynamic_cdls_start_idx);
+            auto new_tr =
+                to_dynamic_transform(context, to_ref, dynamic_cdls, dynamic_cdls_start_idx);
             vt_edit->setTransform(new_tr, OCIO::VIEWTRANSFORM_DIR_TO_REFERENCE);
         }
 
         auto from_ref = vt->getTransform(OCIO::VIEWTRANSFORM_DIR_FROM_REFERENCE);
         if (from_ref) {
-            auto new_tr = to_dynamic_transform(context, from_ref, dynamic_cdls, dynamic_cdls_start_idx);
+            auto new_tr =
+                to_dynamic_transform(context, from_ref, dynamic_cdls, dynamic_cdls_start_idx);
             vt_edit->setTransform(new_tr, OCIO::VIEWTRANSFORM_DIR_FROM_REFERENCE);
         }
 
@@ -224,13 +233,15 @@ OCIO::ConfigRcPtr to_dynamic_config(
 
         auto fwd_tr = nt->getTransform(OCIO::TRANSFORM_DIR_FORWARD);
         if (fwd_tr) {
-            auto new_tr = to_dynamic_transform(context, fwd_tr, dynamic_cdls, dynamic_cdls_start_idx);
+            auto new_tr =
+                to_dynamic_transform(context, fwd_tr, dynamic_cdls, dynamic_cdls_start_idx);
             nt_edit->setTransform(new_tr, OCIO::TRANSFORM_DIR_FORWARD);
         }
 
         auto inv_tr = nt->getTransform(OCIO::TRANSFORM_DIR_INVERSE);
         if (inv_tr) {
-            auto new_tr = to_dynamic_transform(context, inv_tr, dynamic_cdls, dynamic_cdls_start_idx);
+            auto new_tr =
+                to_dynamic_transform(context, inv_tr, dynamic_cdls, dynamic_cdls_start_idx);
             nt_edit->setTransform(new_tr, OCIO::TRANSFORM_DIR_INVERSE);
         }
 
@@ -257,13 +268,15 @@ OCIO::ConstProcessorRcPtr to_dynamic_processor(
 
     int dynamic_cdls_start_idx = 4096;
 
-    auto group = processor->createGroupTransform();
+    auto group         = processor->createGroupTransform();
     auto dynamic_group = OCIO::GroupTransform::Create();
 
     for (int i = 0; i < group->getNumTransforms(); ++i) {
         if (group->getTransform(i)->getTransformType() == OCIO::TRANSFORM_TYPE_CDL) {
-            OCIO::CDLTransformRcPtr cdl = OCIO::DynamicPtrCast<OCIO::CDLTransform>(group->getTransform(i));
-            dynamic_group->appendTransform(to_dynamic_cdl_transform(cdl, dynamic_cdls, dynamic_cdls_start_idx));
+            OCIO::CDLTransformRcPtr cdl =
+                OCIO::DynamicPtrCast<OCIO::CDLTransform>(group->getTransform(i));
+            dynamic_group->appendTransform(
+                to_dynamic_cdl_transform(cdl, dynamic_cdls, dynamic_cdls_start_idx));
         } else {
             dynamic_group->appendTransform(group->getTransform(i));
         }
@@ -272,9 +285,7 @@ OCIO::ConstProcessorRcPtr to_dynamic_processor(
     return dynamic_config->getProcessor(context, dynamic_group, OCIO::TRANSFORM_DIR_FORWARD);
 }
 
-std::string to_dynamic_shader(
-    const std::string &shader_text,
-    DynamicCDLMap &dynamic_cdls) {
+std::string to_dynamic_shader(const std::string &shader_text, DynamicCDLMap &dynamic_cdls) {
 
     std::vector<std::string> new_shader_lines;
 
@@ -352,42 +363,42 @@ uniform bool __name___localBypass;)";
 } // anonymous namespace
 
 
-ShaderBuilder& ShaderBuilder::setDynamicCDLs(const DynamicCDLMap &cdls) {
+ShaderBuilder &ShaderBuilder::setDynamicCDLs(const DynamicCDLMap &cdls) {
     _dynamic_cdls = cdls;
     return *this;
 }
 
-ShaderBuilder& ShaderBuilder::setDynamicCDLMode(DynamicCDLMode mode) {
+ShaderBuilder &ShaderBuilder::setDynamicCDLMode(DynamicCDLMode mode) {
     _dynamic_cdl_mode = mode;
     return *this;
 }
 
-ShaderBuilder& ShaderBuilder::setConfig(const OCIO::ConstConfigRcPtr &config) {
+ShaderBuilder &ShaderBuilder::setConfig(const OCIO::ConstConfigRcPtr &config) {
     _config = config;
     return *this;
 }
 
-ShaderBuilder& ShaderBuilder::setContext(const OCIO::ConstContextRcPtr &context) {
+ShaderBuilder &ShaderBuilder::setContext(const OCIO::ConstContextRcPtr &context) {
     _context = context;
     return *this;
 }
 
-ShaderBuilder& ShaderBuilder::setTransform(const OCIO::ConstTransformRcPtr &transform) {
+ShaderBuilder &ShaderBuilder::setTransform(const OCIO::ConstTransformRcPtr &transform) {
     _transform = transform;
     return *this;
 }
 
-ShaderBuilder& ShaderBuilder::setLanguage(OCIO::GpuLanguage lang) {
+ShaderBuilder &ShaderBuilder::setLanguage(OCIO::GpuLanguage lang) {
     _lang = lang;
     return *this;
 }
 
-ShaderBuilder& ShaderBuilder::setFunctionName(const std::string &func) {
+ShaderBuilder &ShaderBuilder::setFunctionName(const std::string &func) {
     _func_name = func;
     return *this;
 }
 
-ShaderBuilder& ShaderBuilder::setResourcePrefix(const std::string &prefix) {
+ShaderBuilder &ShaderBuilder::setResourcePrefix(const std::string &prefix) {
     _resource_prefix = prefix;
     return *this;
 }
@@ -452,7 +463,8 @@ void ShaderBuilder::setupTextures(ColourOperationDataPtr &op_data) const {
         auto *xs_lut_data           = (float *)xs_lut->writeable_data();
         // TODO:
         // Texture data already stored in ShaderDesc?
-        // Do we need to copy it once again here or can't we just keep the ShaderDesc object around?
+        // Do we need to copy it once again here or can't we just keep the ShaderDesc object
+        // around?
         std::memcpy(xs_lut_data, ocio_lut_data, data_size);
 
         xs_lut->update_content_hash();
@@ -547,12 +559,20 @@ OCIO::ConstProcessorRcPtr ShaderBuilder::getProcessor() {
     }
 
     auto dynamic_config = getDynamicConfig();
-    auto proc = dynamic_config->getProcessor(_context, _transform, OCIO::TRANSFORM_DIR_FORWARD);
 
-    if (_dynamic_cdl_mode == DynamicCDLMode::Processor) {
-        _dynamic_processor = to_dynamic_processor(_config, _context, proc, _dynamic_cdls);
-    } else {
-        _dynamic_processor = proc;
+    try {
+        auto proc =
+            dynamic_config->getProcessor(_context, _transform, OCIO::TRANSFORM_DIR_FORWARD);
+
+        if (_dynamic_cdl_mode == DynamicCDLMode::Processor) {
+            _dynamic_processor = to_dynamic_processor(_config, _context, proc, _dynamic_cdls);
+        } else {
+            _dynamic_processor = proc;
+        }
+    } catch (const std::exception &e) {
+        spdlog::warn("ShaderBuilder: Failed to construct processor: {}", e.what());
+        spdlog::warn("ShaderBuilder: Defaulting to no-op processor");
+        _dynamic_processor = dynamic_config->getProcessor(OCIO::MatrixTransform::Create());
     }
 
     return _dynamic_processor;
@@ -569,7 +589,7 @@ OCIO::ConstGpuShaderDescRcPtr ShaderBuilder::getShaderDesc() {
     shader_desc->setFunctionName(_func_name.c_str());
     shader_desc->setResourcePrefix(_resource_prefix.c_str());
 
-    auto proc = getProcessor();
+    auto proc     = getProcessor();
     auto gpu_proc = proc->getDefaultGPUProcessor();
     gpu_proc->extractGpuShaderInfo(shader_desc);
 
@@ -601,7 +621,7 @@ void ShaderBuilder::updateDynamicProperties(float exposure, float gamma) {
 
 void ShaderBuilder::updateDynamicPropertiesUniforms(utility::JsonStore &uniforms) {
 
-    auto shader_desc = getShaderDesc();
+    auto shader_desc            = getShaderDesc();
     const unsigned max_uniforms = shader_desc->getNumUniforms();
 
     for (unsigned idx = 0; idx < max_uniforms; ++idx) {
@@ -656,7 +676,8 @@ void ShaderBuilder::updateDynamicCDLs(utility::JsonStore &uniforms) {
     for (auto &[name, dynamic_cdl] : _dynamic_cdls) {
         if (dynamic_cdl.in_use) {
             auto gp = dynamic_cdl.grading_primary;
-            // spdlog::warn("update: {} slope {} {} {}", dynamic_cdl.look_name, gp.m_exposure.m_red, gp.m_exposure.m_green, gp.m_exposure.m_blue);
+            // spdlog::warn("update: {} slope {} {} {}", dynamic_cdl.look_name,
+            // gp.m_exposure.m_red, gp.m_exposure.m_green, gp.m_exposure.m_blue);
 
             uniforms[name + "_offset"] = {
                 "vec3", 1, gp.m_offset.m_red, gp.m_offset.m_green, gp.m_offset.m_blue};

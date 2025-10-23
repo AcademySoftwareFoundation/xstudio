@@ -24,6 +24,7 @@ namespace ui::qml {
       public:
         const static inline std::vector<std::string> RoleNames = {
             "createdRole",
+            "completionLocationRole",
             "descriptionRole",
             "divisionRole",
             "hiddenRole",
@@ -38,6 +39,7 @@ namespace ui::qml {
 
         enum Roles {
             createdRole = JSONTreeModel::Roles::LASTROLE,
+            completionLocationRole,
             descriptionRole,
             divisionRole,
             hiddenRole,
@@ -130,6 +132,9 @@ namespace ui::qml {
         Q_PROPERTY(QVariantList typeFilter READ typeFilter WRITE setTypeFilter NOTIFY
                        typeFilterChanged)
 
+        Q_PROPERTY(QVariantList locationFilter READ locationFilter WRITE setLocationFilter
+                       NOTIFY locationFilterChanged)
+
         QML_NAMED_ELEMENT("ShotBrowserSequenceFilterModel")
 
       public:
@@ -155,6 +160,7 @@ namespace ui::qml {
         [[nodiscard]] QStringList hideStatus() const;
         [[nodiscard]] QVariantList unitFilter() const { return filter_unit_; }
         [[nodiscard]] QVariantList typeFilter() const { return filter_type_; }
+        [[nodiscard]] QVariantList locationFilter() const { return filter_location_; }
 
         void setHideStatus(const QStringList &value);
 
@@ -179,6 +185,10 @@ namespace ui::qml {
         void setUnitFilter(const QVariantList &filter) {
             if (filter_unit_ != filter) {
                 filter_unit_ = filter;
+                filter_unit_set_.clear();
+                for (const auto &i : filter_unit_)
+                    filter_unit_set_.insert(i.toString());
+
                 emit unitFilterChanged();
                 invalidateFilter();
                 emit filterChanged();
@@ -188,7 +198,26 @@ namespace ui::qml {
         void setTypeFilter(const QVariantList &filter) {
             if (filter_type_ != filter) {
                 filter_type_ = filter;
+
+                filter_type_set_.clear();
+                for (const auto &i : filter_type_)
+                    filter_type_set_.insert(i.toString());
+
                 emit typeFilterChanged();
+                invalidateFilter();
+                emit filterChanged();
+            }
+        }
+
+        void setLocationFilter(const QVariantList &filter) {
+            if (filter_location_ != filter) {
+                filter_location_ = filter;
+
+                filter_location_set_.clear();
+                for (const auto &i : filter_location_)
+                    filter_location_set_.insert(i.toString());
+
+                emit locationFilterChanged();
                 invalidateFilter();
                 emit filterChanged();
             }
@@ -200,6 +229,7 @@ namespace ui::qml {
         void showHiddenChanged();
         void unitFilterChanged();
         void typeFilterChanged();
+        void locationFilterChanged();
         void hideEmptyChanged();
         void filterChanged();
 
@@ -210,8 +240,16 @@ namespace ui::qml {
 
       private:
         std::set<QString> hide_status_;
+
+        std::set<QString> filter_type_set_;
+        std::set<QString> filter_unit_set_;
+        std::set<QString> filter_location_set_;
+
         QVariantList filter_unit_;
         QVariantList filter_type_;
+        QVariantList filter_location_;
+
+
         bool hide_empty_{false};
         bool show_hidden_{true};
     };

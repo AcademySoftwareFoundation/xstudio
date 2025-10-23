@@ -2,7 +2,7 @@
 from xstudio.core import get_media_source_atom, current_media_source_atom, get_json_atom, get_metadata_atom, reflag_container_atom, rescan_atom
 from xstudio.core import invalidate_cache_atom, get_media_pointer_atom, MediaType, Uuid, media_status_atom
 from xstudio.core import add_media_source_atom, FrameRate, FrameList, parse_posix_path, URI, MediaStatus
-from xstudio.core import set_json_atom, JsonStore, quickview_media_atom
+from xstudio.core import set_json_atom, JsonStore, quickview_media_atom, media_display_info_atom
 
 from xstudio.api.session.container import Container
 from xstudio.api.session.media.media_source import MediaSource
@@ -163,7 +163,7 @@ class Media(Container):
             bool: success
 
         """
-        return self.connection.request_receive(self.remote, set_json_atom(), Uuid(), JsonStore(new_metadata))
+        return self.connection.request_receive(self.remote, set_json_atom(), Uuid(), JsonStore(new_metadata), "")
 
     def get_metadata(self, path):
         """Get metdata at JSON path
@@ -278,3 +278,13 @@ class Media(Container):
             success(bool): Returns result.
         """
         return self.connection.request_receive(self.remote, reflag_container_atom(), flag_colour, flag_string)[0]
+
+    @property
+    def display_info(self):
+        """Get media display info. This is the list of values that are
+        shown in the xSTUDIO UI MediaList panel for this media item.
+
+        Returns:
+            display_info(json): Media display info
+        """        
+        return json.loads(self.connection.request_receive(self.remote, media_display_info_atom())[0].dump())

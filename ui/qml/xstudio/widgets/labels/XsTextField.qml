@@ -24,6 +24,8 @@ TextField { id: widget
     property bool forcedBg: false
     property bool forcedHover: false
 
+    property bool autoDefocus: false
+
     opacity: enabled ? 1.0 : 0.5
 
     signal editingCompleted()
@@ -45,10 +47,37 @@ TextField { id: widget
         editingCompleted()
     }
 
+    objectName: "XsSearchBar"
+
     TextMetrics {
         id: metrics
         font: widget.font
         text: widget.text
+    }
+
+    onHoveredChanged: {
+        if(autoDefocus && focus && !hovered) {
+            defocus.restart()
+        }
+    }
+
+    onTextEdited: {
+        if(autoDefocus) {
+            defocus.restart()
+        }
+    }
+
+    Timer {
+        id: defocus
+        interval: 5000
+        running: false
+        repeat: false
+        onTriggered: {
+            if(widget.hovered)
+                start()
+            else
+                widget.focus = false
+        }
     }
 
     background:

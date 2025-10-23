@@ -36,7 +36,7 @@ def inject_main():
         "-p", "--port", action="store",
         type=int,
         help="Port.",
-        default=45500
+        default=14441
     )
 
     parser.add_argument(

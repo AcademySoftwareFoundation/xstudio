@@ -8,7 +8,7 @@ import xstudio.qml.models 1.0
 Item {
 
     id: widget
-    height: XsStyleSheet.menuHeight
+    implicitHeight: XsStyleSheet.menuHeight
 
     // Note .. menu item width needs to be set by the widest menu item in the
     // same menu. This creates a circular dependency .. the menu item width

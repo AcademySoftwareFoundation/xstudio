@@ -132,7 +132,7 @@ MouseArea {
         }
     }
     onContainsMouseChanged: {
-        if (containsMouse) hotkey_area.forceActiveFocus()
+        if (containsMouse) hotkey_area.grabFocus()
         else if (underMouseItem) underMouseItem.hovered = false
     }
 

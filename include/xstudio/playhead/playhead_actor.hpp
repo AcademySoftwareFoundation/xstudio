@@ -55,7 +55,7 @@ namespace playhead {
 
         void connect_to_playlist_selection_actor(
             caf::actor playlist_selection, caf::typed_response_promise<bool> rp);
-        void new_source_list();
+        void new_source_list(const bool force_build = false);
         void switch_key_playhead(int idx);
         void calculate_duration();
         void update_child_playhead_positions(const bool force_broadcast);
@@ -152,7 +152,6 @@ namespace playhead {
         caf::actor_addr playlist_selection_addr_;
         caf::actor_addr parent_playlist_;
 
-        utility::Uuid previous_source_uuid_;
         utility::Uuid current_source_uuid_;
         std::map<utility::Uuid, int> media_frame_per_media_uuid_;
         std::map<utility::Uuid, int> switch_key_playhead_hotkeys_;

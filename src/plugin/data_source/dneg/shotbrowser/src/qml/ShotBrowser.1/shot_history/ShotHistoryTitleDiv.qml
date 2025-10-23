@@ -80,13 +80,14 @@ RowLayout {id: titleDiv
             XsSearchButton{ id: filterBtn
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                autoDefocus: true
                 isExpanded: true
                 hint: "Filter"
                 buttonWidth: scopeTxt.width
                 enabled: isPanelEnabled && !isPaused
 
                 onTextChanged: nameFilter = text
-                onEditingCompleted: forceActiveFocus(panel)
+                onEditingCompleted: focus = false
 
                 Connections {
                     target: panel
@@ -98,8 +99,8 @@ RowLayout {id: titleDiv
 
             XsComboBoxEditable{ id: filterSentTo
                 Layout.fillHeight: true
-                Layout.minimumWidth: titleButtonHeight * 3
-                Layout.preferredWidth: titleButtonHeight * 3
+                Layout.minimumWidth: titleButtonHeight * 2
+                Layout.preferredWidth: titleButtonHeight * 3.5
 
                 enabled: isPanelEnabled && !isPaused
 

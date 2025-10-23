@@ -486,6 +486,18 @@ void HTTPClientActor::init() {
                 .delegate(pool);
         },
 
+        [=](http_post_atom atom,
+            const std::string &scheme_host_port,
+            const std::string &path,
+            const httplib::Headers &headers,
+            const httplib::Params &params,
+            const std::string &body,
+            const std::string &content_type) {
+            return mail(atom, scheme_host_port, path, headers, params, body, content_type)
+                .delegate(pool);
+        },
+
+
         [=](http_post_simple_atom atom,
             const std::string &scheme_host_port,
             const std::string &path) {
@@ -530,6 +542,17 @@ void HTTPClientActor::init() {
                        httplib::Params(),
                        body,
                        content_type)
+                .delegate(pool);
+        },
+
+        [=](http_post_simple_atom atom,
+            const std::string &scheme_host_port,
+            const std::string &path,
+            const httplib::Headers &headers,
+            const httplib::Params &params,
+            const std::string &body,
+            const std::string &content_type) {
+            return mail(atom, scheme_host_port, path, headers, params, body, content_type)
                 .delegate(pool);
         },
 

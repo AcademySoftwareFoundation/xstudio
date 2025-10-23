@@ -20,7 +20,11 @@ std::string make_stream_id(const int stream_index) {
 }
 } // namespace
 
-int FFMpegDecoder::ffmpeg_threads = 8;
+// more than 16 decode threads feels excessive. We also want to have, say, 2 fewer threads than
+// the hardware implementation can run concurrently so that there is some headroom for the rest
+// of the application.
+int FFMpegDecoder::ffmpeg_threads =
+    std::min(std::max(4, int(std::thread::hardware_concurrency()) - 2), 16);
 
 FFMpegDecoder::FFMpegDecoder(
     std::string path,

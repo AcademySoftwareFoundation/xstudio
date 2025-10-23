@@ -15,6 +15,7 @@ MouseArea {
     property bool isHovered: nodeDivMArea.containsMouse
     property bool isSelected: selectionModel.isSelected(delegateModel.index(index, 0))
     property bool showUnit: false
+    property bool showCompletion: false
     property bool showStatus: false
     property bool showType: false
     property bool showVisibility: false
@@ -87,6 +88,20 @@ MouseArea {
                     visible: showUnit
 
                     text: unitRole  ? unitRole : ""
+                    horizontalAlignment: Text.AlignRight
+                    verticalAlignment: Text.AlignVCenter
+                    font.pixelSize: XsStyleSheet.fontSize*1.2
+                    elide: Text.ElideRight
+                    rightPadding: 8
+                }
+
+                XsText{
+                    Layout.preferredHeight: parent.height
+                    Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                    opacity: 0.5
+                    visible: showCompletion
+
+                    text: completionLocationRole  ? completionLocationRole : ""
                     horizontalAlignment: Text.AlignRight
                     verticalAlignment: Text.AlignVCenter
                     font.pixelSize: XsStyleSheet.fontSize*1.2

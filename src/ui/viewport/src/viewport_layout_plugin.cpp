@@ -31,6 +31,12 @@ void ViewportLayoutPlugin::init() {
             }
             return event_group_;
         },
+        [=](broadcast::join_broadcast_atom, caf::actor joiner) {
+            return mail(broadcast::join_broadcast_atom_v, joiner).delegate(event_group_);
+        },
+        [=](broadcast::leave_broadcast_atom, caf::actor joiner) {
+            return mail(broadcast::leave_broadcast_atom_v, joiner).delegate(event_group_);
+        },
         [=](viewport_renderer_atom,
             const std::string window_id,
             const utility::JsonStore &prefs) -> ViewportRendererPtr {
@@ -180,8 +186,8 @@ void ViewportLayoutPlugin::__do_layout(
     // this will callback to the plugins' implementation (or our default
     // implementation) above.
     do_layout(layout_mode, image_set, *layout_data);
-
     auto r = media_reader::ImageSetLayoutDataPtr(layout_data);
+    layout_data->compute_hash();
     rp.deliver(r);
     layouts_cache_[layout_mode][image_set->images_layout_hash()] = r;
 }

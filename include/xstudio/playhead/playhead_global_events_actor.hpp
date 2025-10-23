@@ -40,7 +40,7 @@ namespace playhead {
 
         caf::behavior behavior_;
         caf::actor event_group_;
-        caf::actor fine_grain_events_group_;
+        // caf::actor fine_grain_events_group_;
         caf::actor global_active_playhead_;
         struct ViewportAndPlayhead {
             caf::actor viewport;

@@ -56,6 +56,14 @@ class ShotBrowser(ActorConnection):
         JsonStore(request)
     )[0]
 
+    def is_shotgrid_login_allowed(self):
+        request = {"operation": "GetData", "type": "is_shotgrid_login_allowed"}
+        return bool(self.connection.request_receive(
+        self.remote,
+        get_data_atom(),
+        JsonStore(request)
+    )[0])
+
     def get_project_scope(self, project_id):
         seq = self.get_project_sequence(project_id)
         shot = self.get_project_shot(project_id)

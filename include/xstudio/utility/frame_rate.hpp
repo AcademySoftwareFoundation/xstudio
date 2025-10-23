@@ -56,10 +56,47 @@ namespace utility {
         return result;
     }
 
+    static std::pair<uint32_t, uint32_t> flicks_to_num_den(const timebase::flicks &flicks) {
+        auto result = std::pair<uint32_t, uint32_t>(0, 1000);
+
+        // special NTSC cases..
+        if (flicks == timebase::flicks(5885880)) {
+            result.first  = 120 * 1000;
+            result.second = 1001;
+        } else if (flicks == timebase::flicks(11771760)) {
+            result.first  = 60 * 1000;
+            result.second = 1001;
+        } else if (flicks == timebase::flicks(23543520)) {
+            result.first  = 30 * 1000;
+            result.second = 1001;
+        } else if (flicks == timebase::flicks(29429400)) {
+            result.first  = 24 * 1000;
+            result.second = 1001;
+        } else {
+            result.first = (timebase::k_flicks_one_second / flicks) * result.second;
+        }
+
+        return result;
+    }
 
     class FrameRate : public timebase::flicks {
 
       public:
+        inline static const std::vector<std::string> rate_strings = {
+            "23.976",
+            "24.0",
+            "25.0",
+            "29.97",
+            "30.0",
+            "48.0",
+            "50.0",
+            "59.94",
+            "60.0",
+            "90.0",
+            "100.0",
+            "119.88",
+            "120.0"};
+
         inline static const std::map<std::string, timebase::flicks> rate_string_to_flicks = {
             {"23.976", timebase::flicks(29429400)},
             {"24.0", timebase::flicks(29400000)},

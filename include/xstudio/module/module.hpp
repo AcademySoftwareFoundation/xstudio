@@ -138,33 +138,6 @@ namespace module {
 
         void delete_attribute(const utility::Uuid &attribute_uuid);
 
-        /* You can call this function with the actor that is attached to another module.
-        Then any local attributes registered with the 'link_attribute' will be
-        synced with the other module - changes that happen on the Module will be
-        reflected on the other Module and vice-versa. The mechanism relies on
-        the Title role data of the attributes to determine which attrs should
-        be synced together, so your paired Modules must have attrs with the
-        same Title data. More than one attr with the same title will cause issues.*/
-        void link_to_module(
-            caf::actor other_module,
-            bool link_all_attrs,
-            const bool both_ways,
-            const bool initial_push_sync);
-
-        void unlink_module(caf::actor other_module);
-
-        /* If this Module instance is linked to another Module instance, only
-        attributes that have been registered with this function will be synced
-        up between this module and the linked module(s). */
-        void link_attribute(const utility::Uuid &uuid) { linked_attrs_.insert(uuid); }
-
-        void unlink_attribte(const utility::Uuid &uuid) {
-            auto p = linked_attrs_.find(uuid);
-            if (p != linked_attrs_.end()) {
-                linked_attrs_.erase(p);
-            }
-        }
-
         virtual caf::message_handler message_handler();
 
         virtual void notify_change(
@@ -341,23 +314,26 @@ namespace module {
         [[nodiscard]] bool connected_to_ui() const { return connected_to_ui_; }
         virtual void connected_to_ui_changed() {}
 
-        void disable_linking() { linking_disabled_ = true; }
-        void enable_linking() { linking_disabled_ = false; }
-
         std::vector<AttributePtr> attributes_;
+
+        // Call this code to expose a small QML widget (e.g. a button) that will
+        // appear in the main menu bar at the top of the xstudio interface, just
+        // to the left of the Layout buttons.
+        void register_main_menu_bar_widget(
+            const std::string &widget_qml_code, const float position_in_widget_set);
 
         // Call this code to expose a UI panel in xSTUDIO's panels menu. See
         // annotations tool for an example. To allow the panel to be shown in
-        // a floating window, provide an incon path and a position within
-        // the pop-out button shelf (top left of viewport panels) for it to
-        // appear in.
+        // a floating window, provide an incon path or a custom button QML source,
+        // and a position within the pop-out button shelf (top left of viewport
+        // panels) for it to appear in.
         void register_ui_panel_qml(
             const std::string &panel_name,
             const std::string &qml_code,
             const float position_in_menu,
-            const std::string &viewport_popout_button_icon_path = "",
-            const float &viewport_popout_button_position        = -1.0f,
-            const utility::Uuid toggle_hotkey_id                = utility::Uuid());
+            const std::string &viewport_popout_button_icon_or_custom_button = "",
+            const float &viewport_popout_button_position                    = -1.0f,
+            const utility::Uuid toggle_hotkey_id                            = utility::Uuid());
 
         // Call this code to expose a widget that can dock to the left/right or
         // top/bottom of the viewport
@@ -391,6 +367,20 @@ namespace module {
         // necessary qml to this function.
         void register_singleton_qml(const std::string &qml_code);
 
+        // Call this method with QML code that can be used to instance an
+        // item. QML's dynamic object creation will be invoked to create the
+        // instance immediatele. This can be typically used to pop-up a
+        // window or dialog box.
+        // Return value is the UUID of the item - code in the QML item can
+        // call 'plugin_callback(JSON)' and the plugin callback virtual method
+        // in this class will be called
+        utility::Uuid create_qml_item(const std::string &qml_code);
+
+        // Override this function to receive callbacks from QML from items
+        // created by 'create_qml_item'
+        virtual void qml_item_callback(
+            const utility::Uuid &qml_item_id, const utility::JsonStore &callback_data) {}
+
         // This method can be overriden to receive a callback when the number of viewports
         // connected to the module changes. This is used by the Playhead class, for example
         virtual void connected_viewports_changed(std::set<caf::actor> &connected_viewports) {}
@@ -404,16 +394,14 @@ namespace module {
         caf::actor keyboard_and_mouse_group_;
         caf::actor attribute_events_group_;
 
-        caf::actor_addr attr_sync_source_adress_;
-        std::set<caf::actor_addr> partially_linked_modules_;
-        std::set<caf::actor_addr> fully_linked_modules_;
-        std::set<utility::Uuid> linked_attrs_;
         std::set<utility::Uuid> attrs_in_toolbar_;
         std::set<std::string> connected_viewport_names_;
         std::set<caf::actor> connected_viewports_;
 
-        bool connected_to_ui_  = {false};
-        bool linking_disabled_ = {false};
+        std::map<utility::Uuid, std::set<caf::actor_addr>> attribute_watchers_;
+
+        bool connected_to_ui_ = {false};
+        bool store_to_prefs_  = {true};
         utility::Uuid module_uuid_;
         std::string name_;
         std::set<utility::Uuid> attrs_waiting_to_update_prefs_;

@@ -223,7 +223,6 @@ namespace ui {
             void pressedKeysChanged();
 
           private:
-
             QString pressed_keys_;
         };
 

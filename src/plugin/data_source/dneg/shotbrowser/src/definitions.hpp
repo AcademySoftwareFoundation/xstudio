@@ -267,10 +267,17 @@ const auto AssetFields = std::vector<std::string>(
     {"code", "id", "sg_asset_name", "sg_asset_folder", "sg_status_list"});
 
 const auto HumanUserFields =
-    std::vector<std::string>({"name", "id", "login", "sg_department", "permission_rule_set"});
+    std::vector<std::string>({"name", "id", "login", "sg_department", "sg_login_allowed"});
 
 const auto SequenceShotFields = std::vector<std::string>(
-    {"id", "code", "sg_dnuuid", "sg_shot_type", "sg_status_list", "sg_unit"});
+    {"id",
+     "code",
+     "sg_dnuuid",
+     "sg_shot_type",
+     "sg_asset_type",
+     "sg_status_list",
+     "sg_unit",
+     "sg_primary_shot_location"});
 
 const auto ShotFields = std::vector<std::string>(
     {"code",
@@ -282,7 +289,9 @@ const auto ShotFields = std::vector<std::string>(
      "sg_cut_range",
      "sg_dnuuid",
      "sg_shot_type",
+     "sg_asset_type",
      "sg_status_list",
+     "sg_hero_focal_length",
      "sg_unit"});
 
 const std::string shotbrowser_datasource_registry{"SHOTBROWSER"};

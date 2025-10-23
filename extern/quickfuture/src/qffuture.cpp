@@ -242,6 +242,7 @@ static QObject *provider(QQmlEngine *engine, QJSEngine *scriptEngine) {
 }
 
 static void init() {
+
     bool called = false;
     if (called) {
         return;
@@ -249,7 +250,8 @@ static void init() {
     called = true;
 
     QCoreApplication* app = QCoreApplication::instance();
-    auto tmp = new QObject(app);
+    auto tmp = new QObject();
+    tmp->moveToThread(QCoreApplication::instance()->thread());
 
     QObject::connect(tmp,&QObject::destroyed,[=]() {
         auto iter = m_wrappers.begin();

@@ -130,7 +130,7 @@ void Buffer::resize(const size_t size) {
     auto old_buffer = buffer_;
     auto old_size   = size_;
     allocate(size);
-    if (old_buffer) {
+    if (old_buffer && old_buffer != buffer_) {
         memcpy(buffer(), old_buffer->data_.get(), std::min(old_size, size_));
         s_buf_cache->store_unwanted_buffer(old_buffer, old_size);
     }
@@ -173,6 +173,18 @@ utility::JsonStore ImageBufPtr::metadata() const {
     return result;
 }
 
+bool ImageBufDisplaySet::has_grid_layout() const {
+
+    // This indicates if the images in a set are all overlaid on each other (e.g. A/B
+    // compare or Over of Off etc) or whether they have different transforms (e.g.
+    // grid mode or PiP)
+    for (int i = 1; i < num_onscreen_images(); ++i) {
+        if (onscreen_image(i).layout_transform() != onscreen_image(0).layout_transform())
+            return true;
+    }
+    return false;
+}
+
 
 void ImageBufDisplaySet::finalise() {
 
@@ -195,6 +207,23 @@ void ImageBufDisplaySet::finalise() {
     as_json_["hero_image_index"]      = hero_sub_playhead_index_;
     as_json_["prev_hero_image_index"] = previous_hero_sub_playhead_index_;
     hash_                             = int64_t(std::hash<std::string>{}(as_json_.dump()));
+}
+
+void ImageSetLayoutData::compute_hash() {
+
+    hash_         = 5831;
+    auto hash_fun = [=](uint8_t *d, size_t l) {
+        while (l--) {
+            hash_ = hash_ * 33 + *(d++);
+        }
+    };
+
+    hash_fun(
+        reinterpret_cast<uint8_t *>(image_transforms_.data()),
+        image_transforms_.size() * sizeof(Imath::M44f));
+    hash_fun(
+        reinterpret_cast<uint8_t *>(image_draw_order_hint_.data()),
+        image_draw_order_hint_.size() * sizeof(int));
 }
 
 MediaReader::MediaReader(std::string name, const utility::JsonStore &)

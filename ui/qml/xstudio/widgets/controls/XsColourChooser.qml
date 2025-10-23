@@ -27,7 +27,7 @@ Rectangle {
             hoverEnabled: true
             onClicked: {
                 colourDialog.currentColour = value
-                colourDialog.open()
+                colourDialog.show()
             }
         }
 

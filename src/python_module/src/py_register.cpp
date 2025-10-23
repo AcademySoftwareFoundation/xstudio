@@ -271,6 +271,7 @@ void register_mediareference_class(py::module &m, const std::string &name) {
     auto str_impl = [](const utility::MediaReference &x) { return to_string(x); };
     py::class_<utility::MediaReference>(m, name.c_str())
         .def(py::init<>())
+        .def(py::init<caf::uri, bool, utility::FrameRate>())
         .def("__str__", str_impl)
         .def("container", &utility::MediaReference::container)
         .def("frame_count", &utility::MediaReference::frame_count)

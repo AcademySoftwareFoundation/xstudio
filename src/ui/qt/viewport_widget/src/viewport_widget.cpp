@@ -78,8 +78,6 @@ void ViewportGLWidget::resizeGL(int w, int h) {
 
 void ViewportGLWidget::paintGL() {
 
-    std::cerr << the_viewport_->name() << " ";
-
     if (live_viewport_) {
         // if we're NOT a live viewport (e.g. offscreen viewport for rendering
         // thumbnails/snapshots) then prepare_render_data has already been
@@ -120,7 +118,7 @@ void ViewportGLWidget::init(caf::actor_system &system) {
     jsn["base"]      = utility::JsonStore();
     jsn["window_id"] = window_name_;
 
-    the_viewport_.reset(new ui::viewport::Viewport(jsn, as_actor()));
+    the_viewport_.reset(new ui::viewport::Viewport(jsn, as_actor(), true));
 
     auto callback = [this](auto &&PH1) {
         receive_change_notification(std::forward<decltype(PH1)>(PH1));

@@ -400,7 +400,7 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
 
              auto prefs = GlobalStoreHelper(system());
              if (not prefs.read_only()) {
-                 auto path  = preference_path("shotbrowser_presets_v1.json");
+                 auto path = preference_path("shotbrowser_presets_v1.json");
                  try {
                      // check dir exists..
                      std::ofstream o(path + ".tmp", std::ofstream::out | std::ofstream::trunc);
@@ -556,15 +556,6 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
              const int record_id,
              const std::vector<std::string> &fields) {
              return mail(atom, entity, record_id, extend_fields(entity, fields))
-                 .delegate(shotgun_);
-         },
-
-         [=](shotgun_entity_filter_atom atom,
-             const std::string &entity,
-             const JsonStore &filter,
-             const std::vector<std::string> &fields,
-             const std::vector<std::string> &sort) {
-             return mail(atom, entity, filter, extend_fields(entity, fields), sort)
                  .delegate(shotgun_);
          },
 
@@ -1078,7 +1069,7 @@ void ShotBrowser::update_preferences(const JsonStore &js) {
             // auto project_presets = preference_value<JsonStore>(
             //     js, "/plugin/data_source/shotbrowser/project_presets");
             auto site_presets = JsonStore(R"([])"_json);
-                // preference_value<JsonStore>(js, "/plugin/data_source/shotbrowser/site_presets");
+            // preference_value<JsonStore>(js, "/plugin/data_source/shotbrowser/site_presets");
 
             auto preset_paths =
                 preference_value<JsonStore>(js, "/plugin/data_source/shotbrowser/preset_paths");
@@ -1097,13 +1088,15 @@ void ShotBrowser::update_preferences(const JsonStore &js) {
                     for (const auto &entry : fs::directory_iterator(path)) {
                         if (fs::is_regular_file(entry.status()) and
                             entry.path().extension() == ".json") {
-                            preset_files[entry.path().filename().string() + entry.path().string()] = entry.path().string();
+                            preset_files
+                                [entry.path().filename().string() + entry.path().string()] =
+                                    entry.path().string();
                         }
                     }
                 }
             }
 
-            for(const auto &i: preset_files) {
+            for (const auto &i : preset_files) {
                 try {
                     auto usp = JsonStore();
                     std::ifstream ifs(i.second);
@@ -1111,18 +1104,16 @@ void ShotBrowser::update_preferences(const JsonStore &js) {
                     site_presets.insert(site_presets.end(), usp.begin(), usp.end());
                 } catch (const std::exception &err) {
                     spdlog::warn(
-                        "Failed to Read {} {} {}",
-                        __PRETTY_FUNCTION__,
-                        i.second,
-                        err.what());
+                        "Failed to Read {} {} {}", __PRETTY_FUNCTION__, i.second, err.what());
                 }
             }
 
 
             auto user_presets = JsonStore();
-            auto prefs = GlobalStoreHelper(system());
+            auto prefs        = GlobalStoreHelper(system());
             if (not prefs.read_only()) {
-                if (auto path = preference_path("shotbrowser_presets_v1.json"); fs::exists(path)) {
+                if (auto path = preference_path("shotbrowser_presets_v1.json");
+                    fs::exists(path)) {
                     try {
                         std::ifstream i(path);
                         i >> user_presets;

@@ -11,15 +11,27 @@ import xstudio.qml.helpers 1.0
 
 
 Item{
+    property bool setupMode: false;
 
     XsGradientRectangle{
         anchors.fill: parent
+    }
+
+    XsLabel {
+        visible: setupMode
+        color: XsStyleSheet.hintColor
+        anchors.fill: parent
+        text: "Tick or untick the heart icon on these Presets to add or remove them from your Replace, Compare and Auto-Conform menus"
+        font.pixelSize: XsStyleSheet.fontSize * 1.5
     }
 
     ColumnLayout {
         anchors.fill: parent
         anchors.rightMargin: panelPadding
         spacing: panelPadding
+
+        enabled: !setupMode
+        visible: enabled
 
         Rectangle{
             Layout.fillWidth: true
@@ -49,6 +61,7 @@ Item{
                     hideEmpty: prefs.hideEmpty
                     showHidden: prefs.showHidden
                     typeFilter: prefs.filterType
+                    locationFilter: prefs.filterLocation
                     unitFilter: {
                         if( projectIndex && projectIndex.model && projectIndex.model.get(projectIndex,"nameRole") in prefs.filterUnit)
                             return prefs.filterUnit[projectIndex.model.get(projectIndex,"nameRole")]
@@ -185,6 +198,16 @@ Item{
             }
 
             XsMenuModelItem {
+                text: "Show Completion Location"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 0.21
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: prefs.showCompletion
+                onActivated: prefs.showCompletion = !prefs.showCompletion
+            }
+
+            XsMenuModelItem {
                 text: "Show Visibility Icon"
                 menuItemType: "toggle"
                 menuPath: ""
@@ -223,7 +246,7 @@ Item{
             }
 
             XsMenuModelItem {
-                text: "Hide Unit"
+                text: "Hide Location"
                 menuItemType: "divider"
                 menuPath: ""
                 menuItemPosition: 1
@@ -231,10 +254,70 @@ Item{
             }
 
             XsMenuModelItem {
-                text: "No Unit"
+                text: "No Location"
                 menuItemType: "toggle"
                 menuPath: ""
                 menuItemPosition: 10
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: sequenceFilterModel && sequenceFilterModel.locationFilter.includes("No Location")
+                onActivated: {
+                    if(isChecked) {
+                        sequenceFilterModel.locationFilter = Array.from(sequenceFilterModel.locationFilter).filter(r => r !== "No Location")
+                    } else {
+                        let tmp = sequenceFilterModel.locationFilter
+                        tmp.push("No Location")
+                        sequenceFilterModel.locationFilter = tmp
+                        prefs.filterLocation = sequenceFilterModel.locationFilter
+                    }
+                }
+            }
+
+            Repeater {
+                model:  DelegateModel {
+                    property var notifyLocationModel: ShotBrowserEngine.ready ? ShotBrowserEngine.presetsModel.termModel("Completion Location") : []
+                    onNotifyLocationModelChanged: {
+                        if(sequenceFilterModel)
+                            sequenceFilterModel.locationFilter = prefs.filterLocation
+                    }
+                    model: notifyLocationModel
+                    delegate :
+                        Item {
+                            XsMenuModelItem {
+                                text: nameRole.toUpperCase()
+                                menuItemType: "toggle"
+                                menuPath: ""
+                                menuItemPosition: index + 10
+                                menuModelName: shotFilterPopup.menu_model_name
+                                isChecked: sequenceFilterModel && sequenceFilterModel.locationFilter.includes(nameRole)
+                                onActivated: {
+                                    if(isChecked) {
+                                        sequenceFilterModel.locationFilter = Array.from(sequenceFilterModel.locationFilter).filter(r => r !== nameRole)
+
+                                    } else {
+                                        let tmp = sequenceFilterModel.locationFilter
+                                        tmp.push(nameRole)
+                                        sequenceFilterModel.locationFilter = tmp
+                                    }
+                                    prefs.filterLocation = sequenceFilterModel.locationFilter
+                                }
+                            }
+                        }
+                }
+            }
+
+            XsMenuModelItem {
+                text: "Hide Unit"
+                menuItemType: "divider"
+                menuPath: ""
+                menuItemPosition: 20
+                menuModelName: shotFilterPopup.menu_model_name
+            }
+
+            XsMenuModelItem {
+                text: "No Unit"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 30
                 menuModelName: shotFilterPopup.menu_model_name
                 isChecked: sequenceFilterModel && sequenceFilterModel.unitFilter.includes("No Unit")
                 onActivated: {
@@ -266,7 +349,7 @@ Item{
                                 text: nameRole
                                 menuItemType: "toggle"
                                 menuPath: ""
-                                menuItemPosition: index + 10
+                                menuItemPosition: index + 40
                                 menuModelName: shotFilterPopup.menu_model_name
                                 isChecked: sequenceFilterModel && sequenceFilterModel.unitFilter.includes(nameRole)
                                 onActivated: {
@@ -464,6 +547,7 @@ Item{
                             delegateModel: sequenceTreeModel
                             selectionModel: sequenceSelectionModel
                             showUnit: prefs.showUnit
+                            showCompletion: prefs.showCompletion
                             showStatus: prefs.showStatus
                             showType: prefs.showType
                             showVisibility: prefs.showVisibility

@@ -39,8 +39,8 @@ XsSplitView { id: viewDiv
         SplitView.minimumWidth: main_split.minimumTreeWidth
         SplitView.preferredWidth: prefs.treePanelWidth
         SplitView.fillHeight: true
-        enabled: currentCategory == "Tree"
-        opacity: currentCategory == "Tree" ? 1.0 : 0.2
+        setupMode: currentCategory != "Tree"
+        // opacity: currentCategory == "Tree" ? 1.0 : 0.2
 
         // visible: currentCategory == "Tree"
 

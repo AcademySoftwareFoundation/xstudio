@@ -32,7 +32,6 @@ NotesHistoryTitleDiv        1.0 notes_history/NotesHistoryTitleDiv.qml
 
 ShotBrowserRoot             1.0 shot_browser/XsShotBrowser.qml
 XsSBCountDisplay            1.0 shot_browser/widgets/XsSBCountDisplay.qml
-XsSBMediaPlayer             1.0 shot_browser/widgets/XsSBMediaPlayer.qml
 XsSBImageViewer             1.0 shot_browser/widgets/XsSBImageViewer.qml
 XsSBL1Tools                 1.0 shot_browser/left_sections/XsSBL1Tools.qml
 XsSBL2V1Tree                1.0 shot_browser/left_sections/XsSBL2V1Tree.qml

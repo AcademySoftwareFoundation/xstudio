@@ -9,9 +9,11 @@ using namespace xstudio::plugin;
 VideoOutputPlugin::VideoOutputPlugin(
     caf::actor_config &cfg,
     const utility::JsonStore &init_settings,
-    const std::string &plugin_name)
+    const std::string &plugin_name,
+    const audio::AudioBehaviourOnSilence audio_mode_on_silence)
     : xstudio::plugin::StandardPlugin(cfg, plugin_name, init_settings),
-      init_settings_store_(init_settings) {
+      init_settings_store_(init_settings),
+      audio_mode_on_silence_(audio_mode_on_silence) {
 
     message_handler_extensions_ = {
         [=](offscreen_viewport_atom, caf::actor offscreen_vp) {
@@ -20,9 +22,6 @@ VideoOutputPlugin::VideoOutputPlugin(
         [=](media_reader::ImageBufPtr incoming) { incoming_video_frame_callback(incoming); },
         [=](const utility::JsonStore &data) { receive_status_callback(data); },
         [=](caf::error &err) {}};
-
-    // this call is essential to set-up the base class
-    make_behavior();
 }
 
 void VideoOutputPlugin::on_exit() {
@@ -31,6 +30,9 @@ void VideoOutputPlugin::on_exit() {
 }
 
 void VideoOutputPlugin::finalise() {
+
+    // this call is essential to set-up the base class
+    make_behavior();
 
     // this ensures 'Attributes' created by derived class get exposed in the UI layer
     connect_to_ui();
@@ -42,7 +44,8 @@ void VideoOutputPlugin::finalise() {
     // tell the studio actor to create an offscreen viewport. It will send
     // us the resulting actor asynchronously as a message which our message
     // handler above will receive
-    mail(offscreen_viewport_atom_v, Module::name() + " viewport")
+    const auto viewport_name = Module::name() + " viewport";
+    mail(offscreen_viewport_atom_v, viewport_name, true)
         .request(studio_ui, infinite)
         .then(
             [=](caf::actor offscreen_vp) {
@@ -82,6 +85,23 @@ void VideoOutputPlugin::start(int frame_width, int frame_height) {
         viewport::RGBA_16 // viewport::RGBA_10_10_10_2 // *see note below
         )
         .send(offscreen_viewport_);
+
+    if (audio_output_) {
+
+        // for some video output plugins, we need audio samples to stream with
+        // video frames even if there is no audio to play (e.g. web streaming
+        // video - we need audio packets in sync with video packets).
+        //
+        // Normally, the audio device actor only starts up its loop to stream
+        // audio when it actually has audio samples coming from the playhead.
+        // If the playhead is paused, or there is playback but media lacks
+        // audio tracks, then we don't start streaming audio samples. But
+        // due to this message here we will get audio samples (silence) regardless
+        // if the AudioDevice has the AudioBehaviourOnSilence flag set to
+        // 'ContinuePushingSamplesOnSilence'
+
+        mail(utility::event_atom_v, playhead::play_atom_v).send(audio_output_);
+    }
 }
 
 void VideoOutputPlugin::stop() {
@@ -98,14 +118,19 @@ void VideoOutputPlugin::video_frame_consumed(const utility::time_point &frame_di
         .send(offscreen_viewport_);
 }
 
-void VideoOutputPlugin::request_video_frame(const utility::time_point &frame_display_time) {
+void VideoOutputPlugin::request_video_frame(
+    const utility::time_point &frame_display_time,
+    const bool return_frame,
+    const bool drop_if_out_of_date) {
 
     // Make an explicit request for the viewport to render a frame that will go on-screen at the
     // given time. The resulting frame is delivered to the subclass via
     // incoming_video_frame_callback
     anon_mail(
         ui::viewport::render_viewport_to_image_atom_v,
-        frame_display_time + std::chrono::milliseconds(video_delay_millisecs_))
+        frame_display_time + std::chrono::milliseconds(video_delay_millisecs_),
+        return_frame,
+        drop_if_out_of_date)
         .send(offscreen_viewport_);
 }
 
@@ -167,4 +192,23 @@ void VideoOutputPlugin::display_info(
     const std::string &serialNumber) {
     anon_mail(screen_info_atom_v, name, model, manufacturer, serialNumber)
         .send(offscreen_viewport_);
+}
+
+void VideoOutputPlugin::viewport_playhead_changed(
+    const std::string &viewport_name, caf::actor playhead) {
+
+    if (viewport_name == (Module::name() + " viewport")) {
+        playhead_changed(playhead);
+    }
+}
+
+void VideoOutputPlugin::set_viewport_post_processor(
+    ViewportFramePostProcessorPtr post_processor) {
+    caf::scoped_actor sys(system());
+    try {
+
+        utility::request_receive<bool>(*sys, offscreen_viewport_, post_processor);
+    } catch (std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
 }

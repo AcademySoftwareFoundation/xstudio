@@ -1,0 +1,60 @@
+{
+	"plugin": {
+		"video_render": {
+			"resolution_options": {
+				"path": "/plugin/video_render/resolution_options",
+				"default_value": [],
+				"description": "List of output resolution options for video renderer",
+				"value": [
+					"1920x1080 (HD)",
+					["1920x1080 (HD)", false],
+					["3840x2160 (UHD)", false],
+					["2048x1080 (DCI 2K)", false],
+					["4096x2160 (DCI 4K)", false]
+				],
+				"datatype": "json",
+				"context": ["PLUGIN"]
+			},
+			"frame_rate_options": {
+				"path": "/plugin/video_render/frame_rate_options",
+				"default_value": [],
+				"description": "List of output frame rate options for video renderer",
+				"value": ["23.976", "24.0", "25.0", "29.97", "30.0", "48.0", "50.0", "59.94", "60.0", "90.0", "100.0", "119.88", "120.0"],
+				"datatype": "json",
+				"context": ["PLUGIN"]
+			},
+			"video_codec_defaults_preset": {
+				"path": "/plugin/video_render/video_codec_defaults_preset",
+				"default_value": [],
+				"description": "List of read-only presets for ffmpeg output codec options (video)",
+				"value": [
+					["H.264 (Film)", "-c:v libx264 -pix_fmt yuv420p -preset medium -tune film", "-c:a aac -ac 2 -ar 44100", "8 bits"],
+					["H.264 (Animation)", "-c:v libx264 -pix_fmt yuv420p -preset medium -tune film", "-c:a aac -ac 2 -ar 44100", "8 bits"],
+					["H.264 (LowQ)", "-c:v libx264 -pix_fmt yuv420p -crf 30", "-c:a aac -ac 2 -ar 44100", "8 bits"],
+					["ProRes 422 HQ ", "-c:v prores_ks -profile:v 3 -vendor apl0 -pix_fmt yuv422p10le", "-c:a aac -ac 2 -ar 44100", "16 bits"],
+					["ProRes 422 LT ", "-c:v prores_ks -profile:v 1 -vendor apl0 -pix_fmt yuv422p10le", "-c:a aac -ac 2 -ar 44100", "16 bits"],
+					["DNxHD 90MB/s (1080p)", "-b:v 90M -pix_fmt yuv422p -c:v dnxhd", "-c:a pcm_s16le -ac 2 -ar 48000", "8 bits"],
+					["DNxHD 120MB/s (1080p)", "-b:v 120M -pix_fmt yuv422p -c:v dnxhd", "-c:a pcm_s16le -ac 2 -ar 48000", "8 bits"],
+					["DNxHD 240MB/s (1080p)", "-b:v 240M -pix_fmt yuv422p -c:v dnxhd", "-c:a pcm_s16le -ac 2 -ar 48000", "8 bits"],
+					["DNxHD 185MB/s 10Bit (1080p)", "-b:v 185M -pix_fmt yuv422p10le -c:v dnxhd", "-c:a pcm_s16le -ac 2 -ar 48000", "16 bits"],
+					["DNxHR HQX 10Bit (UHD)", "-profile dnxhr_hqx -pix_fmt yuv422p10le -c:v dnxhd", "-c:a pcm_s16le -ac 2 -ar 48000", "16 bits"],
+					["DNxHR HQ 10bit (UHD)", "-profile dnxhr_hq -pix_fmt yuv422p -c:v dnxhd", "-c:a pcm_s16le -ac 2 -ar 48000", "8 bits"],
+					["DNxHR SQ 10bit (UHD)", "-profile dnxhr_sq -pix_fmt yuv422p -c:v dnxhd", "-c:a pcm_s16le -ac 2 -ar 48000", "16 bits"]
+				],
+				"datatype": "json",
+				"context": ["PLUGIN"]
+			},
+			"video_codec_user_presets": {
+				"path": "/plugin/video_render/video_codec_user_presets",
+				"default_value": [],
+				"description": "List of user defined presets for ffmpeg output codec options (video)",
+				"value": [
+					"H.264 (Film)",
+					["WebM", "-c:v libvp9 -pix_fmt yuv420p -crf 30", "-c:a libopus -ac 2 -b:a 256k", "8 bits"]
+				],
+				"datatype": "json",
+				"context": ["PLUGIN"]
+			}
+		}
+	}
+}

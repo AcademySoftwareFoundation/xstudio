@@ -14,7 +14,7 @@ Item {
     // 'hotkey' strings.
 
     id: widget
-    height: XsStyleSheet.menuHeight
+    implicitHeight: XsStyleSheet.menuHeight
 
     property var menu_model
     property var menu_model_index

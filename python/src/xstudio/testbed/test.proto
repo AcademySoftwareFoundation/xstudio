@@ -1,0 +1,137 @@
+syntax = "proto3";
+
+package tutorial;
+
+import "google/protobuf/any.proto";
+import "google/protobuf/timestamp.proto";
+
+enum AuthenticationType {
+  AT_UNSPECIFIED = 0;
+  AT_NO_AUTHENTICATION = 1;
+  AT_SCRIPT_KEY = 2;
+  AT_KEY_VALUE = 3;
+}
+
+enum ClientType {
+  CT_UNSPECIFIED = 0;
+  CT_UNAUTHENTICATED = 1;
+  CT_BROWSER = 2;
+  CT_OBSERVER = 3;
+  CT_CONTRIBUTOR = 4;
+  //CT_CONTROLLER = 5;
+  CT_SESSION = 6;
+  CT_SERVER = 7;
+}
+
+message RequestAvailableSessionsMsg {
+    // allows visiblity of sessions using these keys on the server
+    repeated string discovery_keys = 1;
+}
+
+message SessionMsg {
+  string display_name = 1;
+  bool active = 2;
+  optional string session_key = 3;
+  optional string host = 4;
+  optional uint32 port = 5;
+  optional google.protobuf.Timestamp scheduled = 6;
+}
+
+message AvailableSessionsMsg {
+  repeated SessionMsg sessions = 1;
+}
+
+message RequestAuthenticationMsg {
+    // name of client
+    string display_name = 1;
+
+    // when reconnecting
+    optional string client_token = 2;
+
+    // script key
+    optional string script_key = 3;
+}
+
+message RegisterSessionMsg {
+    SessionMsg detail = 1;
+
+    bool hidden = 2;
+    repeated string discovery_keys = 3;
+}
+
+message SessionKeyMsg {
+  string owner_key = 1;
+  string session_key = 2;
+}
+
+message UpdateSessionMsg {
+  SessionKeyMsg key = 1;
+  RegisterSessionMsg detail = 2;
+}
+
+message AuthenticationMethodsMsg {
+  repeated AuthenticationType supported_methods = 1;
+}
+
+message AuthenticatedMsg {
+    string client_token = 1;
+    ClientType client_type = 2;
+}
+
+message ErrorMsg {
+    uint32 code = 1;
+    string text = 2;
+}
+
+message SessionJoinedMsg {
+    ClientType client_type = 1;
+}
+
+message SessionLeftMsg {
+    ClientType client_type = 1;
+}
+
+message ProxyMsg {
+    string session_key = 1;
+}
+
+message MessageMsg {
+    string text = 1;
+}
+
+
+// Encapsulates all messages sent.
+message TheMsg {
+  enum MsgType {
+    MT_UNSPECIFIED = 0;
+    MT_ERROR_MSG = 1;
+
+    MT_REQUEST_AUTHENTICATION_MSG = 10;
+    MT_AUTHENTICATED_MSG = 11;
+    MT_AUTHENTICATION_METHODS_MSG = 12;
+    MT_REQUEST_AVAILABLE_SESSIONS_MSG = 13;
+    MT_AVAILABLE_SESSIONS_MSG = 14;
+
+    MT_REGISTER_SESSION_MSG = 15;
+    MT_UPDATE_SESSION_MSG = 16;
+    MT_UNREGISTER_SESSION_MSG = 17;
+    MT_SESSION_REGISTERED_MSG = 18;
+
+    MT_SESSION_JOINED_MSG = 50;
+    MT_SESSION_LEFT_MSG = 51;
+
+    MT_PROXY_TO_SESSION_MSG=52;
+
+    MT_CHAT_MSG = 200;
+    MT_CHAT_MSGS = 201;
+  }
+
+  // whats in side the mystery box ?
+  MsgType msg_type = 1;
+
+  // Allow sender to track response, server must propergate this.
+  optional uint32 reference = 2;
+
+  // Show me whot you got!
+  google.protobuf.Any body = 3;
+}

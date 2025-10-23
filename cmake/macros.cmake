@@ -398,11 +398,12 @@ macro(create_component NAME VERSION DEPS)
 	create_component_with_alias(${NAME} xstudio::${NAME} ${VERSION} "${DEPS}")
 endmacro()
 
+
 macro(create_component_with_alias NAME ALIASNAME VERSION DEPS)
 
 	project(${NAME} VERSION ${VERSION} LANGUAGES CXX)
 
-	file(GLOB SOURCES  ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+	file(GLOB SOURCES  ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/*.proto)
 
 	add_library(${PROJECT_NAME} SHARED ${SOURCES})
 	add_library(${ALIASNAME} ALIAS ${PROJECT_NAME})

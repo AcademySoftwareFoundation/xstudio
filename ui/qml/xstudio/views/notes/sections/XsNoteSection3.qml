@@ -203,9 +203,15 @@ Rectangle{
             XsSecondaryButton{ id: durLoopDiv
                 anchors.fill: parent
                 text: "Loop"
+                onClicked: {
+                    // what if it's a string out ?
+                    // or not visible
+                    jumpToNote(ownerRole, startFrameRole, frameFromTimecodeRole)
+                    currentPlayhead.loopStartFrame = startFrameRole
+                    currentPlayhead.loopEndFrame = endFrameRole
+                    currentPlayhead.enableLoopRange = true
+                }
             }
         }
-
     }
-
 }

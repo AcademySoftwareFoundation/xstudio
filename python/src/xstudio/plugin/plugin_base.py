@@ -190,7 +190,6 @@ class PluginBase(ModuleBase):
         attribute,
         role
         ):
-
         # check if 'CallbackData' has been set - if the attribute is one of our 
         # qml_item_attrs then we execute the associated callback
         if role == AttributeRole.CallbackData and \

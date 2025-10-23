@@ -97,7 +97,7 @@ Rectangle{
                                     indexes.push(quickResults.index(j,0))
                                 }
                                 if(action == "playlist") {
-                                    ShotBrowserHelpers.addToCurrent(indexes, false, addAfterSelection.value)
+                                    ShotBrowserHelpers.addToCurrent(indexes, false, addMode.value)
                                 } else if(action == "sequence") {
                                     let seq_map = {}
 
@@ -124,7 +124,7 @@ Rectangle{
                                     indexes.push(quickResults.index(j,0))
 
                                 if(action == "playlist") {
-                                    ShotBrowserHelpers.addToCurrent(indexes, false, addAfterSelection.value)
+                                    ShotBrowserHelpers.addToCurrent(indexes, false, addMode.value)
                                 } else if(action == "sequence") {
 
                                 }
@@ -217,7 +217,7 @@ Rectangle{
             XsPrimaryButton{
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                text: "Conform To New Sequence"
+                text: "Conform Selected"
                 onClicked: {
                     if(quickCombo.currentIndex != -1)
                         executeQuery(

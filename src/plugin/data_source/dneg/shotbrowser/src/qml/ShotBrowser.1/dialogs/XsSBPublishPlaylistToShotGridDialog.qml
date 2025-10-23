@@ -52,6 +52,11 @@ XsWindow {
         path: "/plugin/data_source/shotbrowser/browser/project"
     }
 
+    XsPreference {
+        id: loadOnPublishPref
+        path: "/plugin/data_source/shotbrowser/load_playlist_on_publish"
+    }
+
     function updateValidMediaCount(json) {
         try {
             var data = JSON.parse(json)
@@ -77,25 +82,26 @@ XsWindow {
 			project_id,
 			playlist_name,
 			site_name,
-			playlist_type
+			playlist_type,
+            loadOnPublishPref.value ? openOnCreate : null
 		)
 		close()
     }
 
-    // function openOnCreate(json) {
-    //     try {
-    //         var data = JSON.parse(json)
-    //         if(data["data"]["id"]){
-    //         	ShotBrowserHelpers.loadShotGridPlaylist(data["data"]["id"], data["data"]["attributes"]["code"])
-    //         } else {
-    //             console.log(err)
-    //             dialogHelpers.errorDialogFunc("Publish Playlist To ShotGrid", "Publishing of Playlist to ShotGrid failed.\n\n" + data)
-    //         }
-    //     } catch(err) {
-    //     	console.log(err)
-    //         dialogHelpers.errorDialogFunc("Publish Playlist To ShotGrid", "Publishing of Playlist to ShotGrid failed.\n\n" + json)
-    //     }
-    // }
+    function openOnCreate(json) {
+        try {
+            var data = JSON.parse(json)
+            if(data["data"]["id"]){
+            	ShotBrowserHelpers.loadShotGridPlaylist(data["data"]["id"], data["data"]["attributes"]["code"])
+            } else {
+                console.log(err)
+                dialogHelpers.errorDialogFunc("Publish Playlist To ShotGrid", "Publishing of Playlist to ShotGrid failed.\n\n" + data)
+            }
+        } catch(err) {
+        	console.log(err)
+            dialogHelpers.errorDialogFunc("Publish Playlist To ShotGrid", "Publishing of Playlist to ShotGrid failed.\n\n" + json)
+        }
+    }
 
     ColumnLayout {
         anchors.fill: parent

@@ -199,6 +199,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::module, module_add_menu_item_atom);
     ADD_ATOM(xstudio::module, module_remove_menu_item_atom);
     ADD_ATOM(xstudio::module, remove_attribute_atom);
+    ADD_ATOM(xstudio::module, watch_attribute_atom);
     ADD_ATOM(xstudio::module, set_node_data_atom);
 
     ADD_ATOM(xstudio::global, exit_atom);
@@ -274,7 +275,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::json_store, erase_json_atom);
     ADD_ATOM(xstudio::json_store, merge_json_atom);
     ADD_ATOM(xstudio::playhead, actual_playback_rate_atom);
-    ADD_ATOM(xstudio::playhead, buffer_atom);
+    ADD_ATOM(xstudio::playhead, image_buffer_atom);
     ADD_ATOM(xstudio::playhead, child_playheads_deleted_atom);
     ADD_ATOM(xstudio::playhead, compare_mode_atom);
     ADD_ATOM(xstudio::playhead, duration_flicks_atom);
@@ -381,16 +382,17 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::ui::viewport, viewport_layout_atom);
     ADD_ATOM(xstudio::ui::viewport, annotation_atom);
     ADD_ATOM(xstudio::ui::viewport, active_viewport_atom);
+    ADD_ATOM(xstudio::ui::viewport, render_viewport_to_image_atom);
 
     ADD_ATOM(xstudio::ui, show_message_box_atom);
     ADD_ATOM(xstudio::ui, open_quickview_window_atom);
-    
+
     ADD_ATOM(xstudio::ui::keypress_monitor, register_hotkey_atom);
     ADD_ATOM(xstudio::ui::keypress_monitor, hotkey_event_atom);
 
     ADD_ATOM(xstudio::ui::model_data, menu_node_activated_atom);
     ADD_ATOM(xstudio::ui::model_data, insert_rows_atom);
-    
+
     ADD_ATOM(xstudio::ui, set_clipboard_atom);
 
     ADD_ATOM(xstudio::plugin, plugin_events_group_atom);

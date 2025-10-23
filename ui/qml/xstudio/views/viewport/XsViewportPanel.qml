@@ -182,14 +182,13 @@ Rectangle{
                 placement: "top"
             }
 
-            XsViewport { id: viewport
-                z: -100
+            XsViewport { 
+                id: viewport
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Component.onCompleted: {
                     viewportWidget.view = viewport
                 }
-
             }
 
             XsTopBottomDockedTools {

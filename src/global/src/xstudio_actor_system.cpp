@@ -214,7 +214,7 @@ CafActorSystem::~CafActorSystem() {
     // Uncomment to help debug case where shutdown is not clean and
     // actors are not exiting
 #ifdef _WIN32
-// TO DO - Windows build not exiting cleanly. Need to fix.
+    // TO DO - Windows build not exiting cleanly. Need to fix.
     while (the_system_->registry().running()) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
         for (auto &i : the_system_->registry().named_actors()) {

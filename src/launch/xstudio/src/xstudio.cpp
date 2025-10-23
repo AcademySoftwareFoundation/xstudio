@@ -270,6 +270,273 @@ void execute_xstudio_ui(
     spdlog::get("xstudio")->sinks().pop_back();
 }
 
+// CAF actor class that enacts loading media from command line asynchronously.
+// This means that if xstudio is supplied a directory path to scan for media
+// via the CLI it does not pause the UI startup while it is doing the scan.
+class LoaderActor : public caf::event_based_actor {
+  public:
+    LoaderActor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {
+
+        behavior_.assign(
+            [=](caf::actor plugin_manager,
+                caf::actor session,
+                caf::actor playlist,
+                const utility::JsonStore &media,
+                const bool remote,
+                const std::string compare_mode,
+                const bool open_quick_view,
+                const utility::JsonStore in_frame,
+                const utility::JsonStore out_frame) {
+                send_media(
+                    plugin_manager,
+                    session,
+                    playlist,
+                    media,
+                    remote,
+                    compare_mode,
+                    open_quick_view,
+                    in_frame,
+                    out_frame);
+            },
+            [=](bool) -> bool {
+                // this message is used to wait until the LoaderActor is idle
+                return true;
+            });
+    }
+
+    caf::behavior make_behavior() override { return behavior_; }
+
+  private:
+    void send_media(
+        caf::actor plugin_manager,
+        caf::actor session,
+        caf::actor playlist,
+        const utility::JsonStore &media,
+        const bool remote,
+        const std::string compare_mode,
+        const bool open_quick_view,
+        const utility::JsonStore in_frame,
+        const utility::JsonStore out_frame);
+
+    caf::behavior behavior_;
+};
+
+void LoaderActor::send_media(
+    caf::actor plugin_manager,
+    caf::actor session,
+    caf::actor playlist,
+    const utility::JsonStore &__media,
+    const bool remote,
+    const std::string compare_mode,
+    const bool open_quick_view,
+    const utility::JsonStore in_frame,
+    const utility::JsonStore out_frame) {
+
+    scoped_actor self{home_system()};
+
+    std::vector<std::pair<caf::uri, FrameList>> uri_fl;
+    std::vector<std::string> files;
+
+    auto media_rate = request_receive<FrameRate>(*self, session, session::media_rate_atom_v);
+    UuidActorVector added_media;
+
+    std::vector<std::string> media;
+    if (__media.is_array()) {
+        for (int i = 0; i < __media.size(); ++i) {
+            try {
+                media.push_back(__media[i].get<std::string>());
+            } catch (...) {
+            }
+        }
+    }
+
+    for (const auto &p : media) {
+        if (utility::check_plugin_uri_request(p)) {
+            // send to plugin manager..
+            auto uri = caf::make_uri(p);
+            if (uri) {
+                try {
+                    added_media = request_receive<UuidActorVector>(
+                        *self,
+                        plugin_manager,
+                        data_source::use_data_atom_v,
+                        *uri,
+                        session,
+                        playlist,
+                        media_rate);
+                } catch (const std::exception &e) {
+                    spdlog::error("Failed to load media '{}'", e.what());
+                }
+
+            } else {
+                spdlog::warn("Invalid URI {}", p);
+            }
+        } else {
+            // check for dir..
+            try {
+                // test for dir..
+                try {
+
+                    // at this point, we must convert paths from local to
+                    // absolute
+                    std::string _p = p;
+                    if (fs::exists(_p) && fs::path(_p).is_relative()) {
+                        _p = fs::absolute(_p).string();
+                    }
+                    if (fs::is_directory(_p)) {
+                        auto items = scan_posix_path(_p);
+                        uri_fl.insert(uri_fl.end(), items.begin(), items.end());
+                        continue;
+                    } else if (fs::is_regular_file(_p)) {
+                        files.push_back(_p);
+                        continue;
+                    }
+
+                } catch ([[maybe_unused]] const std::exception &err) {
+                }
+
+                // add to scan list..
+                FrameList fl;
+                if (p.find("http") == 0) {
+                    // TODO: extend parse_cli_posix_path to handle http protocol.
+                    auto uri = caf::make_uri(p);
+                    if (uri) {
+                        uri_fl.emplace_back(std::make_pair(*uri, fl));
+                    }
+                } else {
+                    caf::uri uri = parse_cli_posix_path(p, fl, true);
+                    uri_fl.emplace_back(std::make_pair(uri, fl));
+                }
+
+            } catch (const std::exception &e) {
+                spdlog::error("Failed to load media '{}'", e.what());
+            }
+        }
+    }
+
+    if (not files.empty()) {
+        auto file_items = uri_from_file_list(files);
+        uri_fl.insert(uri_fl.end(), file_items.begin(), file_items.end());
+    }
+
+    if (not open_quick_view && not compare_mode.empty()) {
+
+        // To set compare mode, we must have a playhead (which is where
+        // compare mode setting is held)
+
+        // get the playlist's playhead
+        caf::actor playhead =
+            request_receive<UuidActor>(*self, playlist, playlist::get_playhead_atom_v).actor();
+
+        // set the playhead to the given compare mode. The compare mode
+        // attribute is called 'Compare' - we can set it using this handy
+        // message handler inherited from the Module class.
+        anon_mail(
+            module::change_attribute_value_atom_v,
+            std::string("Compare"),
+            utility::JsonStore(compare_mode),
+            true)
+            .send(playhead);
+    }
+
+    for (const auto &i : uri_fl) {
+        try {
+            // spdlog::warn("{}", to_string(i.first));
+
+            // use the stem of the filepath as the name for the media item.
+            // We do a further trim to the first . so that numbered paths
+            // like 'some_exr.####.exr' becomes 'some_exr'
+            const auto path    = fs::path(uri_to_posix_path(i.first));
+            auto filename_stem = path.stem().string();
+            const auto dotpos  = filename_stem.find(".");
+            if (dotpos && dotpos != std::string::npos) {
+                filename_stem = std::string(filename_stem, 0, dotpos);
+            }
+
+            added_media.push_back(request_receive<UuidActor>(
+                *self,
+                playlist,
+                playlist::add_media_atom_v,
+                filename_stem,
+                i.first,
+                i.second,
+                Uuid()));
+
+            if (remote)
+                spdlog::info("{} sent to running session.", uri_to_posix_path(i.first));
+
+        } catch (const std::exception &e) {
+            spdlog::error("Failed to load media '{}'", e.what());
+        }
+    }
+
+    // get the actor that is responsible for selecting items from the playlist
+    // for viewing. If we're doing quickview, we don't want to fiddle with
+    // what's on screen though as the media is going to be shown in a
+    // quickview window anyway.
+    if (not open_quick_view) {
+
+        auto playhead_selection_actor =
+            request_receive<caf::actor>(*self, playlist, playlist::selection_actor_atom_v);
+
+        if (playhead_selection_actor) {
+
+            // Reset the current selection so that the added media is what is
+            // selected.
+            UuidVector selection;
+            if (not compare_mode.empty()) {
+                // if we're doing a compare, select all the new media for
+                // comparison
+                selection.reserve(added_media.size());
+                for (auto &new_media : added_media) {
+                    selection.push_back(new_media.uuid());
+                }
+            } else if (added_media.size()) {
+                // otherwise, select the first media item to whack on screen
+                selection.push_back(added_media.front());
+            }
+            anon_mail(playlist::select_media_atom_v, selection).send(playhead_selection_actor);
+        }
+    }
+
+    if (not open_quick_view) {
+        // now set in/out loop points if specified
+        const int in  = in_frame.is_number() ? in_frame.get<int>() : -1;
+        const int out = out_frame.is_number() ? out_frame.get<int>() : -1;
+        caf::actor playhead =
+            request_receive<UuidActor>(*self, playlist, playlist::get_playhead_atom_v).actor();
+        if (playhead && (in != -1 || out != -1)) {
+            // we delay the send because the playhead will update its in/out
+            // points when new media is shown, so we need to wait until the
+            // new media is set-up in the playhead
+            if (out != -1)
+                anon_mail(playhead::simple_loop_end_atom_v, out)
+                    .delay(std::chrono::milliseconds(500))
+                    .send(playhead);
+            if (in != -1)
+                anon_mail(playhead::simple_loop_start_atom_v, in)
+                    .delay(std::chrono::milliseconds(500))
+                    .send(playhead);
+
+            anon_mail(playhead::use_loop_range_atom_v, true)
+                .delay(std::chrono::milliseconds(500))
+                .send(playhead);
+        }
+    }
+
+    // even if 'open_quick_view' is false, we send a message to the session
+    // because auto-opening of quickview can be controlled via a preference
+    if (open_quick_view) {
+        anon_mail(
+            ui::open_quickview_window_atom_v,
+            added_media,
+            compare_mode,
+            JsonStore(in_frame),
+            JsonStore(out_frame))
+            .send(session);
+    }
+}
+
 
 struct CLIArguments {
     args::ArgumentParser parser = {"xstudio. v" PROJECT_VERSION, "Launchs xstudio."};
@@ -544,30 +811,31 @@ struct Launcher {
         auto pm =
             request_receive<caf::actor>(*self, global_actor, global::get_plugin_manager_atom_v);
 
-
         auto media_sent = false;
         for (const auto &p : actions["playlists"].items()) {
             if (p.value().empty())
                 continue;
 
+            if (!loader) {
+                loader = self->spawn<LoaderActor>();
+            }
+
             // get the playlist to push media to. If p.key() is empty, session
             // will use user prefs to decide which playlist to return.
             caf::actor playlist = request_receive<caf::actor>(
                 *self, session, session::get_push_playlist_atom_v, p.key());
-            ;
 
-            send_media(
-                self,
+            anon_mail(
                 pm,
                 session,
                 playlist,
-                p.value(),
+                utility::JsonStore(p.value()),
                 not actions["new_instance"],
-                actions["compare"],
-                actions["quick_view"],
-                actions["in_frame"],
-                actions["out_frame"]);
-
+                std::string(actions["compare"]),
+                bool(actions["quick_view"]),
+                utility::JsonStore(actions["in_frame"]),
+                utility::JsonStore(actions["out_frame"]))
+                .send(loader);
             media_sent = true;
         }
 
@@ -644,6 +912,7 @@ struct Launcher {
     bool open_session = {false};
     std::string open_session_path;
     caf::actor global_actor;
+    caf::actor loader;
 
     std::vector<std::tuple<std::string, std::string, int, int>> build_targets() {
         std::vector<std::tuple<std::string, std::string, int, int>> targets;
@@ -689,212 +958,15 @@ struct Launcher {
         return targets;
     }
 
-    void send_media(
-        scoped_actor &self,
-        caf::actor plugin_manager,
-        caf::actor session,
-        caf::actor playlist,
-        const std::vector<std::string> &media,
-        const bool remote,
-        const std::string compare_mode,
-        const bool open_quick_view,
-        const nlohmann::json in_frame,
-        const nlohmann::json out_frame) {
-
-        std::vector<std::pair<caf::uri, FrameList>> uri_fl;
-        std::vector<std::string> files;
-
-        auto media_rate =
-            request_receive<FrameRate>(*self, session, session::media_rate_atom_v);
-        UuidActorVector added_media;
-
-        for (const auto &p : media) {
-            if (utility::check_plugin_uri_request(p)) {
-                // send to plugin manager..
-                auto uri = caf::make_uri(p);
-                if (uri) {
-                    try {
-                        added_media = request_receive<UuidActorVector>(
-                            *self,
-                            plugin_manager,
-                            data_source::use_data_atom_v,
-                            *uri,
-                            session,
-                            playlist,
-                            media_rate);
-                    } catch (const std::exception &e) {
-                        spdlog::error("Failed to load media '{}'", e.what());
-                    }
-
-                } else {
-                    spdlog::warn("Invalid URI {}", p);
-                }
-            } else {
-                // check for dir..
-                try {
-                    // test for dir..
-                    try {
-
-                        // at this point, we must convert paths from local to
-                        // absolute
-                        std::string _p = p;
-                        if (fs::exists(_p) && fs::path(_p).is_relative()) {
-                            _p = fs::absolute(_p).string();
-                        }
-                        if (fs::is_directory(_p)) {
-                            auto items = scan_posix_path(_p);
-                            uri_fl.insert(uri_fl.end(), items.begin(), items.end());
-                            continue;
-                        } else if (fs::is_regular_file(_p)) {
-                            files.push_back(_p);
-                            continue;
-                        }
-
-                    } catch ([[maybe_unused]] const std::exception &err) {
-                    }
-
-                    // add to scan list..
-                    FrameList fl;
-                    if (p.find("http") == 0) {
-                        // TODO: extend parse_cli_posix_path to handle http protocol.
-                        auto uri = caf::make_uri(p);
-                        if (uri) {
-                            uri_fl.emplace_back(std::make_pair(*uri, fl));
-                        }
-                    } else {
-                        caf::uri uri = parse_cli_posix_path(p, fl, true);
-                        uri_fl.emplace_back(std::make_pair(uri, fl));
-                    }
-
-                } catch (const std::exception &e) {
-                    spdlog::error("Failed to load media '{}'", e.what());
-                }
-            }
-        }
-
-        if (not files.empty()) {
-            auto file_items = uri_from_file_list(files);
-            uri_fl.insert(uri_fl.end(), file_items.begin(), file_items.end());
-        }
-
-        if (not open_quick_view && not compare_mode.empty()) {
-
-            // To set compare mode, we must have a playhead (which is where
-            // compare mode setting is held)
-
-            // get the playlist's playhead
-            caf::actor playhead =
-                request_receive<UuidActor>(*self, playlist, playlist::get_playhead_atom_v)
-                    .actor();
-
-            // set the playhead to the given compare mode. The compare mode
-            // attribute is called 'Compare' - we can set it using this handy
-            // message handler inherited from the Module class.
-            anon_mail(
-                module::change_attribute_value_atom_v,
-                std::string("Compare"),
-                utility::JsonStore(compare_mode),
-                true)
-                .send(playhead);
-        }
-
-        for (const auto &i : uri_fl) {
-            try {
-                // spdlog::warn("{}", to_string(i.first));
-
-                // use the stem of the filepath as the name for the media item.
-                // We do a further trim to the first . so that numbered paths
-                // like 'some_exr.####.exr' becomes 'some_exr'
-                const auto path    = fs::path(uri_to_posix_path(i.first));
-                auto filename_stem = path.stem().string();
-                const auto dotpos  = filename_stem.find(".");
-                if (dotpos && dotpos != std::string::npos) {
-                    filename_stem = std::string(filename_stem, 0, dotpos);
-                }
-
-                added_media.push_back(request_receive<UuidActor>(
-                    *self,
-                    playlist,
-                    playlist::add_media_atom_v,
-                    filename_stem,
-                    i.first,
-                    i.second,
-                    Uuid()));
-
-                if (remote)
-                    spdlog::info("{} sent to running session.", uri_to_posix_path(i.first));
-
-            } catch (const std::exception &e) {
-                spdlog::error("Failed to load media '{}'", e.what());
-            }
-        }
-
-        // get the actor that is responsible for selecting items from the playlist
-        // for viewing. If we're doing quickview, we don't want to fiddle with
-        // what's on screen though as the media is going to be shown in a
-        // quickview window anyway.
-        if (not open_quick_view) {
-
-            auto playhead_selection_actor =
-                request_receive<caf::actor>(*self, playlist, playlist::selection_actor_atom_v);
-
-            if (playhead_selection_actor) {
-
-                // Reset the current selection so that the added media is what is
-                // selected.
-                UuidVector selection;
-                if (not compare_mode.empty()) {
-                    // if we're doing a compare, select all the new media for
-                    // comparison
-                    selection.reserve(added_media.size());
-                    for (auto &new_media : added_media) {
-                        selection.push_back(new_media.uuid());
-                    }
-                } else if (added_media.size()) {
-                    // otherwise, select the first media item to whack on screen
-                    selection.push_back(added_media.front());
-                }
-                anon_mail(playlist::select_media_atom_v, selection)
-                    .send(playhead_selection_actor);
-            }
-        }
-
-        if (not open_quick_view) {
-            // now set in/out loop points if specified
-            const int in  = in_frame.is_number() ? in_frame.get<int>() : -1;
-            const int out = out_frame.is_number() ? out_frame.get<int>() : -1;
-            caf::actor playhead =
-                request_receive<UuidActor>(*self, playlist, playlist::get_playhead_atom_v)
-                    .actor();
-            if (playhead && (in != -1 || out != -1)) {
-                // we delay the send because the playhead will update its in/out
-                // points when new media is shown, so we need to wait until the
-                // new media is set-up in the playhead
-                if (out != -1)
-                    anon_mail(playhead::simple_loop_end_atom_v, out)
-                        .delay(std::chrono::milliseconds(500))
-                        .send(playhead);
-                if (in != -1)
-                    anon_mail(playhead::simple_loop_start_atom_v, in)
-                        .delay(std::chrono::milliseconds(500))
-                        .send(playhead);
-
-                anon_mail(playhead::use_loop_range_atom_v, true)
-                    .delay(std::chrono::milliseconds(500))
-                    .send(playhead);
-            }
-        }
-
-        // even if 'open_quick_view' is false, we send a message to the session
-        // because auto-opening of quickview can be controlled via a preference
-        if (open_quick_view) {
-            anon_mail(
-                ui::open_quickview_window_atom_v,
-                added_media,
-                compare_mode,
-                JsonStore(in_frame),
-                JsonStore(out_frame))
-                .send(session);
+    void wait_for_loader_to_exit() {
+        if (loader) {
+            scoped_actor self{system};
+            // this call will block until the loader actor has finished
+            // processing any load messages that are in the mailbox queue.
+            // We use this in main() to ensure all load requests have been
+            // processed by a remote xstudio session before we exit
+            request_receive<bool>(*self, loader, true);
+            self->send_exit(loader, caf::exit_reason::user_shutdown);
         }
     }
 
@@ -965,6 +1037,7 @@ int main(int argc, char **argv) {
 
         // add to current session and exit
         if (not l.actions["new_instance"]) {
+            l.wait_for_loader_to_exit();
             CafActorSystem::exit();
             stop_logger();
             std::exit(EXIT_SUCCESS);

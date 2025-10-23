@@ -198,13 +198,19 @@ XsWindow {
                 id: btnCancel
                 text: qsTr("Cancel")
                 width: XsStyleSheet.primaryButtonStdWidth*2
-                onClicked: rejected()
+                onClicked: {
+                    dialog.rejected()
+                    dialog.hide()
+                }
             }
             XsSimpleButton {
                 id: btnToClipboard
                 text: qsTr("Ok")
                 width: XsStyleSheet.primaryButtonStdWidth*2
-                onClicked: accepted()
+                onClicked: {
+                    dialog.accepted()
+                    dialog.hide()
+                }
             }
         }
     }

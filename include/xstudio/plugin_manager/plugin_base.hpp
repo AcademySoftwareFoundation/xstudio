@@ -26,6 +26,11 @@ namespace plugin {
         texture data. This could be useful for doing waveform overlays, for
         example.
 
+        The post_viewport_draw_gpu_hook will be called when the viewport
+        render is complete and the graphics context is still valid. This allows
+        video output plugins to grab framebuffers for encoding to video streams,
+        for example.
+
         Note that plugins can add their own data to media via the bookmarks
         system which will then be available here at draw time as metadata on
         the ImageBufPtr we receive here. */
@@ -34,7 +39,13 @@ namespace plugin {
             const Imath::M44f &transform_window_to_viewport_space,
             const Imath::M44f &transform_viewport_to_image_space,
             const float viewport_du_dpixel,
-            xstudio::media_reader::ImageBufPtr &image) = 0;
+            xstudio::media_reader::ImageBufPtr &image) {}
+
+        virtual void post_viewport_draw_gpu_hook(
+            uint32_t tex_id,
+            uint32_t fbo_id,
+            const media_reader::ImageBufDisplaySetPtr &on_screen_frames,
+            const Imath::M44f &image_transform_matrix) {}
     };
 
     typedef std::shared_ptr<GPUPreDrawHook> GPUPreDrawHookPtr;
@@ -105,7 +116,8 @@ namespace plugin {
             const media_reader::ImageBufPtr & /*image*/,
             const std::string & /*viewport_name*/,
             const utility::Uuid &playhead_uuid,
-            const bool is_hero_image) const {
+            const bool is_hero_image,
+            const bool images_are_in_grid_layout) const {
             return utility::BlindDataObjectPtr();
         }
 
@@ -234,7 +246,24 @@ namespace plugin {
 
         /* Access the plugin events group to broadcast events to other entities
         that may want to interact with the plugin*/
-        caf::actor & plugin_events_group() { return plugin_events_; }
+        caf::actor &plugin_events_group() { return plugin_events_; }
+        typedef std::function<void(
+            const utility::Uuid &attr_id,
+            const int role_id,
+            const utility::JsonStore &role_data)>
+            AttributeChangedFunction;
+
+        /* Use this method to get notification of changes to the data of the
+        named attribute belonging to the provided module actor. The last
+        argument should be a lambda function with the signature
+
+        Returns the  uuid of the attribute being watched. */
+        utility::Uuid watch_attribute(
+            caf::actor module, const std::string &attribute_name, AttributeChangedFunction fn);
+
+        /* Use this method to unwatch any attributes previously watched belonging
+        to the given module actor */
+        void unwatch_attributes(caf::actor module);
 
       private:
         // re-implement to receive callback when the on-screen media changes. To
@@ -258,6 +287,7 @@ namespace plugin {
         caf::actor plugin_events_;
         bool joined_playhead_events_ = {false};
         std::map<std::string, utility::Uuid> last_source_uuid_;
+        std::map<utility::Uuid, AttributeChangedFunction> watched_attr_event_handlers_;
 
         module::BooleanAttribute *viewport_overlay_qml_code_ = nullptr;
     };

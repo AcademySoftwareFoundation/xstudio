@@ -10,8 +10,21 @@ import "."
 Item {
 
     id: hud
-    anchors.fill: parent
     clip: true
+
+    // 'imageBoundary' and 'multiHUD' properties come from the model that
+    // drives creation of XsViewportHUD instances
+    //property var imageBoundary: modelData
+    //property bool multiHUD: false
+
+    property int imageIndex: 0
+
+    x: multiHUD ? imageBoundary.x : 0
+    y: multiHUD ? imageBoundary.y : 0
+    width: multiHUD ? imageBoundary.width : parent.width
+    height: multiHUD ? imageBoundary.height : parent.height
+
+    property var scalingFactor: multiHUD ? imageBoundary.width/1920.0: view.width/1920.0
 
     // here we access attribute data that declares a QML item for drawing
     // overlays into the viewport. Attributes that are added to the
@@ -32,6 +45,13 @@ Item {
             height: parent.height
         }
     }
+
+    // connect to the viewport toolbar data
+    XsModuleData {
+        id: __hud_data_attrs
+        modelDataName: view.name + "_" + imageIndex + "_HUD_ATTRS"
+    }
+    property alias hud_data_attrs: __hud_data_attrs
 
     // connect to the viewport toolbar data
     XsModuleData {

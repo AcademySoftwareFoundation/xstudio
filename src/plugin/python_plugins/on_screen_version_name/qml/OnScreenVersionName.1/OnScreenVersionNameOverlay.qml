@@ -19,9 +19,13 @@ Item {
     width: visible ? text_metrics.width : 0
     height: visible ? text_metrics.height : 0
 
-    // Turning this off for QuickView windows, which won't work due to use
-    // of currentOnScreenMediaData
-    visible: isQuickview ? false : version_name != undefined && opacity != 0.0
+    visible: version_name != undefined && opacity != 0.0
+
+    function setCWidth(ww) {
+        if (ww > cwidth) cwidth = ww
+    }
+
+    property var version_name: "" + media_item_hud_data
 
     Rectangle {
         color: "black"
@@ -29,17 +33,14 @@ Item {
         anchors.fill: parent
     }
 
-    property var media_info: currentOnScreenMediaData.values.mediaDisplayInfoRole
-    property var version_name: media_info ? media_info[3] : ""
-
     XsText {
 
         id: thetext
         anchors.fill: parent
-        font.pixelSize: font_size*view.width/1920
+        font.pixelSize: Math.round(font_size*scalingFactor)
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
-        text: version_name
+        text: version_name ? version_name : ""
         color: font_colour
         onTextChanged: (text)=> {
             root.opacity = 1.0

@@ -844,7 +844,6 @@ bool JSONTreeModel::baseRemoveRows(
 
                 event_send_callback_(event);
             }
-
             beginRemoveRows(parent, row, row + (count - 1));
             removeNodes(row, count, node);
             endRemoveRows();

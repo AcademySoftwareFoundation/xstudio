@@ -100,7 +100,9 @@ OCIOGlobalControls::OCIOGlobalControls(
 
     // For visibility, show the current OCIO environment variable in the preferences
     auto ocio = utility::get_env("OCIO");
-    prefs.set(ocio ? *ocio : "OCIO env var is not set", "/plugin/colour_pipeline/ocio/ocio_env_var/value");
+    prefs.set(
+        ocio ? *ocio : "OCIO env var is not set",
+        "/plugin/colour_pipeline/ocio/ocio_env_var/value");
 
     // Expose list of available configs builtin to OCIO or shipped with xStudio
     utility::JsonStore config_options =
@@ -115,7 +117,8 @@ OCIOGlobalControls::OCIOGlobalControls(
     for (auto const &dir_entry : fs::directory_iterator{ocio_configs_dir}) {
         if (dir_entry.path().extension() == ".ocio") {
             config_options.push_back(dir_entry.path().filename());
-            builting_config_name_to_ui_name_[dir_entry.path().filename().string()] = dir_entry.path().string();
+            builting_config_name_to_ui_name_[dir_entry.path().filename().string()] =
+                dir_entry.path().string();
         }
     }
 
@@ -126,7 +129,7 @@ OCIOGlobalControls::OCIOGlobalControls(
     try {
         const auto &built_in_cfg_reg = OCIO::BuiltinConfigRegistry::Get();
         for (size_t i = 0; i < built_in_cfg_reg.getNumBuiltinConfigs(); ++i) {
-            const auto config_name = built_in_cfg_reg.getBuiltinConfigName(i);
+            const auto config_name    = built_in_cfg_reg.getBuiltinConfigName(i);
             const auto config_ui_name = built_in_cfg_reg.getBuiltinConfigUIName(i);
 
             // Only expose the recommended configs and ignore legacy versions
@@ -163,13 +166,16 @@ OCIOGlobalControls::OCIOGlobalControls(
     default_ocio_config_->set_preference_path(
         "/plugin/colour_pipeline/ocio/default_ocio_config");
 
-    prefs.set(default_config_enabled() ? "multichoice string" : "read only string", "/plugin/colour_pipeline/ocio/default_ocio_config/datatype");
+    prefs.set(
+        default_config_enabled() ? "multichoice string" : "read only string",
+        "/plugin/colour_pipeline/ocio/default_ocio_config/datatype");
 
     custom_ocio_config_ = add_string_attribute("Custom OCIO", "Custom OCIO", "");
-    custom_ocio_config_->set_preference_path(
-        "/plugin/colour_pipeline/ocio/custom_ocio_config");
+    custom_ocio_config_->set_preference_path("/plugin/colour_pipeline/ocio/custom_ocio_config");
 
-    prefs.set(custom_config_enabled() ? "file path" : "read only file path", "/plugin/colour_pipeline/ocio/custom_ocio_config/datatype");
+    prefs.set(
+        custom_config_enabled() ? "file path" : "read only file path",
+        "/plugin/colour_pipeline/ocio/custom_ocio_config/datatype");
 
     // we need to call this base class method before calling insert_menu_item
     make_behavior();
@@ -266,11 +272,14 @@ caf::message_handler OCIOGlobalControls::message_handler_extensions() {
                     const std::string &attr_title,
                     const int attr_role,
                     const utility::JsonStore &attr_value,
-                    const std::string &window_id) {
-                    for (auto &watcher : watchers_) {
-                        if (watcher != current_sender()) {
-                            mail(atom, attr_title, attr_role, attr_value, window_id)
-                                .send(watcher);
+                    const std::string &window_id,
+                    const bool sync_with_others) {
+                    if (sync_with_others) {
+                        for (auto &watcher : watchers_) {
+                            if (watcher != current_sender()) {
+                                mail(atom, attr_title, attr_role, attr_value, window_id)
+                                    .send(watcher);
+                            }
                         }
                     }
                 },
@@ -279,7 +288,8 @@ caf::message_handler OCIOGlobalControls::message_handler_extensions() {
                     const std::string &attr_title,
                     const int attr_role,
                     const utility::JsonStore &attr_value,
-                    const std::string &window_id) {
+                    const std::string &window_id,
+                    const bool sync_with_others) {
                     // we need to store Display and View (per OCIO config) between
                     // xstudio sessions. This attribute has a preference path so
                     // it's value is written (and retrieved from) user prefs.
@@ -296,11 +306,18 @@ caf::message_handler OCIOGlobalControls::message_handler_extensions() {
                             module::Attribute::Value, user_view_display_settings_, false);
                     }
 
-                    for (auto &watcher : watchers_) {
-                        if (watcher != current_sender()) {
-                            mail(
-                                atom, ocio_config, attr_title, attr_role, attr_value, window_id)
-                                .send(watcher);
+                    if (sync_with_others) {
+                        for (auto &watcher : watchers_) {
+                            if (watcher != current_sender()) {
+                                mail(
+                                    atom,
+                                    ocio_config,
+                                    attr_title,
+                                    attr_role,
+                                    attr_value,
+                                    window_id)
+                                    .send(watcher);
+                            }
                         }
                     }
                 }})
@@ -328,9 +345,7 @@ void OCIOGlobalControls::attribute_changed(
         // modify the data type
         prefs.set(
             custom_config_enabled() ? "file path" : "read only file path",
-            "/plugin/colour_pipeline/ocio/custom_ocio_config/datatype"
-            );
-
+            "/plugin/colour_pipeline/ocio/custom_ocio_config/datatype");
     }
 
     if (attribute_uuid == global_view_->uuid()) {
@@ -362,8 +377,7 @@ std::string OCIOGlobalControls::default_ocio_config() {
     }
 
     std::string config_path = custom_ocio_config_->value();
-    if (custom_config_enabled() &&
-        !config_path.empty() &&
+    if (custom_config_enabled() && !config_path.empty() &&
         bad_configs_.find(config_path) == bad_configs_.end()) {
 
         if (config_path.find("file") == 0) {

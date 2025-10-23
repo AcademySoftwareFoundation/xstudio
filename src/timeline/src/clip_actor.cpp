@@ -404,38 +404,54 @@ caf::message_handler ClipActor::message_handler() {
 
         [=](media::acquire_media_detail_atom, const Uuid &uuid) {
             auto actor = caf::actor_cast<caf::actor>(media_);
-            // spdlog::warn("acquire_media_detail_atom {} {}", to_string(uuid),
-            // to_string(actor));
             if (actor) {
+
                 mail(media::media_reference_atom_v, uuid)
                     .request(actor, infinite)
                     .then(
                         [=](const std::pair<Uuid, MediaReference> &ref) {
-                            // spdlog::warn("{}",ref.second.frame_count());
-                            if (ref.second.frame_count()) {
-                                // clear ptr cache
-                                auto tc_start =
-                                    static_cast<int>(ref.second.timecode().total_frames());
+                            if (!ref.second.frame_count()) {
 
-                                // spdlog::warn("{} {} {}", base_.item().name(), tc_start,
-                                // ref.second.timecode().to_string());
+                                mail(media::acquire_media_detail_atom_v, uuid)
+                                    .delay(std::chrono::seconds(1))
+                                    .send(caf::actor_cast<caf::actor>(this));
+                                return;
+                            }
 
-                                // if(base_.item().available_range()) {
-                                //     spdlog::warn("before {} available_range start {} duration
-                                //     {}",
-                                //         base_.item().name(),
-                                //         base_.item().available_range()->frame_start().frames(),
-                                //         base_.item().available_range()->frame_duration().frames()
-                                //     );
-                                //     spdlog::warn("before {} trimmed start {} duration {}",
-                                //         base_.item().name(),
-                                //         base_.item().trimmed_range().frame_start().frames(),
-                                //         base_.item().trimmed_range().frame_duration().frames()
-                                //     );
-                                // }
-                                // else
-                                //     spdlog::warn("no available range
-                                //     {}",base_.item().name());
+                            // timecode defines the start of the available range. For
+                            // example if FPS=24 and TC=00:00:41:17 - tc frames = 1001
+                            // So start of available range will be 1001.0/24.0 seconds.
+                            auto tc_start =
+                                static_cast<int>(ref.second.timecode().total_frames());
+
+                            if (base_.item().available_range()) {
+
+                                // We have already set available range, and now we have a new
+                                // one. This can happen if the media source frame RATE has
+                                // changed, for example. Note that the clip frame rate must not
+                                // change (it should) always match the parent timeline.
+
+                                FrameRange current_available_range =
+                                    *(base_.item().available_range());
+                                FrameRate clip_rate = base_.item().rate();
+
+                                auto jsn = base_.item().set_available_range(FrameRange(
+                                    FrameRate(
+                                        double(tc_start) *
+                                        clip_rate.to_seconds()),      // new start frame
+                                    ref.second.duration().duration(), // new media ref duration
+                                    clip_rate) // clip frame rate must stay unchanged (it should
+                                               // always match the timeline rate)
+                                );
+
+                                if (not jsn.is_null())
+                                    mail(event_atom_v, item_atom_v, jsn, false)
+                                        .send(base_.event_group());
+
+                                base_.override_media_rate(ref.second.duration().rate());
+
+                            } else {
+
 
                                 auto jsn = base_.item().set_available_range(FrameRange(
                                     FrameRateDuration(tc_start, ref.second.duration().rate()),
@@ -443,32 +459,15 @@ caf::message_handler ClipActor::message_handler() {
 
                                 base_.override_media_rate(ref.second.duration().rate());
 
-                                // spdlog::warn("after {} available_range start {} duration {}",
-                                //     base_.item().name(),
-                                //     base_.item().available_range()->frame_start().frames(),
-                                //     base_.item().available_range()->frame_duration().frames()
-                                // );
-                                // spdlog::warn("after {} trimmed start {} duration {}",
-                                //     base_.item().name(),
-                                //     base_.item().trimmed_range().frame_start().frames(),
-                                //     base_.item().trimmed_range().frame_duration().frames()
-                                // );
-
                                 if (not jsn.is_null())
                                     mail(event_atom_v, item_atom_v, jsn, false)
                                         .send(base_.event_group());
-
-                                auto m_actor = system().registry().template get<caf::actor>(
-                                    media_hook_registry);
-                                anon_mail(media_hook::get_clip_hook_atom_v, this).send(m_actor);
-                            } else {
-                                // retry ?
-                                // spdlog::warn("delayed get detail");
-
-                                mail(media::acquire_media_detail_atom_v, uuid)
-                                    .delay(std::chrono::seconds(1))
-                                    .send(caf::actor_cast<caf::actor>(this));
                             }
+
+
+                            auto m_actor = system().registry().template get<caf::actor>(
+                                media_hook_registry);
+                            anon_mail(media_hook::get_clip_hook_atom_v, this).send(m_actor);
                         },
                         [=](const error &err) {
                             // spdlog::warn("errored get detail");
@@ -540,6 +539,9 @@ caf::message_handler ClipActor::message_handler() {
             // has changed that affects colour management, we need to re-gernerate
             // the frame pointers that carry the colour management data to the
             // playhead and up to the viewport.
+
+            mail(media::acquire_media_detail_atom_v, utility::Uuid())
+                .send(caf::actor_cast<caf::actor>(this));
             image_ptr_cache_.clear();
             audio_ptr_cache_.clear();
             mail(event_atom_v, change_atom_v).send(base_.event_group());
@@ -632,7 +634,6 @@ caf::message_handler ClipActor::message_handler() {
                 auto &frame_ptr_cache = media_type == media::MediaType::MT_IMAGE
                                             ? image_ptr_cache_
                                             : audio_ptr_cache_;
-
 
                 // Note: a clip's frame rate may be different to the frame rate
                 // of the media wrapped by the clip. This is how retiming works

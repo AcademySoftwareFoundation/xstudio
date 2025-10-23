@@ -9,6 +9,7 @@ XsPlayhead                1.0 ../session_data/XsPlayhead.qml
 
 XsSessionWindow           1.0 ../windows/XsSessionWindow.qml
 XsFloatingViewWindow      1.0 ../windows/XsFloatingViewWindow.qml
+XsFloatingPanel      	  1.0 ../windows/XsFloatingPanel.qml
 XsGlobalDragDropHandler   1.0 ../windows/drag_drop/XsGlobalDragDropHandler.qml
 XsMainMenuBar             1.0 ../windows/main_menu_bar/XsMainMenuBar.qml
 XsSnippetMenu             1.0 ../windows/main_menu_bar/XsSnippetMenu.qml
@@ -35,6 +36,7 @@ XsPlaylistRemoveMenu      1.0 ../views/playlists/menus/XsPlaylistRemoveMenu.qml
 XsPlaylistsView           1.0 ../views/playlists/XsPlaylists.qml
 
 XsPythonPanel     		  1.0 ../views/python/XsPythonPanel.qml
+
 XsLogPanel     		      1.0 ../views/log/XsLogPanel.qml
 
 XsMarkerMenu        	  1.0 ../views/timeline/XsMarkerMenu.qml
@@ -68,12 +70,16 @@ XsTrackHeader             1.0 ../views/timeline/widgets/XsTrackHeader.qml
 
 XsViewport                1.0 ../views/viewport/XsViewport.qml
 XsViewportPanel           1.0 ../views/viewport/XsViewportPanel.qml
-XsViewerCompareModeButton  1.0 ../views/viewport/widgets/toolbar/XsViewerCompareModeButton.qml
+XsViewerSetMediaFPSPopup  1.0 ../views/viewport/widgets/XsViewerSetMediaFPSPopup.qml
+XsViewerFpsButton         1.0 ../views/viewport/widgets/toolbar/XsViewerFpsButton.qml
+XsViewerCompareModeButton 1.0 ../views/viewport/widgets/toolbar/XsViewerCompareModeButton.qml
 XsViewerMenuButton        1.0 ../views/viewport/widgets/toolbar/XsViewerMenuButton.qml
 XsViewerSourceSelectorButton 1.0 ../views/viewport/widgets/toolbar/XsViewerSourceSelectorButton.qml
 XsViewerHUDButton         1.0 ../views/viewport/widgets/toolbar/XsViewerHUDButton.qml
 XsLeftRightDockedTools    1.0 ../views/viewport/dockedTools/XsLeftRightDockedTools.qml
-XsTopBottomDockedTools 1.0 ../views/viewport/dockedTools/XsTopBottomDockedTools.qml
+XsTopBottomDockedTools    1.0 ../views/viewport/dockedTools/XsTopBottomDockedTools.qml
+XsViewerTimeline          1.0 ../views/viewport/widgets/transport_bar/XsViewerTimeline.qml
+XsMinimalViewport         1.0 ../views/viewport/XsMinimalViewport.qml
 
 XsConformTool             1.0 ../tools/conform/XsConformTool.qml
 XsNotesSingleton          1.0 ../views/notes/XsNotesSingleton.qml
@@ -131,6 +137,7 @@ XsProgressBar             1.0 ../widgets/indicators/XsProgressBar.qml
 
 XsLabel                   1.0 ../widgets/labels/XsLabel.qml
 XsText                    1.0 ../widgets/labels/XsText.qml
+XsTextCopyable            1.0 ../widgets/labels/XsTextCopyable.qml
 XsTextField               1.0 ../widgets/labels/XsTextField.qml
 XsToolTip                 1.0 ../widgets/labels/XsToolTip.qml
 XsTextInput               1.0 ../widgets/labels/XsTextInput.qml

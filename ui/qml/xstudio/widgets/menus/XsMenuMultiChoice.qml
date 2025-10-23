@@ -10,8 +10,9 @@ XsPopup {
     // a list of strings 'choices'
 
     id: the_popup
-    height: view.height+ (topPadding+bottomPadding)
     width: view.width
+
+    implicitHeight: view.height+ (topPadding+bottomPadding)
 
     property var menu_model
     property var menu_model_index
@@ -59,6 +60,7 @@ XsPopup {
             policy: ScrollBar.AlwaysOn
             palette.mid: XsStyleSheet.scrollbarBaseColor
             palette.dark: XsStyleSheet.scrollbarActiveColor
+            animatedGlow: true
         }
 
         // awkward solution to make all items in the list view the

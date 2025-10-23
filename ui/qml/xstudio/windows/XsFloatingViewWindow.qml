@@ -9,10 +9,10 @@ XsWindow {
 
     id: floatingWindow
     title: name
-    minimumWidth: 150
-    minimumHeight: 100
-    property real defaultWidth: 1024
-    property real defaultHeight: 400
+    minimumWidth: content_item && content_item.objectName == "FloatingPanel" ? content_item.minimumWidth : 150
+    minimumHeight: content_item && content_item.objectName == "FloatingPanel" ? content_item.minimumHeight : 100
+    property real defaultWidth: content_item && content_item.objectName == "FloatingPanel" ? content_item.defaultWidth : 1024
+    property real defaultHeight: content_item && content_item.objectName == "FloatingPanel" ? content_item.defaultHeight : 400
 
     property var name // 'view_name' provided by model
     property var content_qml // 'view_qml_source' provided by model
@@ -21,14 +21,14 @@ XsWindow {
     // we need this to wipe hotkey_uuid property that might be visible in the
     // context that created the floating window (and will pollute all buttons
     // with an incorrect hotkey in the tooltip!)
-    property var hotkey_uuid 
+    property var hotkey_uuid
 
     property var user_data: uiLayoutsModel.retrieveFloatingWindowData(name)
     onUser_dataChanged: {
         uiLayoutsModel.storeFloatingWindowData(name, user_data)
     }
 
-    onClosing: { 
+    onClosing: {
         if(typeof window_is_visible != 'undefined')
             window_is_visible = false
     }
@@ -81,8 +81,8 @@ XsWindow {
 
    onActiveFocusItemChanged: {
     if (activeFocusItem == floatingWindow.contentItem) {
-        // if a widget like a text-entry box that's part of a combobox has 
-        // given up its focus, sometimes the window's root contentItem gets 
+        // if a widget like a text-entry box that's part of a combobox has
+        // given up its focus, sometimes the window's root contentItem gets
         // the focus. If this happens we give the focus back to the hotkey
         // area.
         hotkey_area.forceActiveFocus()
@@ -147,7 +147,7 @@ XsWindow {
 
     }
 
-    // If we have a python plugin that provides a 'panel' interface, this function will 
+    // If we have a python plugin that provides a 'panel' interface, this function will
     // allow us to call back to a method on the python plugin class with the given
     // name from QML. Up to 10 arguments may be passed back
     function python_callback(python_func_name, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10) {

@@ -1,4 +1,0 @@
-module DnMask
-
-DnMaskSettingsDialog 1.0 DnMaskSettingsDialog.qml
-DnMaskOverlay 1.0 DnMaskOverlay.qml

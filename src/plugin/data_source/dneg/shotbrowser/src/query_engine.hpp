@@ -107,8 +107,8 @@ const auto ValidTerms = R"_({
         "Preferred Audio",
         "Preferred Visual",
         "Project",
-        "Review Location",
         "Result Limit",
+        "Review Location",
         "Shot Status",
         "Site",
         "Tag",
@@ -137,9 +137,9 @@ const auto ValidTerms = R"_({
         "Recipient",
         "Result Limit",
         "Sequence",
+        "Shot Alternative",
         "Shot Status",
         "Shot",
-        "Shot Alternative",
         "Tag",
         "Twig Name",
         "Twig Type",
@@ -147,8 +147,9 @@ const auto ValidTerms = R"_({
     ],
     "Versions" : [
         "Operator",
-        "Author",
         "Asset",
+        "Asset Type",
+        "Author",
         "Client Filename",
         "Completion Location",
         "Disable Global",
@@ -179,17 +180,18 @@ const auto ValidTerms = R"_({
         "Reference Tag",
         "Reference Tags",
         "Result Limit",
-        "Sent To",
         "Sent To Client",
         "Sent To Dailies",
+        "Sent To",
         "Sequence",
-        "Shot Status",
-        "Shot",
         "Shot Alternative",
+        "Shot Status",
+        "Shot Type",
+        "Shot",
         "Stage",
         "Stalk Uuid",
-        "Tag",
         "Tag (Version)",
+        "Tag",
         "Twig Name",
         "Twig Type",
         "Unit",
@@ -323,6 +325,7 @@ const auto SourceTermValues = R"([
     ])"_json;
 
 const auto TermProperties = R"_({
+    "Asset Type": { "negated": false, "livelink": false },
     "Asset": { "negated": false, "livelink": false },
     "Author": { "negated": null, "livelink": false },
     "Client Filename": { "negated": false, "livelink": null },
@@ -367,9 +370,10 @@ const auto TermProperties = R"_({
     "Sent To Dailies": { "negated": null, "livelink": null },
     "Sent To": { "negated": null, "livelink": null },
     "Sequence": { "negated": false, "livelink": false },
-    "Shot Status": { "negated": false, "livelink": null },
-    "Shot": { "negated": false, "livelink": false },
     "Shot Alternative": { "negated": null, "livelink": true },
+    "Shot Status": { "negated": false, "livelink": null },
+    "Shot Type": { "negated": false, "livelink": false },
+    "Shot": { "negated": false, "livelink": false },
     "Site": { "negated": false, "livelink": null },
     "Stage": { "negated": null, "livelink": null },
     "Stalk Uuid": { "negated": null, "livelink": null },
@@ -378,17 +382,16 @@ const auto TermProperties = R"_({
     "Twig Name": { "negated": false, "livelink": false },
     "Twig Type": { "negated": false, "livelink": false },
     "Unit": { "negated": false, "livelink": null },
-    "Viewable": { "negated": null, "livelink": null },
-    "Version Name": { "negated": false, "livelink": false }
+    "Version Name": { "negated": false, "livelink": false },
+    "Viewable": { "negated": null, "livelink": null }
 })_"_json;
 
 const std::set<std::string> TermHasProjectKey = {
-    "Asset",     "asset",     "Author",       "episode",
-    "Episode",   "group",     "Group",        "playlist",
-    "Playlist",  "Recipient", "sequence",     "Sequence",
-    "shot",      "Shot",      "ShotSequence", "ShotSequenceList",
-    "AssetList", "stage",     "Stage",        "unit",
-    "Unit",      "user",      "User"};
+    "Asset",     "asset",    "Author",    "episode",    "Episode",      "group",
+    "Group",     "playlist", "Playlist",  "Recipient",  "sequence",     "Sequence",
+    "shot",      "Shot",     "Shot Type", "Asset Type", "ShotSequence", "ShotSequenceList",
+    "AssetList", "stage",    "Stage",     "unit",       "Unit",         "user",
+    "User"};
 
 const std::set<std::string> TermHasNoModel = {
     "Client Filename",
@@ -500,6 +503,7 @@ class QueryEngine {
         const utility::JsonStore &metadata,
         const utility::JsonStore &lookup);
 
+
     static std::string
     get_shot_name(const utility::JsonStore &metadata, const bool strict = false) {
         auto name = std::string();
@@ -608,10 +612,20 @@ class QueryEngine {
 
     void set_lookup(const std::string &key, const utility::JsonStore &data);
 
+    void set_shot_sequence_lookup(const std::string &key, const utility::JsonStore &data);
     static void set_shot_sequence_lookup(
         const std::string &key, const utility::JsonStore &data, utility::JsonStore &lookup);
 
-    void set_shot_sequence_lookup(const std::string &key, const utility::JsonStore &data);
+    utility::JsonStore get_user_data() const;
+    bool is_shotgrid_login_allowed() const;
+
+    void set_shot_type_cache(const std::string &key, const utility::JsonStore &data);
+    static void set_shot_type_cache(
+        const std::string &key, const utility::JsonStore &data, utility::JsonStore &lookup);
+
+    void set_asset_type_cache(const std::string &key, const utility::JsonStore &data);
+    static void set_asset_type_cache(
+        const std::string &key, const utility::JsonStore &data, utility::JsonStore &lookup);
 
     static void set_shot_sequence_list_cache(
         const std::string &key, const utility::JsonStore &data, utility::JsonStore &cache);

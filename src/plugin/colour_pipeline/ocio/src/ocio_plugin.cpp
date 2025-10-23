@@ -20,8 +20,9 @@ OCIOColourPipeline::OCIOColourPipeline(
     caf::actor_config &cfg, const utility::JsonStore &init_settings)
     : ColourPipeline(cfg, init_settings) {
 
-    viewport_name_ = init_settings["viewport_name"];
-    window_id_     = init_settings.value("window_id", std::string());
+    viewport_name_    = init_settings["viewport_name"];
+    window_id_        = init_settings.value("window_id", std::string());
+    sync_with_others_ = init_settings.value("join_sync_group", true);
 
     global_controls_ = system().registry().template get<caf::actor>(OCIOGlobalControls::NAME());
     if (!global_controls_) {
@@ -72,6 +73,17 @@ caf::message_handler OCIOColourPipeline::message_handler_extensions() {
 
                        return res;
                    },
+                   [=](global_ocio_controls_atom,
+                       const std::string &_override,
+                       const bool val) {
+                       // special message that lets us force 'force_global_view_'. The video
+                       // renderer uses this to force its colour pipeline to use the global
+                       // view behaviour. This is used by the VideoRenderer, for example,
+                       // because we don't want 'live' View picking during rendering (I think)
+                       if (_override == "force_global_view") {
+                           force_global_view_ = val;
+                       }
+                   },
                    [=](global_ocio_controls_atom, const utility::JsonStore &settings) {
                        if (settings.is_null())
                            return;
@@ -113,8 +125,7 @@ caf::message_handler OCIOColourPipeline::message_handler_extensions() {
                        const utility::JsonStore &attr_value,
                        const std::string &window_id) {
                        // quickview windows DON'T sync OCIO settings
-                       if (window_id_.find("xstudio_quickview_window") != std::string::npos ||
-                           window_id.find("xstudio_quickview_window") != std::string::npos)
+                       if (!sync_with_others_)
                            return;
 
                        auto attr = get_attribute(attr_title);
@@ -130,8 +141,7 @@ caf::message_handler OCIOColourPipeline::message_handler_extensions() {
                        const utility::JsonStore &attr_value,
                        const std::string &window_id) {
                        // quickview windows DON'T sync OCIO settings
-                       if (window_id_.find("xstudio_quickview_window") != std::string::npos ||
-                           window_id.find("xstudio_quickview_window") != std::string::npos)
+                       if (!sync_with_others_)
                            return;
 
                        // snapshot viewport settings don't affect other viewports
@@ -657,6 +667,76 @@ void OCIOColourPipeline::setup_ui() {
     make_attribute_visible_in_viewport_toolbar(saturation_);
 }
 
+utility::JsonStore OCIOColourPipeline::get_display_and_view_options_for_media(
+    const utility::JsonStore &src_colour_mgmt_metadata) const {
+
+    // The video render plugin needs to query the OCIO options available for
+    // a given piece of media, so that they can be presented to the user independently
+    // of the state of the OCIO plugin ...
+
+    const auto config_name = m_engine_.get_ocio_config_name(src_colour_mgmt_metadata);
+
+    // Config has changed, so update views and displays
+    std::vector<std::string> all_colourspaces;
+    std::vector<std::string> displays;
+    std::map<std::string, std::vector<std::string>> display_views;
+
+    m_engine_.get_ocio_displays_view_colourspaces(
+        src_colour_mgmt_metadata, all_colourspaces, displays, display_views);
+
+    // Try to re-use the previously selected display and view (if any)
+    // If no longer available, pick sensible defaults
+    std::string display = display_->value();
+    std::string view    = view_->value();
+    if (std::find(displays.begin(), displays.end(), display) == displays.end()) {
+        display = detect_display(
+            monitor_name_,
+            monitor_model_,
+            monitor_manufacturer_,
+            monitor_serialNumber_,
+            src_colour_mgmt_metadata);
+    }
+
+    if (std::find(display_views[display].begin(), display_views[display].end(), view) ==
+        display_views[display].end()) {
+        view = m_engine_.preferred_view(
+            src_colour_mgmt_metadata,
+            global_settings_.global_view ? "Default" : global_settings_.preferred_view);
+    }
+
+    // we may have used this config before, and stored the display and view settings
+    // against the config. If so, use those stored settings rather than the
+    // preferred/defaults found above
+    try {
+
+        scoped_actor sys{system()};
+
+        auto stored_config_settings = utility::request_receive<utility::JsonStore>(
+            *sys, global_controls_, global_ocio_controls_atom_v, config_name, window_id_);
+
+        if (stored_config_settings.contains("Display")) {
+            display = stored_config_settings["Display"];
+        }
+        if (stored_config_settings.contains("View")) {
+            view = stored_config_settings["View"];
+        }
+
+    } catch (std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+
+    utility::JsonStore result;
+    result["display"]         = display;
+    result["display_options"] = displays;
+    result["view"]            = view;
+    for (const auto &p : display_views) {
+        result["views_per_display"][p.first] = p.second;
+    }
+
+    return result;
+}
+
+
 void OCIOColourPipeline::populate_ui(const utility::JsonStore &src_colour_mgmt_metadata) {
 
     const auto config_name = m_engine_.get_ocio_config_name(src_colour_mgmt_metadata);
@@ -803,10 +883,17 @@ void OCIOColourPipeline::synchronize_attribute(const utility::Uuid &uuid, int ro
     const auto value = utility::JsonStore(attr->role_data_as_json(role));
 
     if (ocio) {
-        mail(global_ocio_controls_atom_v, current_config_name_, title, role, value, window_id_)
+        mail(
+            global_ocio_controls_atom_v,
+            current_config_name_,
+            title,
+            role,
+            value,
+            window_id_,
+            sync_with_others_)
             .send(global_controls_);
     } else {
-        mail(global_ocio_controls_atom_v, title, role, value, window_id_)
+        mail(global_ocio_controls_atom_v, title, role, value, window_id_, sync_with_others_)
             .send(global_controls_);
     }
 }
@@ -824,7 +911,7 @@ std::string OCIOColourPipeline::detect_display(
     const std::string &model,
     const std::string &manufacturer,
     const std::string &serialNumber,
-    const utility::JsonStore &meta) {
+    const utility::JsonStore &meta) const {
 
     std::string detected_display = m_engine_.default_display(meta);
 

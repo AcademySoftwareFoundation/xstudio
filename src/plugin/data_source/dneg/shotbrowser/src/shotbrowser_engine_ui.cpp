@@ -300,27 +300,7 @@ void ShotBrowserEngine::setLiveLinkMetadata(QString &data) {
     }
 }
 
-JsonStore ShotBrowserEngine::getUserData() const {
-    JsonStore result;
-
-    auto users = query_engine_.get_cache("User");
-    if (users) {
-        auto login = get_login_name();
-        try {
-            for (const auto &i : *users) {
-                if (i.at("attributes").at("login") == login) {
-                    result = i;
-                    break;
-                }
-            }
-
-        } catch (const std::exception &err) {
-            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-        }
-    }
-
-    return result;
-}
+JsonStore ShotBrowserEngine::getUserData() const { return query_engine_.get_user_data(); }
 
 QString ShotBrowserEngine::shotGridUserName() {
     QString result = QStringFromStd(get_user_name());
@@ -337,20 +317,8 @@ QString ShotBrowserEngine::shotGridUserName() {
     return result;
 }
 
-QString ShotBrowserEngine::shotGridUserType() {
-    QString result = "User";
-
-    auto jsn = getUserData();
-    if (not jsn.is_null()) {
-        try {
-            result = QStringFromStd(
-                jsn.at("relationships").at("permission_rule_set").at("data").at("name"));
-        } catch (const std::exception &err) {
-            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-        }
-    }
-
-    return QString("REPLACE_WITH_RESULT");
+bool ShotBrowserEngine::shotGridLoginAllowed() {
+    return query_engine_.is_shotgrid_login_allowed();
 }
 
 
@@ -429,7 +397,7 @@ void ShotBrowserEngine::init(caf::actor_system &system) {
 
                             // we can now return correct name
                             emit shotGridUserNameChanged();
-                            emit shotGridUserTypeChanged();
+                            emit shotGridLoginAllowedChanged();
                         }
                     } else if (request.at("type") == "department") {
                         updateQueryValueCache("Department", data);
@@ -522,6 +490,10 @@ void ShotBrowserEngine::init(caf::actor_system &system) {
                     } else if (request.at("type") == "shot") {
                         updateQueryValueCache(
                             "Shot", data, request.at("project_id").get<int>());
+                        updateQueryValueCache(
+                            "Shot Type", data, request.at("project_id").get<int>());
+                        updateQueryValueCache(
+                            "Asset Type", data, request.at("project_id").get<int>());
                     } else if (request.at("type") == "episode") {
                         updateQueryValueCache(
                             "Episode", data, request.at("project_id").get<int>());
@@ -739,6 +711,37 @@ QFuture<bool> ShotBrowserEngine::redoFuture() {
         return result;
     });
 }
+
+QFuture<QVariant>
+ShotBrowserEngine::getIvyVersionFuture(const QString &project, const QUuid &stalk) {
+    return QtConcurrent::run([=]() {
+        auto result = QVariant();
+
+        try {
+            scoped_actor sys{system()};
+
+            auto ivy = system().registry().template get<caf::actor>("IVYDATASOURCE");
+
+            if (not ivy)
+                throw std::runtime_error("Failed to find Ivy Datasource");
+
+            auto jsn = request_receive<JsonStore>(
+                *sys,
+                ivy,
+                data_source::get_data_atom_v,
+                StdFromQString(project),
+                UuidFromQUuid(stalk));
+
+            result = mapFromValue(jsn.at("data").at("versions_by_id").at(0));
+
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+
+        return result;
+    });
+}
+
 
 QFuture<QUrl> ShotBrowserEngine::getSequencePathFuture(
     const QStringList &preferred, const QString &project, const QUuid &stalk) {

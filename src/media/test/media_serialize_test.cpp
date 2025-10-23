@@ -26,7 +26,7 @@ TEST(StreamDetailSerializerTest, Test) {
         FrameRateDuration(10, 1.0),
         "test_stream",
         MT_IMAGE,
-        "{0}@{1}/{2}",
+        "{0}@{1}/{2},{3}",
         Imath::V2f(1920, 1080),
         1.0f,
         1.0);
@@ -75,7 +75,7 @@ TEST(MediaPointerSerializerTest, Test) {
         1,
         timebase::k_flicks_24fps,
         "stream",
-        "{0}@{1}/{2}",
+        "{0}@{1}/{2},{3}",
         "reader",
         caf::actor_addr(),
         JsonStore(

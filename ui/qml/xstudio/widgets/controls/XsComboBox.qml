@@ -80,10 +80,7 @@ ComboBox { id: widget
     }
 
     contentItem:
-    Item {
         TextField{ id: textField
-            anchors.fill: parent
-            anchors.rightMargin: 24
             // placeholderText: defaultText
 
             text: widget.displayText// activeFocus && widget.editable ? widget.displayText : (textMetrics.elidedText ? textMetrics.elidedText : "")
@@ -140,7 +137,6 @@ ComboBox { id: widget
                 opacity: widget.enabled? 0.7 : 0.3
                 scale: 0.99
                 z:-1
-            }
         }
     }
 

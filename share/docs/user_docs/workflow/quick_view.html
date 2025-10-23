@@ -1,26 +1,28 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>QuickView &mdash; xStudio 1.0.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
-      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+  <title>QuickView &mdash; xStudio 1.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=eafc0fe6" />
 
   
-      <script src="../../_static/jquery.js?v=5d32c60e"></script>
-      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=8d563738"></script>
-      <script src="../../_static/doctools.js?v=9bcbadda"></script>
-      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=fc837d61"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Hotkeys" href="hotkeys.html" />
+    <link rel="next" title="Video Output (Rendering)" href="video_output.html" />
     <link rel="prev" title="Grading Tool" href="grading.html" />
     <link href="../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
 
@@ -37,6 +39,9 @@
           <a href="../../index.html" class="icon icon-home">
             xStudio
           </a>
+              <div class="version">
+                1.1.0
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -61,6 +66,7 @@
 <li class="toctree-l4"><a class="reference internal" href="#quickview-from-the-interface">QuickView from the Interface</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="video_output.html">Video Output (Rendering)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="hotkeys.html">Hotkeys</a></li>
 </ul>
 </li>
@@ -128,7 +134,7 @@
 <div class="literal-block-wrapper docutils container" id="id2">
 <div class="code-block-caption"><span class="caption-text">Launch a quickview player</span><a class="headerlink" href="#id2" title="Link to this code"></a></div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">XSTUDIO</span> <span class="o">=</span> <span class="n">Connection</span><span class="p">(</span><span class="n">auto_connect</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">glob</span>
+<span class="kn">import</span> <span class="nn">glob</span>
 <span class="n">renders</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;/Users/joe/reference/water/*wave*.mp4*&quot;</span><span class="p">)</span>
 <span class="c1"># load multiple files into a single QuickView using &#39;Grid&#39; compare</span>
 <span class="n">XSTUDIO</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">quickview_media</span><span class="p">(</span><span class="n">renders</span><span class="p">,</span> <span class="n">compare_mode</span><span class="o">=</span><span class="s2">&quot;Grid&quot;</span><span class="p">)</span>
@@ -150,7 +156,7 @@
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="grading.html" class="btn btn-neutral float-left" title="Grading Tool" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="hotkeys.html" class="btn btn-neutral float-right" title="Hotkeys" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="video_output.html" class="btn btn-neutral float-right" title="Video Output (Rendering)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

@@ -30,6 +30,10 @@ TextField { id: widget
     selectionColor: selectionColorEditing
     placeholderTextColor: textColorHint
 
+    // this is used by XsHotkeyArea (KeyEvenbtsItem C++ class) to tell if a search
+    // bar has focus, and not to grab the keyboard focus if so
+    objectName: "XsSearchBar"
+
     hoverEnabled: true
     selectByMouse: true
     activeFocusOnTab: true

@@ -157,9 +157,10 @@ void OpenGLStrokeRenderer::render_strokes(
     for (const auto &stroke : strokes) {
         const Imath::V2f *v0 = stroke.points.data();
         const Imath::V2f *v1 = v0;
-        if (stroke.points.size() > 1) v1++;
+        if (stroke.points.size() > 1)
+            v1++;
         const int n_segments = std::max(size_t(1), (stroke.points.size() - 1));
-        n_vtx_per_stroke.push_back(n_segments*6);
+        n_vtx_per_stroke.push_back(n_segments * 6);
 
         for (int i = 0; i < n_segments; ++i) {
             line_start_end_per_vertex.push_back(*v0);
@@ -248,8 +249,8 @@ void OpenGLStrokeRenderer::render_strokes(
         p_n_vtx_per_stroke++;
     }
 
-    offset = 0;
-    depth  = 0.0f;
+    offset             = 0;
+    depth              = 0.0f;
     p_n_vtx_per_stroke = n_vtx_per_stroke.begin();
     for (const auto &stroke : strokes) {
 

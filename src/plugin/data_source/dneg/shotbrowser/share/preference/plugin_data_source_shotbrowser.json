@@ -74,6 +74,33 @@
                         "value": "${USER}"
                     }
                 },
+                "transfer": {
+                    "leafs": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "json",
+                        "default_value": [],
+                        "description": "Leaf names for partial transfer.",
+                        "path": "/plugin/data_source/shotbrowser/transfer/leafs",
+                        "display_name": "Transfer Leaf Names",
+                        "options": "import xStudio 1.0; XsJsonPreference {}",
+                        "category": "Shot Browser",
+                        "value": ["movie", "movie_dneg", "review_proxy_1", "review_proxy_2"]
+                    },
+                    "full": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "bool",
+                        "default_value": false,
+                        "description": "Do full transfers.",
+                        "path": "/plugin/data_source/shotbrowser/transfer/full",
+                        "display_name": "Do Full Transfer",
+                        "category": "Shot Browser",
+                        "value":false
+                    }
+                },
                 "download": {
                     "path": {
                         "context": [
@@ -344,8 +371,11 @@
                         ],
                         "datatype": "json",
                         "default_value": [],
-                        "description": "Additional entity properties.",
+                        "description": "Additional Version properties.",
                         "path": "/plugin/data_source/shotbrowser/fields/version",
+                        "options": "import xStudio 1.0; XsJsonPreference {}",
+                        "display_name": "Add Version Properties",
+                        "category": "Shot Browser",
                         "value": []
                     },
                     "note": {
@@ -354,8 +384,11 @@
                         ],
                         "datatype": "json",
                         "default_value": [],
-                        "description": "Additional entity properties.",
+                        "description": "Additional Note properties.",
                         "path": "/plugin/data_source/shotbrowser/fields/note",
+                        "options": "import xStudio 1.0; XsJsonPreference {}",
+                        "display_name": "Add Note Properties",
+                        "category": "Shot Browser",
                         "value": []
                     },
                     "shot": {
@@ -364,8 +397,11 @@
                         ],
                         "datatype": "json",
                         "default_value": [],
-                        "description": "Additional entity properties.",
+                        "description": "Additional Shot properties.",
                         "path": "/plugin/data_source/shotbrowser/fields/shot",
+                        "options": "import xStudio 1.0; XsJsonPreference {}",
+                        "display_name": "Add Shot Properties",
+                        "category": "Shot Browser",
                         "value": []
                     },
                     "playlist": {
@@ -374,22 +410,26 @@
                         ],
                         "datatype": "json",
                         "default_value": [],
-                        "description": "Additional entity properties.",
+                        "description": "Additional Playlist properties.",
                         "path": "/plugin/data_source/shotbrowser/fields/playlist",
+                        "options": "import xStudio 1.0; XsJsonPreference {}",
+                        "display_name": "Add Playlist Properties",
+                        "category": "Shot Browser",
                         "value": []
                     }
                 },
 
-                "add_after_selection": {
+                "add_mode": {
                     "context": [
                         "PLUGIN"
                     ],
-                    "datatype": "bool",
-                    "default_value": true,
-                    "description": "Add new media after selection, if false will add to end.",
-                    "path": "/plugin/data_source/shotbrowser/add_after_selection",
-                    "value": true,
-                    "category": "Pipeline"
+                    "datatype": "multichoice string",
+                    "default_value": "After",
+                    "description": "Location to add new media too.",
+                    "path": "/plugin/data_source/shotbrowser/add_mode",
+                    "value": "After",
+                    "options": ["Front", "After", "End"],
+                    "category": "Shot Browser"
                 },
 
                 "disable_integration": {
@@ -401,7 +441,18 @@
                     "description": "Disable Shotbrowser integration.",
                     "path": "/plugin/data_source/shotbrowser/disable_integration",
                     "value": false,
-                    "category": "Pipeline"
+                    "category": "Shot Browser"
+                },
+                "load_playlist_on_publish": {
+                    "context": [
+                        "PLUGIN"
+                    ],
+                    "datatype": "bool",
+                    "default_value": false,
+                    "description": "Load Playlist on Publish.",
+                    "path": "/plugin/data_source/shotbrowser/load_playlist_on_publish",
+                    "value": false,
+                    "category": "Shot Browser"
                 },
                 "pause_update_on_playing": {
                     "context": [
@@ -412,7 +463,7 @@
                     "description": "Pauses updates whilst playing.",
                     "path": "/plugin/data_source/shotbrowser/pause_update_on_playing",
                     "value": true,
-                    "category": "Pipeline"
+                    "category": "Shot Browser"
                 },
                 "preset_paths": {
                     "context": [

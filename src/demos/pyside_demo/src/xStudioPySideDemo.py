@@ -2,29 +2,23 @@
 '''':
 # Hack to enter the xstudio bob world and set-up environment before running
 # this script again as python
-# if root isn't set
 if [ -z "$XSTUDIO_ROOT" ]
 then
-	# use bob world path
-	if [ ! -z "$BOB_WORLD_SLOT_dneg_xstudio" ]
-	then
-		export XSTUDIO_ROOT=$BOB_WORLD_SLOT_dneg_xstudio/share/xstudio
-		export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$XSTUDIO_ROOT/lib
+    # use bob world path
+    if [ ! -z "$BOB_WORLD_SLOT_dneg_xstudio" ]
+    then
+        export XSTUDIO_ROOT=$BOB_WORLD_SLOT_dneg_xstudio/share/xstudio
+	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$XSTUDIO_ROOT/lib
         exec python "${BASH_SOURCE[0]}" "$@"
-	else
-        exec bob-world -t xstudio-pyside -d /builds/targets/gen-2025-05-20T16:03:54.596603 -- "${BASH_SOURCE[0]}" "$@"
-	fi
+    else
+        exec bob-world -t xstudio-pyside -d /builds/targets/xstudio -- "${BASH_SOURCE[0]}" "$@"
+    fi
 fi
 '''
 
 import sys
 import os
-
-if 'BOB_WORLD_SLOT_dneg_xstudio' in os.environ:
-    os.environ['XSTUDIO_ROOT'] = os.environ['BOB_WORLD_SLOT_dneg_xstudio'] + "/share/xstudio"
-    os.environ['LD_LIBRARY_PATH'] = os.environ['XSTUDIO_ROOT'] + "/lib"
-
-print (os.environ['LD_LIBRARY_PATH'])
+import time
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtWidgets import QMainWindow
@@ -37,10 +31,9 @@ from PySide6.QtWidgets import QLineEdit
 from PySide6.QtWidgets import QFileDialog
 from PySide6.QtCore import QTimer
 from PySide6.QtCore import Qt
-from xstudio.gui import PySideQmlViewport, XstudioPyApp, PlainViewport
-import time
-from xstudio.core import event_atom, add_media_atom, position_atom, duration_frames_atom
 
+from xstudio.gui import XstudioPyApp, PlainViewport
+from xstudio.core import event_atom, add_media_atom, position_atom, duration_frames_atom
 from xstudio.connection import Connection
 from xstudio.api.session.media import Media
 from xstudio.api.app import Viewport
@@ -117,9 +110,9 @@ class XsPysideDemo(QWidget):
         super(XsPysideDemo, self).__init__(parent)
 
         # The xSTUDIO viewport needs a unique ID for the window that it is 
-        # embedded in. This assists the handling of keystrokes, so we know whether
-        # the user hit the 'play' hotkey, for example, in this window or another
-        # window
+        # embedded in. It can be anything as long as it is unique. This assists
+        # the handling of keystrokes, so we know whether the user hit the 'play'
+        # hotkey, for example, in this window or another window
         window_id = str(parent)
 
         self.viewport = PlainViewport(
@@ -193,6 +186,7 @@ class XsPysideDemo(QWidget):
     def makePlaylist(self):
 
         if not XSTUDIO.api.session.playlists:
+
             XSTUDIO.api.session.create_playlist()
             self.playlist = XSTUDIO.api.session.playlists[0]
             self.playhead = self.playlist.playhead
@@ -249,6 +243,7 @@ class XsPysideDemo(QWidget):
 
 if __name__=="__main__":
 
+    # create the Qt App
     app = QApplication(sys.argv)
 
     # this object is required to manage xstudio's core components

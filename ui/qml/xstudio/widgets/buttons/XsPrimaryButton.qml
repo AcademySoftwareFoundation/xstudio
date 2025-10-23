@@ -28,7 +28,7 @@ Button {
     property alias activeIndicator: activeIndicator
     property real rotationAnimDuration: 150
 
-    property color imgOverlayColor: palette.text
+    property alias imgOverlayColor: imageDiv.imgOverlayColor
     property color textColor: palette.text
 
     property color normalColor: XsStyleSheet.controlColour

@@ -66,6 +66,9 @@ void ContactSheetActor::init() {
                 request_receive<bool>(
                     *sys, actor, playlist::add_media_atom_v, media_actors, Uuid());
 
+                // duplicates the selection and playhead state
+                SubsetActor::duplicate_children(actor);
+
                 return UuidActor(uuid, actor);
 
             } catch (const std::exception &err) {

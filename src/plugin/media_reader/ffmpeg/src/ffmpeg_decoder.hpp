@@ -33,6 +33,7 @@ namespace media_reader {
             decode_thumbnail_frame(const int64_t frame_num, const size_t size_hint);
 
             const std::string &path() const { return movie_file_path_; }
+            const std::string &stream_id() const { return stream_id_; }
             int64_t duration_frames() const { return duration_frames_; }
             utility::FrameRate frame_rate(unsigned int stream_idx = UINT_MAX) const;
             utility::Timecode first_frame_timecode();

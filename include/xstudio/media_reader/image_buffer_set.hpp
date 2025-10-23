@@ -17,6 +17,8 @@ namespace media_reader {
         float layout_aspect_;
         utility::JsonStore custom_layout_data_;
         bool draw_hero_overlays_only_;
+        size_t hash_;
+        void compute_hash();
     };
     typedef std::shared_ptr<const ImageSetLayoutData> ImageSetLayoutDataPtr;
 
@@ -98,11 +100,17 @@ namespace media_reader {
             return image_set(hero_sub_playhead_index_)->on_screen_image;
         }
 
+        [[nodiscard]] bool has_grid_layout() const;
+
         [[nodiscard]] ImageBufPtr &onscreen_image_m(const int sub_playhead_index) {
             return image_set(sub_playhead_index)->on_screen_image;
         }
         [[nodiscard]] const utility::JsonStore &as_json() const { return as_json_; }
         [[nodiscard]] size_t images_layout_hash() const { return hash_; }
+
+        [[nodiscard]] size_t full_hash() const {
+            return hash_ + (layout_data_ ? layout_data_->hash_ : size_t(0));
+        }
 
         void set_layout_data(const ImageSetLayoutDataPtr &layout_data) {
             layout_data_ = layout_data;

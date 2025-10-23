@@ -228,6 +228,27 @@ void JsonStoreSync::remove_rows(const int row, const int count, const std::strin
         remove_rows_base(row, count, parent, true, id_, false);
 }
 
+void JsonStoreSync::remove_row(const json::json_pointer &jptr) {
+    std::string parent = "";
+    int row            = 0;
+    if (row_parent(jptr, row, parent))
+        remove_rows(row, 1, parent);
+}
+
+bool JsonStoreSync::row_parent(
+    const nlohmann::json::json_pointer &jptr, int &row, std::string &parent) const {
+    try {
+        parent = jptr.parent_pointer().parent_pointer().to_string();
+        if (parent == "/")
+            parent = "";
+        row = std::stoi(jptr.back());
+    } catch (...) {
+        return false;
+    }
+    return true;
+}
+
+
 void JsonStoreSync::remove_rows_base(
     const int row,
     const int count,
@@ -283,6 +304,18 @@ void JsonStoreSync::set(
 void JsonStoreSync::set(const int row, const nlohmann::json &data, const std::string &parent) {
     set_base(row, data, parent, true, id_, false);
 }
+
+void JsonStoreSync::set(
+    const std::string &key,
+    const nlohmann::json &data,
+    const nlohmann::json::json_pointer &jptr) {
+    std::string parent = "";
+    int row            = 0;
+
+    if (row_parent(jptr, row, parent))
+        set(row, key, data, parent);
+}
+
 
 void JsonStoreSync::set_base(
     const int row,

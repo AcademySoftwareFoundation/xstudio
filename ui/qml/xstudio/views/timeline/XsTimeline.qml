@@ -657,6 +657,45 @@ Rectangle {
         // updateLockFlag()
     }
 
+    XsPreference {
+        id: createTracks
+        path: "/core/sequence/create_tracks"
+    }
+
+    function addCreateTracks(indexes) {
+        let sorted = []
+        for(let i=0; i<indexes.length; ++i)
+            sorted[i] = indexes[i]
+
+        sorted.sort((a,b) => b.row - a.row)
+
+        dialogHelpers.textInputDialog(
+            function(name, button) {
+                if(button == "Create Template") {
+                    let new_entry = {"name": name, "video tracks":[], "audio tracks": []}
+
+                    for(let i=0;i<sorted.length; i++) {
+                        let trk = { "name": "", "colour": "" }
+                        trk.name = theSessionData.get(sorted[i], "nameRole")
+                        trk.colour = theSessionData.get(sorted[i], "flagColourRole")
+                        if(theSessionData.get(sorted[i], "typeRole") == "Video Track")
+                            new_entry["video tracks"].push(trk)
+                        else
+                            new_entry["audio tracks"].insert(0, trk)
+                    }
+
+                    let tmp = JSON.parse(JSON.stringify(createTracks.value));
+                    tmp.push(new_entry);
+                    createTracks.value = tmp;
+                }
+            },
+            "Create Track Template",
+            "Enter a name for your Template.",
+            "",
+            ["Cancel", "Create Template"])
+    }
+
+
     function setItemName(index, name) {
         theSessionData.set(index, name, "nameRole")
     }
@@ -968,6 +1007,40 @@ Rectangle {
         componentName: "Timeline"
     }
 
+    function jumpToNextMarker() {
+        let m = markerModel()
+        let current = timelinePlayhead.logicalFrame;
+        let found = null;
+
+        if(m) {
+            for(let i=0;i<m.length;i++) {
+                let val = m.get(m.index(i, 0), "startRole") / m.get(m.index(i, 0), "rateRole");
+                if(val > current && (found == null || val < found))
+                    found = val
+            }
+        }
+
+        if(found != null)
+            timelinePlayhead.logicalFrame = found
+    }
+
+    function jumpToPreviousMarker() {
+        let m = markerModel()
+        let current = timelinePlayhead.logicalFrame;
+        let found = null;
+
+        if(m) {
+            for(let i=0;i<m.length;i++) {
+                let val = m.get(m.index(i, 0), "startRole") / m.get(m.index(i, 0), "rateRole");
+                if(val < current && (found == null || val > found))
+                    found = val
+            }
+        }
+
+        if(found != null)
+            timelinePlayhead.logicalFrame = found
+    }
+
     function updateItemSelectionHorizontal(l,r) {
         timeline.timelineSelection.select(helpers.createItemSelection(
                 theSessionData.modifyItemSelectionHorizontal(timeline.timelineSelection.selectedIndexes, l, r)
@@ -1093,6 +1166,27 @@ Rectangle {
                 updateItemSelectionHorizontal(1,-1)
         }
     }
+
+    XsHotkey {
+        id: next_marker
+        context: hotkey_area_id
+        sequence:  "Ctrl+RIGHT"
+        name: "Jump To Next Marker"
+        description: "Jump To Next Marker"
+        onActivated: jumpToNextMarker()
+        componentName: "Timeline"
+    }
+
+    XsHotkey {
+        id: previous_marker
+        context: hotkey_area_id
+        sequence:  "Ctrl+LEFT"
+        name: "Jump To Previous Marker"
+        description: "Jump To Previous Marker"
+        onActivated: jumpToPreviousMarker()
+        componentName: "Timeline"
+    }
+
 
     XsHotkey {
         id: expand_next_hotkey

@@ -44,6 +44,12 @@ You must run these commands to add the OpenTimelineIO submodule to the tree and 
     git submodule update
     git apply cmake/otio_patch.diff
 
+### Modify the CMakePresets.json file
+
+Open the CMakePresets.json file (which is in the root of the xstudio repo) in a text editor. You must look for the entry "Qt6_DIR" and modify the value that follows it to point to your installation of the Qt SDK. Specifically, you need to point to a directory named 'Qt6' which is in a directory named 'cmake', which is in a directory named 'lib'. For example, on Windows where user Mary Jane downloaded Qt into the root of her C: drive the entry should look like this:
+
+    "Qt6_DIR": ""C:/Qt6/6.5.3/msvc2019_64/lib/cmake/Qt6",
+
 ### Build xSTUDIO
 
 Run the first cmake command to set-up for building. Note that this cmake command ***may take several hours to complete***. This is because xSTUDIO's dependencies (particularly ffmpeg) take a long time to download and build from the source code, which is what VCPKG is doing.

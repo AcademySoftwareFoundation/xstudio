@@ -426,6 +426,8 @@ namespace ui {
             return caf::uri();
         }
 
+        inline QString encodedFromQUrl(const QUrl &url) { return url.toEncoded(); }
+
         inline QUuid QUuidFromUuid(const utility::Uuid &uuid) {
             return QUuid(QStringFromStd(to_string(uuid)));
         }
@@ -526,7 +528,7 @@ namespace ui {
                 for (const auto &i : urls)
                     uris.push_back(i.toString());
 
-#ifdef __apple__                    
+#ifdef __apple__
                 uris.push_front("-R");
                 return startDetachedProcess("open", uris);
 #elif defined(_WIN32)
@@ -543,7 +545,7 @@ namespace ui {
                      "string:"});
 
                 return startDetachedProcess("dbus-send", arguments);
-#endif                
+#endif
             }
 
             Q_INVOKABLE void setOverrideCursor(const QString &name = "") {
@@ -601,6 +603,10 @@ namespace ui {
             }
             Q_INVOKABLE [[nodiscard]] QModelIndex qModelIndex(const QModelIndex &index) const {
                 return index;
+            }
+
+            Q_INVOKABLE [[nodiscard]] QString encodedFromQUrl(const QUrl &url) const {
+                return url.toEncoded();
             }
 
             Q_INVOKABLE [[nodiscard]] QPersistentModelIndex
@@ -807,6 +813,9 @@ namespace ui {
                 return QColor::fromHslF(h, s, l, a);
             }
 
+            Q_INVOKABLE void
+            moduleCallback(const QString &module_actor, const QVariant cb_data);
+
             Q_INVOKABLE [[nodiscard]] QObject *contextPanel(QObject *obj) const;
 
             Q_INVOKABLE [[nodiscard]] QString contextPanelAddress(QObject *obj) const {
@@ -850,6 +859,11 @@ namespace ui {
                     emit contextChanged();
                 }
             }
+
+          public slots:
+
+            bool grabFocus();
+
           signals:
             void contextChanged();
 
@@ -959,11 +973,15 @@ namespace ui {
             Q_PROPERTY(QString selectionText READ selectionText WRITE setSelectionText NOTIFY
                            selectionChanged)
             Q_PROPERTY(QVariant data READ data WRITE setData NOTIFY dataChanged)
+            Q_PROPERTY(QString html READ html WRITE setHtml NOTIFY dataChanged)
           public:
             explicit ClipboardProxy(QObject *parent = nullptr);
 
             void setDataText(const QString &text);
             [[nodiscard]] QString dataText() const;
+
+            void setHtml(const QString &text);
+            [[nodiscard]] QString html() const;
 
             void setData(const QVariant &data);
             [[nodiscard]] QVariant data() const;

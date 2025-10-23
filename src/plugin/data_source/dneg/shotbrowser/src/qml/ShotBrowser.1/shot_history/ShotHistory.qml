@@ -8,6 +8,7 @@ import QuickPromise 1.0
 import xStudio 1.0
 import xstudio.qml.models 1.0
 import xstudio.qml.helpers 1.0
+import xstudio.qml.viewport 1.0
 import ShotBrowser 1.0
 
 Item{
@@ -47,14 +48,36 @@ Item{
     }
 
     XsPreference {
-        id: addAfterSelection
-        path: "/plugin/data_source/shotbrowser/add_after_selection"
+        id: addMode
+        path: "/plugin/data_source/shotbrowser/add_mode"
     }
 
     XsPreference {
         id: pauseOnPlaying
         path: "/plugin/data_source/shotbrowser/pause_update_on_playing"
     }
+
+    XsHotkeyArea {
+        id: hotkey_area
+        anchors.fill: parent
+        context: "ShotHistory" + panel
+        focus: false
+    }
+
+    Keys.forwardTo: hotkey_area
+
+    XsHotkey {
+        context: "ShotHistory" + panel
+        sequence:  "Ctrl+A"
+        name: "Select All"
+        description: "Select All"
+        onActivated: {
+            resultPopup.popupDelegateModel = listDiv.delegateModel
+            resultPopup.selectAll()
+        }
+        componentName: "ShotHistory"
+    }
+
 
     onOnScreenLogicalFrameChanged: {
         if(visible) {
@@ -269,6 +292,7 @@ Item{
             Layout.fillHeight: true
 
             ShotHistoryListDiv{
+                id: listDiv
                 anchors.fill: parent
                 anchors.leftMargin: 2
                 anchors.topMargin: 2

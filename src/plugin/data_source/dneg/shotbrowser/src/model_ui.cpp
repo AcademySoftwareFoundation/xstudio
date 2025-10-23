@@ -157,6 +157,7 @@ ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src, QStringList &_ty
     // manipulate data into tree structure.
     // spdlog::warn("{}", src.size());
     const static auto sg_shot_type     = json::json_pointer("/attributes/sg_shot_type");
+    const static auto sg_asset_type    = json::json_pointer("/attributes/sg_asset_type");
     const static auto sg_sequence_type = json::json_pointer("/attributes/sg_sequence_type");
 
     auto result = R"([])"_json;
@@ -207,10 +208,15 @@ ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src, QStringList &_ty
                                     for (auto &i : seq["children"]) {
                                         i["hidden"] = false;
                                         if (i.at("type") == "Shot" and not i.count("subtype")) {
-                                            i["subtype"] = i.at(sg_shot_type).is_null()
-                                                               ? "No Type"
-                                                               : i.at(sg_shot_type);
-                                            add_subtype(types, i["subtype"]);
+                                            if (i.at(sg_shot_type).is_null() and
+                                                not i.at(sg_asset_type).is_null()) {
+                                                i["subtype"] = i.at(sg_asset_type);
+                                            } else {
+                                                i["subtype"] = i.at(sg_shot_type).is_null()
+                                                                   ? "No Type"
+                                                                   : i.at(sg_shot_type);
+                                                add_subtype(types, i["subtype"]);
+                                            }
                                         }
                                     }
                                     // seq["children"] =
@@ -247,10 +253,15 @@ ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src, QStringList &_ty
                                     for (auto &i : seq["children"]) {
                                         i["hidden"] = false;
                                         if (i.at("type") == "Shot" and not i.count("subtype")) {
-                                            i["subtype"] = i.at(sg_shot_type).is_null()
-                                                               ? "No Type"
-                                                               : i.at(sg_shot_type);
-                                            add_subtype(types, i["subtype"]);
+                                            if (i.at(sg_shot_type).is_null() and
+                                                not i.at(sg_asset_type).is_null()) {
+                                                i["subtype"] = i.at(sg_asset_type);
+                                            } else {
+                                                i["subtype"] = i.at(sg_shot_type).is_null()
+                                                                   ? "No Type"
+                                                                   : i.at(sg_shot_type);
+                                                add_subtype(types, i["subtype"]);
+                                            }
                                         }
                                     }
                                     // sort_by(shots, nlohmann::json::json_pointer("/name"));
@@ -309,10 +320,16 @@ ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src, QStringList &_ty
                                 i["hidden"] = false;
 
                                 if (i.at("type") == "Shot" and not i.count("subtype")) {
-                                    i["subtype"] = i.at(sg_shot_type).is_null()
-                                                       ? "No Type"
-                                                       : i.at(sg_shot_type);
-                                    add_subtype(types, i["subtype"]);
+
+                                    if (i.at(sg_shot_type).is_null() and
+                                        not i.at(sg_asset_type).is_null()) {
+                                        i["subtype"] = i.at(sg_asset_type);
+                                    } else {
+                                        i["subtype"] = i.at(sg_shot_type).is_null()
+                                                           ? "No Type"
+                                                           : i.at(sg_shot_type);
+                                        add_subtype(types, i["subtype"]);
+                                    }
                                 }
                             }
                             // sort_by(shots, nlohmann::json::json_pointer("/name"));
@@ -453,8 +470,11 @@ QVariant ShotBrowserListModel::data(const QModelIndex &index, int role) const {
     const static auto sg_status_list   = json::json_pointer("/attributes/sg_status_list");
     const static auto sg_description   = json::json_pointer("/attributes/sg_description");
     const static auto sg_shot_type     = json::json_pointer("/attributes/sg_shot_type");
+    const static auto sg_asset_type    = json::json_pointer("/attributes/sg_asset_type");
     const static auto sg_sequence_type = json::json_pointer("/attributes/sg_sequence_type");
     const static auto sg_unit          = json::json_pointer("/relationships/sg_unit/data/name");
+    const static auto sg_primary_shot_location =
+        json::json_pointer("/relationships/sg_primary_shot_location/data/name");
 
     try {
         const auto &j = indexToData(index);
@@ -543,6 +563,12 @@ QVariant ShotBrowserListModel::data(const QModelIndex &index, int role) const {
         case Roles::unitRole:
             if (j.contains(sg_unit))
                 result = QString::fromStdString(j.at(sg_unit).get<std::string>());
+            break;
+
+        case Roles::completionLocationRole:
+            if (j.contains(sg_primary_shot_location))
+                result = QString::fromStdString(
+                    to_upper(j.at(sg_primary_shot_location).get<std::string>()));
             break;
 
         case Roles::subtypeRole:
@@ -742,61 +768,71 @@ QStringList ShotBrowserSequenceFilterModel::hideStatus() const {
 
 bool ShotBrowserSequenceFilterModel::filterAcceptsRow(
     int source_row, const QModelIndex &source_parent) const {
-    auto result       = true;
+    const static auto no_unit     = QString("No Unit");
+    const static auto no_location = QString("No Location");
+    const static auto shot_type   = QString("Shot");
+
+    if (not QSortFilterProxyModel::filterAcceptsRow(source_row, source_parent))
+        return false;
+
     auto source_index = sourceModel()->index(source_row, 0, source_parent);
+    if (source_index.isValid()) {
 
-    // spdlog::warn("{} {} {}", hide_not_favourite_, source_index.isValid(), not
-    // source_index.data(ShotBrowserListModel::Roles::favouriteRole).toBool());
-
-    if (not show_hidden_ and source_index.isValid() and
-        source_index.data(ShotBrowserListModel::Roles::hiddenRole).toBool())
-        return false;
-
-    if (not hide_status_.empty() and source_index.isValid() and
-        hide_status_.count(
-            source_index.data(ShotBrowserListModel::Roles::statusRole).toString()))
-        return false;
-
-    if (not filter_unit_.empty() and sourceModel()) {
-        QModelIndex index = sourceModel()->index(source_row, 0, source_parent);
-        auto value        = index.data(ShotBrowserListModel::Roles::unitRole);
-        auto no_unit      = QVariant::fromValue(QString("No Unit"));
-        auto shot_type    = QVariant::fromValue(QString("Shot"));
-
-        for (const auto &i : filter_unit_)
-            if (i == value)
-                return false;
-            else if (
-                i == no_unit and
-                source_index.data(ShotBrowserListModel::Roles::typeRole) == shot_type and
-                (value.isNull() or value.toString() == QString()))
-                return false;
-    }
-
-    if (not filter_type_.empty() and sourceModel()) {
-        QModelIndex index = sourceModel()->index(source_row, 0, source_parent);
-        auto value        = index.data(ShotBrowserListModel::Roles::subtypeRole);
-
-        for (const auto &i : filter_type_)
-            if (i == value)
-                return false;
-    }
-
-    if (hide_empty_ and source_index.isValid() and
-        source_index.data(ShotBrowserListModel::Roles::typeRole) !=
-            QVariant::fromValue(QString("Shot"))) {
-        auto rc = sourceModel()->rowCount(source_index);
-
-        // check all our children haven't been filtered..
-        auto has_child = false;
-        for (auto i = 0; i < rc and not has_child; i++)
-            has_child = filterAcceptsRow(i, source_index);
-
-        if (not has_child)
+        if (not show_hidden_ and
+            source_index.data(ShotBrowserListModel::Roles::hiddenRole).toBool())
             return false;
+
+        if (not hide_status_.empty() and
+            hide_status_.count(
+                source_index.data(ShotBrowserListModel::Roles::statusRole).toString()))
+            return false;
+
+        if (not filter_type_.empty() and
+            filter_type_set_.count(
+                source_index.data(ShotBrowserListModel::Roles::subtypeRole).toString()))
+            return false;
+
+        if (not filter_location_.empty() and
+            source_index.data(ShotBrowserListModel::Roles::typeRole) == shot_type) {
+            auto value = source_index.data(ShotBrowserListModel::Roles::completionLocationRole)
+                             .toString()
+                             .toLower();
+
+            if (filter_location_set_.count(value))
+                return false;
+
+            if (filter_location_set_.count(no_location) and value == QString())
+                return false;
+        }
+        if (not filter_unit_.empty()) {
+            auto value = source_index.data(ShotBrowserListModel::Roles::unitRole).toString();
+
+            if (filter_unit_set_.count(value))
+                return false;
+
+            if (filter_unit_set_.count(no_unit) and
+                source_index.data(ShotBrowserListModel::Roles::typeRole).toString() ==
+                    shot_type and
+                value == QString())
+                return false;
+            // (value.isNull() or value.toString() == QString()))
+        }
+
+        if (hide_empty_ and
+            source_index.data(ShotBrowserListModel::Roles::typeRole) != shot_type) {
+            auto rc = sourceModel()->rowCount(source_index);
+
+            // check all our children haven't been filtered..
+            auto has_child = false;
+            for (auto i = 0; i < rc and not has_child; i++)
+                has_child = filterAcceptsRow(i, source_index);
+
+            if (not has_child)
+                return false;
+        }
     }
 
-    return QSortFilterProxyModel::filterAcceptsRow(source_row, source_parent);
+    return true;
 }
 
 bool ShotBrowserFilterModel::filterAcceptsRow(

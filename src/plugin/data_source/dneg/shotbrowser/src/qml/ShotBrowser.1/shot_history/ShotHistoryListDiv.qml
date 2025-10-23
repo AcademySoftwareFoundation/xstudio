@@ -6,10 +6,13 @@ import QtQuick.Controls.Basic
 import xStudio 1.0
 import ShotBrowser 1.0
 
-XsListView { id: list
+XsListView { 
+    id: list
     spacing: panelPadding
     property int rightSpacing: list.height < list.contentHeight ? 12 : 0
     Behavior on rightSpacing {NumberAnimation {duration: 150}}
+
+    property alias delegateModel: chooserModel
 
     ScrollBar.vertical: XsScrollBar {
         visible: list.height < list.contentHeight
@@ -19,11 +22,11 @@ XsListView { id: list
         anchors.bottom: list.bottom
     }
 
-    XsSBMediaPlayer {
+    XsMinimalViewport {
         id: mediaPlayer
-        anchors.fill: parent
+        anchors.fill: list
         visible: false
-        onEject: visible = false
+        z: 100
     }
 
     function playMovie(path) {
@@ -56,7 +59,7 @@ XsListView { id: list
         font.weight: Font.Medium
     }
 
-    model: DelegateModel {
+    DelegateModel {
         id: chooserModel
         model: dataModel
         delegate: ShotHistoryListDelegate{
@@ -67,5 +70,7 @@ XsListView { id: list
             onPlayMovie: (path) => list.playMovie(path)
         }
     }
+
+    model: chooserModel
 }
 

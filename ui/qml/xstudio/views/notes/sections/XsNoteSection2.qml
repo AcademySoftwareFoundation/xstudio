@@ -35,6 +35,9 @@ Rectangle{
                     focus: false
                     color: highlightColor
                     text: subjectRole
+                    onEditingFinished: subjectRole = text
+                    onFocusChanged: subjectRole = text
+
                     height: parent.height
                 }
             }
@@ -95,7 +98,7 @@ Rectangle{
                     onFocusChanged: if(focus) forceActiveFocus()
 
                     // N.B. It's possible for the user to finish entering text
-                    // but we don't get the onEditingFinished signal - it 
+                    // but we don't get the onEditingFinished signal - it
                     // depends on where they go next with the mouse pointer.
                     // For this reason we 'brute force' update the backend
                     // noteRole but do it with a timer so it's not too
@@ -110,7 +113,6 @@ Rectangle{
                         // user is entering text - push the entered text to
                         // the backend but not on every key stroke
                         if (activeFocus && !update_backend_timer.running) {
-                            console.log("Starting timer")
                             update_backend_timer.running = true
                         }
                     }
@@ -122,7 +124,6 @@ Rectangle{
                         repeat: false
                         onTriggered: {
                             if (noteRole != notesEdit.text) {
-                                console.log("Setting backend")
                                 noteRole = notesEdit.text
                             }
                         }

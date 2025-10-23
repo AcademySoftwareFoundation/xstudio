@@ -126,6 +126,7 @@ class ViewportFieldChart(HUDPlugin):
                     __active_charts.append(m[c])
             self.active_charts.set_value(__active_charts)
             self.all_charts.set_value(m)
+        super(ViewportFieldChart, self).attribute_changed(attr, role)
 
 
 

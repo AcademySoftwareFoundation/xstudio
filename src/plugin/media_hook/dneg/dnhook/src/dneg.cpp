@@ -88,7 +88,6 @@ class DNegMediaHook : public MediaHook {
         auto_trim_slate_ = add_boolean_attribute("Auto Trim Slate", "Auto Trim Slate", true);
 
         auto_trim_slate_->set_preference_path("/plugin/dneg_media_hook/auto_trim_slate");
-        auto_trim_slate_->expose_in_ui_attrs_group("media_hook_settings");
         auto_trim_slate_->set_tool_tip(
             "Some DNEG pipeline movies have metadata indicating if there is a slate frame. "
             "Enable this option to use the metadata to automatically trim the slate.");
@@ -96,7 +95,6 @@ class DNegMediaHook : public MediaHook {
         adjust_timecode_ = add_boolean_attribute("Adjust Timecode", "Adjust Timecode", false);
 
         adjust_timecode_->set_preference_path("/plugin/dneg_media_hook/adjust_timecode");
-        adjust_timecode_->expose_in_ui_attrs_group("media_hook_settings");
         adjust_timecode_->set_tool_tip("Use timeline_range from pipequery to adjust timecode.");
 
         slate_trim_behaviour_ = add_string_choice_attribute(
@@ -111,7 +109,6 @@ class DNegMediaHook : public MediaHook {
 
         slate_trim_behaviour_->set_preference_path(
             "/plugin/dneg_media_hook/default_trim_slate_behaviour");
-        slate_trim_behaviour_->expose_in_ui_attrs_group("media_hook_settings");
     }
     ~DNegMediaHook() override = default;
 
@@ -373,7 +370,8 @@ class DNegMediaHook : public MediaHook {
         static const std::regex show_shot_alternative_regex(
             R"(.+-([^-]+)-([^-]+)\.dneg\.webm$)");
 
-        if (std::regex_search(path, match, show_shot_edit_ref_regex) && match[1] == "FUR") {
+        if (std::regex_search(path, match, show_shot_edit_ref_regex) &&
+            (match[1] == "FUR" || match[1] == "ANDS")) {
             // FUR includes the Client_Graded_Rec709 space which fully inverts
             // the client look (including primary CDL). Detecting the SHOT for
             // edit ref will correctly allow to preview the Client look under the
@@ -411,10 +409,10 @@ class DNegMediaHook : public MediaHook {
             r["pipeline_version"] = pipeline_version_str;
 
             int pipeline_version = 1;
-            bool is_cms1_config = false;
+            bool is_cms1_config  = false;
             try {
                 pipeline_version = std::stoi(pipeline_version_str);
-                is_cms1_config = pipeline_version >= 2;
+                is_cms1_config   = pipeline_version >= 2;
             } catch (std::exception &) {
                 // pass
             }
@@ -485,6 +483,24 @@ class DNegMediaHook : public MediaHook {
                     media_view       = tags.get_or("dneg/ocio_view", std::string(""));
                 } catch (...) {
                 }
+            } else if (ext == ".exr") {
+
+                try {
+                    const utility::JsonStore &media = metadata.at("metadata").at("media");
+                    for (auto &item : media.items()) {
+                        // Sample the first frame found (assuming sequence have consistent
+                        // colour space)
+                        if (utility::starts_with(item.key(), "@")) {
+                            media_colorspace = item.value()
+                                                   .at("headers")
+                                                   .at(0)
+                                                   .at("dneg/ocio_colorspace")
+                                                   .at("value");
+                            break;
+                        }
+                    }
+                } catch (...) {
+                }
             }
 
             // Note that we prefer using input_colorspace when possible,
@@ -525,7 +541,9 @@ class DNegMediaHook : public MediaHook {
                 }
             } else if (input_category == "edit_ref" || input_category == "movie_media") {
                 if (is_cms1_config) {
-                    r["input_colorspace"] = "Client_Graded_Rec709:Client_Rec709";
+                    // If Client view is not available on the show, fallback to DNEG for
+                    // linearisation
+                    r["input_colorspace"] = "Client_Graded_Rec709:Client_Rec709:DNEG_Rec709";
                 } else {
                     r["input_display"] = "Rec709";
                     r["input_view"]    = "Film";
@@ -581,7 +599,6 @@ class DNegMediaHook : public MediaHook {
             r["ocio_config"]   = "__raw__";
             r["working_space"] = "raw";
         }
-        std::cerr << "\n\nR " << r.dump() << "\n";
         return r;
     }
 

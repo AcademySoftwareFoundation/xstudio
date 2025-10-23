@@ -90,6 +90,7 @@ XsPopup {
             policy: ScrollBar.AlwaysOn
             palette.mid: XsStyleSheet.scrollbarBaseColor
             palette.dark: XsStyleSheet.scrollbarActiveColor
+            animatedGlow: true
         }
 
         property real minWidth: 20

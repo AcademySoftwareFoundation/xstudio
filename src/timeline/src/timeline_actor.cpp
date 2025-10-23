@@ -35,9 +35,7 @@ using namespace xstudio::timeline;
 
 namespace {
 
-auto __sysclock_now() {
-    return sysclock::now();
-}
+auto __sysclock_now() { return sysclock::now(); }
 
 const static auto COLOUR_JPOINTER  = nlohmann::json::json_pointer("/xstudio/colour");
 const static auto LOCKED_JPOINTER  = nlohmann::json::json_pointer("/xstudio/locked");
@@ -534,12 +532,17 @@ void process_item(
             }
 
             // active_path maybe relative..
-            if (not active_path.empty() and not caf::make_uri(active_path) and active_path.find("http") != 0) {
+            if (not active_path.empty() and not caf::make_uri(active_path) and
+                active_path.find("http") != 0) {
                 // not uri....
                 // assume relative ?
-                auto tmp       = uri_to_posix_path(path);
-                auto const pos = tmp.find_last_of('/');
-                active_path    = "file://" + tmp.substr(0, pos + 1) + active_path;
+                if (active_path[0] != '/') {
+                    auto tmp       = uri_to_posix_path(path);
+                    auto const pos = tmp.find_last_of('/');
+                    active_path    = "file://" + tmp.substr(0, pos + 1) + active_path;
+                } else {
+                    active_path = "file://" + active_path;
+                }
             }
 
             if (active_path.empty() or not media_lookup.count(active_path)) {
@@ -856,12 +859,16 @@ void timeline_importer(
         }
 
         // active_path maybe relative..
-        if (not caf::make_uri(active_path)) {
+        if (not active_path.empty() and not caf::make_uri(active_path)) {
             // not uri....
             // assume relative ?
-            auto tmp       = uri_to_posix_path(path);
-            auto const pos = tmp.find_last_of('/');
-            active_path    = "file://" + tmp.substr(0, pos + 1) + active_path;
+            if (active_path[0] != '/') {
+                auto tmp       = uri_to_posix_path(path);
+                auto const pos = tmp.find_last_of('/');
+                active_path    = "file://" + tmp.substr(0, pos + 1) + active_path;
+            } else {
+                active_path = "file://" + active_path;
+            }
         }
 
         // WARNING this may inadvertantly skip auxiliary sources we want..
@@ -895,12 +902,16 @@ void timeline_importer(
                     dynamic_cast<otio::ExternalReference *>(mr.second))) {
 
                 auto uri = caf::make_uri(ext->target_url());
-                if (!uri) {
+                if (not uri) {
                     // not uri....
                     // assume relative ?
-                    auto tmp       = uri_to_posix_path(path);
-                    auto const pos = tmp.find_last_of('/');
-                    uri = posix_path_to_uri(tmp.substr(0, pos + 1) + ext->target_url());
+                    if (not ext->target_url().empty() and ext->target_url()[0] != '/') {
+                        auto tmp       = uri_to_posix_path(path);
+                        auto const pos = tmp.find_last_of('/');
+                        uri = posix_path_to_uri(tmp.substr(0, pos + 1) + ext->target_url());
+                    } else {
+                        uri = posix_path_to_uri(ext->target_url());
+                    }
                 }
 
                 if (uri) {
@@ -2160,9 +2171,11 @@ caf::message_handler TimelineActor::message_handler() {
             return rp;
         },
 
-        [=](playlist::create_playhead_atom) -> UuidActor {
+        [=](playlist::create_playhead_atom) -> result<UuidActor> {
             if (playhead_)
                 return playhead_;
+
+            auto rp = make_response_promise<UuidActor>();
 
             auto uuid = Uuid::generate();
 
@@ -2179,23 +2192,36 @@ caf::message_handler TimelineActor::message_handler() {
                 caf::actor_cast<caf::actor_addr>(this));
 
             link_to(playhead_actor);
+            playhead_ = UuidActor(uuid, playhead_actor);
 
             anon_mail(playhead::playhead_rate_atom_v, base_.rate()).send(playhead_actor);
 
+            auto finalise = [=]() mutable {
+                mail(module::deserialise_atom_v, playhead_serialisation_)
+                    .request(playhead_.actor(), infinite)
+                    .then(
+                        [=](bool) mutable { rp.deliver(playhead_); },
+                        [=](caf::error &err) mutable {
+                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            rp.deliver(playhead_);
+                        });
+            };
+
             // now make this timeline and its vide tracks the source for the playhead
             video_tracks_ = base_.item().find_all_uuid_actors(IT_VIDEO_TRACK, true);
-            anon_mail(
+            mail(
                 playhead::source_atom_v,
                 UuidActor(base_.uuid(), caf::actor_cast<caf::actor>(this)),
                 video_tracks_)
-                .send(playhead_actor);
+                .request(playhead_actor, infinite)
+                .then(
+                    [=](bool) mutable { finalise(); },
+                    [=](caf::error &err) mutable {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        finalise();
+                    });
 
-            playhead_ = UuidActor(uuid, playhead_actor);
-            if (!playhead_serialisation_.is_null()) {
-                anon_mail(module::deserialise_atom_v, playhead_serialisation_)
-                    .send(playhead_.actor());
-            }
-            return playhead_;
+            return rp;
         },
 
         [=](playlist::get_playhead_atom) {
@@ -2422,6 +2448,8 @@ caf::message_handler TimelineActor::message_handler() {
                     anon_mail(item_prop_atom_v, tprop).send(actor);
                 }
 
+                duplicate_playhead(actor);
+
                 // enable history
                 anon_mail(plugin_manager::enable_atom_v, true).send(hactor.actor());
 
@@ -2626,7 +2654,11 @@ caf::message_handler TimelineActor::message_handler() {
 
         [=](playlist::select_all_media_atom) {},
 
-        [=](playlist::select_media_atom, const UuidList &media_uuids) {},
+        [=](playlist::select_media_atom atom, const UuidList &media_uuids) {
+            // returns bool
+            return mail(atom, media_uuids)
+                .delegate(caf::actor_cast<caf::actor>(selection_actor_));
+        },
 
         [=](playlist::select_media_atom) {},
 
@@ -3607,4 +3639,36 @@ void TimelineActor::export_otio(
     auto global = system().registry().template get<caf::actor>(global_registry);
     auto epa    = request_receive<caf::actor>(*sys, global, global::get_python_atom_v);
     rp.delegate(epa, session::export_atom_v, otio_str, path, type, target_schema);
+}
+
+void TimelineActor::duplicate_playhead(caf::actor duplicated_timeline) {
+
+    caf::scoped_actor sys(system());
+    try {
+        auto dup_playhead = request_receive<utility::UuidActor>(
+                                *sys, duplicated_timeline, playlist::create_playhead_atom_v)
+                                .actor();
+
+        if (playhead_) {
+            // serialise our playhead
+            playhead_serialisation_ =
+                request_receive<utility::JsonStore>(*sys, playhead_, utility::serialise_atom_v);
+        }
+
+        if (!playhead_serialisation_.is_null()) {
+            // use our playhead serialisation to set the state of the duplicated
+            // subset's playhead
+            request_receive<bool>(
+                *sys, dup_playhead, module::deserialise_atom_v, playhead_serialisation_);
+        }
+
+        auto selection = request_receive<utility::UuidList>(
+            *sys, selection_actor_, playhead::get_selection_atom_v);
+
+        request_receive<bool>(
+            *sys, duplicated_timeline, playlist::select_media_atom_v, selection);
+
+    } catch (std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
 }

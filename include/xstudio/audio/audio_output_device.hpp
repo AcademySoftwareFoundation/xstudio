@@ -96,5 +96,10 @@ class AudioOutputDevice {
      *  @brief Query the sample format that the soundcard will expect
      */
     [[nodiscard]] virtual SampleFormat sample_format() const = 0;
+
+    /**
+     *  @brief Query the sample format that the soundcard will expect
+     */
+    [[nodiscard]] virtual bool use_global_volume() const { return true; }
 };
 } // namespace xstudio::audio

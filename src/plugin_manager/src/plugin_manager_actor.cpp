@@ -311,6 +311,28 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
             return spawned;
         },
 
+        [=](spawn_plugin_atom,
+            const utility::Uuid &uuid,
+            const utility::JsonStore &json,
+            const int check_resident) -> result<caf::actor> {
+            if (check_resident) {
+                if (resident_.count(uuid)) {
+                    return resident_[uuid];
+                }
+            }
+
+            if (not manager_.factories().count(uuid))
+                return make_error(xstudio_error::error, "Invalid uuid");
+
+            auto spawned = caf::actor();
+            try {
+                spawned = manager_.spawn(*scoped_actor(system()), uuid, json);
+            } catch (const std::exception &err) {
+                return make_error(xstudio_error::error, err.what());
+            }
+            return spawned;
+        },
+
         [=](spawn_plugin_base_atom,
             const std::string name,
             const utility::JsonStore &json,
@@ -335,8 +357,7 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
                             auto j         = json;
                             j["name"]      = name;
                             j["is_python"] = true;
-                            result = 
-                                manager_.spawn(*scoped_actor(system()), detail.uuid_, j);
+                            result = manager_.spawn(*scoped_actor(system()), detail.uuid_, j);
 
                         } catch (std::exception &e) {
                             return make_error(xstudio_error::error, e.what());
@@ -422,6 +443,7 @@ void PluginManagerActor::on_exit() { system().registry().erase(plugin_manager_re
 
 void PluginManagerActor::enable_resident(
     const utility::Uuid &uuid, const bool enable, const utility::JsonStore &json) {
+
     if (enable and not resident_.count(uuid)) {
         auto actor = manager_.spawn(*scoped_actor(system()), uuid, json);
         system().registry().put(actor.id(), actor);

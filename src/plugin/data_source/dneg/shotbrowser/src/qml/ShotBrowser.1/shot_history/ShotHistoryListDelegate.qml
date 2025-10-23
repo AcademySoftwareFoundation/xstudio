@@ -14,7 +14,7 @@ import xstudio.qml.models 1.0
 Rectangle{ id: frame
     // anchors.fill: parent
 
-    color: isSelected? Qt.darker(palette.highlight, 5) : "transparent"
+    color: isSelected ? Qt.darker(palette.highlight, 5) : "transparent"
     border.color: isHovered? palette.highlight : XsStyleSheet.widgetBgNormalColor
     border.width: 1
 
@@ -76,19 +76,19 @@ Rectangle{ id: frame
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
 
-        // wierd workaround for flickable..
-        propagateComposedEvents: false
-        onReleased: {
-            if(!propagateComposedEvents)
-                propagateComposedEvents = true
-        }
+        // // wierd workaround for flickable..
+        // propagateComposedEvents: true
+        // onReleased: {
+        //     if(!propagateComposedEvents)
+        //         propagateComposedEvents = true
+        // }
 
         onDoubleClicked: (mouse)=> {
             let m = ShotBrowserHelpers.mapIndexesToResultModel([delegateModel.modelIndex(index)])[0].model
             if(m.groupDetail.flags.includes("Load Sequence"))
                 ShotBrowserHelpers.addSequencesToNewPlaylist([delegateModel.modelIndex(index)])
             else
-                ShotBrowserHelpers.addToCurrent([delegateModel.modelIndex(index)], panelType != "ShotBrowser", addAfterSelection.value)
+                ShotBrowserHelpers.addToCurrent([delegateModel.modelIndex(index)], panelType != "ShotBrowser", addMode.value)
         }
 
         onPressed: (mouse)=> {

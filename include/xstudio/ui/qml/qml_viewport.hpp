@@ -42,6 +42,8 @@ namespace ui {
             Q_PROPERTY(QString name READ name NOTIFY nameChanged)
             Q_PROPERTY(QUuid playheadUuid READ playheadUuid NOTIFY playheadUuidChanged)
             Q_PROPERTY(bool hasPlayhead READ hasPlayhead NOTIFY playheadUuidChanged)
+            Q_PROPERTY(bool isQuickview READ isQuickview WRITE setIsQuickview NOTIFY isQuickviewChanged)
+            Q_PROPERTY(bool hasOverlays READ hasOverlays WRITE setHasOverlays NOTIFY hasOverlaysChanged)
 
           public:
             QMLViewport(QQuickItem *parent = nullptr);
@@ -51,6 +53,8 @@ namespace ui {
             [[nodiscard]] QString name() const;
             [[nodiscard]] QPointF mousePosition() const { return mouse_position; }
             [[nodiscard]] bool hasPlayhead() const { return !playhead_uuid_.isNull(); }
+            [[nodiscard]] bool isQuickview() const { return is_quickview_; }
+            [[nodiscard]] bool hasOverlays() const { return has_overlays_; }
 
             QMLViewportRenderer *viewportActor() { return renderer_actor; }
             void deleteRendererActor();
@@ -61,6 +65,9 @@ namespace ui {
                     emit playheadUuidChanged();
                 }
             }
+
+            void setIsQuickview(const bool isQuickView);
+            void setHasOverlays(const bool hasOverlays);
 
           protected:
             void hoverEnterEvent(QHoverEvent *event) override;
@@ -96,6 +103,7 @@ namespace ui {
             void reset();
             QString playheadActorAddress();
             void onVisibleChanged();
+            void quickViewFromPath(const QString &path_or_uri);
 
           private slots:
 
@@ -126,13 +134,14 @@ namespace ui {
             void pointerEntered();
             void pointerExited();
             void playheadUuidChanged();
+            void isQuickviewChanged();
+            void hasOverlaysChanged();
 
           private:
             void releaseResources() override;
 
             void sendPointerEvent(EventType t, QMouseEvent *event, int force_modifiers = 0);
             void sendPointerEvent(QHoverEvent *event);
-            QPointF toViewportCoords(const QPointF &in) const;
 
             QQuickWindow *m_window = {nullptr};
             QMLViewportRenderer *renderer_actor{nullptr};
@@ -143,6 +152,8 @@ namespace ui {
             QPointF mouse_position;
             bool is_quick_viewer_ = {false};
             QUuid playhead_uuid_;
+            bool is_quickview_ = {false};
+            bool has_overlays_ = {true};
 
             caf::actor keypress_monitor_;
         };

@@ -25,7 +25,7 @@ def test_media_stream(spawn):
     msd = mstr.media_stream_detail
 
     assert msd.name() == "stream 0"
-    assert msd.key_format() == "{0}@{1}/{2}"
+    assert msd.key_format() == "{0}@{1}/{2},{3}"
     assert msd.duration().seconds() == 4.166666666666667
     assert msd.media_type() == MediaType.MT_IMAGE
 

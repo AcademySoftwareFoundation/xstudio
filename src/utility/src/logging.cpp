@@ -45,5 +45,7 @@ void xstudio::utility::start_logger(
 
 void xstudio::utility::stop_logger() {
     spdlog::info("XStudio logging stopped.");
+    spdlog::default_logger()->flush();
+
     // spdlog::shutdown();
 }

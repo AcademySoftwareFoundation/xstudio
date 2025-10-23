@@ -5,8 +5,8 @@ import xStudio 1.0
 
 Item {
 
-    height: name ? 30 : XsStyleSheet.menuPadding*2 + XsStyleSheet.menuDividerHeight
     property int minWidth: rlayout.implicitWidth
+    implicitHeight: name ? 30 : XsStyleSheet.menuPadding*2 + XsStyleSheet.menuDividerHeight
 
     function hideSubMenus() {}
 

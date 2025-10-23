@@ -76,9 +76,11 @@ metadata with media that isn't from your pipeline.`
         ListElement { detail_item: "Pixel Aspect - MediaSource (Image)"}
         ListElement { detail_item: "Duration / seconds - MediaSource (Audio)"}
         ListElement { detail_item: "Name - MediaSource (Audio)"}
+        ListElement { detail_item: "File Name - MediaSource (Image)"}
         ListElement { detail_item: "File Path - MediaSource (Image)"}
         ListElement { detail_item: "Timecode - MediaSource (Image)"}
         ListElement { detail_item: "Frame Range - MediaSource (Image)"}
+        ListElement { detail_item: "File Name - MediaSource (Audio)"}
         ListElement { detail_item: "File Path - MediaSource (Audio)"}
         ListElement { detail_item: "Timecode - MediaSource (Audio)"}
         ListElement { detail_item: "Frame Range - MediaSource (Image)"}
@@ -403,12 +405,13 @@ metadata with media that isn't from your pipeline.`
             }
 
             XsLabel {
+                id: lbl
                 text: "Show Advanced Options : "
                 Layout.alignment: Qt.AlignVCenter|Qt.AlignRight
                 Layout.preferredHeight: XsStyleSheet.widgetStdHeight
                 XsToolTip{
                     text: regex_tooltip
-                    visible: hovered
+                    visible: lbl.hovered
                 }
             
             }
@@ -420,13 +423,14 @@ metadata with media that isn't from your pipeline.`
             }
 
             XsLabel {
+                id: lbl2
                 Layout.alignment: Qt.AlignVCenter|Qt.AlignRight
                 text: "Capture Expression : "
                 horizontalAlignment: Text.AlignRight
                 visible: advanced.checked
                 XsToolTip{
                     text: regex_tooltip
-                    visible: hovered
+                    visible: lbl2.hovered
                 }
             }
 

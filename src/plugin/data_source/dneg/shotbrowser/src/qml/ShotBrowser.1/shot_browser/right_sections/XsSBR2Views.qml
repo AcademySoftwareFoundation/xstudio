@@ -5,6 +5,8 @@ import QtQuick.Controls.Basic
 import Qt.labs.qmlmodels
 
 import xStudio 1.0
+import xstudio.qml.helpers 1.0
+import xstudio.qml.viewport 1.0
 import ShotBrowser 1.0
 
 XsListView{ id: listDiv
@@ -14,6 +16,9 @@ XsListView{ id: listDiv
     property bool isPlaylist: resultsBaseModel.entity == "Playlists"
 
     readonly property int noteCellHeight: (XsStyleSheet.widgetStdHeight * 8) + 5
+
+    property alias delegateModel: chooserModel
+
 
     ScrollBar.vertical: XsScrollBar {
         visible: listDiv.height < listDiv.contentHeight
@@ -34,11 +39,10 @@ XsListView{ id: listDiv
         font.weight: Font.Medium
     }
 
-    XsSBMediaPlayer {
+    XsMinimalViewport {
         id: mediaPlayer
         anchors.fill: parent
         visible: false
-        onEject: visible = false
         z: 2
     }
 
@@ -62,7 +66,7 @@ XsListView{ id: listDiv
         imagePlayer.visible = true
     }
 
-    model: DelegateModel { id: chooserModel
+    DelegateModel { id: chooserModel
         property var notifyModel: results
         onNotifyModelChanged: model = notifyModel
         model: notifyModel
@@ -89,8 +93,15 @@ XsListView{ id: listDiv
                 roleValue: "Note"
 
                 NotesHistoryListDelegate{
+                    property bool wasHovered: false
+
+                    onIsHoveredChanged: {
+                        if(isHovered)
+                            wasHovered = true
+                    }
+
                     width: listDiv.width - rightSpacing
-                    height: noteCellHeight + (isHovered ? Math.max(textHeightDiff, 0) : 0)
+                    height: noteCellHeight + (wasHovered ? Math.max(textHeightDiff, 0) : 0)
 
                     delegateModel: chooserModel
                     popupMenu: noteResultPopup
@@ -110,4 +121,5 @@ XsListView{ id: listDiv
             }
         }
     }
+    model: chooserModel
 }

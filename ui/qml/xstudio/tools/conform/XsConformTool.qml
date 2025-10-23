@@ -52,7 +52,7 @@ Item{
         sequence: "Alt+n"
         name: "Next Version"
         description: "Replace With Next Version"
-        onActivated: {
+        onActivated: (menuContext) =>  {
             replaceSelection("Next Version", mediaSelectionModel.selectedIndexes)
         }
     }
@@ -61,7 +61,7 @@ Item{
         sequence: "Alt+p"
         name: "Previous Version"
         description: "Replace With Previous Version"
-        onActivated: {
+        onActivated: (menuContext) =>  {
             replaceSelection("Previous Version", mediaSelectionModel.selectedIndexes)
         }
     }
@@ -70,7 +70,7 @@ Item{
         sequence: "Alt+l"
         name: "Latest Version"
         description: "Replace With Latest Version"
-        onActivated: {
+        onActivated: (menuContext) =>  {
             replaceSelection("Latest Version", mediaSelectionModel.selectedIndexes)
         }
     }
@@ -273,7 +273,7 @@ Item{
                     // console.log("nope", uuid_list)
                 },
                 function(err) {
-                    dialogHelpers.errorDialogFunc("Conform To New Sequence", "No Sequence found for media")
+                    dialogHelpers.errorDialogFunc("Conform With", "No Sequence found for media")
                 }
             )
         }
@@ -384,15 +384,16 @@ Item{
     }
 
     XsMenuModelItem {
-        text: "Conform With"
+        text: "Conform Selected"
         // menuItemType: "button"
         menuPath: ""
         menuItemPosition: 103
         menuModelName: "media_list_menu_"
+        onActivated: (menuContext) =>  conformToNewSequence(menuContext.mediaSelection)
     }
 
     XsMenuModelItem {
-        text: "Conform With Siblings"
+        text: "Conform With Neighbours"
         // menuItemType: "button"
         menuPath: ""
         menuItemPosition: 104
@@ -400,12 +401,11 @@ Item{
     }
 
     XsMenuModelItem {
-        text: "Conform To New Sequence"
+        text: "Conform With Track"
         // menuItemType: "button"
         menuPath: ""
         menuItemPosition: 105
         menuModelName: "media_list_menu_"
-        onActivated: conformToNewSequence(menuContext.mediaSelection)
     }
 
     XsMenuModelItem {
@@ -414,7 +414,7 @@ Item{
         menuPath: "More"
         menuItemPosition: 1
         menuModelName: "media_list_menu_"
-        onActivated: conformToSequence(menuContext.mediaSelection, viewportCurrentMediaContainerIndex)
+        onActivated: (menuContext) =>  conformToSequence(menuContext.mediaSelection, viewportCurrentMediaContainerIndex)
     }
 
 
@@ -445,7 +445,7 @@ Item{
         menuPath: ""
         menuItemPosition: 13
         menuModelName: "timeline_track_menu_"
-        onActivated: autoConformFromTrackName(
+        onActivated: (menuContext) =>  autoConformFromTrackName(
             menuContext.theTimeline.conformSourceIndex, menuContext.theTimeline.timelineSelection.selectedIndexes
         )
     }
@@ -456,7 +456,7 @@ Item{
         menuPath: ""
         menuItemPosition: 14.6
         menuModelName: "timeline_track_menu_"
-        onActivated: removeDuplicates(
+        onActivated: (menuContext) =>  removeDuplicates(
             menuContext.theTimeline.timelineSelection.selectedIndexes
         )
     }
@@ -474,7 +474,7 @@ Item{
         menuPath: ""
         menuItemPosition: 14.5
         menuModelName: "timeline_track_menu_"
-        onActivated: conformTracksToSequence(menuContext.theTimeline.timelineSelection.selectedIndexes, currentMediaContainerIndex)
+        onActivated: (menuContext) =>  conformTracksToSequence(menuContext.theTimeline.timelineSelection.selectedIndexes, currentMediaContainerIndex)
     }
 
     XsMenuModelItem {
@@ -490,7 +490,7 @@ Item{
         menuPath: ""
         menuItemPosition: 51
         menuModelName: "timeline_menu_"
-        onActivated: conformPrepareSequence(menuContext.theTimeline.timelineModel.rootIndex.parent)
+        onActivated: (menuContext) =>  conformPrepareSequence(menuContext.theTimeline.timelineModel.rootIndex.parent)
     }
 
 	DelegateModel {
@@ -505,7 +505,7 @@ Item{
 					menuPath: "Replace"
 					menuItemPosition: 34 + index
 					menuModelName: "media_list_menu_"
-			        onActivated: replaceSelection(text, menuContext.mediaSelection)
+			        onActivated: (menuContext) =>  replaceSelection(text, menuContext.mediaSelection)
                     hotkeyUuid: {
                         if(nameRole == "Next Version")
                             return next_version_hotkey.uuid
@@ -522,7 +522,7 @@ Item{
                     menuPath: "Auto-Conform"
                     menuItemPosition: index
                     menuModelName: "timeline_track_menu_"
-                    onActivated: autoConformSelectionTimeline(text, menuContext.theTimeline.conformSourceIndex, menuContext.theTimeline.timelineSelection.selectedIndexes[0])
+                    onActivated: (menuContext) =>  autoConformSelectionTimeline(text, menuContext.theTimeline.conformSourceIndex, menuContext.theTimeline.timelineSelection.selectedIndexes[0])
                 }
                 XsMenuModelItem {
                     text: nameRole
@@ -530,7 +530,7 @@ Item{
                     menuPath: "Replace Clips"
                     menuItemPosition: index
                     menuModelName: "timeline_track_menu_"
-                    onActivated: replaceSelectionTimeline(text, menuContext.theTimeline.timelineSelection.selectedIndexes)
+                    onActivated: (menuContext) =>  replaceSelectionTimeline(text, menuContext.theTimeline.timelineSelection.selectedIndexes)
                 }
 
                 XsMenuModelItem {
@@ -539,7 +539,7 @@ Item{
                     menuPath: "Replace"
                     menuItemPosition: index
                     menuModelName: "timeline_clip_menu_"
-                    onActivated: replaceSelectionTimeline(text, menuContext.theTimeline.timelineSelection.selectedIndexes)
+                    onActivated: (menuContext) =>  replaceSelectionTimeline(text, menuContext.theTimeline.timelineSelection.selectedIndexes)
                 }
 
                 XsMenuModelItem {
@@ -548,7 +548,7 @@ Item{
                     menuPath: "Auto-Conform"
                     menuItemPosition: index
                     menuModelName: "timeline_clip_menu_"
-                    onActivated: conformSelectionTimeline(text, menuContext.theTimeline.timelineSelection.selectedIndexes)
+                    onActivated: (menuContext) =>  conformSelectionTimeline(text, menuContext.theTimeline.timelineSelection.selectedIndexes)
                 }
 
                 // XsMenuModelItem {
@@ -557,7 +557,7 @@ Item{
                 //     menuPath: "Auto-Conform Around"
                 //     menuItemPosition: index
                 //     menuModelName: "timeline_clip_menu_"
-                //     onActivated: {
+                //     onActivated: (menuContext) =>  {
                 //         let items = [].concat(menuContext.theTimeline.timelineSelection.selectedIndexes)
                 //         let newitems = []
                 //         for(let i = 0; i < items.length; i++) {
@@ -574,18 +574,18 @@ Item{
                 XsMenuModelItem {
                     text: nameRole
                     menuItemType: "button"
-                    menuPath: "Conform With"
+                    menuPath: "Conform With Track"
                     menuItemPosition: index
                     menuModelName: "media_list_menu_"
-                    onActivated: conformWithToNewSequence(menuContext.mediaSelection, text)
+                    onActivated: (menuContext) =>  conformWithToNewSequence(menuContext.mediaSelection, text)
                 }
                 XsMenuModelItem {
                     text: nameRole
                     menuItemType: "button"
-                    menuPath: "Conform With Siblings"
+                    menuPath: "Conform With Neighbours"
                     menuItemPosition: index
                     menuModelName: "media_list_menu_"
-                    onActivated: conformWithSiblingsToNewSequence(menuContext.mediaSelection, text)
+                    onActivated: (menuContext) =>  conformWithSiblingsToNewSequence(menuContext.mediaSelection, text)
                 }
 			}
 	}
@@ -602,7 +602,7 @@ Item{
 					menuPath: "Compare"
 					menuItemPosition: index
 					menuModelName: "media_list_menu_"
-			        onActivated: compareSelection(text, menuContext.mediaSelection)
+			        onActivated: (menuContext) =>  compareSelection(text, menuContext.mediaSelection)
 				}
 			}
 	}

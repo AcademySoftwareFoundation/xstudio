@@ -46,10 +46,10 @@ namespace media_reader {
         utility::JsonStore &params() { return params_; }
         [[nodiscard]] size_t size() const { return size_; }
         [[nodiscard]] byte *buffer() {
-            return buffer_ ? (byte *)(buffer_->data_.get()) : nullptr;
+            return buffer_ and buffer_->data_ ? (byte *)(buffer_->data_.get()) : nullptr;
         }
         [[nodiscard]] const byte *buffer() const {
-            return buffer_ ? (const byte *)buffer_->data_.get() : nullptr;
+            return buffer_ and buffer_->data_ ? (const byte *)buffer_->data_.get() : nullptr;
         }
         [[nodiscard]] BufferErrorState error_state() const { return error_state_; }
         [[nodiscard]] const std::string &error_message() const { return error_message_; }
@@ -71,7 +71,7 @@ namespace media_reader {
                 }
             };
 
-            BufferData(byte *d) : data_(d, BufferDeleter()) {}
+            // BufferData(byte *d) : data_(d, BufferDeleter()) {}
             BufferData(size_t sz) : data_(nullptr, BufferDeleter()) {
                 byte *ptr = static_cast<byte *>(operator new[](sz, std::align_val_t(1024)));
                 data_.reset(ptr);

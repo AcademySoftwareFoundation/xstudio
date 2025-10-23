@@ -46,6 +46,7 @@ void GridViewportLayout::do_layout(
     const media_reader::ImageBufDisplaySetPtr &image_set,
     media_reader::ImageSetLayoutData &layout_data) {
     const int num_images = image_set->num_onscreen_images();
+
     if (!num_images) {
         return;
     }

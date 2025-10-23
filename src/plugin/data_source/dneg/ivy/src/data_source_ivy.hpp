@@ -61,11 +61,13 @@ template <typename T> class IvyDataSourceActor : public caf::event_based_actor {
         caf::actor_config &cfg, const utility::JsonStore & = utility::JsonStore());
 
     caf::behavior make_behavior() override {
-        return data_source_.message_handler().or_else(behavior_);
+        return message_handler_extensions().or_else(data_source_.message_handler());
     }
     void on_exit() override;
 
   private:
+    caf::message_handler message_handler_extensions();
+
     void get_version(
         caf::typed_response_promise<utility::JsonStore> rp,
         const std::string &show,
@@ -114,10 +116,10 @@ template <typename T> class IvyDataSourceActor : public caf::event_based_actor {
 
     void update_preferences(const utility::JsonStore &js);
 
-    caf::behavior behavior_;
     T data_source_;
     caf::actor http_;
     caf::actor pool_;
     bool enable_audio_autoload_{true};
+    bool use_stalk_name_for_audio_sources_{false};
     utility::Uuid uuid_ = {utility::Uuid::generate()};
 };

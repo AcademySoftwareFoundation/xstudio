@@ -18,6 +18,7 @@
 	    <file>windows/XsPopoutViewerWindow.qml</file>
 	    <file>windows/XsSessionWindow.qml</file>
 	    <file>windows/XsFloatingViewWindow.qml</file>
+	    <file>windows/XsFloatingPanel.qml</file>
 	    <file>windows/drag_drop/XsGlobalDragDropHandler.qml</file>
 	    <file>windows/main_menu_bar/XsMainMenuBar.qml</file>
 	    <file>windows/main_menu_bar/file_menu/XsFileMenu.qml</file>
@@ -112,15 +113,18 @@
 	    <file>views/viewport/XsViewportPanel.qml</file>
 	    <file>views/viewport/XsViewport.qml</file>
 	    <file>views/viewport/XsViewportWidget.qml</file>
+	    <file>views/viewport/XsMinimalViewport.qml</file>
 	    <file>views/viewport/hud/XsHudItem.qml</file>
 	    <file>views/viewport/hud/XsViewportHUD.qml</file>
 	    <file>views/viewport/hud/XsViewportOverlays.qml</file>
+	    <file>views/viewport/widgets/XsViewerSetMediaFPSPopup.qml</file>
 	    <file>views/viewport/widgets/XsViewportActionBar.qml</file>
 	    <file>views/viewport/widgets/XsViewportTransportBar.qml</file>
 	    <file>views/viewport/widgets/XsViewportToolBar.qml</file>
 	    <file>views/viewport/widgets/XsViewportInfoBar.qml</file>
 	    <file>views/viewport/widgets/toolbar/XsViewerAnyMenuButton.qml</file>
 	    <file>views/viewport/widgets/toolbar/XsViewerCompareModeButton.qml</file>
+	    <file>views/viewport/widgets/toolbar/XsViewerFpsButton.qml</file>
 	    <file>views/viewport/widgets/toolbar/XsViewerToggleButton.qml</file>
 	    <file>views/viewport/widgets/toolbar/XsViewerSourceSelectorButton.qml</file>
 	    <file>views/viewport/widgets/toolbar/XsViewerSourceSelectorPopupWindow.qml</file>
@@ -208,6 +212,7 @@
 
 	    <file>widgets/labels/XsLabel.qml</file>
 	    <file>widgets/labels/XsText.qml</file>
+	    <file>widgets/labels/XsTextCopyable.qml</file>
 	    <file>widgets/labels/XsTextField.qml</file>
 	    <file>widgets/labels/XsToolTip.qml</file>
 	    <file>widgets/labels/XsTextInput.qml</file>
@@ -282,7 +287,9 @@
 	</qresource>
 
 	<qresource prefix="/shaders">
-		<file alias="colourwheel.frag.qsb">widgets/dialogs/colourwheel.frag.qsb</file>
+		<file alias="colourwheel.frag.qsb">assets/shaders/colourwheel.frag.qsb</file>
+		<file alias="activity_wheel.frag.qsb">assets/shaders/activity_wheel.frag.qsb</file>
+		<file alias="mask.frag.qsb">assets/shaders/mask.frag.qsb</file>
 	</qresource>
 
 	<qresource prefix="/icons">
@@ -294,6 +301,8 @@
 		<file alias="arrow_selector_tool.svg">assets/icons/arrow_selector_tool.svg</file>
 		<file alias="arrow_upward.svg">assets/icons/arrow_upward.svg</file>
 		<file alias="arrows_outward.svg">assets/icons/arrows_outward.svg</file>
+		<file alias="autorenew.svg">assets/icons/autorenew.svg</file>
+		<file alias="bigtop_updates.svg">assets/icons/bigtop_updates.svg</file>
 		<file alias="brush.svg">assets/icons/brush.svg</file>
 		<file alias="build_gang.svg">assets/icons/build_gang.svg</file>
 		<file alias="center_focus_strong.svg">assets/icons/center_focus_strong.svg</file>
@@ -313,6 +322,7 @@
 		<file alias="delete.svg">assets/icons/delete.svg</file>
 		<file alias="deployed_cube.svg">assets/icons/deployed_cube.svg</file>
 		<file alias="desktop_windows.svg">assets/icons/desktop_windows.svg</file>
+		<file alias="directions_run.svg">assets/icons/directions_run.svg</file>
 		<file alias="disabled.svg">assets/icons/disabled.svg</file>
 		<file alias="dock_bottom.svg">assets/icons/dock_bottom.svg</file>
 		<file alias="dock_bottom_flipped.png">assets/icons/dock_bottom_flipped.png</file>
@@ -355,6 +365,7 @@
 		<file alias="list_subset.svg">assets/icons/list_subset.svg</file>
 		<file alias="list_view.svg">assets/icons/list_view.svg</file>
 		<file alias="lock.svg">assets/icons/lock.svg</file>
+		<file alias="media_link.svg">assets/icons/media_link.svg</file>
 		<file alias="menu.svg">assets/icons/menu.svg</file>
 		<file alias="more_horiz.svg">assets/icons/more_horiz.svg</file>
 		<file alias="more_vert.svg">assets/icons/more_vert.svg</file>
@@ -365,6 +376,7 @@
 		<file alias="pan.svg">assets/icons/pan.svg</file>
 		<file alias="pause.svg">assets/icons/pause.svg</file>
 		<file alias="person.svg">assets/icons/person.svg</file>
+		<file alias="pending.svg">assets/icons/pending.svg</file>
 		<file alias="photo_camera.svg">assets/icons/photo_camera.svg</file>
 		<file alias="play_arrow.svg">assets/icons/play_arrow.svg</file>
 		<file alias="play_circle.svg">assets/icons/play_circle.svg</file>
@@ -385,6 +397,7 @@
 		<file alias="search_off.svg">assets/icons/search_off.svg</file>
 		<file alias="select.svg">assets/icons/select.svg</file>
 		<file alias="settings.svg">assets/icons/settings.svg</file>
+		<file alias="shield_person.svg">assets/icons/shield_person.svg</file>
 		<file alias="skip_next.svg">assets/icons/skip_next.svg</file>
 		<file alias="skip_previous.svg">assets/icons/skip_previous.svg</file>
 		<file alias="sort.svg">assets/icons/sort.svg</file>

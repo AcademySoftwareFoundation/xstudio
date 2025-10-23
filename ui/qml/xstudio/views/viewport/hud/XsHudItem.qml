@@ -1,4 +1,6 @@
 import QtQuick
+import xStudio 1.0
+import xstudio.qml.models 1.0
 
 Item {
 
@@ -30,4 +32,36 @@ Item {
             dynamic_widget = Qt.createQmlObject(qml_code, parent_item)
         }
     }
+
+    XsAttributeValue {
+        id: __media_item_hud_data
+        attributeTitle: title
+        model: hud_data_attrs
+    }
+
+    // For regular viewports, __media_item_hud_data value is set through the
+    // backend module attributes system: The python HUD plugin gets a callback
+    // when the on-screen media changes. It returns JSON data for doing overlay
+    // graphics relating to that media item. The HUD Plugin base class uses that
+    // json to set the data on an attribute that we connect to using 
+    // __media_item_hud_data above. The trouble is, this is asynchronous and the
+    // attribute can be one video frame refresh behind the viewport image. This
+    // is not a problem during playback or normal viewport as it refreshes almost
+    // immediately. For offscreen rendering to do video output, though, we need
+    // the HUD graphics to be frame accurate.
+    // Therefore the Offscreen xstudio viewport will instead do a sync (blocking)
+    // call to the python HUD Plugins to get the data for the on-screen media.
+    // That data is pushed into 'hud_plugins_display_data' QML property (defined
+    // in a parent object of this object). The key for pushing the data into 
+    // the hud_plugins_display_data is the plugin UUID (which we can 
+    // access here with module_uuid, provided by the attributes module that 
+    // instanciates the HUD QML Items). Got it?!
+    property var media_item_hud_data: {
+        if (hud_plugins_display_data && module_uuid in hud_plugins_display_data) {
+            return hud_plugins_display_data[module_uuid][imageIndex]
+        } else {
+            return __media_item_hud_data.value
+        }
+    }
+
 }

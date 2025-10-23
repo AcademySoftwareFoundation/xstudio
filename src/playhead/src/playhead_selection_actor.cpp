@@ -118,11 +118,38 @@ caf::message_handler PlayheadSelectionActor::message_handler() {
 
         [=](playlist::select_media_atom, const UuidList &media_uuids) {
             UuidVector v;
-            for (auto &i : media_uuids)
+            for (auto &i : media_uuids) {
                 v.push_back(i);
-
+            }
             return mail(playlist::select_media_atom_v, v)
                 .delegate(caf::actor_cast<caf::actor>(this));
+        },
+
+        [=](playhead::source_atom, const UuidUuidMap &swap) -> result<bool> {
+            // when cloning a playlist, media within the playlist is also cloned.
+            // The PlayheadSelectionActor is also cloned, including it's selection
+            // state (which is a vector of the uuids of the selected media)
+            // The CLONED media has new uuids, however, so we need to re-map the
+            // UUIDs in our PlayheadSelectionActor selection list to account
+            // for that
+            auto rp = make_response_promise<bool>();
+            if (swap.size()) {
+                UuidVector new_uuids;
+                for (const auto &i : base_.items_vec()) {
+                    auto p = swap.find(i);
+                    if (p != swap.end()) {
+                        new_uuids.push_back(p->second);
+                    }
+                }
+                rp.delegate(
+                    caf::actor_cast<caf::actor>(this),
+                    playlist::select_media_atom_v,
+                    new_uuids);
+
+            } else {
+                rp.deliver(false);
+            }
+            return rp;
         },
 
         [=](playlist::select_media_atom, const UuidVector &media_uuids, bool retry) -> bool {
@@ -166,8 +193,9 @@ caf::message_handler PlayheadSelectionActor::message_handler() {
                 anon_mail(playlist::select_media_atom_v, true)
                     .delay(std::chrono::milliseconds(500))
                     .send(this);
-            else
+            else {
                 select_media(media_uuids, true, mode);
+            }
 
             return true;
         },

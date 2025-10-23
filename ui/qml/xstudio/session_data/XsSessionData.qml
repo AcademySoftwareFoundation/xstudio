@@ -139,7 +139,7 @@ Item {
                 if (selectedType== "Playlist") {
                     // A playlist is selected. Add as a child.
                     result = createPlaylistChild(name, type, rate, currentMediaContainerIndex)
-                } else if (["Subset", "Timeline", "ContactSheet"].includes(type)) {
+                } else if (["Subset", "Timeline", "ContactSheet"].includes(selectedType)) {
                     // Subset or similar is selected. Insert after
                     result = createPlaylistChild(
                         name,
@@ -235,7 +235,7 @@ Item {
     EmbeddedPython {
         id: embeddedPython
         property string text: ""
-        Component.onCompleted: {
+        onBackendChanged: {
             embeddedPython.createSession()
         }
 
@@ -598,6 +598,14 @@ Item {
     }
     property alias popoutWindowsModel: popout_windows
 
+
+    /* This model is a flat list with just one attribute 'source_qmp' which is qml
+    that will make a small widget (like a button) that will appear just to 
+    the left of the */
+    XsPlaylistsPanelBarExtraWidgetsModel {
+        id: menu_bar_extra_widgets
+    }
+    property alias playlistsPanelBarExtraWidgets: menu_bar_extra_widgets
 
     /* This model is a flat list with just one attribute 'source' which is qml
     that we want to load once only. This allows plugins to declare some qml

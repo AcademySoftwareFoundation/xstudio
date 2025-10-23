@@ -55,8 +55,10 @@ namespace ui {
         */
         class MediaMetadata : public utility::BlindDataObject {
           public:
-            MediaMetadata(const DisplaySettingsPtr &d)
-                : display_settings_(d), last_used_(utility::clock::now()) {}
+            MediaMetadata(const DisplaySettingsPtr &d, const bool grid_layout)
+                : display_settings_(d),
+                  last_used_(utility::clock::now()),
+                  grid_layout_(grid_layout) {}
 
             ~MediaMetadata() = default;
 
@@ -75,6 +77,7 @@ namespace ui {
             std::vector<Imath::V4f> positions_;
             std::vector<Imath::Box2f> bdbs_;
             utility::time_point last_used_;
+            const bool grid_layout_;
         };
 
         typedef std::shared_ptr<MediaMetadata> MediaMetadataPtr;
@@ -116,7 +119,8 @@ namespace ui {
                 const media_reader::ImageBufPtr &,
                 const std::string & /*viewport_name*/,
                 const utility::Uuid &playhead_uuid,
-                const bool is_hero_image) const override;
+                const bool is_hero_image,
+                const bool images_are_in_grid_layout) const override;
 
             void images_going_on_screen(
                 const media_reader::ImageBufDisplaySetPtr &image_set,
@@ -151,6 +155,8 @@ namespace ui {
                 const std::string &user_data) override;
 
           private:
+            void update_configs_data();
+            void update_profiles_list();
             void show_metadata_viewer_for_viewport(const std::string viewport_name);
             void update_profile_metadata();
             void update_full_metadata_set(const bool full_rebuild = false);
@@ -164,8 +170,10 @@ namespace ui {
             void update_metadata_values_for_profile(const bool force_update = false);
             void trim_cache();
 
-            MediaMetadataPtr
-            make_onscreen_data(const media_reader::ImageBufPtr &image, const std::string &key);
+            MediaMetadataPtr make_onscreen_data(
+                const media_reader::ImageBufPtr &image,
+                const std::string &key,
+                const bool images_are_in_grid_layout);
 
             void profile_changed();
             void profile_toggle_field(const std::string &field);
@@ -190,6 +198,7 @@ namespace ui {
             module::JsonAttribute *profile_data_;
             module::JsonAttribute *profile_values_;
             module::JsonAttribute *config_;
+            module::JsonAttribute *config_defaults_;
             module::JsonAttribute *profile_fields_;
 
             utility::JsonStore config_data_;
@@ -223,7 +232,7 @@ namespace ui {
             std::map<std::string, MediaMetadataPtr> render_data_per_image_cache_;
             std::map<size_t, MediaMetadataPtr> render_data_per_metadata_cache_;
 
-            std::map<std::string, media_reader::ImageBufPtr> on_screen_images_;
+            std::map<std::string, media_reader::ImageBufDisplaySetPtr> on_screen_images_;
             media_reader::ImageBufPtr previous_metadata_source_image_;
             std::map<std::string, JsonStorePtr> metadata_set_;
             DisplaySettingsPtr display_settings_;

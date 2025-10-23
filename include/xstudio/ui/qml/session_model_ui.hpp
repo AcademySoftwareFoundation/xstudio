@@ -315,6 +315,8 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
         const QString &schema = "");
     Q_INVOKABLE QVariantList getTimelineExportTypes() const;
 
+    Q_INVOKABLE QVariant getTimelineFullRangeAndLoopRangeAndFPS(const QModelIndex &index);
+
     // end timeline operations
 
     // notification methods
@@ -466,7 +468,8 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
     Q_INVOKABLE void setViewportCurrentMediaContainerIndex(const QModelIndex &index);
     Q_INVOKABLE void setCurrentMediaContainer(const QModelIndex &index);
 
-    Q_INVOKABLE void relinkMedia(const QModelIndexList &indexes, const QUrl &path);
+    Q_INVOKABLE void relinkMedia(
+        const QModelIndexList &indexes, const QUrl &path, const bool looseMatch = false);
     Q_INVOKABLE void decomposeMedia(const QModelIndexList &indexes);
     Q_INVOKABLE void rescanMedia(const QModelIndexList &indexes);
     Q_INVOKABLE QModelIndex getPlaylistIndex(const QModelIndex &index) const;

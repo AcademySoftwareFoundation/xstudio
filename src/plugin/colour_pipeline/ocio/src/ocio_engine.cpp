@@ -34,28 +34,25 @@ ColourOperationDataPtr OCIOEngine::linearise_op_data(
     auto data = std::make_shared<ColourOperationData>("OCIO Linearise OP");
 
     OCIO::ConstConfigRcPtr config = get_ocio_config(src_colour_mgmt_metadata);
-    OCIO::ContextRcPtr context = setup_ocio_context(src_colour_mgmt_metadata);
-    OCIO::TransformRcPtr transform = source_transform(src_colour_mgmt_metadata, auto_adjust_source, view, bypass);
+    OCIO::ContextRcPtr context    = setup_ocio_context(src_colour_mgmt_metadata);
+    OCIO::TransformRcPtr transform =
+        source_transform(src_colour_mgmt_metadata, auto_adjust_source, view, bypass);
 
     auto shader_builder = ShaderBuilder()
-        .setConfig(config)
-        .setContext(context)
-        .setTransform(transform)
-        .setLanguage(OCIO::GPU_LANGUAGE_GLSL_4_0)
-        .setFunctionName("OCIOLinearise")
-        .setResourcePrefix("to_linear_");
+                              .setConfig(config)
+                              .setContext(context)
+                              .setTransform(transform)
+                              .setLanguage(OCIO::GPU_LANGUAGE_GLSL_4_0)
+                              .setFunctionName("OCIOLinearise")
+                              .setResourcePrefix("to_linear_");
 
-    std::string shader_text =
-        xstudio::utility::replace_once(
-            ShaderTemplates::OCIO_linearise,
-            "//OCIOLinearise",
-            shader_builder.getShaderText()
-        );
+    std::string shader_text = xstudio::utility::replace_once(
+        ShaderTemplates::OCIO_linearise, "//OCIOLinearise", shader_builder.getShaderText());
 
     shader_builder.setupTextures(data);
 
-    data->shader_ = std::make_shared<ui::opengl::OpenGLShader>(
-        utility::Uuid::generate(), shader_text);
+    data->shader_ =
+        std::make_shared<ui::opengl::OpenGLShader>(utility::Uuid::generate(), shader_text);
 
     data->set_cache_id(to_string(PLUGIN_UUID) + shader_builder.getCacheString());
 
@@ -71,17 +68,18 @@ ColourOperationDataPtr OCIOEngine::linear_to_display_op_data(
     auto data = std::make_shared<ColourOperationData>(ColourOperationData("OCIO Display OP"));
 
     OCIO::ConstConfigRcPtr config = get_ocio_config(src_colour_mgmt_metadata);
-    OCIO::ContextRcPtr context = setup_ocio_context(src_colour_mgmt_metadata);
-    OCIO::TransformRcPtr transform = display_transform(src_colour_mgmt_metadata, display, view, bypass);
+    OCIO::ContextRcPtr context    = setup_ocio_context(src_colour_mgmt_metadata);
+    OCIO::TransformRcPtr transform =
+        display_transform(src_colour_mgmt_metadata, display, view, bypass);
 
     // CDLs will be turned into uniform baked transforms in the generated shader.
     DynamicCDLMap cdls;
     if (src_colour_mgmt_metadata.contains("dynamic_cdl")) {
         if (src_colour_mgmt_metadata["dynamic_cdl"].is_object()) {
             for (auto &item : src_colour_mgmt_metadata["dynamic_cdl"].items()) {
-                    const std::string xstudio_name = fmt::format("xstudio_cdl_{}", item.key());
-                    cdls[xstudio_name].look_name = item.key();
-                    cdls[xstudio_name].file_name = item.value();
+                const std::string xstudio_name = fmt::format("xstudio_cdl_{}", item.key());
+                cdls[xstudio_name].look_name   = item.key();
+                cdls[xstudio_name].file_name   = item.value();
             }
         } else {
             spdlog::warn(
@@ -91,37 +89,34 @@ ColourOperationDataPtr OCIOEngine::linear_to_display_op_data(
     }
 
     // CDL dynamic patching can use different methods.
-    const std::string dynamic_cdl_mode = src_colour_mgmt_metadata.get_or(
-        "dynamic_cdl_mode", std::string("config"));
-    ShaderBuilder::DynamicCDLMode cdl_mode = dynamic_cdl_mode == "config" ?
-        ShaderBuilder::DynamicCDLMode::Config : ShaderBuilder::DynamicCDLMode::Processor;
+    const std::string dynamic_cdl_mode =
+        src_colour_mgmt_metadata.get_or("dynamic_cdl_mode", std::string("config"));
+    ShaderBuilder::DynamicCDLMode cdl_mode = dynamic_cdl_mode == "config"
+                                                 ? ShaderBuilder::DynamicCDLMode::Config
+                                                 : ShaderBuilder::DynamicCDLMode::Processor;
 
     auto shader_builder = ShaderBuilder()
-        .setConfig(config)
-        .setContext(context)
-        .setDynamicCDLs(cdls)
-        .setDynamicCDLMode(cdl_mode)
-        .setTransform(transform)
-        .setLanguage(OCIO::GPU_LANGUAGE_GLSL_4_0)
-        .setFunctionName("OCIODisplay")
-        .setResourcePrefix("to_display_");
+                              .setConfig(config)
+                              .setContext(context)
+                              .setDynamicCDLs(cdls)
+                              .setDynamicCDLMode(cdl_mode)
+                              .setTransform(transform)
+                              .setLanguage(OCIO::GPU_LANGUAGE_GLSL_4_0)
+                              .setFunctionName("OCIODisplay")
+                              .setResourcePrefix("to_display_");
 
-    std::string shader_text =
-        xstudio::utility::replace_once(
-            ShaderTemplates::OCIO_display,
-            "//OCIODisplay",
-            shader_builder.getShaderText()
-        );
+    std::string shader_text = xstudio::utility::replace_once(
+        ShaderTemplates::OCIO_display, "//OCIODisplay", shader_builder.getShaderText());
 
     shader_builder.setupTextures(data);
 
-    data->shader_ = std::make_shared<ui::opengl::OpenGLShader>(
-        utility::Uuid::generate(), shader_text);
+    data->shader_ =
+        std::make_shared<ui::opengl::OpenGLShader>(utility::Uuid::generate(), shader_text);
 
     // Store ShaderBuilder for later use during uniform binding / update.
-    auto desc = std::make_shared<ShaderDescriptor>();
+    auto desc            = std::make_shared<ShaderDescriptor>();
     desc->shader_builder = shader_builder;
-    data->user_data_   = desc;
+    data->user_data_     = desc;
 
     // Cache ID needs to contain the shot specific grades as the shader
     // will be identical otherwise and individual shots won't get proper
@@ -147,7 +142,7 @@ thumbnail::ThumbnailBufferPtr OCIOEngine::process_thumbnail(
     const auto &ocio_config = get_ocio_config(src_colour_mgmt_metadata);
 
     std::string _display = display;
-    std::string _view = view;
+    std::string _view    = view;
     if (display.empty() or view.empty()) {
         _display = ocio_config->getDefaultDisplay();
         _view    = ocio_config->getDefaultView(_display.c_str());
@@ -220,8 +215,7 @@ void OCIOEngine::extend_pixel_info(
 
         auto colour_mgmt_params = frame_id.params();
 
-        auto display_proc =
-            make_display_processor(colour_mgmt_params, display, view, false);
+        auto display_proc = make_display_processor(colour_mgmt_params, display, view, false);
         pixel_probe_to_display_proc_ = display_proc->getDefaultCPUProcessor();
         pixel_probe_to_lin_proc_ =
             make_to_lin_processor(colour_mgmt_params, view, auto_adjust_source, false)
@@ -463,20 +457,21 @@ OCIO::TransformRcPtr OCIOEngine::source_transform(
     if (auto_adjust_source) {
         // When 'auto adjust source' global setting is on, the source colourspace
         // is overriden by our own logic
-        override_input_cs =
-            input_space_for_view(src_colour_mgmt_metadata, auto_adjust_view);
+        override_input_cs = input_space_for_view(src_colour_mgmt_metadata, auto_adjust_view);
     }
 
-    const std::string filepath = src_colour_mgmt_metadata.get_or("path", std::string(""));
+    const std::string filepath   = src_colour_mgmt_metadata.get_or("path", std::string(""));
     const std::string working_cs = working_space(src_colour_mgmt_metadata);
     const std::string display =
         src_colour_mgmt_metadata.get_or("input_display", std::string(""));
     const std::string view = src_colour_mgmt_metadata.get_or("input_view", std::string(""));
 
     // Expand input_colorspace to the first valid colorspace found.
-    std::string input_cs = src_colour_mgmt_metadata.get_or("input_colorspace", std::string(""));
+    const std::string input_cs_metadata =
+        src_colour_mgmt_metadata.get_or("input_colorspace", std::string(""));
+    std::string input_cs;
 
-    for (const auto &cs : xstudio::utility::split(input_cs, ':')) {
+    for (const auto &cs : xstudio::utility::split(input_cs_metadata, ':')) {
         if (config->getColorSpace(cs.c_str())) {
             input_cs = cs;
             break;
@@ -543,7 +538,7 @@ OCIO::TransformRcPtr OCIOEngine::display_transform(
 
     if (!bypass) {
         std::string _display = display;
-        std::string _view = view;
+        std::string _view    = view;
         if (display.empty() or view.empty()) {
             _display = ocio_config->getDefaultDisplay();
             _view    = ocio_config->getDefaultView(_display.c_str());
@@ -606,7 +601,8 @@ OCIO::ConstProcessorRcPtr OCIOEngine::make_to_lin_processor(
 
     try {
 
-        OCIO::TransformRcPtr transform = source_transform(src_colour_mgmt_metadata, auto_adjust_source, view, bypass);
+        OCIO::TransformRcPtr transform =
+            source_transform(src_colour_mgmt_metadata, auto_adjust_source, view, bypass);
         OCIO::ContextRcPtr context = setup_ocio_context(src_colour_mgmt_metadata);
         auto proc = ocio_config->getProcessor(context, transform, OCIO::TRANSFORM_DIR_FORWARD);
         return proc;
@@ -628,7 +624,8 @@ OCIO::ConstProcessorRcPtr OCIOEngine::make_display_processor(
 
     try {
 
-        OCIO::TransformRcPtr transform = display_transform(src_colour_mgmt_metadata, display, view, bypass);
+        OCIO::TransformRcPtr transform =
+            display_transform(src_colour_mgmt_metadata, display, view, bypass);
         OCIO::ContextRcPtr context = setup_ocio_context(src_colour_mgmt_metadata);
         auto proc = ocio_config->getProcessor(context, transform, OCIO::TRANSFORM_DIR_FORWARD);
         return proc;
@@ -692,11 +689,15 @@ std::string OCIOEngine::preferred_view(
         }
         // Viewing Rules from OCIO v2 config
         else if (ocio_config->getViewingRules()->getNumEntries() > 0) {
-            const std::string filepath = src_colour_mgmt_metadata.get_or("path", std::string(""));
-            const std::string auto_input_cs = ocio_config->getColorSpaceFromFilepath(filepath.c_str());
-            const int num_cs = ocio_config->getNumViews(default_display.c_str(), auto_input_cs.c_str());
+            const std::string filepath =
+                src_colour_mgmt_metadata.get_or("path", std::string(""));
+            const std::string auto_input_cs =
+                ocio_config->getColorSpaceFromFilepath(filepath.c_str());
+            const int num_cs =
+                ocio_config->getNumViews(default_display.c_str(), auto_input_cs.c_str());
             if (num_cs > 0) {
-                _preferred_view = ocio_config->getView(default_display.c_str(), auto_input_cs.c_str(), 0);
+                _preferred_view =
+                    ocio_config->getView(default_display.c_str(), auto_input_cs.c_str(), 0);
             }
         }
     } else {

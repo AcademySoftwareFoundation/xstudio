@@ -5,6 +5,7 @@ import QtQuick.Controls.Basic
 
 import xStudio 1.0
 import xstudio.qml.helpers 1.0
+import xstudio.qml.models 1.0
 import "./widgets"
 
 Item{
@@ -101,7 +102,49 @@ Item{
             //     font.bold: true
             //     property string path: sessionProperties.values.pathRole ? sessionProperties.values.pathRole : ""
             //     property string filename: path ? path.substring(path.lastIndexOf("/")+1) : sessionProperties.values.nameRole ? sessionProperties.values.nameRole : ""
-            // }
+
+            XsModuleData {
+                id: extra_widgets
+                modelDataName: "playlists header extra widgets"
+            }
+
+            Repeater {
+    
+                model: extra_widgets
+                Item {
+                    id: parent_item
+                    Layout.preferredHeight: btnHeight
+                    Layout.preferredWidth: dynamic_widget ? dynamic_widget.width : 0
+                    property var dynamic_widget
+                    property var source__: qml_code
+                    onSource__Changed: {
+                        if (!qml_code) return
+                        if (qml_code.endsWith(".qml")) {
+                            let component = Qt.createComponent(source)
+                            if (component.status == Component.Ready) {
+                                dynamic_widget = component.createObject(
+                                    extra_widgets, {})
+                            } else {
+                                console.log("Couldn't load singleton qml file.", component, component.errorString())
+                            }
+                        } else {
+                            dynamic_widget = Qt.createQmlObject(qml_code, parent_item)
+                        }
+                    }
+                    function xstudio_callback(data) {
+                        if (typeof data == "object") {
+                            // 'callback_data' is role data on the attribute in the 'playlistsPanelBarExtraWidgets'
+                            // model. Setting it here sets it in the backend, the Module class then calls its
+                            // qml_item_callback virtual function with 'data' passed in
+                            callback_data = data
+                        }
+                    }
+                }
+            }
+
+            Item {
+                Layout.preferredWidth: 4
+            }
 
             Repeater {
                 // Layout.preferredHeight: btnHeight

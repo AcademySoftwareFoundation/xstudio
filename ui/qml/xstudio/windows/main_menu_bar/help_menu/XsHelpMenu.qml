@@ -53,7 +53,8 @@ Item {
         }
     }
 
-    XsMenuModelItem {
+    // Re-instate this when API docs look better!
+    /*XsMenuModelItem {
         text: "Python/C++ API Documentation"
         menuPath: "Help"
         menuItemPosition: 3
@@ -61,7 +62,7 @@ Item {
         onActivated: {
             openDoc(studio.apiDocsUrl())
         }
-    }
+    }*/
 
     XsMenuModelItem {
         menuItemType: "divider"
@@ -99,7 +100,6 @@ Item {
     }
 
     function openDoc(url) {
-        console.log("url", url)
         if (url == "") {
             dialogHelpers.errorDialogFunc("Error", "Unable to resolve location of user docs.")
         } else {

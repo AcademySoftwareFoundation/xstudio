@@ -1,18 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import QtQuick
-
 import QtQuick.Layouts
-
-
-
-
 import QuickFuture 1.0
 import QuickPromise 1.0
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
 import xstudio.qml.helpers 1.0
+import xstudio.qml.viewport 1.0
 import ShotBrowser 1.0
 
 Item{
@@ -48,8 +44,8 @@ Item{
     property real panelPadding: XsStyleSheet.panelPadding
 
     XsPreference {
-        id: addAfterSelection
-        path: "/plugin/data_source/shotbrowser/add_after_selection"
+        id: addMode
+        path: "/plugin/data_source/shotbrowser/add_mode"
     }
 
     XsPreference {
@@ -91,9 +87,26 @@ Item{
     }
 
 
-    // ShotBrowserResultModel {
-    //     id: results
-    // }
+    XsHotkeyArea {
+        id: hotkey_area
+        anchors.fill: parent
+        context: "NoteHistory" + panel
+        focus: false
+    }
+
+    Keys.forwardTo: hotkey_area
+
+    XsHotkey {
+        context: "NoteHistory" + panel
+        sequence:  "Ctrl+A"
+        name: "Select All"
+        description: "Select All"
+        onActivated: {
+            resultPopup.popupDelegateModel = listDiv.delegateModel
+            resultPopup.selectAll()
+        }
+        componentName: "NoteHistory"
+    }
 
     ItemSelectionModel {
         id: resultsSelectionModel
@@ -302,6 +315,7 @@ Item{
             Layout.fillHeight: true
 
             NotesHistoryListDiv{
+                id: listDiv
                 anchors.fill: parent
                 anchors.leftMargin: 2
                 anchors.topMargin: 2

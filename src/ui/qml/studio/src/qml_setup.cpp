@@ -2,7 +2,6 @@
 #include "xstudio/ui/qml/bookmark_model_ui.hpp"      //NOLINT
 #include "xstudio/ui/qml/conform_ui.hpp"             //NOLINT
 #include "xstudio/ui/qml/embedded_python_ui.hpp"     //NOLINT
-#include "xstudio/ui/qml/QTreeModelToTableModel.hpp" //NOLINT
 #include "xstudio/ui/qml/global_store_model_ui.hpp"  //NOLINT
 #include "xstudio/ui/qml/helper_ui.hpp"              //NOLINT
 #include "xstudio/ui/qml/hotkey_ui.hpp"              //NOLINT
@@ -10,6 +9,7 @@
 #include "xstudio/ui/qml/model_data_ui.hpp"          //NOLINT
 #include "xstudio/ui/qml/module_data_ui.hpp"         //NOLINT
 #include "xstudio/ui/qml/qml_viewport.hpp"           //NOLINT
+#include "xstudio/ui/qml/QTreeModelToTableModel.hpp" //NOLINT
 #include "xstudio/ui/qml/session_model_ui.hpp"       //NOLINT
 #include "xstudio/ui/qml/shotgun_provider_ui.hpp"
 #include "xstudio/ui/qml/studio_ui.hpp" //NOLINT
@@ -78,6 +78,8 @@ void xstudio::ui::qml::setup_xstudio_qml_emgine(QQmlEngine *engine, caf::actor_s
     qmlRegisterType<ViewsModelData>("xstudio.qml.models", 1, 0, "XsViewsModel");
     qmlRegisterType<PopoutWindowsData>("xstudio.qml.models", 1, 0, "XsPopoutWindowsData");
     qmlRegisterType<SingletonsModelData>("xstudio.qml.models", 1, 0, "XsSingletonItemsModel");
+    qmlRegisterType<PlaylistsPanelBarExtraWidgetsModelData>(
+        "xstudio.qml.models", 1, 0, "XsPlaylistsPanelBarExtraWidgetsModel");
 
     qmlRegisterType<MenuModelItem>("xstudio.qml.models", 1, 0, "XsMenuModelItem");
     qmlRegisterType<PanelMenuModelFilter>("xstudio.qml.models", 1, 0, "XsPanelMenuModelFilter");
@@ -129,6 +131,15 @@ void xstudio::ui::qml::setup_xstudio_qml_emgine(QQmlEngine *engine, caf::actor_s
     char *plugin_path = std::getenv("XSTUDIO_PLUGIN_PATH");
     if (plugin_path) {
         for (const auto &p : xstudio::utility::split(plugin_path, ':')) {
+
+            // note - some xSTUDIO plugins have the backend plugin component
+            // and a Qt/QML plugin component built into the same binary.
+            // In other cases it's possible that the Qt/QML plugin component
+            // is built into a separate binary that could be put in the /qml
+            // folder underneath the plugin install path. As such we add
+            // the plugin search path and plugin search path + '/qml' to the
+            // Qt/QML plugin search paths.
+            engine->addPluginPath(QStringFromStd(p));
             engine->addPluginPath(QStringFromStd(p + "/qml"));
             engine->addImportPath(QStringFromStd(p + "/qml"));
         }

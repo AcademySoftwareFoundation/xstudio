@@ -12,7 +12,18 @@
                     "path": "/plugin/data_source/ivy/enable_audio_autoload",
                     "value": true,
                     "category": "Pipeline"
-                }
+                },
+                "use_stalk_name_for_audio_sources": {
+                    "context": [
+                        "PLUGIN"
+                    ],
+                    "datatype": "bool",
+                    "default_value": false,
+                    "description": "Use the ivy stalk name to set the name of audio sources (instead of the leaf name)",
+                    "path": "/plugin/data_source/ivy/use_stalk_name_for_audio_sources",
+                    "value": false,
+                    "category": "Pipeline"
+                }                
             }
         }
     }

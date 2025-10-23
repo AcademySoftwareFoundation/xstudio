@@ -81,15 +81,19 @@ void EmbeddedPython::setup() {
 #else
             // Win32 python home setup. Not 100% sure about this, I can't find any docs on how
             // python should be packaged with an application that embeds python.
-            auto p =  fs::path(fs::path(utility::xstudio_root()).parent_path().parent_path().string() + "\\bin\\python3");
+            auto p = fs::path(
+                fs::path(utility::xstudio_root()).parent_path().parent_path().string() +
+                "\\bin\\python3");
             PyConfig_SetBytesString(&config, &config.home, p.string().data());
             /*std::string xstudio_python_path;
             auto pythonpath_env = get_env("PYTHONPATH");
             if (pythonpath_env) {
                 xstudio_python_path = *pythonpath_env + ";";
             }
-            xstudio_python_path += fs::path(utility::xstudio_resources_dir("plugin-python")).string();
-            PyConfig_SetBytesString(&config, &config.pythonpath_env, xstudio_python_path.data());*/
+            xstudio_python_path +=
+            fs::path(utility::xstudio_resources_dir("plugin-python")).string();
+            PyConfig_SetBytesString(&config, &config.pythonpath_env,
+            xstudio_python_path.data());*/
 
 
 #endif

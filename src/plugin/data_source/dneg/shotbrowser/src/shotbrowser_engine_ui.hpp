@@ -43,8 +43,8 @@ namespace ui {
 
             Q_PROPERTY(
                 QString shotGridUserName READ shotGridUserName NOTIFY shotGridUserNameChanged)
-            Q_PROPERTY(
-                QString shotGridUserType READ shotGridUserType NOTIFY shotGridUserTypeChanged)
+            Q_PROPERTY(bool shotGridLoginAllowed READ shotGridLoginAllowed NOTIFY
+                           shotGridLoginAllowedChanged)
 
             Q_PROPERTY(QObject *presetsModel READ presetsModel NOTIFY presetsModelChanged)
 
@@ -76,7 +76,7 @@ namespace ui {
             Q_INVOKABLE QObject *assetTreeModel(const int project_id);
 
             Q_INVOKABLE QString shotGridUserName();
-            Q_INVOKABLE QString shotGridUserType();
+            Q_INVOKABLE bool shotGridLoginAllowed();
 
             [[nodiscard]] bool connected() const { return connected_; }
 
@@ -123,7 +123,7 @@ namespace ui {
             void presetsModelChanged();
             void readyChanged();
             void shotGridUserNameChanged();
-            void shotGridUserTypeChanged();
+            void shotGridLoginAllowedChanged();
 
             void projectChanged(const int project_id, const QString &project_name);
 
@@ -139,6 +139,11 @@ namespace ui {
             utility::JsonStore getUserData() const;
 
             // void updateModel(const QString &name);
+
+            QFuture<QVariant> getIvyVersionFuture(const QString &project, const QUuid &stalk);
+            QVariant getIvyVersion(const QString &project, const QUuid &stalk) {
+                return getIvyVersionFuture(project, stalk).result();
+            }
 
             QFuture<QUrl> getSequencePathFuture(
                 const QStringList &preferred, const QString &project, const QUuid &stalk);
@@ -439,6 +444,7 @@ namespace ui {
                 const QString &entity,
                 const QString &entity_name,
                 const QString &project_name);
+
             QUrl downloadImage(
                 const int entity_id,
                 const QString &entity,

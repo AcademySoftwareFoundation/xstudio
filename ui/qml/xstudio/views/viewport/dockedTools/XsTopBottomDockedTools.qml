@@ -90,7 +90,7 @@ XsListView {
                 if (source != undefined && source != "") {
                     dynamic_widget = Qt.createQmlObject(source, container)
                 } else if (source == undefined) {
-                    console.log("Unable to make a", widgetName, "left/right dockable widget - plugin does not provide the widget")
+                    console.log("Unable to make a", widgetName, "top/bottom dockable widget - plugin does not provide the widget")
                 }
 
                 widgetNameForMenu = widgetName

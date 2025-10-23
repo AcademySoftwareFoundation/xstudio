@@ -249,6 +249,59 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
             return prune_reader(reader_key(mptr.uri(), mptr.media_source_addr()));
         },
 
+        [=](get_audio_atom,
+            const media::AVFrameID &mptr,
+            const bool
+                pin, // stamp the frame 10 minutes in the future so it sticks in the cache
+            const utility::Uuid &playhead_uuid) -> result<AudioBufPtr> {
+            auto rp      = make_response_promise<media_reader::AudioBufPtr>();
+            auto do_read = [=](caf::actor reader) mutable {
+                mail(get_audio_atom_v, mptr, pin, playhead_uuid)
+                    .request(reader, infinite)
+                    .then(
+                        [=](media_reader::AudioBufPtr buf) mutable { rp.deliver(buf); },
+                        [=](const caf::error &err) mutable { rp.deliver(err); });
+            };
+
+            mail(media_cache::retrieve_atom_v, mptr.key())
+                .request(audio_cache_, infinite)
+                .then(
+                    [=](media_reader::AudioBufPtr buf) mutable {
+                        if (buf) {
+                            rp.deliver(buf);
+                        } else {
+                            // check for existing reader.
+                            auto reader = check_cached_reader(
+                                reader_key(mptr.uri(), mptr.media_source_addr()));
+
+                            if (reader) {
+                                // was using await, not sure why, but I've changed it to then
+                                do_read(*reader);
+                            } else {
+                                // request new reader instance.
+                                auto tp = utility::clock::now();
+                                mail(get_reader_atom_v, mptr.uri(), mptr.reader())
+                                    .request(pool_, infinite)
+                                    .then(
+                                        [=](caf::actor &new_reader) mutable {
+                                            new_reader = add_reader(
+                                                new_reader,
+                                                reader_key(
+                                                    mptr.uri(), mptr.media_source_addr()));
+
+                                            do_read(new_reader);
+                                        },
+                                        [=](const caf::error &err) mutable {
+                                            rp.deliver(err);
+                                        });
+                            }
+                        }
+                    },
+                    [=](const caf::error &err) mutable { rp.deliver(err); });
+
+            return rp;
+        },
+
         [=](get_image_atom,
             const media::AVFrameID &mptr,
             const bool
@@ -463,7 +516,9 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
                     },
                     [=](const caf::error &err) mutable {
                         spdlog::warn(
-                            "Failed cache retrieve buffer {} {}", to_string(mptr.key()), to_string(err));
+                            "Failed cache retrieve buffer {} {}",
+                            to_string(mptr.key()),
+                            to_string(err));
                     });
         },
 
@@ -856,7 +911,8 @@ void GlobalMediaReaderActor::do_precache() {
             },
             [=](const caf::error &err) {
                 mark_playhead_received_precache_result(playhead_uuid);
-                spdlog::warn("Failed preserve buffer {} {}", to_string(mptr->key()), to_string(err));
+                spdlog::warn(
+                    "Failed preserve buffer {} {}", to_string(mptr->key()), to_string(err));
             });
 }
 

@@ -24,6 +24,15 @@ Item {
     // overlahys are not toggled on/off by HUD on/off
     property bool hud_visible: true
 
+    // Dummy 'hud_data_attrs' model - we need this as XsHudItem references
+    // a model with id=hud_data_attrs but it's only relevant for PER-IMAGE
+    // Huds. ViewportOverlays apply to the whole viewport and aren't drawn
+    // per image.
+    XsModuleData {
+        id: __hud_data_attrs
+    }
+    property alias hud_data_attrs: __hud_data_attrs
+
     Repeater {
 
         id: viewport_overlay_plugins

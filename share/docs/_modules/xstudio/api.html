@@ -1,21 +1,23 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>xstudio.api &mdash; xStudio 1.0.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
-      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+  <title>xstudio.api &mdash; xStudio 1.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=eafc0fe6" />
 
   
-      <script src="../../_static/jquery.js?v=5d32c60e"></script>
-      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=8d563738"></script>
-      <script src="../../_static/doctools.js?v=9bcbadda"></script>
-      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=fc837d61"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -34,6 +36,9 @@
           <a href="../../index.html" class="icon icon-home">
             xStudio
           </a>
+              <div class="version">
+                1.1.0
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -73,28 +78,28 @@
              
   <h1>Source code for xstudio.api</h1><div class="highlight"><pre>
 <span></span><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_studio_atom</span><span class="p">,</span> <span class="n">get_global_image_cache_atom</span><span class="p">,</span> <span class="n">get_global_audio_cache_atom</span><span class="p">,</span> <span class="n">get_global_thumbnail_atom</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_global_store_atom</span><span class="p">,</span> <span class="n">get_plugin_manager_atom</span><span class="p">,</span> <span class="n">get_scanner_atom</span><span class="p">,</span> <span class="n">exit_atom</span><span class="p">,</span> <span class="n">get_python_atom</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_actor_from_registry_atom</span><span class="p">,</span> <span class="n">log_atom</span><span class="p">,</span> <span class="n">set_clipboard_atom</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">LogLevel</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.common_api</span><span class="w"> </span><span class="kn">import</span> <span class="n">CommonAPI</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.studio</span><span class="w"> </span><span class="kn">import</span> <span class="n">Studio</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.intrinsic</span><span class="w"> </span><span class="kn">import</span> <span class="n">GlobalStore</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.intrinsic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Thumbnail</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.intrinsic</span><span class="w"> </span><span class="kn">import</span> <span class="n">MediaCache</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.intrinsic</span><span class="w"> </span><span class="kn">import</span> <span class="n">PluginManager</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.intrinsic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scanner</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.auxiliary.helpers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Filesize</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.auxiliary</span><span class="w"> </span><span class="kn">import</span> <span class="n">ActorConnection</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">get_studio_atom</span><span class="p">,</span> <span class="n">get_global_image_cache_atom</span><span class="p">,</span> <span class="n">get_global_audio_cache_atom</span><span class="p">,</span> <span class="n">get_global_thumbnail_atom</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">get_global_store_atom</span><span class="p">,</span> <span class="n">get_plugin_manager_atom</span><span class="p">,</span> <span class="n">get_scanner_atom</span><span class="p">,</span> <span class="n">exit_atom</span><span class="p">,</span> <span class="n">get_python_atom</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">get_actor_from_registry_atom</span><span class="p">,</span> <span class="n">log_atom</span><span class="p">,</span> <span class="n">set_clipboard_atom</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">LogLevel</span>
+<span class="kn">from</span> <span class="nn">xstudio.common_api</span> <span class="kn">import</span> <span class="n">CommonAPI</span>
+<span class="kn">from</span> <span class="nn">xstudio.api.studio</span> <span class="kn">import</span> <span class="n">Studio</span>
+<span class="kn">from</span> <span class="nn">xstudio.api.intrinsic</span> <span class="kn">import</span> <span class="n">GlobalStore</span>
+<span class="kn">from</span> <span class="nn">xstudio.api.intrinsic</span> <span class="kn">import</span> <span class="n">Thumbnail</span>
+<span class="kn">from</span> <span class="nn">xstudio.api.intrinsic</span> <span class="kn">import</span> <span class="n">MediaCache</span>
+<span class="kn">from</span> <span class="nn">xstudio.api.intrinsic</span> <span class="kn">import</span> <span class="n">PluginManager</span>
+<span class="kn">from</span> <span class="nn">xstudio.api.intrinsic</span> <span class="kn">import</span> <span class="n">Scanner</span>
+<span class="kn">from</span> <span class="nn">xstudio.api.auxiliary.helpers</span> <span class="kn">import</span> <span class="n">Filesize</span>
+<span class="kn">from</span> <span class="nn">xstudio.api.auxiliary</span> <span class="kn">import</span> <span class="n">ActorConnection</span>
 
 <div class="viewcode-block" id="API">
 <a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">API</span><span class="p">(</span><span class="n">CommonAPI</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">API</span><span class="p">(</span><span class="n">CommonAPI</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;API connection.</span>
 
 <span class="sd">    Subclass connection for full API.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create API object.</span>
 
 <span class="sd">        Args:</span>
@@ -110,7 +115,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_plugin_manager</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">app</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">app</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Studio object.</span>
 
 <span class="sd">        Returns:</span>
@@ -134,7 +139,7 @@
 
 <div class="viewcode-block" id="API.shutdown">
 <a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.shutdown">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Shutdown xStudio app.</span>
 
 <span class="sd">        Returns:</span>
@@ -148,7 +153,7 @@
 
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">host</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">host</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Current connection host.</span>
 
 <span class="sd">        Returns</span>
@@ -159,7 +164,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">link</span><span class="o">.</span><span class="n">host</span><span class="p">()</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">port</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">port</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Current connection port.</span>
 
 <span class="sd">        Returns</span>
@@ -169,7 +174,7 @@
 
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">session</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">session</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Session object.</span>
 
 <span class="sd">        Returns:</span>
@@ -179,7 +184,7 @@
 
 <div class="viewcode-block" id="API.get_actor_from_registry">
 <a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.get_actor_from_registry">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_actor_from_registry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">get_actor_from_registry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get actor fro registry name</span>
 
 <span class="sd">       Args:</span>
@@ -195,7 +200,7 @@
 
 <div class="viewcode-block" id="API.log">
 <a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.log">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">log</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">level</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">log</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">level</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Log msg at level</span>
 <span class="sd">        Args:</span>
 <span class="sd">            level(str): Log message level</span>
@@ -206,7 +211,7 @@
 
 <div class="viewcode-block" id="API.log_trace">
 <a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.log_trace">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">log_trace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">log_trace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Log msg at level</span>
 <span class="sd">        Args:</span>
 <span class="sd">            messge(str): Log message</span>
@@ -216,7 +221,7 @@
 
 <div class="viewcode-block" id="API.log_debug">
 <a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.log_debug">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">log_debug</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">log_debug</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Log msg at level</span>
 <span class="sd">        Args:</span>
 <span class="sd">            messge(str): Log message</span>
@@ -226,7 +231,7 @@
 
 <div class="viewcode-block" id="API.log_info">
 <a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.log_info">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">log_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">log_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Log msg at level</span>
 <span class="sd">        Args:</span>
 <span class="sd">            messge(str): Log message</span>
@@ -236,7 +241,7 @@
 
 <div class="viewcode-block" id="API.log_warn">
 <a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.log_warn">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">log_warn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">log_warn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Log msg at level</span>
 <span class="sd">        Args:</span>
 <span class="sd">            messge(str): Log message</span>
@@ -246,7 +251,7 @@
 
 <div class="viewcode-block" id="API.log_err">
 <a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.log_err">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">log_err</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">log_err</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Log msg at level</span>
 <span class="sd">        Args:</span>
 <span class="sd">            messge(str): Log message</span>
@@ -256,7 +261,7 @@
 
 <div class="viewcode-block" id="API.log_critical">
 <a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.log_critical">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">log_critical</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">log_critical</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">messge</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Log msg at level</span>
 <span class="sd">        Args:</span>
 <span class="sd">            messge(str): Log message</span>
@@ -266,7 +271,7 @@
 
 <div class="viewcode-block" id="API.set_clipboard">
 <a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.set_clipboard">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">set_clipboard</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">content</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">set_clipboard</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">content</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set UI clipboard</span>
 <span class="sd">        Args:</span>
 <span class="sd">            content(str): content</span>
@@ -276,7 +281,7 @@
 
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">global_store</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">global_store</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Global JSON store object.</span>
 
 <span class="sd">        Returns:</span>
@@ -294,7 +299,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_store</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">thumbnail</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">thumbnail</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Global thumbnail object.</span>
 
 <span class="sd">        Returns:</span>
@@ -312,7 +317,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_thumbnail</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">scanner</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">scanner</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Global scanner object.</span>
 
 <span class="sd">        Returns:</span>
@@ -330,7 +335,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scanner</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">plugin_manager</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">plugin_manager</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Global plugin manager actor.</span>
 
 <span class="sd">        Returns:</span>
@@ -349,7 +354,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_plugin_manager</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">image_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">image_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Global image cache object.</span>
 
 <span class="sd">        Returns:</span>
@@ -367,7 +372,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_image_cache</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">audio_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">audio_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Global audio cache object.</span>
 
 <span class="sd">        Returns:</span>
@@ -386,7 +391,7 @@
 
 <div class="viewcode-block" id="API.status">
 <a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.status">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">status</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">status</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return status of application</span>
 
 <span class="sd">        Returns:</span>
@@ -432,7 +437,7 @@
 
 <div class="viewcode-block" id="API.print_status">
 <a class="viewcode-back" href="../../reference/python_api/api.html#xstudio.api.API.print_status">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">print_status</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">print_status</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Print status nicely.&quot;&quot;&quot;</span>
         <span class="n">s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">status</span><span class="p">()</span>
 

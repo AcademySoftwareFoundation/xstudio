@@ -23,6 +23,19 @@ Item {
 
     // Create a menu 'Some Menu' with an item in it that says 'Do Something'
 
+    XsPreference {
+       id: fullTransfer
+       path: "/plugin/data_source/shotbrowser/transfer/full"
+    }
+
+    XsPreference {
+       id: transferLeafs
+       path: "/plugin/data_source/shotbrowser/transfer/leafs"
+    }
+
+    property var leaves: fullTransfer.value ? [] : transferLeafs.value
+
+
     XsHotkey {
         id: reload_playlist
         sequence: "Alt+r"
@@ -44,7 +57,7 @@ Item {
     XsMenuModelItem {
         text: "In ShotGrid..." + (enabled ? "" : " (Production Only)")
         menuPath: "Reveal Source"
-        enabled: ShotBrowserEngine.shotGridUserType != "User"
+        enabled: ShotBrowserEngine.shotGridLoginAllowed
         menuItemPosition: 2
         menuModelName: "media_list_menu_"
         onActivated: ShotBrowserHelpers.revealMediaInShotgrid(menuContext.mediaSelection)
@@ -59,7 +72,7 @@ Item {
 
     XsMenuModelItem {
         text: "Publish Media Notes..." + (enabled ? "" : " (Production Only)")
-        enabled: ShotBrowserEngine.shotGridUserType != "User"
+        enabled: ShotBrowserEngine.shotGridLoginAllowed
         menuPath: ""
         menuItemPosition: 210
         menuModelName: "media_list_menu_"
@@ -91,7 +104,7 @@ Item {
         menuItemPosition: 1
         menuPath: "Transfer"
         menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia(helpers.getEnv("DNSITEDATA_SHORT_NAME"), menuContext.mediaSelection)
+        onActivated: ShotBrowserHelpers.transferMedia(helpers.getEnv("DNSITEDATA_SHORT_NAME"), menuContext.mediaSelection, leaves)
     }
 
     XsMenuModelItem {
@@ -106,35 +119,35 @@ Item {
         menuItemPosition: 2
         menuPath: "Transfer"
         menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("chn", menuContext.mediaSelection)
+        onActivated: ShotBrowserHelpers.transferMedia("chn", menuContext.mediaSelection, leaves)
     }
     XsMenuModelItem {
         text: "To Montreal"
         menuItemPosition: 3
         menuPath: "Transfer"
         menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("mtl", menuContext.mediaSelection)
+        onActivated: ShotBrowserHelpers.transferMedia("mtl", menuContext.mediaSelection, leaves)
     }
     XsMenuModelItem {
         text: "To Mumbai"
         menuItemPosition: 4
         menuPath: "Transfer"
         menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("mum", menuContext.mediaSelection)
+        onActivated: ShotBrowserHelpers.transferMedia("mum", menuContext.mediaSelection, leaves)
     }
     XsMenuModelItem {
         text: "To London"
         menuItemPosition: 4
         menuPath: "Transfer"
         menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("lon", menuContext.mediaSelection)
+        onActivated: ShotBrowserHelpers.transferMedia("lon", menuContext.mediaSelection, leaves)
     }
     XsMenuModelItem {
         text: "To Sydney"
         menuItemPosition: 5
         menuPath: "Transfer"
         menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("syd", menuContext.mediaSelection)
+        onActivated: ShotBrowserHelpers.transferMedia("syd", menuContext.mediaSelection, leaves)
     }
     // XsMenuModelItem {
     //     text: "To Vancouver"
@@ -179,7 +192,7 @@ Item {
 
     XsMenuModelItem {
         text: "Create SG Playlist..." + (enabled ? "" : " (Production Only)")
-        enabled: ShotBrowserEngine.shotGridUserType != "User"
+        enabled: ShotBrowserEngine.shotGridLoginAllowed
         menuPath: "Pipeline|Playlists"
         menuItemPosition: 1
         menuModelName: "main menu bar"
@@ -218,7 +231,7 @@ Item {
 
     XsMenuModelItem {
         text: "Push Media To SG Playlist" + (enabled ? "" : " (Production Only)")
-        enabled: ShotBrowserEngine.shotGridUserType != "User"
+        enabled: ShotBrowserEngine.shotGridLoginAllowed
         menuPath: "Pipeline|Playlists"
         menuItemPosition: 3
         menuModelName: "main menu bar"
@@ -231,7 +244,7 @@ Item {
 
     XsMenuModelItem {
         text: "Publish Playlist Notes" + (enabled ? "" : " (Production Only)")
-        enabled: ShotBrowserEngine.shotGridUserType != "User"
+        enabled: ShotBrowserEngine.shotGridLoginAllowed
         menuPath: "Pipeline|Notes"
         menuItemPosition: 1
         menuModelName: "main menu bar"
@@ -244,7 +257,7 @@ Item {
 
     XsMenuModelItem {
         text: "Publish Selected Media Notes" + (enabled ? "" : " (Production Only)")
-        enabled: ShotBrowserEngine.shotGridUserType != "User"
+        enabled: ShotBrowserEngine.shotGridLoginAllowed
         menuPath: "Pipeline|Notes"
         menuItemPosition: 2
         menuModelName: "main menu bar"
@@ -267,7 +280,7 @@ Item {
 
     XsMenuModelItem {
         text: "Create SG Playlist..." + (enabled ? "" : " (Production Only)")
-        enabled: ShotBrowserEngine.shotGridUserType != "User"
+        enabled: ShotBrowserEngine.shotGridLoginAllowed
         menuPath: "Playlists"
         menuItemPosition: 1
         menuModelName: "playlist_context_menu"
@@ -307,7 +320,7 @@ Item {
 
     XsMenuModelItem {
         text: "Push Media To SG Playlist" + (enabled ? "" : " (Production Only)")
-        enabled: ShotBrowserEngine.shotGridUserType != "User"
+        enabled: ShotBrowserEngine.shotGridLoginAllowed
         menuPath: "Playlists"
         menuItemPosition: 3
         menuModelName: "playlist_context_menu"
@@ -320,7 +333,7 @@ Item {
 
     XsMenuModelItem {
         text: "Reveal In ShotGrid..." + (enabled ? "" : " (Production Only)")
-        enabled: ShotBrowserEngine.shotGridUserType != "User"
+        enabled: ShotBrowserEngine.shotGridLoginAllowed
         menuPath: "Playlists"
         menuItemPosition: 4
         menuModelName: "playlist_context_menu"
@@ -343,7 +356,7 @@ Item {
 
     XsMenuModelItem {
         text: "Publish Playlist Notes" + (enabled ? "" : " (Production Only)")
-        enabled: ShotBrowserEngine.shotGridUserType != "User"
+        enabled: ShotBrowserEngine.shotGridLoginAllowed
         menuPath: "Notes"
         menuItemPosition: 1
         menuModelName: "playlist_context_menu"

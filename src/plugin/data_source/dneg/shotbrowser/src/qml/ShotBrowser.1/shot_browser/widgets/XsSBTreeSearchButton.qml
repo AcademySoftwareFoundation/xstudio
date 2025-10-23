@@ -24,7 +24,21 @@ Item{
 
     signal indexSelected(index: var)
 
+    Timer {
+        id: defocus
+        interval: 1000
+        running: false
+        repeat: false
+        onTriggered: {
+            if(searchPop.visible || searchField.hovered)
+                start()
+            else
+                searchField.focus = false
+        }
+    }
+
     function selectionMade(index) {
+        defocus.stop()
         indexSelected(index)
         model.setFilterWildcard("")
         searchField.text = ""
@@ -76,11 +90,28 @@ Item{
                 }
             }
 
+            onFocusChanged: {
+                if(focus) {
+                    defocus.interval = 5000
+                    defocus.restart()
+                }
+            }
+
             onTextEdited: {
+                defocus.interval = 1000
+                defocus.restart()
                 searchPop.open()
-                model.filterCaseSensitivity =  Qt.CaseInsensitive
-                model.setFilterWildcard(text)
+                model.filterCaseSensitivity = Qt.CaseInsensitive
                 searchList.currentIndex = 0
+                updateTimer.restart()
+            }
+
+            Timer {
+                id: updateTimer
+                interval: 250
+                running: false
+                repeat: false
+                onTriggered: button.model.setFilterWildcard(searchField.text)
             }
 
             Keys.onPressed: (event)=> {

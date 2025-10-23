@@ -198,6 +198,19 @@ XsPopupMenu {
     // }
 
     XsMenuModelItem {
+        text: "Set Media FPS ..."
+        menuItemType: "button"
+        menuPath: ""
+        menuItemPosition: 10.25 //30
+        menuModelName: btnMenu.menu_model_name
+        hotkeyUuid: set_media_rate_hotkey.uuid
+        onActivated: {
+            view.show_fps_widget()
+        }
+        panelContext: btnMenu.panelContext
+    }
+
+    XsMenuModelItem {
         text: "Snapshot viewer..."
         menuItemType: "button"
         menuPath: ""

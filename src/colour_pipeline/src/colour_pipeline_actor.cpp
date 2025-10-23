@@ -53,11 +53,19 @@ caf::behavior GlobalColourPipelineActor::make_behavior() {
         },
         [=](colour_pipeline_atom,
             const std::string &viewport_name,
-            const std::string &window_id) -> result<caf::actor> {
+            const std::string &window_id,
+            const bool sync) -> result<caf::actor> {
             auto rp                    = make_response_promise<caf::actor>();
             auto init_data             = prefs_jsn_;
             init_data["viewport_name"] = viewport_name;
             init_data["window_id"]     = window_id;
+
+            // this indicates that the colour pipeline plugin instance should
+            // synchonise with others (e.g. exposure should sync). Colour pipe
+            // instances belonging to viewports in the main UI and offscreen
+            // viewports driving SDI output, for example, should have 'sync'
+            // as true
+            init_data["join_sync_group"] = sync;
             make_colour_pipeline(default_plugin_name_, init_data, rp);
             return rp;
         },
@@ -66,7 +74,7 @@ caf::behavior GlobalColourPipelineActor::make_behavior() {
             if (colour_piplines_.find("thumbnail_processor") != colour_piplines_.end()) {
                 rp.deliver(colour_piplines_["thumbnail_processor"]);
             } else {
-                mail(colour_pipeline_atom_v, "thumbnail_processor", "offscreen")
+                mail(colour_pipeline_atom_v, "thumbnail_processor", "offscreen", false)
                     .request(caf::actor_cast<caf::actor>(this), infinite)
                     .then(
                         [=](caf::actor colour_pipe) mutable { rp.deliver(colour_pipe); },

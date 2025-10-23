@@ -15,6 +15,8 @@ XsComboBox{ id: widget
 
     property real panelPadding: XsStyleSheet.panelPadding
 
+    signal clearButtonPressed(int clearedIndex)
+
     // model: null
     // editText: ""
 
@@ -33,8 +35,10 @@ XsComboBox{ id: widget
 
         onClicked: {
             if(widget.popupOptions.opened) widget.popupOptions.close()
+            var idx = widget.currentIndex
             widget.currentIndex = -1
             widget.focus = false
+            clearButtonPressed(idx)
         }
     }
 }

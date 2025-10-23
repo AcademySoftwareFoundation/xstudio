@@ -11,6 +11,8 @@
 
 namespace xstudio::audio {
 
+enum AudioBehaviourOnSilence { StopPushingSamplesOnSilence, ContinuePushingSamplesOnSilence };
+
 /**
  *  @brief Class for delivering audio to soundcard by maintaining a smoothed
  *  measurment of the playhead position and re-sampling audio sources as
@@ -50,9 +52,11 @@ class AudioOutputControl {
         std::vector<int16_t> &samples, const long num_samps_to_push);
 
     /**
-     *  @brief The audio volume (range is 0-1)
+     *  @brief The audio volume (range is 0-100)
      */
-    [[nodiscard]] float volume() const { return volume_ * override_volume_ / 100.0f; }
+    [[nodiscard]] float volume() const {
+        return override_volume_ == -1.0f ? volume_ : override_volume_;
+    }
 
     /**
      *  @brief The audio volume muted
@@ -143,8 +147,9 @@ class AudioOutputControl {
     float volume_                      = {100.0f};
     bool muted_                        = {false};
     bool playing_                      = {false};
-    float override_volume_             = {100.0f};
+    float override_volume_             = {-1.0f};
     float last_volume_                 = {100.0f};
     float scrub_chunk_duration_frames_ = {1.0f};
+    bool apply_global_volume_          = {true};
 };
 } // namespace xstudio::audio

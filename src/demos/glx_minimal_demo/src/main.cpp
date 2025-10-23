@@ -165,7 +165,8 @@ GLXWindowViewportActor::GLXWindowViewportActor(caf::actor_config &cfg)
     /* Here we create the xstudio OpenGLViewportRenderer class that actually draws video to the
      * screen
      */
-    viewport_renderer = new ui::viewport::Viewport(jsn, caf::actor_cast<caf::actor>(this));
+    viewport_renderer =
+        new ui::viewport::Viewport(jsn, caf::actor_cast<caf::actor>(this), false);
 
     /* Provide a callback so the xstudio OpenGLViewportRenderer can tell this class when some
     property of the viewport has changed, or a redraw is needed, so the window

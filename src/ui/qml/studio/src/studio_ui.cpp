@@ -39,6 +39,7 @@ StudioUI::~StudioUI() {
     // in their own threads. Schedule deletion here.
     for (auto vp : offscreen_viewports_) {
         vp->stop();
+        delete vp;
     }
     system().registry().erase(studio_ui_registry);
     snapshot_offscreen_viewport_->stop();
@@ -139,18 +140,25 @@ void StudioUI::init(actor_system &system_) {
 
             [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
-            [=](ui::offscreen_viewport_atom, const std::string name) -> caf::actor {
+            [=](ui::offscreen_viewport_atom,
+                const std::string name,
+                const bool sync_to_main_viewports) -> caf::actor {
                 // create a new offscreen viewport and return the actor handle
-                offscreen_viewports_.push_back(new xstudio::ui::qt::OffscreenViewport(name));
+                offscreen_viewports_.push_back(
+                    new xstudio::ui::qt::OffscreenViewport(name, sync_to_main_viewports));
                 return offscreen_viewports_.back()->as_actor();
             },
 
-            [=](ui::offscreen_viewport_atom, const std::string name, caf::actor requester) {
+            [=](ui::offscreen_viewport_atom,
+                const std::string name,
+                const bool sync_to_main_viewports,
+                caf::actor requester) {
                 // create a new offscreen viewport and send it back to the 'requester' actor.
                 // The reason we do it this way is because the requester might be a mixin
                 // actor based off a QObject - if so it can't do request/receive message
                 // handling with this actor which also lives in the Qt UI thread.
-                offscreen_viewports_.push_back(new xstudio::ui::qt::OffscreenViewport(name));
+                offscreen_viewports_.push_back(
+                    new xstudio::ui::qt::OffscreenViewport(name, sync_to_main_viewports));
                 anon_mail(
                     ui::offscreen_viewport_atom_v, offscreen_viewports_.back()->as_actor())
                     .send(requester);
@@ -199,6 +207,13 @@ QUrl StudioUI::apiDocsUrl() const {
 QUrl StudioUI::releaseDocsUrl() const {
     std::string docs_index =
         utility::xstudio_resources_dir("docs/user_docs/release_notes/index.html");
+    if (docs_index.find("/") == 0)
+        docs_index.erase(docs_index.begin());
+    return QUrl(QString(tr("file:///")) + QStringFromStd(docs_index));
+}
+
+QUrl StudioUI::docsSectionUrl(const QString &section) const {
+    std::string docs_index = utility::xstudio_resources_dir(StdFromQString(section));
     if (docs_index.find("/") == 0)
         docs_index.erase(docs_index.begin());
     return QUrl(QString(tr("file:///")) + QStringFromStd(docs_index));
@@ -469,7 +484,7 @@ xstudio::ui::qt::OffscreenViewport *StudioUI::offscreen_snapshot_viewport() {
     if (!snapshot_offscreen_viewport_) {
         snapshot_offscreen_viewport_ = new xstudio::ui::qt::OffscreenViewport(
             "snapshot_viewport",
-            false // this flag means we don't have QML overlays in the snapshot viewport
+            true // this flag means we do sync to the other (main UI) viewports
         );
         system().registry().put(
             offscreen_viewport_registry, snapshot_offscreen_viewport_->as_actor());

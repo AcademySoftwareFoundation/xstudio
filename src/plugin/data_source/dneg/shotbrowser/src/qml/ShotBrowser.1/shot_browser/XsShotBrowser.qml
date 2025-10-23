@@ -252,8 +252,8 @@ Item{
     }
 
     XsPreference {
-        id: addAfterSelection
-        path: "/plugin/data_source/shotbrowser/add_after_selection"
+        id: addMode
+        path: "/plugin/data_source/shotbrowser/add_mode"
     }
 
     Item {
@@ -268,6 +268,7 @@ Item{
         property bool showHidden: true
         property bool showHiddenPresets: false
         property bool showUnit: false
+        property bool showCompletion: false
         property bool showOnlyFavourites: false
         property bool showStatus: false
         property bool showType: false
@@ -278,6 +279,7 @@ Item{
         property var filterProjectStatus: []
         property var filterUnit: {}
         property var filterType: []
+        property var filterLocation: []
 
         property var shotTreeHidden: {}
         property var assetTreeHidden: {}
@@ -309,6 +311,7 @@ Item{
                 "showHiddenPresets",
                 "hideEmpty",
                 "showUnit",
+                "showCompletion",
                 "showType",
                 // "presetHidden",
                 "shotTreeHidden",
@@ -320,6 +323,7 @@ Item{
                 "quickLoad",
                 "filterUnit",
                 "filterType",
+                "filterLocation",
                 "filterProjects",
                 "filterProjectStatus"
             ]
@@ -332,12 +336,12 @@ Item{
 
     function updateHidden() {
         if(assetMode) {
-            let tmp = prefs.assetTreeHidden == undefined  ? {} : prefs.assetTreeHidden
-            tmp[projectIndex.model.get(projectIndex,"nameRole")] = assetBaseModel.getHidden()
+            let tmp = prefs.assetTreeHidden == undefined  ? {} : JSON.parse(JSON.stringify( prefs.assetTreeHidden) )
+            tmp[projectIndex.model.get(projectIndex,"nameRole")] = JSON.parse(JSON.stringify(assetBaseModel.getHidden()))
             prefs.assetTreeHidden = tmp
         } else {
-            let tmp = prefs.shotTreeHidden == undefined  ? {} : prefs.shotTreeHidden
-            tmp[projectIndex.model.get(projectIndex,"nameRole")] = sequenceBaseModel.getHidden()
+            let tmp = prefs.shotTreeHidden == undefined  ? {} : JSON.parse(JSON.stringify( prefs.shotTreeHidden) )
+            tmp[projectIndex.model.get(projectIndex,"nameRole")] = JSON.parse(JSON.stringify(sequenceBaseModel.getHidden()))
             prefs.shotTreeHidden = tmp
         }
     }
@@ -349,11 +353,24 @@ Item{
         hideEmpty: prefs.hideEmpty
         showHidden: prefs.showHidden
         typeFilter: prefs.filterType
-        // unitFilter:
+        locationFilter: prefs.filterLocation
         onUnitFilterChanged: {
-            let tmp = prefs.filterUnit == undefined  ? {} : prefs.filterUnit
-            tmp[projectIndex.model.get(projectIndex,"nameRole")] = unitFilter
+            let tmp = prefs.filterUnit == undefined  ? {} : JSON.parse(JSON.stringify( prefs.filterUnit) )
+            tmp[projectIndex.model.get(projectIndex, "nameRole")] = JSON.parse(JSON.stringify(unitFilter))
             prefs.filterUnit = tmp
+        }
+
+    }
+
+    Connections {
+        target: panel
+        function onProjectIndexChanged() {
+            let proj = projectIndex && projectIndex.model ? projectIndex.model.get(projectIndex,"nameRole") : ""
+
+            if(proj in prefs.filterUnit)
+                sequenceFilterModel.unitFilter = prefs.filterUnit[proj]
+            else
+                sequenceFilterModel.unitFilter = []
         }
     }
 
@@ -678,6 +695,7 @@ Item{
             ShotBrowserEngine.connected = true
             setProjectIndex()
         }
+        appWindow.createConformTool()
     }
 
     onVisibleChanged: {

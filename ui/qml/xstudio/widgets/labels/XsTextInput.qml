@@ -17,7 +17,7 @@ TextInput{
     color: textColorNormal
 
     clip: true
-    height: parent.height
+    //height: parent.height
     verticalAlignment: TextEdit.AlignVCenter
 
     font.pixelSize: XsStyleSheet.fontSize

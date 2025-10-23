@@ -68,8 +68,8 @@ void PlayheadGlobalEventsActor::init() {
 
     system().registry().put(global_playhead_events_actor, this);
 
-    event_group_             = spawn<broadcast::BroadcastActor>(this);
-    fine_grain_events_group_ = spawn<broadcast::BroadcastActor>(this);
+    event_group_ = spawn<broadcast::BroadcastActor>(this);
+    // fine_grain_events_group_ = spawn<broadcast::BroadcastActor>(this);
 
     link_to(event_group_);
 
@@ -96,6 +96,41 @@ void PlayheadGlobalEventsActor::init() {
         [=](ui::viewport::viewport_playhead_atom) -> caf::actor {
             return global_active_playhead_;
         },
+
+        [=](play_atom, const bool _play) {
+            return mail(play_atom_v, _play).delegate(global_active_playhead_);
+        },
+
+        [=](play_atom) { return mail(play_atom_v).delegate(global_active_playhead_); },
+
+        [=](play_forward_atom, const bool forward) {
+            return mail(play_forward_atom_v, forward).delegate(global_active_playhead_);
+        },
+
+        [=](play_forward_atom, const bool forward, const bool faster) {
+            return mail(play_forward_atom_v, forward, faster).delegate(global_active_playhead_);
+        },
+
+        [=](skip_to_bookmark_atom, const bool forward) {
+            return mail(skip_to_bookmark_atom_v, forward).delegate(global_active_playhead_);
+        },
+
+        [=](jump_atom, const int frame) {
+            return mail(jump_atom_v, frame).delegate(global_active_playhead_);
+        },
+
+        [=](step_atom, const int frame) {
+            return mail(step_atom_v, frame).delegate(global_active_playhead_);
+        },
+
+        [=](skip_to_media_atom, const bool next_clip) {
+            return mail(skip_to_media_atom_v, next_clip).delegate(global_active_playhead_);
+        },
+
+        [=](skip_to_clip_atom, const bool next_clip) {
+            return mail(skip_to_clip_atom_v, next_clip).delegate(global_active_playhead_);
+        },
+
         [=](ui::viewport::viewport_playhead_atom,
             caf::actor playhead,
             bool request) -> std::vector<caf::actor> {
@@ -184,30 +219,19 @@ void PlayheadGlobalEventsActor::init() {
             if (playhead) {
                 monitor_it(playhead);
                 // since the playhead has changed we want to tell subscribers
-                // the new media/media_source
-                mail(playhead::media_atom_v)
-                    .request(playhead, infinite)
-                    .then(
-                        [=](caf::actor media) {
-                            mail(playhead::media_source_atom_v)
-                                .request(playhead, infinite)
-                                .then(
-                                    [=](caf::actor media_source) {
-                                        mail(
-                                            utility::event_atom_v,
-                                            show_atom_v,
-                                            media,
-                                            media_source,
-                                            viewport_name)
-                                            .send(event_group_);
-                                    },
-                                    [=](caf::error &err) {
+                // the new media/media_source ... this message will 'kick' it
+                // to send us a media_source event message
+                mail(playhead::media_atom_v, true).send(playhead);
+            }
+        },
 
-                                    });
-                        },
-                        [=](caf::error &err) {
-
-                        });
+        [=](media_atom, const bool) {
+            // this acts as a 'kick' message, forcing all active playheads to
+            // re-broadcast their on-screen media
+            for (auto &p : viewports_) {
+                if (p.second.playhead) {
+                    mail(media_atom_v, true).send(p.second.playhead);
+                }
             }
         },
 
@@ -222,14 +246,33 @@ void PlayheadGlobalEventsActor::init() {
                 }
             }
         },
-        [=](show_atom, caf::actor media, caf::actor media_source) {
+        [=](show_atom,
+            const utility::UuidActor &media,
+            const utility::UuidActor &media_source,
+            const int playhead_index) {
             // a playhead is telling us the on-screen media has changed
             auto playhead = caf::actor_cast<caf::actor>(current_sender());
             for (auto &p : viewports_) {
                 if (p.second.playhead == playhead) {
                     // forward the event, including the name of the viewport(s)
                     // that are attached to the playhead
-                    mail(utility::event_atom_v, show_atom_v, media, media_source, p.first)
+                    mail(
+                        utility::event_atom_v,
+                        show_atom_v,
+                        media,
+                        media_source,
+                        p.first,
+                        playhead_index)
+                        .send(event_group_);
+
+                    // this message is for backward compatibility ... some plugins may be
+                    // expecting a message with this format
+                    mail(
+                        utility::event_atom_v,
+                        show_atom_v,
+                        media.actor(),
+                        media_source.actor(),
+                        p.first)
                         .send(event_group_);
                 }
             }
@@ -251,10 +294,14 @@ void PlayheadGlobalEventsActor::init() {
             }
             return result;
         },
-        [=](ui::viewport::viewport_atom, const std::string viewport_name, const std::string window_id, caf::actor viewport) {
+        [=](ui::viewport::viewport_atom,
+            const std::string viewport_name,
+            const std::string window_id,
+            caf::actor viewport) {
             monitor_it(viewport);
             // viewports register themselves by sending us this message
-            viewports_[viewport_name] = ViewportAndPlayhead({viewport, caf::actor(), window_id});
+            viewports_[viewport_name] =
+                ViewportAndPlayhead({viewport, caf::actor(), window_id});
             mail(utility::event_atom_v, ui::viewport::viewport_atom_v, viewport_name, viewport)
                 .send(event_group_);
         },
@@ -302,25 +349,28 @@ void PlayheadGlobalEventsActor::init() {
                 if (p.second.window_id == "xstudio_main_window") {
                     (*ct)++;
                     auto vp = p.second.viewport;
-                    mail(ui::viewport::viewport_visibility_atom_v).request(vp, infinite).then(
-                        [=](bool visible) mutable {
-                            if (visible && rp.pending()) {
-                                rp.deliver(vp);
-                            }
-                            (*ct)--;
-                            if (!(*ct) && rp.pending()) {
-                                rp.deliver(caf::actor());
-                            }
-                        },
-                        [=](caf::error &err) mutable {
-                            (*ct)--;
-                            if (!(*ct) && rp.pending()) {
-                                rp.deliver(caf::actor());
-                            }
-                        });
+                    mail(ui::viewport::viewport_visibility_atom_v)
+                        .request(vp, infinite)
+                        .then(
+                            [=](bool visible) mutable {
+                                if (visible && rp.pending()) {
+                                    rp.deliver(vp);
+                                }
+                                (*ct)--;
+                                if (!(*ct) && rp.pending()) {
+                                    rp.deliver(caf::actor());
+                                }
+                            },
+                            [=](caf::error &err) mutable {
+                                (*ct)--;
+                                if (!(*ct) && rp.pending()) {
+                                    rp.deliver(caf::actor());
+                                }
+                            });
                 }
             }
-            if (!(*ct)) rp.deliver(caf::actor());
+            if (!(*ct))
+                rp.deliver(caf::actor());
             return rp;
         },
         [=](ui::viewport::active_viewport_atom, bool) -> caf::actor {

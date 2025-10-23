@@ -56,6 +56,7 @@ Item {
             Layout.preferredHeight: btnHeight
             isExpanded: false
             hint: "Search media..."
+            autoDefocus: true
             onTextChanged: {
                 mediaListSearchString = text
                 if (mediaListSearchString != "" && !isExpanded) {
@@ -137,7 +138,7 @@ Item {
             }
 
             Component.onCompleted: {
-                if(user_data.cellSize)
+                if(user_data != undefined && user_data.cellSize)
                     cellSize = user_data.cellSize
             }
         }

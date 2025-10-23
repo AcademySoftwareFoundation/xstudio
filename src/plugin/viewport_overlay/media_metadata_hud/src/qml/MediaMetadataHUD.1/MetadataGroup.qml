@@ -75,7 +75,7 @@ Item {
                     width: 14
                 }
 
-                XsText {
+                XsTextCopyable {
                     Layout.preferredWidth: cwidth
                     Layout.preferredHeight: rowHeight
                     id: pname
@@ -92,7 +92,7 @@ Item {
                     }
                 }
 
-                XsText {
+                XsTextCopyable {
 
                     id: valueText
                     Layout.preferredHeight: rowHeight
@@ -100,37 +100,9 @@ Item {
                     text: value.replace(/(\r\n|\n|\r)/gm, "");
                     font.family: XsStyleSheet.altFixedWidthFontFamily
                     font.pixelSize: 12
-                    elide: Text.ElideRight
                     font.weight: Font.Medium
                     horizontalAlignment: Text.AlignLeft
                     verticalAlignment: Text.AlignVCenter    
-                    MouseArea {
-                        id: ma
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onContainsMouseChanged: {
-                            if (containsMouse) {
-                                if (valueText.truncated) {
-                                    var pt = mapToItem(toolTip.parent, mouseX, mouseY);
-                                    toolTip.x = pt.x
-                                    toolTip.y = pt.y
-                                    toolTip.text = value
-                                    toolTip.show()
-                                } else {
-                                    toolTip.hide()
-                                }
-                            } else if (valueText.truncated && toolTip.text == value) {
-                                toolTip.hide()
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        anchors.fill: parent
-                        visible: valueText.truncated && ma.containsMouse
-                        color: "transparent"
-                        border.color: palette.highlight
-                    }
                 }        
             }
         }

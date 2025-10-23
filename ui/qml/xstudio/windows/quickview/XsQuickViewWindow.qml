@@ -22,26 +22,10 @@ ApplicationWindow {
     // this gives us access to the 'role' data of the entry in the session model
     // for the current on-screen media SOURCE
     property var fileName: {
-        if (media_source_data.values.pathRole != undefined) {
-            return helpers.fileFromURL(media_source_data.values.pathRole)
+        if (viewport.viewportPlayhead && typeof(viewport.viewportPlayhead.playheadImageURI) == "string") {
+            return helpers.fileFromURL(viewport.viewportPlayhead.playheadImageURI)
         }
         return ""
-    }
-
-    property var mediaSourceUuid: appWindow.viewport.viewportPlayhead.mediaSourceUuid
-    onMediaSourceUuidChanged: {
-        set_index(0)
-    }
-    XsModelPropertyMap {
-        id: media_source_data
-    }
-    function set_index(retry) {
-        media_source_data.index = theSessionData.searchRecursive(mediaSourceUuid, "actorUuidRole")
-        if (!media_source_data.index.valid && retry < 4) {
-            callbackTimer.setTimeout(function(r) { return function() {
-                set_index(r+1)
-            }}(retry), 200);
-        }
     }
 
     onClosing: {
@@ -110,7 +94,17 @@ ApplicationWindow {
             width = preFullScreenVis[2]
             height = preFullScreenVis[3]
         }
+
     }
+
+    Timer {
+        id: bufferedUITimer
+        interval: bufferedUIDelay.value != undefined ? bufferedUIDelay.value : 0
+        running: false
+        repeat: false
+
+    }
+    property alias bufferedUITimer: bufferedUITimer
 
     /*****************************************************************
      *

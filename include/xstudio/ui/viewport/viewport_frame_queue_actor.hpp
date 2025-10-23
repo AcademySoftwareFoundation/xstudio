@@ -72,12 +72,6 @@ namespace ui {
                 caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp,
                 media_reader::ImageBufDisplaySet *result);
 
-            void append_overlays_data(
-                caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp,
-                const int img_idx,
-                media_reader::ImageBufDisplaySet *result,
-                std::shared_ptr<int> response_count);
-
             typedef std::map<timebase::flicks, media_reader::ImageBufPtr> OrderedImagesToDraw;
 
             media_reader::ImageBufPtr

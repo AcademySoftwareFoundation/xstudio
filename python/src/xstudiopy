@@ -7,7 +7,7 @@ function help
 	echo "Options:"
     echo "  -s SESSION, --session SESSION Session name (DEFAULT: '')"
     echo "  -h HOST, --host HOST          Host xstudio is running on (DEFAULT: '')"
-    echo "  -p, --port                    Port to connect to (DEFAULT: 45500)"
+    echo "  -p, --port                    Port to connect to (DEFAULT: 14441)"
     echo "  -e, --execute                 Execute command and exit"
 	echo "  --help                        show this help message and exit"
     echo "  -d, --debug                   Print debug output"
@@ -18,7 +18,7 @@ function help
 DEBUG=False
 SESSION=
 HOST=
-PORT=45500
+PORT=14441
 EXECUTE=
 
 SOURCE="${BASH_SOURCE[0]}"

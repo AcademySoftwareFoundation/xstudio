@@ -92,7 +92,7 @@ class py_context : public py_config {
     py::function my_func;
     std::thread my_thread;
 
-    std::map<xstudio::utility::Uuid, caf::actor> message_callback_handler_actors_;
+    caf::actor message_callback_handler_actor_;
     std::map<xstudio::utility::Uuid, py::function> message_callback_funcs_;
     std::map<xstudio::utility::Uuid, py::object> plugin_registry_;
 };

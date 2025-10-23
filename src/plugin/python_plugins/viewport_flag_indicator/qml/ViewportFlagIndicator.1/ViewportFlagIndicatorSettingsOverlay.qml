@@ -15,14 +15,19 @@ import xstudio.qml.models 1.0
 // is on screen. If no flag is set, we don't show anything
 Rectangle {
 
-    width: indicatorSize*(view.width/1920)
+    width: indicatorSize*scalingFactor
     height: width
     radius: width/2
-    color: flag ? flag : "transparent"
+    color: media_item_hud_data ? media_item_hud_data : "transparent"
 
-    property var flag: currentOnScreenMediaData.values.flagColourRole
+    XsModuleData {
+        id: flags_data
+        modelDataName: view.name + " flags"
+    }
 
-    
+    function setCWidth(ww) {
+        if (ww > cwidth) cwidth = ww
+    }
 
     // access the 'dnmask_settings' attribute group
     XsModuleData {

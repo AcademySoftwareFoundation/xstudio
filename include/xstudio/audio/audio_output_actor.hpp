@@ -137,7 +137,7 @@ class AudioOutputDeviceActor : public caf::event_based_actor {
                     .then(
                         [=](const std::vector<int16_t> &samples_to_play) mutable {
                             waiting_for_samples_ = false;
-                            if (samples_to_play.size()) {
+                            if (not samples_to_play.empty()) {
                                 if (output_device_->push_samples(
                                         (const void *)samples_to_play.data(),
                                         samples_to_play.size())) {
@@ -177,11 +177,17 @@ class AudioOutputActor : public caf::event_based_actor, AudioOutputControl {
     AudioOutputActor(
         caf::actor_config &cfg,
         std::shared_ptr<AudioOutputDevice> output_device,
-        bool subscribe_to_global_audio_stream = true)
+        bool subscribe_to_global_audio_stream               = true,
+        const AudioBehaviourOnSilence audio_mode_on_silence = StopPushingSamplesOnSilence)
         : caf::event_based_actor(cfg),
           output_device_(output_device),
-          is_global_(subscribe_to_global_audio_stream) {
+          is_global_(subscribe_to_global_audio_stream),
+          audio_mode_on_silence_(audio_mode_on_silence) {
         init();
+        if (!output_device->use_global_volume()) {
+            // this overrides the xSTUDIO volume control in the interface
+            AudioOutputControl::set_override_volume(100.0f);
+        }
     }
 
     ~AudioOutputActor() override = default;
@@ -205,6 +211,7 @@ class AudioOutputActor : public caf::event_based_actor, AudioOutputControl {
     caf::actor playhead_;
     bool is_global_;
     utility::time_point last_audio_sounding_tp_;
+    const AudioBehaviourOnSilence audio_mode_on_silence_;
 };
 
 /* Singleton class that receives audio sample buffers from the current

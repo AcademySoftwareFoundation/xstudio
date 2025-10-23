@@ -55,6 +55,8 @@ Playlist Flags
 
 You can add colour flags to Playlists, Subsets, Contact Sheets etc. via the Set Colour sub-menu in the Context Menu. The flag acts as a simple indicator and is entirely for the user's own purposes for colour coding items in the session for their attention.
 
+.. _subsets:
+
 xSTUDIO Subsets
 ---------------
 

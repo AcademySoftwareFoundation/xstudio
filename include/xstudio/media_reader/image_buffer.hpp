@@ -109,22 +109,24 @@ namespace media_reader {
               intrinsic_transform_(o.intrinsic_transform_),
               layout_transform_(o.layout_transform_),
               playhead_logical_frame_(o.playhead_logical_frame_),
+              playhead_logical_duration_(o.playhead_logical_duration_),
               error_details_(o.error_details_) {}
 
         ImageBufPtr &operator=(const ImageBufPtr &o) {
-            Base &b                 = static_cast<Base &>(*this);
-            b                       = static_cast<const Base &>(o);
-            colour_pipe_data_       = o.colour_pipe_data_;
-            colour_pipe_uniforms_   = o.colour_pipe_uniforms_;
-            when_to_display_        = o.when_to_display_;
-            plugin_blind_data_      = o.plugin_blind_data_;
-            tts_                    = o.tts_;
-            frame_id_               = o.frame_id_;
-            bookmarks_              = o.bookmarks_;
-            intrinsic_transform_    = o.intrinsic_transform_;
-            layout_transform_       = o.layout_transform_;
-            playhead_logical_frame_ = o.playhead_logical_frame_;
-            error_details_          = o.error_details_;
+            Base &b                    = static_cast<Base &>(*this);
+            b                          = static_cast<const Base &>(o);
+            colour_pipe_data_          = o.colour_pipe_data_;
+            colour_pipe_uniforms_      = o.colour_pipe_uniforms_;
+            when_to_display_           = o.when_to_display_;
+            plugin_blind_data_         = o.plugin_blind_data_;
+            tts_                       = o.tts_;
+            frame_id_                  = o.frame_id_;
+            bookmarks_                 = o.bookmarks_;
+            intrinsic_transform_       = o.intrinsic_transform_;
+            layout_transform_          = o.layout_transform_;
+            playhead_logical_frame_    = o.playhead_logical_frame_;
+            playhead_logical_duration_ = o.playhead_logical_duration_;
+            error_details_             = o.error_details_;
             return *this;
         }
 
@@ -196,6 +198,13 @@ namespace media_reader {
         }
         void set_playhead_logical_frame(const int frame) { playhead_logical_frame_ = frame; }
 
+        [[nodiscard]] const int &playhead_logical_duration() const {
+            return playhead_logical_duration_;
+        }
+        void set_playhead_logical_duration(const int frame) {
+            playhead_logical_duration_ = frame;
+        }
+
         [[nodiscard]] const bookmark::BookmarkAndAnnotations &bookmarks() const {
             return bookmarks_;
         }
@@ -230,7 +239,8 @@ namespace media_reader {
         timebase::flicks tts_ = timebase::flicks{0};
         media::AVFrameID frame_id_;
         bookmark::BookmarkAndAnnotations bookmarks_;
-        int playhead_logical_frame_ = 0;
+        int playhead_logical_frame_    = 0;
+        int playhead_logical_duration_ = 0;
     };
 
     inline float image_aspect(const ImageBufPtr &v) {
