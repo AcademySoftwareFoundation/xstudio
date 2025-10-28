@@ -90,6 +90,10 @@ class OCIOColourPipeline : public ColourPipeline {
         const utility::Uuid &source_uuid,
         const utility::JsonStore &src_colour_mgmt_metadata) override;
 
+    utility::JsonStore get_display_and_view_options_for_media(
+        const utility::JsonStore &media_source_colour_metadata) const override;
+
+
     void attribute_changed(const utility::Uuid &attribute_uuid, const int /*role*/) override;
 
     void screen_changed(
@@ -110,6 +114,10 @@ class OCIOColourPipeline : public ColourPipeline {
     caf::message_handler message_handler_extensions() override;
 
   private:
+    bool global_view() const {
+        return force_global_view_ ? true : global_settings_.global_view;
+    }
+
     void setup_ui();
 
     void populate_ui(const utility::JsonStore &src_colour_mgmt_metadata);
@@ -130,7 +138,7 @@ class OCIOColourPipeline : public ColourPipeline {
         const std::string &model,
         const std::string &manufacturer,
         const std::string &serialNumber,
-        const utility::JsonStore &meta);
+        const utility::JsonStore &meta) const;
 
   private:
     caf::actor global_controls_;
@@ -173,6 +181,8 @@ class OCIOColourPipeline : public ColourPipeline {
     // The ID of the window that this instance of the colour pipeline is used
     // to display images into
     std::string window_id_;
+    bool sync_with_others_;
+    bool force_global_view_ = {false};
 
     std::map<std::string, std::vector<std::string>> display_views_;
 

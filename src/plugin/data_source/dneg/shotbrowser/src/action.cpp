@@ -277,7 +277,7 @@ void ShotBrowser::get_action(
                 action.at("entity_name"),
                 action.at("project_name"));
         } else if (operation == "GetData") {
-            get_data(rp, action.at("type"), action.at("project_id"));
+            get_data(rp, action.at("type"), action.value("project_id", 0));
         } else if (operation == "Precache") {
             get_precache(rp, action.at("project_id"));
         } else if (operation == "MediaCount") {

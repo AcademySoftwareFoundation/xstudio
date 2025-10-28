@@ -61,12 +61,12 @@ Item{ id: thisItem
         anchors.fill: parent
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
-        propagateComposedEvents: false
+        // propagateComposedEvents: true
 
-        onReleased: {
-            if(!propagateComposedEvents)
-                propagateComposedEvents = true
-        }
+        // onReleased: {
+        //     if(!propagateComposedEvents)
+        //         propagateComposedEvents = true
+        // }
 
         onPressed: (mouse)=>{
             // required for doubleclick to work
@@ -101,7 +101,7 @@ Item{ id: thisItem
 
         onDoubleClicked: (mouse)=> {
             // need to know context, Which panel am I in.
-            ShotBrowserHelpers.addToCurrent([delegateModel.modelIndex(index)], panelType != "ShotBrowser", addAfterSelection.value)
+            ShotBrowserHelpers.addToCurrent([delegateModel.modelIndex(index)], panelType != "ShotBrowser", addMode.value)
         }
 
         Rectangle{

@@ -319,7 +319,8 @@ Q_INVOKABLE void SessionModel::rescanMedia(const QModelIndexList &indexes) {
     }
 }
 
-Q_INVOKABLE void SessionModel::relinkMedia(const QModelIndexList &indexes, const QUrl &path) {
+Q_INVOKABLE void SessionModel::relinkMedia(
+    const QModelIndexList &indexes, const QUrl &path, const bool looseMatch) {
 
     auto scanner = system().registry().template get<caf::actor>(scanner_registry);
 
@@ -336,14 +337,16 @@ Q_INVOKABLE void SessionModel::relinkMedia(const QModelIndexList &indexes, const
                         auto actor =
                             actorFromQString(system(), iind.data(actorRole).toString());
                         if (actor)
-                            anon_mail(media::relink_atom_v, actor, uri).send(scanner);
+                            anon_mail(media::relink_atom_v, actor, uri, looseMatch)
+                                .send(scanner);
                     }
 
                     if (aind.isValid() and aind != iind) {
                         auto actor =
                             actorFromQString(system(), aind.data(actorRole).toString());
                         if (actor)
-                            anon_mail(media::relink_atom_v, actor, uri).send(scanner);
+                            anon_mail(media::relink_atom_v, actor, uri, looseMatch)
+                                .send(scanner);
                     }
                 }
             }

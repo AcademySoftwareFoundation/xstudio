@@ -33,6 +33,26 @@ XsWindow {
         }
     }
 
+    XsPreference {
+        id: loadOnPublishPref
+        path: "/plugin/data_source/shotbrowser/load_playlist_on_publish"
+    }
+
+    function openOnCreate(json) {
+        try {
+            var data = JSON.parse(json)
+            if(data["data"]["id"]){
+                ShotBrowserHelpers.loadShotGridPlaylist(data["data"]["id"], data["data"]["attributes"]["code"])
+            } else {
+                console.log(err)
+                dialogHelpers.errorDialogFunc("Push Playlist To ShotGrid", "Publishing of Playlist to ShotGrid failed.\n\n" + data)
+            }
+        } catch(err) {
+            console.log(err)
+            dialogHelpers.errorDialogFunc("Push Playlist To ShotGrid", "Push of Playlist to ShotGrid failed.\n\n" + json)
+        }
+    }
+
     function updateValidMediaCount(json) {
         try {
             var data = JSON.parse(json)
@@ -114,7 +134,11 @@ XsWindow {
                 Layout.fillHeight: true
 
                 onClicked: {
-                    ShotBrowserHelpers.syncPlaylistToShotGrid(helpers.QVariantFromUuidString(playlistProperties.values.actorUuidRole))
+                    ShotBrowserHelpers.syncPlaylistToShotGrid(
+                        helpers.QVariantFromUuidString(playlistProperties.values.actorUuidRole),
+                        false,
+                        loadOnPublishPref.value ? openOnCreate : null
+                    )
                     close()
                 }
             }
@@ -128,7 +152,11 @@ XsWindow {
                 Layout.fillHeight: true
 
                 onClicked: {
-                    ShotBrowserHelpers.syncPlaylistToShotGrid(helpers.QVariantFromUuidString(playlistProperties.values.actorUuidRole), true)
+                    ShotBrowserHelpers.syncPlaylistToShotGrid(
+                        helpers.QVariantFromUuidString(playlistProperties.values.actorUuidRole),
+                        true,
+                        loadOnPublishPref.value ? openOnCreate : null
+                    )
                     close()
                 }
             }

@@ -57,11 +57,11 @@ class PythonOutputToShellActor : public caf::event_based_actor {
                 embedded_python::python_output_atom,
                 const utility::Uuid &uuid,
                 const std::tuple<std::string, std::string> &output) {
-
                 // if we mail an event group with a bool it will send bnack the
                 // number of subscribers it has
-                mail(true).request(
-                    py_event_group_, infinite).then(
+                mail(true)
+                    .request(py_event_group_, infinite)
+                    .then(
                         [=](int num_subscribers) {
                             if (num_subscribers > 1) {
                                 // someone else is listenining to python output (probably)
@@ -69,10 +69,13 @@ class PythonOutputToShellActor : public caf::event_based_actor {
                                 send_exit(this, caf::exit_reason::user_shutdown);
                             } else {
                                 // print to logs
-                                spdlog::info("Python Output:\n\n{}{}\n", std::get<0>(output), std::get<1>(output));
+                                spdlog::info(
+                                    "Python Output:\n\n{}{}\n",
+                                    std::get<0>(output),
+                                    std::get<1>(output));
                             }
                         },
-                        [=](caf::error & err) {});
+                        [=](caf::error &err) {});
             },
 
             [=](utility::event_atom, utility::change_atom) {},
@@ -86,7 +89,7 @@ class PythonOutputToShellActor : public caf::event_based_actor {
     caf::behavior make_behavior() override { return behavior_; }
 };
 
-}
+} // namespace
 
 class PyStdErrOutStreamRedirect {
   public:
@@ -243,7 +246,7 @@ void EmbeddedPythonActor::main_loop() {
     // );
 
     {
-        
+
         py::gil_scoped_release release;
 
         receive_while(running)(
@@ -326,7 +329,6 @@ void EmbeddedPythonActor::main_loop() {
             },
 
             [=](session::export_atom) -> result<std::vector<std::string>> {
-
                 // get otio supported export formats.
                 auto result = std::vector<std::string>({"otio"});
 
@@ -345,7 +347,8 @@ void EmbeddedPythonActor::main_loop() {
                             PyObjectRef(PyImport_ImportModule("opentimelineio.adapters"));
                         auto p_suffixes_with_defined_adapters = PyObjectRef(
                             PyObject_GetAttrString(p_module, "suffixes_with_defined_adapters"));
-                        auto p_suffixes_with_defined_adapters_args = PyObjectRef(PyTuple_New(2));
+                        auto p_suffixes_with_defined_adapters_args =
+                            PyObjectRef(PyTuple_New(2));
 
                         PyTuple_SetItem(p_suffixes_with_defined_adapters_args, 0, Py_False);
                         PyTuple_SetItem(p_suffixes_with_defined_adapters_args, 1, Py_True);
@@ -360,14 +363,14 @@ void EmbeddedPythonActor::main_loop() {
                             if (str) {
                                 const char *bytes = PyBytes_AS_STRING(str);
 
-                                for (const auto &i :
-                                    resplit(std::string(bytes), std::regex{"\\{'|'\\}|',\\s'"})) {
+                                for (const auto &i : resplit(
+                                         std::string(bytes), std::regex{"\\{'|'\\}|',\\s'"})) {
                                     if (not i.empty())
                                         result.push_back(i);
                                 }
                                 // something like .. {'otiod', 'edl', 'mb', 'ma', 'kdenlive',
-                                // 'otio', 'otioz', 'ale', 'm3u8', 'xml', 'aaf', 'fcpxml', 'svg',
-                                // 'xges', 'rv'}
+                                // 'otio', 'otioz', 'ale', 'm3u8', 'xml', 'aaf', 'fcpxml',
+                                // 'svg', 'xges', 'rv'}
 
                                 Py_XDECREF(str);
                             }
@@ -410,7 +413,6 @@ void EmbeddedPythonActor::main_loop() {
                 const caf::uri &upath,
                 const std::string &type,
                 const std::string &target_schema) -> result<bool> {
-
                 // get otio supported export formats.
                 if (not base_.enabled())
                     return make_error(xstudio_error::error, "EmbeddedPython disabled");
@@ -457,7 +459,6 @@ void EmbeddedPythonActor::main_loop() {
             // import otio file return as otio xml string.
             // if already native format should be quick..
             [=](session::import_atom, const caf::uri &path) -> result<std::string> {
-
                 if (not base_.enabled())
                     return make_error(xstudio_error::error, "EmbeddedPython disabled");
 
@@ -470,7 +471,8 @@ void EmbeddedPythonActor::main_loop() {
                     try {
                         const std::string file_name_normalized = uri_to_posix_path(path);
                         py::object read_from_file =
-                            py::module_::import("opentimelineio.adapters").attr("read_from_file");
+                            py::module_::import("opentimelineio.adapters")
+                                .attr("read_from_file");
                         py::object p_timeline = read_from_file(file_name_normalized);
                         py::str jsn           = p_timeline.attr("to_json_string")();
                         return jsn;
@@ -499,7 +501,6 @@ void EmbeddedPythonActor::main_loop() {
             },
 
             [=](python_create_session_atom, const bool interactive) -> result<utility::Uuid> {
-
                 if (not base_.enabled())
                     return make_error(xstudio_error::error, "EmbeddedPython disabled");
 
@@ -527,7 +528,6 @@ void EmbeddedPythonActor::main_loop() {
             [=](python_eval_atom,
                 const std::string &pystring,
                 const utility::Uuid &uuid) -> result<JsonStore> {
-
                 if (not base_.enabled())
                     return make_error(xstudio_error::error, "EmbeddedPython disabled");
 
@@ -824,7 +824,8 @@ void EmbeddedPythonActor::main_loop() {
                 const JsonStore & /*change*/,
                 const std::string & /*path*/,
                 const JsonStore &full) {
-                return mail(json_store::update_atom_v, full).delegate(actor_cast<caf::actor>(this));
+                return mail(json_store::update_atom_v, full)
+                    .delegate(actor_cast<caf::actor>(this));
             },
 
             [=](json_store::update_atom, const JsonStore &j) mutable {
@@ -833,34 +834,71 @@ void EmbeddedPythonActor::main_loop() {
                 } catch (...) {
                 }
             },
+
+            [=](caf::actor caller) {
+                // call and respond used by EmbeddedPythonUI so the Python
+                // setup does not block the startup of the GUI
+                anon_mail(actor_cast<caf::actor>(this)).send(caller);
+            },
+
             [=](bool) {},
 
             [=](embedded_python::python_exec_atom,
-                const utility::Uuid &plugin_uuid,
-                const std::string method_name,
+                const std::string &plugin_name,
+                const std::string &method_name,
                 const utility::JsonStore &packed_args) -> result<utility::JsonStore> {
-
                 py::gil_scoped_acquire gil;
 
                 try {
                     auto g = py::globals();
                     if (g.contains(py::str("XSTUDIO"))) {
+
                         py::object xstudio_link = g["XSTUDIO"];
-                        py::object plugin = xstudio_link.attr("get_plugin_instance")(plugin_uuid);
-                        py::tuple args;
-                        if (packed_args.is_array()) {
-                            py::object json_py_module = py::module_::import("json");
-                            py::object args_list = json_py_module.attr("loads")(packed_args.dump());
-                            args = py::tuple(py::len(args_list));
+                        py::object plugin =
+                            xstudio_link.attr("get_named_python_plugin_instance")(plugin_name);
+                        py::object result;
+                        py::object json_py_module = py::module_::import("json");
+
+                        // convert the json args to python args (dict or array)
+                        py::object args_list = json_py_module.attr("loads")(packed_args.dump());
+
+                        if (packed_args.is_object() && !packed_args.is_array()) {
+
+                            auto p = packed_args.cbegin();
+                            while (p != packed_args.cend()) {
+                                if (p.value().is_string()) {
+                                    const std::string v = p.value().get<std::string>();
+                                    // could be an actor as a string. Try to convert to actual actor here. This
+                                    // saves us doing string_to_actor in Python code, which currently fails
+                                    // on MacOS due to reasons not understood. But ... it's pretty ugly as 
+                                    // we are trying EVERY string. Need a way to IDENTIFY actor as string before
+                                    // running actor_from_string.
+                                    caf::actor actor = utility::actor_from_string(system(), v);
+                                    if (actor) {
+                                        py::str s(p.key());
+                                        args_list[s] = py::cast(actor);
+                                    }
+                                }
+                                p++;
+                            }
+                            result = plugin.attr(method_name.c_str())(**args_list);
+
+                        } else if (packed_args.is_array()) {
+                            // if args were provided as an array, separate out into
+                            // unpacked args
+                            py::tuple args;
+                            args  = py::tuple(py::len(args_list));
                             int j = 0;
                             for (auto i = args_list.begin(); i != args_list.end(); ++i) {
                                 (*i).inc_ref();
                                 PyTuple_SetItem(args.ptr(), static_cast<int>(j++), (*i).ptr());
                             }
+                            result = plugin.attr(method_name.c_str())(*args);
+                        } else {
+                            result = plugin.attr(method_name.c_str())(**args_list);
                         }
-                        py::object result = plugin.attr(method_name.c_str())(*args);
                         return result.cast<utility::JsonStore>();
-                    } else { 
+                    } else {
                         throw std::runtime_error("Couln't import XSTUDIO module.");
                     }
 
@@ -872,7 +910,84 @@ void EmbeddedPythonActor::main_loop() {
                 } catch (const std::exception &err) {
                     return make_error(xstudio_error::error, err.what());
                 }
-                
+            },
+
+            [=](embedded_python::python_exec_atom,
+                const utility::Uuid &plugin_uuid,
+                const std::string method_name,
+                const utility::JsonStore &packed_args) -> result<utility::JsonStore> {
+                py::gil_scoped_acquire gil;
+
+                try {
+                    auto g = py::globals();
+                    if (g.contains(py::str("XSTUDIO"))) {
+                        py::object xstudio_link = g["XSTUDIO"];
+                        py::object plugin =
+                            xstudio_link.attr("get_plugin_instance")(plugin_uuid);
+                        py::tuple args;
+                        if (packed_args.is_array()) {
+                            py::object json_py_module = py::module_::import("json");
+                            py::object args_list =
+                                json_py_module.attr("loads")(packed_args.dump());
+                            args  = py::tuple(py::len(args_list));
+                            int j = 0;
+                            for (auto i = args_list.begin(); i != args_list.end(); ++i) {
+                                (*i).inc_ref();
+                                PyTuple_SetItem(args.ptr(), static_cast<int>(j++), (*i).ptr());
+                            }
+                        }
+                        py::object result = plugin.attr(method_name.c_str())(*args);
+                        return result.cast<utility::JsonStore>();
+                    } else {
+                        throw std::runtime_error("Couln't import XSTUDIO module.");
+                    }
+
+                } catch (py::error_already_set &e) {
+                    e.restore();
+                    py_print(e.what());
+                    return make_error(xstudio_error::error, e.what());
+
+                } catch (const std::exception &err) {
+                    return make_error(xstudio_error::error, err.what());
+                }
+            },
+
+            [=](ui::viewport::hud_settings_atom,
+                std::vector<caf::actor> media_actors) -> result<utility::JsonStore> {
+                // this message handler is used by the offscreen viewport to retrieve
+                // display data for Python HUD overlay plugins. We pass the HUD Plugins
+                // the full set of on-screen media actors. They return Json data for
+                // each media item, which xstudio then uses to initialise special
+                // QML properties that the HUD Plugin QML items use at draw time.
+                py::gil_scoped_acquire gil;
+                try {
+                    auto g = py::globals();
+                    if (g.contains(py::str("XSTUDIO"))) {
+                        py::object xstudio_link = g["XSTUDIO"];
+                        py::list mact;
+                        for (auto &m : media_actors) {
+                            if (m)
+                                mact.append(m);
+                            else
+                                mact.append(py::none());
+                        }
+                        py::args args = py::make_tuple(mact);
+                        py::object result =
+                            xstudio_link.attr("hud_plugins_onscreen_data")(*args);
+                        return result.cast<utility::JsonStore>();
+
+                    } else {
+                        throw std::runtime_error("Couln't import XSTUDIO module.");
+                    }
+
+                } catch (py::error_already_set &e) {
+                    e.restore();
+                    py_print(e.what());
+                    return make_error(xstudio_error::error, e.what());
+
+                } catch (const std::exception &err) {
+                    return make_error(xstudio_error::error, err.what());
+                }
             },
 
             [&](exit_msg &em) {

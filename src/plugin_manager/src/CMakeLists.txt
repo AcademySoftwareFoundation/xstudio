@@ -2,6 +2,7 @@ SET(LINK_DEPS
 	CAF::core
 	xstudio::module
 	xstudio::utility
+	xstudio::media_reader
 )
 
 if(UNIX)

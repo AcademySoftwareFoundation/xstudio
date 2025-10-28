@@ -58,6 +58,18 @@ Viewport {
     }
 
     XsHotkey {
+        id: set_media_rate_hotkey
+        sequence: "Alt+F"
+        name: "Set On-Screen Media FPS"
+        description: "Shows a pop-up that allows you to enter a new FPS rate for the on-screen media."
+        context: view.name
+        onActivated: {
+            show_fps_widget()
+        }
+    }
+
+
+    XsHotkey {
         id: reload_selected_media_hotkey
         sequence: "U"
         name: "Reload Selected Media"
@@ -85,12 +97,47 @@ Viewport {
         }
     }
 
-    // this one lays out the HUD graphics coming from HUD plugins and
-    // also general overlay graphics like Mask
-    XsViewportHUD {}
-
     XsViewportOverlays {}
 
+    // the property imageBoundariesInViewport updates every time the viewport
+    // geometry changes (pan/zoom or image size). We don't want the repeater 
+    // below to rebuild the XsViewportHUD items on every update to 
+    // imageBoundariesInViewport, so by maintaining a ListModel the Repeater
+    // will not full rebuild but just update the model data values that
+    // effect the XsViewportHUD instances (the image boundaries per image on
+    // screen)
+    ListModel{
+        id: image_boundaries
+    }
+
+    onImageBoundariesInViewportChanged: {
+        var n = imageBoundariesInViewport.length
+        for (var i = 0; i < n; ++i) {
+            if (i < image_boundaries.count) {
+                image_boundaries.get(i).imageBoundary = imageBoundariesInViewport[i];
+                image_boundaries.get(i).multiHUD = n > 1;
+            } else {
+                image_boundaries.append({"imageBoundary": imageBoundariesInViewport[i], "multiHUD": n > 1})
+            }
+        }
+        if (image_boundaries.count > n) {
+            image_boundaries.remove(n, image_boundaries.count - n)
+        }
+    }
+
+    // this property is only set in offscreen viewports, but it is referenced
+    // in the ViewportHUD qml code so we create a dummy property here 
+    property var hud_plugins_display_data
+
+    // this one lays out the HUD graphics coming from HUD plugins and
+    // also general overlay graphics like Mask
+    Repeater {
+        model: image_boundaries
+        XsViewportHUD {
+            imageIndex: index
+        }
+    }
+    
     Loader {
         id: menu_loader
     }
@@ -211,7 +258,8 @@ Viewport {
         color: "transparent"
         border.color: palette.highlight
         border.width: 2
-        property var ib: view.imageBoundariesInViewport[viewportPlayhead.keySubplayheadIndex]
+        // Yuk! TODO: add a property for key image boundary in viewport
+        property var ib: view.imageBoundariesInViewport.length > viewportPlayhead.keySubplayheadIndex ? view.imageBoundariesInViewport[viewportPlayhead.keySubplayheadIndex] : undefined
         property var imageBox: ib ? ib : Qt.rect(0,0,0,0)
         property var idx: viewportPlayhead.keySubplayheadIndex
         onIdxChanged: {
@@ -224,6 +272,22 @@ Viewport {
             to: 0
             duration: 2000
         }
+    }
+
+    function show_fps_widget() {
+        loader.sourceComponent = fps_popup
+        loader.item.x = view.width/2-loader.item.width/2
+        loader.item.y = view.height/2-loader.item.height/2
+        loader.item.visible = true
+    }
+
+    Loader {
+        id: loader
+    }
+
+    Component {
+        id: fps_popup
+        XsViewerSetMediaFPSPopup {}
     }
 
 }

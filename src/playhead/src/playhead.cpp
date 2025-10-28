@@ -31,6 +31,8 @@ void PlayheadBase::add_attributes() {
 
     image_source_name_ = add_string_attribute("Source Name", "Src", "");
 
+    image_uri_ = add_string_attribute("Image URI", "Img. URI", "");
+
     image_stream_ = add_string_choice_attribute("Stream", "Strm", "", {}, {});
 
     audio_source_ = add_string_choice_attribute("Audio Source", "Aud Src", "", {}, {});
@@ -107,8 +109,13 @@ void PlayheadBase::add_attributes() {
     current_media_uuid_ = add_string_attribute("Current Media Uuid", "Current Media Uuid", "");
     current_media_source_uuid_ =
         add_string_attribute("Current Media Source Uuid", "Current Media Source Uuid", "");
+
     loop_range_enabled_ =
         add_boolean_attribute("Enable Loop Range", "Enable Loop Range", false);
+
+    zoom_to_loop_ = add_boolean_attribute("Fit To Loop Range", "Fit To Loop Range", false);
+    zoom_to_loop_->set_role_data(
+        module::Attribute::PreferencePath, "/core/playhead/fit_to_loop_range");
 
     user_is_frame_scrubbing_ =
         add_boolean_attribute("User Is Frame Scrubbing", "User Is Frame Scrubbing", false);
@@ -295,6 +302,13 @@ void PlayheadBase::register_hotkeys() {
         "Toggle Loop Range",
         "Use this hotkey to turn on/off the loop range in/out points that let you loop on a "
         "specified range in the timeline.",
+        false,
+        "Playback");
+
+    toggle_zoom_to_loop_ = register_hotkey(
+        "Ctrl+Shift+P",
+        "Fit To Loop Range",
+        "Use this hotkey to turn on/off the fit to loop range in the viewer timeslider.",
         false,
         "Playback");
 
@@ -717,6 +731,10 @@ bool PlayheadBase::pointer_event(const ui::PointerEvent &e) {
         new_position =
             max(timebase::k_flicks_zero_seconds,
                 min(new_position, duration_ - playhead_rate_.to_flicks()));
+
+        if (zoom_to_loop_->value() and loop_range_enabled_->value())
+            new_position = std::min(loop_end(), std::max(loop_start(), new_position));
+
         if (self())
             anon_mail(jump_atom_v, new_position).send(self());
 
@@ -784,6 +802,8 @@ void PlayheadBase::hotkey_pressed(
         set_playing(false);
     } else if (hotkey_uuid == toggle_loop_range_) {
         loop_range_enabled_->set_value(!loop_range_enabled_->value());
+    } else if (hotkey_uuid == toggle_zoom_to_loop_) {
+        zoom_to_loop_->set_value(!zoom_to_loop_->value());
     }
 }
 
@@ -861,6 +881,14 @@ void PlayheadBase::connect_to_viewport(
             false,
             toggle_loop_range_);
 
+        insert_menu_item(
+            viewport_context_menu_model_name,
+            "Fit To Loop Range",
+            "",
+            7.1f,
+            zoom_to_loop_,
+            false,
+            toggle_zoom_to_loop_);
 
     } else {
 

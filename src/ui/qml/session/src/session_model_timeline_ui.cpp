@@ -611,6 +611,39 @@ QVariantList SessionModel::getTimelineExportTypes() const {
     return result;
 }
 
+QVariant SessionModel::getTimelineFullRangeAndLoopRangeAndFPS(const QModelIndex &tindex) {
+
+    QVariant result;
+    try {
+        auto tactor = actorFromIndex(tindex);
+        if (!tactor) {
+            spdlog::warn("{} Index is not a timeline object.", __PRETTY_FUNCTION__);
+            return QVariant();
+        }
+        caf::scoped_actor sys(system());
+        auto playhead =
+            request_receive<utility::UuidActor>(*sys, tactor, playlist::get_playhead_atom_v);
+        size_t duration_frames = request_receive<size_t>(
+            *sys, playhead.actor(), playhead::duration_frames_atom_v, true);
+        int loop_start =
+            request_receive<int>(*sys, playhead.actor(), playhead::simple_loop_start_atom_v);
+        int loop_end =
+            request_receive<int>(*sys, playhead.actor(), playhead::simple_loop_end_atom_v);
+        utility::FrameRate rate =
+            request_receive<utility::FrameRate>(*sys, tactor, utility::rate_atom_v);
+
+        QVariantList v;
+        v.push_back(int(duration_frames));
+        v.push_back(int(loop_start));
+        v.push_back(int(loop_end));
+        v.push_back(rate.to_fps());
+        result = v;
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+    return result;
+}
+
 QFuture<bool> SessionModel::exportOTIO(
     const QModelIndex &timeline, const QUrl &path, const QString &type, const QString &schema) {
 

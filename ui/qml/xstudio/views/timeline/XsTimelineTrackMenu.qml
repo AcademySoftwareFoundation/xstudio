@@ -237,6 +237,15 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
+        text: qsTr("Create Track Template")
+        menuPath: ""
+        menuItemPosition: 25.5
+        menuModelName: timelineMenu.menu_model_name
+        onActivated: theTimeline.addCreateTracks(timelineSelection.selectedIndexes)
+        panelContext: timelineMenu.panelContext
+    }
+
+    XsMenuModelItem {
         text: qsTr("Set As Conform Track")
         menuPath: ""
         menuItemPosition: 26

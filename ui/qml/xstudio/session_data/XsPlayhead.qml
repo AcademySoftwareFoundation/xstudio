@@ -85,6 +85,12 @@ Item {
     }
 
     XsAttributeValue {
+        id: __playheadZoomToLoop
+        attributeTitle: "Fit To Loop Range"
+        model: playhead_attrs_model
+    }
+
+    XsAttributeValue {
         id: __playheadLoopStartFrame
         attributeTitle: "Loop Start Frame"
         model: playhead_attrs_model
@@ -141,6 +147,12 @@ Item {
     XsAttributeValue {
         id: __playheadImageSourceName
         attributeTitle: "Source Name"
+        model: playhead_attrs_model
+    }
+
+    XsAttributeValue {
+        id: __playheadImageURI
+        attributeTitle: "Image URI"
         model: playhead_attrs_model
     }
 
@@ -232,7 +244,7 @@ Item {
     }
     property alias forceConnect: __forceConnect.value
 
-    
+
 
     property alias logicalFrame: __playheadLogicalFrame.value
     property alias mediaFrame: __playheadMediaFrame.value
@@ -249,11 +261,13 @@ Item {
     property alias loopEndFrame: __playheadLoopEndFrame.value
     property alias enableLoopRange: __playheadEnableLoopRange.value
     property alias loopMode: __playheadLoopMode.value
+    property alias zoomToLoop: __playheadZoomToLoop.value
     property alias velocityMultiplier: __playheadFFWD.value
     property alias playingForwards: __playheadPlayingForward.value
     property var mediaUuid: helpers.QVariantFromUuidString(__playheadSourceUuid.value)
     property var mediaSourceUuid: helpers.QVariantFromUuidString(__playheadMediaSourceUuid.value)
     property alias imageSourceName: __playheadImageSourceName.value
+    property alias playheadImageURI: __playheadImageURI.value
     property alias compareMode: __playheadCompareMode.value
     property alias timecode: __playheadTimeCode.value
     property alias timecodeAsFrame: __playheadTimeCodeAsFrame.value

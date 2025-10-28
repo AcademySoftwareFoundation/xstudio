@@ -95,8 +95,21 @@ namespace module {
 
         template <typename T> [[nodiscard]] const T get() const {
             try {
+
                 return std::any_cast<T>(data_);
+
             } catch ([[maybe_unused]] std::exception &e) {
+
+                // may request, say, T=std::vector<std::string> ... data_ is
+                // json, but json that CAN be cast to std::vector<std::string>
+                if (data_.type() == typeid(nlohmann::json)) {
+                    try {
+
+                        return std::any_cast<nlohmann::json>(data_).get<T>();
+
+                    } catch ([[maybe_unused]] std::exception &e2) {
+                    }
+                }
                 spdlog::warn(
                     "{} Attempt to get AttributeData with type {} as type {}",
                     __PRETTY_FUNCTION__,
@@ -109,6 +122,18 @@ namespace module {
         template <typename T> bool __set(const T &v) { // NOLINT
             if (data_.has_value() && typeid(v) != data_.type()) {
 
+                if (data_.type() == typeid(nlohmann::json)) {
+
+                    try {
+                        const auto j = nlohmann::json(v);
+                        if (j != std::any_cast<nlohmann::json>(data_)) {
+                            data_ = j;
+                            return true;
+                        }
+                        return false;
+                    } catch ([[maybe_unused]] std::exception &e2) {
+                    }
+                }
                 spdlog::warn(
                     "{} Attempt to set AttributeData with type {} with data of type {} and "
                     "value {}",
@@ -171,9 +196,9 @@ namespace module {
 
             } else if (
                 (data.is_array() || data.is_object()) &&
-                data_.type() == typeid(nlohmann::json)) {
+                (data_.type() == typeid(nlohmann::json) || data_.type() == typeid(void))) {
 
-                if (get<nlohmann::json>() != data) {
+                if (data_.type() == typeid(void) || get<nlohmann::json>() != data) {
                     data_ = data;
                     rt    = true;
                 }

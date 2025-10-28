@@ -450,7 +450,7 @@ Item {
     }
 
     function doCopySessionLink() {
-        clipboard.text = sessionLinkPrefix.value + "xstudio://open_session?uri=" + sessionPath
+        clipboard.text = sessionLinkPrefix.value + "xstudio://open_session?uri=" + helpers.encodedFromQUrl(sessionPath)
     }
 
     function copySessionLink() {

@@ -46,7 +46,7 @@ XsWindow{
             detail =  "\nFailed:\n"
             for(let i=0; i< obj["failed_title"].length; i++) {
                 detail += obj["failed_title"][i]+"\n"
-                detail += obj["failed"][i]["errors"]+"\n"
+                detail += JSON.stringify(obj["failed"][i]["errors"])+"\n"
             }
         }
     }

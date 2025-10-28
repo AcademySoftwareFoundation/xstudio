@@ -15,8 +15,8 @@ TEST(GlobalStoreTest, Test) {
     // TODO: re-do these tests. GlobalStoreDef not used anywhere in the application
     // so it's getting removed.
 
-    //EXPECT_EQ(j.get("/core/image_cache/max_count").get<GlobalStoreDef>().datatype(), "int")
-      //  << "Should be == int";
+    // EXPECT_EQ(j.get("/core/image_cache/max_count").get<GlobalStoreDef>().datatype(), "int")
+    //   << "Should be == int";
 
     // EXPECT_EQ(j.get("/hell"), nullptr) << "Should be null";
 

@@ -99,25 +99,29 @@ void MediaMetadataRenderer::render_image_overlay(
         glBlendEquation(GL_FUNC_ADD);
         auto p = data->positions_.begin();
         for (const auto &bdb : data->bdbs_) {
-            Imath::M44f m2;
             // 'anchor' position of text: -1.0,-1.0 is top left of viewport,
             // 1.0, 1.0 is bottom right
             Imath::V4f anchor = *p;
+            p++;
             // the gl viewport is set to the entire window size, not the viewport
             // within the window. So we use 'transform_window_to_viewport_space'
             // matrx here ...
-            anchor *= transform_window_to_viewport_space;
-
-            // Now scale by viewport size, with a reference size of 1920 which
-            // we used earlier to define the text size in pixels
-            m2.scale(Imath::V3f(viewport_width / 1920.0f, -viewport_height / 1920.0f, 1.0f));
-            m2.translate(Imath::V3f(-anchor.x / anchor.w, -anchor.y / anchor.w, 0.0f));
+            Imath::M44f m1, m2;
+            if (data->grid_layout_) {
+                m1 = transform_viewport_to_image_space.inverse();
+                m1.translate(Imath::V3f(anchor.x, -anchor.y / image_aspect(frame), 0.0f));
+                m1 *= transform_window_to_viewport_space;
+            } else {
+                anchor *= transform_window_to_viewport_space;
+                m2.scale(
+                    Imath::V3f(viewport_width / 1920.0f, -viewport_height / 1920.0f, 1.0f));
+                m2.translate(Imath::V3f(-anchor.x / anchor.w, -anchor.y / anchor.w, 0.0f));
+            }
             bdb_param["bdb_min"] = bdb.min;
             bdb_param["bdb_max"] = bdb.max;
-            bdb_param["tform"]   = m2.inverse();
+            bdb_param["tform"]   = m1 * (m2.inverse());
             shader_->set_shader_parameters(bdb_param);
             glDrawArrays(GL_TRIANGLES, 0, 6);
-            p++;
         }
         glDisable(GL_BLEND);
         shader_->stop_using();
@@ -125,21 +129,28 @@ void MediaMetadataRenderer::render_image_overlay(
         glBindVertexArray(0);
     }
 
-    // draw text
+    // draw text - note, if images are in grid layout, the metadata text is anchored
+    // to the image. Otherwise the text is anchored to the viewport boundary
     auto p = data->positions_.begin();
     for (const auto &v : data->verts_) {
 
         Imath::V4f anchor = *p;
         p++;
-        anchor *= transform_window_to_viewport_space;
 
-        Imath::M44f m2;
-        m2.scale(Imath::V3f(viewport_width / 1920.0f, -viewport_height / 1920.0f, 1.0f));
-        m2.translate(Imath::V3f(-anchor.x / anchor.w, -anchor.y / anchor.w, 0.0f));
+        Imath::M44f m1, m2;
+        if (data->grid_layout_) {
+            m1 = transform_viewport_to_image_space.inverse();
+            m1.translate(Imath::V3f(anchor.x, -anchor.y / image_aspect(frame), 0.0f));
+            m1 *= transform_window_to_viewport_space;
+        } else {
+            anchor *= transform_window_to_viewport_space;
+            m2.scale(Imath::V3f(viewport_width / 1920.0f, -viewport_height / 1920.0f, 1.0f));
+            m2.translate(Imath::V3f(-anchor.x / anchor.w, -anchor.y / anchor.w, 0.0f));
+        }
 
         text_renderer_->render_text(
             *v,
-            Imath::M44f(),
+            m1,
             m2,
             display_settings_->text_colour,
             1.0 / 1920.0,
@@ -274,6 +285,12 @@ MediaMetadataHUD::MediaMetadataHUD(
     config_->set_value(R"({"Default":[]})"_json);
     config_data_ = config_->value();
 
+    config_defaults_ = add_json_attribute("Configuration Defaults");
+    config_defaults_->set_role_data(
+        module::Attribute::PreferencePath,
+        "/plugin/media_metadata/metadata_hud_config_defaults");
+    config_defaults_->set_value(R"({})"_json);
+
     action_attr_ = add_action_attribute("Action", "Action");
     action_attr_->expose_in_ui_attrs_group("metadata_hud_attrs", true);
 
@@ -344,19 +361,11 @@ void MediaMetadataHUD::attribute_changed(const utility::Uuid &attribute_uuid, co
         search_filter_string_ = utility::to_lower(search_string_->value());
         update_full_metadata_set(true);
 
-    } else if (attribute_uuid == config_->uuid() && role == module::Attribute::Value) {
+    } else if (
+        (attribute_uuid == config_->uuid() || attribute_uuid == config_defaults_->uuid()) &&
+        role == module::Attribute::Value) {
 
-        // config has been updated from prefs (or maybe and API call)
-        config_data_ = config_->value();
-        StringVec profiles;
-        for (auto p = config_data_.begin(); p != config_data_.end(); ++p) {
-            profiles.push_back(p.key());
-        }
-        current_profile_->set_role_data(module::Attribute::StringChoices, profiles);
-        if (config_data_.contains(current_profile_->value())) {
-            profile_data_store_ = config_data_[current_profile_->value()];
-            profile_changed();
-        }
+        update_configs_data();
 
     } else if (attribute_uuid == current_profile_->uuid() && role == module::Attribute::Value) {
 
@@ -385,6 +394,49 @@ void MediaMetadataHUD::attribute_changed(const utility::Uuid &attribute_uuid, co
 
 MediaMetadataHUD::~MediaMetadataHUD() = default;
 
+void MediaMetadataHUD::update_configs_data() {
+
+    // config has been updated from prefs (or maybe and API call)
+    config_data_ = config_->value();
+
+    // merge in the 'default' configs that are read-only
+    auto defaults = config_defaults_->value();
+    for (auto p = defaults.begin(); p != defaults.end(); ++p) {
+        config_data_[p.key() + " (default)"] = p.value();
+    }
+
+    update_profiles_list();
+
+    if (config_data_.contains(current_profile_->value())) {
+        profile_data_store_ = config_data_[current_profile_->value()];
+        profile_changed();
+    }
+}
+
+void MediaMetadataHUD::update_profiles_list() {
+
+    StringVec profiles;
+    for (auto p = config_data_.begin(); p != config_data_.end(); ++p) {
+        profiles.push_back(p.key());
+    }
+
+    std::sort(
+        profiles.begin(),
+        profiles.end(),
+        [](const std::string &a, const std::string &b) -> bool {
+            if (a.find(" (default)") != std::string::npos &&
+                b.find(" (default)") == std::string::npos)
+                return false;
+            else if (
+                a.find(" (default)") == std::string::npos &&
+                b.find(" (default)") != std::string::npos)
+                return true;
+            return a < b;
+        });
+
+    current_profile_->set_role_data(module::Attribute::StringChoices, profiles);
+}
+
 void MediaMetadataHUD::media_due_on_screen_soon(
     const media::AVFrameIDsAndTimePoints &frame_ids) {
 
@@ -400,7 +452,8 @@ utility::BlindDataObjectPtr MediaMetadataHUD::onscreen_render_data(
     const media_reader::ImageBufPtr &image,
     const std::string &viewport_name,
     const utility::Uuid &playhead_uuid,
-    const bool is_hero_image) const {
+    const bool is_hero_image,
+    const bool images_are_in_grid_layout) const {
 
     // this method is called *just* before the given image is drawn into the
     // given named viewport.
@@ -412,8 +465,7 @@ utility::BlindDataObjectPtr MediaMetadataHUD::onscreen_render_data(
 
     auto r = utility::BlindDataObjectPtr();
 
-
-    if (visible() && is_hero_image) {
+    if (visible() && (images_are_in_grid_layout || is_hero_image)) {
 
         // do we need to capture image metadata?
         const auto key =
@@ -425,14 +477,17 @@ utility::BlindDataObjectPtr MediaMetadataHUD::onscreen_render_data(
             return p->second;
         }
 
-        return (const_cast<MediaMetadataHUD *>(this))->make_onscreen_data(image, key);
+        return (const_cast<MediaMetadataHUD *>(this))
+            ->make_onscreen_data(image, key, images_are_in_grid_layout);
     }
 
     return r;
 }
 
 MediaMetadataPtr MediaMetadataHUD::make_onscreen_data(
-    const media_reader::ImageBufPtr &image, const std::string &key) {
+    const media_reader::ImageBufPtr &image,
+    const std::string &key,
+    const bool images_are_in_grid_layout) {
 
     try {
 
@@ -503,7 +558,8 @@ MediaMetadataPtr MediaMetadataHUD::make_onscreen_data(
             *(positioned_text[q.screen_position]) += v;
         }
 
-        MediaMetadataPtr result(new MediaMetadata(display_settings_));
+        MediaMetadataPtr result(
+            new MediaMetadata(display_settings_, images_are_in_grid_layout));
 
         for (const auto &p : positioned_text) {
 
@@ -618,7 +674,7 @@ void MediaMetadataHUD::images_going_on_screen(
     // but we want it to be fast so that any on-screen data that we are showing
     // is updated and ready.
 
-    on_screen_images_[viewport_name] = image_set->hero_image();
+    on_screen_images_[viewport_name] = image_set;
 
     if (!playhead_playing) {
         if (metadata_viewer_viewport_name_ == viewport_name) {
@@ -628,7 +684,18 @@ void MediaMetadataHUD::images_going_on_screen(
     }
 
     if (visible()) {
-        update_media_metadata_for_media(image_set->hero_image().frame_id(), false);
+        if (image_set->has_grid_layout()) {
+            // we need to gather media metadata for all images in the set
+            const auto &im_order = image_set->layout_data()->image_draw_order_hint_;
+            for (const auto &i : im_order) {
+                const media_reader::ImageBufPtr &im = image_set->onscreen_image(i);
+                update_media_metadata_for_media(im.frame_id(), false);
+            }
+        } else {
+            // images are overlaid on each other (e.g. A/B compare mode) ... we
+            // only display metadata for the 'hero' image.
+            update_media_metadata_for_media(image_set->hero_image().frame_id(), false);
+        }
     }
 }
 
@@ -650,7 +717,9 @@ void MediaMetadataHUD::update_profile_metadata() {
 
     for (size_t i = 0; i < profile_data_store_.size(); ++i) {
         const nlohmann::json &field_data = profile_data_store_[i];
-        const auto field_path            = field_data["metadata_field"].get<std::string>();
+
+
+        const auto field_path = field_data["metadata_field"].get<std::string>();
         const auto field_name = field_data["metadata_field_label"].get<std::string>();
         const plugin::HUDElementPosition screen_pos =
             (plugin::HUDElementPosition)field_data["screen_position"].get<int>();
@@ -685,8 +754,18 @@ void MediaMetadataHUD::update_profile_metadata() {
     media_metadata_.clear();
     // update our cache for on-screen media
     for (auto p : on_screen_images_) {
-        update_media_metadata_for_media(
-            p.second.frame_id(), p.first == metadata_viewer_viewport_name_);
+        if (p.second->has_grid_layout()) {
+            // we need to gather media metadata for all images in the set
+            const auto &im_order = p.second->layout_data()->image_draw_order_hint_;
+            for (const auto &i : im_order) {
+                const media_reader::ImageBufPtr &im = p.second->onscreen_image(i);
+                update_media_metadata_for_media(
+                    im.frame_id(), p.first == metadata_viewer_viewport_name_);
+            }
+        } else {
+            update_media_metadata_for_media(
+                p.second->hero_image().frame_id(), p.first == metadata_viewer_viewport_name_);
+        }
     }
 }
 
@@ -738,7 +817,7 @@ void MediaMetadataHUD::update_metadata_values_for_profile(const bool force_updat
     if (q == on_screen_images_.end())
         return;
 
-    const media_reader::ImageBufPtr &image = q->second;
+    const media_reader::ImageBufPtr &image = q->second->hero_image();
 
     if (image == previous_metadata_source_image_ && !force_update)
         return;
@@ -788,7 +867,8 @@ void MediaMetadataHUD::profile_changed() {
     profile_data_->set_value(profile_data_store_);
     profile_fields_->set_value(profile_selected_fields);
 
-    if (config_data_[current_profile_->value()] != profile_data_store_) {
+    if (current_profile_->value().find("(read only)") == std::string::npos &&
+        config_data_[current_profile_->value()] != profile_data_store_) {
         config_data_[current_profile_->value()] = profile_data_store_;
         config_->set_value(config_data_, false);
     }
@@ -920,12 +1000,10 @@ void MediaMetadataHUD::add_new_profile(const std::string &name) {
     if (!config_data_.contains(name)) {
         config_data_[name]  = nlohmann::json::array();
         profile_data_store_ = nlohmann::json::array();
-        StringVec profiles;
-        for (auto p = config_data_.begin(); p != config_data_.end(); ++p) {
-            profiles.push_back(p.key());
-        }
         config_->set_value(config_data_, false);
-        current_profile_->set_role_data(module::Attribute::StringChoices, profiles);
+
+        update_profiles_list();
+
         current_profile_->set_value(name);
         profile_changed();
     }
@@ -936,13 +1014,10 @@ void MediaMetadataHUD::delete_current_profile() {
     if (config_data_.contains(current_profile_->value()) && config_data_.size() > 1) {
 
         config_data_.erase(config_data_.find(current_profile_->value()));
-        StringVec profiles;
-        for (auto p = config_data_.begin(); p != config_data_.end(); ++p) {
-            profiles.push_back(p.key());
-        }
         config_->set_value(config_data_, false);
-        current_profile_->set_role_data(module::Attribute::StringChoices, profiles, false);
-        current_profile_->set_value(profiles.front());
+        update_profiles_list();
+        if (config_data_.size())
+            current_profile_->set_value(config_data_.begin().key());
         profile_changed();
     }
 }
@@ -971,12 +1046,12 @@ void MediaMetadataHUD::update_full_metadata_set(const bool full_rebuild) {
         full_metadata_set_->set_value(nlohmann::json());
         return;
     }
-    const media_reader::ImageBufPtr &image = p->second;
+    const media_reader::ImageBufPtr &image = p->second->hero_image();
 
-    if (image->media_key() != metadata_frame_key_ || full_rebuild) {
+    if (image.frame_id().key() != metadata_frame_key_ || full_rebuild) {
 
-        metadata_frame_key_ = image->media_key();
-        new_metadata("Frame Metadata", p->second.metadata(), full_rebuild);
+        metadata_frame_key_ = image.frame_id().key();
+        new_metadata("Frame Metadata", image.metadata(), full_rebuild);
     }
 
     if (metadata_media_id_ != image.frame_id().source_uuid() || full_rebuild) {
@@ -1015,7 +1090,7 @@ void flatten(
                         result,
                         p.value()[i],
                         key + fmt::format("{}.{}", p.key(), i) + ".",
-                        real_path + "/" + fmt::format("{}", i),
+                        real_path + "/streams/" + fmt::format("{}", i),
                         search_filter_string);
                 }
             } else {

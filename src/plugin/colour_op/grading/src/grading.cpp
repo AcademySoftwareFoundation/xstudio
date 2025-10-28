@@ -238,7 +238,8 @@ utility::BlindDataObjectPtr GradingTool::onscreen_render_data(
     const media_reader::ImageBufPtr &image,
     const std::string & /*viewport_name*/,
     const utility::Uuid & /*playhead_uuid*/,
-    const bool is_hero_image) const {
+    const bool is_hero_image,
+    const bool images_are_in_grid_layout) const {
 
     // This callback is made just before viewport redraw. We want to check
     // if the image to be drawn is from the same media to which a grade is
@@ -293,7 +294,7 @@ void GradingTool::images_going_on_screen(
     // user starts drawing when there is a bookmark on screen then we can
     // add the strokes to that existing bookmark instead of making a brand
     // new note
-    if (images && current_frame_id_ != images->hero_image().frame_id()) {
+    if (images && current_frame_id_.key() != images->hero_image().frame_id().key()) {
 
         current_viewport_        = viewport_name;
         viewport_current_images_ = images;

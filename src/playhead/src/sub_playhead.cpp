@@ -25,12 +25,19 @@ using namespace xstudio::colour_pipeline;
 using namespace caf;
 using namespace std::chrono_literals;
 
+template <typename T>
+void copy_audio_samples(
+    AudioBufPtr &buffer_to_fill,
+    const timebase::flicks buffer_to_fill_timestamp,
+    const AudioBufPtr &source_buffer,
+    const timebase::flicks source_buffer_timestamp);
 
 SubPlayhead::SubPlayhead(
     caf::actor_config &cfg,
     const std::string &name,
     utility::UuidActor source,
     caf::actor parent,
+    const int index,
     const bool source_is_timeline,
     const timebase::flicks loop_in_point,
     const timebase::flicks loop_out_point,
@@ -42,6 +49,7 @@ SubPlayhead::SubPlayhead(
       name_(name),
       source_(std::move(source)),
       parent_(std::move(parent)),
+      sub_playhead_index_(index),
       source_is_timeline_(source_is_timeline),
       loop_in_point_(loop_in_point),
       loop_out_point_(loop_out_point),
@@ -56,9 +64,8 @@ SubPlayhead::SubPlayhead(
 SubPlayhead::~SubPlayhead() {}
 
 void SubPlayhead::on_exit() {
-    parent_              = caf::actor();
-    source_              = utility::UuidActor();
-    current_media_actor_ = caf::actor();
+    parent_ = caf::actor();
+    source_ = utility::UuidActor();
 }
 
 void SubPlayhead::init() {
@@ -640,6 +647,17 @@ void SubPlayhead::init() {
             return rp;
         },
 
+        [=](media_atom, const bool) {
+            // this is a 'kick' message telling us to re-broadcast current media
+            // back to the parent playhead
+            timebase::flicks frame_period, timeline_pts;
+            std::shared_ptr<const media::AVFrameID> frame =
+                get_frame(position_flicks_, frame_period, timeline_pts);
+            if (frame)
+                current_source_ = utility::Uuid();
+            check_if_media_changed(frame ? frame.get() : nullptr);
+        },
+
         [=](media_atom) -> result<caf::actor> {
             // MediaActor at current playhead position
             auto frame = retimed_frames_.upper_bound(position_flicks_);
@@ -725,7 +743,99 @@ void SubPlayhead::init() {
             return rp;
         },
 
-        [=](buffer_atom) -> result<ImageBufPtr> {
+        [=](audio_buffer_atom,
+            const timebase::flicks buffer_pts,
+            AudioBufPtr buffer_to_fill) -> result<AudioBufPtr> {
+            // here a request is made for an audio buffer corresponding to a precise
+            // timepoint in the playhead timeline and with number of samples corresponding
+            // to duration. See VideoRenderPlugin, which uses this for an accurate
+            // contiguous audio stream
+
+            // The awkard thing here is that the audio buffers that the reader delivers
+            // are 'lumpy' (due to the way that ffmpeg decodes audio frames in a way
+            // that doesn't align with xSTUDIO frames) and not likely to align with
+            // what 'buffer_to_fill' wants. As such, we ask the reader to give us
+            // 3 audio buffers, the one that is closest to buffer_pts and one either
+            // side. 'copy_audio_sample' then takes care of copying the samples from
+            // each of those 3 buffers from the reader into buffer_to_fill
+
+            auto rp     = make_response_promise<AudioBufPtr>();
+            auto rcount = std::make_shared<int>(0);
+
+            auto check_and_deliver = [=]() mutable {
+                (*rcount)++;
+                if (*rcount == 3)
+                    rp.deliver(buffer_to_fill);
+            };
+
+            for (int i = -1; i <= 1; ++i) {
+
+                timebase::flicks frame_period, frame_pts;
+                std::shared_ptr<const media::AVFrameID> frame =
+                    get_frame(buffer_pts, frame_period, frame_pts, i);
+
+                if (!frame) {
+
+                    check_and_deliver();
+                    continue;
+                }
+
+                mail(media_reader::get_audio_atom_v, *(frame.get()), false, uuid_)
+                    .request(pre_reader_, std::chrono::seconds(20))
+                    .then(
+
+                        [=](const AudioBufPtr &audio_buffer) mutable {
+                            if (audio_buffer) {
+                                copy_audio_samples<int16_t>(
+                                    buffer_to_fill, buffer_pts, audio_buffer, frame_pts);
+                            }
+
+                            check_and_deliver();
+                        },
+                        [=](const error &err) mutable {
+                            spdlog::critical(
+                                "SubPlayhead buffer read timeout for frame {}",
+                                to_string(frame->key()));
+                            check_and_deliver();
+                        });
+            }
+
+            return rp;
+        },
+
+        [=](audio_buffer_atom) -> result<AudioBufPtr> {
+            // audio buf retrieval for the current playhead position
+            auto rp = make_response_promise<AudioBufPtr>();
+            timebase::flicks frame_period, timeline_pts;
+            std::shared_ptr<const media::AVFrameID> frame =
+                get_frame(position_flicks_, frame_period, timeline_pts);
+
+            if (!frame) {
+
+                rp.deliver(AudioBufPtr());
+                return rp;
+            }
+
+            mail(media_reader::get_audio_atom_v, *(frame.get()), false, uuid_)
+                .request(pre_reader_, std::chrono::seconds(20))
+                .then(
+
+                    [=](AudioBufPtr audio_buffer) mutable {
+                        audio_buffer.when_to_display_ = utility::clock::now();
+                        audio_buffer.set_timline_timestamp(timeline_pts);
+                        rp.deliver(audio_buffer);
+                    },
+                    [=](const error &err) mutable {
+                        spdlog::critical(
+                            "SubPlayhead buffer read timeout for frame {}",
+                            to_string(frame->key()));
+                        rp.deliver(err);
+                    });
+
+            return rp;
+        },
+
+        [=](image_buffer_atom) -> result<ImageBufPtr> {
             auto rp = make_response_promise<ImageBufPtr>();
             timebase::flicks frame_period, timeline_pts;
             std::shared_ptr<const media::AVFrameID> frame =
@@ -747,6 +857,7 @@ void SubPlayhead::init() {
                         image_buffer.set_frame_id(*(frame.get()));
                         image_buffer.set_playhead_logical_frame(
                             logical_frame_from_pts(timeline_pts));
+                        image_buffer.set_playhead_logical_duration(logical_frames_.size());
                         add_annotations_data_to_frame(image_buffer);
                         rp.deliver(image_buffer);
                     },
@@ -1021,7 +1132,8 @@ void SubPlayhead::set_position(
                 frame->frame() - frame->first_frame(),
                 frame->frame(),
                 frame->rate(),
-                frame->timecode())
+                frame->timecode(),
+                to_string(frame->uri()))
                 .send(parent_);
         }
 
@@ -1082,16 +1194,7 @@ void SubPlayhead::broadcast_image_frame(
     if (!frame_media_pointer || frame_media_pointer->is_nil()) {
         // If there is no media pointer, tell the parent playhead that we have
         // no media to show
-        mail(
-            event_atom_v,
-            media_source_atom_v,
-            caf::actor(),
-            caf::actor_cast<caf::actor>(this),
-            Uuid(),
-            Uuid(),
-            0)
-            .send(parent_);
-        waiting_for_next_frame_ = false;
+        check_if_media_changed(frame_media_pointer ? frame_media_pointer.get() : nullptr);
         return;
     }
 
@@ -1113,6 +1216,7 @@ void SubPlayhead::broadcast_image_frame(
                 image_buffer.set_timline_timestamp(timeline_pts);
                 image_buffer.set_frame_id(*(frame_media_pointer.get()));
                 image_buffer.set_playhead_logical_frame(logical_frame_from_pts(timeline_pts));
+                image_buffer.set_playhead_logical_duration(logical_frames_.size());
                 add_annotations_data_to_frame(image_buffer);
 
                 mail(
@@ -1123,15 +1227,8 @@ void SubPlayhead::broadcast_image_frame(
                     )
                     .send(parent_);
 
-                mail(
-                    event_atom_v,
-                    media_source_atom_v,
-                    caf::actor_cast<caf::actor>(frame_media_pointer->media_source_addr()),
-                    actor_cast<actor>(this),
-                    frame_media_pointer->media_uuid(),
-                    frame_media_pointer->source_uuid(),
-                    frame_media_pointer->frame())
-                    .send(parent_);
+                check_if_media_changed(frame_media_pointer.get());
+
 
                 waiting_for_next_frame_ = false;
 
@@ -1362,6 +1459,7 @@ void SubPlayhead::request_future_frames() {
                 auto idsp = future_frames.begin();
                 for (auto &imbuf : image_buffers) {
                     imbuf.set_playhead_logical_frame(logical_frame_from_pts(*(tp)));
+                    imbuf.set_playhead_logical_duration(logical_frames_.size());
                     imbuf.set_timline_timestamp(*(tp++));
                     std::shared_ptr<const media::AVFrameID> av_idx = (idsp++)->second;
                     if (av_idx) {
@@ -1466,6 +1564,7 @@ void SubPlayhead::receive_image_from_cache(
     image_buffer.when_to_display_ = utility::clock::now();
     image_buffer.set_timline_timestamp(timeline_pts);
     image_buffer.set_playhead_logical_frame(logical_frame_from_pts(timeline_pts));
+    image_buffer.set_playhead_logical_duration(logical_frames_.size());
     image_buffer.set_frame_id(mptr);
     add_annotations_data_to_frame(image_buffer);
 
@@ -1477,17 +1576,7 @@ void SubPlayhead::receive_image_from_cache(
         )
         .send(parent_);
 
-    if (auto m = caf::actor_cast<caf::actor>(mptr.media_source_addr())) {
-        mail(
-            event_atom_v,
-            media_source_atom_v,
-            m,
-            actor_cast<actor>(this),
-            mptr.media_uuid(),
-            mptr.source_uuid(),
-            mptr.frame())
-            .send(parent_);
-    }
+    check_if_media_changed(&mptr);
 }
 
 void SubPlayhead::get_full_timeline_frame_list(caf::typed_response_promise<caf::actor> rp) {
@@ -1501,6 +1590,11 @@ void SubPlayhead::get_full_timeline_frame_list(caf::typed_response_promise<caf::
 
         return;
     }
+
+    // resetting this will force a broadcast of media_source_atom in
+    // check_if_media_changed, which we need to trigger re-evaulation of
+    // on-screen overlays among other things
+    current_source_ = utility::Uuid();
 
     if (utility::clock::now() - last_update_requested_ < std::chrono::milliseconds(10)) {
         // too soon..
@@ -1681,7 +1775,8 @@ void SubPlayhead::get_full_timeline_frame_list(caf::typed_response_promise<caf::
 std::shared_ptr<const media::AVFrameID> SubPlayhead::get_frame(
     const timebase::flicks &time,
     timebase::flicks &frame_period,
-    timebase::flicks &timeline_pts) {
+    timebase::flicks &timeline_pts,
+    int step_frames) {
 
     // If rate = 25fps (40ms per frame) ...
     // if first frame is shown at time = 0, second frame is shown at time = 40ms.
@@ -1708,6 +1803,15 @@ std::shared_ptr<const media::AVFrameID> SubPlayhead::get_frame(
     // frame.
     auto tt    = utility::clock::now();
     auto frame = current_frame_iterator(t);
+
+    while (step_frames < 0 && frame != first_frame_) {
+        frame--;
+        step_frames++;
+    }
+    while (step_frames > 0 && frame != last_frame_) {
+        frame++;
+        step_frames--;
+    }
 
     // see above, there is a dummy frame at the end of retimed_frames_ so
     // this is always valid:
@@ -2161,11 +2265,12 @@ void SubPlayhead::fetch_bookmark_annotations(
                                     .request(bookmark.actor(), infinite)
                                     .then(
                                         [=](bookmark::BookmarkAndAnnotationPtr data) mutable {
-
                                             for (const auto &p : bookmark_ranges) {
                                                 if (data->detail_.uuid_ == std::get<0>(p)) {
                                                     // set the frame ranges.
-                                                    auto d = new bookmark::BookmarkAndAnnotation(*data);
+                                                    auto d =
+                                                        new bookmark::BookmarkAndAnnotation(
+                                                            *data);
                                                     d->start_frame_ = std::get<2>(p);
                                                     d->end_frame_   = std::get<3>(p);
                                                     result->emplace_back(d);
@@ -2343,4 +2448,106 @@ media::FrameTimeMap::iterator SubPlayhead::current_frame_iterator() {
         frame--;
     }
     return frame;
+}
+
+template <typename T>
+void copy_audio_samples(
+    AudioBufPtr &buffer_to_fill,
+    const timebase::flicks buffer_to_fill_timestamp,
+    const AudioBufPtr &source_buffer,
+    const timebase::flicks source_buffer_timestamp) {
+
+    if (buffer_to_fill->num_channels() != source_buffer->num_channels() ||
+        buffer_to_fill->sample_rate() != source_buffer->sample_rate()) {
+        // The sample rate is set globally througout the application with
+        // /core/audio/windows_audio_prefs/sample_rate preference, so this
+        // can't happen!
+        spdlog::warn("{} mismatch in audio buffer sample rates.", __PRETTY_FUNCTION__);
+        return;
+    }
+
+    const size_t dest_size_samples =
+        buffer_to_fill->num_samples() * buffer_to_fill->num_channels();
+    const size_t src_size_samples =
+        source_buffer->num_samples() * source_buffer->num_channels();
+    const size_t fsr = source_buffer->sample_rate() * source_buffer->num_channels();
+
+    // As far as the playhead is concerned, audio buffers are aligned with video frames.
+    // However, the sample data in the buffer is not exactly aligned (because the
+    // chunking of audio samples coming from ffmpeg is typically independent of the video
+    // frame duration).
+    const auto source_first_sample_timestamp = std::chrono::duration_cast<timebase::flicks>(
+        source_buffer_timestamp + source_buffer->time_delta_to_video_frame());
+
+    size_t offset_into_dest   = 0;
+    size_t offset_into_source = 0;
+    if (source_first_sample_timestamp < buffer_to_fill_timestamp) {
+        const size_t msec = std::chrono::duration_cast<std::chrono::microseconds>(
+                                buffer_to_fill_timestamp - source_first_sample_timestamp)
+                                .count();
+        offset_into_source = msec * fsr / 1000000;
+    } else {
+        const size_t msec = std::chrono::duration_cast<std::chrono::microseconds>(
+                                source_first_sample_timestamp - buffer_to_fill_timestamp)
+                                .count();
+        offset_into_dest = msec * fsr / 1000000;
+    }
+
+    size_t n_samps_to_copy =
+        std::min(src_size_samples - offset_into_source, dest_size_samples - offset_into_dest);
+
+    if (offset_into_source > src_size_samples || offset_into_dest > dest_size_samples) {
+        // no overlap
+        return;
+    }
+
+    T *dst = reinterpret_cast<T *>(buffer_to_fill->buffer());
+    dst += offset_into_dest;
+    T *src = reinterpret_cast<T *>(source_buffer->buffer());
+    src += offset_into_source;
+    memcpy(dst, src, n_samps_to_copy * sizeof(T));
+}
+
+void SubPlayhead::check_if_media_changed(const media::AVFrameID *frame_id) {
+
+    // When the Media or MediaSource for the current frame changes (during playback, scrubbing
+    // or on intialisation) we broadcast them up to the parent playhead. Then other things that
+    // need to knw about what the on-screen media is (like HUD Plugins or colour pipeline) will
+    // recieve this info which is forwarded on by other intermediaries (ViewportFrameQueueActor,
+    // GlobalPlayheadEventsActor etc)
+    if (frame_id && (frame_id->source_uuid() != current_source_ ||
+                     frame_id->media_uuid() != current_media_)) {
+
+        // if current_source_ is null, it means we've had a change event and
+        // rebuilt the timeline frames. This could be because the media rate
+        // has changed, so we tell the parent playhead to re-fetch the media
+        // rate with this flag.
+        const bool check_rate = current_source_.is_null();
+
+        current_source_ = frame_id->source_uuid();
+        current_media_  = frame_id->media_uuid();
+        mail(
+            event_atom_v,
+            media_source_atom_v,
+            utility::UuidActor(
+                current_media_, caf::actor_cast<caf::actor>(frame_id->media_addr())),
+            utility::UuidActor(
+                current_source_, caf::actor_cast<caf::actor>(frame_id->media_source_addr())),
+            sub_playhead_index_,
+            check_rate)
+            .send(parent_);
+
+    } else if (!frame_id && (!current_source_.is_null() || !current_media_.is_null())) {
+
+        current_source_ = utility::Uuid();
+        current_media_  = utility::Uuid();
+        mail(
+            event_atom_v,
+            media_source_atom_v,
+            utility::UuidActor(),
+            utility::UuidActor(),
+            sub_playhead_index_,
+            false)
+            .send(parent_);
+    }
 }

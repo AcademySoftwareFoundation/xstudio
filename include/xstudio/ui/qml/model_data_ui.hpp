@@ -139,7 +139,20 @@ class HELPER_QML_EXPORT PopoutWindowsData : public UIModelData {
         QString qml_source,
         QString icon_path,
         float button_position,
+        QString qml_widget = QString(),
         const QUuid hotkey = QUuid());
+};
+
+class HELPER_QML_EXPORT PlaylistsPanelBarExtraWidgetsModelData : public UIModelData {
+
+    Q_OBJECT
+
+  public:
+    explicit PlaylistsPanelBarExtraWidgetsModelData(QObject *parent = nullptr);
+
+  public slots:
+
+    void register_main_menu_bar_widget(const QString &qml_code);
 };
 
 class HELPER_QML_EXPORT SingletonsModelData : public UIModelData {

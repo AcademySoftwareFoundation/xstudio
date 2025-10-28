@@ -3,6 +3,7 @@
 
 #include "xstudio/media/media.hpp"
 #include "xstudio/utility/frame_list.hpp"
+#include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/json_store.hpp"
 
 using namespace xstudio::media;
@@ -82,6 +83,12 @@ JsonStore MediaSource::serialise() const {
 
     return jsn;
 }
+
+std::tuple<std::string, std::string, uintmax_t> MediaSource::checksum() const {
+    return std::make_tuple(
+        fs::path(utility::uri_to_posix_path(ref_.uri())).filename().string(), checksum_, size_);
+}
+
 
 bool MediaSource::set_current(const MediaType media_type, const Uuid &uuid) {
     bool result = false;
