@@ -184,7 +184,8 @@ void QMLViewportRenderer::make_xstudio_viewport() {
     // "xstudio_main_window".
     if (is_quick_viewer_ && m_window->objectName() == "xstudio_main_window") {
         static std::atomic<int> ct = 0;
-        jsn["window_id"] = fmt::format("embedded_quickview_window_{}", ct);
+        int i = ct;
+        jsn["window_id"] = fmt::format("embedded_quickview_window_{}", i);
         ct++;
     } else if (is_quick_viewer_) {
         jsn["window_id"] = std::string("xstudio_quickview_window");
