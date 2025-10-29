@@ -669,32 +669,32 @@ void ShotgunClientActor::request_attachment(
         path = std::string(
             fmt::format("/api/v1/entity/{}/{}/{}?alt=original", entity, record_id, property)),
 
-    mail(http_get_atom_v, base_.scheme_host_port(), path, base_.get_auth_headers())
-        // base_.get_auth_headers("video/webm"))
-        .request(http_, infinite)
-        .then(
-            [=](const httplib::Response &response) mutable {
-                if (response.status == 200) {
-                    return rp.deliver(response.body);
-                }
-
-                try {
-                    auto jsn = nlohmann::json::parse(response.body);
-                    if (not check_failed_authenticate(jsn, rp, [=]() {
-                            request_attachment(entity, record_id, property, rp);
-                        })) {
-                        // missing thumbnail
-                        rp.deliver(make_error(sce::response_error, response.body));
+        mail(http_get_atom_v, base_.scheme_host_port(), path, base_.get_auth_headers())
+            // base_.get_auth_headers("video/webm"))
+            .request(http_, infinite)
+            .then(
+                [=](const httplib::Response &response) mutable {
+                    if (response.status == 200) {
+                        return rp.deliver(response.body);
                     }
-                } catch (const std::exception &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-                    rp.deliver(make_error(sce::response_error, err.what()));
-                }
-            },
-            [=](error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                rp.deliver(std::move(err));
-            });
+
+                    try {
+                        auto jsn = nlohmann::json::parse(response.body);
+                        if (not check_failed_authenticate(jsn, rp, [=]() {
+                                request_attachment(entity, record_id, property, rp);
+                            })) {
+                            // missing thumbnail
+                            rp.deliver(make_error(sce::response_error, response.body));
+                        }
+                    } catch (const std::exception &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                        rp.deliver(make_error(sce::response_error, err.what()));
+                    }
+                },
+                [=](error &err) mutable {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    rp.deliver(std::move(err));
+                });
 }
 
 void ShotgunClientActor::request_text_search(
