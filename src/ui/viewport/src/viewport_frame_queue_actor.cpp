@@ -456,16 +456,20 @@ void ViewportFrameQueueActor::append_overlays_data(
             viewport_overlay_plugins_.size(), rp);
         auto_responder.result().reset(result);
 
+        // we need a full const copy of the image set to send to overlay plugins.
+        // The plugins inspect the images, or use the data attached to images to
+        // get to the source media items, and extract data (e.g. metadata) to put
+        // into their user data (BlindDataObjectPtr) which is then used at draw
+        // time to do overlay graphics.
+        media_reader::ImageBufDisplaySetPtr images(
+            new media_reader::ImageBufDisplaySet(*result));
+
         for (auto p : viewport_overlay_plugins_) {
 
             utility::Uuid overlay_plugin_uuid = p.first;
             caf::actor overlay_plugin         = p.second;
 
-            mail(
-                prepare_overlay_render_data_atom_v,
-                auto_responder.result(),
-                viewport_name_,
-                playhead_.uuid())
+            mail(prepare_overlay_render_data_atom_v, images, viewport_name_, playhead_.uuid())
                 .request(overlay_plugin, infinite)
                 .then(
                     [=](const utility::BlindDataObjectPtrVec &bdata) mutable {

@@ -563,9 +563,9 @@ QVariantList QMLViewport::imageBoundariesInViewport() {
 void QMLViewport::quickViewFromPath(const QString &path_or_uri) {
     caf::uri _uri;
     auto uri = caf::make_uri(StdFromQString(path_or_uri));
-    if (uri) _uri = *uri;
-    else _uri = utility::posix_path_to_uri(StdFromQString(path_or_uri));
-    anon_mail(quickview_media_atom_v, _uri)
-            .send(renderer_actor->as_actor());
+    if (uri)
+        _uri = *uri;
+    else
+        _uri = utility::posix_path_to_uri(StdFromQString(path_or_uri));
+    anon_mail(quickview_media_atom_v, _uri).send(renderer_actor->as_actor());
 }
-

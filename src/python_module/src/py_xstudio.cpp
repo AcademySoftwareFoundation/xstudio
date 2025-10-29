@@ -53,24 +53,20 @@ py::tuple py_parse_posix_path(const std::string &path) {
     return result;
 }
 
-py::object py_actor_from_string(const std::string &actor_addr, caf::actor remote = caf::actor()) {
+py::object
+py_actor_from_string(const std::string &actor_addr, caf::actor remote = caf::actor()) {
 
-    // the py module actor system can be different to the main xstudio actor system. 
+    // the py module actor system can be different to the main xstudio actor system.
     // If the actor at 'actor_addr' refers to an actor living in the main xstudio
     // system, the first call to actor_from_string may fail as the actor_system_ref
     // is not the main xstudio system. In this case, we can use remote which is
     // passed in from the python side and is a reference actor from the xstudio
     // system (usually the 'remote' member of a Python plugin instance)
-
-    std::cerr << "AA " << to_string(utility::ActorSystemSingleton::actor_system_ref()) << " " << 
-        to_string(remote) << " " << to_string(remote->home_system()) << " " << actor_addr << "\n";
-
     auto actor = utility::actor_from_string(
         utility::ActorSystemSingleton::actor_system_ref(), actor_addr);
 
     if (!actor) {
-        actor = utility::actor_from_string(
-            remote->home_system(), actor_addr);
+        actor = utility::actor_from_string(remote->home_system(), actor_addr);
     }
     return py::cast(std::move(actor));
 }

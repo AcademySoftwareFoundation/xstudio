@@ -406,13 +406,13 @@ namespace ui {
             ChangeCallback event_callback_;
 
           protected:
-            bool done_init_                 = {false};
-            bool playing_                   = {false};
-            bool is_visible_                = {false};
-            size_t last_images_hash_        = {0};
-            bool needs_redraw_              = {true};
-            bool hover_image_select_        = {false};
-            bool has_overlays_              = {true};
+            bool done_init_          = {false};
+            bool playing_            = {false};
+            bool is_visible_         = {false};
+            size_t last_images_hash_ = {0};
+            bool needs_redraw_       = {true};
+            bool hover_image_select_ = {false};
+            bool has_overlays_       = {true};
             std::set<int> held_keys_;
             std::vector<Imath::Box2f> image_bounds_in_viewport_pixels_;
             std::vector<Imath::V2i> image_resolutions_;

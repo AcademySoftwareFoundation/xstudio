@@ -503,7 +503,7 @@
             <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Actor has no event group.&quot;</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">link</span><span class="o">.</span><span class="n">add_message_callback</span><span class="p">(</span>
-            <span class="n">event_group</span><span class="p">,</span> <span class="n">callback_method</span>
+            <span class="n">event_source</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">callback_method</span>
             <span class="p">)</span></div>
 
 
