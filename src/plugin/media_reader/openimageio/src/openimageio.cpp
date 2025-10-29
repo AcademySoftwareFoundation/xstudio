@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 #include <OpenImageIO/typedesc.h>
 #include <cstddef>
 #include <exception>
@@ -127,51 +126,39 @@ OIIOMediaReader::OIIOMediaReader(const utility::JsonStore &prefs) : MediaReader(
 }
 
 void OIIOMediaReader::update_preferences(const utility::JsonStore &prefs) {
-    // Set OIIO threading based on preferences
     try {
+        // Set OIIO threading
         int threads =
             global_store::preference_value<int>(prefs, "/plugin/media_reader/OIIO/threads");
-        // Apply thread count to OIIO
         OIIO::attribute("threads", threads);
     } catch (const std::exception &e) {
-        // Warn if fetching or applying threads fails
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
 
-    // Set OIIO EXR-specific threading
     try {
+        // Set OIIO EXR-specific threading
         int exr_threads =
             global_store::preference_value<int>(prefs, "/plugin/media_reader/OIIO/exr_threads");
-        // Apply EXR threads to OIIO
         OIIO::attribute("exr_threads", exr_threads);
     } catch (const std::exception &e) {
-        // Warn if something went wrong
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
 
-    // Enable or disable TBB in OIIO
     try {
+        // Enable or disable TBB in OIIO
         int use_tbb =
             global_store::preference_value<int>(prefs, "/plugin/media_reader/OIIO/use_tbb");
-        // Set TBB usage
         OIIO::attribute("use_tbb", use_tbb);
     } catch (const std::exception &e) {
-        // Warn on error retrieving or applying use_tbb
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
 
-    // Set OIIO log times preference
-    // When the "log_times" attribute is nonzero, ImageBufAlgo functions are instrumented to
-    // record the number of times they were called and the total amount of time spent executing
-    // them.
     try {
+        // Set OIIO log times preference
+        // When the "log_times" attribute is nonzero, ImageBufAlgo functions are instrumented to
+        // record the number of times they were called and the total amount of time spent
+        // executing them.
         int log_times =
             global_store::preference_value<int>(prefs, "/plugin/media_reader/OIIO/log_times");
-        // Enable or disable logging of times
         OIIO::attribute("log_times", log_times);
     } catch (const std::exception &e) {
-        // Warn if log_times config fails
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
 }
 
@@ -971,7 +958,7 @@ plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
         std::vector<std::shared_ptr<plugin_manager::PluginFactory>>(
             {std::make_shared<MediaReaderPlugin<MediaReaderActor<OIIOMediaReader>>>(
                 s_plugin_uuid,
-                "OIIO",
+                "OpenImageIO",
                 "xStudio",
                 "OpenImageIO Media Reader",
                 semver::version("1.0.0"))}));
