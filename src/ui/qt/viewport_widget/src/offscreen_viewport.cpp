@@ -214,8 +214,8 @@ OffscreenViewport::OffscreenViewport(const std::string name, bool sync_with_main
     // viewport that can receive caf messages including framebuffers and also
     // to render the viewport into our GLContext
     utility::JsonStore jsn;
-    jsn["base"]        = utility::JsonStore();
-    jsn["window_id"]   = name;
+    jsn["base"]       = utility::JsonStore();
+    jsn["window_id"]  = name;
     xstudio_viewport_ = new Viewport(jsn, as_actor(), sync_with_main_viewports, name);
 
     /* Provide a callback so the Viewport can tell this class when some property of the viewport

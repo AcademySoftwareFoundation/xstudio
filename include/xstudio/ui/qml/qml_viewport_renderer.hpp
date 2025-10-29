@@ -26,7 +26,6 @@ namespace ui {
             Q_OBJECT
 
           public:
-
             QMLViewportRenderer(QObject *owner);
             virtual ~QMLViewportRenderer();
 
@@ -79,7 +78,7 @@ namespace ui {
 
             [[nodiscard]] QString name() const {
                 return xstudio_viewport_ ? QStringFromStd(xstudio_viewport_->name())
-                                          : QString("Not Yet");
+                                         : QString("Not Yet");
             }
 
             [[nodiscard]] std::string std_name() const {
@@ -113,7 +112,6 @@ namespace ui {
             void snapshotRequestResult(QString resultMessage);
 
           private:
-          
             void receive_change_notification(viewport::Viewport::ChangeCallbackId id);
             void make_xstudio_viewport();
             void set_depth(const float depth);
@@ -124,7 +122,7 @@ namespace ui {
             QString fps_expression_;
             class QMLViewport *viewport_qml_item_;
             bool is_quick_viewer_ = {false};
-            bool has_overlays_ = {true};
+            bool has_overlays_    = {true};
 
             caf::actor viewport_update_group;
             caf::actor playhead_group_;

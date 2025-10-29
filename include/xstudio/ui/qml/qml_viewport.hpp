@@ -42,8 +42,10 @@ namespace ui {
             Q_PROPERTY(QString name READ name NOTIFY nameChanged)
             Q_PROPERTY(QUuid playheadUuid READ playheadUuid NOTIFY playheadUuidChanged)
             Q_PROPERTY(bool hasPlayhead READ hasPlayhead NOTIFY playheadUuidChanged)
-            Q_PROPERTY(bool isQuickview READ isQuickview WRITE setIsQuickview NOTIFY isQuickviewChanged)
-            Q_PROPERTY(bool hasOverlays READ hasOverlays WRITE setHasOverlays NOTIFY hasOverlaysChanged)
+            Q_PROPERTY(bool isQuickview READ isQuickview WRITE setIsQuickview NOTIFY
+                           isQuickviewChanged)
+            Q_PROPERTY(bool hasOverlays READ hasOverlays WRITE setHasOverlays NOTIFY
+                           hasOverlaysChanged)
 
           public:
             QMLViewport(QQuickItem *parent = nullptr);

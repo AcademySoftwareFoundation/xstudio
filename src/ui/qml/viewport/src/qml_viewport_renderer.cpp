@@ -52,9 +52,10 @@ void QMLViewportRenderer::init_renderer() {
 void QMLViewportRenderer::set_depth(const float depth) {
 
     // if depth is not set lets not bother clearing the Z depth of the viewport
-    if (depth == 0.0f) return;
+    if (depth == 0.0f)
+        return;
 
-    const int bottom = viewport_coords_.size.height()-viewport_coords_.corners[2].y();
+    const int bottom = viewport_coords_.size.height() - viewport_coords_.corners[2].y();
 
     glViewport(0, 0, viewport_coords_.size.width(), viewport_coords_.size.height());
     glEnable(GL_SCISSOR_TEST);
@@ -67,8 +68,8 @@ void QMLViewportRenderer::set_depth(const float depth) {
     // note: in terms of OpenGL depth depth ordering seems to be reversed when
     // it comes to QML scene graph. Remember we draw viewport first and then
     // the UI is drawn afterwards (so that menus etc. can be drawn on-top of
-    // the viewport). Setting viewport Z as positive so that the rest of the 
-    // UI draws UNDERNEATH it does not work here as expected unless I negate 
+    // the viewport). Setting viewport Z as positive so that the rest of the
+    // UI draws UNDERNEATH it does not work here as expected unless I negate
     // the Z value when setting clear depth. This may be a graphics convention
     // (where further from camera means Z is a higher (more positive) number)
     glClearDepth(-depth);
@@ -76,7 +77,6 @@ void QMLViewportRenderer::set_depth(const float depth) {
     glClear(GL_DEPTH_BUFFER_BIT);
     glDisable(GL_SCISSOR_TEST);
     glClearDepth(0.0f);
-
 }
 
 void QMLViewportRenderer::paint() {
@@ -105,7 +105,6 @@ void QMLViewportRenderer::paint() {
         }
 
         m_window->endExternalCommands();
-
     }
 }
 
@@ -172,16 +171,17 @@ void QMLViewportRenderer::make_xstudio_viewport() {
         delete xstudio_viewport_;
 
     utility::JsonStore jsn;
-    jsn["base"]      = utility::JsonStore();
+    jsn["base"] = utility::JsonStore();
 
-    // We need to set an ID for the window that the viewport lives in. This is 
+    // We need to set an ID for the window that the viewport lives in. This is
     // because we can have multiple viewports in the main UI. We use the window
-    // ID to let viewports share OpenGL resources for example, as they are 
+    // ID to let viewports share OpenGL resources for example, as they are
     // generally showing the same image. An exception is an embedded quickviewer
-    // where we have a viewport in the main UI that is not connected to the  
+    // where we have a viewport in the main UI that is not connected to the
     // main (active) playhead but rather is playing something completely different.
     // In this case 'is_quick_viewer_' is true but m_window->objectName() is
     // "xstudio_main_window".
+    
     if (is_quick_viewer_ && m_window->objectName() == "xstudio_main_window") {
         static std::atomic<int> ct = 0;
         int i = ct;
@@ -200,8 +200,7 @@ void QMLViewportRenderer::make_xstudio_viewport() {
     xstudio_viewport_ = new ui::viewport::Viewport(
         jsn,
         as_actor(),
-        !is_quick_viewer_
-    );// sync to other viewports flag
+        !is_quick_viewer_); // sync to other viewports flag
 
     xstudio_viewport_->set_visibility(viewport_qml_item_->isVisible());
 

@@ -85,8 +85,14 @@ Item {
 
             Component.onCompleted: {
                 if(features.value && features.value.length) {
-                var xhr = new XMLHttpRequest;
-                    xhr.open('GET', features.value+Qt.application.version);
+                    
+                    // for version 2.7.5, say, we want to pick-up release
+                    // notes for 2.7 because we are not doing fresh release
+                    // notes for bug fixes only features
+                    var vv = "" + Qt.application.version
+                    vv = vv.substring(0,vv.lastIndexOf("."))
+                    var xhr = new XMLHttpRequest;
+                    xhr.open('GET', features.value+vv);
                         xhr.onreadystatechange = function() {
                             if (xhr.readyState === XMLHttpRequest.DONE) {
                                 feature_text = xhr.responseText

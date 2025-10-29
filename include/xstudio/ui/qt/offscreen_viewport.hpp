@@ -139,9 +139,9 @@ namespace ui {
             rgb96thumbFromHalfFloatImage(const media_reader::ImageBufPtr &image);
 
             ui::viewport::Viewport *xstudio_viewport_ = nullptr;
-            QOpenGLContext *gl_context_                = {nullptr};
-            QOffscreenSurface *surface_                = {nullptr};
-            QThread *thread_                           = {nullptr};
+            QOpenGLContext *gl_context_               = {nullptr};
+            QOffscreenSurface *surface_               = {nullptr};
+            QThread *thread_                          = {nullptr};
             viewport::ViewportFramePostProcessorPtr post_draw_hook_;
 
             // TODO: will remove once everything done

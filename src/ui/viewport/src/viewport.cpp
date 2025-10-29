@@ -115,7 +115,7 @@ Viewport::Viewport(
     const std::string &_name)
     : Module(_name.empty() ? make_viewport_name() : _name),
       parent_actor_(std::move(parent_actor)) {
-        
+
     if (state_data.contains("window_id") && state_data["window_id"].is_string()) {
         window_id_ = state_data["window_id"].get<std::string>();
     }
@@ -281,9 +281,7 @@ Viewport::Viewport(
     // These viewports should be zoom/pan/fit/compare mode synced. All other
     // viewport must not sync these settings.
     sync_to_main_viewport_ = add_boolean_attribute(
-        "Sync To Main Viewport",
-        "Sync To Main Viewport",
-        sync_with_other_viewports);
+        "Sync To Main Viewport", "Sync To Main Viewport", sync_with_other_viewports);
 
     filter_mode_preference_ = add_string_choice_attribute(
         "Viewport Filter Mode", "Vp. Filtering", ViewportRenderer::pixel_filter_mode_names);
@@ -1167,8 +1165,7 @@ caf::message_handler Viewport::message_handler() {
                     }
                 },
 
-                [=](quickview_media_atom,
-                    const caf::uri &uri) { quickview_media(uri); },
+                [=](quickview_media_atom, const caf::uri &uri) { quickview_media(uri); },
 
                 [=](quickview_media_atom,
                     std::vector<caf::actor> &media_items,
@@ -1482,10 +1479,10 @@ void Viewport::attribute_changed(const utility::Uuid &attr_uuid, const int role)
             set_mirror_mode(MirrorMode::Off);
     } else if (attr_uuid == fps_->uuid() && role == module::Attribute::UserData) {
 
-        const auto user_fps =
-            fps_->get_role_data<std::string>(module::Attribute::UserData);
+        const auto user_fps = fps_->get_role_data<std::string>(module::Attribute::UserData);
 
-        if (user_fps == "") return;
+        if (user_fps == "")
+            return;
 
         caf::actor media_source =
             caf::actor_cast<caf::actor>(on_screen_hero_frame_.frame_id().media_source_addr());
@@ -1507,7 +1504,7 @@ void Viewport::attribute_changed(const utility::Uuid &attr_uuid, const int role)
                     }
                 }
                 // we need to blank 'userdata' so that next time the user sets FPS, if
-                // it's the same as the last time they set it, then we still get a 
+                // it's the same as the last time they set it, then we still get a
                 // change notficiation
                 fps_->set_role_data(module::Attribute::UserData, "");
 
@@ -1972,31 +1969,28 @@ void Viewport::set_screen_infos(
 #endif
 }
 
-void Viewport::quickview_media(const caf::uri &file_uri) 
-{
+void Viewport::quickview_media(const caf::uri &file_uri) {
 
     // 'quickview' some media direct from a URI
     caf::scoped_actor sys(self()->home_system());
 
     // make the media source:
     const utility::Uuid src_id = utility::Uuid::generate();
-    auto source = UuidActor(src_id, sys->spawn<media::MediaSourceActor>(
-        "Quickview Media Source",
-        file_uri,
-        utility::FrameRate(timebase::k_flicks_24fps),
-        src_id));
+    auto source                = UuidActor(
+        src_id,
+        sys->spawn<media::MediaSourceActor>(
+            "Quickview Media Source",
+            file_uri,
+            utility::FrameRate(timebase::k_flicks_24fps),
+            src_id));
 
     // make the media actor that wrapps the source
     auto media = sys->spawn<media::MediaActor>(
-        "Quickview Media",
-        utility::Uuid::generate(), 
-        utility::UuidActorVector({source})
-        );
+        "Quickview Media", utility::Uuid::generate(), utility::UuidActorVector({source}));
 
     // pass on to our other quickview_media method
     std::vector<caf::actor> m({media});
     quickview_media(m, "Off");
-
 }
 
 void Viewport::quickview_media(
