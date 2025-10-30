@@ -100,9 +100,10 @@ Imath::M44f matrix_from_corners(const float *in) {
         mqr[2][2]);
 }
 
-std::string make_viewport_name() {
+std::string make_viewport_name(const bool quickview) {
     static int idx = 0;
-    return fmt::format("viewport{0}", idx++);
+    static int quick_idx = 0;
+    return quickview ? fmt::format("quickview_viewport{0}", quick_idx++) : fmt::format("viewport{0}", idx++);
 }
 
 } // namespace
@@ -113,7 +114,7 @@ Viewport::Viewport(
     caf::actor parent_actor,
     const bool sync_with_other_viewports,
     const std::string &_name)
-    : Module(_name.empty() ? make_viewport_name() : _name),
+    : Module(_name.empty() ? make_viewport_name(!sync_with_other_viewports) : _name),
       parent_actor_(std::move(parent_actor)) {
 
     if (state_data.contains("window_id") && state_data["window_id"].is_string()) {

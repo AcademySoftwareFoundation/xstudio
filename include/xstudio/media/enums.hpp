@@ -10,7 +10,8 @@ namespace media {
         MS_MISSING     = 0x01L,
         MS_CORRUPT     = 0x02L,
         MS_UNSUPPORTED = 0x03L,
-        MS_UNREADABLE  = 0x04L
+        MS_UNREADABLE  = 0x04L,
+        MS_UNKNOWN     = 0x05L
     } MediaStatus;
 
     typedef enum {
