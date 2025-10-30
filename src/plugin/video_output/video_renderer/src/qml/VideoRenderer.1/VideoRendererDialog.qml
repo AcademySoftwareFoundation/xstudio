@@ -198,6 +198,13 @@ XsWindow {
 
     function choose_output(fileUrl, undefined, func) {
         outputFile.text = fileUrl
+
+        // Without this, on MacOS, the dialog dissapears behind
+        // the main window when the file browser is closed
+        dialog.hide()
+        dialog.show()
+        dialog.raise()
+        dialog.raise()
     }
 
     property var widgetHeight: 24
