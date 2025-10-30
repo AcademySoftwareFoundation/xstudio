@@ -315,7 +315,7 @@ void OpenGLShapeRenderer::upload_shape_data_to_tex(const std::vector<float> &dat
     int row_length;
     glGetIntegerv(GL_UNPACK_ROW_LENGTH, &row_length);
 
-    glActiveTexture(GL_TEXTURE10);
+    glActiveTexture(GL_TEXTURE12);
     glBindTexture(GL_TEXTURE_1D, tex_id_);
 
     glPixelStorei(GL_UNPACK_ROW_LENGTH, SHAPE_DATA_TEX_SIZE);
@@ -330,8 +330,12 @@ void OpenGLShapeRenderer::upload_shape_data_to_tex(const std::vector<float> &dat
     // to a particular value
     glPixelStorei(GL_UNPACK_ROW_LENGTH, row_length);
 
-    glActiveTexture(GL_TEXTURE10);
+    glActiveTexture(GL_TEXTURE12);
     glBindTexture(GL_TEXTURE_1D, tex_id_);
+
+    glActiveTexture(GL_TEXTURE0);
+
+
 }
 
 void OpenGLShapeRenderer::render_shapes(
@@ -350,7 +354,7 @@ void OpenGLShapeRenderer::render_shapes(
 
     shader_params["scale_ar"]    = 1.0f / image_aspectratio;
     shader_params["shape_count"] = quads.size() + ellipses.size() + polygons.size();
-    shader_params["shapesData"]  = 10;
+    shader_params["shapesData"]  = 12; // GL_ACTIVE_TEXTURE12
 
     // Transform every shape coordinates back into a square aspect ratio to ease
     // shader computations and produce soft blur that behaves isotropically.

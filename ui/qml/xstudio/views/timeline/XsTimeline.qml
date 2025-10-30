@@ -1599,7 +1599,8 @@ Rectangle {
                 }
             }
 
-            onWheel: {
+            onWheel: wheel => {
+
                 // maintain position as we zoom..
                 if(wheel.modifiers == Qt.ShiftModifier) {
                     // wheel.angleDelta.y always return 0 on MacOS laptops

@@ -191,6 +191,9 @@ void QMLViewportRenderer::make_xstudio_viewport() {
         jsn["window_id"] = std::string("xstudio_quickview_window");
     } else {
         jsn["window_id"] = StdFromQString(m_window->objectName());
+        if (StdFromQString(m_window->objectName()) == "xstudio_quickview_window") {
+            is_quick_viewer_ = true;
+        }
     }
 
     jsn["has_overlays"] = has_overlays_;

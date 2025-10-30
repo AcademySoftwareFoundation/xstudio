@@ -569,25 +569,13 @@ caf::message_handler MediaActor::message_handler() {
 
         [=](utility::event_atom,
             media_reader::get_thumbnail_atom,
-            thumbnail::ThumbnailBufferPtr buf) {},
-
-        [=](media_reader::get_thumbnail_atom,
-            float position) -> result<thumbnail::ThumbnailBufferPtr> {
-            if (base_.empty() or not media_sources_.count(base_.current(MT_IMAGE)))
-                return make_error(xstudio_error::error, "No MediaSources");
-
-            auto rp = make_response_promise<thumbnail::ThumbnailBufferPtr>();
-            mail(media_reader::get_thumbnail_atom_v, position)
-                .request(media_sources_.at(base_.current(media::MT_IMAGE)), infinite)
-                .then(
-                    [=](thumbnail::ThumbnailBufferPtr &buf) mutable {
-                        rp.deliver(buf);
-                        mail(utility::event_atom_v, media_reader::get_thumbnail_atom_v, buf)
+            thumbnail::ThumbnailBufferPtr buf) {
+                // media source is broadcasting a new thumbnail
+                if (media_sources_.at(base_.current(media::MT_IMAGE)) == current_sender()) {
+                    mail(utility::event_atom_v, media_reader::get_thumbnail_atom_v, buf)
                             .send(base_.event_group());
-                    },
-                    [=](error &err) mutable { rp.deliver(err); });
-            return rp;
-        },
+                }
+            },
 
         [=](media_reader::get_thumbnail_atom,
             float position) -> result<thumbnail::ThumbnailBufferPtr> {

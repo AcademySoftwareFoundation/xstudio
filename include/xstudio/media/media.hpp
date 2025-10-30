@@ -58,6 +58,9 @@ namespace media {
         case MS_UNREADABLE:
             str = "Unreadable";
             break;
+        case MS_UNKNOWN:
+            str = "Unknown";
+            break;
         }
         return str;
     }

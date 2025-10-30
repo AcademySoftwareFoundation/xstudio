@@ -791,7 +791,20 @@ void SessionModel::receivedData(
                         updateErroredCount(index);
 
                     } else {
-                        // force update of thumbnail..
+
+                        // if media status has changed it may be because the MediaReference on a 
+                        // MediaSourceActor has changed. We may need to re-generate the thumbnail
+                        // if we already have one.
+                        auto type = j.value("type", "");
+                        if (type == "Media" && j.count("actor") and not j.at("actor").is_null()) {
+                            auto actor_str = j.at("actor");
+                            auto p         = media_thumbnails_.find(QStringFromStd(actor_str));
+                            if (p != media_thumbnails_.end()) {
+                                media_thumbnails_.erase(p);
+                                emit dataChanged(index, index, QVector<int>({Roles::thumbnailImageRole}));
+                            }
+                        }
+
                         if (j.count(role_to_key[Roles::thumbnailURLRole])) {
                             roles.clear();
                             roles.push_back(Roles::thumbnailURLRole);

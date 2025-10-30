@@ -230,7 +230,7 @@ void MediaSourceActor::acquire_detail(
     if (media_streams_.size()) {
         rp.deliver(true);
         return;
-    } else if (not base_.online()) {
+    } else if (base_.media_status() != MS_UNKNOWN && !base_.online()) {
         rp.deliver(false);
         return;
     }
@@ -675,6 +675,7 @@ caf::message_handler MediaSourceActor::message_handler() {
         [=](media_reader::get_thumbnail_atom,
             float position) -> result<thumbnail::ThumbnailBufferPtr> {
             auto rp   = make_response_promise<thumbnail::ThumbnailBufferPtr>();
+
             int frame = (int)round(float(base_.media_reference().frame_count()) * position);
             frame     = std::max(0, std::min(frame, base_.media_reference().frame_count() - 1));
             mail(get_media_pointer_atom_v, media::MediaType::MT_IMAGE, frame)
@@ -737,6 +738,8 @@ caf::message_handler MediaSourceActor::message_handler() {
             // True, FrameRate())
 
             if (mr != base_.media_reference() || force_change_signal) {
+
+                base_.set_media_status(MS_UNKNOWN);
 
                 if (mr.uri() != base_.media_reference().uri()) {
 
@@ -1219,9 +1222,11 @@ caf::message_handler MediaSourceActor::message_handler() {
         },
 
         [=](media::checksum_atom, const std::pair<std::string, uintmax_t> &checksum) {
+
             // force thumbnail update on change. Might cause double update..
             auto old_size = std::get<2>(base_.checksum());
             if (base_.checksum(checksum) and old_size) {
+
                 mail(utility::event_atom_v, media_status_atom_v, base_.media_status())
                     .send(base_.event_group());
 
