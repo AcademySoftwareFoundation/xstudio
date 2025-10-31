@@ -147,7 +147,7 @@ void set_shader_pix_format_info(
 
     switch (color_range) {
     case AVCOL_RANGE_JPEG: {
-        Imath::V3f offset(1, 128, 128);
+        Imath::V3f offset(0, 128, 128);
         offset *= std::pow(2.0f, float(bitdepth - 8));
         jsn["yuv_offsets"] = {"ivec3", 1, offset[0], offset[1], offset[2]};
     } break;
