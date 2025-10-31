@@ -36,6 +36,9 @@ namespace media {
         case MT_AUDIO:
             str = "Audio";
             break;
+        case MT_THUMBNAIL:
+            str = "Thumbnail";
+            break;
         }
         return str;
     }
@@ -402,7 +405,16 @@ namespace media {
         bool set_current(const utility::Uuid &uuid, const MediaType mt = MediaType::MT_IMAGE);
         [[nodiscard]] bool empty() const { return media_sources_.empty(); }
         [[nodiscard]] utility::Uuid current(const MediaType mt = MediaType::MT_IMAGE) const {
-            return mt == MediaType::MT_IMAGE ? current_image_source_ : current_audio_source_;
+            switch (mt) {
+            case MediaType::MT_IMAGE:
+                return current_image_source_;
+            case MediaType::MT_AUDIO:
+                return current_audio_source_;
+            case MediaType::MT_THUMBNAIL:
+                return current_thumbnail_source_;
+            default:
+                return utility::Uuid();
+            }
         }
         [[nodiscard]] const std::list<utility::Uuid> &media_sources() const {
             return media_sources_;
@@ -418,6 +430,7 @@ namespace media {
         // will need extending.., tagging ?
         utility::Uuid current_image_source_;
         utility::Uuid current_audio_source_;
+        utility::Uuid current_thumbnail_source_;
         std::string flag_{"#00000000"};
         std::string flag_text_{""};
         std::list<utility::Uuid> media_sources_;
