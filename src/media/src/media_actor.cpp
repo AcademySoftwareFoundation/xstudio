@@ -579,12 +579,15 @@ caf::message_handler MediaActor::message_handler() {
 
         [=](media_reader::get_thumbnail_atom,
             float position) -> result<thumbnail::ThumbnailBufferPtr> {
-            if (base_.empty() or not media_sources_.count(base_.current(MT_IMAGE)))
+            auto tu = base_.current(MT_THUMBNAIL);
+            if (not tu)
+                tu = base_.current(MT_IMAGE);
+            if (base_.empty() or not tu)
                 return make_error(xstudio_error::error, "No MediaSources");
 
             auto rp = make_response_promise<thumbnail::ThumbnailBufferPtr>();
             mail(media_reader::get_thumbnail_atom_v, position)
-                .request(media_sources_.at(base_.current(media::MT_IMAGE)), infinite)
+                .request(media_sources_.at(tu), infinite)
                 .then(
                     [=](thumbnail::ThumbnailBufferPtr &buf) mutable {
                         rp.deliver(buf);
@@ -959,21 +962,22 @@ caf::message_handler MediaActor::message_handler() {
             auto rp =
                 make_response_promise<std::vector<std::pair<utility::Uuid, std::string>>>();
 
-            // make a vector of our MediaSourceActor(s)
-            auto sources = map_value_to_vec(media_sources_);
+            // get the uuid of the current thumbnail, if set
+            const auto tu = base_.current(MT_THUMBNAIL);
 
             // here we remove sources that don't contain any streams matching 'mt'
             // i.e. mt = MT_IMAGE and a source only provides audio streams then
             // we exclude it from 'sources'
+            auto sources = std::vector<caf::actor>();
+            sources.reserve(media_sources_.size());
             caf::scoped_actor sys(system());
-            auto p = sources.begin();
-            while (p != sources.end()) {
+            for (const auto &[u, a] : media_sources_) {
+                if (u == tu)
+                    continue;
                 auto stream_details = request_receive<std::vector<ContainerDetail>>(
-                    *sys, *p, utility::detail_atom_v, mt);
-                if (stream_details.empty())
-                    p = sources.erase(p);
-                else
-                    p++;
+                    *sys, a, utility::detail_atom_v, mt);
+                if (not stream_details.empty() and u != tu)
+                    sources.push_back(a);
             }
 
             if (sources.empty()) {
@@ -2071,6 +2075,8 @@ void MediaActor::duplicate(
                 for (const auto &i : base_.media_sources())
                     new_media_srcs.push_back(dmedia_srcs_map[i]);
 
+                auto tu = base_.current(MT_THUMBNAIL);
+
                 // bulk add srcs.
                 mail(add_media_source_atom_v, new_media_srcs)
                     .request(actor, infinite)
@@ -2087,6 +2093,10 @@ void MediaActor::duplicate(
                                 .request(actor, infinite)
                                 .then(
                                     [=](const bool) mutable {
+                                        if (tu)
+                                            anon_mail(current_media_source_atom_v,
+                                                      dmedia_srcs_map[tu].uuid(), MT_THUMBNAIL)
+                                                .send(actor);
                                         auto uua =
                                             UuidUuidActor(base_.uuid(), UuidActor(uuid, actor));
 
