@@ -859,7 +859,8 @@ void timeline_importer(
         }
 
         // active_path maybe relative..
-        if (not active_path.empty() and not caf::make_uri(active_path)) {
+	const auto uri = caf::make_uri(active_path);
+        if (not uri) {
             // not uri....
             // assume relative ?
             if (active_path[0] != '/') {
@@ -891,6 +892,22 @@ void timeline_importer(
         } catch (const std::exception &err) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         }
+
+	if (uri and uri->scheme() != "file" and
+	    not uri->scheme().starts_with("http")) {
+	    // unrecognized URI scheme, so send it to the data_source plugins
+	    auto pm = self->system().registry().template get<caf::actor>(plugin_manager_registry);
+	    caf::scoped_actor sys(self->system());
+	    auto plugin_media_tmp = request_receive<UuidActorVector>(
+		*sys, pm, data_source::use_data_atom_v, *uri, timeline_rate, false);
+	    if (not plugin_media_tmp.empty()) {
+		target_url_map[active_path] = plugin_media_tmp[0];
+		if (not clip_metadata.is_null())
+		    anon_mail(json_store::set_json_atom_v, clip_metadata, "/metadata/timeline")
+			.send(target_url_map[active_path].actor());
+		continue;
+	    }
+	}
 
         // check we're not adding the same media twice.
         UuidActorVector sources;

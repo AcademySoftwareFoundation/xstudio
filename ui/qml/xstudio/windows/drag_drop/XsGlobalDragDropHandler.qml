@@ -72,6 +72,7 @@ DropArea {
     keys: [
         "text/uri-list",
         "xstudio/media-ids",
+        "text/plain",
         "application/x-dneg-ivy-entities-v1"
     ]
 
