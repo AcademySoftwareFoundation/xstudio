@@ -106,6 +106,7 @@ namespace media {
         AVFrameIDsAndTimePoints;
     typedef std::vector<std::shared_ptr<const AVFrameID>> AVFrameIDs;
     typedef std::vector<MediaKey> MediaKeyVector;
+    typedef std::tuple<std::string, std::string, uintmax_t> MediaSourceChecksum;
 } // namespace media
 
 namespace conform {
@@ -403,7 +404,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_complex_types, FIRST_CUSTOM_ID + 200)
 
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::utility::Notification>))
 
-    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::tuple<std::string, std::string, uintmax_t>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (xstudio::media::MediaSourceChecksum))
 
 CAF_END_TYPE_ID_BLOCK(xstudio_complex_types)
 

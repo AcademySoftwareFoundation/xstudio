@@ -885,8 +885,8 @@ caf::message_handler MediaActor::message_handler() {
             return rp;
         },
 
-        [=](media::checksum_atom) -> result<std::tuple<std::string, std::string, uintmax_t>> {
-            auto rp = make_response_promise<std::tuple<std::string, std::string, uintmax_t>>();
+        [=](media::checksum_atom) -> result<MediaSourceChecksum> {
+            auto rp = make_response_promise<MediaSourceChecksum>();
 
             if (base_.empty())
                 rp.deliver(make_error(xstudio_error::error, "No MediaSources"));
@@ -897,8 +897,8 @@ caf::message_handler MediaActor::message_handler() {
         },
 
         [=](media::checksum_atom, const media::MediaType mt)
-            -> result<std::tuple<std::string, std::string, uintmax_t>> {
-            auto rp = make_response_promise<std::tuple<std::string, std::string, uintmax_t>>();
+            -> result<MediaSourceChecksum> {
+            auto rp = make_response_promise<MediaSourceChecksum>();
 
             if (base_.empty())
                 rp.deliver(make_error(xstudio_error::error, "No MediaSources"));
