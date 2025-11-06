@@ -257,6 +257,7 @@
 		<file>fonts/Inter/Inter-Regular.ttf</file>
 		<file>fonts/Inter/Inter-SemiBold.ttf</file>
 		<file>fonts/Inter/Inter-Thin.ttf</file>
+		<file>fonts/VeraMono.ttf</file>
 
 	</qresource>
 

@@ -59,8 +59,9 @@ MediaSourceActor::MediaSourceActor(caf::actor_config &cfg, const JsonStore &jsn)
         // What happens if media was added to the session before it was on-disk, but now it
         // is on disk? We need to re-scan for media metadata. Setting the
         // media_detadata_up_to_date_ flag here will allow for this.
-        media_metadata_up_to_date_ =
-            jsn["store"].contains("metadata") && jsn["store"]["metadata"].contains("media");
+        if (jsn["store"].contains("metadata") && jsn["store"]["metadata"].contains("media")) {
+            media_metadata_ref_checksum_ = base_.checksum();
+        }
     }
     link_to(json_store_);
     join_event_group(this, json_store_);
@@ -739,9 +740,9 @@ caf::message_handler MediaSourceActor::message_handler() {
 
             if (mr != base_.media_reference() || force_change_signal) {
 
-                base_.set_media_status(MS_UNKNOWN);
+                if (mr.uri() != base_.media_reference().uri() || mr.duration().duration() == timebase::k_flicks_zero_seconds) {
 
-                if (mr.uri() != base_.media_reference().uri()) {
+                    base_.set_media_status(MS_UNKNOWN);
 
                     // URI is changing! Need a full rebuild
                     if (!mr.rate().count())
@@ -949,7 +950,7 @@ caf::message_handler MediaSourceActor::message_handler() {
             const std::vector<std::string> &paths) -> caf::result<JsonStore> {
             // multi json store value request
             auto rp = make_response_promise<JsonStore>();
-            if (!media_metadata_up_to_date_) {
+            if (media_metadata_ref_checksum_ != base_.checksum()) {
                 mail(media_metadata::get_metadata_atom_v)
                     .request(caf::actor_cast<actor>(this), infinite)
                     .then(
@@ -1036,7 +1037,7 @@ caf::message_handler MediaSourceActor::message_handler() {
 
         [=](media_metadata::get_metadata_atom) -> caf::result<bool> {
             auto rp = make_response_promise<bool>();
-            if (media_metadata_up_to_date_) {
+            if (media_metadata_ref_checksum_ == base_.checksum()) {
                 rp.deliver(true);
                 return rp;
             }
@@ -1088,7 +1089,7 @@ caf::message_handler MediaSourceActor::message_handler() {
                                         .request(json_store_, infinite)
                                         .then(
                                             [=](const bool &done) mutable {
-                                                media_metadata_up_to_date_ = true;
+                                                media_metadata_ref_checksum_ = base_.checksum();
                                                 rp.deliver(done);
                                                 // notify any watchers that metadata is updated
                                                 mail(
@@ -1151,7 +1152,7 @@ caf::message_handler MediaSourceActor::message_handler() {
                                     .request(json_store_, infinite)
                                     .then(
                                         [=](const bool &done) mutable {
-                                            media_metadata_up_to_date_ = true;
+                                            media_metadata_ref_checksum_ = base_.checksum();
                                             rp.deliver(done);
                                             // notify any watchers that metadata is updated
                                             mail(
@@ -1217,7 +1218,7 @@ caf::message_handler MediaSourceActor::message_handler() {
             return mail(_get_group_atom).delegate(json_store_);
         },
 
-        [=](media::checksum_atom) -> std::tuple<std::string, std::string, uintmax_t> {
+        [=](media::checksum_atom) -> MediaSourceChecksum {
             return base_.checksum();
         },
 
@@ -1225,7 +1226,11 @@ caf::message_handler MediaSourceActor::message_handler() {
 
             // force thumbnail update on change. Might cause double update..
             auto old_size = std::get<2>(base_.checksum());
-            if (base_.checksum(checksum) and old_size) {
+            if (base_.set_checksum(checksum) and old_size) {
+
+                // trigger re-fetch of media metadata. The (checksum is used to test if
+                // we really need to re-scan for metadata).
+                anon_mail(get_metadata_atom_v).send(caf::actor_cast<caf::actor>(this));
 
                 mail(utility::event_atom_v, media_status_atom_v, base_.media_status())
                     .send(base_.event_group());

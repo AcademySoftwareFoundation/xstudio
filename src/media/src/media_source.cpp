@@ -84,7 +84,7 @@ JsonStore MediaSource::serialise() const {
     return jsn;
 }
 
-std::tuple<std::string, std::string, uintmax_t> MediaSource::checksum() const {
+MediaSourceChecksum MediaSource::checksum() const {
     return std::make_tuple(
         fs::path(utility::uri_to_posix_path(ref_.uri())).filename().string(), checksum_, size_);
 }

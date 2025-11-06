@@ -383,6 +383,7 @@ namespace media {
     typedef std::map<timebase::flicks, std::shared_ptr<const AVFrameID>> FrameTimeMap;
     typedef std::shared_ptr<const std::map<timebase::flicks, std::shared_ptr<const AVFrameID>>>
         FrameTimeMapPtr;
+    typedef std::tuple<std::string, std::string, uintmax_t> MediaSourceChecksum;
 
     class Media : public utility::Container {
       public:
@@ -483,9 +484,9 @@ namespace media {
 
         [[nodiscard]] const std::list<utility::Uuid> &streams(const MediaType media_type) const;
 
-        [[nodiscard]] std::tuple<std::string, std::string, uintmax_t> checksum() const;
+        [[nodiscard]] MediaSourceChecksum checksum() const;
 
-        [[nodiscard]] bool checksum(const std::pair<std::string, uintmax_t> &checksum) {
+        [[nodiscard]] bool set_checksum(const std::pair<std::string, uintmax_t> &checksum) {
             auto changed = false;
             if (checksum_ != checksum.first or size_ != checksum.second) {
                 checksum_ = checksum.first;

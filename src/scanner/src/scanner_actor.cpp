@@ -175,7 +175,7 @@ ScanHelperActor::ScanHelperActor(caf::actor_config &cfg) : caf::event_based_acto
         },
 
         [=](media::relink_atom,
-            const std::tuple<std::string, std::string, uintmax_t> &pin,
+            const media::MediaSourceChecksum &pin,
             const caf::uri &uri,
             const bool loose_match) -> result<caf::uri> {
             // recursively scan directory
@@ -293,7 +293,7 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
         },
 
         [=](media::relink_atom atom,
-            const std::tuple<std::string, std::string, uintmax_t> &pin,
+            const media::MediaSourceChecksum &pin,
             const caf::uri &path,
             const bool loose_match) {
             return mail(atom, pin, path, loose_match).delegate(helper);
@@ -306,7 +306,7 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
             mail(media::checksum_atom_v)
                 .request(media_source, infinite)
                 .then(
-                    [=](const std::tuple<std::string, std::string, uintmax_t> &result) mutable {
+                    [=](const media::MediaSourceChecksum &result) mutable {
                         anon_mail(atom, media_source, result, path, loose_match)
                             .send(caf::actor_cast<caf::actor>(this));
                     },
@@ -317,7 +317,7 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
 
         [=](media::relink_atom atom,
             const caf::actor &media_source,
-            const std::tuple<std::string, std::string, uintmax_t> &pin,
+            const media::MediaSourceChecksum &pin,
             const caf::uri &path,
             const bool loose_match) {
             mail(atom, pin, path, loose_match)

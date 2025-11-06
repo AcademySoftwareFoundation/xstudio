@@ -90,7 +90,7 @@ QString xstudio::ui::qml::getThumbnailURL(
                 *sys, actor, media::get_media_pointer_atom_v, media::MT_IMAGE, frame);
 
             auto mhash =
-                utility::request_receive<std::tuple<std::string, std::string, uintmax_t>>(
+                utility::request_receive<media::MediaSourceChecksum>(
                     *sys, actor, media::checksum_atom_v);
 
             auto display_transform_hash = utility::request_receive<size_t>(
