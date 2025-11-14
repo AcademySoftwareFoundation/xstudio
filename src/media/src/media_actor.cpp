@@ -434,6 +434,25 @@ caf::message_handler MediaActor::message_handler() {
             return true;
         },
 
+        [=](remove_media_source_atom, const UuidVector &uuids) -> bool {
+            bool changed = false;
+            for (const auto &uuid : uuids) {
+                if (media_sources_.count(uuid)) {
+                    base_.remove_media_source(uuid);
+                    changed = true;
+                    auto a  = media_sources_.at(uuid);
+                    media_sources_.erase(media_sources_.find(uuid));
+                    unlink_from(a);
+                    send_exit(a, caf::exit_reason::user_shutdown);
+                }
+            }
+            if (changed) {
+                base_.send_changed();
+            }
+            return changed;
+        },
+
+
         [=](colour_pipeline::get_colour_pipe_params_atom atom) -> caf::result<JsonStore> {
             auto rp = make_response_promise<JsonStore>();
 
