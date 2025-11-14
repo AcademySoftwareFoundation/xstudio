@@ -2202,6 +2202,9 @@ void Viewport::pointer_select_media(const PointerEvent &pointer_event) {
     // lazy!
     thread_local utility::Uuid last_im_id;
 
+    const auto pointer_x = pointer_event.x() / state_.devicePixelRatio_;
+    const auto pointer_y = pointer_event.y() / state_.devicePixelRatio_;
+
     // lreverse oop through image bounds (last one is drawn on-top)
     // these are the images visible in the layout
     for (int i = (int(image_bounds_in_viewport_pixels_.size()) - 1); i >= 0; --i) {
@@ -2209,8 +2212,8 @@ void Viewport::pointer_select_media(const PointerEvent &pointer_event) {
         const auto &im_bounds = image_bounds_in_viewport_pixels_[i];
 
         // is the mouse inside the image boundary?
-        if (im_bounds.min.x <= pointer_event.x() && im_bounds.max.x >= pointer_event.x() &&
-            im_bounds.min.y <= pointer_event.y() && im_bounds.max.y >= pointer_event.y()) {
+        if (im_bounds.min.x <= pointer_x && im_bounds.max.x >= pointer_x &&
+            im_bounds.min.y <= pointer_y && im_bounds.max.y >= pointer_y) {
 
             // .. yes. send the corresponding media UUID to the playhead
 
