@@ -553,6 +553,9 @@ std::shared_ptr<MediaFile> FFProbe::open_file(const std::string &path) {
         av_dict_set(&format_opts, "scan_all_pmts", "1", AV_DICT_DONT_OVERWRITE);
         auto scan_all_pmts_set = 1;
 
+        // Tell ffmpeg to export custom "udta" metadata tags.
+        av_dict_set_int(&format_opts, "export_all", 1, 0);
+
         iformat = av_find_input_format("format");
         if (not iformat) {
             // throw std::runtime_error("Unknown input format");
