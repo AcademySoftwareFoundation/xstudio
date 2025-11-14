@@ -130,10 +130,6 @@ void set_shader_pix_format_info(
     Imath::M33f yuv_to_rgb;
 
     switch (colorspace) {
-    case AVCOL_SPC_BT470BG:
-    case AVCOL_SPC_SMPTE170M:
-        yuv_to_rgb = YCbCr_to_RGB_601;
-        break;
     case AVCOL_SPC_BT2020_NCL:
     case AVCOL_SPC_BT2020_CL:
         // TODO: ColSci
@@ -141,13 +137,18 @@ void set_shader_pix_format_info(
         yuv_to_rgb = YCbCr_to_RGB_2020;
         break;
     case AVCOL_SPC_BT709:
-    default:
         yuv_to_rgb = YCbCr_to_RGB_709;
+        break;
+    case AVCOL_SPC_BT470BG:
+    case AVCOL_SPC_SMPTE170M:
+    default:
+        yuv_to_rgb = YCbCr_to_RGB_601;
+        break;
     }
 
     switch (color_range) {
     case AVCOL_RANGE_JPEG: {
-        Imath::V3f offset(1, 128, 128);
+        Imath::V3f offset(0, 128, 128);
         offset *= std::pow(2.0f, float(bitdepth - 8));
         jsn["yuv_offsets"] = {"ivec3", 1, offset[0], offset[1], offset[2]};
     } break;
