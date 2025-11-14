@@ -17,8 +17,13 @@ void DiskCacheStat::populate(const std::string &path) {
     for (const auto &entry : fs::recursive_directory_iterator(path)) {
         if (fs::is_regular_file(entry.status())) {
             auto mtime = fs::last_write_time(entry.path());
+            const auto stem = entry.path().stem().string();
+#if __apple__
+            if (stem == ".DS_Store")
+                continue;
+#endif
             add_thumbnail(
-                std::stoull(entry.path().stem().string(), nullptr, 16),
+                std::stoull(stem, nullptr, 16),
                 fs::file_size(entry.path()),
                 mtime);
         }
