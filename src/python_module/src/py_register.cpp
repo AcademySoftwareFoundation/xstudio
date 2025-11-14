@@ -257,6 +257,7 @@ void register_timecode_class(py::module &m, const std::string &name) {
     auto str_impl = [](const utility::Timecode &x) { return to_string(x); };
     py::class_<utility::Timecode>(m, name.c_str())
         .def(py::init<>())
+        .def(py::init<const int, const double>())
         .def("__str__", str_impl)
         .def("hours", [](const utility::Timecode &x) { return x.hours(); })
         .def("minutes", [](const utility::Timecode &x) { return x.minutes(); })
@@ -289,9 +290,10 @@ void register_mediareference_class(py::module &m, const std::string &name) {
                 &utility::MediaReference::uri, py::const_),
             "URI of mediareference",
             py::arg("fpf") = utility::MediaReference::FramePadFormat::FPF_XSTUDIO)
-
+        .def("set_frame_list", &utility::MediaReference::set_frame_list)
         .def("uri_from_frame", &utility::MediaReference::uri_from_frame)
         .def("timecode", &utility::MediaReference::timecode)
+        .def("set_timecode", &utility::MediaReference::set_timecode)
         .def("offset", &utility::MediaReference::offset)
         .def("set_offset", &utility::MediaReference::set_offset)
         .def("start_frame_offset", &utility::MediaReference::start_frame_offset)
@@ -569,6 +571,7 @@ void register_frame_list_class(py::module &m, const std::string &name) {
     auto str_impl = [](const utility::FrameList &x) { return to_string(x); };
     py::class_<utility::FrameList>(m, name.c_str())
         .def(py::init<>())
+        .def(py::init<int, int, int>())
         .def(py::init<std::string>())
         .def("__str__", str_impl);
 }

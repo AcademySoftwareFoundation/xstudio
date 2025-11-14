@@ -247,6 +247,8 @@ caf::message_handler ClipActor::message_handler() {
             return jsn;
         },
 
+        [=](utility::event_atom, utility::name_atom, const std::string & /*name*/) {},
+
         [=](item_name_atom, const std::string &value) -> JsonStore {
             auto jsn = base_.item().set_name(value);
             if (not jsn.is_null())

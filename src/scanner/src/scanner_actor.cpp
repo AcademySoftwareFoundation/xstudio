@@ -35,7 +35,7 @@ media::MediaStatus check_media_status(const MediaReference &mr) {
     try {
 
         if (mr.container()) {
-            if (not fs::exists(uri_to_posix_path(mr.uri())))
+            if (mr.uri().scheme() == "file" and not fs::exists(uri_to_posix_path(mr.uri())))
                 ms = media::MediaStatus::MS_MISSING;
         } else {
             // check first and last frame.
