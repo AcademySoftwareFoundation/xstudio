@@ -15,7 +15,8 @@ namespace http_client {
             caf::actor_config &cfg,
             time_t connection_timeout = CPPHTTPLIB_CONNECTION_TIMEOUT_SECOND,
             time_t read_timeout       = CPPHTTPLIB_READ_TIMEOUT_SECOND,
-            time_t write_timeout      = CPPHTTPLIB_WRITE_TIMEOUT_SECOND);
+            time_t write_timeout      = CPPHTTPLIB_WRITE_TIMEOUT_SECOND,
+            bool ssl_verify           = true);
         ~HTTPClientActor() override = default;
 
         const char *name() const override { return NAME.c_str(); }
@@ -30,6 +31,7 @@ namespace http_client {
         time_t connection_timeout_;
         time_t read_timeout_;
         time_t write_timeout_;
+        bool ssl_verify_;
     };
 
     class HTTPWorker : public caf::event_based_actor {
@@ -38,7 +40,8 @@ namespace http_client {
             caf::actor_config &cfg,
             time_t connection_timeout = CPPHTTPLIB_CONNECTION_TIMEOUT_SECOND,
             time_t read_timeout       = CPPHTTPLIB_READ_TIMEOUT_SECOND,
-            time_t write_timeout      = CPPHTTPLIB_WRITE_TIMEOUT_SECOND);
+            time_t write_timeout      = CPPHTTPLIB_WRITE_TIMEOUT_SECOND,
+            bool ssl_verify           = true);
         ~HTTPWorker() override = default;
 
         const char *name() const override { return NAME.c_str(); }
