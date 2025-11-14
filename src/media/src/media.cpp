@@ -74,17 +74,26 @@ void Media::remove_media_source(const Uuid &uuid) {
         else
             current_audio_source_ = Uuid();
     }
+    if (uuid == current_thumbnail_source_)
+        current_thumbnail_source_ = Uuid();
 }
 
 bool Media::set_current(const Uuid &uuid, const MediaType mt) {
     if (std::find(media_sources_.begin(), media_sources_.end(), uuid) !=
         std::end(media_sources_)) {
-        if (mt == MediaType::MT_IMAGE) {
+        switch (mt) {
+        case MediaType::MT_IMAGE:
             current_image_source_ = uuid;
-        } else {
+            return true;
+        case MediaType::MT_AUDIO:
             current_audio_source_ = uuid;
+            return true;
+        case MediaType::MT_THUMBNAIL:
+            current_thumbnail_source_ = uuid;
+            return true;
+        default:
+            return false;
         }
-        return true;
     }
     return false;
 }
