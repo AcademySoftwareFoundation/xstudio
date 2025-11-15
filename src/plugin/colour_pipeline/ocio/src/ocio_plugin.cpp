@@ -288,6 +288,18 @@ void OCIOColourPipeline::register_hotkeys() {
         channel_hotkeys_[hotkey_id] = hotkey_props.channel_name;
     }
 
+    for (int i = 1; i <= 9; ++i) {
+        auto suffix = std::string(fmt::format(" #{}", i));
+        auto hotkey_id = register_hotkey(
+            int('0')+i,
+            ui::MetaModifier,
+            std::string("Change OCIO View Transform")+suffix,
+            "Changes OCIO view transform",
+            false,
+            "Viewer");
+        view_hotkeys_[hotkey_id] = i;
+    }
+
     reset_hotkey_ = register_hotkey(
         int('R'),
         ui::ControlModifier,
@@ -352,6 +364,18 @@ void OCIOColourPipeline::hotkey_pressed(
     } else if (hotkey_uuid == saturation_hotkey_) {
         saturation_->set_role_data(module::Attribute::Activated, true);
         grab_mouse_focus();
+    } else {
+        auto v = view_hotkeys_.find(hotkey_uuid);
+        if (v != view_hotkeys_.end()) {
+            const auto &views = display_views_[display_->value()];
+            int idx = v->second-1;
+            if (idx >= 0 and idx < views.size()) {
+                const auto &new_view = views[idx];
+                if (new_view != view_->value()) {
+                    view_->set_value(new_view);
+                }
+            }
+        }
     }
 }
 
