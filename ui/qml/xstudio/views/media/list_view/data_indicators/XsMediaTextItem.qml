@@ -8,7 +8,7 @@ Item{
 
     id: dateDiv
     property var leftMargin: 12
-    property var text
+    property var text: "null"
     property var isIndex: false
     property bool showBorder: actorUuidRole == currentPlayhead.mediaUuid
 
