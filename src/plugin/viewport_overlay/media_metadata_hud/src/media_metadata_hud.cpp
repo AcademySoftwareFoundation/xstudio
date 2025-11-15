@@ -310,7 +310,7 @@ void MediaMetadataHUD::register_hotkeys() {
     show_viewer_hotkey_ = register_hotkey(
         int('Q'),
         ui::NoModifier,
-        "Show Metadata Viewrt",
+        "Show Metadata Viewer",
         "Shows or hides the pop-out Media Metadata Panel");
 }
 
