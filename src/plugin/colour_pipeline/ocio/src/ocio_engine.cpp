@@ -394,11 +394,13 @@ OCIOEngine::get_ocio_config(const utility::JsonStore &src_colour_mgmt_metadata) 
     return config;
 }
 
-const char *
+std::string
 OCIOEngine::working_space(const utility::JsonStore &src_colour_mgmt_metadata) const {
     auto config = get_ocio_config(src_colour_mgmt_metadata);
     if (not config) {
         return "";
+    } else if (src_colour_mgmt_metadata.contains("working_space")) {
+        return src_colour_mgmt_metadata["working_space"].get<std::string>();
     } else if (config->hasRole(OCIO::ROLE_SCENE_LINEAR)) {
         return OCIO::ROLE_SCENE_LINEAR;
     } else {
@@ -555,7 +557,7 @@ OCIO::TransformRcPtr OCIOEngine::display_transform(
         }
 
         OCIO::DisplayViewTransformRcPtr dt = OCIO::DisplayViewTransform::Create();
-        dt->setSrc(working_space(src_colour_mgmt_metadata));
+        dt->setSrc(working_space(src_colour_mgmt_metadata).c_str());
         dt->setDisplay(_display.c_str());
         dt->setView(_view.c_str());
         dt->setDirection(OCIO::TRANSFORM_DIR_FORWARD);
