@@ -148,6 +148,7 @@ class OCIOColourPipeline : public ColourPipeline {
     UiText ui_text_;
 
     std::map<utility::Uuid, std::string> channel_hotkeys_;
+    std::map<utility::Uuid, int> view_hotkeys_;
     utility::Uuid exposure_hotkey_;
     utility::Uuid gamma_hotkey_;
     utility::Uuid saturation_hotkey_;
