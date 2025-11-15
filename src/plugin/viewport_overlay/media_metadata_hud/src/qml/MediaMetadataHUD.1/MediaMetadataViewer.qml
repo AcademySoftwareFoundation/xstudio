@@ -151,7 +151,7 @@ Item {
                 }
                 property var backendV: search_string
                 onBackendVChanged: {
-                    if (backendV != text) {
+                    if (backendV != undefined && backendV != text) {
                         text = backendV
                     }
                 }
