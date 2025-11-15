@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "ocio_engine.hpp"
 
+#include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/string_helpers.hpp"
 #include "xstudio/ui/opengl/shader_program_base.hpp"
 #include "xstudio/thumbnail/thumbnail.hpp"
@@ -328,7 +329,8 @@ OCIO::ConstConfigRcPtr
 OCIOEngine::get_ocio_config(const utility::JsonStore &src_colour_mgmt_metadata) const {
 
     const std::string config_name =
-        src_colour_mgmt_metadata.get_or("ocio_config", default_config_);
+        utility::forward_remap_file_path(
+            src_colour_mgmt_metadata.get_or("ocio_config", default_config_));
     const std::string displays =
         src_colour_mgmt_metadata.get_or("active_displays", std::string(""));
     const std::string views  = src_colour_mgmt_metadata.get_or("active_views", std::string(""));
@@ -378,17 +380,27 @@ OCIOEngine::get_ocio_config(const utility::JsonStore &src_colour_mgmt_metadata) 
         econfig->setActiveDisplays(displays.c_str());
     if (!views.empty())
         econfig->setActiveViews(views.c_str());
+
+    econfig->clearSearchPaths();
+    for (int i = 0; i < config->getNumSearchPaths(); ++i) {
+        auto path = std::string(config->getSearchPath(i));
+        auto newpath = utility::forward_remap_file_path(path);
+        econfig->addSearchPath(newpath.c_str());
+    }
+
     config                     = econfig;
     ocio_config_cache_[concat] = config;
 
     return config;
 }
 
-const char *
+std::string
 OCIOEngine::working_space(const utility::JsonStore &src_colour_mgmt_metadata) const {
     auto config = get_ocio_config(src_colour_mgmt_metadata);
     if (not config) {
         return "";
+    } else if (src_colour_mgmt_metadata.contains("working_space")) {
+        return src_colour_mgmt_metadata["working_space"].get<std::string>();
     } else if (config->hasRole(OCIO::ROLE_SCENE_LINEAR)) {
         return OCIO::ROLE_SCENE_LINEAR;
     } else {
@@ -545,7 +557,7 @@ OCIO::TransformRcPtr OCIOEngine::display_transform(
         }
 
         OCIO::DisplayViewTransformRcPtr dt = OCIO::DisplayViewTransform::Create();
-        dt->setSrc(working_space(src_colour_mgmt_metadata));
+        dt->setSrc(working_space(src_colour_mgmt_metadata).c_str());
         dt->setDisplay(_display.c_str());
         dt->setView(_view.c_str());
         dt->setDirection(OCIO::TRANSFORM_DIR_FORWARD);

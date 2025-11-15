@@ -115,7 +115,7 @@ class OCIOEngine {
 
   private:
     // OCIO logic
-    const char *working_space(const utility::JsonStore &src_colour_mgmt_metadata) const;
+    std::string working_space(const utility::JsonStore &src_colour_mgmt_metadata) const;
 
     // OCIO Transform helpers
     OCIO::TransformRcPtr source_transform(
