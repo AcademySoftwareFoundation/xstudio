@@ -58,10 +58,10 @@ caf::message_handler OCIOColourPipeline::message_handler_extensions() {
                {
 
                    [=](global_ocio_controls_atom atom,
-                       const std::string &oico_config) -> utility::JsonStore {
+                       const std::string &ocio_config) -> utility::JsonStore {
                        utility::JsonStore res;
 
-                       if (oico_config == current_config_name_) {
+                       if (ocio_config == current_config_name_) {
                            res["source_colour_space"] = source_colour_space_->value();
                            res["display"]             = display_->value();
                            res["view"]                = view_->value();
