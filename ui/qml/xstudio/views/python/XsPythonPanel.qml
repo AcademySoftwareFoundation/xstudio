@@ -163,7 +163,7 @@ Item{
             // add history, ctrl-d. ctrl-c
             focus: true
 
-            Keys.onReturnPressed: {
+            Keys.onReturnPressed: function(event) {
                 // get last line.
                 // only capute after first 4 chars
                 if(event.modifiers == Qt.ControlModifier) {
@@ -221,7 +221,7 @@ Item{
                 paste()
             }
 
-            Keys.onPressed: {
+            Keys.onPressed: function(event) {
                 if ((event.key == Qt.Key_C) && (event.modifiers & Qt.ControlModifier)) {
                     embeddedPython.sendInterrupt()
                     event.accepted = true;
