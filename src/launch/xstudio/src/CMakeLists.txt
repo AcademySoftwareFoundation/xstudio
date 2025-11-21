@@ -68,6 +68,8 @@ target_link_libraries(${PROJECT_NAME}
 		CAF::io
 		$<$<BOOL:${NVIDIA_HACK}>:GLdispatch>
 		# quickfuture
+		OTIO::opentime
+		OTIO::opentimelineio
 		Qt6::Core
 		Qt6::Gui
 		Qt6::Quick
