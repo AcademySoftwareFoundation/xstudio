@@ -45,6 +45,24 @@ namespace fs = std::filesystem;
 
 namespace {
 
+class DefaultFrameGrabber : public ViewportFramePostProcessor {
+
+  public:
+    DefaultFrameGrabber() {}
+    ~DefaultFrameGrabber();
+
+    void viewport_capture_gl_framebuffer(
+        uint32_t tex_id,
+        uint32_t fbo_id,
+        const int fb_width,
+        const int fb_height,
+        const ImageFormat format,
+        media_reader::ImageBufPtr &destination_image) override;
+
+    GLuint pixel_buffer_object_ = 0;
+    int pix_buf_size_           = 0;
+};
+
 // Simple class to split large memcopy across a pool of threads.
 //
 // More testing needed to check when this actually benefits us and on what
@@ -95,6 +113,8 @@ class ThreadedMemCopy {
         }
         auto rt = queue.front();
         queue.pop_front();
+        if (rt.dst)
+            in_progress++;
         return rt;
     }
 
@@ -119,8 +139,8 @@ class ThreadedMemCopy {
         }
 
         std::unique_lock lk(m);
-        if (!queue.empty()) {
-            cv2.wait(lk, [=] { return queue.empty(); });
+        if (!queue.empty() || in_progress) {
+            cv2.wait(lk, [=] { return queue.empty() && !in_progress; });
         }
     }
 
@@ -132,6 +152,9 @@ class ThreadedMemCopy {
             if (!j.dst)
                 break; // exit
             j.do_job();
+            m.lock();
+            in_progress--;
+            m.unlock();
             cv2.notify_one();
         }
     }
@@ -139,6 +162,7 @@ class ThreadedMemCopy {
     std::mutex m;
     std::condition_variable cv, cv2;
     std::deque<Job> queue;
+    int in_progress = 0;
     const int num_threads_;
 };
 
@@ -174,8 +198,8 @@ static std::map<ImageFormat, GLint> format_to_bytes_per_pixel = {
 
 } // namespace
 
-OffscreenViewport::OffscreenViewport(const std::string name, bool include_qml_overlays)
-    : super(), include_qml_overlays_(include_qml_overlays) {
+OffscreenViewport::OffscreenViewport(const std::string name, bool sync_with_main_viewports)
+    : super() {
 
     // This class is a QObject with a caf::actor 'companion' that allows it
     // to receive and send caf messages - here we run necessary initialisation
@@ -190,16 +214,16 @@ OffscreenViewport::OffscreenViewport(const std::string name, bool include_qml_ov
     // viewport that can receive caf messages including framebuffers and also
     // to render the viewport into our GLContext
     utility::JsonStore jsn;
-    jsn["base"]        = utility::JsonStore();
-    jsn["window_id"]   = name;
-    viewport_renderer_ = new Viewport(jsn, as_actor(), name);
+    jsn["base"]       = utility::JsonStore();
+    jsn["window_id"]  = name;
+    xstudio_viewport_ = new Viewport(jsn, as_actor(), sync_with_main_viewports, name);
 
     /* Provide a callback so the Viewport can tell this class when some property of the viewport
     has changed and such events can be propagated to other QT components, for example */
     auto callback = [this](auto &&PH1) {
         receive_change_notification(std::forward<decltype(PH1)>(PH1));
     };
-    viewport_renderer_->set_change_callback(callback);
+    xstudio_viewport_->set_change_callback(callback);
 
     // join studio events, so we know when a new session has been created
     auto grp = utility::request_receive<caf::actor>(
@@ -220,7 +244,7 @@ OffscreenViewport::OffscreenViewport(const std::string name, bool include_qml_ov
     // message handler from OpenGLViewportRenderer with our own message handlers for offscreen
     // rendering
     set_message_handler([=](caf::actor_companion * /*self*/) -> caf::message_handler {
-        return viewport_renderer_->message_handler().or_else(caf::message_handler{
+        return xstudio_viewport_->message_handler().or_else(caf::message_handler{
 
             // insert additional message handlers here
             [=](render_viewport_to_image_atom, const int width, const int height)
@@ -342,52 +366,83 @@ OffscreenViewport::OffscreenViewport(const std::string name, bool include_qml_ov
                 video_output_actor_ = video_output_actor;
             },
 
-            [=](render_viewport_to_image_atom, const utility::time_point &tp) {
+            [=](render_viewport_to_image_atom,
+                const int width,
+                const int height,
+                ImageFormat format) -> result<media_reader::ImageBufPtr> {
+                media_reader::ImageBufPtr new_frame;
+                try {
+
+                    renderToImageBuffer(width, height, new_frame, format, true);
+
+                } catch (std::exception &e) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+                }
+
+                return new_frame;
+            },
+
+            [=](render_viewport_to_image_atom,
+                const utility::time_point &tp,
+                const bool return_frame,
+                const bool skip_if_out_of_date) {
                 // force a redraw
                 if (video_output_actor_) {
 
-                    if (last_rendered_frame_ && !viewport_renderer_->playing()) {
-                        // no need to re-render if Redraw callback hasn't
-                        // arrived since we last rendered
-                        anon_mail(last_rendered_frame_).send(video_output_actor_);
+                    if (return_frame) {
+
+                        if (last_rendered_frame_ && !xstudio_viewport_->playing()) {
+                            // no need to re-render if Redraw callback hasn't
+                            // arrived since we last rendered
+                            anon_mail(last_rendered_frame_).send(video_output_actor_);
+
+                        } else {
+
+                            media_reader::ImageBufPtr new_frame;
+                            try {
+                                renderToImageBuffer(
+                                    vid_out_width_,
+                                    vid_out_height_,
+                                    new_frame,
+                                    vid_out_format_,
+                                    false,
+                                    tp);
+                            } catch (std::exception &e) {
+                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+                            }
+                            anon_mail(new_frame).send(video_output_actor_);
+                            last_rendered_frame_ = new_frame;
+                        }
 
                     } else {
 
-                        // we store the image buffers that we have rendered into. WHy?
-                        // Because we can re-use them and since vid_out_width_ and
-                        // vid_out_height_ don't change (much) we don't need to re-allocate
-                        // image buffers.
-                        //
-                        // We use the use_count() to check if a buffer can be re-used.
-                        //
-                        // Note - last_rendered_frame_ might be reset again (via
-                        // recieve_change_callback) during call to renderToImageBuffer so I
-                        // don't use it directly here
-                        media_reader::ImageBufPtr new_frame;
-                        for (auto &buf : output_buffers_) {
-                            if (buf.use_count() == 1) {
-                                new_frame = buf;
-                                break;
-                            }
-                        }
-                        if (!new_frame) {
-                            new_frame.reset(new media_reader::ImageBuffer());
-                            output_buffers_.push_back(new_frame);
-                        }
-
                         try {
-                            renderToImageBuffer(
-                                vid_out_width_,
-                                vid_out_height_,
-                                new_frame,
-                                vid_out_format_,
-                                false,
-                                tp);
+
+                            auto msec_lag =
+                                std::chrono::duration_cast<std::chrono::milliseconds>(
+                                    tp - utility::clock::now())
+                                    .count();
+                            if (skip_if_out_of_date && msec_lag < -100) {
+                                // we've requested to render a frame IN THE PAST ... this means
+                                // we are unable to render fast enough to keep up with render
+                                // requests so we will skip the render
+                            } else {
+                                render(
+                                    vid_out_width_,
+                                    vid_out_height_,
+                                    vid_out_format_,
+                                    false,
+                                    tp);
+                            }
+
+                            // we still return an empty frame to the video output plugin
+                            // so it can
+                            anon_mail(media_reader::ImageBufPtr()).send(video_output_actor_);
+
                         } catch (std::exception &e) {
+
                             spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
                         }
-                        anon_mail(new_frame).send(video_output_actor_);
-                        last_rendered_frame_ = new_frame;
                     }
                 }
             },
@@ -401,7 +456,15 @@ OffscreenViewport::OffscreenViewport(const std::string name, bool include_qml_ov
             [=](utility::event_atom,
                 session::session_request_atom,
                 const std::string &path,
-                const utility::JsonStore &js) {}
+                const utility::JsonStore &js) {},
+
+            // sets a custom frame grabber that takes over the GPU routine that
+            // takes the viewport framebuffer and returns an ImageBufPtr - used
+            // by video output plugins
+            [=](ViewportFramePostProcessorPtr custom_post_draw_hook) -> bool {
+                post_draw_hook_ = custom_post_draw_hook;
+                return true;
+            }
 
         });
     });
@@ -420,7 +483,10 @@ void OffscreenViewport::cleanup() {
     gl_context_->makeCurrent(surface_);
     if (render_control_)
         render_control_->invalidate();
-    delete viewport_renderer_;
+    delete xstudio_viewport_;
+    if (post_draw_hook_) {
+        post_draw_hook_->cleanup();
+    }
 
     if (texId_) {
         glDeleteTextures(1, &texId_);
@@ -583,9 +649,9 @@ void OffscreenViewport::setPlayhead(const QString &playheadAddress) {
         auto playhead_actor = qml::actorFromQString(as_actor()->home_system(), playheadAddress);
 
         if (playhead_actor) {
-            viewport_renderer_->set_playhead(playhead_actor);
+            xstudio_viewport_->set_playhead(playhead_actor);
 
-            if (viewport_renderer_->colour_pipeline()) {
+            if (xstudio_viewport_->colour_pipeline()) {
                 // get the current on screen media source
                 auto media_source = utility::request_receive<utility::UuidActor>(
                     *sys, playhead_actor, playhead::media_source_atom_v, true);
@@ -594,7 +660,7 @@ void OffscreenViewport::setPlayhead(const QString &playheadAddress) {
                 // run its logic to update the view/display attributes etc.
                 utility::request_receive<bool>(
                     *sys,
-                    viewport_renderer_->colour_pipeline(),
+                    xstudio_viewport_->colour_pipeline(),
                     playhead::media_source_atom_v,
                     media_source);
             }
@@ -675,12 +741,12 @@ void OffscreenViewport::renderViewportUnderQML() {
 
     glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
 
-    viewport_renderer_->init();
+    xstudio_viewport_->init();
 
     if (image_to_render_) {
-        viewport_renderer_->render(image_to_render_);
+        xstudio_viewport_->render(image_to_render_);
     } else {
-        viewport_renderer_->render();
+        xstudio_viewport_->render();
     }
 
     glPopClientAttrib();
@@ -700,11 +766,9 @@ bool OffscreenViewport::setupTextureAndFrameBuffer(
         return false;
     }
 
-    if (texId_) {
-        glDeleteTextures(1, &texId_);
-        glDeleteFramebuffers(1, &fboId_);
-        glDeleteTextures(1, &depth_texId_);
-    }
+    GLuint old_tex_id       = texId_;
+    GLuint old_fbo_id       = fboId_;
+    GLuint old_depth_tex_id = depth_texId_;
 
     tex_width_      = width;
     tex_height_     = height;
@@ -737,8 +801,8 @@ bool OffscreenViewport::setupTextureAndFrameBuffer(
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
     {
 
@@ -765,8 +829,8 @@ bool OffscreenViewport::setupTextureAndFrameBuffer(
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     }
 
     // init framebuffer
@@ -776,6 +840,15 @@ bool OffscreenViewport::setupTextureAndFrameBuffer(
 
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texId_, 0);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_texId_, 0);
+
+    if (old_tex_id) {
+        // clean-up the old textures & fbo. Note that doing this before generating
+        // a new texture fails when the texture format changes - we get a black
+        // image.
+        glDeleteTextures(1, &old_tex_id);
+        glDeleteFramebuffers(1, &old_fbo_id);
+        glDeleteTextures(1, &old_depth_tex_id);
+    }
 
     return true;
 }
@@ -825,21 +898,19 @@ bool OffscreenViewport::loadQMLOverlays() {
     render_control_->initialize();
 
     root_qml_overlays_item_->setProperty(
-        "name", qml::QStringFromStd(viewport_renderer_->name()));
+        "name", qml::QStringFromStd(xstudio_viewport_->name()));
 
     // Update item and rendering related geometries.
     return true;
 }
 
-void OffscreenViewport::renderToImageBuffer(
+void OffscreenViewport::render(
     const int w,
     const int h,
-    media_reader::ImageBufPtr &destination_image,
-    const ImageFormat format,
+    const viewport::ImageFormat format,
     const bool sync_fetch_playhead_image,
     const utility::time_point &tp,
     const media_reader::ImageBufPtr &image_to_use) {
-    auto t0 = utility::clock::now();
 
     // ensure our GLContext is current
     if (!gl_context_->makeCurrent(surface_) || !gl_context_->isValid()) {
@@ -851,18 +922,18 @@ void OffscreenViewport::renderToImageBuffer(
     glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
 
     // intialises shaders and textures where necessary
-    viewport_renderer_->init();
+    xstudio_viewport_->init();
 
+    // create the FBO and texture for us to render into
     const bool updateTarget = setupTextureAndFrameBuffer(w, h, format);
 
     auto t1 = utility::clock::now();
 
     glPopClientAttrib();
 
-
     // This essential call tells the viewport renderer how to project the
     // viewport area into the glViewport window.
-    viewport_renderer_->set_geometry(
+    xstudio_viewport_->set_geometry(
         0.0f, // x offset
         0.0f, // y offset
         w,    // viewport width in window
@@ -872,7 +943,7 @@ void OffscreenViewport::renderToImageBuffer(
         1.0f  // pixel scaling (high DPI support)
     );
 
-    if (include_qml_overlays_ && loadQMLOverlays()) {
+    if (loadQMLOverlays()) {
 
         // If we are rendering a supplied image, store it for when we do
         // the render, or we call 'prepare_render_data' which pre-fetches the image
@@ -881,12 +952,15 @@ void OffscreenViewport::renderToImageBuffer(
         if (image_to_use) {
             image_to_render_ = image_to_use;
         } else {
+            image_to_render_ = media_reader::ImageBufPtr();
             if (sync_fetch_playhead_image) {
-                viewport_renderer_->prepare_render_data(utility::clock::now(), true);
+
+                xstudio_viewport_->prepare_render_data(utility::time_point(), true);
+
             } else if (tp != utility::time_point()) {
-                viewport_renderer_->prepare_render_data(tp);
+                xstudio_viewport_->prepare_render_data(tp);
             } else {
-                viewport_renderer_->prepare_render_data();
+                xstudio_viewport_->prepare_render_data();
             }
         }
 
@@ -903,7 +977,7 @@ void OffscreenViewport::renderToImageBuffer(
 
         // convert the image boundary in the viewport into plain pixels
         const std::vector<Imath::Box2f> image_boxes =
-            viewport_renderer_->image_bounds_in_viewport_pixels();
+            xstudio_viewport_->image_bounds_in_viewport_pixels();
         QVariantList v;
         for (const auto &box : image_boxes) {
             QRectF imageBoundsInViewportPixels(
@@ -911,14 +985,20 @@ void OffscreenViewport::renderToImageBuffer(
             v.append(imageBoundsInViewportPixels);
         }
 
-
         // these properties on XsOffscreenViewportOverlays mirror the same
         // properties provided by XsViewport - some overlay/HUD QML items access
         // these properties so they know how to compute their geometrty in
         // the QML coordinates to overlay the xSTUDIO image.
         root_qml_overlays_item_->setProperty("imageBoundariesInViewport", v);
 
-        const std::vector<Imath::V2i> resolutions = viewport_renderer_->image_resolutions();
+        root_qml_overlays_item_->setProperty(
+            "playheadUuid", QUuidFromUuid(xstudio_viewport_->playhead_uuid()));
+
+        if (sync_fetch_playhead_image) {
+            sync_python_hud_data();
+        }
+
+        const std::vector<Imath::V2i> resolutions = xstudio_viewport_->image_resolutions();
         QVariantList rs;
         for (const auto &r : resolutions) {
             rs.append(QSize(r.x, r.y));
@@ -948,16 +1028,16 @@ void OffscreenViewport::renderToImageBuffer(
         glViewport(0, 0, w, h);
 
         if (image_to_use) {
-            viewport_renderer_->render(image_to_use);
+            xstudio_viewport_->render(image_to_use);
         } else {
             if (sync_fetch_playhead_image) {
-                viewport_renderer_->prepare_render_data(utility::clock::now(), true);
+                xstudio_viewport_->prepare_render_data(utility::clock::now(), true);
             } else if (tp != utility::time_point()) {
-                viewport_renderer_->prepare_render_data(tp);
+                xstudio_viewport_->prepare_render_data(tp);
             } else {
-                viewport_renderer_->prepare_render_data();
+                xstudio_viewport_->prepare_render_data();
             }
-            viewport_renderer_->render();
+            xstudio_viewport_->render();
         }
 
         auto t2 = utility::clock::now();
@@ -967,84 +1047,92 @@ void OffscreenViewport::renderToImageBuffer(
 
     glFlush();
 
+    if (post_draw_hook_) {
+        post_draw_hook_->viewport_post_process_framebuffer(
+            texId_,
+            fboId_,
+            w,
+            h,
+            format,
+            xstudio_viewport_->on_screen_frames(),
+            xstudio_viewport_->projection_matrix());
+    }
 
     auto t3 = utility::clock::now();
 
     // Not sure if this is necessary
     // glFinish();
 
-
     // unbind
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
 
+void OffscreenViewport::sync_python_hud_data() {
 
-    size_t pix_buf_size = w * h * format_to_bytes_per_pixel[vid_out_format_];
+    // Python HUD plugins update their overlay data asynchronously. They get a
+    // callback when the on-screen media has changed, and they return a json
+    // dict with the data that they need to drive the QML overlay graphics.
+    //
+    // The execution for on screen media changed -> python callback -> update
+    // attribute containing json happens asynchronously with the viewport redraw.
 
-    // init RGBA float array
-    destination_image->allocate(pix_buf_size);
-    destination_image->set_image_dimensions(Imath::V2i(w, h));
-    destination_image.when_to_display_          = utility::clock::now();
-    destination_image->params()["pixel_format"] = (int)format;
+    // This means that the HUD display can be a screen refresh or two out of
+    // sync with the image that is being rendered to screen. In normal playback
+    // this is totally fine because you just can't see it. However, when
+    // rendering frames (e.g. for video output) it IS a problem.
 
-    if (!pixel_buffer_object_) {
-        glGenBuffers(1, &pixel_buffer_object_);
+    // Here we do a full sync fetch of the overlay data from the python HUD
+    // plugins
+
+    if (!xstudio_viewport_->on_screen_frames())
+        return;
+
+    scoped_actor sys{as_actor()->home_system()};
+
+    auto python_interp =
+        as_actor()->home_system().registry().template get<caf::actor>(embedded_python_registry);
+
+    std::vector<caf::actor> onscreen_media;
+    for (int i = 0; i < xstudio_viewport_->on_screen_frames()->num_onscreen_images(); ++i) {
+
+        caf::actor onscreen_media_item = caf::actor_cast<caf::actor>(
+            xstudio_viewport_->on_screen_frames()->onscreen_image(i).frame_id().media_addr());
+        onscreen_media.push_back(onscreen_media_item);
     }
 
-    if (pix_buf_size != pix_buf_size_) {
-        glBindBuffer(GL_PIXEL_PACK_BUFFER, pixel_buffer_object_);
-        glBufferData(GL_PIXEL_PACK_BUFFER, pix_buf_size, NULL, GL_STREAM_COPY);
-        pix_buf_size_ = pix_buf_size;
+    try {
+
+        auto t0             = utility::clock::now();
+        const auto hud_data = utility::request_receive<utility::JsonStore>(
+            *sys, python_interp, hud_settings_atom_v, onscreen_media);
+
+        root_qml_overlays_item_->setProperty(
+            "hud_plugins_display_data", QVariantFromJson(hud_data));
+
+
+    } catch (std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
+}
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texId_);
+void OffscreenViewport::renderToImageBuffer(
+    const int w,
+    const int h,
+    media_reader::ImageBufPtr &destination_image,
+    const ImageFormat format,
+    const bool sync_fetch_playhead_image,
+    const utility::time_point &tp,
+    const media_reader::ImageBufPtr &image_to_use) {
+    auto t0 = utility::clock::now();
 
-    int skip_rows, skip_pixels, row_length, alignment;
-    glGetIntegerv(GL_PACK_SKIP_ROWS, &skip_rows);
-    glGetIntegerv(GL_PACK_SKIP_PIXELS, &skip_pixels);
-    glGetIntegerv(GL_PACK_ROW_LENGTH, &row_length);
-    glGetIntegerv(GL_PACK_ALIGNMENT, &alignment);
+    // the actual render call
+    render(w, h, format, sync_fetch_playhead_image, tp, image_to_use);
 
-    glPixelStorei(GL_PACK_SKIP_ROWS, 0);
-    glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
-    glPixelStorei(GL_PACK_ROW_LENGTH, w);
-    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    if (!post_draw_hook_)
+        post_draw_hook_.reset(new DefaultFrameGrabber());
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, format_to_gl_pixe_type[vid_out_format_], nullptr);
-
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, pixel_buffer_object_);
-    void *mappedBuffer = glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-
-    auto t4 = utility::clock::now();
-
-    threaded_memcpy(destination_image->buffer(), mappedBuffer, pix_buf_size);
-
-
-    // now mapped buffer contains the pixel data
-    glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-    auto t5 = utility::clock::now();
-
-    auto tt = utility::clock::now();
-
-    // TODO: Gather stats on draw times etc and send to video_output_actor_
-    // so it can monitor performance
-
-    /*std::cerr << "Draw time "  <<
-    std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << "\n"; std::cerr <<
-    "Overlays time "  << std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() <<
-    "\n"; std::cerr << "Map buffer time "  <<
-    std::chrono::duration_cast<std::chrono::milliseconds>(t4-t3).count() << "\n"; std::cerr <<
-    "Copy buffer time "  << std::chrono::duration_cast<std::chrono::milliseconds>(t5-t4).count()
-    << "\n";*/
-
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    glPixelStorei(GL_PACK_SKIP_ROWS, skip_rows);
-    glPixelStorei(GL_PACK_SKIP_PIXELS, skip_pixels);
-    glPixelStorei(GL_PACK_ROW_LENGTH, row_length);
-    glPixelStorei(GL_PACK_ALIGNMENT, alignment);
+    post_draw_hook_->viewport_capture_gl_framebuffer(
+        texId_, fboId_, w, h, format, destination_image);
 }
 
 void OffscreenViewport::receive_change_notification(Viewport::ChangeCallbackId id) {
@@ -1121,7 +1209,7 @@ thumbnail::ThumbnailBufferPtr OffscreenViewport::renderToThumbnail(
     const bool auto_scale,
     const bool show_annotations) {
 
-    media_reader::ImageBufPtr image = viewport_renderer_->get_onscreen_image();
+    media_reader::ImageBufPtr image = xstudio_viewport_->get_onscreen_image();
 
     if (!image) {
         std::string err(fmt::format(
@@ -1138,10 +1226,10 @@ thumbnail::ThumbnailBufferPtr OffscreenViewport::renderToThumbnail(
     float effective_image_height = float(image_dims.y) / image.frame_id().pixel_aspect();
 
     if (width <= 0 || auto_scale) {
-        viewport_renderer_->set_fit_mode(FitMode::One2One);
+        xstudio_viewport_->set_fit_mode(FitMode::One2One);
         return renderToThumbnail(format, image_dims.x, int(round(effective_image_height)));
     } else {
-        viewport_renderer_->set_fit_mode(FitMode::Best);
+        xstudio_viewport_->set_fit_mode(FitMode::Best);
         return renderToThumbnail(
             format, width, int(round(width * effective_image_height / image_dims.x)));
     }
@@ -1159,7 +1247,7 @@ thumbnail::ThumbnailBufferPtr OffscreenViewport::renderToThumbnail(
 media_reader::ImageBufPtr
 OffscreenViewport::renderToImageBuf(const int width, const int height) {
 
-    media_reader::ImageBufPtr image2 = viewport_renderer_->get_onscreen_image();
+    media_reader::ImageBufPtr image2 = xstudio_viewport_->get_onscreen_image();
     if (!image2) {
         std::string err(fmt::format(
             "{} Failed to pull images to offscreen renderer.", __PRETTY_FUNCTION__));
@@ -1182,7 +1270,7 @@ media_reader::ImageBufPtr OffscreenViewport::renderMediaFrameToImage(
         a->link_to(local_playhead_);
     }
     // first, set the local playhead to be our image source
-    viewport_renderer_->set_playhead(local_playhead_);
+    xstudio_viewport_->set_playhead(local_playhead_);
 
     scoped_actor sys{as_actor()->home_system()};
 
@@ -1212,7 +1300,7 @@ thumbnail::ThumbnailBufferPtr OffscreenViewport::renderMediaFrameToThumbnail(
         a->link_to(local_playhead_);
     }
     // first, set the local playhead to be our image source
-    viewport_renderer_->set_playhead(local_playhead_);
+    xstudio_viewport_->set_playhead(local_playhead_);
 
     scoped_actor sys{as_actor()->home_system()};
 
@@ -1241,7 +1329,7 @@ thumbnail::ThumbnailBufferPtr OffscreenViewport::renderMediaFrameToThumbnail(
     }
 
     // first, set the local playhead to be our image source
-    viewport_renderer_->set_playhead(local_playhead_);
+    xstudio_viewport_->set_playhead(local_playhead_);
 
     scoped_actor sys{as_actor()->home_system()};
 
@@ -1254,4 +1342,84 @@ thumbnail::ThumbnailBufferPtr OffscreenViewport::renderMediaFrameToThumbnail(
         *sys, local_playhead_, playhead::jump_atom_v, playhead_position_flicks);
 
     return renderToThumbnail(format, width, auto_scale, show_annotations);
+}
+
+
+DefaultFrameGrabber::~DefaultFrameGrabber() { glDeleteBuffers(1, &pixel_buffer_object_); }
+
+void DefaultFrameGrabber::viewport_capture_gl_framebuffer(
+    uint32_t tex_id,
+    uint32_t fbo_id,
+    const int fb_width,
+    const int fb_height,
+    const ImageFormat format,
+    media_reader::ImageBufPtr &destination_image) {
+
+    size_t pix_buf_size = fb_width * fb_height * format_to_bytes_per_pixel[format];
+
+    // init RGBA float array
+    destination_image = get_video_output_frame();
+    destination_image->allocate(pix_buf_size);
+    destination_image->set_image_dimensions(Imath::V2i(fb_width, fb_height));
+    destination_image.when_to_display_          = utility::clock::now();
+    destination_image->params()["pixel_format"] = (int)format;
+
+    if (!pixel_buffer_object_) {
+        glGenBuffers(1, &pixel_buffer_object_);
+    }
+
+    if (pix_buf_size != pix_buf_size_) {
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, pixel_buffer_object_);
+        glBufferData(GL_PIXEL_PACK_BUFFER, pix_buf_size, NULL, GL_STREAM_COPY);
+        pix_buf_size_ = pix_buf_size;
+    }
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, tex_id);
+
+    int skip_rows, skip_pixels, row_length, alignment;
+    glGetIntegerv(GL_PACK_SKIP_ROWS, &skip_rows);
+    glGetIntegerv(GL_PACK_SKIP_PIXELS, &skip_pixels);
+    glGetIntegerv(GL_PACK_ROW_LENGTH, &row_length);
+    glGetIntegerv(GL_PACK_ALIGNMENT, &alignment);
+
+    glPixelStorei(GL_PACK_SKIP_ROWS, 0);
+    glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
+    glPixelStorei(GL_PACK_ROW_LENGTH, fb_width);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, format_to_gl_pixe_type[format], nullptr);
+
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, pixel_buffer_object_);
+    void *mappedBuffer = glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+
+    auto t4 = utility::clock::now();
+
+    threaded_memcpy(destination_image->buffer(), mappedBuffer, pix_buf_size);
+
+    // now mapped buffer contains the pixel data
+    glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+    auto t5 = utility::clock::now();
+
+    auto tt = utility::clock::now();
+
+    // TODO: Gather stats on draw times etc and send to video_output_actor_
+    // so it can monitor performance
+
+    /*std::cerr << "Draw time "  <<
+    std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << "\n"; std::cerr <<
+    "Overlays time "  << std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() <<
+    "\n"; std::cerr << "Map buffer time "  <<
+    std::chrono::duration_cast<std::chrono::milliseconds>(t4-t3).count() << "\n"; std::cerr <<
+    "Copy buffer time "  << std::chrono::duration_cast<std::chrono::milliseconds>(t5-t4).count()
+    << "\n";*/
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glPixelStorei(GL_PACK_SKIP_ROWS, skip_rows);
+    glPixelStorei(GL_PACK_SKIP_PIXELS, skip_pixels);
+    glPixelStorei(GL_PACK_ROW_LENGTH, row_length);
+    glPixelStorei(GL_PACK_ALIGNMENT, alignment);
 }

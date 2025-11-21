@@ -1,27 +1,13 @@
 import QtQuick
-
-
-
+import QtQuick.Layouts
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
 import xstudio.qml.helpers 1.0
 
-Item { id: modeBar
-
-    height: XsStyleSheet.menuHeight
-
-    XsGradientRectangle{
-        anchors.fill: parent
-    }
-
-    Rectangle {
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        height: 0.5
-        color: "black"
-    }
+RowLayout { 
+    
+    id: modeBar
 
     property string barId: ""
     property real panelPadding: XsStyleSheet.panelPadding
@@ -30,22 +16,6 @@ Item { id: modeBar
     // Rectangle{anchors.fill: parent; color: "red"; opacity:.3}
 
     property var selected_layout_index
-
-    XsSecondaryButton{
-
-        id: menuBtn
-        width: XsStyleSheet.menuIndicatorSize
-        height: XsStyleSheet.menuIndicatorSize
-        anchors.right: parent.right
-        anchors.rightMargin: panelPadding
-        anchors.verticalCenter: parent.verticalCenter
-        imgSrc: "qrc:/icons/menu.svg"
-        isActive: barMenu.visible
-        onClicked: {
-            barMenu.showMenu(menuBtn, width/2, height/2)
-        }
-
-    }
 
     XsPopupMenu {
         id: barMenu
@@ -298,20 +268,37 @@ Item { id: modeBar
     }
 
     ListView {
+
         id: btnView
-        x: panelPadding
         orientation: ListView.Horizontal
         spacing: 1
-        width: parent.width - menuBtn.width - panelPadding*3
-        height: buttonHeight
+        Layout.preferredHeight: contentHeight
+        Layout.preferredWidth: contentWidth
+        Layout.alignment: Qt.AlignVCenter
         snapMode: ListView.SnapToItem
         interactive: false
         layoutDirection: Qt.RightToLeft
-        anchors.verticalCenter: parent.verticalCenter
         currentIndex: selected_layout
-
+        contentWidth: contentItem.childrenRect.width
+        contentHeight: contentItem.childrenRect.height
         model: the_layouts
 
     }
+
+    XsSecondaryButton{
+
+        id: menuBtn
+        Layout.preferredWidth: XsStyleSheet.menuIndicatorSize
+        Layout.preferredHeight: XsStyleSheet.menuIndicatorSize
+        Layout.rightMargin: panelPadding
+        Layout.alignment: Qt.AlignVCenter
+        imgSrc: "qrc:/icons/menu.svg"
+        isActive: barMenu.visible
+        onClicked: {
+            barMenu.showMenu(menuBtn, width/2, height/2)
+        }
+
+    }
+
 
 }

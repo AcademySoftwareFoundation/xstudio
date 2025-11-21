@@ -80,7 +80,7 @@ XsWindow{
                 XsText{
                     Layout.preferredWidth: termWidth
                     Layout.fillHeight: true
-                    text: entityCategory+" name:"
+                    text: entityCategory + " name:"
                 }
                 Item {
                     Layout.preferredWidth: modeWidth
@@ -97,6 +97,12 @@ XsWindow{
                             ShotBrowserEngine.presetsModel.set(presetIndex, text, "nameRole")
                         else
                             ShotBrowserEngine.presetsModel.set(presetIndex.parent, text, "nameRole")
+                        focus = false
+                    }
+
+                    onFocusChanged: {
+                        if(focus)
+                            selectAll()
                     }
 
                     background:

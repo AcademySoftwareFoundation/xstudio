@@ -482,7 +482,14 @@ void Item::resolve_and_request_clip_frames(
         auto ts = ref_time;
         for (const auto &it : *this) {
             it.resolve_and_request_clip_frames(
-                timeline_start, helper, filled_frames, ts, timeline_frame_rate, mt, focus, only_if_focussed);
+                timeline_start,
+                helper,
+                filled_frames,
+                ts,
+                timeline_frame_rate,
+                mt,
+                focus,
+                only_if_focussed);
             ts += it.trimmed_duration();
         }
     } break;
@@ -492,15 +499,18 @@ void Item::resolve_and_request_clip_frames(
         if (!only_if_focussed or focus.count(uuid())) {
 
             // the frame range of the clip in the timeline
-            int64_t timeline_in_frame  = (ref_time - timeline_start).count() / timeline_frame_rate.count();
+            int64_t timeline_in_frame =
+                (ref_time - timeline_start).count() / timeline_frame_rate.count();
             int64_t timeline_out_frame = std::min(
-                int64_t((ref_time - timeline_start + trimmed_duration()).count() / timeline_frame_rate.count()),
+                int64_t(
+                    (ref_time - timeline_start + trimmed_duration()).count() /
+                    timeline_frame_rate.count()),
                 int64_t(filled_frames.size()));
 
             // (clip local) timestamp of the first clip frame
             auto clip_local_frame_time = trimmed_start().to_flicks();
 
-            /*spdlog::warn("IT_CLIP {} {} {} {} {} {} {}", 
+            /*spdlog::warn("IT_CLIP {} {} {} {} {} {} {}",
                 name(),
                 timeline_in_frame,
                 timeline_out_frame,

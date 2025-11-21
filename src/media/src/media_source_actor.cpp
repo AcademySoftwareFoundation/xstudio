@@ -59,8 +59,9 @@ MediaSourceActor::MediaSourceActor(caf::actor_config &cfg, const JsonStore &jsn)
         // What happens if media was added to the session before it was on-disk, but now it
         // is on disk? We need to re-scan for media metadata. Setting the
         // media_detadata_up_to_date_ flag here will allow for this.
-        media_metadata_up_to_date_ =
-            jsn["store"].contains("metadata") && jsn["store"]["metadata"].contains("media");
+        if (jsn["store"].contains("metadata") && jsn["store"]["metadata"].contains("media")) {
+            media_metadata_ref_checksum_ = base_.checksum();
+        }
     }
     link_to(json_store_);
     join_event_group(this, json_store_);
@@ -230,7 +231,7 @@ void MediaSourceActor::acquire_detail(
     if (media_streams_.size()) {
         rp.deliver(true);
         return;
-    } else if (not base_.online()) {
+    } else if (base_.media_status() != MS_UNKNOWN && !base_.online()) {
         rp.deliver(false);
         return;
     }
@@ -404,7 +405,7 @@ void MediaSourceActor::update_media_status() {
     auto scanner = system().registry().template get<caf::actor>(scanner_registry);
     if (scanner) {
         anon_mail(media_status_atom_v, base_.media_reference(), this).send(scanner);
-        if (base_.checksum().second == 0)
+        if (std::get<2>(base_.checksum()) == 0)
             anon_mail(checksum_atom_v, this, base_.media_reference()).send(scanner);
     }
 }
@@ -675,6 +676,7 @@ caf::message_handler MediaSourceActor::message_handler() {
         [=](media_reader::get_thumbnail_atom,
             float position) -> result<thumbnail::ThumbnailBufferPtr> {
             auto rp   = make_response_promise<thumbnail::ThumbnailBufferPtr>();
+
             int frame = (int)round(float(base_.media_reference().frame_count()) * position);
             frame     = std::max(0, std::min(frame, base_.media_reference().frame_count() - 1));
             mail(get_media_pointer_atom_v, media::MediaType::MT_IMAGE, frame)
@@ -696,36 +698,94 @@ caf::message_handler MediaSourceActor::message_handler() {
             return rp;
         },
 
-        [=](media_reference_atom) -> MediaReference { return base_.media_reference(); },
-
-        [=](media_reference_atom, MediaReference mr) -> bool {
-            if (mr != base_.media_reference()) {
-                base_.set_media_reference(mr);
-                uri_status_cache_.clear();
-
-                // update state..
-                update_media_status();
-                base_.send_changed();
-                mail(utility::event_atom_v, change_atom_v).send(base_.event_group());
-            } else {
+        [=](utility::rate_atom, bool reset) -> result<bool> {
+            // use this to reset to 'natural' frame rate
+            if (!reset)
                 return false;
-            }
-            return true;
+
+            auto rp = make_response_promise<bool>();
+
+            // we can get the origninal/natural frame rate by getting the
+            // StreamDetail
+            mail(get_stream_detail_atom_v, media::MT_IMAGE)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](const StreamDetail &detail) mutable {
+                        if (base_.media_reference().rate() != detail.duration_.rate()) {
+                            auto mr = base_.media_reference();
+                            mr.set_rate(detail.duration_.rate());
+                            rp.delegate(
+                                caf::actor_cast<caf::actor>(this), media_reference_atom_v, mr);
+                        } else {
+                            rp.deliver(false);
+                        }
+                    },
+                    [=](caf::error &err) mutable { rp.deliver(err); });
+            return rp;
         },
 
-        [=](media_reference_atom, MediaReference mr, bool force_change_signal) -> bool {
-            if (mr != base_.media_reference() || force_change_signal) {
-                base_.set_media_reference(mr);
-                uri_status_cache_.clear();
+        [=](media_reference_atom) -> MediaReference { return base_.media_reference(); },
 
-                // update state..
-                update_media_status();
-                base_.send_changed();
-                mail(utility::event_atom_v, change_atom_v).send(base_.event_group());
+        [=](media_reference_atom, MediaReference mr) {
+            return mail(media_reference_atom_v, mr, false)
+                .delegate(caf::actor_cast<caf::actor>(this));
+        },
+
+        [=](media_reference_atom, MediaReference mr, bool force_change_signal) -> result<bool> {
+            auto rp = make_response_promise<bool>();
+
+            // XSTUDIO.api.session.playlists[0].media[0].media_sources[0].media_reference =
+            // MediaReference(URI("file:///user_data/ted/DRG/O_006_tcf_6140_comp_v045_422.mov"),
+            // True, FrameRate())
+
+            if (mr != base_.media_reference() || force_change_signal) {
+
+                if (mr.uri() != base_.media_reference().uri() || mr.duration().duration() == timebase::k_flicks_zero_seconds) {
+
+                    base_.set_media_status(MS_UNKNOWN);
+
+                    // URI is changing! Need a full rebuild
+                    if (!mr.rate().count())
+                        mr.set_rate(base_.media_reference().rate());
+
+                    // delete streams
+                    for (const auto &i : media_streams_) {
+                        unlink_from(i.second);
+                        send_exit(i.second, caf::exit_reason::user_shutdown);
+                    }
+                    base_.clear();
+                    media_streams_.clear();
+
+                    base_.set_media_reference(mr);
+                    uri_status_cache_.clear();
+
+                    // rebuild our streams etc.
+                    mail(acquire_media_detail_atom_v)
+                        .request(caf::actor_cast<caf::actor>(this), infinite)
+                        .then(
+
+                            [=](bool) mutable {
+                                // update state..
+                                update_media_status();
+                                rp.deliver(true);
+                            },
+                            [=](caf::error &err) mutable { rp.deliver(err); });
+
+                } else {
+
+                    base_.set_media_reference(mr);
+                    uri_status_cache_.clear();
+                    // update state..
+                    update_media_status();
+                    base_.send_changed();
+                    mail(utility::event_atom_v, change_atom_v).send(base_.event_group());
+                    rp.deliver(true);
+                }
+
             } else {
-                return false;
+                rp.deliver(false);
             }
-            return true;
+            return rp;
         },
 
         [=](media_reference_atom, const Uuid &uuid) -> std::pair<Uuid, MediaReference> {
@@ -890,7 +950,7 @@ caf::message_handler MediaSourceActor::message_handler() {
             const std::vector<std::string> &paths) -> caf::result<JsonStore> {
             // multi json store value request
             auto rp = make_response_promise<JsonStore>();
-            if (!media_metadata_up_to_date_) {
+            if (media_metadata_ref_checksum_ != base_.checksum()) {
                 mail(media_metadata::get_metadata_atom_v)
                     .request(caf::actor_cast<actor>(this), infinite)
                     .then(
@@ -977,7 +1037,7 @@ caf::message_handler MediaSourceActor::message_handler() {
 
         [=](media_metadata::get_metadata_atom) -> caf::result<bool> {
             auto rp = make_response_promise<bool>();
-            if (media_metadata_up_to_date_) {
+            if (media_metadata_ref_checksum_ == base_.checksum()) {
                 rp.deliver(true);
                 return rp;
             }
@@ -1029,7 +1089,7 @@ caf::message_handler MediaSourceActor::message_handler() {
                                         .request(json_store_, infinite)
                                         .then(
                                             [=](const bool &done) mutable {
-                                                media_metadata_up_to_date_ = true;
+                                                media_metadata_ref_checksum_ = base_.checksum();
                                                 rp.deliver(done);
                                                 // notify any watchers that metadata is updated
                                                 mail(
@@ -1092,7 +1152,7 @@ caf::message_handler MediaSourceActor::message_handler() {
                                     .request(json_store_, infinite)
                                     .then(
                                         [=](const bool &done) mutable {
-                                            media_metadata_up_to_date_ = true;
+                                            media_metadata_ref_checksum_ = base_.checksum();
                                             rp.deliver(done);
                                             // notify any watchers that metadata is updated
                                             mail(
@@ -1158,14 +1218,20 @@ caf::message_handler MediaSourceActor::message_handler() {
             return mail(_get_group_atom).delegate(json_store_);
         },
 
-        [=](media::checksum_atom) -> std::pair<std::string, uintmax_t> {
+        [=](media::checksum_atom) -> MediaSourceChecksum {
             return base_.checksum();
         },
 
         [=](media::checksum_atom, const std::pair<std::string, uintmax_t> &checksum) {
+
             // force thumbnail update on change. Might cause double update..
-            auto old_size = base_.checksum().second;
-            if (base_.checksum(checksum) and old_size) {
+            auto old_size = std::get<2>(base_.checksum());
+            if (base_.set_checksum(checksum) and old_size) {
+
+                // trigger re-fetch of media metadata. The (checksum is used to test if
+                // we really need to re-scan for metadata).
+                anon_mail(get_metadata_atom_v).send(caf::actor_cast<caf::actor>(this));
+
                 mail(utility::event_atom_v, media_status_atom_v, base_.media_status())
                     .send(base_.event_group());
 
@@ -1477,8 +1543,14 @@ void MediaSourceActor::get_media_pointers_for_frames(
 
                 int frame, keyframe;
                 FrameStatus frame_status;
+                std::filesystem::file_time_type mod_time;
+
+                // this call will resolve missing frames into held or dropped frames
+                // and also give us the filesystem modification time for the file which
+                // we use to make the cache key for the image if/when it is loaded/decoded and
+                // cached
                 auto _uri = uri_for_logical_frame(
-                    media_type, logical_frame, frame, keyframe, frame_status);
+                    media_type, logical_frame, frame, keyframe, frame_status, mod_time);
 
                 if (base_frame_id.is_nil()) {
                     // TODO: less hideous creation of AVFrameID
@@ -1487,6 +1559,7 @@ void MediaSourceActor::get_media_pointers_for_frames(
                         frame,
                         *(base_.media_reference(base_.current(media_type)).frame(0)),
                         frame_status,
+                        mod_time.time_since_epoch().count(),
                         media_detail.pixel_aspect_,
                         base_.media_reference(base_.current(media_type)).rate(),
                         media_detail.name_,
@@ -1509,6 +1582,7 @@ void MediaSourceActor::get_media_pointers_for_frames(
                     keyframe,
                     media_detail.key_format_,
                     frame_status,
+                    mod_time.time_since_epoch().count(),
                     timecode));
 
                 all_requested_frames_.insert(result.back()->key());
@@ -1524,12 +1598,25 @@ void MediaSourceActor::get_media_pointers_for_frames(
     rp.deliver(result);
 }
 
+MediaSourceActor::UriStatus::UriStatus(
+    const caf::uri &_uri, const FrameStatus &status, const int f)
+    : uri_(_uri), status_(status), frame_(f) {
+    if (status == FS_ON_DISK) {
+        try {
+            mod_timestamp_ = fs::last_write_time(utility::uri_to_posix_path(uri_));
+        } catch (...) {
+        }
+    }
+}
+
+
 caf::uri MediaSourceActor::uri_for_logical_frame(
     const MediaType media_type,
     const int logical_frame,
     int &frame,
     int &keyframe,
-    FrameStatus &frame_status) {
+    FrameStatus &frame_status,
+    std::filesystem::file_time_type &mod_time) {
 
     const auto &media_ref = base_.media_reference(base_.current(media_type));
 
@@ -1545,11 +1632,13 @@ caf::uri MediaSourceActor::uri_for_logical_frame(
         if (p != uri_status_cache_.end()) {
             frame_status = p->second.status_;
             keyframe     = p->second.frame_;
+            mod_time     = p->second.mod_timestamp_;
             return p->second.uri_;
         }
         // is this uri on disk?
         const auto path = fs::path(utility::uri_to_posix_path(*_uri));
         if (fs::exists(path)) {
+
             // store so we don't need to check again
             uri_status_cache_[logical_frame] = UriStatus(*_uri, FS_ON_DISK, frame);
             frame_status                     = FS_ON_DISK;
@@ -1557,6 +1646,7 @@ caf::uri MediaSourceActor::uri_for_logical_frame(
             uri_status_cache_[logical_frame] = UriStatus(*_uri, FS_NOT_ON_DISK, frame);
             frame_status                     = FS_NOT_ON_DISK;
         }
+        mod_time = uri_status_cache_[logical_frame].mod_timestamp_;
         return *_uri;
 
     } else if (!media_ref.container() && base_.partial_seq_behaviour() == PS_HOLD_FRAME) {
@@ -1574,6 +1664,7 @@ caf::uri MediaSourceActor::uri_for_logical_frame(
         if (p != uri_status_cache_.end()) {
             frame_status = p->second.status_;
             keyframe     = p->second.frame_;
+            mod_time     = p->second.mod_timestamp_;
             return p->second.uri_;
         }
         // is this uri on disk?
@@ -1582,6 +1673,7 @@ caf::uri MediaSourceActor::uri_for_logical_frame(
             // store so we don't need to check again
             uri_status_cache_[logical_frame] = UriStatus(*_uri, FS_ON_DISK, frame);
             frame_status                     = FS_ON_DISK;
+            mod_time                         = uri_status_cache_[logical_frame].mod_timestamp_;
             return *_uri;
         }
 
@@ -1616,6 +1708,7 @@ caf::uri MediaSourceActor::uri_for_logical_frame(
                 // we've found a frame that is either on-disk or is
                 // a HELD frame. Return the uri
                 keyframe = p->second.frame_;
+                mod_time = p->second.mod_timestamp_;
                 return p->second.uri_;
             }
 
@@ -1626,6 +1719,7 @@ caf::uri MediaSourceActor::uri_for_logical_frame(
             if (fs::exists(path)) {
                 uri_status_cache_[search_frame] = UriStatus(*search_uri, FS_ON_DISK, f);
                 keyframe                        = f;
+                mod_time = uri_status_cache_[search_frame].mod_timestamp_;
                 return search_uri;
             }
             return {};
@@ -1636,10 +1730,12 @@ caf::uri MediaSourceActor::uri_for_logical_frame(
 
         for (int search_frame = (logical_frame - 1); search_frame >= 0; --search_frame) {
 
-            auto r = held_frame_check(search_frame);
+            auto r = held_frame_check(
+                search_frame); // this also sets mod_time to that of the found frame
             if (r) {
                 frame_status                     = FS_HELD_FRAME;
                 uri_status_cache_[logical_frame] = UriStatus(*r, FS_HELD_FRAME, keyframe);
+                uri_status_cache_[logical_frame].mod_timestamp_ = mod_time;
                 return *r;
             }
         }
@@ -1647,16 +1743,29 @@ caf::uri MediaSourceActor::uri_for_logical_frame(
         // backwards search didn't get a result. Now search forwards:
         for (int search_frame = logical_frame; search_frame < frame_count; ++search_frame) {
 
-            auto r = held_frame_check(search_frame);
+            auto r = held_frame_check(
+                search_frame); // this also sets mod_time to that of the found frame
             if (r) {
                 frame_status                     = FS_HELD_FRAME;
                 uri_status_cache_[logical_frame] = UriStatus(*r, FS_HELD_FRAME, keyframe);
+                uri_status_cache_[logical_frame].mod_timestamp_ = mod_time;
                 return *r;
             }
         }
 
         // search for an on-disk frame to hold on this (missing) frame has failed
         frame_status = FS_NOT_ON_DISK;
+
+    } else if (media_ref.container()) {
+
+        if (!container_file_timestamp_.time_since_epoch().count()) {
+            try {
+                container_file_timestamp_ =
+                    fs::last_write_time(utility::uri_to_posix_path(*_uri));
+            } catch (...) {
+                container_file_timestamp_ = std::chrono::file_clock::now();
+            }
+        }
     }
     return *_uri;
 }

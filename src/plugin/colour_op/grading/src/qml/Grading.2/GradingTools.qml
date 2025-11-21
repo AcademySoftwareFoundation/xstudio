@@ -26,6 +26,9 @@ Item { id: dialog
     property alias grading_sliders_model: attrs.grading_sliders_model
     property alias grading_wheels_model: attrs.grading_wheels_model
 
+    // tool_opened_count is used to keep track if any GradingTools panels are
+    // visible in the UI. If they are then grading tool overlay (grading shapes)
+    // are made visible, otherwise they are hidden
     Component.onCompleted: {
         // If created in hidden state, just rely on onVisibleChanged
         // to increment the property when the component becomes visible.
@@ -34,7 +37,9 @@ Item { id: dialog
         }
     }
     Component.onDestruction: {
-        attrs.tool_opened_count -= 1
+        if (attrs.tool_opened_count) {
+            attrs.tool_opened_count -= 1
+        }
     }
 
     onVisibleChanged: {
@@ -44,7 +49,7 @@ Item { id: dialog
 
         if (visible) {
             attrs.tool_opened_count += 1
-        } else {
+        } else if (attrs.tool_opened_count) {
             attrs.tool_opened_count -= 1
         }
     }

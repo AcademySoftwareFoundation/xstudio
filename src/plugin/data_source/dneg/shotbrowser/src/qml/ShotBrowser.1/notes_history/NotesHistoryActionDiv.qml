@@ -24,7 +24,7 @@ RowLayout{
         clip:true
         Layout.fillHeight: true
         Layout.preferredWidth: cellWidth
-        onClicked: ShotBrowserHelpers.addToCurrent(resultsSelectionModel.selectedIndexes, true, addAfterSelection.value)
+        onClicked: ShotBrowserHelpers.addToCurrent(resultsSelectionModel.selectedIndexes, true, addMode.value)
     }
 
     XsPrimaryButton{

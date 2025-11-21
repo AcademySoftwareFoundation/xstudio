@@ -55,7 +55,8 @@ namespace ui {
                 const media_reader::ImageBufPtr &,
                 const std::string & /*viewport_name*/,
                 const utility::Uuid & /*playhead_uuid*/,
-                const bool is_hero_image) const override;
+                const bool is_hero_image,
+                const bool images_are_in_grid_layout) const override;
 
             void viewport_dockable_widget_activated(std::string &widget_name) override;
 
@@ -111,7 +112,6 @@ namespace ui {
 #endif
 
           private:
-
             enum Tool { Draw, Laser, Square, Circle, Arrow, Line, Text, Erase, Dropper, None };
             enum DisplayMode { OnlyWhenPaused, Always };
 
@@ -202,7 +202,6 @@ namespace ui {
             std::map<std::string, media_reader::ImageBufDisplaySetPtr> viewport_current_images_;
             media_reader::ImageBufPtr image_being_annotated_;
             std::map<std::string, caf::actor> colour_pipelines_;
-
         };
 
     } // namespace viewport

@@ -235,7 +235,24 @@ void QMLViewport::sync() {
             window()->size(),
             window()->effectiveDevicePixelRatio());
 
-        if (isVisible()) renderer_actor->prepareRenderData();
+        if (isVisible())
+            renderer_actor->prepareRenderData();
+    }
+}
+
+void QMLViewport::setIsQuickview(const bool isQuickView) {
+    if (is_quickview_ != isQuickView) {
+        is_quickview_ = isQuickView;
+        renderer_actor->setIsQuickViewer(isQuickView);
+        emit isQuickviewChanged();
+    }
+}
+
+void QMLViewport::setHasOverlays(const bool hasOverlays) {
+    if (has_overlays_ != hasOverlays) {
+        has_overlays_ = hasOverlays;
+        renderer_actor->setHasOverlays(has_overlays_);
+        emit hasOverlaysChanged();
     }
 }
 
@@ -267,19 +284,10 @@ void QMLViewport::hoverLeaveEvent(QHoverEvent *event) {
     QQuickItem::hoverLeaveEvent(event);
 }
 
-QPointF QMLViewport::toViewportCoords(const QPointF &in) const {
-
-    if (!renderer_actor)
-        return in;
-    return renderer_actor->toViewportCoords(QPointF(
-        2.0f * (in.x() - float(width()) * 0.5f) / float(width()),
-        2.0f * ((height() - in.y()) - float(height()) * 0.5f) / float(height())));
-}
-
 void QMLViewport::mousePressEvent(QMouseEvent *event) {
 
     mouse_position = event->position();
-    emit mousePress(toViewportCoords(mouse_position), event->buttons(), event->modifiers());
+    emit mousePress(mouse_position, event->buttons(), event->modifiers());
     emit mousePressScreenPixels(mouse_position, event->buttons(), event->modifiers());
     event->accept();
     sendPointerEvent(EventType::ButtonDown, event);
@@ -298,8 +306,7 @@ void QMLViewport::mouseReleaseEvent(QMouseEvent *event) {
 void QMLViewport::hoverMoveEvent(QHoverEvent *event) {
 
     mouse_position = event->position();
-    emit(mousePositionChanged(
-        toViewportCoords(mouse_position), event->buttons(), event->modifiers()));
+    emit(mousePositionChanged(mouse_position, event->buttons(), event->modifiers()));
     sendPointerEvent(event);
     QQuickItem::hoverMoveEvent(event);
 }
@@ -307,8 +314,7 @@ void QMLViewport::hoverMoveEvent(QHoverEvent *event) {
 void QMLViewport::mouseMoveEvent(QMouseEvent *event) {
 
     mouse_position = event->pos();
-    emit(mousePositionChanged(
-        toViewportCoords(mouse_position), event->buttons(), event->modifiers()));
+    emit(mousePositionChanged(mouse_position, event->buttons(), event->modifiers()));
     sendPointerEvent(event->buttons() ? EventType::Drag : EventType::Move, event, 0);
     update();
     // event->ignore();
@@ -318,8 +324,7 @@ void QMLViewport::mouseMoveEvent(QMouseEvent *event) {
 void QMLViewport::mouseDoubleClickEvent(QMouseEvent *event) {
 
     mouse_position = event->position();
-    emit mouseDoubleClick(
-        toViewportCoords(mouse_position), event->buttons(), event->modifiers());
+    emit mouseDoubleClick(mouse_position, event->buttons(), event->modifiers());
     sendPointerEvent(EventType::DoubleClick, event);
 }
 
@@ -331,12 +336,12 @@ void QMLViewport::keyPressEvent(QKeyEvent *key_event) {
     // backend
     std::string text = StdFromQString(key_event->text());
     if (key_event->key() == Qt::Key_Backspace) {
-        std::array<char,2> v;
+        std::array<char, 2> v;
         v[0] = 8;
         v[1] = 0;
         text = v.data();
     } else if (key_event->key() == Qt::Key_Delete) {
-        std::array<char,2> v;
+        std::array<char, 2> v;
         v[0] = 127;
         v[1] = 0;
         text = v.data();
@@ -553,4 +558,14 @@ QVariantList QMLViewport::imageBoundariesInViewport() {
     if (renderer_actor)
         return renderer_actor->imageBoundariesInViewport();
     return QVariantList();
+}
+
+void QMLViewport::quickViewFromPath(const QString &path_or_uri) {
+    caf::uri _uri;
+    auto uri = caf::make_uri(StdFromQString(path_or_uri));
+    if (uri)
+        _uri = *uri;
+    else
+        _uri = utility::posix_path_to_uri(StdFromQString(path_or_uri));
+    anon_mail(quickview_media_atom_v, _uri).send(renderer_actor->as_actor());
 }

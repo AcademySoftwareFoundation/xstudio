@@ -15,12 +15,14 @@ MediaKey::MediaKey(
     const std::string &key_format,
     const caf::uri &uri,
     const int frame,
-    const std::string &stream_id)
+    const std::string &stream_id,
+    const size_t mod_timestamp)
     : std::string(fmt::format(
           fmt::runtime(key_format),
           to_string(uri),
           (frame == std::numeric_limits<int>::min() ? 0 : frame),
-          stream_id)) {
+          stream_id,
+          mod_timestamp)) {
     hash_ = std::hash<std::string>{}(static_cast<const std::string &>(*this));
 }
 
@@ -72,17 +74,26 @@ void Media::remove_media_source(const Uuid &uuid) {
         else
             current_audio_source_ = Uuid();
     }
+    if (uuid == current_thumbnail_source_)
+        current_thumbnail_source_ = Uuid();
 }
 
 bool Media::set_current(const Uuid &uuid, const MediaType mt) {
     if (std::find(media_sources_.begin(), media_sources_.end(), uuid) !=
         std::end(media_sources_)) {
-        if (mt == MediaType::MT_IMAGE) {
+        switch (mt) {
+        case MediaType::MT_IMAGE:
             current_image_source_ = uuid;
-        } else {
+            return true;
+        case MediaType::MT_AUDIO:
             current_audio_source_ = uuid;
+            return true;
+        case MediaType::MT_THUMBNAIL:
+            current_thumbnail_source_ = uuid;
+            return true;
+        default:
+            return false;
         }
-        return true;
     }
     return false;
 }

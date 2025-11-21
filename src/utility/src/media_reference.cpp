@@ -201,12 +201,12 @@ std::optional<caf::uri> MediaReference::uri_from_frame(const int sequence_frame)
 
     try {
 
-    auto _uri = caf::make_uri(
-        uri_encode(fmt::format(fmt::runtime(uri_decode(to_string(uri_))), sequence_frame)));
-    if (_uri)
-        return *_uri;
+        auto _uri = caf::make_uri(
+            uri_encode(fmt::format(fmt::runtime(uri_decode(to_string(uri_))), sequence_frame)));
+        if (_uri)
+            return *_uri;
 
-    } catch ( std::exception & e) {
+    } catch (std::exception &e) {
         spdlog::debug("{} {}", __PRETTY_FUNCTION__, e.what());
     }
 

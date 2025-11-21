@@ -10,6 +10,15 @@
 				"category": "Playback",
 				"context": ["APPLICATION"]
 			},
+			"fit_to_loop_range": {
+				"path": "/core/playhead/fit_to_loop_range",
+				"default_value": false,
+				"description": "Fit to loop range.",
+				"value": false,
+				"datatype": "bool",
+				"category": "Playback",
+				"context": ["APPLICATION"]
+			},
 			"remote_desktop_optimisation_delay": {
 				"path": "/core/playhead/remote_desktop_optimisation_delay",
 				"default_value": 250,

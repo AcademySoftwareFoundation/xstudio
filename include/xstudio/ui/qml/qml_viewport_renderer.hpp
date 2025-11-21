@@ -66,7 +66,7 @@ namespace ui {
             [[nodiscard]] QVariantList imageResolutions() const;
             [[nodiscard]] QVariantList imageBoundariesInViewport() const;
             [[nodiscard]] caf::actor playhead() {
-                return viewport_renderer_ ? viewport_renderer_->playhead() : caf::actor();
+                return xstudio_viewport_ ? xstudio_viewport_->playhead() : caf::actor();
             }
             bool pointerEvent(const PointerEvent &e);
             void setScreenInfos(
@@ -77,17 +77,17 @@ namespace ui {
                 double refresh_rate);
 
             [[nodiscard]] QString name() const {
-                return viewport_renderer_ ? QStringFromStd(viewport_renderer_->name())
-                                          : QString("Not Yet");
+                return xstudio_viewport_ ? QStringFromStd(xstudio_viewport_->name())
+                                         : QString("Not Yet");
             }
 
             [[nodiscard]] std::string std_name() const {
-                return viewport_renderer_ ? viewport_renderer_->name() : "not yet";
+                return xstudio_viewport_ ? xstudio_viewport_->name() : "not yet";
             }
 
             void setIsQuickViewer(const bool is_quick_viewer);
+            void setHasOverlays(const bool has_overlays);
             void visibleChanged(const bool is_visible);
-            QPointF toViewportCoords(const QPointF &in) const;
 
           public slots:
 
@@ -114,12 +114,15 @@ namespace ui {
           private:
             void receive_change_notification(viewport::Viewport::ChangeCallbackId id);
             void make_xstudio_viewport();
+            void set_depth(const float depth);
 
             QQuickWindow *m_window;
-            ui::viewport::Viewport *viewport_renderer_ = nullptr;
+            ui::viewport::Viewport *xstudio_viewport_ = nullptr;
             bool init_done{false};
             QString fps_expression_;
             class QMLViewport *viewport_qml_item_;
+            bool is_quick_viewer_ = {false};
+            bool has_overlays_    = {true};
 
             caf::actor viewport_update_group;
             caf::actor playhead_group_;

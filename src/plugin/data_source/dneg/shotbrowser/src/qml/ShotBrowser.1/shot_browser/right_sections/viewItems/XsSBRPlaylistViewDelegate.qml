@@ -47,11 +47,11 @@ Rectangle {
         acceptedButtons: Qt.LeftButton | Qt.RightButton
 
         // wierd workaround for flickable..
-        propagateComposedEvents: false
-        onReleased: {
-            if(!propagateComposedEvents)
-                propagateComposedEvents = true
-        }
+        // propagateComposedEvents: false
+        // onReleased: {
+        //     if(!propagateComposedEvents)
+        //         propagateComposedEvents = true
+        // }
 
         onDoubleClicked: ShotBrowserHelpers.loadShotgridPlaylists([delegateModel.modelIndex(index)])
 

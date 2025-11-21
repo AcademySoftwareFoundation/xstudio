@@ -569,34 +569,25 @@ caf::message_handler MediaActor::message_handler() {
 
         [=](utility::event_atom,
             media_reader::get_thumbnail_atom,
-            thumbnail::ThumbnailBufferPtr buf) {},
-
-        [=](media_reader::get_thumbnail_atom,
-            float position) -> result<thumbnail::ThumbnailBufferPtr> {
-            if (base_.empty() or not media_sources_.count(base_.current(MT_IMAGE)))
-                return make_error(xstudio_error::error, "No MediaSources");
-
-            auto rp = make_response_promise<thumbnail::ThumbnailBufferPtr>();
-            mail(media_reader::get_thumbnail_atom_v, position)
-                .request(media_sources_.at(base_.current(media::MT_IMAGE)), infinite)
-                .then(
-                    [=](thumbnail::ThumbnailBufferPtr &buf) mutable {
-                        rp.deliver(buf);
-                        mail(utility::event_atom_v, media_reader::get_thumbnail_atom_v, buf)
+            thumbnail::ThumbnailBufferPtr buf) {
+                // media source is broadcasting a new thumbnail
+                if (media_sources_.at(base_.current(media::MT_IMAGE)) == current_sender()) {
+                    mail(utility::event_atom_v, media_reader::get_thumbnail_atom_v, buf)
                             .send(base_.event_group());
-                    },
-                    [=](error &err) mutable { rp.deliver(err); });
-            return rp;
-        },
+                }
+            },
 
         [=](media_reader::get_thumbnail_atom,
             float position) -> result<thumbnail::ThumbnailBufferPtr> {
-            if (base_.empty() or not media_sources_.count(base_.current(MT_IMAGE)))
+            auto tu = base_.current(MT_THUMBNAIL);
+            if (not tu)
+                tu = base_.current(MT_IMAGE);
+            if (base_.empty() or not tu)
                 return make_error(xstudio_error::error, "No MediaSources");
 
             auto rp = make_response_promise<thumbnail::ThumbnailBufferPtr>();
             mail(media_reader::get_thumbnail_atom_v, position)
-                .request(media_sources_.at(base_.current(media::MT_IMAGE)), infinite)
+                .request(media_sources_.at(tu), infinite)
                 .then(
                     [=](thumbnail::ThumbnailBufferPtr &buf) mutable {
                         rp.deliver(buf);
@@ -627,6 +618,30 @@ caf::message_handler MediaActor::message_handler() {
 
             return result;
         },
+
+        [=](current_media_source_atom,
+            const Uuid &image_source_uuid,
+            const Uuid &audio_source_uuid) -> bool {
+            auto result = base_.set_current(image_source_uuid, MT_IMAGE);
+            result |= base_.set_current(audio_source_uuid, MT_AUDIO);
+
+            // might need this when adding initial media source ?
+            // do we need to specify which media type is changing ?
+            if (result) {
+                anon_mail(media_display_info_atom_v).send(this);
+                anon_mail(human_readable_info_atom_v, true).send(this);
+                base_.send_changed();
+                mail(
+                    utility::event_atom_v,
+                    current_media_source_atom_v,
+                    UuidActor(base_.current(), media_sources_.at(base_.current())),
+                    MT_IMAGE)
+                    .send(base_.event_group());
+            }
+
+            return result;
+        },
+
         [=](timeline::duration_atom, const timebase::flicks &new_duration) -> bool {
             return false;
         },
@@ -873,8 +888,8 @@ caf::message_handler MediaActor::message_handler() {
             return rp;
         },
 
-        [=](media::checksum_atom) -> result<std::pair<std::string, uintmax_t>> {
-            auto rp = make_response_promise<std::pair<std::string, uintmax_t>>();
+        [=](media::checksum_atom) -> result<MediaSourceChecksum> {
+            auto rp = make_response_promise<MediaSourceChecksum>();
 
             if (base_.empty())
                 rp.deliver(make_error(xstudio_error::error, "No MediaSources"));
@@ -884,9 +899,9 @@ caf::message_handler MediaActor::message_handler() {
             return rp;
         },
 
-        [=](media::checksum_atom,
-            const media::MediaType mt) -> result<std::pair<std::string, uintmax_t>> {
-            auto rp = make_response_promise<std::pair<std::string, uintmax_t>>();
+        [=](media::checksum_atom, const media::MediaType mt)
+            -> result<MediaSourceChecksum> {
+            auto rp = make_response_promise<MediaSourceChecksum>();
 
             if (base_.empty())
                 rp.deliver(make_error(xstudio_error::error, "No MediaSources"));
@@ -947,21 +962,22 @@ caf::message_handler MediaActor::message_handler() {
             auto rp =
                 make_response_promise<std::vector<std::pair<utility::Uuid, std::string>>>();
 
-            // make a vector of our MediaSourceActor(s)
-            auto sources = map_value_to_vec(media_sources_);
+            // get the uuid of the current thumbnail, if set
+            const auto tu = base_.current(MT_THUMBNAIL);
 
             // here we remove sources that don't contain any streams matching 'mt'
             // i.e. mt = MT_IMAGE and a source only provides audio streams then
             // we exclude it from 'sources'
+            auto sources = std::vector<caf::actor>();
+            sources.reserve(media_sources_.size());
             caf::scoped_actor sys(system());
-            auto p = sources.begin();
-            while (p != sources.end()) {
+            for (const auto &[u, a] : media_sources_) {
+                if (u == tu)
+                    continue;
                 auto stream_details = request_receive<std::vector<ContainerDetail>>(
-                    *sys, *p, utility::detail_atom_v, mt);
-                if (stream_details.empty())
-                    p = sources.erase(p);
-                else
-                    p++;
+                    *sys, a, utility::detail_atom_v, mt);
+                if (not stream_details.empty() and u != tu)
+                    sources.push_back(a);
             }
 
             if (sources.empty()) {
@@ -1713,21 +1729,21 @@ void MediaActor::update_human_readable_details(
     // is used to show info about the media in the xSTUDIO UI, or perhaps used
     // in plguins via API
 
-    // we're making 4 async requests to other actors, so we need to store the
-    // result in a shared ptr captured by the lambda and deliver the response
-    // only when each request has returned a response
-    auto result         = std::make_shared<utility::JsonStore>();
-    auto response_count = std::make_shared<int>(0);
+    // we're making 4 async requests to other actors, so we need to use the
+    // AutoResponder to deliver the result into the response promise when all
+    // 4 requests have been replied to.
+    auto auto_responder = utility::AutoResponder<utility::JsonStore>(4, rp);
+    auto_responder.result();
+
 
     auto check_deliver = [=]() mutable {
-        (*response_count)++;
-        if (*response_count == 4) {
-            if (human_readable_info_ != *result) {
-                human_readable_info_ = *result;
+        auto_responder.decrement();
+        if (auto_responder.delivered()) {
+            if (human_readable_info_ != auto_responder.result()) {
+                human_readable_info_ = auto_responder.result();
                 // rebuild our display info data
                 anon_mail(media_display_info_atom_v).send(this);
             }
-            rp.deliver(human_readable_info_);
         }
     };
 
@@ -1736,14 +1752,12 @@ void MediaActor::update_human_readable_details(
         .request(caf::actor_cast<caf::actor>(this), infinite)
         .then(
             [=](const StreamDetail &image_stream_detail) mutable {
-                auto &r = *result;
+                auto &r = auto_responder.result();
 
                 r["Duration / seconds - MediaSource (Image)"] =
                     image_stream_detail.duration_.seconds();
                 r["Duration / frames - MediaSource (Image)"] =
                     image_stream_detail.duration_.frames();
-                r["Frame Rate - MediaSource (Image)"] =
-                    fmt::format("{:.2f}", image_stream_detail.duration_.rate().to_fps());
                 r["Name - MediaSource (Image)"]       = image_stream_detail.name_;
                 r["Resolution - MediaSource (Image)"] = fmt::format(
                     "{}x{}:{}",
@@ -1760,7 +1774,8 @@ void MediaActor::update_human_readable_details(
         .request(caf::actor_cast<caf::actor>(this), infinite)
         .then(
             [=](const StreamDetail &audio_stream_detail) mutable {
-                auto &r = *result;
+                auto &r = auto_responder.result();
+
                 r["Duration / seconds - MediaSource (Audio)"] =
                     audio_stream_detail.duration_.seconds();
                 r["Name - MediaSource (Audio)"] = audio_stream_detail.name_;
@@ -1774,15 +1789,20 @@ void MediaActor::update_human_readable_details(
             .request(media_sources_[base_.current(MT_IMAGE)], infinite)
             .then(
                 [=](const MediaReference &ref) mutable {
-                    auto &r = *result;
+                    auto &r = auto_responder.result();
 
                     // The uri for frame based formats is a bit ugly ... here replace the frame
                     // expr with some hashes
                     static std::regex re(R"(\.\{\:[0-9]+d\}\.)");
-                    r["File Path - MediaSource (Image)"] =
+                    const auto filepath =
                         std::regex_replace(uri_to_posix_path(ref.uri()), re, ".####.");
+                    r["File Path - MediaSource (Image)"] = filepath;
+                    r["File Name - MediaSource (Image)"] =
+                        fs::path(filepath).filename().string();
                     r["Timecode - MediaSource (Image)"]    = ref.timecode().to_string();
                     r["Frame Range - MediaSource (Image)"] = to_string(ref.frame_list());
+                    r["Frame Rate - MediaSource (Image)"] =
+                        fmt::format("{:.2f}", ref.rate().to_fps());
 
                     check_deliver();
                 },
@@ -1797,8 +1817,11 @@ void MediaActor::update_human_readable_details(
             .request(media_sources_[base_.current(MT_AUDIO)], infinite)
             .then(
                 [=](const MediaReference &ref) mutable {
-                    auto &r                                = *result;
-                    r["File Path - MediaSource (Audio)"]   = uri_to_posix_path(ref.uri());
+                    auto &r                              = auto_responder.result();
+                    const auto filepath                  = uri_to_posix_path(ref.uri());
+                    r["File Path - MediaSource (Audio)"] = filepath;
+                    r["File Name - MediaSource (Audio)"] =
+                        fs::path(filepath).filename().string();
                     r["Timecode - MediaSource (Audio)"]    = ref.timecode().to_string();
                     r["Frame Range - MediaSource (Image)"] = to_string(ref.frame_list());
                     check_deliver();
@@ -2052,6 +2075,8 @@ void MediaActor::duplicate(
                 for (const auto &i : base_.media_sources())
                     new_media_srcs.push_back(dmedia_srcs_map[i]);
 
+                auto tu = base_.current(MT_THUMBNAIL);
+
                 // bulk add srcs.
                 mail(add_media_source_atom_v, new_media_srcs)
                     .request(actor, infinite)
@@ -2063,10 +2088,15 @@ void MediaActor::duplicate(
                             //     dmedia_srcs_map[base_.current()].uuid()).send(//     actor);
                             mail(
                                 current_media_source_atom_v,
-                                dmedia_srcs_map[base_.current()].uuid())
+                                dmedia_srcs_map[base_.current(media::MT_IMAGE)].uuid(),
+                                dmedia_srcs_map[base_.current(media::MT_AUDIO)].uuid())
                                 .request(actor, infinite)
                                 .then(
                                     [=](const bool) mutable {
+                                        if (tu)
+                                            anon_mail(current_media_source_atom_v,
+                                                      dmedia_srcs_map[tu].uuid(), MT_THUMBNAIL)
+                                                .send(actor);
                                         auto uua =
                                             UuidUuidActor(base_.uuid(), UuidActor(uuid, actor));
 

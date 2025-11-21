@@ -22,7 +22,7 @@ QtObject {
     property real playlistPanelFontSize: fontSize + 1
     property string fontFamily: "Inter" //"Regular" //"Overpass"
     property string fixedWidthFontFamily: systemFixedWidthFontFamily // A context property set-up on C++ side
-    property string altFixedWidthFontFamily: "VeraMono"
+    property string altFixedWidthFontFamily: "Bitstream Vera Sans Mono"
 
     property color primaryTextColor: Qt.darker("#F1F1F1", textDarkerFactor)
     property color secondaryTextColor: Qt.darker("#C1C1C1", textDarkerFactor)

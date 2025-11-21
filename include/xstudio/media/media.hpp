@@ -36,6 +36,9 @@ namespace media {
         case MT_AUDIO:
             str = "Audio";
             break;
+        case MT_THUMBNAIL:
+            str = "Thumbnail";
+            break;
         }
         return str;
     }
@@ -58,6 +61,9 @@ namespace media {
         case MS_UNREADABLE:
             str = "Unreadable";
             break;
+        case MS_UNKNOWN:
+            str = "Unknown";
+            break;
         }
         return str;
     }
@@ -69,7 +75,7 @@ namespace media {
             utility::FrameRateDuration duration = utility::FrameRateDuration(),
             std::string name                    = "Main",
             const MediaType media_type          = MT_IMAGE,
-            std::string key_format              = "{0}@{1}/{2}",
+            std::string key_format              = "{0}@{1}/{2},{3}",
             Imath::V2i resolution               = Imath::V2i(0, 0),
             float pixel_aspect                  = 1.0f,
             int index                           = -1)
@@ -154,7 +160,8 @@ namespace media {
             const std::string &key_format,
             const caf::uri &uri,
             const int frame,
-            const std::string &stream_id);
+            const std::string &stream_id,
+            const size_t mod_timestamp);
 
         bool operator!=(const MediaKey &o) const {
             return (hash_ == o.hash_) ? static_cast<const std::string &>(*this) !=
@@ -229,11 +236,17 @@ namespace media {
             const int key_frame,
             const std::string &key_format,
             const FrameStatus frame_status,
+            const size_t mod_timestamp,
             const utility::Timecode time_code = utility::Timecode())
             : fixed_media_data_(shared.fixed_media_data_),
               uri_(uri == shared.fixed_media_data_->fixed_uri_ ? caf::uri() : uri),
               frame_(frame),
-              key_(key_format, uri, key_frame, shared.fixed_media_data_->stream_id_),
+              key_(
+                  key_format,
+                  uri,
+                  key_frame,
+                  shared.fixed_media_data_->stream_id_,
+                  mod_timestamp),
               frame_status_(frame_status),
               timecode_(time_code) {}
 
@@ -242,10 +255,11 @@ namespace media {
             const int frame                  = std::numeric_limits<int>::min(),
             const int first_frame            = std::numeric_limits<int>::min(),
             const FrameStatus frame_status   = FS_UNKNOWN,
+            const size_t mod_timestamp       = 0,
             const float pixel_aspect         = 1.0f,
             const utility::FrameRate rate    = utility::FrameRate(timebase::k_flicks_24fps),
             const std::string &stream_id     = "",
-            const std::string &key_format    = "{0}@{1}/{2}",
+            const std::string &key_format    = "{0}@{1}/{2},{3}",
             std::string reader               = "",
             const caf::actor_addr media_addr = caf::actor_addr(),
             const caf::actor_addr media_source_addr = caf::actor_addr(),
@@ -257,7 +271,7 @@ namespace media {
             const utility::Timecode time_code       = utility::Timecode())
             : uri_(uri),
               frame_(frame),
-              key_(key_format, uri, frame, stream_id),
+              key_(key_format, uri, frame, stream_id, mod_timestamp),
               frame_status_(frame_status),
               timecode_(time_code) {
             FixedMediaData *md     = new FixedMediaData;
@@ -372,6 +386,7 @@ namespace media {
     typedef std::map<timebase::flicks, std::shared_ptr<const AVFrameID>> FrameTimeMap;
     typedef std::shared_ptr<const std::map<timebase::flicks, std::shared_ptr<const AVFrameID>>>
         FrameTimeMapPtr;
+    typedef std::tuple<std::string, std::string, uintmax_t> MediaSourceChecksum;
 
     class Media : public utility::Container {
       public:
@@ -391,7 +406,16 @@ namespace media {
         bool set_current(const utility::Uuid &uuid, const MediaType mt = MediaType::MT_IMAGE);
         [[nodiscard]] bool empty() const { return media_sources_.empty(); }
         [[nodiscard]] utility::Uuid current(const MediaType mt = MediaType::MT_IMAGE) const {
-            return mt == MediaType::MT_IMAGE ? current_image_source_ : current_audio_source_;
+            switch (mt) {
+            case MediaType::MT_IMAGE:
+                return current_image_source_;
+            case MediaType::MT_AUDIO:
+                return current_audio_source_;
+            case MediaType::MT_THUMBNAIL:
+                return current_thumbnail_source_;
+            default:
+                return utility::Uuid();
+            }
         }
         [[nodiscard]] const std::list<utility::Uuid> &media_sources() const {
             return media_sources_;
@@ -407,6 +431,7 @@ namespace media {
         // will need extending.., tagging ?
         utility::Uuid current_image_source_;
         utility::Uuid current_audio_source_;
+        utility::Uuid current_thumbnail_source_;
         std::string flag_{"#00000000"};
         std::string flag_text_{""};
         std::list<utility::Uuid> media_sources_;
@@ -466,16 +491,15 @@ namespace media {
         [[nodiscard]] MediaStatus media_status() const { return media_status_; }
         [[nodiscard]] bool online() const { return media_status_ == MediaStatus::MS_ONLINE; }
         [[nodiscard]] const std::string &error_detail() const { return error_detail_; }
-        [[nodiscard]] const PartialSeqBehaviour partial_seq_behaviour() const {
+        [[nodiscard]] PartialSeqBehaviour partial_seq_behaviour() const {
             return partial_seq_behaviour_;
         }
 
         [[nodiscard]] const std::list<utility::Uuid> &streams(const MediaType media_type) const;
 
-        [[nodiscard]] std::pair<std::string, uintmax_t> checksum() const {
-            return std::make_pair(checksum_, size_);
-        }
-        [[nodiscard]] bool checksum(const std::pair<std::string, uintmax_t> &checksum) {
+        [[nodiscard]] MediaSourceChecksum checksum() const;
+
+        [[nodiscard]] bool set_checksum(const std::pair<std::string, uintmax_t> &checksum) {
             auto changed = false;
             if (checksum_ != checksum.first or size_ != checksum.second) {
                 checksum_ = checksum.first;
@@ -532,10 +556,11 @@ namespace media {
             0,
             0,
             FS_UNKNOWN,
+            0,
             1.0f,
             rate,
             "",
-            "{0}@{1}/{2}",
+            "{0}@{1}/{2},{3}",
             "Blank",
             caf::actor_addr(),
             caf::actor_addr(),
@@ -561,10 +586,11 @@ namespace media {
             0,
             0,
             FS_UNKNOWN,
+            0,
             1.0f,
             timebase::k_flicks_24fps,
             "",
-            "{0}@{1}/{2}",
+            "{0}@{1}/{2},{3}",
             "Blank",
             media_actor_addr,
             media_source_actor_addr,

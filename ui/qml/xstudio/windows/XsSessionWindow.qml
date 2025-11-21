@@ -39,6 +39,7 @@ ApplicationWindow {
     palette.brightText: "#bb7700"
 
     FontLoader {id: fontInter; source: "qrc:/fonts/Inter/Inter-Regular.ttf"}
+    FontLoader {id: fontVera; source: "qrc:/fonts/VeraMono.ttf"}
 
     XsPanelsLayoutModel {
 
@@ -325,21 +326,26 @@ ApplicationWindow {
      *
      ****************************************************************/
     Loader {
-        id: conform_tool_loader        
+        id: conform_tool_loader
     }
     Component {
         id: conform_tool_component
         XsConformTool {
         }
     }
-    property var conformTool
-    function createConformTool() {
-        if (!conformTool) {
-            conform_tool_loader.sourceComponent = conform_tool_component
-            conformTool = conform_tool_loader.item
-        }
+
+    property var conformTool__
+    function conformTool() {
+        createConformTool()
+        return conformTool__
     }
 
+    function createConformTool() {
+        if (!conformTool__) {
+            conform_tool_loader.sourceComponent = conform_tool_component
+            conformTool__ = conform_tool_loader.item
+        }
+    }
 
     // inhibit screensaver on playback
     Connections {
@@ -363,8 +369,8 @@ ApplicationWindow {
             if (stopPlaybackOnMinimise.value) {
                 sessionData.current_playhead.playing = false
             }
-            // we must still disable screensaver inhibition if xstudio goes 
-            // offscreen otherwise security lock-out on user inactivity won't 
+            // we must still disable screensaver inhibition if xstudio goes
+            // offscreen otherwise security lock-out on user inactivity won't
             // happen while xstudio continues to play in the background
             helpers.inhibitScreenSaver(false)
         } else if (sessionData.current_playhead.playing) {
@@ -394,6 +400,7 @@ ApplicationWindow {
     property alias currentOnScreenMediaSourceData: sessionData.currentOnScreenMediaSourceData
     property alias uiLayoutsModel: ui_layouts_model
     property alias singletonsModel: sessionData.singletonsModel
+    property alias playlistsPanelBarExtraWidgets: sessionData.playlistsPanelBarExtraWidgets
     property alias mediaListModelData: sessionData.mediaListModelData
     property alias mediaListModelDataRoot: sessionData.mediaListModelDataRoot
     property alias mediaListSearchString: sessionData.mediaListSearchString
@@ -419,27 +426,32 @@ ApplicationWindow {
         Item {
 
             id: menuBarLayout
-
             Layout.fillWidth: true
             //height: XsStyleSheet.menuHeight*menuBarLayout.opacity
             Layout.preferredHeight: XsStyleSheet.menuHeight*menuBarLayout.opacity
-
             visible: opacity != 0.0
             Behavior on opacity {NumberAnimation{ duration: 150 }}
 
-            XsMainMenuBar {
-                id: menuBar
-                height: parent.height
-                width: parent.width*1.85/3
+            XsGradientRectangle{
+                anchors.fill: parent
             }
 
-            XsLayoutModeBar {
-                id: layoutBar
-                layouts_model: ui_layouts_model
-                layouts_model_root_index: ui_layouts_model.root_index
-                height: parent.height
-                anchors.left: menuBar.right
-                anchors.right: parent.right
+            RowLayout {
+
+                anchors.fill: parent
+
+                XsMainMenuBar {
+                    id: menuBar
+                    Layout.fillHeight: true
+                    Layout.fillWidth: true
+                }
+
+                XsLayoutModeBar {
+                    id: layoutBar
+                    layouts_model: ui_layouts_model
+                    layouts_model_root_index: ui_layouts_model.root_index
+                    Layout.fillHeight: true
+                }
             }
         }
 
@@ -507,7 +519,9 @@ ApplicationWindow {
             "qrc:/views/notes/XsNotesView.qml",
             "qrc:/icons/sticky_note.svg",
             1.0,
+            "",
             notes_panel_hotkey.uuid)
+
 
         singletonsModel.register_singleton_qml("qrc:/views/notes/XsNotesSingleton.qml")
 
@@ -543,6 +557,9 @@ ApplicationWindow {
                     } else {
                         dynamic_widget = Qt.createQmlObject(source, parent_item)
                     }
+                }
+                function xstudio_callback(data) {
+                    helpers.moduleCallback(actor_address, data)
                 }
             }
         }

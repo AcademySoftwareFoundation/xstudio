@@ -10,6 +10,7 @@
 #include "xstudio/media/media.hpp"
 #include "xstudio/media_reader/pixel_info.hpp"
 #include "xstudio/media_reader/image_buffer.hpp"
+#include "xstudio/media_reader/image_buffer_set.hpp"
 
 using namespace xstudio::colour_pipeline;
 using namespace xstudio;
@@ -92,6 +93,41 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
                     [=](caf::error &err) mutable { rp.deliver(err); });
 
             return rp;
+        },
+
+        [=](get_colour_pipe_data_atom, const media_reader::ImageBufDisplaySetPtr &image_set)
+            -> caf::result<media_reader::ImageBufDisplaySetPtr> {
+            // given a set of images for display, append colour management data for display
+            // to each of the images in the set. Return a copy of the set with the copies
+            // of the image buffer ptrs but now the image buffer ptrs have colour data (luts
+            // and uniforms) appended
+            // make a copy of image_set that we can modify
+            media_reader::ImageBufDisplaySet *new_set =
+                new media_reader::ImageBufDisplaySet(*image_set);
+            auto auto_responder = utility::AutoResponder<media_reader::ImageBufDisplaySetPtr>(
+                new_set->num_onscreen_images(), this);
+            auto_responder.result().reset(new_set);
+
+            auto cc = std::make_shared<int>(new_set->num_onscreen_images());
+
+            for (int img_idx = 0; img_idx < new_set->num_onscreen_images(); ++img_idx) {
+
+                auto &image = new_set->onscreen_image(img_idx);
+                if (!image) {
+                    auto_responder.decrement();
+                    continue;
+                }
+
+                mail(get_colour_pipe_data_atom_v, image)
+                    .request(self(), infinite)
+                    .then(
+                        [=](media_reader::ImageBufPtr image_with_colour_data) mutable {
+                            new_set->set_on_screen_image(img_idx, image_with_colour_data);
+                            auto_responder.decrement();
+                        },
+                        [=](caf::error &err) mutable { auto_responder.decrement(err); });
+            }
+            return auto_responder.response_promise();
         },
 
         [=](get_colour_pipe_data_atom,
@@ -327,8 +363,7 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
                                 colour_op_plugins_,
                                 infinite,
                                 playhead::media_source_atom_v,
-                                media_source.actor(),
-                                media_source.uuid(),
+                                media_source,
                                 colour_params)
                                 .then(
                                     [=](const std::vector<bool>) mutable {
@@ -343,28 +378,36 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
             }
             return rp;
         },
-        [=](utility::event_atom,
-            playhead::media_source_atom,
-            caf::actor media_actor,
-            const utility::Uuid &media_uuid) {
+
+        [=](get_colour_pipe_data_atom,
+            const utility::JsonStore &colour_params) -> utility::JsonStore {
+            // this message handler is used by the VideoRendererPlugin - it
+            // needs to know the OCIO View and Display options, plus the
+            // default or 'best' Display and View to use for some piece
+            // of media that it's going to be rendering out to video. This
+            // allows it to provide the display/view options to the user
+            // when they dispatch the render
+            return get_display_and_view_options_for_media(colour_params);
+        },
+
+        [=](utility::event_atom, playhead::media_source_atom, utility::UuidActor media_source) {
             // This message comes from the playhead when the onscreen (key)
             // media source has changed.
-            if (media_actor and media_uuid) {
+            if (media_source) {
                 mail(get_colour_pipe_params_atom_v)
-                    .request(media_actor, infinite)
+                    .request(media_source.actor(), infinite)
                     .then(
                         [=](const utility::JsonStore &colour_params) mutable {
                             for (auto &colour_op_plugin : colour_op_plugins_) {
                                 anon_mail(
                                     utility::event_atom_v,
                                     playhead::media_source_atom_v,
-                                    media_actor,
-                                    media_uuid,
+                                    media_source,
                                     colour_params)
                                     .send(colour_op_plugin);
                             }
 
-                            media_source_changed(media_uuid, colour_params);
+                            media_source_changed(media_source.uuid(), colour_params);
                         },
                         [=](const caf::error &err) {
                             spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -376,9 +419,7 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
             const std::string &viewport_toolbar_name,
             bool connect,
             caf::actor viewport) {
-            disable_linking();
             connect_to_viewport(viewport_name, viewport_toolbar_name, connect, viewport);
-            enable_linking();
             connect_to_ui();
         },
         [=](xstudio::ui::viewport::screen_info_atom,

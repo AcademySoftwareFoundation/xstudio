@@ -3,6 +3,7 @@
 
 #include "xstudio/audio/audio_output_actor.hpp"
 #include "xstudio/plugin_manager/plugin_base.hpp"
+#include "xstudio/ui/viewport/viewport_gpu_post_processor.hpp"
 
 namespace xstudio {
 namespace ui {
@@ -22,20 +23,23 @@ namespace ui {
             VideoOutputPlugin(
                 caf::actor_config &cfg,
                 const utility::JsonStore &init_settings,
-                const std::string &plugin_name);
+                const std::string &plugin_name,
+                const audio::AudioBehaviourOnSilence audio_mode_on_silence =
+                    audio::StopPushingSamplesOnSilence);
+
             ~VideoOutputPlugin() override = default;
 
-            /*! 
+            /*!
             This method should be called on successful construction of your
             class - i.e. at the end of the constructor assuming all other set-up
             and initialisation (e.g. finding hardware devices) was completed. It
             will create the offscreen viewport ready for generating output video
             frames.
             */
-            
+
             void finalise();
 
-            /*! 
+            /*!
             This method should be implemented to allow cleanup of any/all resources
             relating to the video output
             */
@@ -54,6 +58,10 @@ namespace ui {
             // thread(s) that VideoOutputPlugin would normally execute within.
             virtual void receive_status_callback(const utility::JsonStore &status_data) {}
 
+            // Re-implement this method to receive notification when the playhead driving
+            // the offscreen viewport has changed.
+            virtual void playhead_changed(caf::actor /*new_playhead*/) {}
+
             // Allocate your resources needed for video output, initialise hardware etc. in
             // this function
             virtual void initialise() = 0;
@@ -62,7 +70,7 @@ namespace ui {
 
             // Call this method to intiate rendering of the xstudio viewport to an offscreen
             // surface. The resulting pixel buffers are captured and returned via the
-            // 'incoming_video_frame_callback' method
+            // 'incoming_video_frame_callback' method if mode == RecieveImageBuffers
             //
             // This method can be safely called from any thread
             void start(int frame_width, int frame_height);
@@ -88,8 +96,16 @@ namespace ui {
             // Request a new video frame to be rendered and delivered via
             // incoming_video_frame_callback. If possible, inform accurately when this video
             // frame should be displayed in the video output.
+            // If return_frame is false, the framebuffer is not copied to CPU memory
+            // and incoming_video_frame_callback is called with an empty buffer.
+            // If drop_if_out_of_date is true, and the offscreen viewport processes
+            // the request when frame_display_time < now then the request is ignored.
+            // This will prevent an indefinite backlock of frame requests backing up
+            // if the offscreen viewport can't render frames at the required rate.
             void request_video_frame(
-                const utility::time_point &frame_display_time = utility::clock::now());
+                const utility::time_point &frame_display_time = utility::clock::now(),
+                const bool return_frame                       = true,
+                const bool drop_if_out_of_date                = false);
 
             // Set a value for the video pipeline delay in milliseconds. This value is used to
             // adjust the position of the playhead (forwards or backwards) when requesting
@@ -131,6 +147,30 @@ namespace ui {
                 const std::string &manufacturer,
                 const std::string &serialNumber);
 
+            void add_message_handlers(caf::message_handler handlers_) {
+                message_handler_extensions_ = handlers_.or_else(message_handler_extensions_);
+            }
+
+            void viewport_playhead_changed(
+                const std::string &viewport_name, caf::actor playhead) override;
+
+            // VideoOutput plugins can subclass ViewportFramePostProcessor and pass an instance
+            // here. The base class provides virtual methods that can execute GPU code,
+            // including custom code to grab the current GL FrameBuffer or manipulate, modify or
+            // read any other data from the OpenGL context on every screen refresh. Note that
+            // the parent class takes ownership of the ViewportFramePostProcessor instance and
+            // will call its desructor on OpenGL clean up. This function can be called in the
+            // virtual 'intialise' method which ensures that the offscreen_viewport has
+            // already been created.
+            void set_viewport_post_processor(ViewportFramePostProcessorPtr post_processor);
+
+            caf::actor offscreen_viewport() const { return offscreen_viewport_; }
+
+          protected:
+            caf::message_handler message_handler_extensions() override {
+                return message_handler_extensions_;
+            }
+
           private:
             void __init(const utility::JsonStore init_settings);
 
@@ -142,13 +182,11 @@ namespace ui {
                         send_exit(audio_output_, caf::exit_reason::user_shutdown);
                     }
                     audio_output_ = spawn<audio::AudioOutputActor>(
-                        std::shared_ptr<audio::AudioOutputDevice>(audio_dev), true);
+                        std::shared_ptr<audio::AudioOutputDevice>(audio_dev),
+                        true,
+                        audio_mode_on_silence_);
                     link_to(audio_output_);
                 }
-            }
-
-            caf::message_handler message_handler_extensions() override {
-                return message_handler_extensions_;
             }
 
             caf::actor audio_output_;
@@ -158,6 +196,7 @@ namespace ui {
             FitMode previous_fit_mode_ = {FitMode::Best};
             int video_delay_millisecs_ = {0};
             const utility::JsonStore init_settings_store_;
+            const audio::AudioBehaviourOnSilence audio_mode_on_silence_;
         };
     } // namespace viewport
 } // namespace ui

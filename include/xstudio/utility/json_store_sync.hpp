@@ -106,12 +106,22 @@ class JsonStoreSync : protected JsonStore {
     void remove(const std::string &key, const std::string &parent = "");
 
     void remove_rows(const int row, const int count, const std::string &parent = "");
+    void remove_row(const nlohmann::json::json_pointer &jptr);
+
+    bool
+    row_parent(const nlohmann::json::json_pointer &jptr, int &row, std::string &parent) const;
+
+    void
+    set(const std::string &key,
+        const nlohmann::json &data               = nlohmann::json(),
+        const nlohmann::json::json_pointer &jptr = nlohmann::json::json_pointer());
 
     void
     set(const int row,
         const std::string &key,
         const nlohmann::json &data = nlohmann::json(),
         const std::string &parent  = "");
+
     void
     set(const int row,
         const nlohmann::json &data = nlohmann::json::object(),

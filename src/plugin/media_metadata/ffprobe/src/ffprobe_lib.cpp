@@ -387,7 +387,7 @@ nlohmann::json populate_stream(AVFormatContext *avfc, int index, MediaStream *is
         result["sample_rate"] = par->sample_rate;
 
 #if LIBAVFORMAT_VERSION_MAJOR > 59
-        result["channels"]    = par->ch_layout.nb_channels;
+        result["channels"] = par->ch_layout.nb_channels;
         {
             AVBPrint buf;
             av_bprint_init(&buf, 1, AV_BPRINT_SIZE_UNLIMITED);
@@ -396,7 +396,7 @@ nlohmann::json populate_stream(AVFormatContext *avfc, int index, MediaStream *is
             av_bprint_finalize(&buf, nullptr);
         }
 #else
-        result["channels"]    = par->channels;
+        result["channels"] = par->channels;
         if (par->channel_layout) {
             AVBPrint buf;
             av_bprint_init(&buf, 1, AV_BPRINT_SIZE_UNLIMITED);
@@ -504,7 +504,6 @@ std::string uri_convert(const caf::uri &uri) {
         return utility::forward_remap_file_path(uri_string);
     }
     return utility::uri_to_posix_path(uri);
-
 }
 } // namespace
 

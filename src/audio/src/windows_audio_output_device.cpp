@@ -131,7 +131,7 @@ HRESULT WindowsAudioOutputDevice::initializeAudioClient(
             (int)(bool)(SPEAKER_TOP_FRONT_LEFT & channel_mask),
             (int)(bool)(SPEAKER_TOP_FRONT_CENTER & channel_mask),
             (int)(bool)(SPEAKER_TOP_FRONT_RIGHT & channel_mask)
-            
+
         );
     }
 #endif

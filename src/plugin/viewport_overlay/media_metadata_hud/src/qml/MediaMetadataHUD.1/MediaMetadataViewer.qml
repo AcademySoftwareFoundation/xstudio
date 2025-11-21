@@ -15,6 +15,7 @@ Item {
 
     id: dialog
     property bool select_mode: false
+    property real btnWidth: XsStyleSheet.primaryButtonStdWidth
 
     XsModuleData {
         id: metadata_attrs

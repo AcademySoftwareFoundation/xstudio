@@ -616,7 +616,8 @@ void SessionModel::init(caf::actor_system &_system) {
                     auto plindex = getPlaylistIndex(media_index);
 
                     // trigger model update.
-                    if (mt == media::MediaType::MT_IMAGE) {
+                    if (mt == media::MediaType::MT_IMAGE or
+                        mt == media::MediaType::MT_THUMBNAIL) {
                         receivedData(
                             json(src_str),
                             actorRole,

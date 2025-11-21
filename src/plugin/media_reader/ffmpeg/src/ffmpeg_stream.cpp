@@ -130,10 +130,6 @@ void set_shader_pix_format_info(
     Imath::M33f yuv_to_rgb;
 
     switch (colorspace) {
-    case AVCOL_SPC_BT470BG:
-    case AVCOL_SPC_SMPTE170M:
-        yuv_to_rgb = YCbCr_to_RGB_601;
-        break;
     case AVCOL_SPC_BT2020_NCL:
     case AVCOL_SPC_BT2020_CL:
         // TODO: ColSci
@@ -141,13 +137,18 @@ void set_shader_pix_format_info(
         yuv_to_rgb = YCbCr_to_RGB_2020;
         break;
     case AVCOL_SPC_BT709:
-    default:
         yuv_to_rgb = YCbCr_to_RGB_709;
+        break;
+    case AVCOL_SPC_BT470BG:
+    case AVCOL_SPC_SMPTE170M:
+    default:
+        yuv_to_rgb = YCbCr_to_RGB_601;
+        break;
     }
 
     switch (color_range) {
     case AVCOL_RANGE_JPEG: {
-        Imath::V3f offset(1, 128, 128);
+        Imath::V3f offset(0, 128, 128);
         offset *= std::pow(2.0f, float(bitdepth - 8));
         jsn["yuv_offsets"] = {"ivec3", 1, offset[0], offset[1], offset[2]};
     } break;
@@ -384,18 +385,14 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
     // Remove DNxHD Video range override
     // Shows created after March 2022 do not need this override
     // See http://stash/projects/RND/repos/showsetup_data/pull-requests/794/overview
-    const bool is_dneg_mov = utility::ends_with(format_context_->url, ".dneg.mov");
+    const bool is_dneg_mov   = utility::ends_with(format_context_->url, ".dneg.mov");
     AVColorRange color_range = frame->color_range;
     if (is_dneg_mov && codec_->id == AV_CODEC_ID_DNXHD) {
         color_range = AVCOL_RANGE_MPEG;
     }
 
     set_shader_pix_format_info(
-        jsn,
-        codec_->id,
-        (AVPixelFormat)ffmpeg_pixel_format,
-        color_range,
-        frame->colorspace);
+        jsn, codec_->id, (AVPixelFormat)ffmpeg_pixel_format, color_range, frame->colorspace);
 
     image_buffer->set_shader_params(jsn);
 
@@ -559,14 +556,14 @@ FFMpegStream::FFMpegStream(
         AVC_CHECK_THROW(
             avcodec_parameters_to_context(codec_context_, avc_stream_->codecpar),
             "avcodec_parameters_to_context");
-            
+
         if (avc_stream_->codecpar->codec_tag == MKTAG('t', 'm', 'c', 'd')) {
-            stream_type_ = TIMECODE_STREAM;
+            stream_type_            = TIMECODE_STREAM;
             is_drop_frame_timecode_ = false;
 
 #if LIBAVFORMAT_VERSION_MAJOR > 59
-            // TODO: Work out how to get timecode drop frame out of avcodec!! 
-            // for current version of ffmpeg. Nothing in ffmpeg 'documentation' 
+            // TODO: Work out how to get timecode drop frame out of avcodec!!
+            // for current version of ffmpeg. Nothing in ffmpeg 'documentation'
             // as far as I can tell.
 #else
             if (codec_context_->flags2 & AV_CODEC_FLAG2_DROP_FRAME_TIMECODE) {
@@ -574,7 +571,7 @@ FFMpegStream::FFMpegStream(
             } else {
                 is_drop_frame_timecode_ = false;
             }
-#endif            
+#endif
         }
 
     } else if (codec_type_ == AVMEDIA_TYPE_VIDEO && codec_) {
@@ -607,7 +604,10 @@ FFMpegStream::FFMpegStream(
             pixel_aspect_ = float(sar.num) / float(sar.den);
         }
 
-        if (codec_->capabilities & AV_CODEC_CAP_DR1) {
+        // Note - gif decoder has AV_CODEC_CAP_DR1 flag, but it doesn't appear to work, i.e.
+        // if xstudio takes over frame buffer mem allocation decoding doesn't work correctly
+        // and we get repeated frames in the stream decode
+        if (strcmp(codec_->name, "gif") && (codec_->capabilities & AV_CODEC_CAP_DR1)) {
 
             // See Note 1 below
             // codec_ allows us to allocated AVFrame buffers
@@ -711,23 +711,23 @@ size_t FFMpegStream::resample_audio(
     const int wanted_nb_samples = frame->nb_samples * target_sample_rate_ / frame->sample_rate;
 
     if (!audio_resampler_ctx_ || frame->format != src_audio_fmt_ ||
-        frame->sample_rate != src_audio_sample_rate_ ||
-        frame->ch_layout.nb_channels != 2) {
+        frame->sample_rate != src_audio_sample_rate_ || frame->ch_layout.nb_channels != 2) {
 
         swr_free(&audio_resampler_ctx_);
         audio_resampler_ctx_ = NULL;
 
         auto dest_layout = AVChannelLayout(AV_CHANNEL_LAYOUT_STEREO);
 
-        int ret = swr_alloc_set_opts2(&audio_resampler_ctx_,         // we're allocating a new context
-            &dest_layout, // out_ch_layout
-            target_sample_format_,    // out_sample_fmt
-            target_sample_rate_,                // out_sample_rate
-            &(frame->ch_layout), // in_ch_layout
-            (AVSampleFormat)frame->format,   // in_sample_fmt
-            frame->sample_rate,                // in_sample_rate
-            0,                    // log_offset
-            NULL);                // log_ctx
+        int ret = swr_alloc_set_opts2(
+            &audio_resampler_ctx_,         // we're allocating a new context
+            &dest_layout,                  // out_ch_layout
+            target_sample_format_,         // out_sample_fmt
+            target_sample_rate_,           // out_sample_rate
+            &(frame->ch_layout),           // in_ch_layout
+            (AVSampleFormat)frame->format, // in_sample_fmt
+            frame->sample_rate,            // in_sample_rate
+            0,                             // log_offset
+            NULL);                         // log_ctx
 
         if (!audio_resampler_ctx_ || swr_init(audio_resampler_ctx_) < 0) {
             std::array<char, 4096> errbuf;
@@ -749,8 +749,8 @@ size_t FFMpegStream::resample_audio(
             throw media_corrupt_error(errbuf.data());
         }
 
-        src_audio_fmt_            = (AVSampleFormat)frame->format;
-        src_audio_sample_rate_    = frame->sample_rate;
+        src_audio_fmt_         = (AVSampleFormat)frame->format;
+        src_audio_sample_rate_ = frame->sample_rate;
     }
 #else
 
@@ -803,8 +803,8 @@ size_t FFMpegStream::resample_audio(
             throw media_corrupt_error(errbuf.data());
         }
 
-        src_audio_fmt_            = (AVSampleFormat)frame->format;
-        src_audio_sample_rate_    = frame->sample_rate;
+        src_audio_fmt_ = (AVSampleFormat)frame->format;
+        src_audio_sample_rate_ = frame->sample_rate;
         src_audio_channel_layout_ = dec_channel_layout;
     }
 

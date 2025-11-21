@@ -185,6 +185,47 @@ void blocking_loader(
     rp.deliver(result);
 }
 
+void blocking_loader_other(
+    blocking_actor *self,
+    caf::typed_response_promise<std::vector<UuidActor>> rp,
+    UuidActor dst,
+    const caf::uri &path,
+    const FrameRate &default_rate,
+    const bool auto_gather,
+    const caf::actor &session,
+    const caf::actor &pm,
+    const utility::Uuid &before) {
+
+    anon_mail(playlist::loading_media_atom_v, true).send(dst.actor());
+
+    self->mail(data_source::use_data_atom_v, path, default_rate, false)
+        .request(pm, infinite)
+        .receive(
+            [=](const utility::UuidActorVector &uav) mutable {
+                self->mail(playlist::add_media_atom_v, uav, before)
+                    .request(dst.actor(), infinite)
+                    .receive(
+                        [=](const bool) mutable {
+                            if (auto_gather) {
+                                for (const auto &i : uav) {
+                                    anon_mail(media_hook::gather_media_sources_atom_v, i.actor(), default_rate)
+                                        .send(session);
+                                }
+                            }
+                            anon_mail(loading_media_atom_v, false).send(dst.actor());
+                            rp.deliver(uav);
+                        },
+                        [=](error &err) mutable {
+                            anon_mail(loading_media_atom_v, false).send(dst.actor());
+                            rp.deliver(std::move(err));
+                        });
+            },
+            [=](error &err) mutable {
+                anon_mail(loading_media_atom_v, false).send(dst.actor());
+                rp.deliver(std::move(err));
+            });
+}
+
 
 PlaylistActor::PlaylistActor(
     caf::actor_config &cfg, const utility::JsonStore &jsn, const caf::actor &session)
@@ -597,18 +638,37 @@ caf::message_handler PlaylistActor::message_handler() {
             const utility::FrameRate &rate,
             const utility::Uuid &uuid_before) -> result<std::vector<UuidActor>> {
             auto rp = make_response_promise<std::vector<UuidActor>>();
-            spawn(
-                blocking_loader,
-                rp,
-                UuidActor(base_.uuid(), actor_cast<caf::actor>(this)),
-                path,
-                recursive,
-                rate,
-                auto_gather_sources_,
-                actor_cast<caf::actor>(session_),
-                uuid_before);
 
             mail(utility::event_atom_v, loading_media_atom_v, true).send(base_.event_group());
+
+            if (path.scheme() == "file" or
+                path.scheme().find("http") == 0) {
+                spawn(
+                    blocking_loader,
+                    rp,
+                    UuidActor(base_.uuid(), actor_cast<caf::actor>(this)),
+                    path,
+                    recursive,
+                    rate,
+                    auto_gather_sources_,
+                    actor_cast<caf::actor>(session_),
+                    uuid_before);
+
+            } else {
+                // Unrecognised URI scheme, so see if one of the plugins can do something with it
+                auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
+                spawn(
+                    blocking_loader_other,
+                    rp,
+                    UuidActor(base_.uuid(), actor_cast<caf::actor>(this)),
+                    path,
+                    rate,
+                    auto_gather_sources_,
+                    actor_cast<caf::actor>(session_),
+                    pm,
+                    uuid_before);
+            }
+                    
             return rp;
         },
 
@@ -1443,6 +1503,17 @@ caf::message_handler PlaylistActor::message_handler() {
 
             base_.send_changed();
 
+            auto rp = make_response_promise<UuidActor>();
+
+            mail(module::deserialise_atom_v, playhead_serialisation_)
+                .request(playhead_.actor(), infinite)
+                .then(
+                    [=](bool) mutable { rp.deliver(playhead_); },
+                    [=](caf::error &err) mutable {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        rp.deliver(playhead_);
+                    });
+
             // have we actually selected anything for initial view/playback?
             // If not, make the selection actor select something
             mail(playhead::get_selection_atom_v)
@@ -1455,15 +1526,12 @@ caf::message_handler PlaylistActor::message_handler() {
                             anon_mail(playlist::select_media_atom_v, utility::UuidVector())
                                 .send(selection_actor_);
                         }
-                        if (!playhead_serialisation_.is_null()) {
-                            anon_mail(module::deserialise_atom_v, playhead_serialisation_)
-                                .send(playhead_.actor());
-                        }
                     },
                     [=](error &err) mutable {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                     });
-            return playhead_;
+
+            return rp;
         },
 
         [=](playlist::get_playhead_atom) {
@@ -1900,7 +1968,13 @@ caf::message_handler PlaylistActor::message_handler() {
         // handle child change events.
         [=](utility::event_atom, utility::name_atom, const std::string & /*name*/) {},
 
-        [=](utility::serialise_atom) -> result<JsonStore> {
+        [=](utility::serialise_atom) {
+            return mail(utility::serialise_atom_v, utility::Uuid())
+                .delegate(actor_cast<caf::actor>(this));
+        },
+
+        [=](utility::serialise_atom,
+            const utility::Uuid only_this_container) -> result<JsonStore> {
             auto rp = make_response_promise<JsonStore>();
 
             mail(json_store::get_json_atom_v, "")
@@ -1910,8 +1984,13 @@ caf::message_handler PlaylistActor::message_handler() {
                         std::vector<caf::actor> clients;
                         for (const auto &i : media_)
                             clients.push_back(i.second);
-                        for (const auto &i : container_)
-                            clients.push_back(i.second);
+
+                        for (const auto &i : container_) {
+                            if (only_this_container.is_null() ||
+                                only_this_container == i.first) {
+                                clients.push_back(i.second);
+                            }
+                        }
                         clients.push_back(selection_actor_);
 
                         if (not clients.empty()) {

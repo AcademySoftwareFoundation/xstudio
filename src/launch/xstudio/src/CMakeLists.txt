@@ -12,12 +12,12 @@ set(SOURCES
 	xstudio.cpp
 	xstudio_win_resource.rc
 	../../../../ui/qml/xstudio/qml.qrc
-	)	
+	)
 else()
 set(SOURCES
 	xstudio.cpp
 	../../../../ui/qml/xstudio/qml.qrc
-	)	
+	)
 endif()
 if(WIN32)
     # Add the /bigobj option for xstudio.cpp
@@ -68,6 +68,8 @@ target_link_libraries(${PROJECT_NAME}
 		CAF::io
 		$<$<BOOL:${NVIDIA_HACK}>:GLdispatch>
 		# quickfuture
+		OTIO::opentime
+		OTIO::opentimelineio
 		Qt6::Core
 		Qt6::Gui
 		Qt6::Quick
@@ -102,6 +104,10 @@ if(WIN32)
 	  DESTINATION bin
 	  RENAME xstudio)
 
+	# install FFMPEG and all dependencies into target bin folder
+	file(GLOB FFMPEG_COMPONENTS ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/ffmpeg/*)
+	install(FILES ${FFMPEG_COMPONENTS} DESTINATION bin)
+
     get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)
     get_filename_component(_qt_bin_dir "${_qmake_executable}" DIRECTORY)
     find_program(windeployqt_exe windeployqt HINTS "${_qt_bin_dir}")
@@ -128,11 +134,23 @@ elseif(APPLE)
         COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_CURRENT_SOURCE_DIR}/xstudio_app.ico "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/")
 
+	# install FFMPEG into the app bundle
+	find_program(FFMPEG_APP ffmpeg HINTS "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/ffmpeg")
+	add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${FFMPEG_APP} "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/MacOS/ffmpeg")
+
     get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)
     get_filename_component(_qt_bin_dir "${_qmake_executable}" DIRECTORY)
     find_program(macdeployqt_exe macdeployqt HINTS "${_qt_bin_dir}")
         configure_file(macdeploy.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/macdeploy.cmake @ONLY)
     install(SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/macdeploy.cmake)
+
+    # Add custom command to fix library paths after build
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -DAPP_BUNDLE_DIR=${CMAKE_BINARY_DIR}/xSTUDIO.app
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/fixup_macos_bundle.cmake
+    )
 
 else()
 

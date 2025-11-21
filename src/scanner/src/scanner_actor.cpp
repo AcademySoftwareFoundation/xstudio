@@ -175,13 +175,15 @@ ScanHelperActor::ScanHelperActor(caf::actor_config &cfg) : caf::event_based_acto
         },
 
         [=](media::relink_atom,
-            const std::pair<std::string, uintmax_t> &pin,
-            const caf::uri &uri) -> result<caf::uri> {
+            const media::MediaSourceChecksum &pin,
+            const caf::uri &uri,
+            const bool loose_match) -> result<caf::uri> {
             // recursively scan directory
             // look for size match.
             // then checksum
             // cache any checksums we create..
             auto path = uri_to_posix_path(uri);
+            auto cpin = std::make_pair(std::get<1>(pin), std::get<2>(pin));
 
             try {
                 for (const auto &entry : fs::recursive_directory_iterator(path)) {
@@ -196,7 +198,7 @@ ScanHelperActor::ScanHelperActor(caf::actor_config &cfg) : caf::event_based_acto
 
                             if (cache_.count(puri)) {
                                 const auto &c = cache_.at(puri);
-                                if (c == pin)
+                                if (c == cpin)
                                     return puri;
                             } else {
 #ifdef _WIN32
@@ -204,14 +206,14 @@ ScanHelperActor::ScanHelperActor(caf::actor_config &cfg) : caf::event_based_acto
 #else
                                 auto size = get_file_size(entry.path());
 #endif
-                                if (size == pin.second) {
+                                if (size == cpin.second) {
 #ifdef _WIN32
                                     auto checksum = get_checksum(entry.path().string());
 #else
                                     auto checksum = get_checksum(entry.path());
 #endif
                                     cache_[puri] = std::make_pair(checksum, size);
-                                    if (checksum == pin.first)
+                                    if (checksum == cpin.first)
                                         return puri;
                                 }
                             }
@@ -219,9 +221,26 @@ ScanHelperActor::ScanHelperActor(caf::actor_config &cfg) : caf::event_based_acto
                     } catch (...) {
                     }
                 }
+                if (loose_match) {
+                    for (const auto &entry : fs::recursive_directory_iterator(path)) {
+                        try {
+                            if (fs::is_regular_file(entry.status())) {
+                            // check we've not alredy got it in cache..
+#ifdef _WIN32
+                                const auto puri = posix_path_to_uri(entry.path().string());
+#else
+                                const auto puri = posix_path_to_uri(entry.path());
+#endif
+
+                                if (entry.path().filename() == std::get<0>(pin))
+                                    return puri;
+                            }
+                        } catch (...) {
+                        }
+                    }
+                }
             } catch (...) {
             }
-
             return caf::uri();
         });
 }
@@ -274,15 +293,21 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
         },
 
         [=](media::relink_atom atom,
-            const std::pair<std::string, uintmax_t> &pin,
-            const caf::uri &path) { return mail(atom, pin, path).delegate(helper); },
+            const media::MediaSourceChecksum &pin,
+            const caf::uri &path,
+            const bool loose_match) {
+            return mail(atom, pin, path, loose_match).delegate(helper);
+        },
 
-        [=](media::relink_atom atom, const caf::actor &media_source, const caf::uri &path) {
+        [=](media::relink_atom atom,
+            const caf::actor &media_source,
+            const caf::uri &path,
+            const bool loose_match) {
             mail(media::checksum_atom_v)
                 .request(media_source, infinite)
                 .then(
-                    [=](const std::pair<std::string, uintmax_t> &result) mutable {
-                        anon_mail(atom, media_source, result, path)
+                    [=](const media::MediaSourceChecksum &result) mutable {
+                        anon_mail(atom, media_source, result, path, loose_match)
                             .send(caf::actor_cast<caf::actor>(this));
                     },
                     [=](const caf::error &err) {
@@ -292,9 +317,10 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
 
         [=](media::relink_atom atom,
             const caf::actor &media_source,
-            const std::pair<std::string, uintmax_t> &pin,
-            const caf::uri &path) {
-            mail(atom, pin, path)
+            const media::MediaSourceChecksum &pin,
+            const caf::uri &path,
+            const bool loose_match) {
+            mail(atom, pin, path, loose_match)
                 .request(helper, infinite)
                 .then(
                     [=](const caf::uri &result) mutable {

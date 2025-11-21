@@ -125,49 +125,49 @@ void ShotgunClientActor::init() {
             return rp;
         },
 
-        [=](shotgun_entity_filter_atom, const std::string &entity) -> result<JsonStore> {
-            auto rp = make_response_promise<JsonStore>();
-            authenticate(rp, [=]() {
-                request_entity_filter(
-                    entity,
-                    JsonStore(),
-                    std::vector<std::string>(),
-                    std::vector<std::string>(),
-                    1,
-                    1000,
-                    rp);
-            });
-            return rp;
-        },
+        // [=](shotgun_entity_filter_atom, const std::string &entity) -> result<JsonStore> {
+        //     auto rp = make_response_promise<JsonStore>();
+        //     authenticate(rp, [=]() {
+        //         request_entity_filter(
+        //             entity,
+        //             JsonStore(),
+        //             std::vector<std::string>(),
+        //             std::vector<std::string>(),
+        //             1,
+        //             1000,
+        //             rp);
+        //     });
+        //     return rp;
+        // },
 
-        [=](shotgun_entity_filter_atom,
-            const std::string &entity,
-            const JsonStore &filter) -> result<JsonStore> {
-            auto rp = make_response_promise<JsonStore>();
-            authenticate(rp, [=]() {
-                request_entity_filter(
-                    entity,
-                    filter,
-                    std::vector<std::string>(),
-                    std::vector<std::string>(),
-                    1,
-                    1000,
-                    rp);
-            });
-            return rp;
-        },
+        // [=](shotgun_entity_filter_atom,
+        //     const std::string &entity,
+        //     const JsonStore &filter) -> result<JsonStore> {
+        //     auto rp = make_response_promise<JsonStore>();
+        //     authenticate(rp, [=]() {
+        //         request_entity_filter(
+        //             entity,
+        //             filter,
+        //             std::vector<std::string>(),
+        //             std::vector<std::string>(),
+        //             1,
+        //             1000,
+        //             rp);
+        //     });
+        //     return rp;
+        // },
 
-        [=](shotgun_entity_filter_atom,
-            const std::string &entity,
-            const JsonStore &filter,
-            const std::vector<std::string> &fields,
-            const std::vector<std::string> &sort) -> result<JsonStore> {
-            auto rp = make_response_promise<JsonStore>();
-            authenticate(rp, [=]() {
-                request_entity_filter(entity, filter, fields, sort, 1, 1000, rp);
-            });
-            return rp;
-        },
+        // [=](shotgun_entity_filter_atom,
+        //     const std::string &entity,
+        //     const JsonStore &filter,
+        //     const std::vector<std::string> &fields,
+        //     const std::vector<std::string> &sort) -> result<JsonStore> {
+        //     auto rp = make_response_promise<JsonStore>();
+        //     authenticate(rp, [=]() {
+        //         request_entity_filter(entity, filter, fields, sort, 1, 1000, rp);
+        //     });
+        //     return rp;
+        // },
 
         [=](shotgun_entity_filter_atom,
             const std::string &entity,
@@ -183,17 +183,17 @@ void ShotgunClientActor::init() {
             return rp;
         },
 
-        [=](shotgun_entity_search_atom,
-            const std::string &entity,
-            const JsonStore &conditions,
-            const std::vector<std::string> &fields) {
-            auto rp = make_response_promise<JsonStore>();
-            authenticate(rp, [=]() {
-                request_entity_search(
-                    entity, conditions, fields, std::vector<std::string>(), 1, 1000, rp);
-            });
-            return rp;
-        },
+        // [=](shotgun_entity_search_atom,
+        //     const std::string &entity,
+        //     const JsonStore &conditions,
+        //     const std::vector<std::string> &fields) {
+        //     auto rp = make_response_promise<JsonStore>();
+        //     authenticate(rp, [=]() {
+        //         request_entity_search(
+        //             entity, conditions, fields, std::vector<std::string>(), 1, 1000, rp);
+        //     });
+        //     return rp;
+        // },
 
         [=](shotgun_entity_search_atom,
             const std::string &entity,

@@ -87,17 +87,15 @@ caf::message_handler ColourOpPlugin::message_handler_extensions() {
         },
         [=](utility::event_atom,
             playhead::media_source_atom,
-            caf::actor media_actor,
-            const utility::Uuid &media_uuid,
+            const utility::UuidActor &media_source,
             const utility::JsonStore &source_colour_params) {
-            on_screen_source_ = utility::UuidActor(media_uuid, media_actor);
+            on_screen_source_ = media_source;
             onscreen_media_source_changed(on_screen_source_, source_colour_params);
         },
         [=](playhead::media_source_atom,
-            caf::actor media_actor,
-            const utility::Uuid &media_uuid,
+            const utility::UuidActor &media_source,
             const utility::JsonStore &source_colour_params) -> bool {
-            on_screen_source_ = utility::UuidActor(media_uuid, media_actor);
+            on_screen_source_ = media_source;
             onscreen_media_source_changed(on_screen_source_, source_colour_params);
             return true;
         }

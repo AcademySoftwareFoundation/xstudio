@@ -52,6 +52,25 @@ py::tuple py_parse_posix_path(const std::string &path) {
     PyTuple_SetItem(result.ptr(), 1, py::cast(std::move(fl)).release().ptr());
     return result;
 }
+
+py::object
+py_actor_from_string(const std::string &actor_addr, caf::actor remote = caf::actor()) {
+
+    // the py module actor system can be different to the main xstudio actor system.
+    // If the actor at 'actor_addr' refers to an actor living in the main xstudio
+    // system, the first call to actor_from_string may fail as the actor_system_ref
+    // is not the main xstudio system. In this case, we can use remote which is
+    // passed in from the python side and is a reference actor from the xstudio
+    // system (usually the 'remote' member of a Python plugin instance)
+    auto actor = utility::actor_from_string(
+        utility::ActorSystemSingleton::actor_system_ref(), actor_addr);
+
+    if (!actor) {
+        actor = utility::actor_from_string(remote->home_system(), actor_addr);
+    }
+    return py::cast(std::move(actor));
+}
+
 } // namespace caf::python
 
 #include "py_config.hpp"
@@ -81,6 +100,10 @@ PYBIND11_MODULE(__pybind_xstudio, m) {
             result(tuple(URI,FrameList)): result.
     )");
     m.def("remote_session_path", &utility::remote_session_path, "Return path to session files");
+    m.def(
+        "actor_from_string",
+        &caf::python::py_actor_from_string,
+        "Convert an actor address string to the actor object");
 
     py::enum_<session::ExportFormat>(m, "ExportFormat")
         .value("EF_UNDEFINED", session::ExportFormat::EF_UNDEFINED)

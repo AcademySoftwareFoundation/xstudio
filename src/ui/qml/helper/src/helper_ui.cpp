@@ -20,6 +20,7 @@ using namespace xstudio::ui::qml;
 #include <QVector4D>
 #include <QPainter>
 #include <QQmlProperty>
+#include <QQuickWindow>
 
 CafSystemObject::CafSystemObject(QObject *parent, caf::actor_system &sys)
     : QObject(parent), system_ref_(sys) {
@@ -58,7 +59,6 @@ caf::actor xstudio::ui::qml::actorFromQString(actor_system &sys, const QString &
     return actorFromString(sys, addr);
 }
 
-
 QString xstudio::ui::qml::getThumbnailURL(
     actor_system &system, const caf::actor &actor, const int frame, const bool cache_to_disk) {
     //  we introduce a random component to allow reaquiring of thumb.
@@ -89,14 +89,15 @@ QString xstudio::ui::qml::getThumbnailURL(
             auto mp = utility::request_receive<media::AVFrameID>(
                 *sys, actor, media::get_media_pointer_atom_v, media::MT_IMAGE, frame);
 
-            auto mhash = utility::request_receive<std::pair<std::string, uintmax_t>>(
-                *sys, actor, media::checksum_atom_v);
+            auto mhash =
+                utility::request_receive<media::MediaSourceChecksum>(
+                    *sys, actor, media::checksum_atom_v);
 
             auto display_transform_hash = utility::request_receive<size_t>(
                 *sys, colour_pipe, colour_pipeline::display_colour_transform_hash_atom_v, mp);
             hash = std::hash<std::string>{}(static_cast<const std::string &>(
-                std::to_string(display_transform_hash) + mhash.first +
-                std::to_string(mhash.second)));
+                std::to_string(display_transform_hash) + std::get<1>(mhash) +
+                std::to_string(std::get<2>(mhash))));
         } catch ([[maybe_unused]] const std::exception &err) {
             // spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         }
@@ -289,9 +290,35 @@ bool KeyEventsItem::event(QEvent *event) {
         event->type() == QEvent::GraphicsSceneHoverLeave) {
         anon_mail(ui::keypress_monitor::all_keys_up_atom_v, context_).send(keypress_monitor_);
     } else if (event->type() == QEvent::HoverEnter) {
-        forceActiveFocus(Qt::MouseFocusReason);
+        grabFocus();
     }
     return QQuickItem::event(event);
+}
+
+bool KeyEventsItem::grabFocus() {
+
+    // The behaviour of this class is that it agressively snatches keyboard focus whenevr
+    // the mouse enters its area. We do this so that crucial hotkey actions to start/stop
+    // playback or change media selection always work depending on where the mouse pointer
+    // is in the xSTduio interface. However, when the user is entering text into a search
+    // bar then we DON'T want to grab focus from it even it the mouse pointer leaves the
+    // area of the search bar
+    QQmlContext *c = qmlContext(this);
+    while (c) {
+        QObject *cobj = c->contextObject();
+        if (cobj) {
+            QQuickWindow *win = dynamic_cast<QQuickWindow *>(cobj);
+            if (win && win->activeFocusItem()) {
+                if (win->activeFocusItem()->objectName() == QString("XsSearchBar")) {
+                    return false;
+                }
+            }
+        }
+        c = c->parentContext();
+    }
+
+    forceActiveFocus(Qt::MouseFocusReason);
+    return true;
 }
 
 void KeyEventsItem::keyPressEvent(QKeyEvent *event) {
@@ -329,6 +356,25 @@ void ClipboardProxy::setDataText(const QString &text) {
 
 QString ClipboardProxy::dataText() const {
     return QGuiApplication::clipboard()->text(QClipboard::Clipboard);
+}
+
+void ClipboardProxy::setHtml(const QString &text) {
+    auto md = new QMimeData();
+
+    // not sure if this is needed.
+    if (not dataText().isEmpty())
+        md->setText(dataText());
+
+    md->setHtml(text);
+    QGuiApplication::clipboard()->setMimeData(md, QClipboard::Clipboard);
+}
+
+QString ClipboardProxy::html() const {
+    auto md = QGuiApplication::clipboard()->mimeData();
+    if (md and md->hasHtml())
+        return md->html();
+
+    return QString();
 }
 
 QVariant ClipboardProxy::data() const {
@@ -498,6 +544,25 @@ QString Helpers::readFile(const QUrl &url) const {
     }
 
     return "";
+}
+
+void Helpers::moduleCallback(const QString &module_actor, const QVariant cb_data) {
+
+    // we can call this method from QML and pass in an actor address (as string).
+    // The actor should be have a Module base - we can then run the qml_callback
+    // virtual method in the Module. This provides a mechanism to callback to
+    // backend C++ from QML.
+    caf::actor _module =
+        xstudio::ui::qml::actorFromQString(CafSystemObject::get_actor_system(), module_actor);
+    if (_module) {
+        anon_mail(module::callback_atom_v, utility::JsonStore(qvariant_to_json(cb_data)))
+            .send(_module);
+    } else {
+        spdlog::warn(
+            "{} failed to get actor from address {}",
+            __PRETTY_FUNCTION__,
+            StdFromQString(module_actor));
+    }
 }
 
 QObject *Helpers::contextPanel(QObject *obj) const {

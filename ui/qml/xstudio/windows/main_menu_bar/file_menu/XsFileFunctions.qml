@@ -321,25 +321,13 @@ Item {
 
     function addMediaFromClipboard() {
         if(clipboard.text.length) {
-            let ct = ""
-            clipboard.text.split("\n").forEach(function (item, index) {
-                    // replace #'s
-                    // item.replace(/[#]+/, "*")
-                    ct = ct + "file://" + item + "\n"
-                }
-            )
-            if(!sessionSelectionModel.currentIndex.valid) {
-                var index = theSessionData.createPlaylist("Add Media")
-                Future.promise(index.model.handleDropFuture(Qt.CopyAction, {"text/uri-list": ct}, index)).then(function(quuids){
-                    mediaSelectionModel.selectFirstNewMedia(index, quuids)
-                })
+            var index = sessionSelectionModel.currentIndex
+            if (!index.valid) {
+                index = theSessionData.createPlaylist("Add Media")
             }
-            else {
-                let index = sessionSelectionModel.currentIndex
-                Future.promise(index.model.handleDropFuture(Qt.CopyAction, {"text/uri-list": ct}, index)).then(function(quuids){
-                    mediaSelectionModel.selectFirstNewMedia(index, quuids)
-                })
-            }
+            Future.promise(index.model.handleDropFuture(Qt.CopyAction, {"text/plain": clipboard.text}, index)).then(function(quuids){
+                mediaSelectionModel.selectFirstNewMedia(index, quuids)
+            })
         }
     }
 
@@ -450,7 +438,7 @@ Item {
     }
 
     function doCopySessionLink() {
-        clipboard.text = sessionLinkPrefix.value + "xstudio://open_session?uri=" + sessionPath
+        clipboard.text = sessionLinkPrefix.value + "xstudio://open_session?uri=" + helpers.encodedFromQUrl(sessionPath)
     }
 
     function copySessionLink() {

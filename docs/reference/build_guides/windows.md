@@ -18,6 +18,10 @@ Restart your machine after Visual Studio finishes installing.
 
 Follow [these instructions](downloading_qt.md)
 
+### Download and install the NSIS tool
+
+NSIS is a packaging system that lets us build xSTUDIO into a Windows installer exe file. Follow the download link on the [NSIS homepage](https://nsis.sourceforge.io/Download). This will download an installer .exe file. Run this program and follow through the steps in the installer wizard with the default installation options until you hit 'Finish'. You can close the NSIS window, it doesn't need to be running for the next steps.
+
 ### Download the VCPKG repo
 
 Start a Windows Powershell to continue these instructions, where you must run a handfull of powershell commands to build xSTUDIO. Windows Powershell is pre-installed, to start it type Powershell into the Search bar in the Start menu. You will need a location to build xSTUDIO from. We recommend making a folder in your home space, called something like 'dev', as follows:
@@ -43,6 +47,12 @@ You must run these commands to add the OpenTimelineIO submodule to the tree and 
     git submodule init
     git submodule update
     git apply cmake/otio_patch.diff
+
+### Modify the CMakePresets.json file
+
+Open the CMakePresets.json file (which is in the root of the xstudio repo) in a text editor. You must look for the entry "Qt6_DIR" and modify the value that follows it to point to your installation of the Qt SDK. Specifically, you need to point to a directory named 'Qt6' which is in a directory named 'cmake', which is in a directory named 'lib'. For example, on Windows where user Mary Jane downloaded Qt into the root of her C: drive the entry should look like this:
+
+    "Qt6_DIR": ""C:/Qt6/6.5.3/msvc2019_64/lib/cmake/Qt6",
 
 ### Build xSTUDIO
 

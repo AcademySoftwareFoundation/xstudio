@@ -119,62 +119,6 @@ void Module::delete_attribute(const utility::Uuid &attribute_uuid) {
     }
 }
 
-void Module::link_to_module(
-    caf::actor other_module,
-    const bool link_all_attrs,
-    const bool both_ways,
-    const bool intial_push_sync) {
-
-    auto addr = caf::actor_cast<caf::actor_addr>(other_module);
-    if (addr) {
-
-        if (link_all_attrs)
-            fully_linked_modules_.insert(addr);
-        else
-            partially_linked_modules_.insert(addr);
-
-        if (intial_push_sync) {
-
-            scoped_actor sys{self()->home_system()};
-            // send state of all attrs to 'other_module' so it can update its copies as required
-            for (auto &attribute : attributes_) {
-                if (link_all_attrs ||
-                    linked_attrs_.find(attribute->uuid()) != linked_attrs_.end()) {
-                    anon_mail(
-                        change_attribute_value_atom_v,
-                        attribute->get_role_data<std::string>(Attribute::Title),
-                        utility::JsonStore(attribute->role_data_as_json(Attribute::Value)),
-                        true)
-                        .send(other_module);
-                }
-            }
-        }
-
-        if (both_ways)
-            anon_mail(module::link_module_atom_v, self(), link_all_attrs, false, false)
-                .send(other_module);
-    }
-}
-
-void Module::unlink_module(caf::actor other_module) {
-    auto addr = caf::actor_cast<caf::actor_addr>(other_module);
-    auto p    = std::find(fully_linked_modules_.begin(), fully_linked_modules_.end(), addr);
-    bool found_link = false;
-    if (p != fully_linked_modules_.end()) {
-        fully_linked_modules_.erase(p);
-        found_link = true;
-    }
-    p = std::find(partially_linked_modules_.begin(), partially_linked_modules_.end(), addr);
-    if (p != partially_linked_modules_.end()) {
-        partially_linked_modules_.erase(p);
-        found_link = true;
-    }
-
-    if (found_link) {
-        anon_mail(module::link_module_atom_v, self(), false).send(other_module);
-    }
-}
-
 FloatAttribute *Module::add_float_attribute(
     const std::string &title,
     const std::string &abbr_title,
@@ -520,7 +464,7 @@ caf::message_handler Module::message_handler() {
          [=](change_attribute_request_atom,
              utility::Uuid attr_uuid,
              const int role,
-             const utility::JsonStore &value) {
+             const utility::JsonStore &value) -> bool {
              for (const auto &p : attributes_) {
                  if (p->uuid() == attr_uuid) {
 
@@ -531,12 +475,13 @@ caf::message_handler Module::message_handler() {
                      }
                  }
              }
+             return true;
          },
 
          [=](change_attribute_request_atom,
              const std::string &attr_title,
              const int role,
-             const utility::JsonStore &value) {
+             const utility::JsonStore &value) -> bool {
              auto attr = get_attribute(attr_title);
              if (attr) {
                  try {
@@ -545,6 +490,7 @@ caf::message_handler Module::message_handler() {
                      spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
                  }
              }
+             return true;
          },
 
          [=](change_attribute_value_atom,
@@ -584,10 +530,8 @@ caf::message_handler Module::message_handler() {
              const std::string &attr_title,
              const int role,
              bool notify,
-             const utility::JsonStore &value,
-             caf::actor_addr attr_sync_source_adress) -> bool {
-             attr_sync_source_adress_ = attr_sync_source_adress;
-             auto attr                = get_attribute(attr_title);
+             const utility::JsonStore &value) -> bool {
+             auto attr = get_attribute(attr_title);
 
              if (attr) {
                  try {
@@ -596,7 +540,6 @@ caf::message_handler Module::message_handler() {
                      spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
                  }
              }
-             attr_sync_source_adress_ = caf::actor_addr();
              return true;
          },
 
@@ -696,6 +639,51 @@ caf::message_handler Module::message_handler() {
              }
          },
 
+         [=](watch_attribute_atom, const std::string attr_title, caf::actor watcher)
+             -> result<utility::Uuid> {
+             Attribute *attr = get_attribute(attr_title);
+             if (!attr) {
+                 return caf::make_error(
+                     xstudio_error::error,
+                     fmt::format("Module {} has no attribute named {}", name(), attr_title)
+                         .c_str());
+             }
+
+             auto a = caf::actor_cast<caf::event_based_actor *>(self());
+             if (a) {
+                 a->monitor(watcher, [this, addr = watcher.address()](const error &) {
+                     auto act_addr = caf::actor_cast<caf::actor_addr>(addr);
+                     for (auto &p : attribute_watchers_) {
+                         auto q = p.second.find(act_addr);
+                         if (q != p.second.end()) {
+                             p.second.erase(q);
+                         }
+                     }
+                 });
+             }
+
+             attribute_watchers_[attr->uuid()].insert(
+                 caf::actor_cast<caf::actor_addr>((watcher)));
+             anon_mail(
+                 utility::event_atom_v,
+                 module::attribute_value_atom_v,
+                 attr->uuid(),
+                 int(Attribute::Value),
+                 utility::JsonStore(attr->role_data_as_json(Attribute::Value)))
+                 .send(watcher);
+             return attr->uuid();
+         },
+
+         [=](watch_attribute_atom, bool unwatch, caf::actor watcher) {
+             auto act_addr = caf::actor_cast<caf::actor_addr>(watcher);
+             for (auto &p : attribute_watchers_) {
+                 auto q = p.second.find(act_addr);
+                 if (q != p.second.end()) {
+                     p.second.erase(q);
+                 }
+             }
+         },
+
          [=](add_attribute_atom,
              const std::string attr_title,
              const utility::JsonStore &attr_value,
@@ -731,20 +719,6 @@ caf::message_handler Module::message_handler() {
                  rt.push_back(attr->uuid());
              }
              return rt;
-         },
-
-         [=](link_module_atom,
-             caf::actor linkwith,
-             bool all_attrs,
-             bool both_ways,
-             bool intial_push_sync) {
-             link_to_module(linkwith, all_attrs, both_ways, intial_push_sync);
-         },
-
-         [=](link_module_atom, caf::actor linkwith, bool unlink) {
-             if (unlink) {
-                 unlink_module(linkwith);
-             }
          },
 
          [=](connect_to_ui_atom) { connect_to_ui(); },
@@ -860,9 +834,57 @@ caf::message_handler Module::message_handler() {
                  hotkey_released(uuid, context, due_to_focus_change);
          },
 
+         [=](callback_atom, const utility::JsonStore &json) {
+             qml_item_callback(utility::Uuid(), json);
+         },
+
          [=](deserialise_atom, const utility::JsonStore &json) { deserialise(json); },
 
          [=](serialise_atom) -> utility::JsonStore { return serialise(); },
+
+         [=](serialise_preferences_attrs) -> utility::JsonStore {
+             utility::JsonStore result;
+             for (const auto &attr : attributes_) {
+                 if (attr->has_role_data(Attribute::PreferencePath)) {
+                     try {
+                         result[attr->get_role_data<std::string>(Attribute::PreferencePath)] =
+                             attr->role_data_as_json(Attribute::Value);
+                     } catch (...) {
+                     }
+                 }
+             }
+             return result;
+         },
+
+         [=](deserialise_preferences_attrs, const utility::JsonStore &data) -> bool {
+             // any Module that has it's preference attrs explicitly set here should not be
+             // syncing the attribute values into the prefs store (indefinitely).
+             //
+             // Example is offscreen HUD Plugins for offscreen rendering... we want to
+             // set these up to match the HUD settings in the main app at render time,
+             // then they mustn't update when the main app HUD Plugins are changed by
+             // the user
+             store_to_prefs_ = false;
+             for (const auto &attr : attributes_) {
+                 if (attr->has_role_data(Attribute::PreferencePath)) {
+                     try {
+                         const std::string path =
+                             attr->get_role_data<std::string>(Attribute::PreferencePath);
+                         if (data.contains(path)) {
+                             attr->set_role_data(Attribute::Value, data[path]);
+                         }
+                     } catch (std::exception &e) {
+                         spdlog::warn(
+                             "{} Module: {} Attribute {} -- {}",
+                             __PRETTY_FUNCTION__,
+                             name(),
+                             attr->get_role_data<std::string>(Attribute::Title),
+                             e.what());
+                     }
+                 }
+             }
+             return true;
+         },
 
          [=](update_attribute_in_preferences_atom) {
              auto prefs = global_store::GlobalStoreHelper(self()->home_system());
@@ -886,6 +908,7 @@ caf::message_handler Module::message_handler() {
              }
              attrs_waiting_to_update_prefs_.clear();
          },
+
          [=](module::current_viewport_playhead_atom, const std::string &name, caf::actor_addr)
              -> bool { return true; },
          [=](ui::viewport::connect_to_viewport_toolbar_atom,
@@ -896,6 +919,20 @@ caf::message_handler Module::message_handler() {
              connect_to_viewport(viewport_name, viewport_toolbar_name, connect, viewport);
          },
          [=](utility::name_atom) -> std::string { return name(); },
+         [=](utility::event_atom,
+             playhead::show_atom,
+             const utility::UuidActor &media,
+             const utility::UuidActor &media_source,
+             const std::string viewport_name,
+             const int playhead_idx) {
+             on_screen_media_changed(media, media_source);
+             anon_mail(
+                 utility::event_atom_v,
+                 playhead::show_atom_v,
+                 media.actor(),
+                 media_source.actor())
+                 .send(attribute_events_group_);
+         },
          [=](utility::event_atom,
              playhead::show_atom,
              caf::actor media,
@@ -927,6 +964,7 @@ caf::message_handler Module::message_handler() {
              // QML. It could be general data model or menu specifi one.
              // For menu specific one we need to fiddle a bit to map the
              // role data.
+             Attribute *attr = get_attribute(uuid_role_data);
              try {
 
 
@@ -937,8 +975,8 @@ caf::message_handler Module::message_handler() {
                      role_index = Attribute::Value;
                  else
                      role_index = Attribute::role_index(role);
-                 Attribute *attr = get_attribute(uuid_role_data);
                  if (attr) {
+
                      attr->set_role_data(role_index, data);
                  }
 
@@ -1157,7 +1195,7 @@ void Module::notify_change(
     // retrieved from the preferences system so the attribute value persists
     // between sessions. So if you set Volume to level 8, next time you start
     // xSTUDIO it is already at 8 for example.
-    if (attr && attr->has_role_data(Attribute::PreferencePath) && self()) {
+    if (store_to_prefs_ && attr && attr->has_role_data(Attribute::PreferencePath) && self()) {
         if (!attrs_waiting_to_update_prefs_.size()) {
 
             // In order to prevent rapid granular attr updates spamming the
@@ -1194,6 +1232,28 @@ void Module::attribute_changed(const utility::Uuid &attr_uuid, const int role_id
         update_attribute_menu_item_data(attr);
     }
 
+    {
+        // notfiy attribute watchers
+        auto p     = attribute_watchers_.find(attr_uuid);
+        auto _self = caf::actor_cast<caf::event_based_actor *>(self());
+
+        if (p != attribute_watchers_.end()) {
+            for (auto &watcher : p->second) {
+                caf::actor a = caf::actor_cast<caf::actor>(watcher);
+                if (a) {
+                    _self
+                        ->mail(
+                            utility::event_atom_v,
+                            module::attribute_value_atom_v,
+                            attr_uuid,
+                            role_id,
+                            utility::JsonStore(attr->role_data_as_json(role_id)))
+                        .send(a);
+                }
+            }
+        }
+    }
+
     if (role_id == Attribute::UIDataModels && attr) {
 
         auto central_models_data_actor =
@@ -1211,6 +1271,23 @@ void Module::attribute_changed(const utility::Uuid &attr_uuid, const int role_id
                 Attribute::role_name(Attribute::ToolbarPosition),
                 self())
                 .send(central_models_data_actor);
+        }
+    } else if (role_id == Attribute::CallbackData && attr) {
+
+        const utility::JsonStore callback_data(
+            attr->role_data_as_json(Attribute::CallbackData));
+
+        static const utility::JsonStore dummy_value(nlohmann::json::parse(R"({"nothin":0})"));
+
+        if (callback_data != dummy_value) {
+            qml_item_callback(attr_uuid, callback_data);
+            // callbacks are triggered from QML by setting the CallbackData role data
+            // in a special attribute to the arguments of the callback made from.
+            // QML (see XsRuntimeQMLItems.qml). In order for the same callback to be
+            // executed with the same arguments we need to clear the CallbackData
+            // role data here so we get an attribute_changed signal next time the
+            // callback is made.
+            attr->set_role_data(Attribute::CallbackData, dummy_value, false);
         }
     }
 
@@ -1238,59 +1315,6 @@ void Module::attribute_changed(const utility::Uuid &attr_uuid, const int role_id
         // silently set the 'Activated' role data to -1 so the UI can set it
         // to 0 or 1 (again) and we still get notification
         attr->set_role_data(module::Attribute::Activated, -1, false);
-    }
-
-    // This is where the 'linking' mechanism is enacted. We send a change_attribute
-    // message to linked modules.
-    if (linking_disabled_ || role_id != Attribute::Value) {
-        if (notify)
-            attribute_changed(attr_uuid, role_id);
-        return;
-    }
-
-    auto my_adress = caf::actor_cast<caf::actor_addr>(self());
-    if (linked_attrs_.find(attr_uuid) != linked_attrs_.end()) {
-        for (auto &linked_module_addr : partially_linked_modules_) {
-
-            // If the attribute is changed because of a sync coming from another
-            // linked module, we don't want to broadcast the change *back* to
-            // that module. That's what this line does!
-            if (linked_module_addr == attr_sync_source_adress_)
-                continue;
-
-            auto linked_module = caf::actor_cast<caf::actor>(linked_module_addr);
-            if (!linked_module)
-                continue;
-            module::Attribute *attr = get_attribute(attr_uuid);
-            auto attr_name      = attr->get_role_data<std::string>(module::Attribute::Title);
-            auto attr_role_data = attr->role_data_as_json(role_id);
-            anon_mail(
-                module::change_attribute_value_atom_v,
-                attr_name,
-                role_id,
-                notify,
-                utility::JsonStore(attr_role_data),
-                my_adress)
-                .send(linked_module);
-        }
-    }
-    for (auto &linked_module_addr : fully_linked_modules_) {
-        if (linked_module_addr == attr_sync_source_adress_)
-            continue;
-        auto linked_module = caf::actor_cast<caf::actor>(linked_module_addr);
-        if (!linked_module)
-            continue;
-        module::Attribute *attr = get_attribute(attr_uuid);
-        auto attr_name          = attr->get_role_data<std::string>(module::Attribute::Title);
-        auto attr_role_data     = attr->role_data_as_json(role_id);
-        anon_mail(
-            module::change_attribute_value_atom_v,
-            attr_name,
-            role_id,
-            notify,
-            utility::JsonStore(attr_role_data),
-            my_adress)
-            .send(linked_module);
     }
 
     if (notify)
@@ -2183,7 +2207,7 @@ void Module::connect_to_viewport(
     // can connect to the UI
 
     size_t n = connected_viewports_.size();
-    if (connect) {
+    if (connect && viewport) {
         auto a = caf::actor_cast<caf::event_based_actor *>(self());
 
         if (a) {
@@ -2209,6 +2233,7 @@ void Module::connect_to_viewport(
         connected_viewports_.insert(viewport);
 
     } else if (
+        viewport &&
         connected_viewport_names_.find(viewport_name) != connected_viewport_names_.end()) {
 
         if (auto it = monitor_.find(caf::actor_cast<caf::actor_addr>(viewport));
@@ -2254,11 +2279,20 @@ utility::JsonStore Module::public_state_data() {
     return data;
 }
 
+void Module::register_main_menu_bar_widget(
+    const std::string &widget_qml_code, const float position_in_widget_set) {
+
+    auto attr = new QmlCodeAttribute(to_string(utility::Uuid::generate()), widget_qml_code);
+    attr->set_role_data(Attribute::ToolbarPosition, position_in_widget_set);
+    add_attribute(static_cast<Attribute *>(attr));
+    expose_attribute_in_model_data(attr, "playlists header extra widgets", true);
+}
+
 void Module::register_ui_panel_qml(
     const std::string &panel_name,
     const std::string &qml_code,
     const float position_in_menu,
-    const std::string &viewport_popout_button_icon,
+    const std::string &viewport_popout_button_icon_or_custom_button,
     const float &viewport_popout_button_position,
     const utility::Uuid toggle_hotkey_id) {
 
@@ -2294,11 +2328,18 @@ void Module::register_ui_panel_qml(
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
 
-    if (!viewport_popout_button_icon.empty() && viewport_popout_button_position != -1.0f) {
+    if (!viewport_popout_button_icon_or_custom_button.empty() &&
+        viewport_popout_button_position != -1.0f) {
 
         utility::JsonStore data;
-        data["view_name"]         = panel_name;
-        data["icon_path"]         = viewport_popout_button_icon;
+        data["view_name"] = panel_name;
+        if (viewport_popout_button_icon_or_custom_button.find("qrc:") == 0) {
+            // must be an icon to make a default button
+            data["icon_path"] = viewport_popout_button_icon_or_custom_button;
+        } else {
+            // looks like a custom qml widget to make the shelf button
+            data["qml_widget"] = viewport_popout_button_icon_or_custom_button;
+        }
         data["view_qml_source"]   = qml_code;
         data["button_position"]   = viewport_popout_button_position;
         data["window_is_visible"] = false;
@@ -2364,7 +2405,9 @@ void Module::register_singleton_qml(const std::string &qml_code) {
         global_ui_model_data_registry);
 
     utility::JsonStore data;
-    data["source"] = qml_code;
+    data["source"]        = qml_code;
+    data["actor_address"] = utility::actor_to_string(
+        self()->home_system(), caf::actor_cast<caf::actor>(parent_actor_addr_));
 
     scoped_actor sys{self()->home_system()};
     try {
@@ -2382,4 +2425,15 @@ void Module::register_singleton_qml(const std::string &qml_code) {
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
+}
+
+utility::Uuid Module::create_qml_item(const std::string &qml_code) {
+
+    auto name = fmt::format("QML_ITEM{}", attributes_.size());
+    auto attr = new BooleanAttribute(name, name, false);
+    attr->set_role_data(Attribute::QmlCode, qml_code);
+    add_attribute(static_cast<Attribute *>(attr));
+    expose_attribute_in_model_data(attr, "dynamic qml items", true);
+    attr->set_value(true);
+    return attr->uuid();
 }

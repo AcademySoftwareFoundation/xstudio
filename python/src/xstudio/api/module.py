@@ -213,8 +213,6 @@ class ModuleBase(ActorConnection, metaclass=ModuleMeta):
             self.attrs_by_name_[attr_wrapper.name] = attr_wrapper
             self.attrs_by_uuid_[attr_uuid] = attr_wrapper
 
-        self.__attribute_changed = None
-
     def setup_message_handler(self):
 
         # this call gets the event group for Module attribute change events
@@ -230,7 +228,7 @@ class ModuleBase(ActorConnection, metaclass=ModuleMeta):
         based on the state of plugin attributes will be executed and updated
         in real time.
         """
-        self.connection.request_receive(
+        self.connection.send(
             self.remote,
             connect_to_ui_atom())
 
@@ -337,6 +335,9 @@ class ModuleBase(ActorConnection, metaclass=ModuleMeta):
         else:
             raise Exception("No attribute named {0}".format(attr_name))
 
+    def __attribute_changed(self, attr, role):
+        self.attribute_changed(attr, role)
+
     def attribute_changed(self, attr, role):
         """Override this method to get callbacks when an attribute's role
         data has changed
@@ -388,7 +389,7 @@ class ModuleBase(ActorConnection, metaclass=ModuleMeta):
             raise Exception("Actor has no event group.")
 
         return self.connection.link.add_message_callback(
-            event_group, callback_method
+            event_source.remote, callback_method
             )
 
     def unsubscribe_from_event_group(self, uuid):
@@ -608,7 +609,7 @@ class ModuleBase(ActorConnection, metaclass=ModuleMeta):
                 attr_uuid = message_content[2] if len(
                     message_content) > 2 else Uuid()
                 if attr_uuid in self.attrs_by_uuid_:
-                    self.attribute_changed(self.attrs_by_uuid_[attr_uuid], role)
+                    self.__attribute_changed(self.attrs_by_uuid_[attr_uuid], role)
                 if attr_uuid in self.menu_trigger_callbacks:
                     self.menu_trigger_callbacks[attr_uuid]()
 

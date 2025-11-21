@@ -410,7 +410,7 @@ ImageBufPtr FFMpegMediaReader::image(const media::AVFrameID &mptr) {
             return last_decoded_image_;
         }
 
-        if (!decoder || decoder->path() != path) {
+        if (!decoder || decoder->path() != path || decoder->stream_id() != mptr.stream_id()) {
             decoder.reset(new FFMpegDecoder(
                 path, soundcard_sample_rate_, default_rate_, mptr.stream_id()));
         }
@@ -510,7 +510,7 @@ xstudio::media::MediaDetail FFMpegMediaReader::detail(const caf::uri &uri) const
                 fmt::format("stream {}", p.first),
                 (p.second->codec_type() == AVMEDIA_TYPE_VIDEO ? media::MT_IMAGE
                                                               : media::MT_AUDIO),
-                "{0}@{1}/{2}",
+                "{0}@{1}/{2},{3}",
                 p.second->resolution(),
                 p.second->pixel_aspect(),
                 p.first));
@@ -530,7 +530,7 @@ xstudio::media::MediaDetail FFMpegMediaReader::detail(const caf::uri &uri) const
             streams[0].duration_,
             "stream -1",
             media::MT_IMAGE,
-            "{0}@{1}/{2}",
+            "{0}@{1}/{2},{3}",
             Imath::V2f(1920, 1080),
             1.0f,
             -1));
