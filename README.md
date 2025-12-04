@@ -14,18 +14,18 @@ This release of xSTUDIO can be built on various Linux flavours, Microsoft Window
 
 ### Building xSTUDIO for Linux
 
-* [Linux Generic](docs/build_guides/linux_generic.md) 
-* [CentOS 7](docs/build_guides/centos_7.md)
-* [Rocky Linux 9.1](docs/build_guides/rocky_linux_9_1.md)
-* [Ubuntu 22.04](docs/build_guides/ubuntu_22_04.md)
+* [Linux Generic](docs/reference/build_guides/linux_generic.md)
+* [CentOS 7](docs/reference/build_guides/centos_7.md)
+* [Rocky Linux 9.1](docs/reference/build_guides/rocky_linux_9_1.md)
+* [Ubuntu 22.04](docs/reference/build_guides/ubuntu_22_04.md)
 
 ### Building xSTUDIO for Windows 10 & 11
 
-* [Windows](docs/build_guides/windows.md)
+* [Windows](docs/reference/build_guides/windows.md)
 
 ### Building xSTUDIO for MacOS
 
-* [MacOS](docs/build_guides/macos.md)
+* [MacOS](docs/reference/build_guides/macos.md)
 
 ### Documentation Note
 
