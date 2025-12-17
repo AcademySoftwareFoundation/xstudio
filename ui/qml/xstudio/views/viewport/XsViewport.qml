@@ -132,6 +132,8 @@ Viewport {
     // in the ViewportHUD qml code so we create a dummy property here 
     property var hud_plugins_display_data
 
+    property var subPlayheadIdx: viewportPlayhead.keySubplayheadIndex != undefined ? viewportPlayhead.keySubplayheadIndex : 0
+
     // this one lays out the HUD graphics coming from HUD plugins and
     // also general overlay graphics like Mask
     Repeater {
@@ -141,7 +143,7 @@ Viewport {
             // we are in grid mode, it's the index in the model here. If we're not in
             // a grid layout 'num_images_on_screen' is 1 and we need to use the 
             // active sub playhead index.
-            imageIndex: num_images_on_screen == 1 ? viewportPlayhead.keySubplayheadIndex : index
+            imageIndex: num_images_on_screen == 1 ? subPlayheadIdx : index
         }
     }
     
