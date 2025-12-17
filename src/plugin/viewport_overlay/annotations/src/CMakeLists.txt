@@ -29,6 +29,7 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::plugin_manager
 		xstudio::ui::opengl::viewport
 		Imath::Imath
+		Qt6::Core
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)

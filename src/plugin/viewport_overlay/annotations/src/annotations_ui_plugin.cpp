@@ -460,7 +460,7 @@ void AnnotationsUI::start_item(const ui::PointerEvent &e) {
     payload["point"]["y"] = float(e.y())/float(e.height());
     payload["viewport"] = e.context();
 
-    const auto colour = std::vector<float>({pen_colour_->value().r, pen_colour_->value().g, pen_colour_->value().b, (current_tool() == Brush ? brush_opacity_->value() : pen_opacity_->value()) / 100.0});
+    const auto colour = std::vector<float>({pen_colour_->value().r, pen_colour_->value().g, pen_colour_->value().b, (current_tool() == Brush ? brush_opacity_->value() : pen_opacity_->value()) / 100.0f});
 
     switch (current_tool()) {
         case Draw:

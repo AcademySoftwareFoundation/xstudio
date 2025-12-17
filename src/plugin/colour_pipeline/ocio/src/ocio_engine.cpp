@@ -327,7 +327,7 @@ void OCIOEngine::extend_pixel_info(
 OCIO::ConstConfigRcPtr
 OCIOEngine::get_ocio_config(const utility::JsonStore &src_colour_mgmt_metadata) const {
 
-    const std::string config_name =
+    std::string config_name =
         utility::forward_remap_file_path(
             src_colour_mgmt_metadata.get_or("ocio_config", default_config_));
     const std::string displays =
@@ -393,7 +393,7 @@ OCIOEngine::get_ocio_config(const utility::JsonStore &src_colour_mgmt_metadata) 
     }
 
     config                     = econfig;
-    ocio_config_cache_[concat] = config;
+    ocio_config_cache_[config_cache_key] = config;
 
     return config;
 }
