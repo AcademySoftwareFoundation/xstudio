@@ -219,47 +219,47 @@ QFuture<QString> ShotBrowserEngine::getDepartmentsFuture() {
     return getDataFuture(QString("department"));
 }
 
-QFuture<QString> ShotBrowserEngine::getReferenceTagsFuture() {
-    REQUEST_BEGIN()
+// QFuture<QString> ShotBrowserEngine::getReferenceTagsFuture() {
+//     REQUEST_BEGIN()
 
-    scoped_actor sys{system()};
+//     scoped_actor sys{system()};
 
-    auto filter = R"(
-    {
-        "logical_operator": "and",
-        "conditions": [
-            ["name", "ends_with", ".REFERENCE"]
-        ]
-    })"_json;
+//     auto filter = R"(
+//     {
+//         "logical_operator": "and",
+//         "conditions": [
+//             ["name", "ends_with", ".REFERENCE"]
+//         ]
+//     })"_json;
 
-    // we've got more that 5000 employees....
-    auto data = request_receive_wait<JsonStore>(
-        *sys,
-        backend_,
-        SHOTGRID_TIMEOUT,
-        shotgun_entity_search_atom_v,
-        "Tags",
-        JsonStore(filter),
-        std::vector<std::string>({"name", "id"}),
-        std::vector<std::string>({"name"}),
-        1,
-        4999);
+//     // we've got more that 5000 employees....
+//     auto data = request_receive_wait<JsonStore>(
+//         *sys,
+//         backend_,
+//         SHOTGRID_TIMEOUT,
+//         shotgun_entity_search_atom_v,
+//         "Tags",
+//         JsonStore(filter),
+//         std::vector<std::string>({"name", "id"}),
+//         std::vector<std::string>({"name"}),
+//         1,
+//         4999);
 
-    if (not data.count("data"))
-        throw std::runtime_error(data.dump(2));
+//     if (not data.count("data"))
+//         throw std::runtime_error(data.dump(2));
 
-    for (auto &i : data["data"]) {
-        auto str                = i["attributes"]["name"].get<std::string>();
-        i["attributes"]["name"] = str.substr(0, str.size() - sizeof(".REFERENCE") + 1);
-    }
+//     for (auto &i : data["data"]) {
+//         auto str                = i["attributes"]["name"].get<std::string>();
+//         i["attributes"]["name"] = str.substr(0, str.size() - sizeof(".REFERENCE") + 1);
+//     }
 
-    anon_mail(shotgun_info_atom_v, JsonStore(R"({"type": "reference_tag"})"_json), data)
-        .send(as_actor());
+//     anon_mail(shotgun_info_atom_v, JsonStore(R"({"type": "reference_tag"})"_json), data)
+//         .send(as_actor());
 
-    return QStringFromStd(data.dump());
+//     return QStringFromStd(data.dump());
 
-    REQUEST_END()
-}
+//     REQUEST_END()
+// }
 
 QFuture<QString> ShotBrowserEngine::getCustomEntity24Future(const int project_id) {
     return getDataFuture(QString("unit"), project_id);
@@ -332,11 +332,18 @@ QFuture<QString> ShotBrowserEngine::addVersionToPlaylistFuture(
 }
 
 QFuture<QString> ShotBrowserEngine::updateEntityFuture(
-    const QString &entity, const int record_id, const QString &update_json) {
+    const QString &entity,
+    const int record_id,
+    const QString &update_json,
+    const QStringList &qfields) {
 
     REQUEST_BEGIN()
 
     scoped_actor sys{system()};
+
+    auto fields = std::vector<std::string>();
+    for (const auto &i : qfields)
+        fields.emplace_back(StdFromQString(i));
 
     auto js = request_receive_wait<JsonStore>(
         *sys,
@@ -345,7 +352,9 @@ QFuture<QString> ShotBrowserEngine::updateEntityFuture(
         shotgun_update_entity_atom_v,
         StdFromQString(entity),
         record_id,
-        utility::JsonStore(nlohmann::json::parse(StdFromQString(update_json))));
+        utility::JsonStore(nlohmann::json::parse(StdFromQString(update_json))),
+        fields);
+
     return QStringFromStd(js.dump());
 
     REQUEST_END()
@@ -611,6 +620,28 @@ QFuture<QString> ShotBrowserEngine::getPlaylistVersionsFuture(const int id) {
     REQUEST_END()
 }
 
+QFuture<QString> ShotBrowserEngine::tagEntityFromNameFuture(
+    const QString &entity, const int record_id, const QString &tagName) {
+
+    REQUEST_BEGIN()
+
+    scoped_actor sys{system()};
+
+    auto req = JsonStore(PostTagEntityFromName);
+
+    req["entity"]    = StdFromQString(entity);
+    req["entity_id"] = record_id;
+    req["tag_name"]  = StdFromQString(tagName);
+
+    auto js = request_receive_wait<JsonStore>(
+        *sys, backend_, SHOTGRID_TIMEOUT, data_source::post_data_atom_v, req);
+
+    return QStringFromStd(js.dump());
+
+    REQUEST_END()
+}
+
+
 QFuture<QString> ShotBrowserEngine::tagEntityFuture(
     const QString &entity, const int record_id, const int tag_id) {
 
@@ -652,7 +683,7 @@ QFuture<QString> ShotBrowserEngine::renameTagFuture(const int tag_id, const QStr
         *sys, backend_, SHOTGRID_TIMEOUT, data_source::post_data_atom_v, req);
 
     // trigger update to get new tag.
-    getReferenceTagsFuture();
+    // getReferenceTagsFuture();
 
     return QStringFromStd(js.dump());
 
@@ -668,12 +699,13 @@ QFuture<QString> ShotBrowserEngine::removeTagFuture(const int tag_id) {
         *sys, backend_, SHOTGRID_TIMEOUT, shotgun_delete_entity_atom_v, "Tag", tag_id);
 
     // trigger update to get new tag.
-    getReferenceTagsFuture();
+    // getReferenceTagsFuture();
 
     return QStringFromStd(js.dump());
 
     REQUEST_END()
 }
+
 
 QFuture<QString> ShotBrowserEngine::untagEntityFuture(
     const QString &entity, const int record_id, const int tag_id) {
@@ -706,7 +738,7 @@ QFuture<QString> ShotBrowserEngine::createTagFuture(const QString &text) {
         *sys, backend_, SHOTGRID_TIMEOUT, data_source::post_data_atom_v, req);
 
     // trigger update to get new tag.
-    getReferenceTagsFuture();
+    // getReferenceTagsFuture();
 
     return QStringFromStd(js.dump());
 

@@ -91,6 +91,7 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
         propertyRole,
         rateFPSRole,
         resolutionRole,
+        rotationRole,
         selectionRole,
         thumbnailImageRole,
         thumbnailURLRole,

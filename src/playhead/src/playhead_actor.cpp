@@ -776,7 +776,8 @@ void PlayheadActor::init() {
                     audio_path_ == playhead::GLOBAL_AUDIO,
                     uuid(),
                     scrubbing,
-                    position())
+                    position(),
+                    playhead_volume_->value())
                     .send(audio_output_actor_);
             }
         },
@@ -921,6 +922,15 @@ void PlayheadActor::init() {
         [=](logical_frame_to_flicks_atom, const int frame) {
             return mail(logical_frame_to_flicks_atom_v, int64_t(frame))
                 .delegate(hero_sub_playhead_.actor());
+        },
+
+        [=](playhead::use_loop_range_atom, const bool enabled, const int in, const int out)
+            -> bool {
+            loop_start_frame_->set_value(in);
+            loop_end_frame_->set_value(out);
+            loop_range_enabled_->set_value(enabled);
+
+            return true;
         },
 
         [=](simple_loop_end_atom) {
@@ -1082,7 +1092,7 @@ void PlayheadActor::init() {
                 anon_mail(precache_atom_v).send(hero_sub_playhead_.actor());
                 if (audio_playhead_)
                     anon_mail(precache_atom_v).send(audio_playhead_);
-                anon_mail(precache_atom_v).delay(std::chrono::milliseconds(1000)).send(this);
+                anon_mail(precache_atom_v).delay(std::chrono::milliseconds(500)).send(this);
             } else if (sub_playheads_.size()) {
                 sub_playhead_precache_idx_ =
                     (sub_playhead_precache_idx_ + 1) % sub_playheads_.size();
@@ -1094,7 +1104,7 @@ void PlayheadActor::init() {
                 }
                 if (playing()) {
                     anon_mail(precache_atom_v)
-                        .delay(std::chrono::milliseconds(1000 / sub_playheads_.size()))
+                        .delay(std::chrono::milliseconds(500 / sub_playheads_.size()))
                         .send(this);
                 }
             }
@@ -1118,7 +1128,7 @@ void PlayheadActor::init() {
                     .then(
                         [=](caf::actor media_actor) {
                             if (media_actor)
-                                current_media_changed(media_actor);
+                                current_media_changed(media_actor, true);
                         },
                         [=](const error &err) {
                             spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -2092,6 +2102,8 @@ void PlayheadActor::update_child_playhead_positions(const bool force_broadcast) 
         anon_mail(
             position_atom_v,
             adjusted_position(),
+            loop_start(),
+            loop_end(),
             forward(),
             velocity(),
             playing(),
@@ -2222,6 +2234,7 @@ void PlayheadActor::update_duration(caf::typed_response_promise<timebase::flicks
                 if (duration != timebase::k_flicks_zero_seconds) {
 
                     set_duration(duration);
+                    align_audio_playhead();
 
                     // check that the loop range is valid, i.e. the loop start is
                     // within the (new) source duration
@@ -2922,11 +2935,11 @@ void PlayheadActor::attribute_changed(const utility::Uuid &attr_uuid, const int 
 void PlayheadActor::hotkey_pressed(
     const utility::Uuid &hotkey_uuid, const std::string &context, const std::string &window) {
 
-    // If the context starts with 'viewport' the hotkey was hit while a viewport
+    // If the context contains 'viewport' the hotkey was hit while a viewport
     // had mouse focus. If that viewport is NOT attached to this playhead we
     // ignore the hotkey
     if (active_viewports_.empty() ||
-        (context.find("viewport") == 0 &&
+        (context.find("viewport") != std::string::npos &&
          active_viewports_.find(context) == active_viewports_.end())) {
         return;
     }

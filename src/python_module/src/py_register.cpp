@@ -282,6 +282,7 @@ void register_mediareference_class(py::module &m, const std::string &name) {
             "Duration in seconds",
             py::arg("override") = utility::FrameRate())
         .def("duration", &utility::MediaReference::duration)
+        .def("set_duration", &utility::MediaReference::set_duration)
         .def("rate", &utility::MediaReference::rate)
         .def("set_rate", &utility::MediaReference::set_rate)
         .def(
@@ -298,6 +299,7 @@ void register_mediareference_class(py::module &m, const std::string &name) {
         .def("set_offset", &utility::MediaReference::set_offset)
         .def("start_frame_offset", &utility::MediaReference::start_frame_offset)
         .def("set_start_frame_offset", &utility::MediaReference::set_start_frame_offset)
+        .def("set_timecode", &utility::MediaReference::set_timecode)
         .def("frame", [](const utility::MediaReference &x, int i) {
             auto f = x.frame(i);
             if (f)
@@ -417,6 +419,68 @@ void register_FrameRateDuration_class(py::module &m, const std::string &name) {
             py::arg("rate") = utility::FrameRate())
         .def("set_frames", &utility::FrameRateDuration::set_frames)
         .def("rate", &utility::FrameRateDuration::rate)
+        .def("__str__", str_impl);
+}
+
+void register_matrix44_class(py::module &m, const std::string &name) {
+    auto str_impl = [](const Imath::M44f &x) {
+        std::stringstream s;
+        s << x;
+        return s.str();
+    };
+    py::class_<Imath::M44f>(m, name.c_str())
+        .def(py::init<>())
+        .def(py::init<
+             float,
+             float,
+             float,
+             float,
+             float,
+             float,
+             float,
+             float,
+             float,
+             float,
+             float,
+             float,
+             float,
+             float,
+             float,
+             float>())
+        .def(
+            "rotate",
+            [](Imath::M44f &s, float x, float y, float z) { s.rotate(Imath::V3f(x, y, z)); })
+        .def(
+            "scale",
+            [](Imath::M44f &s, float x, float y, float z) { s.scale(Imath::V3f(x, y, z)); })
+        .def(
+            "__getitem__",
+            [](const Imath::M44f &s, size_t i) {
+                if (i >= 4) {
+                    throw py::index_error();
+                }
+                py::list l;
+                l.append(s[i][0]);
+                l.append(s[i][1]);
+                l.append(s[i][2]);
+                l.append(s[i][3]);
+                return l;
+            })
+        .def(
+            "__setitem__",
+            [](Imath::M44f &s, size_t i, py::list &l) {
+                if (i >= 4) {
+                    throw py::index_error();
+                }
+                auto v = l.cast<std::vector<float>>();
+                if (v.size() != 4) {
+                    throw py::value_error();
+                }
+                s[i][0] = v[0];
+                s[i][1] = v[1];
+                s[i][2] = v[2];
+                s[i][3] = v[3];
+            })
         .def("__str__", str_impl);
 }
 

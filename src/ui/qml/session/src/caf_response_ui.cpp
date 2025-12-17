@@ -96,6 +96,15 @@ class CafRequest : public ControllableJob<QMap<int, QString>> {
                 }
                 break;
 
+            case SessionModel::Roles::rotationRole:
+                if (type == "Media") {
+                    auto data = request_receive<float>(
+                        *sys,
+                        actorFromString(system_, json_.at("actor")),
+                        media::rotation_atom_v);
+                    result[role_] = QString("%1").arg(data);
+                }
+                break;
 
             case SessionModel::timecodeAsFramesRole:
             case SessionModel::Roles::pathShakeRole:

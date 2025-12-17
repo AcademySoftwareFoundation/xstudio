@@ -475,12 +475,15 @@ void ViewportFrameQueueActor::append_overlays_data(
                     [=](const utility::BlindDataObjectPtrVec &bdata) mutable {
                         // each element of the vector is blind data pointer per
                         // image in the image set.
+                        if (bdata[0]) {
+                            result->add_plugin_blind_data(overlay_plugin_uuid, bdata[0]);
+                        }
                         for (int i = 0;
                              i < std::min(result->num_onscreen_images(), (int)bdata.size());
                              ++i) {
-                            if (bdata[i]) {
+                            if (bdata[i+1]) {
                                 result->onscreen_image_m(i).add_plugin_blind_data(
-                                    overlay_plugin_uuid, bdata[i]);
+                                    overlay_plugin_uuid, bdata[i+1]);
                             }
                         }
                         auto_responder.decrement();

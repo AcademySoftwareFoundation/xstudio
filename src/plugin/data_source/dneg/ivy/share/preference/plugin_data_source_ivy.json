@@ -23,6 +23,19 @@
                     "path": "/plugin/data_source/ivy/use_stalk_name_for_audio_sources",
                     "value": false,
                     "category": "Pipeline"
+                },
+                "default_audio_source": {
+                    "context": [
+                        "PLUGIN"
+                    ],
+                    "datatype": "multichoice string",
+                    "default_value": "ax",
+                    "description": "When loading media from Ivy (e.g. hitting play in Ivy browser) this option will help xSTUDIO choose which audio source (track) amongst those published to the shot it should use as the active audio source for the video (render). Note that all audio sources are loaded and you can select the active one from the 'Source' button in the xSTUDIO viewport toolbar.",
+                    "path": "/plugin/data_source/ivy/default_audio_source",
+                    "value": "ax",
+                    "category": "Pipeline",
+                    "options": ["sfxdx", "sfx", "dx", "mx", "ax", "fullmix"],
+                    "display_name": "Default Audio Source (Ivy)"
                 }                
             }
         }

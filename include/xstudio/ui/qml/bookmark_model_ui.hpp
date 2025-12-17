@@ -203,6 +203,11 @@ class BOOKMARK_QML_EXPORT BookmarkModel : public caf::mixin::actor_object<JSONTr
         return exportCSVFuture(path, with_annotations, with_images).result();
     }
 
+    Q_INVOKABLE QFuture<QString> exportAnnotationsFuture(const QUrl &path);
+    Q_INVOKABLE QString exportAnnotations(const QUrl &path) {
+        return exportAnnotationsFuture(path).result();
+    }
+
     Q_INVOKABLE [[nodiscard]] QString
     getJSON(const QModelIndex &index, const QString &path) const {
         return getJSONFuture(index, path).result();

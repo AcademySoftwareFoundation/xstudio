@@ -5,18 +5,23 @@ import QtQuick.Layouts
 import QtQml.Models
 import Qt.labs.qmlmodels
 
+import QuickFuture 1.0
+import QuickPromise 1.0
+
 import xStudio 1.0
 import ShotBrowser 1.0
 import xstudio.qml.helpers 1.0
 
 MouseArea {
+    id: control
     hoverEnabled: true
 
-    property bool isHovered: nodeDivMArea.containsMouse
+    property bool isHovered: nodeDivMArea.containsMouse || linkB.isHovered|| unlinkB.isHovered || hoveredManifest.hovered
     property bool isSelected: selectionModel.isSelected(delegateModel.index(index, 0))
     property bool showUnit: false
     property bool showCompletion: false
     property bool showStatus: false
+    property bool showManifest: false
     property bool showType: false
     property bool showVisibility: false
 
@@ -136,6 +141,66 @@ MouseArea {
                     elide: Text.ElideRight
                     rightPadding: 8
                 }
+
+                XsText{
+                    Layout.preferredHeight: parent.height
+                    Layout.maximumHeight: parent.height
+                    Layout.maximumWidth: 200
+                    Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                    opacity: 0.5
+                    visible: showManifest
+
+                    text: manifestRole  ? manifestRole.join(",") : ""
+                    horizontalAlignment: Text.AlignRight
+                    verticalAlignment: Text.AlignVCenter
+                    font.pixelSize: XsStyleSheet.fontSize*1.2
+                    elide: Text.ElideRight
+                    rightPadding: 8
+
+                    XsToolTip {
+                        text: manifestRole ? manifestRole.join(",") : ""
+                        visible: hoveredManifest.hovered
+                    }
+
+                    HoverHandler {
+                        id: hoveredManifest
+                        cursorShape: Qt.PointingHandCursor
+                    }
+
+                }
+
+                XsText{
+                    Layout.preferredHeight: parent.height
+                    Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                    opacity: 0.5
+                    visible: linkMode && !control.isHovered && tagRole != 0
+
+                    text: "Linked"
+
+                    horizontalAlignment: Text.AlignRight
+                    verticalAlignment: Text.AlignVCenter
+                    font.pixelSize: XsStyleSheet.fontSize*1.2
+                    elide: Text.ElideRight
+                }
+
+                XsPrimaryButton {
+                    id: linkB
+                    Layout.preferredHeight: parent.height
+                    Layout.preferredWidth: 60
+                    visible: control.isHovered && linkMode && resultsSelectionModel.hasSelection && tagRole == 0
+                    text: "Link"
+                    onClicked: ShotBrowserHelpers.tagResultVersions(typeRole, idRole, resultsSelectionModel.selectedIndexes)
+                }
+
+                XsPrimaryButton {
+                    id: unlinkB
+                    Layout.preferredHeight: parent.height
+                    Layout.preferredWidth: 60
+                    visible: control.isHovered && linkMode && resultsSelectionModel.hasSelection && tagRole != 0
+                    text: "Unlink"
+                    onClicked: ShotBrowserHelpers.untagResultVersions(tagRole, resultsSelectionModel.selectedIndexes)
+                }
+
 
                 XsSecondaryButton{ id: favBtn
                     Layout.topMargin: 1

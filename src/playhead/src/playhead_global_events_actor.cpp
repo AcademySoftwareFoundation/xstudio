@@ -127,6 +127,11 @@ void PlayheadGlobalEventsActor::init() {
             return mail(skip_to_media_atom_v, next_clip).delegate(global_active_playhead_);
         },
 
+        [=](playhead::use_loop_range_atom, const bool enabled, const int in, const int out) {
+            return mail(playhead::use_loop_range_atom_v, enabled, in, out)
+                .delegate(global_active_playhead_);
+        },
+
         [=](skip_to_clip_atom, const bool next_clip) {
             return mail(skip_to_clip_atom_v, next_clip).delegate(global_active_playhead_);
         },
@@ -383,5 +388,23 @@ void PlayheadGlobalEventsActor::init() {
                 }
             }
             return caf::actor();
-        });
+        },
+        [=](ui::viewport::viewport_atom, media::transform_matrix_atom, const std::string &viewport_name, const Imath::M44f &matrix) {
+            for (auto &p : viewports_) {
+                if (p.first == viewport_name) {
+                    p.second.projection_matrix = matrix;
+                }
+            }
+            mail(utility::event_atom_v, ui::viewport::viewport_atom_v, media::transform_matrix_atom_v, viewport_name, matrix)
+                .send(event_group_);
+        },
+        [=](ui::viewport::viewport_atom, media::transform_matrix_atom, const std::string &viewport_name) -> Imath::M44f {
+            for (const auto &p : viewports_) {
+                if (p.first == viewport_name) {
+                    return p.second.projection_matrix;
+                }
+            }
+            return Imath::M44f();
+        }
+    );
 }

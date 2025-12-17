@@ -189,6 +189,9 @@ void ShotBrowser::post_action(
         } else if (operation == "TagEntity") {
             add_entity_tag(
                 rp, action.at("entity"), action.at("entity_id"), action.at("tag_id"));
+        } else if (operation == "TagEntityFromName") {
+            add_entity_tag_from_name(
+                rp, action.at("entity"), action.at("entity_id"), action.at("tag_name"));
         } else if (operation == "UnTagEntity") {
             remove_entity_tag(
                 rp, action.at("entity"), action.at("entity_id"), action.at("tag_id"));

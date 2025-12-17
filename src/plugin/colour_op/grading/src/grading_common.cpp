@@ -31,7 +31,7 @@ xstudio::ui::viewport::get_active_grades(const xstudio::media_reader::ImageBufPt
     });
 
     for (auto &bookmark : bookmarks) {
-        auto bookmark_data = dynamic_cast<GradingData *>(bookmark->annotation_.get());
+        auto bookmark_data = dynamic_cast<const GradingData *>(bookmark->annotation_.get());
         if (bookmark_data) {
             auto json_data = bookmark->detail_.user_data_.value_or(utility::JsonStore());
             bool isActive  = json_data.get_or("grade_active", true);

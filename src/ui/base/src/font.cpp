@@ -276,8 +276,8 @@ std::string::const_iterator AlphaBitmapFont::viewport_position_to_cursor(
 
             // maybe skip back so we are inserting *before* the break
             // point in the line
-            if (c != text.begin())
-                c--;
+            //if (c != text.begin())
+            //    c--;
             // if ((*c == '\n' || *c == '\r') && c != text.begin()) c--;
             break;
         }
@@ -374,14 +374,14 @@ Imath::V2f AlphaBitmapFont::get_cursor_screen_position(
 
     while (true) {
 
+        if (c == cursor || c == text.end())
+            break;
+
         if (wrap_point != wrap_points.end() && *wrap_point == c) {
             y += line_spacing * scale * glyph_pixel_size();
             x = position.x;
             wrap_point++;
         }
-
-        if (c == cursor || c == text.end())
-            break;
 
         // skip non-printable
         if (c != text.end() && *c >= 32) {
@@ -422,7 +422,12 @@ Imath::Box2f AlphaBitmapFont::precompute_text_rendering_vertex_layout(
     std::string::const_iterator c;
     auto wrap_point = wrap_points.begin();
 
-    result.resize(6 * 4 * text.size());
+    size_t num_unprintable = 0;
+    for (c = text.begin(); c != text.end(); c++) {
+        if (*c < 32) num_unprintable++;
+    }
+
+    result.resize(6 * 4 * (text.size()-num_unprintable));
     float *_vv = result.data();
 
     Imath::Box2f bounding_box;

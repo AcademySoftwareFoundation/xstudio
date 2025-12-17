@@ -10,11 +10,14 @@ namespace {
 static const std::string ANNO_VERSION_KEY("Annotation Serialiser Version");
 }
 
-utility::JsonStore AnnotationSerialiser::serialise(const Annotation *anno) {
+utility::JsonStore AnnotationSerialiser::serialise(
+    const Annotation *anno, const int maj_ver, const int minor_ver) {
     if (serialisers.empty()) {
         throw std::runtime_error("No Annotation Serialisers registered.");
     }
-    auto p = serialisers.rbegin();
+    auto p = serialisers.find((maj_ver << 8) + minor_ver);
+    if (p == serialisers.end())
+        throw std::runtime_error("Annotation Serialiser version not registered.");
     utility::JsonStore result;
     result[ANNO_VERSION_KEY] = p->first;
     result["Data"]           = nlohmann::json();
@@ -42,6 +45,7 @@ void AnnotationSerialiser::register_serialiser(
     const unsigned char maj_ver,
     const unsigned char minor_ver,
     std::shared_ptr<AnnotationSerialiser> sptr) {
+
     int fver = (maj_ver << 8) + minor_ver;
     assert(sptr);
     if (serialisers.find(fver) != serialisers.end()) {

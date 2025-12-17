@@ -69,6 +69,9 @@ namespace shotbrowser {
         }
 
       private:
+        utility::JsonStore special_sauce_ipg(utility::JsonStore jsn) const;
+        utility::JsonStore special_sauce(utility::JsonStore orig) const;
+
         void add_attributes();
         void attribute_changed(const utility::Uuid &attr_uuid);
 
@@ -101,6 +104,12 @@ namespace shotbrowser {
             const std::string &entity,
             const int entity_id,
             const int tag_id);
+
+        void add_entity_tag_from_name(
+            caf::typed_response_promise<utility::JsonStore> rp,
+            const std::string &entity,
+            const int entity_id,
+            const std::string &tag_name);
 
         void remove_entity_tag(
             caf::typed_response_promise<utility::JsonStore> rp,
@@ -192,14 +201,11 @@ namespace shotbrowser {
             const std::string &type,
             const std::string &user = "");
 
-        void get_data_location(
-            caf::typed_response_promise<utility::JsonStore> rp, const std::string &type);
-
-        void get_data_review_location(
-            caf::typed_response_promise<utility::JsonStore> rp, const std::string &type);
-
-        void get_data_playlist_type(
-            caf::typed_response_promise<utility::JsonStore> rp, const std::string &type);
+        void get_playlist_data_field(
+            caf::typed_response_promise<utility::JsonStore> rp,
+            const std::string &type,
+            const std::string &field,
+            const std::string &lookup_key = "");
 
         void get_data_shot_status(
             caf::typed_response_promise<utility::JsonStore> rp, const std::string &type);
@@ -287,6 +293,14 @@ namespace shotbrowser {
             caf::typed_response_promise<utility::JsonStore> rp,
             const std::string &type,
             const int project_id,
+            const int page                      = 1,
+            const utility::JsonStore &prev_data = utility::JsonStore(R"([])"_json));
+
+        void get_data_dntag(
+            caf::typed_response_promise<utility::JsonStore> rp,
+            const std::string &type,
+            const int project_id,
+            const std::string &code             = "",
             const int page                      = 1,
             const utility::JsonStore &prev_data = utility::JsonStore(R"([])"_json));
 

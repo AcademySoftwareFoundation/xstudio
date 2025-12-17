@@ -53,8 +53,6 @@ void OpenGLCaptionRenderer::init_gl() {
         }
     }
 
-    texthandle_renderer_.reset(new ui::opengl::OpenGLTextHandleRenderer());
-
     bg_shader_ = std::make_unique<ui::opengl::GLShaderProgram>(
         flat_color_vertex_shader, flat_color_frag_shader);
 
@@ -79,13 +77,13 @@ void OpenGLCaptionRenderer::cleanup_gl() {
 
 void OpenGLCaptionRenderer::render_captions(
     const std::vector<Caption> &captions,
-    const HandleState &handle_state,
     const Imath::M44f &transform_window_to_viewport_space,
     const Imath::M44f &transform_viewport_to_image_space,
     const float viewport_du_dx,
-    const float device_pixel_ratio) {
+    const float device_pixel_ratio,
+    const std::set<std::size_t> & skip_captions) {
 
-    if (!texthandle_renderer_) {
+    if (!bg_shader_) {
         init_gl();
     }
 
@@ -95,7 +93,9 @@ void OpenGLCaptionRenderer::render_captions(
 
     for (const auto &caption : captions) {
 
-        auto it = text_renderers_.find(caption.font_name);
+        if (skip_captions.find(caption.hash()) != skip_captions.end()) continue;
+
+        auto it = text_renderers_.find(caption.font_name());
         auto text_renderer =
             it == text_renderers_.end() ? text_renderers_.begin()->second : it->second;
 
@@ -103,26 +103,58 @@ void OpenGLCaptionRenderer::render_captions(
             transform_window_to_viewport_space,
             transform_viewport_to_image_space,
             viewport_du_dx,
-            caption.background_colour,
-            caption.background_opacity,
+            caption.background_colour(),
+            caption.background_opacity(),
             caption.bounding_box());
 
         text_renderer->render_text(
             caption.vertices(),
             transform_window_to_viewport_space,
             transform_viewport_to_image_space,
-            caption.colour,
+            caption.colour(),
             viewport_du_dx,
-            caption.font_size,
-            caption.opacity);
+            caption.font_size(),
+            caption.opacity());
     }
 
-    texthandle_renderer_->render_handles(
-        handle_state,
+}
+
+void OpenGLCaptionRenderer::render_single_caption(
+    const xstudio::ui::canvas::Caption &caption,
+    const Imath::M44f &transform_window_to_viewport_space,
+    const Imath::M44f &transform_viewport_to_image_space,
+    const float viewport_du_dx,
+    const float device_pixel_ratio) {
+
+    if (!bg_shader_) {
+        init_gl();
+    }
+
+    if (text_renderers_.empty()) {
+        return;
+    }
+
+    auto it = text_renderers_.find(caption.font_name());
+    auto text_renderer =
+        it == text_renderers_.end() ? text_renderers_.begin()->second : it->second;
+
+    render_background(
         transform_window_to_viewport_space,
         transform_viewport_to_image_space,
         viewport_du_dx,
-        device_pixel_ratio);
+        caption.background_colour(),
+        caption.background_opacity(),
+        caption.bounding_box());
+
+    text_renderer->render_text(
+        caption.vertices(),
+        transform_window_to_viewport_space,
+        transform_viewport_to_image_space,
+        caption.colour(),
+        viewport_du_dx,
+        caption.font_size(),
+        caption.opacity());
+
 }
 
 void OpenGLCaptionRenderer::render_background(

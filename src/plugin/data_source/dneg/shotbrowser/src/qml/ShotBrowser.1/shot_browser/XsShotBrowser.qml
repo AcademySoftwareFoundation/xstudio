@@ -31,6 +31,7 @@ Item{
     property bool queryRunning: queryRunningCount > 0
 
     property bool assetMode: false
+    property bool linkMode: false
 
     property var onScreenMediaUuid: currentPlayhead.mediaUuid
     property var onScreenLogicalFrame: currentPlayhead.logicalFrame
@@ -53,10 +54,11 @@ Item{
     property alias sortInAscending: resultsFilteredModel.sortInAscending
     property alias pipeStep: resultsFilteredModel.filterPipeStep
     property alias nameFilter: resultsFilteredModel.filterName
+    property alias linkFilter: resultsFilteredModel.filterLink
 
     readonly property string panelType: "ShotBrowser"
 
-    property string onDisk: ""
+    // property string onDisk: ""
 
     property int queryCounter: 0
     property int queryRunningCount: 0
@@ -271,6 +273,7 @@ Item{
         property bool showCompletion: false
         property bool showOnlyFavourites: false
         property bool showStatus: false
+        property bool showManifest: false
         property bool showType: false
         property bool showVisibility: false
         property bool showPresetVisibility: false
@@ -278,7 +281,7 @@ Item{
         property var filterProjects: []
         property var filterProjectStatus: []
         property var filterUnit: {}
-        property var filterType: []
+        property var filterType: {}
         property var filterLocation: []
 
         property var shotTreeHidden: {}
@@ -320,6 +323,7 @@ Item{
                 "showPresetVisibility",
                 "hideStatus",
                 "showStatus",
+                "showManifest",
                 "quickLoad",
                 "filterUnit",
                 "filterType",
@@ -350,16 +354,29 @@ Item{
         id: sequenceFilterModel
         sourceModel: sequenceBaseModel
         hideStatus: prefs.hideStatus
-        hideEmpty: prefs.hideEmpty
+        hideEmpty: prefs.hideEmpty || JSON.stringify(sequenceFilterModel.manifestFilter) != "{}"
         showHidden: prefs.showHidden
-        typeFilter: prefs.filterType
         locationFilter: prefs.filterLocation
+
         onUnitFilterChanged: {
-            let tmp = prefs.filterUnit == undefined  ? {} : JSON.parse(JSON.stringify( prefs.filterUnit) )
+            let tmp = prefs.filterUnit == undefined ? {} : JSON.parse(JSON.stringify( prefs.filterUnit) )
+            if(tmp instanceof Array) {
+                tmp = {}
+            }
+
             tmp[projectIndex.model.get(projectIndex, "nameRole")] = JSON.parse(JSON.stringify(unitFilter))
             prefs.filterUnit = tmp
         }
 
+        onTypeFilterChanged: {
+            let tmp = prefs.filterType == undefined ? {} : JSON.parse(JSON.stringify(prefs.filterType) )
+            if(tmp instanceof Array) {
+                tmp = {}
+            }
+
+            tmp[projectIndex.model.get(projectIndex, "nameRole")] = JSON.parse(JSON.stringify(typeFilter))
+            prefs.filterType = tmp
+        }
     }
 
     Connections {
@@ -371,6 +388,11 @@ Item{
                 sequenceFilterModel.unitFilter = prefs.filterUnit[proj]
             else
                 sequenceFilterModel.unitFilter = []
+
+            if(proj in prefs.filterType)
+                sequenceFilterModel.typeFilter = prefs.filterType[proj]
+            else
+                sequenceFilterModel.typeFilter = []
         }
     }
 
@@ -394,13 +416,13 @@ Item{
     ItemSelectionModel {
         id: sequenceSelectionModel
         model: sequenceTreeModel
-        onSelectionChanged: executeQuery()
+        onSelectionChanged: linkMode || executeQuery()
     }
 
     ItemSelectionModel {
         id: assetSelectionModel
         model: assetTreeModel
-        onSelectionChanged: executeQuery()
+        onSelectionChanged: linkMode || executeQuery()
     }
 
     ItemSelectionModel {
@@ -431,10 +453,15 @@ Item{
     ItemSelectionModel {
         id: resultsSelectionModel
         model: results
+        onSelectionChanged: {
+            if(linkMode)
+                ShotBrowserHelpers.refreshTags(resultsSelectionModel.selectedIndexes)
+        }
     }
 
     ShotHistoryResultPopup {
         id: versionResultPopup
+        linkMode: panel.linkMode
         menu_model_name: "version_shot_browser_popup"+versionResultPopup
         popupSelectionModel: resultsSelectionModel
     }
@@ -512,6 +539,14 @@ Item{
         sourceModel: ShotBrowserEngine.presetsModel
     }
 
+    XsModelProperty {
+        id: __snapshot_paths
+        role: "valueRole"
+        index: globalStoreModel.searchRecursive("/core/snapshot/paths", "pathRole")
+    }
+    property alias snapshot_paths: __snapshot_paths.value
+
+
     onProjectIndexChanged: {
         if(projectIndex && projectIndex.valid) {
             let m = ShotBrowserEngine.presetsModel.termModel("Project")
@@ -521,6 +556,8 @@ Item{
             assetBaseModel = ShotBrowserEngine.assetTreeModel(i)
             projectPref.value = m.get(projectIndex, "nameRole")
             projectId = i
+
+            ShotBrowserHelpers.updateSnapshotFolders(projectPref.value);
 
             favouriteTimer.start()
         }
@@ -560,14 +597,14 @@ Item{
         }
     }
 
-    onOnDiskChanged: {
-        resultsFilteredModel.filterChn = (onDisk == "chn")
-        resultsFilteredModel.filterLon = (onDisk == "lon")
-        resultsFilteredModel.filterMtl = (onDisk == "mtl")
-        resultsFilteredModel.filterMum = (onDisk == "mum")
-        // resultsFilteredModel.filterVan = (onDisk == "van")
-        resultsFilteredModel.filterSyd = (onDisk == "syd")
-    }
+    // onOnDiskChanged: {
+    //     resultsFilteredModel.filterChn = (onDisk == "chn")
+    //     resultsFilteredModel.filterLon = (onDisk == "lon")
+    //     resultsFilteredModel.filterMtl = (onDisk == "mtl")
+    //     resultsFilteredModel.filterMum = (onDisk == "mum")
+    //     // resultsFilteredModel.filterVan = (onDisk == "van")
+    //     resultsFilteredModel.filterSyd = (onDisk == "syd")
+    // }
 
     function executeQuery() {
         if(currentPresetIndex && currentPresetIndex.valid) {
@@ -599,61 +636,76 @@ Item{
                         queryRunningCount -= 1
                     })
             } else {
-                let custom = []
-                // convert to base model.
+                // let refMode = ShotBrowserEngine.presetsModel.get(currentPresetIndex, "groupFlagRole").includes("Reference Mode");
+                let treeMode = !ShotBrowserEngine.presetsModel.get(currentPresetIndex, "groupFlagRole").includes("Ignore Tree Selection");
+                let projMode = ShotBrowserEngine.presetsModel.get(currentPresetIndex, "groupFlagRole").includes("Allow Project Query");
                 let seqsel = []
-                if(assetMode) {
-                    for(let i=0;i<assetSelectionModel.selectedIndexes.length; i++){
-                        let tindex = assetSelectionModel.selectedIndexes[i]
-                        let findex = tindex.model.mapToModel(tindex)
-                        seqsel.push(findex.model.mapToSource(findex))
-                    }
-                } else {
-                    for(let i=0;i<sequenceSelectionModel.selectedIndexes.length; i++){
-                        let tindex = sequenceSelectionModel.selectedIndexes[i]
-                        let findex = tindex.model.mapToModel(tindex)
-                        seqsel.push(findex.model.mapToSource(findex))
-                    }
-                }
+                let custom = []
 
-                for(let i=0;i<seqsel.length;i++) {
-                    let t = seqsel[i].model.get(seqsel[i],"typeRole")
-                    if(t == "Shot") {
-                        custom.push({
-                            "enabled": true,
-                            "type": "term",
-                            "term": "Shot",
-                            "value": seqsel[i].model.get(seqsel[i],"nameRole")
-                        })
-                    } else if( t == "Sequence") {
-                        custom.push({
-                            "enabled": true,
-                            "type": "term",
-                            "term": "Sequence",
-                            "value": seqsel[i].model.get(seqsel[i],"nameRole")
-                        })
-                    } else if( t == "Episode") {
-                        custom.push({
-                            "enabled": true,
-                            "type": "term",
-                            "term": "Episode",
-                            "value": seqsel[i].model.get(seqsel[i],"nameRole")
-                        })
-                    } else if( t == "Asset") {
-                        custom.push({
-                            "enabled": true,
-                            "type": "term",
-                            "term": "Asset",
-                            "value": seqsel[i].model.get(seqsel[i],"assetNameRole")
-                        })
+                if(treeMode) {
+                    if(assetMode) {
+                        for(let i=0;i<assetSelectionModel.selectedIndexes.length; i++){
+                            let tindex = assetSelectionModel.selectedIndexes[i]
+                            let findex = tindex.model.mapToModel(tindex)
+                            seqsel.push(findex.model.mapToSource(findex))
+                        }
+                    } else {
+                        for(let i=0;i<sequenceSelectionModel.selectedIndexes.length; i++){
+                            let tindex = sequenceSelectionModel.selectedIndexes[i]
+                            let findex = tindex.model.mapToModel(tindex)
+                            seqsel.push(findex.model.mapToSource(findex))
+                        }
+                    }
+
+                    for(let i = 0; i < seqsel.length; i++) {
+                        if(treeMode) {
+                            let trole = seqsel[i].model.get(seqsel[i],"typeRole");
+
+                            custom.push({
+                                "enabled": true,
+                                "type": "term",
+                                "term": "Tree Ref Tag",
+                                "value": ShotBrowserEngine.refTagNameFromEntity(
+                                    trole,
+                                    seqsel[i].model.get(seqsel[i],"idRole")
+                                )
+                            })
+
+                            if(trole == "Shot") {
+                                custom.push({
+                                    "enabled": true,
+                                    "type": "term",
+                                    "term": "Shot",
+                                    "value": seqsel[i].model.get(seqsel[i],"nameRole")
+                                })
+                            } else if( trole == "Sequence") {
+                                custom.push({
+                                    "enabled": true,
+                                    "type": "term",
+                                    "term": "Sequence",
+                                    "value": seqsel[i].model.get(seqsel[i],"nameRole")
+                                })
+                            } else if( trole == "Episode") {
+                                custom.push({
+                                    "enabled": true,
+                                    "type": "term",
+                                    "term": "Episode",
+                                    "value": seqsel[i].model.get(seqsel[i],"nameRole")
+                                })
+                            } else if( trole == "Asset") {
+                                custom.push({
+                                    "enabled": true,
+                                    "type": "term",
+                                    "term": "Asset",
+                                    "value": seqsel[i].model.get(seqsel[i],"assetNameRole")
+                                })
+                            }
+                        }
                     }
                 }
 
                 // only run, if selection in tree.
-                if(custom.length || ShotBrowserEngine.presetsModel.get(currentPresetIndex, "entityRole") == "Playlists" || ShotBrowserEngine.presetsModel.get(currentPresetIndex, "groupFlagRole").includes("Allow Project Query")) {
-                    if(ShotBrowserEngine.presetsModel.get(currentPresetIndex, "groupFlagRole").includes("Ignore Tree Selection"))
-                        custom = []
-
+                if(custom.length || ShotBrowserEngine.presetsModel.get(currentPresetIndex, "entityRole") == "Playlists" || projMode) {
                     queryCounter += 1
                     queryRunningCount += 1
 

@@ -20,6 +20,14 @@ namespace xstudio {
 namespace ui {
     namespace viewport {
 
+        struct ScreenInfo {
+            std::string name;
+            std::string model;
+            std::string manufacturer;
+            std::string serial_number;
+            double refresh_rate = 60.0;
+        };
+
         /**
          *  @brief Viewport class.
          *
@@ -54,12 +62,7 @@ namespace ui {
             void set_pan(const float x_pan, const float y_pan);
             void set_fit_mode(const FitMode md, const bool sync = true);
             void set_mirror_mode(const MirrorMode md);
-            void set_screen_infos(
-                const std::string &name,
-                const std::string &model,
-                const std::string &manufacturer,
-                const std::string &serialNumber,
-                const double refresh_rate);
+            void set_screen_infos(const ScreenInfo &screen_info);
 
             /**
              *  @brief Switch the fit mode and zoom to it's previous state (usually before
@@ -272,6 +275,8 @@ namespace ui {
 
             media_reader::ImageBufDisplaySetPtr on_screen_frames() { return on_screen_frames_; }
 
+            void quickview_media(const caf::uri &file_uri);
+
           protected:
             void register_hotkeys() override;
 
@@ -334,7 +339,7 @@ namespace ui {
                 Imath::V2i window_size;
                 float device_pixel_ratio;
                 ViewportRendererPtr renderer;
-                std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr> overlay_renderers;
+                std::vector<plugin::ViewportOverlayRendererPtr> overlay_renderers;
             };
             std::shared_ptr<const RenderData> render_data_;
 
@@ -363,14 +368,14 @@ namespace ui {
                 const int in_pt  = -1,
                 const int out_pt = -1);
 
-            void quickview_media(const caf::uri &file_uri);
-
             media_reader::ImageBufDisplaySetPtr
             prepare_image_for_display(const media_reader::ImageBufPtr &image_buf) const;
 
             void calc_image_bounds_in_viewport_pixels();
 
             void update_image_resolutions();
+
+            void override_onscreen_media_fps(const std::string user_fps);
 
             utility::JsonStore settings_;
 
@@ -419,8 +424,7 @@ namespace ui {
             size_t image_bounds_hash_ = {0};
             std::map<utility::Uuid, caf::actor> overlay_plugin_instances_;
             std::map<utility::Uuid, caf::actor> hud_plugin_instances_;
-            std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr>
-                viewport_overlay_renderers_;
+            std::vector<plugin::ViewportOverlayRendererPtr> viewport_overlay_renderers_;
             std::map<utility::Uuid, plugin::GPUPreDrawHookPtr> overlay_pre_render_hooks_;
             utility::FrameRate current_media_fps_;
 

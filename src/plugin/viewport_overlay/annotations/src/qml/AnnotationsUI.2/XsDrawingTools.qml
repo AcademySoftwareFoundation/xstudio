@@ -34,9 +34,9 @@ Item {
     property color textValueColor: "white"
 
     property int maxDrawSize: 250
-    property bool isAnyToolSelected: currentTool !== "None" && currentTool != "Colour Picker"
-
     property bool horizontal: false
+
+    property bool isAnyToolSelected: currentTool !== "None" && currentTool !== "Colour Picker"
 
     /* This connects to the backend annotations tool object and exposes its
     ui data via model data */
@@ -48,49 +48,8 @@ Item {
     /* Here we locate particular nodes in the annotations_model_data giving
     convenient access to backend data. Seems crazy but this is the QML way! */
     XsAttributeValue {
-        id: draw_pen_size
-        attributeTitle: "Draw Pen Size"
-        model: annotations_model_data
-    }
-
-    XsAttributeValue {
-        id: shapes_pen_size
-        attributeTitle: "Shapes Pen Size"
-        model: annotations_model_data
-    }
-    XsAttributeValue {
-        id: erase_pen_size
-        attributeTitle: "Erase Pen Size"
-        model: annotations_model_data
-    }
-    XsAttributeValue {
-        id: text_size
-        attributeTitle: "Text Size"
-        model: annotations_model_data
-    }
-    XsAttributeValue {
-        id: pen_colour
-        attributeTitle: "Pen Colour"
-        model: annotations_model_data
-    }
-    XsAttributeValue {
-        id: pen_opacity
-        attributeTitle: "Pen Opacity"
-        model: annotations_model_data
-    }
-    XsAttributeValue {
         id: active_tool
         attributeTitle: "Active Tool"
-        model: annotations_model_data
-    }
-    XsAttributeValue {
-        id: text_background_colour
-        attributeTitle: "Text Background Colour"
-        model: annotations_model_data
-    }
-    XsAttributeValue {
-        id: text_background_opacity
-        attributeTitle: "Text Background Opacity"
         model: annotations_model_data
     }
     XsAttributeValue {
@@ -100,117 +59,96 @@ Item {
         model: annotations_model_data
     }
 
-    // Un-comment this when Laser is implemented in combo_box_options
-
-    // make a local binding to the backend attribute
-    property alias currentDrawPenSize: draw_pen_size.value
-    property alias currentShapePenSize: shapes_pen_size.value
-    property alias currentErasePenSize: erase_pen_size.value
-    property alias currentTextSize: text_size.value
-    property alias currentToolColour: pen_colour.value
-    property alias currentOpacity: pen_opacity.value
     property alias currentTool: active_tool.value
-    property alias backgroundColor: text_background_colour.value
-    property alias backgroundOpacity: text_background_opacity.value
     property alias toolChoices: tool_types_choices.value
-    
-    property var toolSizeAttrName: "Draw Pen Size"
+
+    //property var current_tool_properties: pen_tool_properties
+    property var current_tool_properties
 
     onCurrentToolChanged: {
-        if(currentTool === "Draw" || currentTool === "Laser")
-        {
-            currentColorPresetModel = drawColourPresetsModel
-            toolSizeAttrName = "Draw Pen Size"
-        }
-        else if(currentTool === "Erase")
-        {
-            currentColorPresetModel = eraseColorPresetModel
-            toolSizeAttrName = "Erase Pen Size"
 
-        }
-        else if(currentTool === "Text")
+        if(currentTool === "Draw") 
         {
-            currentColorPresetModel = textColourPresetsModel
-            toolSizeAttrName = "Text Size"
-
+            current_tool_properties = pen_tool_properties
+        }
+        else if(currentTool === "Brush")
+        {
+            current_tool_properties = brush_tool_properties
+        }
+        else if(currentTool === "Laser")
+        {
+            current_tool_properties = laser_tool_properties
         }
         else if(currentTool === "Square" || currentTool === "Circle"  || currentTool === "Arrow"  || currentTool === "Line")
         {
-            currentColorPresetModel = shapesColourPresetsModel
-            toolSizeAttrName = "Shapes Pen Size"
-
-        }
-    }
-
-
-    function setPenSize(penSize) {
-        if(currentTool === "Draw" || currentTool === "Laser")
-        {
-            currentDrawPenSize = penSize
-        }
-        else if(currentTool === "Erase")
-        {
-            currentErasePenSize = penSize
-        }
-        else if(currentTool === "Square" || currentTool === "Circle"  || currentTool === "Arrow"  || currentTool === "Line")
-        {
-            currentShapePenSize = penSize
+            current_tool_properties = shapes_tool_properties
         }
         else if(currentTool === "Text")
         {
-            currentTextSize = penSize
+            current_tool_properties = text_tool_properties
+        }
+        else if(currentTool === "Erase")
+        {
+            current_tool_properties = erase_tool_properties
+        }
+        else if (currentTool === "Colour Picker") 
+        {
+            current_tool_properties = colour_pick_properties
         }
     }
-
-    // map the local property for currentToolSize to the backend value ... to modify the tool size, we only change the backend
-    // value binding
-
-    property ListModel currentColorPresetModel: drawColourPresetsModel
     
     XsGradientRectangle{
         anchors.fill: parent
     }
 
     Component {
-        id: colour_pick_props
-        XsColourPick {
-
-        }
-    }
-
-    Component {
-        id: tool_properties
-        XsToolProperties {
+        id: brush_tool_properties
+        XsBrushToolProperties {
             root: drawDialog
         }
     }
 
-    XsColourDialog {
-        id: colourDialog
-        title: "Please pick a colour"
-        property var lastColour
-        
-        linkColour: currentToolColour
-
-        onCurrentColourChanged: {
-            currentToolColour = currentColour
-        }
-        onAccepted: {
-            close()
-        }
-        onRejected: {
-            currentToolColour = lastColour
-            close()
-        }
-        onVisibleChanged: {
-            if (visible) {
-                currentColour = currentToolColour
-                lastColour = currentToolColour
-            }
+    Component {
+        id: pen_tool_properties
+        XsPenToolProperties {
+            root: drawDialog
         }
     }
 
-    property alias colourDialog: colourDialog
+    Component {
+        id: laser_tool_properties
+        XsLaserToolProperties {
+            root: drawDialog
+        }
+    }
+
+    Component {
+        id: shapes_tool_properties
+        XsShapesToolProperties {
+            root: drawDialog
+        }
+    }
+
+    Component {
+        id: text_tool_properties
+        XsTextToolProperties {
+            root: drawDialog
+        }
+    }
+
+    Component {
+        id: erase_tool_properties
+        XsEraseToolProperties {
+            root: drawDialog
+        }
+    }
+
+    Component {
+        id: colour_pick_properties
+        XsColourPick {
+            root: drawDialog
+        }
+    }
 
     // We wrap all the widgets in a top level Item that can forward keyboard
     // events back to the viewport for consistent
@@ -238,7 +176,7 @@ Item {
 
         Loader { 
             id: loader
-            sourceComponent: currentTool === "Colour Picker" ? colour_pick_props : tool_properties
+            sourceComponent: current_tool_properties
             Layout.fillWidth: horizontal ? false : true
             Layout.fillHeight: horizontal ? true : false
         }
@@ -260,11 +198,9 @@ Item {
         }
 
         XsToolDisplay{ 
-            
             id: toolDispOptions
             Layout.fillWidth: horizontal ? false : true
             Layout.fillHeight: horizontal ? true : false
-            
         }
 
     }

@@ -11,9 +11,17 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavdevice/avdevice.h>
 #include <libavformat/avformat.h>
+#include <libavutil/ambient_viewing_environment.h>
 #include <libavutil/bprint.h>
+#include <libavutil/display.h>
+#include <libavutil/dovi_meta.h>
+#include <libavutil/hdr_dynamic_metadata.h>
+#include <libavutil/mastering_display_metadata.h>
 #include <libavutil/pixdesc.h>
+#include <libavutil/spherical.h>
+#include <libavutil/stereo3d.h>
 #include <libavutil/timecode.h>
+#include <libavutil/intreadwrite.h>
 }
 
 #ifdef __GNUC__ // Check if GCC compiler is being used
@@ -201,6 +209,34 @@ std::optional<std::string> chroma_location_as_string(const AVChromaLocation chro
     return val;
 }
 
+std::string integers_to_string(
+    uint8_t *data, int size, const char *format, int columns, int bytes, int offset_add) {
+    AVBPrint bp;
+    int offset = 0, l, i;
+
+    av_bprint_init(&bp, 0, AV_BPRINT_SIZE_UNLIMITED);
+    av_bprintf(&bp, "\n");
+    while (size) {
+        av_bprintf(&bp, "%08x: ", offset);
+        l = FFMIN(size, columns);
+        for (i = 0; i < l; i++) {
+            if (bytes == 1)
+                av_bprintf(&bp, format, *data);
+            else if (bytes == 2)
+                av_bprintf(&bp, format, AV_RN16(data));
+            else if (bytes == 4)
+                av_bprintf(&bp, format, AV_RN32(data));
+            data += bytes;
+            size--;
+        }
+        av_bprintf(&bp, "\n");
+        offset += offset_add;
+    }
+    std::string rt(bp.str);
+    av_bprint_finalize(&bp, NULL);
+    return rt;
+}
+
 nlohmann::json populate_tags(AVDictionary *tags) {
     auto result = R"({})"_json;
 
@@ -254,6 +290,138 @@ nlohmann::json populate_format(MediaFile &src) {
 
     return result;
 }
+
+nlohmann::json
+populate_stream_pkt_side_data(AVCodecParameters *par, const AVPacketSideData *sd) {
+    auto result = R"({})"_json;
+
+    const char *name         = av_packet_side_data_name(sd->type);
+    result["side_data_type"] = name ? name : "unknown";
+
+    if (sd->type == AV_PKT_DATA_DISPLAYMATRIX && sd->size >= 9 * 4) {
+        double rotation = av_display_rotation_get((int32_t *)sd->data);
+        if (isnan(rotation))
+            rotation = 0;
+        result["displaymatrix"] = integers_to_string(sd->data, 9, " %11d", 3, 4, 1);
+        result["rotation"]      = rotation;
+    } else if (sd->type == AV_PKT_DATA_STEREO3D) {
+        const AVStereo3D *stereo = (AVStereo3D *)sd->data;
+        result["type"]           = av_stereo3d_type_name(stereo->type);
+        result["inverted"]       = !!(stereo->flags & AV_STEREO3D_FLAG_INVERT);
+        result["view"]           = av_stereo3d_view_name(stereo->view);
+        result["primary_eye"]    = av_stereo3d_primary_eye_name(stereo->primary_eye);
+        result["baseline"]       = stereo->baseline;
+        result["horizontal_disparity_adjustment"] =
+            rational_as_string(stereo->horizontal_disparity_adjustment);
+        result["horizontal_field_of_view"] =
+            rational_as_string(stereo->horizontal_field_of_view);
+    } else if (sd->type == AV_PKT_DATA_SPHERICAL) {
+        const AVSphericalMapping *spherical = (AVSphericalMapping *)sd->data;
+        result["projection"] = av_spherical_projection_name(spherical->projection);
+        if (spherical->projection == AV_SPHERICAL_CUBEMAP) {
+            result["padding"] = spherical->padding;
+        } else if (spherical->projection == AV_SPHERICAL_EQUIRECTANGULAR_TILE) {
+            size_t l, t, r, b;
+            av_spherical_tile_bounds(spherical, par->width, par->height, &l, &t, &r, &b);
+            result["bound_left"]   = l;
+            result["bound_top"]    = t;
+            result["bound_right"]  = r;
+            result["bound_bottom"] = b;
+        }
+
+        result["yaw"]   = (double)spherical->yaw / (1 << 16);
+        result["pitch"] = (double)spherical->pitch / (1 << 16);
+        result["roll"]  = (double)spherical->roll / (1 << 16);
+    } else if (sd->type == AV_PKT_DATA_SKIP_SAMPLES && sd->size == 10) {
+        result["skip_samples"]    = AV_RL32(sd->data);
+        result["discard_padding"] = AV_RL32(sd->data + 4);
+        result["skip_reason"]     = AV_RL8(sd->data + 8);
+        result["discard_reason"]  = AV_RL8(sd->data + 9);
+    } else if (sd->type == AV_PKT_DATA_MASTERING_DISPLAY_METADATA) {
+        AVMasteringDisplayMetadata *metadata = (AVMasteringDisplayMetadata *)sd->data;
+
+        if (metadata->has_primaries) {
+            result["red_x"]   = rational_as_string(metadata->display_primaries[0][0]);
+            result["red_y"]   = rational_as_string(metadata->display_primaries[0][1]);
+            result["green_x"] = rational_as_string(metadata->display_primaries[1][0]);
+            result["green_y"] = rational_as_string(metadata->display_primaries[1][1]);
+            result["blue_x"]  = rational_as_string(metadata->display_primaries[2][0]);
+            result["blue_y"]  = rational_as_string(metadata->display_primaries[2][1]);
+
+            result["white_point_x"] = rational_as_string(metadata->white_point[0]);
+            result["white_point_y"] = rational_as_string(metadata->white_point[1]);
+        }
+
+        if (metadata->has_luminance) {
+            result["min_luminance"] = rational_as_string(metadata->min_luminance);
+            result["max_luminance"] = rational_as_string(metadata->max_luminance);
+        }
+    } else if (sd->type == AV_PKT_DATA_CONTENT_LIGHT_LEVEL) {
+        AVContentLightMetadata *metadata = (AVContentLightMetadata *)sd->data;
+        result["max_content"]            = metadata->MaxCLL;
+        result["max_average"]            = metadata->MaxFALL;
+    } else if (sd->type == AV_PKT_DATA_AMBIENT_VIEWING_ENVIRONMENT) {
+        auto env                      = (const AVAmbientViewingEnvironment *)sd->data;
+        result["ambient_illuminance"] = rational_as_string(env->ambient_illuminance);
+        result["ambient_light_x"]     = rational_as_string(env->ambient_light_x);
+        result["ambient_light_y"]     = rational_as_string(env->ambient_light_y);
+    } else if (sd->type == AV_PKT_DATA_DYNAMIC_HDR10_PLUS) {
+        /*AVDynamicHDRPlus *metadata = (AVDynamicHDRPlus *)sd->data;
+        print_dynamic_hdr10_plus(w, metadata);*/
+    } else if (sd->type == AV_PKT_DATA_DOVI_CONF) {
+        AVDOVIDecoderConfigurationRecord *dovi  = (AVDOVIDecoderConfigurationRecord *)sd->data;
+        std::string comp                        = "unknown";
+        result["dv_version_major"]              = dovi->dv_version_major;
+        result["dv_version_minor"]              = dovi->dv_version_minor;
+        result["dv_profile"]                    = dovi->dv_profile;
+        result["dv_level"]                      = dovi->dv_level;
+        result["rpu_present_flag"]              = dovi->rpu_present_flag;
+        result["el_present_flag"]               = dovi->el_present_flag;
+        result["bl_present_flag"]               = dovi->bl_present_flag;
+        result["dv_bl_signal_compatibility_id"] = dovi->dv_bl_signal_compatibility_id;
+        switch (dovi->dv_md_compression) {
+        case AV_DOVI_COMPRESSION_NONE:
+            comp = "none";
+            break;
+        case AV_DOVI_COMPRESSION_LIMITED:
+            comp = "limited";
+            break;
+        case AV_DOVI_COMPRESSION_RESERVED:
+            comp = "reserved";
+            break;
+        case AV_DOVI_COMPRESSION_EXTENDED:
+            comp = "extended";
+            break;
+        }
+        result["dv_md_compression"] = comp;
+    } else if (sd->type == AV_PKT_DATA_AUDIO_SERVICE_TYPE) {
+        enum AVAudioServiceType *t = (enum AVAudioServiceType *)sd->data;
+        result["service_type"]     = *t;
+    } else if (sd->type == AV_PKT_DATA_MPEGTS_STREAM_ID) {
+        result["id"] = *sd->data;
+    } else if (sd->type == AV_PKT_DATA_CPB_PROPERTIES) {
+        const AVCPBProperties *prop = (AVCPBProperties *)sd->data;
+        result["max_bitrate"]       = prop->max_bitrate;
+        result["min_bitrate"]       = prop->min_bitrate;
+        result["avg_bitrate"]       = prop->avg_bitrate;
+        result["buffer_size"]       = prop->buffer_size;
+        result["vbv_delay"]         = prop->vbv_delay;
+    } else if (
+        sd->type == AV_PKT_DATA_WEBVTT_IDENTIFIER || sd->type == AV_PKT_DATA_WEBVTT_SETTINGS) {
+        /*if (do_show_data)
+            writer_print_data(w, "data", sd->data, sd->size);
+        writer_print_data_hash(w, "data_hash", sd->data, sd->size);*/
+    } else if (sd->type == AV_PKT_DATA_FRAME_CROPPING && sd->size >= sizeof(uint32_t) * 4) {
+        result["crop_top"]    = AV_RL32(sd->data);
+        result["crop_bottom"] = AV_RL32(sd->data + 4);
+        result["crop_left"]   = AV_RL32(sd->data + 8);
+        result["crop_right"]  = AV_RL32(sd->data + 12);
+    } else if (sd->type == AV_PKT_DATA_AFD && sd->size > 0) {
+        result["active_format"] = *sd->data;
+    }
+    return result;
+}
+
 
 nlohmann::json populate_stream(AVFormatContext *avfc, int index, MediaStream *ist) {
     auto result                 = R"({})"_json;
@@ -484,6 +652,13 @@ nlohmann::json populate_stream(AVFormatContext *avfc, int index, MediaStream *is
 
     result["tags"] = populate_tags(stream->metadata);
 
+    if (stream->codecpar->nb_coded_side_data) {
+        for (int i = 0; i < stream->codecpar->nb_coded_side_data; i++) {
+            result["side_data"] = populate_stream_pkt_side_data(
+                stream->codecpar, &stream->codecpar->coded_side_data[i]);
+        }
+    }
+
     return result;
 }
 
@@ -515,7 +690,12 @@ FFProbe::FFProbe() {
 
 FFProbe::~FFProbe() { avformat_network_deinit(); }
 
+extern "C" {
+char *ffprobe_read_metadata(int argc, char **argv);
+};
+
 utility::JsonStore FFProbe::probe_file(const caf::uri &uri_path) {
+
     auto result = R"({})"_json;
 
     auto ptr = open_file(uri_convert(uri_path));
@@ -525,18 +705,39 @@ utility::JsonStore FFProbe::probe_file(const caf::uri &uri_path) {
             result["streams"] = populate_streams(*ptr);
             result["format"]  = populate_format(*ptr);
         } catch (const std::exception &err) {
-            spdlog::warn("{}", err.what());
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         }
     }
 
-    return utility::JsonStore(result);
+    return result;
+
+    /*std::string appname("app");
+    std::string path = uri_convert(uri_path);
+    const char * oi[3];
+    oi[0] = appname.c_str();
+    oi[1] = path.c_str();
+    oi[2] = 0;
+
+    static std::mutex m;
+    m.lock();
+    char * metadata = ffprobe_read_metadata(2, const_cast<char **>(oi));
+
+    auto result = utility::JsonStore(nlohmann::json::parse(metadata));
+
+    free(metadata);
+
+    m.unlock();
+
+    return result;*/
 }
 
 std::string FFProbe::probe_file(const std::string &path) {
     return probe_file(utility::posix_path_to_uri(path)).dump(2);
 }
 
+
 std::shared_ptr<MediaFile> FFProbe::open_file(const std::string &path) {
+
     auto result                  = std::make_shared<MediaFile>();
     AVDictionary *format_opts    = nullptr;
     AVDictionary *codec_opts     = nullptr;

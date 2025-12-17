@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/anno_icons">
+        <file alias="draw_stylus.svg">icons/stylus.svg</file>
         <file alias="draw_brush.svg">icons/brush.svg</file>
         <file alias="draw_laser.svg">icons/stylus_laser_pointer.svg</file>
         <file alias="draw_text.svg">icons/title.svg</file>

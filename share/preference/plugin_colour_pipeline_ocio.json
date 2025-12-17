@@ -2,26 +2,18 @@
 	"plugin": {
 		"colour_pipeline": {
 			"ocio": {
-				"preferred_view": {
-					"path": "/plugin/colour_pipeline/ocio/preferred_view",
-					"default_value": "Automatic",
-					"description": "User preferred ocio view.",
-					"value": "Automatic",
-					"datatype": "string",
-					"context": ["APPLICATION"]
-				},
 				"global_view_mode": {
 					"path": "/plugin/colour_pipeline/ocio/global_view_mode",
-					"default_value": false,
-					"description": "User view mode (global if true, per media otherwise).",
-					"value": false,
+					"default_value": true,
+					"description": "Apply OCIO view selection to all media.",
+					"value": true,
 					"datatype": "bool",
 					"context": ["APPLICATION"]
 				},
-				"user_source_mode": {
-					"path": "/plugin/colour_pipeline/ocio/user_source_mode",
+				"untonemapped_mode": {
+					"path": "/plugin/colour_pipeline/ocio/untonemapped_mode",
 					"default_value": true,
-					"description": "User source colour space mode (adjust from selected view if true).",
+					"description": "Avoid LUT inversion for external media.",
 					"value": true,
 					"datatype": "bool",
 					"context": ["APPLICATION"]
@@ -49,6 +41,18 @@
 					"category": "Colour Management",
 					"display_name": "Custom OpenColorIO Config",
 					"display_order": 3
+				},
+				"preferred_config_version": {
+					"path": "/plugin/colour_pipeline/ocio/preferred_config_version",
+					"default_value": "default",
+					"description": "Select the OpenColorIO config version xSTUDIO should use. This is only effective when using a media hook plugin and letting xSTUDIO know about the different OCIO config versions available (if applicable to your pipeline). This setting is currently read-only as it is defined in a workstation specific configuration file.",
+					"value": "default",
+					"options": ["default", "2.3","2.2", "2.1", "2.0","1.0"],
+					"datatype": "read only string",
+					"context": ["APPLICATION"],
+					"category": "Colour Management",
+					"display_name": "Preferred OCIO Config version",
+					"display_order": 4
 				},
 				"ocio_env_var": {
 					"path": "/plugin/colour_pipeline/ocio/ocio_env_var",

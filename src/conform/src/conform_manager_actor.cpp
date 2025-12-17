@@ -433,7 +433,13 @@ void ConformWorkerActor::process_task_request(
                                 const auto &ritems = *(result.items_.at(count));
                                 const UuidActor &m = std::get<0>(ritems.at(0));
 
-                                anon_mail(timeline::link_media_atom_v, m).send(i.item_.actor());
+                                // triggers linking of media to clip using media_uuid..
+                                // spdlog::warn("LINK {} {} {}", to_string(i.item_.actor()),
+                                // to_string(m.uuid()), to_string(m.actor()));
+
+                                anon_mail(timeline::link_media_atom_v, m)
+                                    .delay(1s)
+                                    .send(i.item_.actor());
                             }
                             count++;
                         }
@@ -1190,13 +1196,96 @@ void ConformWorkerActor::conform_step_get_clip_json(
                 for (const auto &i : items)
                     conform_request.metadata_[i.uuid()] = i.prop();
 
-                conform_step_get_clip_media(rp, conform_task, conform_request);
+                conform_step_get_reuse_map(rp, conform_task, conform_request);
             },
             [=](const error &err) mutable {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                 rp.deliver(err);
             });
 }
+
+void ConformWorkerActor::conform_step_get_reuse_map(
+    caf::typed_response_promise<ConformReply> rp,
+    const std::string &conform_task,
+    ConformRequest &conform_request) {
+
+    if (conform_request.operations_.value("reuse_media", false) and
+        conform_request.container_.actor()) {
+        // get all media actors from container
+        mail(playlist::get_media_atom_v)
+            .request(conform_request.container_.actor(), infinite)
+            .then(
+                [=](const UuidActorVector &container_media) mutable {
+                    // we maybe processing timeline items..
+                    // conform_request.metadata_[conform_request.playlist_.uuid()] =
+                    // playlist_metadata;
+                    // we need media metadata and media source names.
+                    if (container_media.empty())
+                        conform_step_get_clip_media(rp, conform_task, conform_request);
+                    else {
+
+                        // get sources and names
+                        fan_out_request<policy::select_all>(
+                            vector_to_caf_actor_vector(container_media),
+                            infinite,
+                            media::current_media_source_atom_v,
+                            true)
+                            .then(
+                                [=](const std::vector<
+                                    std::pair<UuidActor, std::pair<std::string, std::string>>>
+                                        sources) mutable {
+                                    // fan out for metadata..
+                                    fan_out_request<policy::select_all>(
+                                        vector_to_caf_actor_vector(container_media),
+                                        infinite,
+                                        json_store::get_json_atom_v,
+                                        Uuid(),
+                                        "",
+                                        true)
+                                        .then(
+                                            [=](const std::vector<
+                                                std::pair<UuidActor, JsonStore>> meta) mutable {
+                                                // got all we need build vector..
+                                                // build temp lookup ?
+                                                std::map<
+                                                    utility::Uuid,
+                                                    std::pair<std::string, std::string>>
+                                                    source_names;
+                                                for (const auto &i : sources)
+                                                    source_names.insert(std::make_pair(
+                                                        i.first.uuid(), i.second));
+
+                                                for (const auto &i : meta)
+                                                    conform_request.reuse_list_.emplace_back(
+                                                        std::make_pair(
+                                                            i, source_names[i.first.uuid()]));
+
+                                                conform_step_get_clip_media(
+                                                    rp, conform_task, conform_request);
+                                            },
+                                            [=](const error &err) mutable {
+                                                spdlog::warn(
+                                                    "{} {}",
+                                                    __PRETTY_FUNCTION__,
+                                                    to_string(err));
+                                                rp.deliver(err);
+                                            });
+                                },
+                                [=](const error &err) mutable {
+                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    rp.deliver(err);
+                                });
+                    }
+                },
+                [=](const error &err) mutable {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    rp.deliver(err);
+                });
+    } else {
+        conform_step_get_clip_media(rp, conform_task, conform_request);
+    }
+}
+
 
 void ConformWorkerActor::conform_step_get_clip_media(
     caf::typed_response_promise<ConformReply> rp,

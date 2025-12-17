@@ -3,6 +3,7 @@
 
 #include "xstudio/audio/audio_output_device.hpp"
 #include "xstudio/media_reader/buffer.hpp"
+#include "xstudio/media/media.hpp"
 
 namespace xstudio {
 namespace media_reader {
@@ -46,10 +47,21 @@ namespace media_reader {
         [[nodiscard]] double duration_seconds() const {
             return sample_rate_ ? double(num_samples_) / double(sample_rate_) : 0.0;
         }
-        [[nodiscard]] bool reversed() const { return reversed_; }
-        [[nodiscard]] std::chrono::microseconds time_delta_to_video_frame() const {
-            return time_delta_to_video_frame_;
+        [[nodiscard]] timebase::flicks duration_flicks() const {
+            return sample_rate_
+                       ? timebase::flicks(
+                             (timebase::k_flicks_one_second * num_samples_) / sample_rate_)
+                       : timebase::k_flicks_zero_seconds;
         }
+        [[nodiscard]] bool reversed() const { return reversed_; }
+
+        // Audio bufs now aligned with video frames
+        /*[[nodiscard]] std::chrono::microseconds time_delta_to_video_frame() const {
+            return time_delta_to_video_frame_;
+        }*/
+
+        void set_new_sample_rate(
+            const uint64_t new_sample_rate, const timebase::flicks &exact_duration);
 
         [[nodiscard]] size_t sample_type_size_bytes() const {
             size_t samp_size = 1;
@@ -85,9 +97,11 @@ namespace media_reader {
 
         void set_num_samples(const size_t n) { num_samples_ = n; }
         void set_reversed(const bool r) { reversed_ = r; }
-        void set_time_delta_to_video_frame(const std::chrono::microseconds d) {
+
+        // See notes in FFmpeg::pull_audio_buffer_from_stream
+        /*void set_time_delta_to_video_frame(const std::chrono::microseconds d) {
             time_delta_to_video_frame_ = d;
-        }
+        }*/
 
         [[nodiscard]] const media::MediaKey &media_key() const { return media_key_; }
         void set_media_key(const media::MediaKey &key) { media_key_ = key; }
@@ -98,8 +112,10 @@ namespace media_reader {
         uint64_t num_samples_              = {0};
         audio::SampleFormat sample_format_ = {audio::SampleFormat::UNSET};
         media::MediaKey media_key_;
-        bool reversed_                                       = {false};
-        std::chrono::microseconds time_delta_to_video_frame_ = {std::chrono::microseconds(0)};
+        bool reversed_ = {false};
+
+        // std::chrono::microseconds time_delta_to_video_frame_ =
+        // {std::chrono::microseconds(0)};
     };
 
     /* Extending std::shared_ptr<AudioBufPtr> by adding a time point telling us
@@ -113,13 +129,15 @@ namespace media_reader {
         AudioBufPtr(const AudioBufPtr &o)
             : Base(static_cast<const Base &>(o)),
               when_to_display_(o.when_to_display_),
-              tts_(o.tts_) {}
+              tts_(o.tts_),
+              frame_id_(o.frame_id_) {}
 
         AudioBufPtr &operator=(const AudioBufPtr &o) {
             Base &b          = static_cast<Base &>(*this);
             b                = static_cast<const Base &>(o);
             when_to_display_ = o.when_to_display_;
             tts_             = o.tts_;
+            frame_id_        = o.frame_id_;
             return *this;
         }
 
@@ -139,8 +157,12 @@ namespace media_reader {
         [[nodiscard]] const timebase::flicks &timeline_timestamp() const { return tts_; }
         void set_timline_timestamp(const timebase::flicks tts) { tts_ = tts; }
 
+        [[nodiscard]] const media::AVFrameID &frame_id() const { return frame_id_; }
+        void set_frame_id(const media::AVFrameID &frame_id) { frame_id_ = frame_id; }
+
       private:
         timebase::flicks tts_ = timebase::flicks{0};
+        media::AVFrameID frame_id_;
     };
 
 } // namespace media_reader

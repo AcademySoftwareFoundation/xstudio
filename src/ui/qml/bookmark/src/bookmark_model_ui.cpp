@@ -1140,3 +1140,33 @@ QFuture<QString> BookmarkModel::exportCSVFuture(
         return QStringFromStd(failed + "No backend");
     });
 }
+
+QFuture<QString> BookmarkModel::exportAnnotationsFuture(const QUrl &path) {
+    return QtConcurrent::run([=]() {
+        auto failed = std::string("Export failed: ");
+        if (bookmark_actor_) {
+            try {
+                scoped_actor sys{system()};
+
+                auto data = request_receive<std::pair<std::string, std::vector<std::byte>>>(
+                    *sys,
+                    bookmark_actor_,
+                    session::export_atom_v,
+                    session::ExportFormat::EF_DIGEST_WITH_ANNOTATIONS,
+                    UriFromQUrl(path));
+                // write data to path..
+                // this maybe a symlink in which case we should resolve it.
+                std::ofstream o(uri_to_posix_path(UriFromQUrl(path)) + "/digest.txt");
+                o.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+                o << std::get<0>(data);
+                o.close();
+
+                return QStringFromStd("Digest Exported successfuly.");
+            } catch (const std::exception &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                return QStringFromStd(failed + err.what());
+            }
+        }
+        return QStringFromStd(failed + "No backend");
+    });
+}

@@ -341,6 +341,20 @@ void GradingTool::on_screen_media_changed(
 
     working_space_->set_value(working_space);
     media_colour_managed_->set_value(!is_unmanaged);
+
+    // Restore previous bookmark selection, if any
+    mail(utility::uuid_atom_v)
+        .request(media_actor, infinite)
+        .then(
+            [=](const utility::Uuid media_uuid) {
+                const utility::Uuid previous_media_uuid = current_media_uuid_;
+                current_media_uuid_ = media_uuid;
+                select_bookmark_on_media_changed(previous_media_uuid, current_media_uuid_);
+            },
+            [=](const caf::error & err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+            }
+        );
 }
 
 void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const int role) {
@@ -708,14 +722,14 @@ bool GradingTool::grading_tools_active() const { return tool_opened_count_->valu
 void GradingTool::start_stroke(const Imath::V2f &point) {
 
     if (drawing_tool_->value() == "Draw") {
-        grading_data_.mask().start_stroke(
+        /*grading_data_.mask().start_pen_stroke(
             pen_colour_->value(),
             draw_pen_size_->value() / PEN_STROKE_THICKNESS_SCALE,
             pen_softness_->value() / 100.0,
-            pen_opacity_->value() / 100.0);
+            pen_opacity_->value() / 100.0);*/
     } else if (drawing_tool_->value() == "Erase") {
-        grading_data_.mask().start_erase_stroke(
-            erase_pen_size_->value() / PEN_STROKE_THICKNESS_SCALE);
+        /*grading_data_.mask().start_erase_stroke(
+            erase_pen_size_->value() / PEN_STROKE_THICKNESS_SCALE);*/
     }
 
     update_stroke(point);
@@ -1106,10 +1120,10 @@ void GradingTool::select_bookmark(const utility::Uuid &uuid) {
     if (grading_data_.bookmark_uuid_ == uuid)
         return;
 
-    GradingData *grading_data_ptr = nullptr;
+    const GradingData *grading_data_ptr = nullptr;
     if (uuid) {
         auto base_ptr    = get_bookmark_annotation(uuid);
-        grading_data_ptr = dynamic_cast<GradingData *>(base_ptr.get());
+        grading_data_ptr = dynamic_cast<const GradingData *>(base_ptr.get());
     }
 
     if (grading_data_ptr) {
@@ -1123,6 +1137,19 @@ void GradingTool::select_bookmark(const utility::Uuid &uuid) {
     grading_bookmark_->set_value(utility::to_string(uuid), false);
 
     refresh_ui_from_current_grade();
+}
+
+void GradingTool::select_bookmark_on_media_changed(const utility::Uuid &prevMediaUuid, const utility::Uuid &newMediaUuid) {
+
+    // Save bookmark selection
+    if (prevMediaUuid) {
+        grading_bookmark_selected_[prevMediaUuid] = grading_bookmark_->value();
+    }
+
+    // Restore bookmark selection
+    if (newMediaUuid && grading_bookmark_selected_.count(newMediaUuid)) {
+        select_bookmark(grading_bookmark_selected_[newMediaUuid]);
+    }
 }
 
 void GradingTool::update_boomark_shape(const utility::Uuid &uuid) {

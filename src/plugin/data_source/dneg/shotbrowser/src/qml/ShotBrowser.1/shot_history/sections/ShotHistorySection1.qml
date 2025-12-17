@@ -24,6 +24,29 @@ Rectangle{
                 y: spacing
                 anchors.fill: parent
                 spacing: itemSpacing
+                visible: linkMode
+
+                XsPrimaryButton{
+                    property bool hasTags: tagRole && tagRole.length ? true : false
+                    text: "L"
+                    width: 20
+                    height: parent.height
+                    font.pixelSize: textSize*1.2
+                    font.weight: hasTags? Font.Bold:Font.Medium
+                    isUnClickable: true
+                    isActiveViaIndicator: false
+                    textDiv.color: hasTags? palette.text : XsStyleSheet.hintColor
+                    enabled: false
+                    bgDiv.opacity: enabled? 1.0 : 0.5
+                    isActive: hasTags
+                }
+            }
+
+            Column{
+                y: spacing
+                anchors.fill: parent
+                spacing: itemSpacing
+                visible: !linkMode
 
                 XsPrimaryButton{ id: notesIndicatorDisplay
                     property bool hasNotes: noteCountRole <= 0 ? false : true

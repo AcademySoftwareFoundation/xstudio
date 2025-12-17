@@ -53,12 +53,15 @@ namespace media_reader {
         }
         [[nodiscard]] BufferErrorState error_state() const { return error_state_; }
         [[nodiscard]] const std::string &error_message() const { return error_message_; }
-        [[nodiscard]] double display_timestamp_seconds() const { return dts_; }
-        [[nodiscard]] bool display_timestamp_seconds_is_set() const {
-            return dts_ != UNSET_DTS;
+        [[nodiscard]] double display_timestamp_seconds() const {
+            return timebase::to_seconds(dts_);
         }
+        [[nodiscard]] timebase::flicks display_timestamp_flicks() const { return dts_; }
 
-        void set_display_timestamp_seconds(const double dts) { dts_ = dts; }
+        void set_display_timestamp_flicks(const timebase::flicks dts) { dts_ = dts; }
+        void set_display_timestamp_seconds(const double dts) {
+            dts_ = timebase::to_flicks(dts);
+        }
         void set_error(const std::string &err) {
             error_message_ = err;
             error_state_   = HAS_ERROR;
@@ -83,13 +86,15 @@ namespace media_reader {
 
         static std::shared_ptr<ImageBufferRecyclerCache> s_buf_cache;
 
+        void set_buf_data(BufferData *new_buf) { buffer_.reset(new_buf); }
+
       private:
         BufferDataPtr buffer_; // use long long to get 16 byte alignment
         size_t size_{0};
         utility::JsonStore params_;
         std::string error_message_;
         BufferErrorState error_state_{NO_ERROR};
-        double dts_ = {UNSET_DTS};
+        timebase::flicks dts_ = timebase::k_flicks_zero_seconds;
     };
 
     /* Lower level dumb cache that hangs onto BufferDataPtrs after deletion

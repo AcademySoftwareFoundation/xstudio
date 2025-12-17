@@ -244,6 +244,16 @@ Item {
     }
 
     XsMenuModelItem {
+        text: "Annotations ..."
+        menuPath: "File|Export"
+        menuItemPosition: 2.5
+        menuModelName: "main menu bar"
+        onActivated: {
+            file_functions.exportAnnotations()
+        }
+    }
+
+    XsMenuModelItem {
         text: "Copy Session Link"
         menuPath: "File"
         menuItemPosition: 8

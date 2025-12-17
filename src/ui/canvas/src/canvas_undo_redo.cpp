@@ -6,6 +6,7 @@
 using namespace xstudio::ui::canvas;
 using namespace xstudio;
 
+// UndoRedoAdd
 
 void UndoRedoAdd::redo(Canvas *canvas) { canvas->items_.push_back(item_); }
 
@@ -16,6 +17,8 @@ void UndoRedoAdd::undo(Canvas *canvas) {
     }
 }
 
+// UndoRedoDel
+
 void UndoRedoDel::redo(Canvas *canvas) {
 
     if (canvas->items_.size()) {
@@ -24,6 +27,8 @@ void UndoRedoDel::redo(Canvas *canvas) {
 }
 
 void UndoRedoDel::undo(Canvas *canvas) { canvas->items_.push_back(item_); }
+
+// UndoRedoClear
 
 void UndoRedoClear::redo(Canvas *canvas) { canvas->items_.clear(); }
 

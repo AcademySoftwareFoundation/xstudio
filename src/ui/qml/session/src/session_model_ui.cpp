@@ -720,6 +720,7 @@ void SessionModel::receivedData(
             {Roles::timecodeAsFramesRole, "timecode_as_frames"},
             {Roles::pathShakeRole, "path_shake"},
             {Roles::pixelAspectRole, "pixel_aspect"},
+            {Roles::rotationRole, "rotation"},
             {Roles::rateFPSRole, "rate"},
             {Roles::resolutionRole, "resolution"},
             {Roles::selectionRole, "playhead_selection"},
@@ -790,10 +791,9 @@ void SessionModel::receivedData(
 
                         // update error counts in parents.
                         updateErroredCount(index);
-
                     }
 
-                    // if media status has changed it may be because the MediaReference on a 
+                    // if media status has changed it may be because the MediaReference on a
                     // MediaSourceActor has changed. We may need to re-generate the thumbnail
                     // if we already have one.
                     auto type = j.value("type", "");
@@ -802,7 +802,8 @@ void SessionModel::receivedData(
                         auto p         = media_thumbnails_.find(QStringFromStd(actor_str));
                         if (p != media_thumbnails_.end()) {
                             media_thumbnails_.erase(p);
-                            emit dataChanged(index, index, QVector<int>({Roles::thumbnailImageRole}));
+                            emit dataChanged(
+                                index, index, QVector<int>({Roles::thumbnailImageRole}));
                         }
                     }
 
@@ -1211,6 +1212,7 @@ nlohmann::json SessionModel::containerDetailToJson(
             result["flag_text"]          = nullptr;
             result["bookmark_uuids"]     = nullptr;
             result["media_display_info"] = nullptr;
+            result["rotation"]           = nullptr;
         } else if (detail.type_ == "MediaSource") {
             result["thumbnail_url"]      = nullptr;
             result["rate"]               = nullptr;

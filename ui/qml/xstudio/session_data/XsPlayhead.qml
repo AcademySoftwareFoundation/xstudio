@@ -244,6 +244,13 @@ Item {
     }
     property alias forceConnect: __forceConnect.value
 
+    // Note - each playhead has a volume control. THere is also a global volume
+    // control which is what is affected by the volume slider in the interface
+    XsAttributeValue {
+        id: __volume
+        attributeTitle: "Volume"
+        model: playhead_attrs_model
+    }
 
 
     property alias logicalFrame: __playheadLogicalFrame.value
@@ -281,6 +288,7 @@ Item {
     property alias timelineMode: __timelineMode.value
     property alias current_image_stream: __stream.value
     property alias image_stream_options: __stream_options.value
+    property alias volume: __volume.value
 
     /* This gives us a 'model' with one row - the row is the attribute data
     for the "Auto Align" attribute of the current playhead. We use it below

@@ -16,7 +16,7 @@ Item {
     property real tickSpacing: 1.0
     property real minTickSpacing: 5
 
-    property bool zoomToLoop: viewportPlayhead.zoomToLoop && viewportPlayhead.enableLoopRange
+    property bool zoomToLoop: viewportPlayhead.zoomToLoop === true && viewportPlayhead.enableLoopRange === true ? true : false
     property var zoomStart: viewportPlayhead.loopStartFrame
     property var zoomEnd: viewportPlayhead.loopEndFrame
 
@@ -251,15 +251,17 @@ Item {
         }
 
         onReleased: {
-            viewportPlayhead.scrubbingFrames = false
-            if (restorePlayAfterScrub && preScrubPlaying) {
-                viewportPlayhead.playing = preScrubPlaying
+            if(viewportPlayhead.scrubbingFrames) {
+                viewportPlayhead.scrubbingFrames = false
+                if (restorePlayAfterScrub && preScrubPlaying) {
+                    viewportPlayhead.playing = preScrubPlaying
+                }
+                preScrubPlaying = false
             }
-            preScrubPlaying = false
         }
 
         onMouseXChanged: {
-            if (pressed) {
+            if (pressed && pressedButtons == Qt.LeftButton) {
                 if(zoomToLoop)
                     viewportPlayhead.logicalFrame = Math.min( Math.max( Math.round(mouseX / scaleFactor) + zoomStart, zoomStart), zoomEnd)
                 else

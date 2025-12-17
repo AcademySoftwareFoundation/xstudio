@@ -29,6 +29,11 @@ std::chrono::system_clock::duration duration_since_midnight() {
 }
 }; // namespace
 
+std::string
+QueryEngine::ref_tag_name_from_entity(const std::string &entity, const int record_id) {
+    return "REF-" + entity + "-" + std::to_string(record_id);
+}
+
 QueryEngine::QueryEngine() {
     set_lookup(cache_name("Completion Location"), utility::JsonStore(locationsJSON), lookup_);
     set_lookup(cache_name("Twig Type"), TwigTypeCodes, lookup_);
@@ -38,6 +43,7 @@ QueryEngine::QueryEngine() {
     set_cache(cache_name("Completion Location"), locationsJSON);
     set_cache(cache_name("Flag Media"), FlagTermValues);
     set_cache(cache_name("Has Attachments"), BoolTermValues);
+    set_cache(cache_name("Partial Render"), BoolTermValues);
     set_cache(cache_name("Has Contents"), BoolTermValues);
     set_cache(cache_name("Has Notes"), BoolTermValues);
     set_cache(cache_name("Is Hero"), BoolTermValues);
@@ -689,6 +695,7 @@ QueryEngine::precache_needed(const int project_id, const utility::JsonStore &loo
         "Project",
         "Department",
         "Pipeline Status",
+        "Review Status",
         "Production Status",
         "Sequence Status",
         "Shot Status",
@@ -1021,123 +1028,119 @@ utility::JsonStore QueryEngine::preprocess_terms(
         }
 
         for (const auto &i : expanded) {
-            if (i.value("enabled", true)) {
-                auto term = i.value("term", "");
-                if (term == "Operator") {
-                    auto op        = i;
-                    op["children"] = preprocess_terms(
-                        i.at("children"),
-                        entity,
-                        query,
-                        lookup,
-                        metadata,
-                        i.value("value", "And") == "And",
-                        false);
-                    result.push_back(op);
-                } else if (term == "Disable Global") {
-                    // ignored
-                } else if (term == "Result Limit") {
-                    query["max_result"] = std::stoi(i.at("value").get<std::string>());
-                } else if (term == "Project") {
-                    // need to also handle livelinked project...
-                    if (not i.contains("livelink") or not i.value("livelink", false))
+            if (not i.value("enabled", true))
+                continue;
+
+            auto term = i.value("term", "");
+            if (term == "Operator") {
+                auto op        = i;
+                op["children"] = preprocess_terms(
+                    i.at("children"),
+                    entity,
+                    query,
+                    lookup,
+                    metadata,
+                    i.value("value", "And") == "And",
+                    false);
+                result.push_back(op);
+            } else if (term == "Disable Global") {
+                // ignored
+            } else if (term == "Result Limit") {
+                query["max_result"] = std::stoi(i.at("value").get<std::string>());
+            } else if (term == "Project") {
+                // need to also handle livelinked project...
+                if (not i.contains("livelink") or not i.value("livelink", false))
+                    query["project_id"] =
+                        resolve_query_value("Project", i.at("value"), lookup).get<int>();
+                else {
+                    auto linkvalue = get_livelink_value("Project", metadata, lookup);
+                    if (not linkvalue.is_null() and i.at("value") != linkvalue)
                         query["project_id"] =
-                            resolve_query_value("Project", i.at("value"), lookup).get<int>();
-                    else {
-                        auto linkvalue = get_livelink_value("Project", metadata, lookup);
-                        if (not linkvalue.is_null() and i.at("value") != linkvalue)
-                            query["project_id"] =
-                                resolve_query_value("Project", linkvalue, lookup).get<int>();
-                    }
-                } else if (term == "Preferred Visual") {
-                    query["context"]["visual_source"].push_back(
-                        i.at("value").get<std::string>());
-                } else if (term == "Preferred Audio") {
-                    query["context"]["audio_source"].push_back(
-                        i.at("value").get<std::string>());
-                } else if (term == "Preferred Sequence") {
-                    query["context"]["sequence_source"].push_back(
-                        i.at("value").get<std::string>());
-                } else if (term == "Exclude Self") {
-                    query["context"]["exclude_self"] =
-                        get_livelink_value("Id", metadata, lookup);
-                } else if (term == "Flag Media") {
-                    auto flag_text                = i.at("value").get<std::string>();
-                    query["context"]["flag_text"] = flag_text;
-                    if (flag_text == "Red")
-                        query["context"]["flag_colour"] = "#FFFF0000";
-                    else if (flag_text == "Green")
-                        query["context"]["flag_colour"] = "#FF00FF00";
-                    else if (flag_text == "Blue")
-                        query["context"]["flag_colour"] = "#FF0000FF";
-                    else if (flag_text == "Yellow")
-                        query["context"]["flag_colour"] = "#FFFFFF00";
-                    else if (flag_text == "Orange")
-                        query["context"]["flag_colour"] = "#FFFFA500";
-                    else if (flag_text == "Purple")
-                        query["context"]["flag_colour"] = "#FF800080";
-                    else if (flag_text == "Black")
-                        query["context"]["flag_colour"] = "#FF000000";
-                    else if (flag_text == "White")
-                        query["context"]["flag_colour"] = "#FFFFFFFF";
-                } else if (term == "Order By") {
-                    auto val        = i.at("value").get<std::string>();
-                    bool descending = false;
-
-                    if (ends_with(val, " ASC")) {
-                        val = val.substr(0, val.size() - 4);
-                    } else if (ends_with(val, " DESC")) {
-                        val        = val.substr(0, val.size() - 5);
-                        descending = true;
-                    }
-
-                    std::string field = "";
-                    // get sg term..
-                    if (entity == "Playlists") {
-                        if (val == "Date And Time")
-                            field = "sg_date_and_time";
-                        else if (val == "Created")
-                            field = "created_at";
-                        else if (val == "Updated")
-                            field = "updated_at";
-                    } else if (entity == "Versions") {
-                        if (val == "Date And Time")
-                            field = "created_at";
-                        else if (val == "Created")
-                            field = "created_at";
-                        else if (val == "Updated")
-                            field = "updated_at";
-                        else if (val == "Client Submit")
-                            field = "sg_date_submitted_to_client";
-                        else if (val == "Version")
-                            field = "sg_dneg_version";
-                        else if (val == "Pipeline Status")
-                            field = "sg_status_list";
-                    } else if (entity == "Notes") {
-                        if (val == "Created")
-                            field = "created_at";
-                        else if (val == "Updated")
-                            field = "updated_at";
-                    }
-
-                    if (not field.empty())
-                        order_by.push_back(descending ? "-" + field : field);
-                } else {
-                    // add normal term to map.
-                    auto key = std::string(to_value(i, "negated", false) ? "Not " : "") + term;
-                    if (key == "Shot" or key == "Asset" or key == "Sequence" or
-                        key == "Episode")
-                        key = "ObjectType";
-                    else if (
-                        key == "Not Shot" or key == "Not Asset" or key == "Not Sequence" or
-                        key == "Not Episode")
-                        key = "Not ObjectType";
-
-                    if (not dup_terms.count(key))
-                        dup_terms[key] = std::vector<utility::JsonStore>();
-
-                    dup_terms[key].push_back(i);
+                            resolve_query_value("Project", linkvalue, lookup).get<int>();
                 }
+            } else if (term == "Preferred Visual") {
+                query["context"]["visual_source"].push_back(i.at("value").get<std::string>());
+            } else if (term == "Preferred Audio") {
+                query["context"]["audio_source"].push_back(i.at("value").get<std::string>());
+            } else if (term == "Preferred Sequence") {
+                query["context"]["sequence_source"].push_back(i.at("value").get<std::string>());
+            } else if (term == "Exclude Self") {
+                query["context"]["exclude_self"] = get_livelink_value("Id", metadata, lookup);
+            } else if (term == "Flag Media") {
+                auto flag_text                = i.at("value").get<std::string>();
+                query["context"]["flag_text"] = flag_text;
+                if (flag_text == "Red")
+                    query["context"]["flag_colour"] = "#FFFF0000";
+                else if (flag_text == "Green")
+                    query["context"]["flag_colour"] = "#FF00FF00";
+                else if (flag_text == "Blue")
+                    query["context"]["flag_colour"] = "#FF0000FF";
+                else if (flag_text == "Yellow")
+                    query["context"]["flag_colour"] = "#FFFFFF00";
+                else if (flag_text == "Orange")
+                    query["context"]["flag_colour"] = "#FFFFA500";
+                else if (flag_text == "Purple")
+                    query["context"]["flag_colour"] = "#FF800080";
+                else if (flag_text == "Black")
+                    query["context"]["flag_colour"] = "#FF000000";
+                else if (flag_text == "White")
+                    query["context"]["flag_colour"] = "#FFFFFFFF";
+            } else if (term == "Order By") {
+                auto val        = i.at("value").get<std::string>();
+                bool descending = false;
+
+                if (ends_with(val, " ASC")) {
+                    val = val.substr(0, val.size() - 4);
+                } else if (ends_with(val, " DESC")) {
+                    val        = val.substr(0, val.size() - 5);
+                    descending = true;
+                }
+
+                std::string field = "";
+                // get sg term..
+                if (entity == "Playlists") {
+                    if (val == "Date And Time")
+                        field = "sg_date_and_time";
+                    else if (val == "Created")
+                        field = "created_at";
+                    else if (val == "Updated")
+                        field = "updated_at";
+                } else if (entity == "Versions") {
+                    if (val == "Date And Time")
+                        field = "created_at";
+                    else if (val == "Created")
+                        field = "created_at";
+                    else if (val == "Updated")
+                        field = "updated_at";
+                    else if (val == "Client Submit")
+                        field = "sg_date_submitted_to_client";
+                    else if (val == "Version")
+                        field = "sg_dneg_version";
+                    else if (val == "Pipeline Status")
+                        field = "sg_status_list";
+                } else if (entity == "Notes") {
+                    if (val == "Created")
+                        field = "created_at";
+                    else if (val == "Updated")
+                        field = "updated_at";
+                }
+
+                if (not field.empty())
+                    order_by.push_back(descending ? "-" + field : field);
+            } else {
+                // add normal term to map.
+                auto key = std::string(to_value(i, "negated", false) ? "Not " : "") + term;
+                if (key == "Shot" or key == "Asset" or key == "Sequence" or key == "Episode")
+                    key = "ObjectType";
+                else if (
+                    key == "Not Shot" or key == "Not Asset" or key == "Not Sequence" or
+                    key == "Not Episode")
+                    key = "Not ObjectType";
+
+                if (not dup_terms.count(key))
+                    dup_terms[key] = std::vector<utility::JsonStore>();
+
+                dup_terms[key].push_back(i);
             }
         }
 
@@ -1234,8 +1237,10 @@ utility::JsonStore QueryEngine::build_query(
 
     merged_preset = apply_livelinks(merged_preset, metadata, lookup);
 
+    // spdlog::warn("query\n{}", query.dump(2));
     // spdlog::warn("merged_preset\n{}", merged_preset.dump(2));
 
+    // split sequence/shot etc into OR which is AND with other terms.
     auto preprocessed = JsonStore(R"([])"_json);
     preprocessed.push_back(OperatorTermTemplate);
     preprocessed[0]["value"] = "And";
@@ -1244,6 +1249,11 @@ utility::JsonStore QueryEngine::build_query(
 
     // spdlog::warn("preprocess_terms\n{}", preprocessed.dump(2));
 
+    // for(const auto &i: group_detail.at("flags")){
+    //     if(i == "Reference Mode")
+    preprocessed = apply_reference_hack(preprocessed);
+    // }
+
     try {
         query["query"] = terms_to_query(preprocessed, query["project_id"], entity, lookup);
     } catch (const std::exception &err) {
@@ -1251,10 +1261,100 @@ utility::JsonStore QueryEngine::build_query(
         throw;
     }
 
-    // spdlog::warn("terms_to_query {}", query.dump(2));
+    // spdlog::warn("{}", query.dump(2));
 
     return query;
 }
+
+utility::JsonStore QueryEngine::apply_reference_hack(const utility::JsonStore &query) {
+    auto result = query;
+
+    // spdlog::warn("{}", result.dump(2));
+
+    // capture Reference Terms. Single bare or multiple in OR group.
+    auto references = JsonStore();
+    auto ref_tags   = JsonStore();
+
+
+    // capture references.
+    // either OR group or single term.
+
+    try {
+        auto it = std::begin(result.at(0).at("children"));
+        while (it != std::end(result.at(0).at("children"))) {
+            if (it->at("term") == "Reference" or
+                (it->at("term") == "Operator" and
+                 it->at("children").at(0).at("term") == "Reference")) {
+                references = *it;
+                it         = result.at(0).at("children").erase(it);
+            } else {
+                it++;
+            }
+        }
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    try {
+        auto it = std::begin(result.at(0).at("children"));
+        while (it != std::end(result.at(0).at("children"))) {
+            if (it->at("term") == "Tree Ref Tag" or
+                (it->at("term") == "Operator" and
+                 it->at("children").at(0).at("term") == "Tree Ref Tag")) {
+                ref_tags = *it;
+                it       = result.at(0).at("children").erase(it);
+            } else {
+                it++;
+            }
+        }
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    // spdlog::warn("{}", ref_tags.dump(2));
+    // spdlog::warn("{}", references.dump(2));
+
+    auto merged = JsonStore();
+    if (not ref_tags.is_null() and not references.is_null()) {
+        merged = JsonStore(R"({
+            "children": [],
+            "enabled": true,
+            "id": null,
+            "negated": false,
+            "term": "Operator",
+            "type": "term",
+            "value": "And"
+        })"_json);
+        merged["children"].push_back(ref_tags);
+        merged["children"].push_back(references);
+    }
+    //  else if(not ref_tags.is_null()) {
+    //     merged = ref_tags;
+    // } else if(not references.is_null()) {
+    //     merged = references;
+    // }
+
+    if (not merged.is_null()) {
+        auto tmp = JsonStore(R"({
+            "children": [],
+            "enabled": true,
+            "id": null,
+            "negated": false,
+            "term": "Operator",
+            "type": "term",
+            "value": "Or"
+        })"_json);
+        tmp["children"].push_back(merged);
+        tmp["children"].push_back(result[0]);
+        result[0] = tmp;
+    }
+
+    // spdlog::warn("{}", result.dump(2));
+
+
+    return result;
+}
+
 
 utility::JsonStore QueryEngine::merge_query(
     const utility::JsonStore &base,
@@ -1374,6 +1474,15 @@ void QueryEngine::add_playlist_term_to_filter(
             qry->push_back(Text("sg_review_location_1").is_not(value));
         else
             qry->push_back(Text("sg_review_location_1").is(value));
+    } else if (term == "Review Status") {
+        if (negated)
+            qry->push_back(Text("sg_review_status")
+                               .is_not(resolve_query_value(term, JsonStore(value), lookup)
+                                           .get<std::string>()));
+        else
+            qry->push_back(Text("sg_review_status")
+                               .is(resolve_query_value(term, JsonStore(value), lookup)
+                                       .get<std::string>()));
     } else if (term == "Department") {
         if (negated)
             qry->push_back(
@@ -1476,6 +1585,19 @@ void QueryEngine::add_version_term_to_filter(
             qry->push_back(Text(prop).is("None"));
         else
             qry->push_back(FilterBy().Or(Text(prop).is("Full"), Text(prop).is("Partial")));
+
+    } else if (term == "Partial Render") {
+        if (value == "False")
+            qry->push_back(FilterBy().And(
+                Text("frame_range").not_contains("x"), Text("frame_range").not_contains(",")));
+        else if (value == "True")
+            qry->push_back(FilterBy().Or(
+                Text("frame_range").contains("x"),
+                Text("frame_range").contains(","),
+                Text("frame_range").is_null()));
+        else
+            throw XStudioError("Invalid query term " + term + " " + value);
+
     } else if (term == "Pipeline Step") {
         if (negated) {
             if (value == "None")
@@ -1615,6 +1737,25 @@ void QueryEngine::add_version_term_to_filter(
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
             throw XStudioError("Invalid query term " + term + " " + value);
         }
+    } else if (term == "Reference") {
+        try {
+            auto seq  = R"({"type": "Sequence", "id":0})"_json;
+            auto seqs = std::vector<JsonStore>();
+            // if no match force failing query. or we'll get EVERYTHING
+            try {
+                seq["id"] =
+                    resolve_query_value("Sequence", JsonStore(value), project_id, lookup)
+                        .get<int>();
+                seqs.push_back(seq);
+            } catch (const std::exception &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                seqs.push_back(seq);
+            }
+            qry->push_back(RelationType("entity").in(seqs));
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+            throw XStudioError("Invalid query term " + term + " " + value);
+        }
     } else if (term == "Sent To") {
         if (value == "Client")
             qry->push_back(DateTime("sg_date_submitted_to_client").is_not_null());
@@ -1669,6 +1810,10 @@ void QueryEngine::add_version_term_to_filter(
         qry->push_back(QueryEngine::add_text_value("code", value, negated));
     } else if (term == "Client Filename") {
         qry->push_back(QueryEngine::add_text_value("sg_client_filename", value, negated));
+    } else if (term == "Tree Ref Tag") {
+        qry->push_back(Text("tags.Tag.name").is(value));
+    } else if (term == "Ref Tag") {
+        qry->push_back(Text("tags.Tag.name").is(value));
     } else if (term == "Tag") {
         qry->push_back(
             QueryEngine::add_text_value("entity.Shot.tags.Tag.name", value, negated));
@@ -1685,22 +1830,24 @@ void QueryEngine::add_version_term_to_filter(
             qry->push_back(Text("entity.Shot.sg_shot_type").is_not(value));
         else
             qry->push_back(Text("entity.Shot.sg_shot_type").is(value));
-    } else if (term == "Reference Tag" or term == "Reference Tags") {
+        // } else if (term == "Reference Tag" or term == "Reference Tags") {
 
-        if (value.find(',') != std::string::npos) {
-            // split ...
-            for (const auto &i : split(value, ',')) {
-                if (negated)
-                    qry->push_back(RelationType("tags").name_not_contains(i + ".REFERENCE"));
-                else
-                    qry->push_back(RelationType("tags").name_is(i + ".REFERENCE"));
-            }
-        } else {
-            if (negated)
-                qry->push_back(RelationType("tags").name_not_contains(value + ".REFERENCE"));
-            else
-                qry->push_back(RelationType("tags").name_is(value + ".REFERENCE"));
-        }
+        //     if (value.find(',') != std::string::npos) {
+        //         // split ...
+        //         for (const auto &i : split(value, ',')) {
+        //             if (negated)
+        //                 qry->push_back(RelationType("tags").name_not_contains(i +
+        //                 ".REFERENCE"));
+        //             else
+        //                 qry->push_back(RelationType("tags").name_is(i + ".REFERENCE"));
+        //         }
+        //     } else {
+        //         if (negated)
+        //             qry->push_back(RelationType("tags").name_not_contains(value +
+        //             ".REFERENCE"));
+        //         else
+        //             qry->push_back(RelationType("tags").name_is(value + ".REFERENCE"));
+        //     }
     } else if (term == "Tag (Version)") {
         qry->push_back(QueryEngine::add_text_value("tags.Tag.name", value, negated));
     } else if (term == "Twig Name") {
@@ -1964,6 +2111,8 @@ utility::JsonStore QueryEngine::resolve_query_value(
             if (lookup.at(_type).count(val)) {
                 mapped_value = lookup.at(_type).at(val).at("id");
             } else {
+                // spdlog::warn("{} {} {} {}",value.dump(2), _type,  val,
+                // lookup.at(_type).dump(2));
                 spdlog::warn("Unmatched value {} {} {}", _type, val, __PRETTY_FUNCTION__);
             }
         } else {
@@ -2027,6 +2176,12 @@ void QueryEngine::set_shot_sequence_lookup(
         lookup_changed_callback_(key);
 }
 
+void QueryEngine::set_reference_cache(const std::string &key, const utility::JsonStore &data) {
+    set_reference_cache(key, data, cache_);
+    if (cache_changed_callback_)
+        cache_changed_callback_(key);
+}
+
 void QueryEngine::set_shot_type_cache(const std::string &key, const utility::JsonStore &data) {
     set_shot_type_cache(key, data, lookup_);
 
@@ -2088,6 +2243,35 @@ void QueryEngine::set_asset_type_cache(
             value.at("id")   = type;
             tmp.push_back(value);
         }
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    cache[key] = tmp;
+}
+
+
+void QueryEngine::set_reference_cache(
+    const std::string &key, const utility::JsonStore &data, utility::JsonStore &cache) {
+    // auto tmp = R"([{"name":"", "id": 0}])"_json;
+    auto tmp = R"([{"name":"", "id": 0}])"_json;
+    static const auto episode =
+        json::json_pointer("/relationships/custom_entity20_sg_sequences_custom_entity20s/data");
+
+    try {
+        for (const auto &i : data) {
+            if (i.at("attributes").at("sg_status_list") == "del")
+                continue;
+
+            if (i.contains(episode) and not i.at(episode).empty() and
+                i.at(episode).at(0).at("name") == "REFERENCE") {
+                auto value       = R"({"id": null, "name": null})"_json;
+                value.at("id")   = i.at("id");
+                value.at("name") = i.at("attributes").at("code");
+                tmp.push_back(value);
+            }
+        }
+
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
@@ -2299,6 +2483,7 @@ utility::JsonStore QueryEngine::get_livelink_value(
             }
 
         } else if (term == "Entity") {
+
             if (metadata.contains(json::json_pointer("/metadata/shotgun/version"))) {
                 auto type = metadata.at(json::json_pointer(
                     "/metadata/shotgun/version/relationships/entity/data/type"));
@@ -2343,7 +2528,10 @@ utility::JsonStore QueryEngine::get_livelink_value(
                     result = nlohmann::json("Shot-" + std::to_string(shot_id));
                 }
             }
+
         } else if (metadata.contains(json::json_pointer("/metadata/shotgun/version"))) {
+
+
             if (term == "Version Name") {
                 result = nlohmann::json(get_version_name(metadata));
             } else if (term == "Older Version" or term == "Newer Version") {
@@ -2361,6 +2549,13 @@ utility::JsonStore QueryEngine::get_livelink_value(
                     "/metadata/shotgun/version/relationships/user/data/name"));
             } else if (term == "Shot") {
                 result = nlohmann::json(get_shot_name(metadata));
+            } else if (term == "Ref Tag") {
+                auto type = metadata.at(json::json_pointer(
+                    "/metadata/shotgun/version/relationships/entity/data/type"));
+                auto id   = metadata.at(json::json_pointer(
+                    "/metadata/shotgun/version/relationships/entity/data/id"));
+
+                result = nlohmann::json(ref_tag_name_from_entity(type, id));
             } else if (term == "Twig Name") {
                 result = nlohmann::json(
                     std::string("^") +
@@ -2430,6 +2625,21 @@ utility::JsonStore QueryEngine::get_livelink_value(
                     if (not seq_name.empty())
                         result = nlohmann::json(seq_name);
                 }
+            }
+        } else {
+            // limited metadata...
+            if (term == "Project") {
+                result = nlohmann::json(get_project_id(metadata, lookup));
+            } else if (term == "Shot") {
+                result = nlohmann::json(get_shot_name(metadata));
+            } else if (term == "Sequence") {
+                auto project_id = get_project_id(metadata, lookup);
+                auto shot_name  = get_shot_name(metadata);
+                int shot_id =
+                    resolve_query_value("Shot", nlohmann::json(shot_name), project_id, lookup);
+                auto seq_name = get_sequence_name(project_id, shot_id, lookup);
+                if (not seq_name.empty())
+                    result = nlohmann::json(seq_name);
             }
         }
     } catch (const std::exception &err) {

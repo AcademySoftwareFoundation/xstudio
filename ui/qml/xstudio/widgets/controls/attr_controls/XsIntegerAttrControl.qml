@@ -3,7 +3,8 @@ import QtQuick
 
 
 import QtQuick.Layouts
-
+import QtQml.Models
+import Qt.labs.qmlmodels
 
 import xStudio 1.0
 
@@ -38,7 +39,7 @@ RowLayout {
         }
     }
 
-    Repeater {
+    /*Repeater {
 
         model: attr_data
         XsIntegerValueControl {
@@ -48,5 +49,44 @@ RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
         }
+    }*/
+
+    Repeater {
+
+        model: attr_data
+        delegate: chooser
+
+        DelegateChooser {
+            id: chooser
+            role: "type"
+
+            DelegateChoice {
+                roleValue: "FloatScrubber"
+                XsFloatValueControl {
+                    text: root.text
+                    fromValue: float_scrub_min
+                    toValue: float_scrub_max
+                    stepSize: float_scrub_step
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    property var foo: value
+                    onFooChanged: {
+                        attr_data.sourceModel.dump()
+                    }
+                }
+            }
+
+            DelegateChoice {
+                roleValue: "IntegerValue"
+                XsIntegerValueControl {
+                    text: root.text
+                    fromValue: integer_min
+                    toValue: integer_max
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                }
+            }
+        }
     }
+
 }

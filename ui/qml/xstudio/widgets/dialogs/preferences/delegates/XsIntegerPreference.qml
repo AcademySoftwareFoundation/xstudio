@@ -13,6 +13,9 @@ import "../widgets"
 RowLayout {
     width: parent.width
     height: XsStyleSheet.widgetStdHeight
+    property var readonly: datatypeRole == "read only int"
+
+    enabled: !readonly
 
     XsLabel {
         Layout.alignment: Qt.AlignVCenter|Qt.AlignRight

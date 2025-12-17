@@ -56,6 +56,7 @@ ShotBrowserResultModel::ShotBrowserResultModel(QObject *parent) : JSONTreeModel(
          "productionStatusFullRole",
          "projectIdRole",
          "projectRole",
+         // "refTagRole",
          "resultRowRole",
          "sequenceRole",
          "shotRole",
@@ -599,14 +600,20 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
             result = QString::fromStdString(j.at("attributes").value("sg_twig_name", ""));
             break;
 
+            // case Roles::refTagRole: {
+            //     auto tmp = R"([])"_json;
+            //     for (const auto &i : j.at("relationships").at("tags").at("data")) {
+            //         if(i.value("name", "").starts_with("REF.")) {
+            //             auto ii = i;
+            //             ii["name"] = i["name"].get<std::string>()substr(4);
+            //             tmp.push_back(ii);
+            //         }
+            //     }
+            //     result = mapFromValue(tmp);
+            // } break;
+
         case Roles::tagRole: {
-            auto tmp = QStringList();
-            for (const auto &i : j.at("relationships").at("tags").at("data")) {
-                auto name = QStringFromStd(i.at("name").get<std::string>());
-                name.replace(QRegularExpression("\\.REFERENCE$"), "");
-                tmp.append(name);
-            }
-            result = tmp;
+            result = mapFromValue(j.at("relationships").at("tags").at("data"));
         } break;
 
         case Roles::twigTypeRole:
@@ -841,6 +848,14 @@ bool ShotBrowserResultModel::setData(
             }
         } break;
 
+        case Roles::tagRole: {
+            auto data                          = mapFromValue(value);
+            j["relationships"]["tags"]["data"] = data;
+            result                             = true;
+            emit dataChanged(index, index, roles);
+        } break;
+
+
         default:
             result = JSONTreeModel::setData(index, value, role);
             break;
@@ -1052,6 +1067,28 @@ void ShotBrowserResultFilterModel::setFilterName(const QString &value) {
     }
 }
 
+void ShotBrowserResultFilterModel::setFilterLink(const QString &value) {
+    auto changed = true;
+
+    if (value == "All" and (filterUnlinked_ or filterLinked_)) {
+        filterUnlinked_ = false;
+        filterLinked_   = false;
+    } else if (value == "Linked" and not filterLinked_) {
+        filterUnlinked_ = false;
+        filterLinked_   = true;
+    } else if (value == "Unlinked" and not filterUnlinked_) {
+        filterUnlinked_ = true;
+        filterLinked_   = false;
+    } else {
+        changed = false;
+    }
+
+    if (changed) {
+        emit filterLinkChanged();
+        invalidateFilter();
+    }
+}
+
 
 bool ShotBrowserResultFilterModel::filterAcceptsRow(
     int source_row, const QModelIndex &source_parent) const {
@@ -1076,10 +1113,6 @@ bool ShotBrowserResultFilterModel::filterAcceptsRow(
                 filterMum_ and
                 not source_index.data(ShotBrowserResultModel::Roles::onSiteMum).toInt())
                 result = false;
-            // else if (
-            //     filterVan_ and
-            //     not source_index.data(ShotBrowserResultModel::Roles::onSiteVan).toInt())
-            //     result = false;
             else if (
                 filterSyd_ and
                 not source_index.data(ShotBrowserResultModel::Roles::onSiteSyd).toInt())
@@ -1089,6 +1122,15 @@ bool ShotBrowserResultFilterModel::filterAcceptsRow(
                 filterPipeStep_ !=
                     source_index.data(ShotBrowserResultModel::Roles::pipelineStepRole)
                         .toString())
+                result = false;
+            else if (
+                filterLinked_ and
+                mapFromValue(source_index.data(ShotBrowserResultModel::Roles::tagRole)).empty())
+                result = false;
+            else if (
+                filterUnlinked_ and
+                not mapFromValue(source_index.data(ShotBrowserResultModel::Roles::tagRole))
+                        .empty())
                 result = false;
         }
         // only apply name filter to parent, not children.

@@ -484,7 +484,7 @@ xstudio::ui::qt::OffscreenViewport *StudioUI::offscreen_snapshot_viewport() {
     if (!snapshot_offscreen_viewport_) {
         snapshot_offscreen_viewport_ = new xstudio::ui::qt::OffscreenViewport(
             "snapshot_viewport",
-            true // this flag means we do sync to the other (main UI) viewports
+            false // this flag means we do sync to the other (main UI) viewports
         );
         system().registry().put(
             offscreen_viewport_registry, snapshot_offscreen_viewport_->as_actor());

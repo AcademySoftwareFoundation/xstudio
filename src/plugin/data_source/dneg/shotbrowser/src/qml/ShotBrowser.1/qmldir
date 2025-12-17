@@ -40,6 +40,7 @@ XsSBL2Views                 1.0 shot_browser/left_sections/XsSBL2Views.qml
 XsSBL3Actions               1.0 shot_browser/left_sections/XsSBL3Actions.qml
 XsSBLeftSection             1.0 shot_browser/XsSBLeftSection.qml
 XsSBLoginDialog             1.0 shot_browser/left_sections/viewItems/XsSBLoginDialog.qml
+XsSBManifestDialog          1.0 shot_browser/left_sections/viewItems/XsSBManifestDialog.qml
 XsSBPresetEditItem          1.0 shot_browser/left_sections/viewItems/XsSBPresetEditItem.qml
 XsSBPresetEditNewItem       1.0 shot_browser/left_sections/viewItems/XsSBPresetEditNewItem.qml
 XsSBPresetEditPopup         1.0 shot_browser/left_sections/viewItems/XsSBPresetEditPopup.qml

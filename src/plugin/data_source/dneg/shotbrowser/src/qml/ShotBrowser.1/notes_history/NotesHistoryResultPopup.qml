@@ -107,7 +107,18 @@ XsPopupMenu {
         menuModelName: rightClickMenu.menu_model_name
         onActivated: {
             clipboard.text = ShotBrowserHelpers.getNote(popupSelectionModel.selectedIndexes);
-            clipboard.html = ShotBrowserHelpers.getNoteHTML(popupSelectionModel.selectedIndexes);;
+            clipboard.html = ShotBrowserHelpers.getNoteHTML(popupSelectionModel.selectedIndexes);
+        }
+    }
+    XsMenuModelItem {
+        text: "Content (Shot Order)"
+        menuItemPosition: 8.5
+        menuPath: "Copy To Clipboard"
+        menuModelName: rightClickMenu.menu_model_name
+        onActivated: {
+            let indexes = ShotBrowserHelpers.orderByNoteShot(popupSelectionModel.selectedIndexes);
+            clipboard.text = ShotBrowserHelpers.getNote(indexes);
+            clipboard.html = ShotBrowserHelpers.getNoteHTML(indexes);
         }
     }
     XsMenuModelItem {

@@ -1983,6 +1983,15 @@ caf::message_handler SessionActor::message_handler() {
             // a new viewport has been created
         },
 
+         [=](utility::event_atom,
+             ui::viewport::viewport_atom,
+             media::transform_matrix_atom,
+             const std::string viewport_name,
+             const Imath::M44f &proj_matrix) {
+             // this event message happens when a viewport's projection matrix
+             // changes (e.g. when user zooms/pans etc.)
+         },
+
         [=](utility::event_atom,
             ui::viewport::viewport_playhead_atom,
             const std::string &viewport_name,
@@ -2609,11 +2618,21 @@ void SessionActor::gather_media_sources_add_media(
                             auto cnameset        = vpair_second_to_s(current_names);
                             auto deduped_sources = utility::UuidActorVector();
 
-                            for (const auto &i : details) {
-                                if (not cnameset.count(i.name_)) {
-                                    deduped_sources.emplace_back(UuidActor(i.uuid_, i.actor_));
-                                } else {
-                                    send_exit(i.actor_, caf::exit_reason::user_shutdown);
+                            // note - details is unordererd (due to fan_out_request).
+                            // We want to retain ordering of sources so that if there
+                            // are multiple audio sources being added, say, the first
+                            // one is always picked.
+                            for (const auto &j : sources) {
+                                for (const auto &i : details) {
+                                    if (j.uuid() == i.uuid_) {
+                                        if (not cnameset.count(i.name_)) {
+                                            deduped_sources.emplace_back(
+                                                UuidActor(i.uuid_, i.actor_));
+                                        } else {
+                                            send_exit(
+                                                i.actor_, caf::exit_reason::user_shutdown);
+                                        }
+                                    }
                                 }
                             }
 

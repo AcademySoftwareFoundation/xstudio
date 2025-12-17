@@ -16,6 +16,7 @@ CAF_PUSH_WARNINGS
 #include <QQuickWindow>
 #include <QWheelEvent>
 #include <QOffscreenSurface>
+#include <QTabletEvent>
 CAF_POP_WARNINGS
 
 using namespace xstudio::ui::qml;
@@ -41,6 +42,64 @@ int qtModifierToOurs(const Qt::KeyboardModifiers qt_modifiers) {
         result |= Signature::Modifier::KeypadModifier;
     if (qt_modifiers & Qt::GroupSwitchModifier)
         result |= Signature::Modifier::GroupSwitchModifier;
+
+    return result;
+}
+
+Signature::InputType qtInputTypeToOurs(QInputDevice::DeviceType qt_inputType) {
+    Signature::InputType result;
+
+    switch (qt_inputType) {
+    case QInputDevice::DeviceType::Mouse:
+        result = Signature::InputType::Mouse;
+        break;
+    case QInputDevice::DeviceType::TouchScreen:
+        result = Signature::InputType::TouchScreen;
+        break;
+    case QInputDevice::DeviceType::TouchPad:
+        result = Signature::InputType::TouchPad;
+        break;
+    case QInputDevice::DeviceType::Stylus:
+        result = Signature::InputType::Stylus;
+        break;
+    case QInputDevice::DeviceType::Airbrush:
+        result = Signature::InputType::Airbrush;
+        break;
+    case QInputDevice::DeviceType::Puck:
+        result = Signature::InputType::Puck;
+        break;
+    case QInputDevice::DeviceType::Keyboard:
+        result = Signature::InputType::Keyboard;
+        break;
+    default:
+        result = Signature::InputType::UnknownInput;
+    }
+
+    return result;
+}
+
+Signature::PointerType qtPointerTypeToOurs(QPointingDevice::PointerType qt_pointerType) {
+    Signature::PointerType result;
+
+    switch (qt_pointerType) {
+    case QPointingDevice::PointerType::Generic:
+        result = Signature::PointerType::Generic;
+        break;
+    case QPointingDevice::PointerType::Finger:
+        result = Signature::PointerType::Finger;
+        break;
+    case QPointingDevice::PointerType::Pen:
+        result = Signature::PointerType::Pen;
+        break;
+    case QPointingDevice::PointerType::Eraser:
+        result = Signature::PointerType::Eraser;
+        break;
+    case QPointingDevice::PointerType::Cursor:
+        result = Signature::PointerType::Cursor;
+        break;
+    default:
+        result = Signature::PointerType::UnknownPointer;
+    }
 
     return result;
 }
@@ -178,6 +237,11 @@ void QMLViewport::handleScreenChanged(QScreen *screen) {
 
 void QMLViewport::sendPointerEvent(EventType t, QMouseEvent *event, int force_modifiers) {
 
+    // if (isSynthFromTabletEvent(event))
+    //     spdlog::info("################# QMouseEvent synthesised from QTabletEvent\n");
+
+    auto point = event->points()[0];
+
     PointerEvent p(
         t,
         static_cast<Signature::Button>((int)event->buttons()),
@@ -186,8 +250,16 @@ void QMLViewport::sendPointerEvent(EventType t, QMouseEvent *event, int force_mo
         int(round(float(width()) * window()->effectiveDevicePixelRatio())),
         int(round(float(height()) * window()->effectiveDevicePixelRatio())),
         qtModifierToOurs(event->modifiers()) + force_modifiers,
-        renderer_actor ? renderer_actor->std_name() : "");
-    p.w_ = utility::clock::now();
+        renderer_actor ? renderer_actor->std_name() : "",
+        std::make_pair(0, 0),
+        PointerEvent::WheelDeltaType::NotSet,
+        qtInputTypeToOurs(event->deviceType()),
+        (float)point.pressure(),
+        (double)point.timestamp(),
+        qtPointerTypeToOurs(point.device()->pointerType()));
+
+    // p.w_ = utility::clock::now();
+
     if (renderer_actor)
         renderer_actor->pointerEvent(p);
 }
@@ -203,7 +275,9 @@ void QMLViewport::sendPointerEvent(QHoverEvent *event) {
         int(round(float(height()) * window()->effectiveDevicePixelRatio())),
         Signature::Modifier::NoModifier,
         renderer_actor ? renderer_actor->std_name() : "");
-    p.w_ = utility::clock::now();
+
+    // p.w_ = utility::clock::now();
+
     if (renderer_actor)
         renderer_actor->pointerEvent(p);
 }
@@ -367,6 +441,29 @@ void QMLViewport::keyReleaseEvent(QKeyEvent *key_event) {
     }
 }
 
+template <typename EnumType> QString ToString(const EnumType &enumValue) {
+    const char *enumName          = qt_getEnumName(enumValue);
+    const QMetaObject *metaObject = qt_getEnumMetaObject(enumValue);
+    if (metaObject) {
+        const int enumIndex = metaObject->indexOfEnumerator(enumName);
+        return QString("%1::%2::%3")
+            .arg(
+                metaObject->className(),
+                enumName,
+                metaObject->enumerator(enumIndex).valueToKey(enumValue));
+    }
+
+    return QString("%1::%2").arg(enumName).arg(static_cast<int>(enumValue));
+}
+
+bool QMLViewport::isSynthFromTabletEvent(QMouseEvent *event) {
+    if (event->device()->type() == QInputDevice::DeviceType::Stylus ||
+        event->device()->type() == QInputDevice::DeviceType::Airbrush)
+        return true;
+
+    return false;
+}
+
 bool QMLViewport::event(QEvent *event) {
 
     if (event->type() == QEvent::KeyPress) {
@@ -428,7 +525,8 @@ void QMLViewport::wheelEvent(QWheelEvent *event) {
         qtModifierToOurs(event->modifiers()),
         renderer_actor ? renderer_actor->std_name() : "",
         std::make_pair(event->angleDelta().rx(), event->angleDelta().ry()),
-        std::make_pair(event->pixelDelta().rx(), event->pixelDelta().ry()));
+        PointerEvent::WheelDeltaType::Angle,
+        qtInputTypeToOurs(event->deviceType()));
 
     if (renderer_actor && !renderer_actor->pointerEvent(ev) && renderer_actor->playhead()) {
         // If viewport hasn't acted on the mouse wheel event (because user pref
@@ -561,11 +659,6 @@ QVariantList QMLViewport::imageBoundariesInViewport() {
 }
 
 void QMLViewport::quickViewFromPath(const QString &path_or_uri) {
-    caf::uri _uri;
-    auto uri = caf::make_uri(StdFromQString(path_or_uri));
-    if (uri)
-        _uri = *uri;
-    else
-        _uri = utility::posix_path_to_uri(StdFromQString(path_or_uri));
-    anon_mail(quickview_media_atom_v, _uri).send(renderer_actor->as_actor());
+    if (renderer_actor)
+        renderer_actor->quickViewFromPath(path_or_uri);
 }

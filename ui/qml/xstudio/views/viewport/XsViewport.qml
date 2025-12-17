@@ -110,8 +110,11 @@ Viewport {
         id: image_boundaries
     }
 
+    property var num_images_on_screen: 0
+
     onImageBoundariesInViewportChanged: {
         var n = imageBoundariesInViewport.length
+        num_images_on_screen = n
         for (var i = 0; i < n; ++i) {
             if (i < image_boundaries.count) {
                 image_boundaries.get(i).imageBoundary = imageBoundariesInViewport[i];
@@ -134,7 +137,11 @@ Viewport {
     Repeater {
         model: image_boundaries
         XsViewportHUD {
-            imageIndex: index
+            // the HUD needs to know which viewport image stream it is attached to. If 
+            // we are in grid mode, it's the index in the model here. If we're not in
+            // a grid layout 'num_images_on_screen' is 1 and we need to use the 
+            // active sub playhead index.
+            imageIndex: num_images_on_screen == 1 ? viewportPlayhead.keySubplayheadIndex : index
         }
     }
     

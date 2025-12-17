@@ -159,7 +159,7 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
             // colour transform (for example, the id should be based on the
             // media source colourspce and the OCIO View and Display properties
             // of the ColourPipeline.
-            std::string transform_id = std::to_string(fast_display_transform_hash(media_ptr));
+            std::string transform_id = std::to_string(fast_colour_transform_hash(media_ptr));
 
             // check if we have already received a request for this data but are
             // still waiting for workers to finish. Stores the response promise
@@ -242,7 +242,7 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
                     thumbnail_processor_pool_, display_colour_transform_hash_atom_v, media_ptr);
                 return rp;
             }
-            rp.deliver(fast_display_transform_hash(media_ptr));
+            rp.deliver(fast_colour_transform_hash(media_ptr));
             return rp;
         },
         [=](media_reader::process_thumbnail_atom,

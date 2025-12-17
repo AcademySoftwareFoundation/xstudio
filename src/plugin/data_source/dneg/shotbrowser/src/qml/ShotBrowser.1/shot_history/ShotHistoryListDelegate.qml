@@ -42,6 +42,7 @@ Rectangle{ id: frame
     required property int idRole
     required property string entityRole
     required property string productionStatusFullRole
+    required property var tagRole
 
     required property int onSiteChn
     required property int onSiteLon
@@ -111,6 +112,7 @@ Rectangle{ id: frame
                     let ppos = mapToItem(popupMenu.parent, mouseX, mouseY)
                     popupMenu.x = ppos.x
                     popupMenu.y = ppos.y
+                    popupMenu.rebuildTagMenu()
                     popupMenu.visible = true
                 }
             }

@@ -1079,6 +1079,8 @@ caf::message_handler PlaylistActor::message_handler() {
             const utility::JsonStore &,
             caf::actor_addr &) {},
 
+        [=](utility::event_atom, utility::change_atom, media::rotation_atom, float) {},
+
         [=](utility::event_atom, media::media_display_info_atom, const utility::JsonStore &a) {
             mail(
                 utility::event_atom_v,

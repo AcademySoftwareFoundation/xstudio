@@ -98,6 +98,10 @@ template <typename T> class IvyDataSourceActor : public caf::event_based_actor {
         const caf::actor &media_actor,
         const utility::FrameRate &media_rate);
 
+    void order_new_media_sources(
+        caf::typed_response_promise<utility::UuidActorVector> rp,
+        const utility::UuidActorVector &new_media_sources);
+
     void ivy_load_audio_sources(
         caf::typed_response_promise<utility::UuidActorVector> rp,
         const std::string &show,
@@ -121,5 +125,6 @@ template <typename T> class IvyDataSourceActor : public caf::event_based_actor {
     caf::actor pool_;
     bool enable_audio_autoload_{true};
     bool use_stalk_name_for_audio_sources_{false};
-    utility::Uuid uuid_ = {utility::Uuid::generate()};
+    std::string default_audio_source_ = {"ax"};
+    utility::Uuid uuid_               = {utility::Uuid::generate()};
 };

@@ -59,6 +59,7 @@ Item{
     property var deselect_all_hotkey: hotkey_area.deselect_all_hotkey
     property alias delete_selected: hotkey_area.delete_selected_hotkey
     property alias reload_selected_media_hotkey: hotkey_area.reload_selected_media_hotkey
+    property alias cycle_colour_hotkey: hotkey_area.cycle_colour_hotkey
 
 
     XsGradientRectangle{
@@ -133,12 +134,13 @@ Item{
     property var deleteSelected: media_list_functions.deleteSelected
     property var deleteOffline: media_list_functions.deleteOffline
     property var selectUp: media_list_functions.selectUp
+    property var cycleColour: media_list_functions.cycleColour
     property var selectDown: media_list_functions.selectDown
     property var cycleSelection: media_list_functions.cycleSelection
     property var addToNewSequence: media_list_functions.addToNewSequence
     property var addToNewSubset: media_list_functions.addToNewSubset
     property var addToNewContactSheet: media_list_functions.addToNewContactSheet
-    
+
     Loader {
         id: menu_loader_plus
     }

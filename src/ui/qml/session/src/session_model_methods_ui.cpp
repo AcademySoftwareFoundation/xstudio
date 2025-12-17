@@ -295,10 +295,18 @@ Q_INVOKABLE void SessionModel::decomposeMedia(const QModelIndexList &indexes) {
             auto plindex = getPlaylistIndex(i);
             if (plindex.isValid()) {
                 auto actor = actorFromQString(system(), plindex.data(actorRole).toString());
-                if (actor)
-                    anon_mail(
-                        media::decompose_atom_v, UuidFromQUuid(i.data(actorUuidRole).toUuid()))
-                        .send(actor);
+                if (actor) {
+                    try {
+                        scoped_actor sys{system()};
+                        request_receive<utility::UuidActorVector>(
+                            *sys,
+                            actor,
+                            media::decompose_atom_v,
+                            UuidFromQUuid(i.data(actorUuidRole).toUuid()));
+                    } catch (std::exception &e) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+                    }
+                }
             }
         }
     }

@@ -97,7 +97,5 @@ GridLayout {
             display_mode = "Only When Paused"
         }
     }
-
-
 }
 

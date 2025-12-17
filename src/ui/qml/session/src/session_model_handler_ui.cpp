@@ -149,6 +149,20 @@ void SessionModel::init(caf::actor_system &_system) {
                 }
             },
 
+            [=](utility::event_atom,
+                utility::change_atom,
+                media::rotation_atom,
+                const float rotation) {
+                try {
+                    auto src     = caf::actor_cast<caf::actor>(self()->current_sender());
+                    auto src_str = actorToString(system(), src);
+                    // src_str); search from index..
+                    receivedData(
+                        json(src_str), actorRole, QModelIndex(), rotationRole, json(rotation));
+                } catch (...) {
+                }
+            },
+
             [=](utility::event_atom, utility::notification_atom, const JsonStore &digest) {
                 try {
                     auto src     = caf::actor_cast<caf::actor>(self()->current_sender());

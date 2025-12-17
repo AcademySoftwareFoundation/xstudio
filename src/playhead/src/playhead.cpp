@@ -96,6 +96,7 @@ void PlayheadBase::add_attributes() {
     duration_seconds_     = add_float_attribute("Duration Seconds", "Duration Seconds", 0.0);
     cached_frames_        = add_json_attribute("Cached Frames");
     bookmarked_frames_    = add_int_vec_attribute("Bookmarked Frames");
+    playhead_volume_      = add_float_attribute("Volume", "Volume", 100.0);
 
     media_transition_frames_ = add_int_vec_attribute("Media Transition Frames");
 

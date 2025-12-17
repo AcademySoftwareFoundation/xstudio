@@ -161,7 +161,8 @@ namespace media {
             const caf::uri &uri,
             const int frame,
             const std::string &stream_id,
-            const size_t mod_timestamp);
+            const size_t mod_timestamp,
+            const utility::FrameRate &rate);
 
         bool operator!=(const MediaKey &o) const {
             return (hash_ == o.hash_) ? static_cast<const std::string &>(*this) !=
@@ -204,7 +205,7 @@ namespace media {
 
     typedef std::vector<MediaKey> MediaKeyVector;
 
-    inline MediaKey media_key(
+    /*inline MediaKey media_key(
         const std::string &key_format,
         const caf::uri &uri,
         const int frame,
@@ -214,7 +215,7 @@ namespace media {
             to_string(uri),
             (frame == std::numeric_limits<int>::min() ? 0 : frame),
             stream_id));
-    }
+    }*/
 
 
     // class AVFrameID
@@ -246,7 +247,8 @@ namespace media {
                   uri,
                   key_frame,
                   shared.fixed_media_data_->stream_id_,
-                  mod_timestamp),
+                  mod_timestamp,
+                  shared.rate()),
               frame_status_(frame_status),
               timecode_(time_code) {}
 
@@ -268,10 +270,11 @@ namespace media {
             const utility::Uuid &media_uuid         = utility::Uuid(),
             const utility::Uuid &clip_uuid          = utility::Uuid(),
             const MediaType media_type              = MT_IMAGE,
-            const utility::Timecode time_code       = utility::Timecode())
+            const utility::Timecode time_code       = utility::Timecode(),
+            const Imath::M44f &transform            = Imath::M44f())
             : uri_(uri),
               frame_(frame),
-              key_(key_format, uri, frame, stream_id, mod_timestamp),
+              key_(key_format, uri, frame, stream_id, mod_timestamp, rate),
               frame_status_(frame_status),
               timecode_(time_code) {
             FixedMediaData *md     = new FixedMediaData;
@@ -287,6 +290,7 @@ namespace media {
             md->media_uuid_        = media_uuid;
             md->clip_uuid_         = clip_uuid;
             md->media_type_        = media_type;
+            md->transform_         = transform;
             fixed_media_data_.reset(md);
         }
 
@@ -341,6 +345,9 @@ namespace media {
         [[nodiscard]] MediaType media_type() const { return fixed_media_data_->media_type_; }
         [[nodiscard]] const utility::Timecode &timecode() const { return timecode_; }
         [[nodiscard]] const std::string &error() const { return error_; }
+        [[nodiscard]] const Imath::M44f &transform_matrix() const {
+            return fixed_media_data_->transform_;
+        }
 
         utility::UuidActor media_actor() const {
             return utility::UuidActor(media_uuid(), caf::actor_cast<caf::actor>(media_addr()));
@@ -375,6 +382,7 @@ namespace media {
             utility::Uuid media_uuid_;
             utility::Uuid clip_uuid_;
             MediaType media_type_;
+            Imath::M44f transform_;
         };
 
         std::shared_ptr<const FixedMediaData> fixed_media_data_;
@@ -420,12 +428,14 @@ namespace media {
         [[nodiscard]] const std::list<utility::Uuid> &media_sources() const {
             return media_sources_;
         }
+        [[nodiscard]] Imath::M44f transform() const { return transform_; }
         [[nodiscard]] utility::JsonStore serialise() const override;
         void deserialise(const utility::JsonStore &jsn) override;
         [[nodiscard]] std::string flag() const { return flag_; }
         void set_flag(const std::string &flag) { flag_ = flag; }
         [[nodiscard]] std::string flag_text() const { return flag_text_; }
         void set_flag_text(const std::string &flag_text) { flag_text_ = flag_text; }
+        void set_transform(const Imath::M44f transform) { transform_ = transform; }
 
       private:
         // will need extending.., tagging ?
@@ -435,6 +445,7 @@ namespace media {
         std::string flag_{"#00000000"};
         std::string flag_text_{""};
         std::list<utility::Uuid> media_sources_;
+        Imath::M44f transform_ = {Imath::M44f()};
     };
 
     class MediaSource : public utility::Container {
@@ -483,10 +494,13 @@ namespace media {
 
         void set_error_detail(const std::string error_detail) { error_detail_ = error_detail; }
 
+        void set_transform(const Imath::M44f transform) { transform_ = transform; }
+
         void set_partial_seq_behaviour(const PartialSeqBehaviour _partial_seq_behaviour) {
             partial_seq_behaviour_ = _partial_seq_behaviour;
         }
 
+        [[nodiscard]] Imath::M44f transform() const { return transform_; }
         [[nodiscard]] bool has_type(const MediaType media_type) const;
         [[nodiscard]] MediaStatus media_status() const { return media_status_; }
         [[nodiscard]] bool online() const { return media_status_ == MediaStatus::MS_ONLINE; }
@@ -511,6 +525,8 @@ namespace media {
 
       private:
         utility::MediaReference ref_;
+        Imath::M44f transform_ = {Imath::M44f()};
+
         PartialSeqBehaviour partial_seq_behaviour_ = {PS_COLLAPSE_TO_ON_DISK_FRAMES};
         utility::Uuid current_audio_;
         utility::Uuid current_image_;
@@ -540,10 +556,14 @@ namespace media {
 
         [[nodiscard]] MediaType media_type() const { return detail_.media_type_; }
         [[nodiscard]] utility::FrameRateDuration duration() const { return detail_.duration_; }
+        [[nodiscard]] Imath::M44f transform() const { return transform_; }
         const StreamDetail &detail() const { return detail_; }
+
+        void set_transform(const Imath::M44f transform) { transform_ = transform; }
 
       private:
         StreamDetail detail_;
+        Imath::M44f transform_ = {Imath::M44f()};
     };
 
     inline std::shared_ptr<const AVFrameID>

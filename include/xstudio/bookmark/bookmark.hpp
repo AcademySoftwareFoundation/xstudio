@@ -31,13 +31,15 @@ namespace bookmark {
         }
         utility::Uuid bookmark_uuid_;
 
+        virtual const void * user_data() const { return nullptr; }
+
         virtual size_t hash() const { return 0; }
 
       private:
         utility::JsonStore store_;
     };
 
-    typedef std::shared_ptr<AnnotationBase> AnnotationBasePtr;
+    typedef std::shared_ptr<const AnnotationBase> AnnotationBasePtr;
 
     class Note {
       public:
@@ -335,7 +337,7 @@ namespace bookmark {
         utility::sys_time_point created_{utility::sysclock::now()};
 
         std::shared_ptr<Note> note_{nullptr};
-        std::shared_ptr<AnnotationBase> annotation_{nullptr};
+        AnnotationBasePtr annotation_;
     };
 
     /* This struct is used by Playhead classes as a convenient way to maintain
@@ -343,7 +345,7 @@ namespace bookmark {
     struct BookmarkAndAnnotation {
 
         BookmarkDetail detail_;
-        std::shared_ptr<AnnotationBase> annotation_;
+        AnnotationBasePtr annotation_;
         int start_frame_ = 0;
         int end_frame_   = 240;
     };

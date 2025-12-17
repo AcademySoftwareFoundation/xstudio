@@ -16,13 +16,15 @@ MediaKey::MediaKey(
     const caf::uri &uri,
     const int frame,
     const std::string &stream_id,
-    const size_t mod_timestamp)
+    const size_t mod_timestamp,
+    const utility::FrameRate &rate)
     : std::string(fmt::format(
           fmt::runtime(key_format),
           to_string(uri),
           (frame == std::numeric_limits<int>::min() ? 0 : frame),
           stream_id,
-          mod_timestamp)) {
+          mod_timestamp,
+          rate.count())) {
     hash_ = std::hash<std::string>{}(static_cast<const std::string &>(*this));
 }
 
@@ -37,6 +39,9 @@ Media::Media(const JsonStore &jsn)
     set_current(jsn["current"]);
     if (jsn.find("current_audio") != jsn.end()) {
         set_current(jsn["current_audio"], MediaType::MT_AUDIO);
+    }
+    if (jsn.contains("transform")) {
+        transform_ = jsn["transform"].get<Imath::M44f>();
     }
 }
 
@@ -114,6 +119,10 @@ void Media::deserialise(const utility::JsonStore &jsn) {
     if (jsn.find("current_audio") != jsn.end()) {
         set_current(jsn.at("current_audio"), MediaType::MT_AUDIO);
     }
+
+    if (jsn.contains("transform")) {
+        transform_ = jsn["transform"].get<Imath::M44f>();
+    }
 }
 
 
@@ -128,6 +137,9 @@ JsonStore Media::serialise() const {
     jsn["sub_media"]     = {};
     for (const auto &i : media_sources_) {
         jsn["sub_media"].push_back(i);
+    }
+    if (transform_ != Imath::M44f()) {
+        jsn["transform"] = transform_;
     }
 
     return jsn;

@@ -25,78 +25,127 @@ class HudData : public utility::BlindDataObject {
     const utility::JsonStore hud_params_;
 };
 
+const char *vertex_shader = R"(
+    #version 330 core
+    layout (location = 0) in vec4 aPos;
+    uniform mat4 to_coord_system;
+    uniform mat4 to_canvas;
+    uniform float image_aspect;
+
+    void main()
+    {
+        vec4 rpos = aPos;
+        //rpos.y = rpos.y/image_aspect;
+        gl_Position = (rpos*to_coord_system*to_canvas);
+    }
+    )";
+
+const char *frag_shader = R"(
+    #version 330 core
+    out vec4 FragColor;
+    uniform vec3 line_colour;
+    void main(void)
+    {
+        FragColor = vec4(line_colour, 1.0f);
+    }
+
+    )";
+
 class EXRDataWindowRenderer : public plugin::ViewportOverlayRenderer {
 
   public:
+    Imath::V2f
+    get_transformed_point(Imath::V2i point, Imath::V2i image_dims, const float pixel_aspect) {
+        const float aspect = float(image_dims.y) / float(image_dims.x);
+
+        float norm_x = float(point.x) / image_dims.x;
+        float norm_y = float(point.y) / image_dims.y;
+
+        return Imath::V2f(norm_x * 2.0f - 1.0f, (norm_y * 2.0f - 1.0f) * aspect / pixel_aspect);
+    };
+
     void render_image_overlay(
         const Imath::M44f &transform_window_to_viewport_space,
         const Imath::M44f &transform_viewport_to_image_space,
-        const float viewport_du_dpixel,
-        const float device_pixel_ratio,
-        const xstudio::media_reader::ImageBufPtr &frame,
-        const bool have_alpha_buffer) override {
-
-        auto get_transformed_point = [](Imath::V2i point,
-                                        Imath::V2i image_dims,
-                                        Imath::M44f transform_matrix,
-                                        const float pixel_aspect) -> Imath::V2f {
-            const float aspect = float(image_dims.y) / float(image_dims.x);
-
-            float norm_x = float(point.x) / image_dims.x;
-            float norm_y = float(point.y) / image_dims.y;
-
-            Imath::V4f a(norm_x * 2.0f - 1.0f, (norm_y * 2.0f - 1.0f) * aspect, 0.0f, 1.0f);
-
-            a.y /= pixel_aspect;
-            a *= transform_matrix;
-
-            return Imath::V2f(a.x / a.w, a.y / a.w);
-        };
-
-        bool draw_bbox         = false;
-        bool draw_image_bounds = false;
+        const float /*viewport_du_dpixel*/,
+        const float /*device_pixel_ratio*/,
+        const xstudio::media_reader::ImageBufPtr &frame) override {
 
         utility::BlindDataObjectPtr render_data =
             frame.plugin_blind_data(utility::Uuid("f8a09960-606d-11ed-9b6a-0242ac120002"));
         const auto *data = dynamic_cast<const HudData *>(render_data.get());
         if (data && frame) {
 
-            Imath::M44f transform_matrix = transform_viewport_to_image_space.inverse() *
-                                           transform_window_to_viewport_space;
+            if (!shader_)
+                init_overlay_opengl();
 
             auto image_dims = frame ? frame->image_size_in_pixels() : Imath::V2i();
             auto image_bounds_min =
                 frame ? frame->image_pixels_bounding_box().min : Imath::V2i();
             auto image_bounds_max =
                 frame ? frame->image_pixels_bounding_box().max : Imath::V2i();
-            auto pixel_aspect = frame.frame_id().pixel_aspect();
-
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            glBlendEquation(GL_FUNC_ADD);
-            glDisable(GL_DEPTH_TEST);
-
-            const utility::ColourTriplet c = data->hud_params_["colour"];
-            const float w                  = data->hud_params_["width"];
 
             Imath::V2f top_left = get_transformed_point(
-                image_bounds_min, image_dims, transform_matrix, pixel_aspect);
+                image_bounds_min, image_dims, frame.frame_id().pixel_aspect());
             Imath::V2f bottom_right = get_transformed_point(
-                image_bounds_max, image_dims, transform_matrix, pixel_aspect);
+                image_bounds_max, image_dims, frame.frame_id().pixel_aspect());
 
-            glUseProgram(0);
-#ifndef __OPENGL_4_1__
-            glLineWidth(w);
-            glColor4f(c.r, c.g, c.b, 1.0f);
-            glBegin(GL_LINE_LOOP);
-            glVertex2f(top_left.x, top_left.y);
-            glVertex2f(bottom_right.x, top_left.y);
-            glVertex2f(bottom_right.x, bottom_right.y);
-            glVertex2f(top_left.x, bottom_right.y);
-            glEnd();
-#endif
+            // NOLINT
+            std::array<float, 16> vertices = {
+                top_left.x,
+                top_left.y,
+                0.0f,
+                1.0f,
+                top_left.x,
+                bottom_right.y,
+                0.0f,
+                1.0f,
+                bottom_right.x,
+                bottom_right.y,
+                0.0f,
+                1.0f,
+                bottom_right.x,
+                top_left.y,
+                0.0f,
+                1.0f};
+
+            glBindVertexArray(vertex_array_object_);
+            // 2. copy our vertices array in a buffer for OpenGL to use
+            glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_object_);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices.data(), GL_STATIC_DRAW);
+            // 3. then set our vertex module pointers
+            glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), nullptr);
+            glEnableVertexAttribArray(0);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+            utility::JsonStore shader_params;
+            shader_params["to_coord_system"] = transform_viewport_to_image_space.inverse();
+            shader_params["to_canvas"]       = transform_window_to_viewport_space;
+            shader_params["image_transform_matrix"] = frame.layout_transform();
+            shader_params["image_aspect"]           = image_aspect(frame);
+            shader_params["line_colour"]            = data->hud_params_["colour"];
+            shader_->set_shader_parameters(shader_params);
+
+            glLineWidth(data->hud_params_["width"]);
+            shader_->use();
+            glDisable(GL_DEPTH_TEST);
+            glBindVertexArray(vertex_array_object_);
+            glDrawArrays(GL_LINE_LOOP, 0, 4);
+            shader_->stop_using();
+            glBindVertexArray(0);
         }
     }
+
+    void init_overlay_opengl() {
+
+        glGenBuffers(1, &vertex_buffer_object_);
+        glGenVertexArrays(1, &vertex_array_object_);
+        shader_ = std::make_unique<ui::opengl::GLShaderProgram>(vertex_shader, frag_shader);
+    }
+
+    std::unique_ptr<xstudio::ui::opengl::GLShaderProgram> shader_;
+    GLuint vertex_buffer_object_;
+    GLuint vertex_array_object_;
 };
 } // namespace
 

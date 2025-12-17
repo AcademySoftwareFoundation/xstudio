@@ -532,6 +532,7 @@ MenusModelData::MenusModelData(QObject *parent) : UIModelData(parent) {
         "hotkey_uuid",
         "menu_icon",
         "custom_menu_qml",
+        "menu_tooltip",
         "user_data",
         "hotkey_sequence",
         "menu_item_enabled",
@@ -1056,6 +1057,8 @@ void MenuModelItem::insertIntoMenuModel() {
             menu_item_data["custom_menu_qml"]    = StdFromQString(custom_menu_qml_);
             menu_item_data["menu_item_enabled"]  = enabled_;
             menu_item_data["menu_item_context"]  = context;
+            menu_item_data["menu_tooltip"]       = StdFromQString(menu_tooltip_);
+
 
             if (!user_data_.isNull()) {
                 menu_item_data["user_data"] = qvariant_to_json(user_data_);

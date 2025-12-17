@@ -432,6 +432,86 @@ void ShotBrowser::create_tag(
     }
 }
 
+void ShotBrowser::add_entity_tag_from_name(
+    caf::typed_response_promise<utility::JsonStore> rp,
+    const std::string &entity,
+    const int entity_id,
+    const std::string &tag_name) {
+
+    static auto tag_cache = std::map<std::string, int>();
+
+    try {
+        auto it = tag_cache.find(tag_name);
+        if (it == std::end(tag_cache)) {
+            // not in cache.. search for tag..
+
+            auto filter = R"(
+            {
+                "logical_operator": "and",
+                "conditions": [
+                    ["name", "is", ""]
+                ]
+            })"_json;
+
+            filter["conditions"][0][2] = tag_name;
+
+            mail(
+                shotgun_entity_search_atom_v,
+                "Tags",
+                utility::JsonStore(filter),
+                std::vector<std::string>({"name", "id"}),
+                std::vector<std::string>(),
+                1,
+                1)
+                .request(shotgun_, infinite)
+                .then(
+                    [=](const JsonStore &result) mutable {
+                        if (result.at("data").empty()) {
+                            // tag doesn't exist..
+                            auto req     = JsonStore(PostCreateTag);
+                            req["value"] = tag_name;
+
+                            mail(data_source::post_data_atom_v, req)
+                                .request(caf::actor_cast<caf::actor>(this), infinite)
+                                .then(
+                                    [=](const JsonStore &result) mutable {
+                                        try {
+                                            auto tag_id = result.at("data").at("id").get<int>();
+                                            tag_cache[tag_name] = tag_id;
+                                            add_entity_tag(rp, entity, entity_id, tag_id);
+                                        } catch (const std::exception &err) {
+                                            rp.deliver(
+                                                make_error(xstudio_error::error, err.what()));
+                                        }
+                                    },
+
+                                    [=](error &err) mutable {
+                                        spdlog::warn(
+                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                        rp.deliver(err);
+                                    });
+                        } else {
+                            try {
+                                auto tag_id = result.at("data").at(0).at("id").get<int>();
+                                tag_cache[tag_name] = tag_id;
+                                add_entity_tag(rp, entity, entity_id, tag_id);
+                            } catch (const std::exception &err) {
+                                rp.deliver(make_error(xstudio_error::error, err.what()));
+                            }
+                        }
+                    },
+                    [=](error &err) mutable {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        rp.deliver(err);
+                    });
+        } else {
+            add_entity_tag(rp, entity, entity_id, it->second);
+        }
+    } catch (const std::exception &err) {
+        rp.deliver(make_error(xstudio_error::error, err.what()));
+    }
+}
+
 void ShotBrowser::add_entity_tag(
     caf::typed_response_promise<utility::JsonStore> rp,
     const std::string &entity,
@@ -446,6 +526,8 @@ void ShotBrowser::add_entity_tag(
             .then(
                 [=](const JsonStore &result) mutable {
                     try {
+                        // spdlog::warn("{} {} {} {}",entity, entity_id, tag_id,
+                        // result.dump(2));
                         auto current_tags =
                             result.at("data").at("relationships").at("tags").at("data");
                         auto new_tag = R"({"id":null, "type": "Tag"})"_json;

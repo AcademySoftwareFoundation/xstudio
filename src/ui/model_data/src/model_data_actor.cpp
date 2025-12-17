@@ -69,7 +69,10 @@ utility::JsonTree *find_node_matching_string_field(
 }
 
 bool find_and_delete(
-    utility::JsonTree *data, const std::string &field, const std::string &field_value, const bool cleanup_empty_nodes=false) {
+    utility::JsonTree *data,
+    const std::string &field,
+    const std::string &field_value,
+    const bool cleanup_empty_nodes = false) {
     if (data->data().contains(field) && data->data()[field].get<std::string>() == field_value) {
 
         data->parent()->erase(std::next(data->parent()->begin(), data->index()));
@@ -78,8 +81,7 @@ bool find_and_delete(
     } else {
         for (auto p = data->begin(); p != data->end(); ++p) {
             if (find_and_delete(&(*p), field, field_value, cleanup_empty_nodes)) {
-                if (cleanup_empty_nodes &&
-                    data->empty() && data->parent()) {
+                if (cleanup_empty_nodes && data->empty() && data->parent()) {
                     // after we've done a deletion, does that leave the node's
                     // parent empty? For menu models, this will leave an empty
                     // submenu which will generally not be desirable.

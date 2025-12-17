@@ -110,6 +110,7 @@ XsComboBoxEditable        1.0 ../widgets/controls/XsComboBoxEditable.qml
 XsComboBoxMultiSelectable 1.0 ../widgets/controls/XsComboBoxMultiSelectable.qml
 XsSlider                  1.0 ../widgets/controls/XsSlider.qml
 XsIntegerValueControl     1.0 ../widgets/controls/XsIntegerValueControl.qml
+XsFloatValueControl       1.0 ../widgets/controls/XsFloatValueControl.qml
 XsColourChooser           1.0 ../widgets/controls/XsColourChooser.qml
 XsFloatAttributeSlider    1.0 ../widgets/controls/XsFloatAttributeSlider.qml
 XsIntAttributeSlider      1.0 ../widgets/controls/XsIntAttributeSlider.qml

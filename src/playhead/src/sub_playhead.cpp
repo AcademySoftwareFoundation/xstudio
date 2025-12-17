@@ -90,6 +90,11 @@ void SubPlayhead::init() {
         static_cache_delay_milliseconds_ = std::chrono::milliseconds(
             preference_value<size_t>(j, "/core/playhead/static_cache_delay_milliseconds"));
 
+        int scrub_ms = preference_value<int>(j, "/core/audio/scrub_window_millisecs");
+        auto scrub_behaviour = preference_value<std::string>(j, "/core/audio/audio_scrub_duration");
+        scrub_helper_.set_behaviour(scrub_behaviour);
+        scrub_helper_.set_custom_duration_ms(scrub_ms);
+
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
@@ -227,6 +232,8 @@ void SubPlayhead::init() {
             media_reader::get_thumbnail_atom,
             const thumbnail::ThumbnailBufferPtr &buf) {},
 
+        [=](utility::event_atom, utility::change_atom, media::rotation_atom, float) {},
+
         [=](utility::event_atom,
             media::current_media_source_atom,
             UuidActor &a,
@@ -322,16 +329,27 @@ void SubPlayhead::init() {
         },
 
         [=](json_store::update_atom,
-            const JsonStore & /*change*/,
-            const std::string & /*path*/,
+            const JsonStore &change,
+            const std::string &path,
             const JsonStore &full) mutable {
             if (current_sender() == global_prefs_actor) {
                 try {
-                    pre_cache_read_ahead_frames_ =
-                        preference_value<size_t>(full, "/core/playhead/read_ahead");
-                    static_cache_delay_milliseconds_ =
-                        std::chrono::milliseconds(preference_value<size_t>(
-                            full, "/core/playhead/static_cache_delay_milliseconds"));
+
+                    if (path == "/core/audio/scrub_window_millisecs/value") {
+
+                        scrub_helper_.set_custom_duration_ms(change.get<int>());
+
+                    } else if (path == "/core/audio/audio_scrub_duration/value") {
+
+                        scrub_helper_.set_behaviour(change.get<std::string>());
+
+                    } else if (path == "/core/playhead/read_ahead/value") {
+                        pre_cache_read_ahead_frames_ = change.get<size_t>();
+                    } else if (path == "/core/playhead/static_cache_delay_milliseconds/value") {
+                        static_cache_delay_milliseconds_ =
+                            std::chrono::milliseconds(change.get<size_t>());
+                    }
+
                 } catch (std::exception &e) {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
                 }
@@ -1277,16 +1295,25 @@ void SubPlayhead::broadcast_audio_frame(
 
     if (scrubbing) {
 
-        // pick the next 5 frames in the timeline to send audio
-        // samples for sounding when we scrub
-        auto frame = current_frame_iterator();
+        // We need to pick N frames, depending on the user setting
+        // for scrub behaviour and custom scrub duration
+        //
+        const auto scrub_dur = scrub_helper_.scrub_duration(current_frame_rate());
+
+        auto frame = current_frame_iterator(std::max(
+            position_flicks_ - scrub_dur / 2,
+            timebase::k_flicks_zero_seconds));
         if (frame == retimed_frames_.end() || !frame->second) {
             return;
         }
-        if (frame != first_frame_)
-            frame--;
+
+        // very roughly where the end of the window of samples that we need
+        // for audio scrub sounding, plus some headroom (50ms)
+        const auto window_end =
+            frame->first + scrub_dur + std::chrono::milliseconds(50);
+
         auto tt = utility::clock::now();
-        for (int i = 0; i < 5; ++i) {
+        while (frame->first < window_end) {
             future_frames.emplace_back(tt, frame->second);
             tps.emplace_back(frame->first);
             auto a = frame->first;
@@ -1298,7 +1325,14 @@ void SubPlayhead::broadcast_audio_frame(
         }
 
     } else {
-        tps = get_lookahead_frame_pointers(future_frames, 20);
+
+        // during playback, we always buffer up a whole second of audio to keep the
+        // 'soundcard' (real or virtual) topped up
+        static const timebase::flicks audio_lookahead = timebase::k_flicks_one_second;
+        // we will start getting frames -0.1 seconds from instantaneous playhead position
+        static const timebase::flicks headroom = timebase::to_flicks(0.1); 
+        tps = get_lookahead_frame_pointers(future_frames, audio_lookahead, headroom);
+
     }
 
     // now fetch audio samples for playback
@@ -1311,8 +1345,10 @@ void SubPlayhead::broadcast_audio_frame(
                 auto fp = future_frames.begin();
                 auto tt = tps.begin();
                 while (ab != audio_buffers.end() && fp != future_frames.end()) {
+
                     ab->when_to_display_ = (*fp).first;
                     ab->set_timline_timestamp(*(tt++));
+                    ab->set_frame_id(*((*fp).second));
                     ab++;
                     fp++;
                 }
@@ -1389,23 +1425,98 @@ void SubPlayhead::broadcast_audio_samples() {
             });
 }
 
+
+
 std::vector<timebase::flicks> SubPlayhead::get_lookahead_frame_pointers(
-    media::AVFrameIDsAndTimePoints &result, const int max_num_frames) {
+    media::AVFrameIDsAndTimePoints &result, const timebase::flicks lookahead, const timebase::flicks headroom) {
 
     std::vector<timebase::flicks> tps;
     if (num_retimed_frames_ < 2) {
         return tps;
     }
 
-    timebase::flicks current_frame_tp =
-        std::min(out_frame_->first, std::max(in_frame_->first, position_flicks_));
+    timebase::flicks look_ahead_start_point =
+        playing_forwards_ ? position_flicks_ - headroom : position_flicks_ + headroom;
 
-    auto frame = current_frame_iterator(current_frame_tp);
+    look_ahead_start_point =
+        std::min(out_frame_->first, std::max(in_frame_->first, look_ahead_start_point));
+
+    auto frame = current_frame_iterator(look_ahead_start_point);
 
     const auto start_point = frame;
 
-    auto tt = utility::clock::now();
-    int r   = max_num_frames;
+    auto tt =
+        utility::clock::now() - std::chrono::duration_cast<std::chrono::milliseconds>(headroom);
+
+    auto r = lookahead;
+
+    while (r > timebase::k_flicks_zero_seconds) {
+        if (playing_forwards_) {
+            if (frame != out_frame_)
+                frame++;
+            else
+                frame = in_frame_;
+        } else {
+            if (frame != in_frame_)
+                frame--;
+            else
+                frame = out_frame_;
+        }
+
+        auto frame_plus = frame;
+        frame_plus++;
+        timebase::flicks frame_duration = frame_plus->first - frame->first;
+        r -= frame_duration;
+        tt += std::chrono::duration_cast<std::chrono::microseconds>(
+            frame_duration / playback_velocity_);
+
+        bool repeat_frame = !result.empty() && result.back().second == frame->second;
+
+        if (frame->second && !frame->second->source_uuid().is_null() && !repeat_frame) {
+            // we don't send pre-read requests for 'blank' frames where
+            // source_uuid is null
+            result.emplace_back(tt, frame->second);
+            tps.push_back(frame->first);
+        }
+
+        // this tests if we've looped around the full range before hitting
+        // pre_cache_read_ahead_frames_, i.e. pre_cache_read_ahead_frames_ >
+        // loop range
+        if (frame == start_point)
+            break;
+    }
+    return tps;
+}
+
+
+std::vector<timebase::flicks> SubPlayhead::get_lookahead_frame_pointers(
+    media::AVFrameIDsAndTimePoints &result, const int max_num_frames, const bool use_headroom) {
+
+    std::vector<timebase::flicks> tps;
+    if (num_retimed_frames_ < 2) {
+        return tps;
+    }
+
+    // If 'position' is at 10 seconds, say, we want to cache frames from 9.5s
+    // forwards. This means the cached region will start half a second behind
+    // the instantaneous playhead position. We need these extra frames in case
+    // the user stops playback and steps back a couple of frames immediately,
+    // for example.
+    const timebase::flicks headroom = use_headroom ? timebase::to_flicks(0.5) : timebase::k_flicks_zero_seconds;
+
+    timebase::flicks look_ahead_start_point =
+        playing_forwards_ ? position_flicks_ - headroom : position_flicks_ + headroom;
+
+    look_ahead_start_point =
+        std::min(out_frame_->first, std::max(in_frame_->first, look_ahead_start_point));
+
+    auto frame = current_frame_iterator(look_ahead_start_point);
+
+    const auto start_point = frame;
+
+    auto tt =
+        utility::clock::now() - std::chrono::duration_cast<std::chrono::milliseconds>(headroom);
+    int r = max_num_frames;
 
     while (r--) {
         if (playing_forwards_) {
@@ -1448,7 +1559,7 @@ std::vector<timebase::flicks> SubPlayhead::get_lookahead_frame_pointers(
 void SubPlayhead::request_future_frames() {
 
     media::AVFrameIDsAndTimePoints future_frames;
-    auto timeline_pts_vec = get_lookahead_frame_pointers(future_frames, 4);
+    auto timeline_pts_vec = get_lookahead_frame_pointers(future_frames, 4, false);
 
     mail(media_reader::get_future_frames_atom_v, future_frames, uuid_)
         .request(pre_reader_, std::chrono::milliseconds(5000))
@@ -1457,14 +1568,16 @@ void SubPlayhead::request_future_frames() {
             [=](std::vector<ImageBufPtr> image_buffers) mutable {
                 auto tp   = timeline_pts_vec.begin();
                 auto idsp = future_frames.begin();
+
                 for (auto &imbuf : image_buffers) {
                     imbuf.set_playhead_logical_frame(logical_frame_from_pts(*(tp)));
                     imbuf.set_playhead_logical_duration(logical_frames_.size());
                     imbuf.set_timline_timestamp(*(tp++));
+                    imbuf.when_to_display_ = (idsp)->first;
                     std::shared_ptr<const media::AVFrameID> av_idx = (idsp++)->second;
+
                     if (av_idx) {
                         imbuf.set_frame_id(*(av_idx.get()));
-
                         add_annotations_data_to_frame(imbuf);
                     }
                 }
@@ -1483,7 +1596,7 @@ void SubPlayhead::update_playback_precache_requests(caf::typed_response_promise<
 
     // get the AVFrameID iterator for the current frame
     media::AVFrameIDsAndTimePoints requests;
-    get_lookahead_frame_pointers(requests, pre_cache_read_ahead_frames_);
+    get_lookahead_frame_pointers(requests, pre_cache_read_ahead_frames_, true);
 
     make_prefetch_requests_for_colour_pipeline(requests);
 
@@ -1506,7 +1619,7 @@ void SubPlayhead::make_static_precache_request(
 
         media::AVFrameIDsAndTimePoints requests;
         get_lookahead_frame_pointers(
-            requests, 2048
+            requests, 2048, true
             // std::numeric_limits<int>::max() // this will fetch *ALL* frames in the source
         );
 
@@ -2476,8 +2589,12 @@ void copy_audio_samples(
     // However, the sample data in the buffer is not exactly aligned (because the
     // chunking of audio samples coming from ffmpeg is typically independent of the video
     // frame duration).
-    const auto source_first_sample_timestamp = std::chrono::duration_cast<timebase::flicks>(
-        source_buffer_timestamp + source_buffer->time_delta_to_video_frame());
+    // EDIT: the above is no longer true, we are aligning audio with video buffers in
+    // the FFMPeg reader.
+    /*const auto source_first_sample_timestamp = std::chrono::duration_cast<timebase::flicks>(
+        source_buffer_timestamp + source_buffer->time_delta_to_video_frame());*/
+
+    const auto source_first_sample_timestamp = source_buffer_timestamp;
 
     size_t offset_into_dest   = 0;
     size_t offset_into_source = 0;
@@ -2550,4 +2667,24 @@ void SubPlayhead::check_if_media_changed(const media::AVFrameID *frame_id) {
             false)
             .send(parent_);
     }
+}
+
+utility::FrameRate SubPlayhead::current_frame_rate() const {
+
+    auto frame = retimed_frames_.lower_bound(position_flicks_);
+    if (frame == retimed_frames_.end())
+        frame--;
+    if (frame->second) {
+        return frame->second->rate();
+    }
+    auto next_frame = frame;
+    next_frame++;
+    if (next_frame != retimed_frames_.end()) {
+        return utility::FrameRate(next_frame->first - frame->first);
+    } else if (frame != retimed_frames_.begin()) {
+        auto prev_frame = frame;
+        prev_frame--;
+        return utility::FrameRate(frame->first - prev_frame->first);
+    }
+    return timebase::k_flicks_24fps;
 }

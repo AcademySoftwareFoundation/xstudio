@@ -27,6 +27,7 @@ SnapshotMenuModel::SnapshotMenuModel(QObject *parent) : JSONTreeModel(parent) {
         "hotkey_uuid",
         "menu_icon",
         "custom_menu_qml",
+        "menu_tooltip",
         "user_data",
         "snapshot_filesystem_path",
         "hotkey_sequence",

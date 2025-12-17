@@ -22,18 +22,18 @@ option(USE_VCPKG "Use Vcpkg for package management" OFF)
 option(BUILD_PYSIDE_WIDGETS "Build xstudio player as PySide widget" OFF)
 
 if(WIN32)
-    set(USE_VCPKG ON)
-    #include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/vcpkg.cmake)
-    set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od /Oy-")
-    add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
-    # enable UUID System Generator
-    add_definitions(-DUUID_SYSTEM_GENERATOR=ON)
+  set(USE_VCPKG ON)
+  #include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/vcpkg.cmake)
+  set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od /Oy-")
+  add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
+  # enable UUID System Generator
+  add_definitions(-DUUID_SYSTEM_GENERATOR=ON)
 endif()
 
 set(STUDIO_PLUGINS "" CACHE STRING "Enable compilation of SITE plugins")
 
 if (("${CMAKE_GENERATOR}" MATCHES "Makefiles" OR ("${CMAKE_GENERATOR}" MATCHES "Ninja" AND NOT WIN32)) AND NOT __CHECKED_CXX_FLAGS)
-    set(__CHECKED_CXX_FLAGS TRUE CACHE INTERNAL "Whether we checked the CXX flags already")
+  set(__CHECKED_CXX_FLAGS TRUE CACHE INTERNAL "Whether we checked the CXX flags already")
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${COMMON_GCC}" CACHE STRING "" FORCE)
 	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${COMMON_GCC}" CACHE STRING "" FORCE)
 	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${COMMON_GCC}" CACHE STRING "" FORCE)
@@ -295,7 +295,7 @@ if(INSTALL_XSTUDIO)
 
 endif ()
 
-if(USE_VCPKG)
+if (USE_VCPKG)
   # To provide reliable ordering, we need to make this install script happen in a subdirectory.
   # Otherwise, Qt deploy will happen before we have the rest of the application deployed.
   add_subdirectory("scripts/qt_install")
@@ -343,11 +343,11 @@ if (WIN32)
       WriteRegStr HKCR 'XStudioSession\\\\DefaultIcon' \\\\
                         '' '$INSTDIR\\\\bin\\\\xstudio.exe,0'
       WriteRegStr HKCR 'XStudioSession\\\\shell\\\\open\\\\command' \\\\
-                        '' '$INSTDIR\\\\bin\\\\xstudio.exe \\"%1\\"'
+                        '' '$INSTDIR\\\\bin\\\\xstudio.exe \\\"%1\\\"'
       WriteRegStr HKCR 'XStudioSession\\\\shell\\\\edit' \\\\
                         '' 'Edit xSTUDIO Session File'
       WriteRegStr HKCR 'XStudioSession\\\\shell\\\\edit\\\\command' \\\\
-                        '' '$INSTDIR\\\\bin\\\\xstudio.exe \\"%1\\"'
+                        '' '$INSTDIR\\\\bin\\\\xstudio.exe \\\"%1\\\"'
       System::Call \\\\
         'Shell32::SHChangeNotify(i 0x8000000, i 0, i 0, i 0)'
       ")

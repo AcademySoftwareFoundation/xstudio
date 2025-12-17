@@ -40,6 +40,7 @@ Item{
     property real btnHeight: XsStyleSheet.widgetStdHeight + 4
 
     property bool isPaused: false
+    readonly property bool linkMode: false
 
     onOnScreenMediaUuidChanged: {if(visible) updateTimer.start()}
 

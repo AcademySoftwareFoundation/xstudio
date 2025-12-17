@@ -13,6 +13,7 @@ import xstudio.qml.bookmarks 1.0
 GridLayout {
 
     id: toolProperties
+    
     property var root
 
     columns: horizontal ? -1 : 1
@@ -20,81 +21,79 @@ GridLayout {
     rowSpacing: 1
     columnSpacing: 1
 
+    property ListModel currentColorPresetModel: drawColourPresetsModel
+
     XsModuleData {
         id: annotations_model_data
         modelDataName: "annotations_tool_settings"
     }
-    Connections {
-        target: annotations_model_data // this bubbles up from XsSessionWindow
-        function onJsonChanged() {
-            setPropertyIndeces()
-        }
-    }
-
-    function setPropertyIndeces() {
-        draw_pen_size.index = annotations_model_data.searchRecursive("Draw Pen Size", "title")
-    }
-
-    /* Here we locate particular nodes in the annotations_model_data giving
-    convenient access to backend data. Seems crazy but this is the QML way! */
-    XsModelProperty {
-        id: draw_pen_size
-        role: "value"
-    }
- 
-    XsTextCategories {
-
-        Layout.fillWidth: horizontal ? false : true
-        Layout.preferredHeight: visible ?  horizontal ? -1 : XsStyleSheet.primaryButtonStdHeight : 0
-        Layout.preferredWidth: visible ? horizontal ? XsStyleSheet.primaryButtonStdHeight*3 : -1 : 0
-        Layout.fillHeight: horizontal ? true : false
-
-        id: textCategories
-        visible: (currentTool === "Text")
-    }
 
     XsIntegerAttrControl {
         id: sizeProp
-        visible: enabled
+
+        attr_group_model: annotations_model_data
+        attr_title: "Pen Size"
+
+        text: "Size"
+
         Layout.fillWidth: horizontal ? false : true
         Layout.preferredHeight: visible ?  horizontal ? -1 : XsStyleSheet.primaryButtonStdHeight : 0
         Layout.preferredWidth: visible ? horizontal ? XsStyleSheet.primaryButtonStdHeight*3 : -1 : 0
         Layout.fillHeight: horizontal ? true : false
-        text: (currentTool=="Square" || currentTool === "Circle"  || currentTool === "Arrow"  || currentTool === "Line")? "Width" : "Size"
-        enabled: isAnyToolSelected
-        attr_group_model: annotations_model_data
-        attr_title: toolSizeAttrName
     }
 
     XsIntegerAttrControl{
         id: opacityProp
-        visible: isAnyToolSelected
-        Layout.fillWidth: horizontal ? false : true
-        Layout.preferredHeight: visible ?  horizontal ? -1 : XsStyleSheet.primaryButtonStdHeight : 0
-        Layout.preferredWidth: visible ? horizontal ? XsStyleSheet.primaryButtonStdHeight*3 : -1 : 0
-        Layout.fillHeight: horizontal ? true : false
-        text: "Opacity"
+        
         attr_group_model: annotations_model_data
         attr_title: "Pen Opacity"
-        enabled: isAnyToolSelected && currentTool != "Erase"
-    }
 
-    XsIntegerAttrControl {
-        id: bgOpacityProp
-        visible: currentTool === "Text"
+        text: "Opacity"
+
         Layout.fillWidth: horizontal ? false : true
         Layout.preferredHeight: visible ?  horizontal ? -1 : XsStyleSheet.primaryButtonStdHeight : 0
         Layout.preferredWidth: visible ? horizontal ? XsStyleSheet.primaryButtonStdHeight*3 : -1 : 0
         Layout.fillHeight: horizontal ? true : false
-            text: "BG Opa."
-        attr_group_model: annotations_model_data
-        attr_title: "Text Background Opacity"
     }
+
+    XsAttributeValue {
+        id: pen_colour
+        attributeTitle: "Pen Colour"
+        model: annotations_model_data
+    }
+    property alias tool_colour_value: pen_colour.value
+
+    XsColourDialog {
+        id: colourDialog
+        title: "Please pick a colour"
+        property var lastColour
+        
+        linkColour: tool_colour_value
+
+        onCurrentColourChanged: {
+            tool_colour_value = currentColour
+        }
+        onAccepted: {
+            close()
+        }
+        onRejected: {
+            tool_colour_value = lastColour
+            close()
+        }
+        onVisibleChanged: {
+            if (visible) {
+                currentColour = tool_colour_value
+                lastColour = tool_colour_value
+            }
+        }
+    }
+
+    property alias colourDialog: colourDialog
 
     Item{ 
 
-        id: colorProp
-        visible: (isAnyToolSelected && currentTool !== "Erase") || currentTool === "Colour Picker"
+        id: colourProp
+
         Layout.fillWidth: horizontal ? false : true
         Layout.preferredHeight: visible ?  horizontal ? -1 : XsStyleSheet.primaryButtonStdHeight : 0
         Layout.preferredWidth: visible ? horizontal ? XsStyleSheet.primaryButtonStdHeight *3: -1 : 0
@@ -104,20 +103,20 @@ GridLayout {
         property bool isMouseHovered: colorMArea.containsMouse
 
         XsGradientRectangle {
-
             anchors.fill: parent
-            border.color: colorProp.isMouseHovered ? palette.highlight: "transparent"
+            border.color: colourProp.isMouseHovered ? palette.highlight: "transparent"
             border.width: 1
     
             flatColor: topColor
-            topColor: colorProp.isPressed ? palette.highlight : XsStyleSheet.controlColour
-            bottomColor: colorProp.isPressed ? palette.highlight : "#1AFFFFFF"
+            topColor: colourProp.isPressed ? palette.highlight : XsStyleSheet.controlColour
+            bottomColor: colourProp.isPressed ? palette.highlight : "#1AFFFFFF"
         }
 
         RowLayout {
             anchors.fill: parent
             anchors.margins: 2
             Layout.margins: 2
+
             XsLabel {
                 text: "Colour"
                 color: XsStyleSheet.secondaryTextColor
@@ -125,7 +124,7 @@ GridLayout {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                color: currentToolColour ? currentToolColour : "grey"
+                color: tool_colour_value ? tool_colour_value : "grey"
                 border.width: 1
                 border.color: "black"                       
             }
@@ -150,21 +149,13 @@ GridLayout {
     }
 
     XsColourPresets{ 
-        
         id: row3_colourpresets
 
         Layout.fillWidth: horizontal ? false : true
         Layout.preferredHeight: visible ?  horizontal ? -1 : buttonHeight*2 : 0
         Layout.preferredWidth: visible ? horizontal ? buttonHeight*4 : -1 : 0
         Layout.fillHeight: horizontal ? true : false
-
-        visible: (isAnyToolSelected && currentTool !== "Erase")
-
     }
-
-    Component.onCompleted: {
-        setPropertyIndeces()
-    }
-
+    
 }
 

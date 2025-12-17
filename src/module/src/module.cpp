@@ -948,6 +948,15 @@ caf::message_handler Module::message_handler() {
              // this event message happens when a new viewport is created
          },
          [=](utility::event_atom,
+             ui::viewport::viewport_atom,
+             media::transform_matrix_atom,
+             const std::string viewport_name,
+             const Imath::M44f &proj_matrix) {
+             // this event message happens when a viewport's projection matrix
+             // changes (e.g. when user zooms/pans etc.)
+         },
+
+         [=](utility::event_atom,
              xstudio::ui::model_data::set_node_data_atom,
              const std::string &model_name,
              const std::string &path,

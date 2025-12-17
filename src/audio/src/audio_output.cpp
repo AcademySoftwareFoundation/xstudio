@@ -158,6 +158,19 @@ template <typename T>
 media_reader::AudioBufPtr
 super_simple_respeed_audio_buffer(const media_reader::AudioBufPtr in, const float velocity);
 
+timebase::flicks ScrubHelper::scrub_duration(const utility::FrameRate & media_rate) const {
+    if (scrub_behaviour_ == OneFrame) return media_rate.to_flicks();
+    else if (scrub_behaviour_ == OnePt25Frames) return (media_rate.to_flicks()*125)/100;
+    else if (scrub_behaviour_ == OnePt5Frames) return (media_rate.to_flicks()*150)/100;
+    else if (scrub_behaviour_ == TwoFrames) return media_rate.to_flicks()*2;
+    else if (scrub_behaviour_ == ThreeFrames) return media_rate.to_flicks()*3;
+    else if (scrub_behaviour_ == OneFrameAt24Fps) return timebase::k_flicks_24fps;
+    else if (scrub_behaviour_ == OneFrameAt30Fps) return timebase::k_flicks_one_thirtieth_second;
+    else if (scrub_behaviour_ == OneFrameAt60Fps) return timebase::k_flicks_one_sixtieth_second;
+    else if (scrub_behaviour_ == Custom) return (timebase::k_flicks_one_second*scrub_window_millisecs_)/1000;
+    return media_rate.to_flicks();
+}
+
 void AudioOutputControl::prepare_samples_for_soundcard_playback(
     std::vector<int16_t> &v,
     const long num_samps_to_push,
@@ -257,36 +270,39 @@ void AudioOutputControl::prepare_samples_for_audio_scrubbing(
 
     playhead_position_ = playhead_position;
 
-    // audio_frames is unlikely to have a frame with a timestamp that exactly
-    // matches playhead_position. So we pick the first frame with a timestamp
-    // that is less than playhead position and then start copying samples from
-    // the appropriate position.
-
-    // Also note that the timestamps in audio_frames correspond exactly to video
-    // frame timestamps ... however, because ffmpeg typically delivers audio in
-    // chunks that don't line up with video frames (for example, often an audio
-    // frame from ffmpeg is 1024 samples, regardless of sample rate and video
-    // frame rate). In the xstudio ffmpeg reader we are just gluing together
-    // the smaller audio frames to roughly match the beat of the video frames
-    // but when we do this we store the offset between the first audio stamp
-    // and the 'timeline_timestamp' so we can take account of the difference.
-
     // store bufs in our map
     sample_data_.clear();
+    auto frame_duration = timebase::k_flicks_zero_seconds;
     for (const auto &_frame : audio_frames) {
 
         if (!_frame)
             continue;
-        const auto adjusted_timeline_timestamp = std::chrono::duration_cast<timebase::flicks>(
-            _frame.timeline_timestamp() + _frame->time_delta_to_video_frame());
 
-        sample_data_[adjusted_timeline_timestamp] = _frame;
+        // See note in FFMpegDecoder::pull_audio_frame_from_stream()
+        /*const auto adjusted_timeline_timestamp = std::chrono::duration_cast<timebase::flicks>(
+            _frame.timeline_timestamp() + _frame->time_delta_to_video_frame());
+        sample_data_[adjusted_timeline_timestamp] = _frame;*/
+
+        sample_data_[_frame.timeline_timestamp()] = _frame;
+        frame_duration = std::max(frame_duration, _frame->duration_flicks());
     }
 
+    // We need to select the window of audio samples played according to
+    // the scrub_window_millisecs_ user setting. If scrub_window_millisecs_ is 40 ms, say,
+    // and the frame duration is also 40ms, we play the audio for the frame corresponding
+    // to playhead_position_. If scrub_window_millisecs_ was 60ms, we'd want to play
+    // the last 10ms of audio from the preceeding frame, all the audio in the frame matching
+    // playhead_position_ and then the firs 10ms of audio from the following frame
+
+    const timebase::flicks sample_window_begin_tps =
+        playhead_position_ -
+        (scrub_helper_.scrub_duration(frame_duration) - frame_duration) / 2;
+
     // now pick nearest buffer
-    auto r = sample_data_.lower_bound(playhead_position_);
+    auto r = sample_data_.lower_bound(sample_window_begin_tps);
     if (r != sample_data_.begin()) {
-        r--;
+        if (sample_window_begin_tps != r->first)
+            r--;
     }
     if (r == sample_data_.end())
         return;
@@ -294,11 +310,10 @@ void AudioOutputControl::prepare_samples_for_audio_scrubbing(
     const long num_channels = r->second->num_channels();
 
     // time diff from first audio sample to playhead position
-    auto delta = playhead_position_ - r->first;
+    auto delta = sample_window_begin_tps - r->first;
 
     long samples_offset = long(
         round(std::max(0.0, timebase::to_seconds(delta)) * double(r->second->sample_rate())));
-
 
     if (samples_offset < 0 || samples_offset >= r->second->num_samples()) {
         // the offset into our 'best' audio buffer from the playhead_position_
@@ -310,20 +325,8 @@ void AudioOutputControl::prepare_samples_for_audio_scrubbing(
         return;
     }
 
-    // what's the video frame rate ? We can deduce this from the timeline
-    // timestamps which match corresponding video frames for the scrub. We
-    // should have been delivered 2 or more coniguouse audio frames for the
-    // scrub. We use the audio buffer duration as a fallback
-    timebase::flicks video_frame_duration = timebase::to_flicks(r->second->duration_seconds());
-    auto r_plus                           = r;
-    r_plus++;
-    if (r_plus != sample_data_.end()) {
-        video_frame_duration = r_plus->first - r->first;
-    }
-
     // how many samples do we want to sound for this scrub event?
-    long num_scrub_samps = long(
-        round(timebase::to_seconds(video_frame_duration) * double(r->second->sample_rate())));
+    long num_scrub_samps = long(scrub_helper_.scrub_duration_secs(frame_duration) * double(r->second->sample_rate()));
 
     // now we fill our scrub samples buffer.
 
@@ -414,9 +417,10 @@ void AudioOutputControl::queue_samples_for_playing(
         // associated with that frame should sound. When building sample_data_
         // map we take account of this difference, which was calculate in
         // the fffmpeg reader when the audio samples are packaged up.
-        const auto adjusted_timeline_timestamp = std::chrono::duration_cast<timebase::flicks>(
-            _frame.timeline_timestamp() +
-            (_frame ? _frame->time_delta_to_video_frame() : std::chrono::microseconds(0)));
+        /*const auto adjusted_timeline_timestamp = std::chrono::duration_cast<timebase::flicks>(
+            _frame.timeline_timestamp()
+            + (_frame ? _frame->time_delta_to_video_frame() : std::chrono::microseconds(0)));*/
+        const auto adjusted_timeline_timestamp = _frame.timeline_timestamp();
 
         if (_frame)
             t0 += timebase::to_flicks(_frame->duration_seconds());
@@ -460,6 +464,8 @@ void AudioOutputControl::queue_samples_for_playing(
 
 void AudioOutputControl::playhead_position_changed(
     const timebase::flicks playhead_position,
+    const timebase::flicks playhead_loop_in,
+    const timebase::flicks playhead_loop_out,
     const bool forward,
     const float velocity,
     const bool playing,
@@ -468,6 +474,8 @@ void AudioOutputControl::playhead_position_changed(
         // playhead hasn't moved
     }
     playhead_position_           = playhead_position;
+    playhead_loop_in_           = playhead_loop_in;
+    playhead_loop_out_           = playhead_loop_out;
     playback_velocity_           = std::max(0.1f, velocity);
     playing_                     = playing;
     playing_forward_             = forward;
@@ -505,6 +513,11 @@ media_reader::AudioBufPtr AudioOutputControl::pick_audio_buffer(
     auto future_playhead_position =
         timebase::to_flicks(v * timebase::to_seconds(delta)) + playhead_position_;
 
+    if (!playing_forward_ && playhead_loop_in_ > future_playhead_position) {
+        future_playhead_position = playhead_loop_out_ - (playhead_loop_in_-future_playhead_position);
+    } else if (playing_forward_ && playhead_loop_out_ < future_playhead_position)  {
+        future_playhead_position = playhead_loop_in_ + (future_playhead_position-playhead_loop_out_);
+    }
 
     // during playback, we just pick the audio buffer immediately after
     // the one that we last used. However, we check if this new buffer's
@@ -691,11 +704,12 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
         T *tt = ((T *)current_buf->buffer()) + current_buf_position * num_channels;
 
         if (fade_in_out & AudioOutputControl::DoFadeHead) {
+
             while (current_buf_position < FADE_FUNC_SAMPS && num_samples_to_copy &&
                    current_buf_position < current_buf->num_samples()) {
 
                 for (int chn = 0; chn < num_channels; ++chn) {
-                    (*stream++) = T(round((*tt++) * fade_in_coeffs[current_buf_position]));
+                    (*stream++) = T(round(float(*tt++) * fade_in_coeffs[current_buf_position]));
                 }
                 num_samples_to_copy--;
                 current_buf_position++;
@@ -706,7 +720,7 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
         const long bpos = std::max(
             std::min(
                 long(current_buf->num_samples() - current_buf_position) -
-                    ((fade_in_out & AudioOutputControl::DoFadeTail) ? 32l : 0l),
+                    ((fade_in_out & AudioOutputControl::DoFadeTail) ? 256l : 0l),
                 num_samples_to_copy),
             0l);
 
@@ -725,7 +739,7 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
                 const float f = i < FADE_FUNC_SAMPS ? fade_in_coeffs[i] : 1.0f;
 
                 for (int chn = 0; chn < num_channels; ++chn) {
-                    (*stream++) = T(round((*tt++) * f));
+                    (*stream++) = T(round(float(*tt++) * f));
                 }
 
                 num_samples_to_copy--;
