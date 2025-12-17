@@ -188,6 +188,13 @@ namespace media_reader {
             return utility::BlindDataObjectPtr();
         }
 
+        template <typename T> [[nodiscard]] const T * plugin_blind_data(const utility::Uuid &plugin_uuid) const {
+            auto p = plugin_blind_data_.find(plugin_uuid);
+            if (p != plugin_blind_data_.end())
+                return dynamic_cast<T *>(p->second.get());
+            return nullptr;
+        }
+
         std::map<utility::Uuid, utility::BlindDataObjectPtr> plugin_blind_data_;
 
         [[nodiscard]] const timebase::flicks &timeline_timestamp() const { return tts_; }
@@ -220,13 +227,17 @@ namespace media_reader {
         }
         void set_intrinsic_transform(const Imath::M44f &t) { intrinsic_transform_ = t; }
 
-        [[nodiscard]] const Imath::M44f &layout_transform() const { return layout_transform_; }
+        [[nodiscard]] const Imath::M44f layout_transform() const {
+            return frame_id_.transform_matrix() * layout_transform_;
+        }
         void set_layout_transform(const Imath::M44f &t) { layout_transform_ = t; }
 
         [[nodiscard]] const std::string &error_details() const { return error_details_; }
         void set_error_details(const std::string &err) { error_details_ = err; }
 
         friend float image_aspect(const ImageBufPtr &value);
+
+        friend float image_layout_aspect(const ImageBufPtr &value);
 
         utility::JsonStore metadata() const;
 
@@ -250,6 +261,57 @@ namespace media_reader {
                              v->image_size_in_pixels().y
                        : 16.0f / 9.0f
                  : 16.0f / 9.0f;
+    }
+
+    inline float image_layout_aspect(const ImageBufPtr &v) {
+
+        // This is used to work out the image aspect *after* the image layout
+        // transform is applied. Thus if an image is rotated 90 degrees, the
+        // aspect returned here reflects the rotation so that the image can
+        // be width/height 'fitted' into the viewport correct etc.
+
+        float af = v ? v->image_size_in_pixels().y
+                           ? v.frame_id_.pixel_aspect() * v->image_size_in_pixels().x /
+                                 v->image_size_in_pixels().y
+                           : 16.0f / 9.0f
+                     : 16.0f / 9.0f;
+
+        if (v.layout_transform() != Imath::M44f()) {
+
+            // the layout_aspect_ is used to apply Width/Height/Best 'Fit' modes by
+            // the xSTUDIO viewport. But what if the image is rotated? We need to
+            // account for rotation here so that fit modes still work
+
+            // these are the 4 corners of the image:
+            std::array<Imath::V4f, 4> corners = {
+                Imath::V4f(-1.0f, -1.0f / af, 0.0f, 1.0f),
+                Imath::V4f(1.0f, -1.0f / af, 0.0f, 1.0f),
+                Imath::V4f(1.0f, 1.0f / af, 0.0f, 1.0f),
+                Imath::V4f(-1.0f, 1.0f / af, 0.0f, 1.0f)};
+
+            // transform the image corners, and then get the bounding rectangle
+            // for the transformed corners
+            float y_min = std::numeric_limits<float>::max();
+            float y_max = std::numeric_limits<float>::min();
+            float x_min = std::numeric_limits<float>::max();
+            float x_max = std::numeric_limits<float>::min();
+            for (int i = 0; i < 4; ++i) {
+                corners[i] *= v.layout_transform();
+                if (corners[i].w)
+                    corners[i] *= 1.0f / corners[i].w;
+                y_min = std::min(y_min, corners[i].y);
+                y_max = std::max(y_max, corners[i].y);
+                x_min = std::min(x_min, corners[i].x);
+                x_max = std::max(x_max, corners[i].x);
+            }
+
+            // use the image cor
+            if (x_max != x_min && y_min != y_max) {
+                af = (x_max - x_min) / (y_max - y_min);
+            }
+        }
+
+        return af;
     }
 
 

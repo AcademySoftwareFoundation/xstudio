@@ -30,7 +30,8 @@ namespace media_reader {
 
         class DebugTimer {
           public:
-            DebugTimer(std::string p, int frame) : path_(std::move(p)), frame_(frame) {
+            DebugTimer(std::string p, int ffmpeg_frame_)
+                : path_(std::move(p)), frame_(ffmpeg_frame_) {
                 t1_ = utility::clock::now();
             }
 
@@ -73,7 +74,7 @@ namespace media_reader {
             virtual ~FFMpegStream();
 
             int64_t current_frame();
-            int64_t frame_to_pts(int frame) const;
+            int64_t frame_to_pts(int ffmpeg_frame_) const;
 
             void set_virtual_frame_rate(const utility::FrameRate &vfr);
 
@@ -81,7 +82,7 @@ namespace media_reader {
 
             ImageBufPtr get_ffmpeg_frame_as_xstudio_image();
 
-            AudioBufPtr get_ffmpeg_frame_as_xstudio_audio(const int soundcard_sample_rate);
+            AudioBufPtr get_ffmpeg_frame_as_xstudio_audio();
 
             const ImageBufPtr &attached_pic() const { return attached_pic_; }
 
@@ -97,7 +98,10 @@ namespace media_reader {
             void flush_buffers();
 
             size_t resample_audio(
-                AVFrame *frame, AudioBufPtr &audio_buffer, int offset_into_output_buffer);
+                AVFrame *ffmpeg_frame_,
+                AudioBufPtr &audio_buffer,
+                int offset_into_output_buffer,
+                const int target_sample_rate);
 
             [[nodiscard]] AVMediaType codec_type() const { return codec_type_; }
 
@@ -134,7 +138,10 @@ namespace media_reader {
                               double(avc_stream_->time_base.num)));
             }
 
-            void set_current_frame_unknown() { current_frame_ = CURRENT_FRAME_UNKNOWN; }
+            void set_current_frame_unknown() {
+                current_frame_        = CURRENT_FRAME_UNKNOWN;
+                current_audio_sample_ = -1;
+            }
 
           private:
             [[nodiscard]] int64_t stream_start_time() const {
@@ -149,7 +156,7 @@ namespace media_reader {
             AVFormatContext *format_context_;
             AVStream *avc_stream_;
             const AVCodec *codec_;
-            AVFrame *frame;
+            AVFrame *ffmpeg_frame_;
             AVMediaType codec_type_;
             int64_t fpsNum_; // Numerator of FPS
             int64_t fpsDen_; // Denominator of FPS (if fractional)
@@ -159,7 +166,8 @@ namespace media_reader {
             bool format_conversion_warning_issued = {false};
             bool using_own_frame_allocation       = {false};
             bool nothing_decoded_yet_             = {true};
-            int current_frame_                    = {CURRENT_FRAME_UNKNOWN};
+            int64_t current_frame_                = {CURRENT_FRAME_UNKNOWN};
+            int64_t current_audio_sample_         = {-1};
             Imath::V2i resolution_                = {Imath::V2i(0, 0)};
             float pixel_aspect_                   = 1.0f;
             bool is_attached_pic_                 = {false};
@@ -169,11 +177,11 @@ namespace media_reader {
 
             // for audio resampling
             AVSampleFormat target_sample_format_ = {AV_SAMPLE_FMT_NONE};
-            int target_sample_rate_              = 0;
             int target_audio_channels_           = 0;
             AVSampleFormat src_audio_fmt_        = {AV_SAMPLE_FMT_NONE};
             int src_audio_sample_rate_           = {0};
             int src_audio_channel_layout_        = {0};
+            int src_audio_chans_                 = {0};
             SwrContext *audio_resampler_ctx_     = {0};
 
             utility::FrameRate frame_rate_;

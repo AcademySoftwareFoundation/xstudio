@@ -439,8 +439,7 @@ caf::message_handler ClipActor::message_handler() {
 
                                 auto jsn = base_.item().set_available_range(FrameRange(
                                     FrameRate(
-                                        double(tc_start) *
-                                        clip_rate.to_seconds()),      // new start frame
+                                        tc_start * clip_rate.to_flicks()), // new start frame
                                     ref.second.duration().duration(), // new media ref duration
                                     clip_rate) // clip frame rate must stay unchanged (it should
                                                // always match the timeline rate)

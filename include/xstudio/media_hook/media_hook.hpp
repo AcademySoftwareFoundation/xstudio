@@ -34,6 +34,14 @@ namespace media_hook {
             return utility::JsonStore{};
         }
 
+        // override to modify the MediaDetail. This is mainly useful to set
+        // the media FPS for frame based media where the FPS is unknown from
+        // data intrinsic to the file, but is known in some other way.
+        virtual std::optional<media::MediaDetail>
+        modify_media_detail(const media::MediaDetail &, const caf::uri &) {
+            return {};
+        }
+
         virtual utility::JsonStore modify_clip_metadata(
             const utility::JsonStore &clip_metadata, const utility::JsonStore &media_metadata) {
             return utility::JsonStore{};
@@ -166,6 +174,16 @@ namespace media_hook {
                 //     return true;
 
                 // },
+
+                [=](media_hook::get_media_hook_atom,
+                    const media::MediaDetail &detail,
+                    const caf::uri &uri) -> media::MediaDetail {
+                    auto mod_detail = media_hook_.modify_media_detail(detail, uri);
+                    if (mod_detail) {
+                        return *mod_detail;
+                    }
+                    return detail;
+                },
 
                 [=](media_hook::get_media_hook_atom,
                     const utility::UuidActor &ua,

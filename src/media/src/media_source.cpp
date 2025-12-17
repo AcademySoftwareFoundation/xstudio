@@ -28,6 +28,10 @@ MediaSource::MediaSource(const JsonStore &jsn)
     }
 
     partial_seq_behaviour_ = jsn.value("partial_seq_behaviour", PS_COLLAPSE_TO_ON_DISK_FRAMES);
+
+    if (jsn.contains("transform")) {
+        transform_ = jsn["transform"].get<Imath::M44f>();
+    }
 }
 
 MediaSource::MediaSource(
@@ -80,6 +84,10 @@ JsonStore MediaSource::serialise() const {
     }
 
     jsn["partial_seq_behaviour"] = partial_seq_behaviour();
+
+    if (transform_ != Imath::M44f()) {
+        jsn["transform"] = transform_;
+    }
 
     return jsn;
 }

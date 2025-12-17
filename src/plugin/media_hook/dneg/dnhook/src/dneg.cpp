@@ -80,6 +80,29 @@ std::optional<std::string> find_stalk_uuid(const std::string &path) {
     return {};
 }
 
+std::string get_show_from_uri(const caf::uri &uri) {
+
+    std::string show;
+    std::smatch match;
+    static const std::regex show_shot_edit_ref_regex(
+        R"([\/]+jobs\/([^\/]+)\/EDITORIAL\/CUTS\/edit_ref\/([^\/]+))");
+
+    static const std::regex show_shot_regex(
+        R"([\/]+(hosts\/\w+fs\w+\/user_data[1-9]{0,1}|hosts\/playback\w+\/user_data|jobs|J\:)\/([^\/]+)\/([^\/]+))");
+
+    static const std::regex show_shot_alternative_regex(R"(.+-([^-]+)-([^-]+)\.dneg\.webm$)");
+
+    const auto path = to_string(uri);
+
+    if (std::regex_search(path, match, show_shot_edit_ref_regex)) {
+        show = match[1];
+    } else if (std::regex_search(path, match, show_shot_regex)) {
+        show = match[2];
+    } else if (std::regex_search(path, match, show_shot_alternative_regex)) {
+        show = match[1];
+    }
+    return show;
+}
 
 class DNegMediaHook : public MediaHook {
   public:
@@ -142,6 +165,42 @@ class DNegMediaHook : public MediaHook {
         return utility::JsonStore(meta);
     }
 
+    std::optional<media::MediaDetail>
+    modify_media_detail(const media::MediaDetail &detail, const caf::uri &uri) override {
+
+        bool need_frame_rate = false;
+        // if stream detail says that its frame rate is 0 it means the frame rate is
+        // unknown. This happens for frame based media like jpg, tiff and EXR (if there
+        // is no standard frame rate metadata in the EXR)
+        for (const auto &s : detail.streams_) {
+            if (s.media_type_ == media::MT_IMAGE &&
+                s.duration_.rate() == timebase::k_flicks_zero_seconds) {
+                need_frame_rate = true;
+                break;
+            }
+        }
+        if (!need_frame_rate)
+            return {};
+
+        const auto show = get_show_from_uri(uri);
+        if (show == "")
+            return {};
+
+        // use the SHOW FPS general.dat setting
+        std::string show_rate = get_showvar_or(show, "DN_FPS", "");
+        if (show_rate == "")
+            return {};
+
+        media::MediaDetail mod_detail = detail;
+        const utility::FrameRate fr(show_rate);
+        for (auto &s : mod_detail.streams_) {
+            if (s.media_type_ == media::MT_IMAGE &&
+                s.duration_.rate() == timebase::k_flicks_zero_seconds) {
+                s.duration_.set_rate(fr);
+            }
+        }
+        return mod_detail;
+    }
 
     std::optional<utility::MediaReference> modify_media_reference(
         const utility::MediaReference &mr, const utility::JsonStore &jsn) override {
@@ -397,6 +456,12 @@ class DNegMediaHook : public MediaHook {
 
             std::string ocio_config = find_ocio_config(context["SHOW"]);
 
+            auto available_configs_json = R"({})"_json;
+            for (const auto &[version, path] : find_available_ocio_configs(context["SHOW"])) {
+                available_configs_json[version] = path;
+            }
+            r["ocio_config_versions"] = available_configs_json;
+
 #ifdef _WIN32
             r["ocio_config"] =
                 utility::uri_to_posix_path(utility::posix_path_to_uri(ocio_config));
@@ -418,21 +483,23 @@ class DNegMediaHook : public MediaHook {
             }
 
             // Detect override to active displays and views
-            const std::string active_displays =
+            std::string active_displays =
                 get_showvar_or(context["SHOW"], "DN_REVIEW_XSTUDIO_OCIO_ACTIVE_DISPLAYS", "");
+            active_displays =
+                get_showsetting_or(context["SHOW"], "active_displays", active_displays);
             if (!active_displays.empty()) {
                 r["active_displays"] = active_displays;
             }
 
             std::string active_views =
                 get_showvar_or(context["SHOW"], "DN_REVIEW_XSTUDIO_OCIO_ACTIVE_VIEWS", "");
+            active_views = get_showsetting_or(context["SHOW"], "active_views", active_views);
             if (!active_views.empty()) {
                 r["active_views"] = active_views;
             }
             const auto views = utility::split(active_views, ':');
             const bool has_untonemapped_view =
                 std::find(views.begin(), views.end(), "Un-tone-mapped") != views.end();
-
 
             // Input media category detection
             static const std::regex review_regex(".+\\.review[0-9]\\.mov$");
@@ -523,17 +590,8 @@ class DNegMediaHook : public MediaHook {
                 }
             } else if (input_category == "review_proxy") {
                 r["input_colorspace"] = "dneg_proxy_log:log";
-                // LBP review proxy before CMS1 migration (no metadata)
-                // http://jira/browse/CLR-2006
-                if (context["SHOW"] == "LBP") {
-                    r["input_colorspace"] = "log_ARRIWideGamut_ARRILogC3";
-                }
             } else if (input_category == "internal_movie") {
-                // LBP internal movie before CMS1 migration (no metadata)
-                // http://jira/browse/CLR-2006
-                if (context["SHOW"] == "LBP") {
-                    r["input_colorspace"] = "Client_Rec709";
-                } else if (is_cms1_config) {
+                if (is_cms1_config) {
                     r["input_colorspace"] = "DNEG_Rec709";
                 } else {
                     r["input_display"] = "Rec709";
@@ -562,18 +620,23 @@ class DNegMediaHook : public MediaHook {
             }
 
             // Un-tone-mapped space
-            if (input_category == "edit_ref" || input_category == "movie_media" ||
-                input_category == "internal_movie") {
-                r["untonemapped_colorspace"] = "disp_Rec709-G24";
-            } else if (input_category == "still_media") {
-                r["untonemapped_colorspace"] = "disp_sRGB";
+            // We have to manage 2 categories of media
+            // * regular scene-linear workflow media
+            // * external display-linear workflow media
+            if (has_untonemapped_view) {
+                if (input_category == "edit_ref" || input_category == "movie_media") {
+                    r["untonemapped_colorspace"] = "disp_Rec709-G24";
+                    r["untonemapped_view"]       = "Un-tone-mapped";
+                } else if (input_category == "still_media") {
+                    r["untonemapped_colorspace"] = "disp_sRGB";
+                    r["untonemapped_view"]       = "Un-tone-mapped";
+                }
             }
 
             // Detect automatic view assignment
             if (input_category == "edit_ref" || input_category == "movie_media" ||
                 input_category == "still_media") {
-                r["automatic_view"] =
-                    is_cms1_config or has_untonemapped_view ? "Un-tone-mapped" : "Film";
+                r["automatic_view"] = is_cms1_config ? "Client" : "Film";
             } else if (path.find("/ASSET/") != std::string::npos) {
                 r["automatic_view"] = "DNEG";
             } else if (
@@ -617,6 +680,34 @@ class DNegMediaHook : public MediaHook {
         bool operator>(const Version &rhs) const { return rhs < *this; }
         bool operator>=(const Version &rhs) const { return !(*this < rhs); }
     };
+
+    std::map<std::string, std::string> find_available_ocio_configs(const std::string &show) {
+
+        std::map<std::string, std::string> fs_versions;
+
+        const std::regex ocio_version_regex(R"(config_ocio-v(\d)\.(\d)\.ocio)");
+        std::smatch match;
+
+        // Detect all OCIO versions available in the show's colsci folder
+        const fs::path colsci_dir{
+            utility::forward_remap_file_path(fmt::format("/tools/{}/data/colsci", show))};
+        if (fs::is_directory(colsci_dir)) {
+            for (auto const &dir_entry : fs::directory_iterator{colsci_dir}) {
+                if (dir_entry.path().extension() == ".ocio") {
+                    const std::string filename = dir_entry.path().filename().string();
+                    if (std::regex_match(filename, match, ocio_version_regex)) {
+                        if (match.size() == 3) {
+                            const std::string version = fmt::format(
+                                "{}.{}", std::string(match[1]), std::string(match[2]));
+                            fs_versions[version] = dir_entry.path();
+                        }
+                    }
+                }
+            }
+        }
+
+        return fs_versions;
+    }
 
     // Find highest OCIO config version supported
     std::string find_ocio_config(const std::string &show) {
@@ -725,6 +816,85 @@ class DNegMediaHook : public MediaHook {
                     const auto key   = utility::trim(line.substr(0, pos));
                     const auto value = utility::trim(line.substr(pos + 1));
                     variables[key]   = value;
+                }
+            }
+        } catch (const std::exception &e) {
+            // pass
+        }
+
+        return variables;
+    }
+
+    std::string get_showsetting_or(
+        const std::string &show, const std::string &setting, const std::string &default_val) {
+
+        const auto &settings = read_colour_settings_yaml_cached(show);
+        if (settings.count(setting)) {
+            return settings.at(setting);
+        }
+
+        return default_val;
+    }
+
+    std::map<std::string, std::string>
+    read_colour_settings_yaml_cached(const std::string &show) {
+
+        auto p = show_settings_store_.find(show);
+        if (p == show_settings_store_.end()) {
+            show_settings_store_[show] = read_colour_settings_yaml(show);
+        }
+
+        return show_settings_store_[show];
+    }
+
+    // xStudio has no direct dependency to a yaml parsing library at the moment,
+    // here we use manual parsing of the yaml config file which is less robust
+    // but should do for now.
+    std::map<std::string, std::string> read_colour_settings_yaml(const std::string &show) {
+
+        std::map<std::string, std::string> variables;
+
+        try {
+#ifdef __linux__
+            std::ifstream ifs(fmt::format("/tools/{}/data/colsci/colour_settings.yaml", show));
+#else
+            std::ifstream ifs(fmt::format("N:\\{}/data/colsci/colour_settings.yaml", show));
+#endif
+            if (!ifs.is_open())
+                return {};
+
+            bool xstudio_section = false;
+
+            const std::string lines(std::istreambuf_iterator<char>{ifs}, {});
+            for (const auto &line : utility::split(lines, '\n')) {
+                if (line.empty() or utility::starts_with(line, "#"))
+                    continue;
+
+                if (xstudio_section) {
+                    // Assume 4 space indentation
+                    if (utility::starts_with(line, "    ")) {
+
+                        const auto pos = line.find(":");
+                        if (pos != std::string::npos) {
+                            const auto key = utility::trim(line.substr(0, pos));
+                            auto value     = utility::trim(line.substr(pos + 1));
+                            // Trim surrounding quotes, if any
+                            if (value[0] == '"') {
+                                value = value.substr(1, value.length() - 1);
+                            }
+                            if (value[value.length() - 1] == '"') {
+                                value = value.substr(0, value.length() - 1);
+                            }
+
+                            variables[key] = value;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+
+                if (utility::starts_with(line, "xstudio:")) {
+                    xstudio_section = true;
                 }
             }
         } catch (const std::exception &e) {
@@ -902,6 +1072,7 @@ class DNegMediaHook : public MediaHook {
 
 
     std::map<std::string, std::map<std::string, std::string>> show_variables_store_;
+    std::map<std::string, std::map<std::string, std::string>> show_settings_store_;
 };
 
 extern "C" {

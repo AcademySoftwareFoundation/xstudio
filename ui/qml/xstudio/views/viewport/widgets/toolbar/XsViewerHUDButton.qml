@@ -68,6 +68,7 @@ XsViewerAnyMenuButton  {
                         settingsDlg = Qt.createQmlObject('import xStudio 1.0; XsAttributesPanel {}', source_button, settings_group_name)
                         settingsDlg.title = settings_group_name
                         settingsDlg.attributesGroupName = settings_group_name
+                        settingsDlg.descriptionGroupName = title + " Description"
                         settingsDlg.self_destroy = true
                         settingsDlg.visible = true
                     }

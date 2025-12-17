@@ -18,7 +18,7 @@ XsViewerAnyMenuButton  {
     // to show the sources of the current playhead, which are defined by the
     // Source and Audio Source attributes in the Playhead class.
     // see PlayheadActor::make_source_menu_model in the C++ source.
-    menuModelName: currentPlayhead.uuid + "source_menu"
+    menuModelName: view.playheadUuid + "source_menu"
 
     text: "Source"
     shortText: "Src"

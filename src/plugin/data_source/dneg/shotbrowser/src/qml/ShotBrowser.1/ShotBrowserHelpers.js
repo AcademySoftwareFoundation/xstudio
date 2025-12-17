@@ -215,6 +215,50 @@ function getDNUuid(indexes=[]) {
 	return jsn
 }
 
+function orderByRole(indexes, role) {
+	let unordered = mapIndexesToResultModel(indexes)
+	if(unordered.length) {
+		let m = unordered[0].model;
+		unordered.sort((a,b) =>  {
+			let aa = m.get(a, role)
+			let bb = m.get(b, role)
+		  if (aa > bb) {
+		    return 1;
+		  }
+		  if (aa < bb) {
+		    return -1;
+		  }
+		  return 0;
+		})
+	}
+
+	return unordered
+}
+
+function orderByNoteShot(indexes) {
+	let unordered = mapIndexesToResultModel(indexes)
+	if(unordered.length) {
+		let m = unordered[0].model;
+		unordered.sort((a,b) =>  {
+			let aa = m.get(a, "versionNameRole")
+			let bb = m.get(b, "versionNameRole")
+
+			aa = aa ? aa.replace(/^[^_]+_/, "") : ""
+			bb = bb ? bb.replace(/^[^_]+_/, "") : ""
+
+			if (aa > bb) {
+				return 1;
+			}
+			if (aa < bb) {
+				return -1;
+			}
+			return 0;
+		})
+	}
+
+	return unordered
+}
+
 function getNote(indexes=[]) {
 	let txt = ""
 	if(indexes.length) {
@@ -283,6 +327,17 @@ function downloadMovies(indexes=[]) {
 	}
 }
 
+function mapIndexToSourceModel(index) {
+	let result = index
+
+	if(index.model instanceof QTreeModelToTableModel) {
+		result = mapIndexToSourceModel(index.model.mapToModel(index))
+	} else if(index.model instanceof ShotBrowserSequenceFilterModel) {
+		result = mapIndexToSourceModel(index.model.mapToSource(index))
+	}
+
+	return result
+}
 function mapIndexToResultModel(index) {
 	let result = index
 
@@ -848,16 +903,31 @@ function ctrlSelectItem(selectionModel, index) {
 		selectionModel.select(index, ItemSelectionModel.Toggle)
 }
 
-function altSelectItem(selectionModel, index) {
+function altSelectItem(selectionModel, index, onlyShots=false) {
 	// expand and select children..
 	selectionModel.model.expandRecursively(index.row, -1)
 	// select all leafs.
 	let depth = selectionModel.model.depthAtRow(index.row)
 	let selection = []
-	for(let i = index.row+1; selectionModel.model.depthAtRow(i) > depth ;i++)
-		selection.push(selectionModel.model.index(i, 0, index.parent))
+	for(let i = index.row+1; selectionModel.model.depthAtRow(i) > depth ;i++) {
+		if(onlyShots) {
+			let clickIndex = mapIndexToSourceModel(selectionModel.model.index(i, 0, index.parent))
+			if(clickIndex.model.get(clickIndex,"typeRole") == "Shot")
+				selection.push(selectionModel.model.index(i, 0, index.parent))
+		}
+		else
+			selection.push(selectionModel.model.index(i, 0, index.parent))
+	}
 
-	selectionModel.select(index, ItemSelectionModel.Toggle)
+	if(onlyShots) {
+		let clickIndex = mapIndexToSourceModel(index)
+		if(clickIndex.model.get(clickIndex,"typeRole") == "Shot")
+			selectionModel.select(index, ItemSelectionModel.Toggle)
+		else
+			selectionModel.select(index, ItemSelectionModel.Deselect)
+	} else {
+		selectionModel.select(index, ItemSelectionModel.Toggle)
+	}
 	selectionModel.select(helpers.createItemSelection(selection), ItemSelectionModel.Toggle)
 }
 
@@ -925,6 +995,8 @@ function updateMetadata(enabled, mediaUuid) {
 
 function transfer(destination, indexes, leafs=[]) {
     let project = null
+    let deps = "0"
+
 	indexes = mapIndexesToResultModel(indexes)
 
 	console.log(indexes, leafs)
@@ -942,6 +1014,10 @@ function transfer(destination, indexes, leafs=[]) {
 
  		    	let location = model.get(indexes[i],"locationRole")
 		        let dnuuid = model.get(indexes[i],"stalkUuidRole")
+
+		        let ttype = model.get(indexes[i],"twigTypeRole")
+		        if(ttype == "package/asset")
+		    		deps = "1";
 
 		        if(leafs.length) {
 		        	// need to get ivy entry for this uuid..
@@ -975,7 +1051,7 @@ function transfer(destination, indexes, leafs=[]) {
 
 	    if(project && destination && sources.size) {
 			sources.forEach((value, key) => {
-			    var fa = ShotBrowserEngine.requestFileTransferFuture(value, project, key, destination)
+			    var fa = ShotBrowserEngine.requestFileTransferFuture(value, project, key, destination, deps)
 
 			    Future.promise(fa).then(
 			        function(result) {}
@@ -987,6 +1063,7 @@ function transfer(destination, indexes, leafs=[]) {
 
 function transferMedia(destination, indexes, leafs=[]) {
     let project = null
+    let deps = "0"
 
     if(indexes.length) {
     	let model = indexes[0].model
@@ -999,6 +1076,9 @@ function transferMedia(destination, indexes, leafs=[]) {
 		        if(project == null)
 		            project = JSON.parse(theSessionData.getJSON(indexes[i], "/metadata/shotgun/version/relationships/project/data/name"))
 		    	let source = JSON.parse(theSessionData.getJSON(indexes[i], "/metadata/shotgun/version/attributes/sg_location"))
+		    	let type = JSON.parse(theSessionData.getJSON(indexes[i], "/metadata/shotgun/version/attributes/sg_twig_type_code"))
+		    	if(type == "apkg")
+		    		deps = "1";
 
 		    	if(leafs.length) {
 		    		// search through ivy metadata for leaf dnuuids
@@ -1043,7 +1123,7 @@ function transferMedia(destination, indexes, leafs=[]) {
 
 	    if(project && destination && sources.size) {
 			sources.forEach(function (value, key, map) {
-			    var fa = ShotBrowserEngine.requestFileTransferFuture(value, project, key, destination)
+			    var fa = ShotBrowserEngine.requestFileTransferFuture(value, project, key, destination, deps)
 
 			    Future.promise(fa).then(
 			        function(result) {}
@@ -1102,3 +1182,111 @@ function getValidMediaCount(playlistUuid, callback=console.log) {
         })
     })
 }
+
+function refreshTags(selected) {
+        // build list of REF tag entries and pass to sequence tree..
+    let tags = []
+    let indexs =  mapIndexesToResultModel(selected)
+    indexs.forEach(function (item, index) {
+        item.model.get(item, "tagRole").forEach(function (tag, tindex) {
+            if(tag.name.startsWith("REF-"))
+                tags.push(tag)
+        })
+    })
+    assetBaseModel.tags = tags
+    sequenceBaseModel.tags = tags
+}
+
+function tagResultVersions(type, id, results) {
+	let reftag = ShotBrowserEngine.refTagNameFromEntity(type, id)
+	let indexes = mapIndexesToResultModel(results)
+
+	indexes.forEach(function (item, index) {
+		Future.promise(
+		        ShotBrowserEngine.tagEntityFromNameFuture(
+		        	item.model.get(item, "typeRole"),
+		        	item.model.get(item, "idRole"),
+		        	reftag
+		        )
+		    ).then(
+			    function(json_string) {
+			    	try {
+			    		let obj = JSON.parse(json_string)
+			    		item.model.set(item, obj.data.relationships.tags.data, "tagRole")
+		                refreshTags(results)
+			    	} catch(err) {
+			    		console.log(err)
+			    	}
+			    },
+			    function(err) {
+			    	console.log("ERROR: tagResultVersions", type, id, item, err)
+			    }
+		    )
+	})
+}
+
+function untagResultVersions(tagid, results) {
+	let indexes = mapIndexesToResultModel(results)
+
+	indexes.forEach(function (item, index) {
+		// console.log("unlink", item.model.get(item, "typeRole"), item.model.get(item, "idRole"), tagid)
+		Future.promise(
+		        ShotBrowserEngine.untagEntityFuture(
+		        	item.model.get(item, "typeRole"),
+		        	item.model.get(item, "idRole"),
+		        	tagid
+		        )
+		    ).then(
+			    function(json_string) {
+			    	try {
+			    		let obj = JSON.parse(json_string);
+			    		item.model.set(item, obj.data.relationships.tags.data, "tagRole");
+		                refreshTags(results);
+			    	} catch(err) {
+			    		console.log(err)
+			    	}
+			    },
+			    function(err) {
+			    	console.log("ERROR: untagResultVersions", type, id, item, err)
+			    }
+		    )
+	})
+}
+
+
+function updateSnapshotFolders(project) {
+	let found = false;
+
+	if(project) {
+		snapshot_paths.forEach(function (item, index) {
+			if(item.name == project)
+				found = true;
+		})
+
+		if(!found && helpers.urlExists("file:///jobs/"+project+"/REF/xstudio/snapshots")) {
+            let v = JSON.parse(JSON.stringify(snapshot_paths))
+            v.push({'path': "file:///jobs/"+project+"/REF/xstudio/snapshots", "name": project})
+            snapshot_paths = v
+		}
+	}
+}
+
+
+function markAsHero(mediaSelection, state) {
+	//get version metadata..
+
+	mediaSelection.forEach(function (item, index) {
+	        Future.promise(
+	            item.model.getJSONFuture(item, "/metadata/shotgun/version/id")
+	        ).then(function(json_string) {
+	            json_string = json_string.replace(/^"|"$/g, '')
+
+		        Future.promise(
+		            ShotBrowserEngine.updateEntityFuture("Version", parseInt(json_string), JSON.stringify({"sg_is_hero": state}), ["id","sg_is_hero"])
+			    ).then(function(result) {
+			    	// console.log(result)
+			    })
+	        })
+	})
+}
+

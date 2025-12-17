@@ -47,6 +47,7 @@ OCIOColourPipeline::OCIOColourPipeline(
 
     setup_ui();
 
+    // Register with the global controls actor to get notified on changes
     mail(global_ocio_controls_atom_v, caf::actor_cast<caf::actor>(this)).send(global_controls_);
 }
 
@@ -92,24 +93,24 @@ caf::message_handler OCIOColourPipeline::message_handler_extensions() {
                        from_json(settings, global_settings_);
 
                        m_engine_.set_default_config(global_settings_.default_config);
-                       for (auto &a : workers_) {
-                           anon_mail(global_ocio_controls_atom_v, settings).send(a);
+                       m_engine_.set_preferred_config_version(
+                           global_settings_.preferred_config_version);
+                       for (auto &actor : workers_) {
+                           anon_mail(global_ocio_controls_atom_v, settings).send(actor);
                        }
-
-                       // if the 'auto adjust source' global setting is ON, the user
-                       // cannot set the source colourspace as this is automatically
-                       // set by logic in this plugin. We disable/enable
-                       // the Source Colourspace menu items thus:
-                       source_colour_space_->set_role_data(
-                           module::Attribute::StringChoicesEnabled,
-                           std::vector<bool>(
-                               source_colour_space_->options().size(),
-                               !global_settings_.adjust_source),
-                           false // don't call attribute_changed
-                       );
 
                        if (global_settings_.colour_bypass != old_settings.colour_bypass) {
                            update_bypass(global_settings_.colour_bypass);
+                       }
+
+                       if (global_settings_.untonemapped_mode !=
+                           old_settings.untonemapped_mode) {
+                           update_untonemapped(current_source_colour_mgmt_metadata_);
+
+                           if (!global_settings_.untonemapped_mode) {
+                               view_->set_value(
+                                   view_for_source(current_source_colour_mgmt_metadata_));
+                           }
                        }
 
                        if (global_settings_ != old_settings) {
@@ -164,15 +165,21 @@ caf::message_handler OCIOColourPipeline::message_handler_extensions() {
         .or_else(ColourPipeline::message_handler_extensions());
 }
 
-size_t OCIOColourPipeline::fast_display_transform_hash(const media::AVFrameID &media_ptr) {
+size_t OCIOColourPipeline::fast_colour_transform_hash(const media::AVFrameID &media_ptr) {
 
     size_t hash = 0;
 
     if (!global_settings_.colour_bypass) {
+
+        const utility::JsonStore &src_colour_mgmt_metadata = media_ptr.params();
+        const std::string view = view_for_source(src_colour_mgmt_metadata);
+
         hash = m_engine_.compute_hash(
             media_ptr.params(),
-            display_->value() + view_->value() + (global_settings_.adjust_source ? "adj" : "") +
-                global_settings_.default_config);
+            display_->value() + view + global_settings_.default_config +
+                global_settings_.preferred_config_version
+                // Un-tone-mapped mode can affect the source colour space for linearisation
+                + std::to_string(global_settings_.untonemapped_mode));
     }
 
     return hash;
@@ -185,26 +192,24 @@ void OCIOColourPipeline::linearise_op_data(
     rp.delegate(
         worker_pool_,
         colour_pipe_linearise_data_atom_v,
-        media_ptr.params(), // media_metadata
-        global_settings_.colour_bypass,
-        global_settings_.adjust_source,
-        view_->value());
+        media_ptr.params(), // src_colour_mgmt_metadata
+        global_settings_.untonemapped_mode,
+        global_settings_.colour_bypass);
 }
 
 void OCIOColourPipeline::linear_to_display_op_data(
     caf::typed_response_promise<ColourOperationDataPtr> &rp,
     const media::AVFrameID &media_ptr) {
 
-    // TODO: Adjust the view depending on settings and media
-    // If global_view ON, use the plugin view_
-    // If gobal_view OFF, use the media detected view (or user overrided)
+    const utility::JsonStore &src_colour_mgmt_metadata = media_ptr.params();
+    std::string view = view_for_source(src_colour_mgmt_metadata);
 
     rp.delegate(
         worker_pool_,
         colour_pipe_display_data_atom_v,
-        media_ptr.params(), // media_metadata
+        media_ptr.params(), // src_colour_mgmt_metadata
         display_->value(),
-        view_->value(),
+        view,
         global_settings_.colour_bypass);
 }
 
@@ -240,17 +245,17 @@ void OCIOColourPipeline::process_thumbnail(
     const media::AVFrameID &media_ptr,
     const thumbnail::ThumbnailBufferPtr &buf) {
 
-    // TODO: Adjust the view depending on settings and media
-    // If global_view ON, use the plugin view_
-    // If gobal_view OFF, use the media detected view (or user overrided)
+    const utility::JsonStore &src_colour_mgmt_metadata = media_ptr.params();
+    std::string view = view_for_source(src_colour_mgmt_metadata);
 
     rp.delegate(
         worker_pool_,
         media_reader::process_thumbnail_atom_v,
-        media_ptr.params(), // media_metadata
+        media_ptr.params(), // src_colour_mgmt_metadata
         buf,
         display_->value(),
-        view_->value());
+        view,
+        global_settings_.untonemapped_mode);
 }
 
 void OCIOColourPipeline::extend_pixel_info(
@@ -263,7 +268,7 @@ void OCIOColourPipeline::extend_pixel_info(
             frame_id,
             display_->value(),
             view_->value(),
-            global_settings_.adjust_source,
+            global_settings_.untonemapped_mode,
             exposure_->value(),
             gamma_->value(),
             saturation_->value());
@@ -472,23 +477,21 @@ void OCIOColourPipeline::media_source_changed(
     //  (xStudio support per media OCIO config)
     populate_ui(src_colour_mgmt_metadata);
 
-    // Adjust view
-    if (!global_settings_.global_view) {
-        const auto preferred_view =
-            m_engine_.preferred_view(src_colour_mgmt_metadata, global_settings_.preferred_view);
-        const auto view = src_colour_mgmt_metadata.get_or("override_view", preferred_view);
-        view_->set_value(view, false);
-    }
+    // Determine the view
+    std::string view = view_for_source(src_colour_mgmt_metadata);
+    view_->set_value(view, false);
 
-    // Determine the source colourspace.
+    // Determine the source colourspace
     std::string src_cs = m_engine_.detect_source_colourspace(
-        src_colour_mgmt_metadata, global_settings_.adjust_source, view_->value());
+        src_colour_mgmt_metadata, global_settings_.untonemapped_mode);
 
     if (!src_cs.empty()) {
         // We do not 'notify' this attribute change as it's not the user selecting
         // a source colourspace but (possibly) driven by dynamic plugin logic
         source_colour_space_->set_value(src_cs, false);
     }
+
+    update_untonemapped(src_colour_mgmt_metadata);
 }
 
 void OCIOColourPipeline::attribute_changed(
@@ -525,15 +528,6 @@ void OCIOColourPipeline::attribute_changed(
 
         synchronize_attribute(attribute_uuid, role, true);
 
-        // Adjust the per media input colour space override
-        if (global_settings_.adjust_source) {
-            const std::string src_cs = m_engine_.input_space_for_view(
-                current_source_colour_mgmt_metadata_, view_->value());
-            if (!src_cs.empty()) {
-                source_colour_space_->set_value(src_cs);
-            }
-        }
-
         // Remaning attributes are synchronized unconditionally
     } else {
 
@@ -554,12 +548,20 @@ void OCIOColourPipeline::screen_changed(
                    .size() > 0;
     };
 
-    if (menu_populated(display_) && !monitor_name_.empty()) {
+    std::string display, view;
+    stored_per_config_display_view(current_source_colour_mgmt_metadata_, display, view);
+    bool has_saved_display = !display.empty();
 
-        // we only override the display if the screen info is *changing* ... if
-        // it's being set for the first time we don't want to auto-set the
-        // display as it has already been chosen either in populate_ui or
-        // by the user
+    // Update the display selection only if the user have not selected it manually before
+    // for this config. In which case it will have been found in the preferences.
+    //
+    // TODO:
+    // Note that this effectively disable auto display detection after the first use
+    // of xStudio on a particular show, it could be worth reviewing this decision.
+    // We could for example store the name of the screen associated to the user
+    // display selection, so that we don't restore a DCI-P3 display on a desktop
+    // monitor for example. The only distinction at the moment is with the "window_id".
+    if (menu_populated(display_) && !has_saved_display) {
 
         const std::string detected_display = detect_display(
             name, model, manufacturer, serialNumber, current_source_colour_mgmt_metadata_);
@@ -608,6 +610,63 @@ void OCIOColourPipeline::connect_to_viewport(
         connect,
         viewport)
         .send(global_controls_);
+}
+
+std::string
+OCIOColourPipeline::view_for_source(const utility::JsonStore &src_colour_mgmt_metadata) const {
+
+    const std::string untonemapped_view =
+        src_colour_mgmt_metadata.get_or("untonemapped_view", std::string(""));
+    const std::string override_view =
+        src_colour_mgmt_metadata.get_or("override_view", std::string(""));
+    const bool is_untonemapped =
+        global_settings_.untonemapped_mode && !untonemapped_view.empty();
+
+    std::string view;
+    // Note that Un-tone-mapped mode takes precedence over user selection
+    // This could happen if a choice was made, then the Un-tone-mapped mode was
+    // enabled after.
+    if (is_untonemapped) {
+        view = untonemapped_view;
+    } else if (!force_global_view_ && !global_settings_.global_view && !override_view.empty()) {
+        view = override_view;
+    } else if (!force_global_view_ && !global_settings_.global_view) {
+        view = m_engine_.automatic_view(src_colour_mgmt_metadata);
+    } else {
+        std::string _display, _view;
+        stored_per_config_display_view(src_colour_mgmt_metadata, _display, _view);
+        view = !_view.empty() ? _view : m_engine_.default_view(src_colour_mgmt_metadata);
+    }
+
+    return view;
+}
+
+void OCIOColourPipeline::stored_per_config_display_view(
+    const utility::JsonStore &src_colour_mgmt_metadata,
+    std::string &display,
+    std::string &view) const {
+
+    const std::string config_name = m_engine_.ocio_config_name(src_colour_mgmt_metadata);
+
+    try {
+
+        scoped_actor sys{system()};
+
+        auto settings = utility::request_receive<utility::JsonStore>(
+            *sys, global_controls_, global_ocio_controls_atom_v, config_name, window_id_);
+
+        if (settings.contains("Display") and
+            m_engine_.has_display(src_colour_mgmt_metadata, settings["Display"])) {
+            display = settings["Display"];
+        }
+        if (settings.contains("View") and
+            m_engine_.has_view(src_colour_mgmt_metadata, settings["View"])) {
+            view = settings["View"];
+        }
+
+    } catch (std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
 }
 
 void OCIOColourPipeline::setup_ui() {
@@ -698,8 +757,6 @@ utility::JsonStore OCIOColourPipeline::get_display_and_view_options_for_media(
     // a given piece of media, so that they can be presented to the user independently
     // of the state of the OCIO plugin ...
 
-    const auto config_name = m_engine_.get_ocio_config_name(src_colour_mgmt_metadata);
-
     // Config has changed, so update views and displays
     std::vector<std::string> all_colourspaces;
     std::vector<std::string> displays;
@@ -708,10 +765,13 @@ utility::JsonStore OCIOColourPipeline::get_display_and_view_options_for_media(
     m_engine_.get_ocio_displays_view_colourspaces(
         src_colour_mgmt_metadata, all_colourspaces, displays, display_views);
 
-    // Try to re-use the previously selected display and view (if any)
-    // If no longer available, pick sensible defaults
+    // Default display and view to current viewport selection
     std::string display = display_->value();
     std::string view    = view_->value();
+
+    // Update with per config saved settings, if any
+    stored_per_config_display_view(src_colour_mgmt_metadata, display, view);
+
     if (std::find(displays.begin(), displays.end(), display) == displays.end()) {
         display = detect_display(
             monitor_name_,
@@ -721,33 +781,15 @@ utility::JsonStore OCIOColourPipeline::get_display_and_view_options_for_media(
             src_colour_mgmt_metadata);
     }
 
+    if (std::find(displays.begin(), displays.end(), display) == displays.end()) {
+        display = displays[0];
+    }
+
     if (std::find(display_views[display].begin(), display_views[display].end(), view) ==
         display_views[display].end()) {
-        view = m_engine_.preferred_view(
-            src_colour_mgmt_metadata,
-            global_settings_.global_view ? "Default" : global_settings_.preferred_view);
+        view = view_for_source(src_colour_mgmt_metadata);
     }
 
-    // we may have used this config before, and stored the display and view settings
-    // against the config. If so, use those stored settings rather than the
-    // preferred/defaults found above
-    try {
-
-        scoped_actor sys{system()};
-
-        auto stored_config_settings = utility::request_receive<utility::JsonStore>(
-            *sys, global_controls_, global_ocio_controls_atom_v, config_name, window_id_);
-
-        if (stored_config_settings.contains("Display")) {
-            display = stored_config_settings["Display"];
-        }
-        if (stored_config_settings.contains("View")) {
-            view = stored_config_settings["View"];
-        }
-
-    } catch (std::exception &e) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-    }
 
     utility::JsonStore result;
     result["display"]         = display;
@@ -760,10 +802,9 @@ utility::JsonStore OCIOColourPipeline::get_display_and_view_options_for_media(
     return result;
 }
 
-
 void OCIOColourPipeline::populate_ui(const utility::JsonStore &src_colour_mgmt_metadata) {
 
-    const auto config_name = m_engine_.get_ocio_config_name(src_colour_mgmt_metadata);
+    const std::string config_name = m_engine_.ocio_config_name(src_colour_mgmt_metadata);
 
     if (current_config_name_ != config_name) {
 
@@ -775,10 +816,16 @@ void OCIOColourPipeline::populate_ui(const utility::JsonStore &src_colour_mgmt_m
         m_engine_.get_ocio_displays_view_colourspaces(
             src_colour_mgmt_metadata, all_colourspaces, displays, display_views_);
 
-        // Try to re-use the previously selected display and view (if any)
-        // If no longer available, pick sensible defaults
+        source_colour_space_->set_role_data(
+            module::Attribute::StringChoices, all_colourspaces, false);
+
+        // Default display and view to current viewport selection
         std::string display = display_->value();
         std::string view    = view_->value();
+
+        // Update with per config saved settings, if any
+        stored_per_config_display_view(src_colour_mgmt_metadata, display, view);
+
         if (std::find(displays.begin(), displays.end(), display) == displays.end()) {
             display = detect_display(
                 monitor_name_,
@@ -787,53 +834,25 @@ void OCIOColourPipeline::populate_ui(const utility::JsonStore &src_colour_mgmt_m
                 monitor_serialNumber_,
                 src_colour_mgmt_metadata);
         }
-        if (std::find(display_views_[display].begin(), display_views_[display].end(), view) ==
-            display_views_[display].end()) {
-            view = m_engine_.preferred_view(
-                src_colour_mgmt_metadata,
-                global_settings_.global_view ? "Default" : global_settings_.preferred_view);
+
+        if (std::find(displays.begin(), displays.end(), display) == displays.end()) {
+            display = displays[0];
         }
 
-        source_colour_space_->set_role_data(
-            module::Attribute::StringChoices, all_colourspaces, false);
-
-        // set the 'enabled' value to false on each of the source colourspace
-        // options if the global 'Adjust source colourspace mode' is active
-        source_colour_space_->set_role_data(
-            module::Attribute::StringChoicesEnabled,
-            std::vector<bool>(all_colourspaces.size(), !global_settings_.adjust_source),
-            false // don't call attribute_changed
-        );
-
-        // we may have used this config before, and stored the display and view settings
-        // against the config. If so, use those stored settings rather than the
-        // preferred/defaults found above
-        try {
-
-            scoped_actor sys{system()};
-
-            auto stored_config_settings = utility::request_receive<utility::JsonStore>(
-                *sys,
-                global_controls_,
-                global_ocio_controls_atom_v,
-                current_config_name_,
-                window_id_);
-
-            if (stored_config_settings.contains("Display")) {
-                display = stored_config_settings["Display"];
-            }
-            if (stored_config_settings.contains("View")) {
-                view = stored_config_settings["View"];
-            }
-
-        } catch (std::exception &e) {
-            spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+        if (std::find(display_views_[display].begin(), display_views_[display].end(), view) ==
+            display_views_[display].end()) {
+            view = view_for_source(src_colour_mgmt_metadata);
         }
 
         display_->set_role_data(module::Attribute::StringChoices, displays, false);
         display_->set_value(display, false);
+
         view_->set_role_data(module::Attribute::StringChoices, display_views_[display], false);
         view_->set_value(view, false);
+
+        update_untonemapped(src_colour_mgmt_metadata);
+
+        synchronize_attribute(view_->uuid(), module::Attribute::Value, true);
     }
 }
 
@@ -847,9 +866,7 @@ void OCIOColourPipeline::update_views(const std::string &new_display) {
 
     // Reset the view if no longer available under the new display
     if (std::find(new_views.begin(), new_views.end(), view_->value()) == new_views.end()) {
-        view_->set_value(m_engine_.preferred_view(
-            current_source_colour_mgmt_metadata_,
-            global_settings_.global_view ? "Default" : global_settings_.preferred_view));
+        view_->set_value(m_engine_.automatic_view(current_source_colour_mgmt_metadata_));
     }
 }
 
@@ -858,6 +875,19 @@ void OCIOColourPipeline::update_bypass(bool bypass) {
     // Just disable these settings when colour management is off.
     view_->set_role_data(module::Attribute::Enabled, !bypass, false);
     display_->set_role_data(module::Attribute::Enabled, !bypass, false);
+}
+
+void OCIOColourPipeline::update_untonemapped(
+    const utility::JsonStore &src_colour_mgmt_metadata) {
+
+    // Current media is locked to un-tone-mapped workflow
+    const std::string untonemapped_view =
+        src_colour_mgmt_metadata.get_or("untonemapped_view", std::string(""));
+    const bool untonemapped_source =
+        global_settings_.untonemapped_mode && !untonemapped_view.empty();
+    source_colour_space_->set_role_data(
+        module::Attribute::Enabled, !untonemapped_source, false);
+    view_->set_role_data(module::Attribute::Enabled, !untonemapped_source, false);
 }
 
 void OCIOColourPipeline::update_media_metadata(

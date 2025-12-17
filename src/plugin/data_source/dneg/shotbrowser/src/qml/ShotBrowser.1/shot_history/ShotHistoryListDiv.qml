@@ -22,19 +22,27 @@ XsListView {
         anchors.bottom: list.bottom
     }
 
-    XsMinimalViewport {
+    Component {
         id: mediaPlayer
+        XsMinimalViewport {
+            visible: false
+            z: 100
+        }
+    }
+
+    Loader {
+        id: mediaPlayerLoader
         anchors.fill: list
-        visible: false
-        z: 100
     }
 
     function playMovie(path) {
-        mediaPlayer.loadMedia(path)
-        mediaPlayer.visible = true
-        mediaPlayer.playToggle()
+        if(path != "") {
+            mediaPlayerLoader.sourceComponent = mediaPlayer
+            mediaPlayerLoader.item.loadMedia(path)
+            mediaPlayerLoader.item.visible = true
+            mediaPlayerLoader.item.playToggle()
+        }
     }
-
 
     XsLabel {
         text: "Select the 'Scope' to view the Shot History."

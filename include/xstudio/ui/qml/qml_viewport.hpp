@@ -15,6 +15,7 @@ CAF_PUSH_WARNINGS
 #include <QVector3D>
 #include <QtQml>
 #include <QScreen>
+#include <QEventPoint>
 
 CAF_POP_WARNINGS
 
@@ -83,6 +84,9 @@ namespace ui {
             bool event(QEvent *event) override;
             void keyPressEvent(QKeyEvent *event) override;
             void keyReleaseEvent(QKeyEvent *event) override;
+
+          private:
+            bool isSynthFromTabletEvent(QMouseEvent *event);
 
           public slots:
 

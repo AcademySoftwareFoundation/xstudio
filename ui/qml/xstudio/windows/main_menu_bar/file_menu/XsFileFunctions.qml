@@ -16,6 +16,11 @@ Item {
     COMMON FUNCTIONS
 
     ****************************************************************/
+    XsPreference {
+        id: checkUnsaved
+        path: "/ui/qml/check_unsaved_session"
+    }
+
     function newSession() {
         studio.newSession("New Session")
         studio.clearImageCache()
@@ -343,9 +348,11 @@ Item {
         }
     }
 
+
+
     function quitWithCheck() {
 
-        if (theSessionData.modified) {
+        if (theSessionData.modified && checkUnsaved.value) {
             dialogHelpers.multiChoiceDialog(
                 quitWithCheckCallback,
                 "Quit xSTUDIO",
@@ -381,15 +388,14 @@ Item {
     }
 
     function exportNotedToCSV() {
-
         dialogHelpers.showFileDialog(
             function(path) {
-                if (path == false) return
-                Future.promise(
-                    bookmarkModel.exportCSVFuture(path)
-                ).then(function(result) {
-                    dialogHelpers.errorDialogFunc("Export Notes to CSV", result)
-                })
+                if (path)
+                    Future.promise(
+                        bookmarkModel.exportCSVFuture(path)
+                    ).then(function(result) {
+                        dialogHelpers.errorDialogFunc("Export Notes to CSV", result)
+                    })
             },
             defaultSessionFolder(),
             "Export Notes to CSV",
@@ -400,6 +406,20 @@ Item {
 
     }
 
+    function exportAnnotations() {
+        dialogHelpers.showFolderDialog(
+            function(path) {
+                if (path)
+                    Future.promise(
+                        bookmarkModel.exportAnnotationsFuture(path)
+                    ).then(function(result) {
+                        dialogHelpers.errorDialogFunc("Export Annotations", result)
+                    })
+            },
+            defaultSessionFolder(),
+            "Export Annotations",
+            "Export")
+    }
 
     function defaultSessionFolder() {
         // pick most recent path

@@ -44,38 +44,12 @@ Item{
         searchField.text = ""
         searchField.focus = false
         searchPop.close()
-        // isExpanded = false
     }
-
-    // onIsExpandedChanged: {
-    //     if(isExpanded) {
-    //         searchField.forceActiveFocus()
-    //         searchPop.open()
-    //     } else {
-    //         searchPop.close()
-    //         searchField.clearSearch()
-    //         searchField.focus = false
-    //     }
-    // }
-
-    // XsPrimaryButton{ id: searchBtn
-    //     width: XsStyleSheet.primaryButtonStdWidth
-    //     height: parent.height
-    //     imgSrc: "qrc:/icons/search.svg"
-    //     text: "Search"
-    //     isActive: isExpanded
-
-    //     onClicked: isExpanded = !isExpanded
-    // }
-
 
     Item{
         id: widget
         visible: isExpanded
         anchors.fill: parent
-        // width: parent.width - searchBtn.width
-        // height: parent.height // + combo.popupOptions.height
-        // anchors.left: searchBtn.right
 
         XsSearchBar { id: searchField
             width: parent.width
@@ -162,7 +136,7 @@ Item{
             color: searchList.currentIndex==index? palette.highlight : Qt.darker(palette.base, 1.5)
 
             XsText{
-                text: nameRole
+                text: display
                 color: searchList.currentIndex==index? textColorActive: textColorNormal
                 elide: Text.ElideRight
                 width: parent.width - 2
@@ -189,8 +163,6 @@ Item{
         property real searchItemHeight: btnHeight/1.3
 
         closePolicy: searchBtn.hovered ? Popup.CloseOnEscape :  Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-        // onClosed: button.isExpanded = false
 
         ListView {
             id: searchList

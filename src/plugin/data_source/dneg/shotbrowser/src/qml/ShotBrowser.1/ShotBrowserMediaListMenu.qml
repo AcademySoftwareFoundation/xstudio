@@ -100,6 +100,27 @@ Item {
     }
 
     XsMenuModelItem {
+        text: "True"
+        menuItemPosition: 1
+        enabled: ShotBrowserEngine.shotGridLoginAllowed
+        menuPath: "Set Status|Is Hero"+ (enabled ? "" : " (Production Only)")
+        menuModelName: "media_list_menu_"
+        onActivated: ShotBrowserHelpers.markAsHero(menuContext.mediaSelection, true)
+    }
+
+    XsMenuModelItem {
+        text: "False"
+        enabled: ShotBrowserEngine.shotGridLoginAllowed
+        menuItemPosition: 2
+        menuPath: "Set Status|Is Hero"+ (enabled ? "" : " (Production Only)")
+        menuModelName: "media_list_menu_"
+        onActivated: ShotBrowserHelpers.markAsHero(menuContext.mediaSelection, false)
+        Component.onCompleted: {
+            setMenuPathPosition("Set Status|Is Hero"+ (enabled ? "" : " (Production Only)"), 3)
+        }
+    }
+
+    XsMenuModelItem {
         text: "To Here"
         menuItemPosition: 1
         menuPath: "Transfer"

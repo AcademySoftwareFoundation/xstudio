@@ -21,18 +21,18 @@ void xstudio::colour_pipeline::from_json(const nlohmann::json &j, OCIOGlobalData
 
     j.at("colour_bypass").get_to(d.colour_bypass);
     j.at("global_view").get_to(d.global_view);
-    j.at("adjust_source").get_to(d.adjust_source);
-    j.at("preferred_view").get_to(d.preferred_view);
+    j.at("untonemapped_mode").get_to(d.untonemapped_mode);
     j.at("default_config").get_to(d.default_config);
+    j.at("preferred_config_version").get_to(d.preferred_config_version);
 }
 
 void xstudio::colour_pipeline::to_json(nlohmann::json &j, const OCIOGlobalData &d) {
 
-    j["colour_bypass"]  = d.colour_bypass;
-    j["global_view"]    = d.global_view;
-    j["adjust_source"]  = d.adjust_source;
-    j["preferred_view"] = d.preferred_view;
-    j["default_config"] = d.default_config;
+    j["colour_bypass"]            = d.colour_bypass;
+    j["global_view"]              = d.global_view;
+    j["untonemapped_mode"]        = d.untonemapped_mode;
+    j["default_config"]           = d.default_config;
+    j["preferred_config_version"] = d.preferred_config_version;
 }
 
 OCIOGlobalControls::OCIOGlobalControls(
@@ -58,35 +58,23 @@ OCIOGlobalControls::OCIOGlobalControls(
 
     // View mode
 
-    global_view_ = add_boolean_attribute(ui_text_.VIEW_MODE, ui_text_.GLOBAL_VIEW_SHORT, true);
+    global_view_ =
+        add_boolean_attribute(ui_text_.GLOBAL_VIEW, ui_text_.GLOBAL_VIEW_SHORT, true);
     global_view_->set_redraw_viewport_on_change(true);
     global_view_->set_role_data(
         module::Attribute::UIDataModels, nlohmann::json{"colour_pipe_attributes"});
     global_view_->set_role_data(module::Attribute::ToolTip, ui_text_.GLOBAL_VIEW_TOOLTIP);
     global_view_->set_preference_path("/plugin/colour_pipeline/ocio/global_view_mode");
 
-    // Preferred view
+    // Un-tone-mapped mode
 
-    preferred_view_ = add_string_choice_attribute(
-        ui_text_.PREF_VIEW, ui_text_.PREF_VIEW, ui_text_.DEFAULT_VIEW);
-    preferred_view_->set_redraw_viewport_on_change(true);
-    preferred_view_->set_role_data(module::Attribute::Enabled, !global_view_->value());
-    preferred_view_->set_role_data(module::Attribute::ToolbarPosition, 11.0f);
-    preferred_view_->set_role_data(module::Attribute::ToolTip, ui_text_.PREF_VIEW_TOOLTIP);
-    preferred_view_->set_role_data(
-        module::Attribute::StringChoices, ui_text_.PREF_VIEW_OPTIONS, false);
-    preferred_view_->set_preference_path("/plugin/colour_pipeline/ocio/preferred_view");
-
-    // Source mode
-
-    adjust_source_ =
-        add_boolean_attribute(ui_text_.SOURCE_CS_MODE, ui_text_.SOURCE_CS_MODE_SHORT, true);
-    adjust_source_->set_redraw_viewport_on_change(true);
-    adjust_source_->set_role_data(
+    untonemapped_mode_ =
+        add_boolean_attribute(ui_text_.UTM_MODE, ui_text_.UTM_MODE_SHORT, true);
+    untonemapped_mode_->set_redraw_viewport_on_change(true);
+    untonemapped_mode_->set_role_data(
         module::Attribute::UIDataModels, nlohmann::json{"colour_pipe_attributes"});
-    // adjust_source_->set_role_data(module::Attribute::Enabled, false);
-    adjust_source_->set_role_data(module::Attribute::ToolTip, ui_text_.SOURCE_CS_MODE_TOOLTIP);
-    adjust_source_->set_preference_path("/plugin/colour_pipeline/ocio/user_source_mode");
+    untonemapped_mode_->set_role_data(module::Attribute::ToolTip, ui_text_.UTM_MODE_TOOLTIP);
+    untonemapped_mode_->set_preference_path("/plugin/colour_pipeline/ocio/untonemapped_mode");
 
     // this attr is used to store the display/view that the user has selected
     // so the settings can be restored between xstudio instances
@@ -177,15 +165,19 @@ OCIOGlobalControls::OCIOGlobalControls(
         custom_config_enabled() ? "file path" : "read only file path",
         "/plugin/colour_pipeline/ocio/custom_ocio_config/datatype");
 
+    preferred_config_version_ = add_string_attribute(
+        "Preferred OCIO config version", "Preferred OCIO config version", "");
+    preferred_config_version_->set_preference_path(
+        "/plugin/colour_pipeline/ocio/preferred_config_version");
+
     // we need to call this base class method before calling insert_menu_item
     make_behavior();
 
     insert_menu_item("main menu bar", ui_text_.CMS_OFF, "Colour", 1.0f, colour_bypass_, false);
-    insert_menu_item("main menu bar", ui_text_.VIEW_MODE, "Colour", 2.0f, global_view_, false);
     insert_menu_item(
-        "main menu bar", ui_text_.PREF_VIEW, "Colour", 3.0f, preferred_view_, false);
+        "main menu bar", ui_text_.GLOBAL_VIEW, "Colour", 2.0f, global_view_, false);
     insert_menu_item(
-        "main menu bar", ui_text_.SOURCE_CS_MODE, "Colour", 4.0f, adjust_source_, false);
+        "main menu bar", ui_text_.UTM_MODE, "Colour", 2.0f, untonemapped_mode_, false);
 
     // make sure the colour menu appears in the right place in the main menu bar.
     set_submenu_position_in_parent("main menu bar", "Colour", 30.0f);
@@ -331,7 +323,6 @@ void OCIOGlobalControls::connect_to_viewport(
     caf::actor viewport) {
 
     Module::connect_to_viewport(viewport_name, viewport_toolbar_name, connect, viewport);
-    std::string viewport_context_menu_model_name = viewport_name + "_context_menu";
 }
 
 void OCIOGlobalControls::attribute_changed(
@@ -346,10 +337,6 @@ void OCIOGlobalControls::attribute_changed(
         prefs.set(
             custom_config_enabled() ? "file path" : "read only file path",
             "/plugin/colour_pipeline/ocio/custom_ocio_config/datatype");
-    }
-
-    if (attribute_uuid == global_view_->uuid()) {
-        preferred_view_->set_role_data(module::Attribute::Enabled, !global_view_->value());
     }
 
     synchronize_attributes();
@@ -392,9 +379,8 @@ std::string OCIOGlobalControls::default_ocio_config() {
             return config_path;
         } else {
             spdlog::warn(
-                "User OpenColorIO config \"{}\" is not a valid file path. {}",
-                custom_ocio_config_->value(),
-                size_t(this));
+                "User OpenColorIO config \"{}\" is not a valid file path.",
+                custom_ocio_config_->value());
             bad_configs_.insert(custom_ocio_config_->value());
         }
     }
@@ -410,11 +396,11 @@ std::string OCIOGlobalControls::default_ocio_config() {
 utility::JsonStore OCIOGlobalControls::settings_json() {
 
     utility::JsonStore j;
-    j["colour_bypass"]  = colour_bypass_->value();
-    j["global_view"]    = global_view_->value();
-    j["adjust_source"]  = adjust_source_->value();
-    j["preferred_view"] = preferred_view_->value();
-    j["default_config"] = default_ocio_config();
+    j["colour_bypass"]            = colour_bypass_->value();
+    j["global_view"]              = global_view_->value();
+    j["untonemapped_mode"]        = untonemapped_mode_->value();
+    j["default_config"]           = default_ocio_config();
+    j["preferred_config_version"] = preferred_config_version_->value();
     return j;
 }
 

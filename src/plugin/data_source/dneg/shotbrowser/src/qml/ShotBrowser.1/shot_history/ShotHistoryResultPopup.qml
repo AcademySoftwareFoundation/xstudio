@@ -12,6 +12,7 @@ import xstudio.qml.viewport 1.0
 
 
 XsPopupMenu {
+    property bool linkMode: false
 
     id: rightClickMenu
     visible: false
@@ -42,6 +43,26 @@ XsPopupMenu {
             helpers.createItemSelectionFromList(ShotBrowserHelpers.getAllIndexes(popupDelegateModel)),
             ItemSelectionModel.Select
         )
+    }
+
+    function buildTagModel() {
+        if(linkMode && popupSelectionModel.selectedIndexes.length) {
+            let indexes = ShotBrowserHelpers.mapIndexesToResultModel(popupSelectionModel.selectedIndexes);
+            let m = indexes[0].model;
+            let tags = [];
+
+            for(let i = 0; i< indexes.length; i++) {
+                tags = tags.concat(m.get(indexes[i], "tagRole"));
+            }
+
+            return tags;
+        }
+
+        return [];
+    }
+
+    function rebuildTagMenu() {
+        unlinkModel.notifyModel = buildTagModel()
     }
 
     XsHotkey {
@@ -111,6 +132,19 @@ XsPopupMenu {
         menuModelName: rightClickMenu.menu_model_name
         onActivated: ShotBrowserHelpers.revealInIvy(popupSelectionModel.selectedIndexes)
     }
+
+    // XsMenuModelItem {
+    //     text: "Test TAG..."
+    //     menuItemPosition: 6.1
+    //     menuPath: ""
+    //     menuModelName: rightClickMenu.menu_model_name
+    //     onActivated: {
+    //         let indexes = ShotBrowserHelpers.mapIndexesToResultModel(popupSelectionModel.selectedIndexes)
+    //         let m = indexes[0].model
+    //         ShotBrowserEngine.tagEntityFromName(m.get(indexes[0], "typeRole"), m.get(indexes[0], "idRole"), ShotBrowserEngine.refTagNameFromEntity("Sequence", 304001));
+    //     }
+    // }
+
     XsMenuModelItem {
         text: "ShotGrid Link"
         menuItemPosition: 6
@@ -240,5 +274,49 @@ XsPopupMenu {
             // "Transfer Selected" sub menu in the top level menu
             setMenuPathPosition("Transfer Selected", 8.0)
         }
+    }
+
+    XsMenuModelItem {
+        menuItemType: "divider"
+        menuItemPosition: 10
+        menuPath: ""
+        menuModelName: linkMode && unlinkModel.notifyModel.length ? rightClickMenu.menu_model_name : ""
+    }
+
+    // XsMenuModelItem {
+    //     menuItemType: "button"
+    //     menuItemPosition: 11
+    //     text: "Unlink"
+    //     menuPath: ""
+    //     menuModelName: linkMode &&  ? rightClickMenu.menu_model_name : ""
+    // }
+
+    DelegateModel {
+        id: unlinkModel
+
+        property var notifyModel: buildTagModel()
+        model: notifyModel
+
+        delegate :
+            Item {
+                XsMenuModelItem {
+                    text: assetBaseModel.nameFromTag(sequenceBaseModel.nameFromTag(modelData.name))
+                    menuItemType: "button"
+                    menuPath: "Unlink"
+                    menuItemPosition: index
+                    menuModelName: rightClickMenu.menu_model_name
+                    onActivated: ShotBrowserHelpers.untagResultVersions(modelData.id, popupSelectionModel.selectedIndexes)
+
+                    Component.onCompleted: {
+                        // we need this so the menu model knows where to insert the
+                        // "Transfer Selected" sub menu in the top level menu
+                        setMenuPathPosition("Unlink", 11.0)
+                    }
+                }
+            }
+    }
+
+    Repeater {
+        model: linkMode ? unlinkModel : []
     }
 }

@@ -109,6 +109,7 @@ const auto ValidTerms = R"_({
         "Project",
         "Result Limit",
         "Review Location",
+        "Review Status",
         "Shot Status",
         "Site",
         "Tag",
@@ -169,6 +170,7 @@ const auto ValidTerms = R"_({
         "Older Version",
         "On Disk",
         "Order By",
+        "Partial Render",
         "Pipeline Status",
         "Pipeline Step",
         "Playlist",
@@ -177,8 +179,8 @@ const auto ValidTerms = R"_({
         "Preferred Visual",
         "Production Status",
         "Project",
-        "Reference Tag",
-        "Reference Tags",
+        "Ref Tag",
+        "Reference",
         "Result Limit",
         "Sent To Client",
         "Sent To Dailies",
@@ -352,6 +354,7 @@ const auto TermProperties = R"_({
     "On Disk": { "negated": false, "livelink": null },
     "Operator": { "negated": null, "livelink": null, "children": [] },
     "Order By": { "negated": null, "livelink": null },
+    "Partial Render": {"negated": true, "livelink": null },
     "Pipeline Status": { "negated": false, "livelink": null },
     "Pipeline Step": { "negated": false, "livelink": false },
     "Playlist Type": { "negated": false, "livelink": null },
@@ -362,10 +365,11 @@ const auto TermProperties = R"_({
     "Production Status": { "negated": false, "livelink": null },
     "Project": { "negated": null, "livelink": false },
     "Recipient": { "negated": null, "livelink": false },
-    "Reference Tag": { "negated": false, "livelink": null },
-    "Reference Tags": { "negated": false, "livelink": null },
+    "Ref Tag": { "negated": null, "livelink": true },
+    "Reference": { "negated": null, "livelink": null },
     "Result Limit": { "negated": null, "livelink": null },
-    "Review Location": { "negated": null, "livelink": null },
+    "Review Location": { "negated": false, "livelink": null },
+    "Review Status": { "negated": false, "livelink": null },
     "Sent To Client": { "negated": null, "livelink": null },
     "Sent To Dailies": { "negated": null, "livelink": null },
     "Sent To": { "negated": null, "livelink": null },
@@ -387,11 +391,11 @@ const auto TermProperties = R"_({
 })_"_json;
 
 const std::set<std::string> TermHasProjectKey = {
-    "Asset",     "asset",    "Author",    "episode",    "Episode",      "group",
-    "Group",     "playlist", "Playlist",  "Recipient",  "sequence",     "Sequence",
-    "shot",      "Shot",     "Shot Type", "Asset Type", "ShotSequence", "ShotSequenceList",
-    "AssetList", "stage",    "Stage",     "unit",       "Unit",         "user",
-    "User"};
+    "Asset",     "asset",     "Author",    "episode",    "Episode",      "group",
+    "Group",     "playlist",  "Playlist",  "Recipient",  "sequence",     "Sequence",
+    "shot",      "Shot",      "Shot Type", "Asset Type", "ShotSequence", "ShotSequenceList",
+    "AssetList", "stage",     "Stage",     "unit",       "Unit",         "user",
+    "User",      "Reference", "reference"};
 
 const std::set<std::string> TermHasNoModel = {
     "Client Filename",
@@ -402,6 +406,7 @@ const std::set<std::string> TermHasNoModel = {
     "Id",
     "Newer Version",
     "Older Version",
+    "Ref Tag",
     "Shot Alternative",
     "Stalk Uuid",
     "Tag (Version)",
@@ -415,6 +420,8 @@ class QueryEngine {
   public:
     QueryEngine();
     virtual ~QueryEngine() = default;
+
+    static std::string ref_tag_name_from_entity(const std::string &entity, const int record_id);
 
     static utility::JsonStore build_query(
         const int project_id,
@@ -589,19 +596,28 @@ class QueryEngine {
             if (not project_id) {
                 // use project cache to get id from name.
                 auto name = get_project_name(metadata);
+
                 if (not name.empty()) {
-                    auto key = QueryEngine::cache_name("project");
-                    if (cache.count(key)) {
-                        for (const auto &i : cache.at(key)) {
+                    auto ckey = QueryEngine::cache_name("project");
+                    auto lkey = QueryEngine::cache_name("Project");
+
+                    if (cache.count(ckey)) {
+                        for (const auto &i : cache.at(ckey)) {
                             if (i.at("attributes").at("name") == name) {
                                 project_id = i.at("id").get<int>();
                                 break;
                             }
                         }
+                    } else if (cache.count(lkey)) {
+                        if (cache.at(lkey).count(name))
+                            project_id = cache.at(lkey).at(name).at("id").get<int>();
+                    } else {
+                        throw std::runtime_error("Cache doesn't contain 'project'");
                     }
                 }
             }
-        } catch (...) {
+        } catch (const std::exception &err) {
+            // spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         }
 
         return project_id;
@@ -615,6 +631,10 @@ class QueryEngine {
     void set_shot_sequence_lookup(const std::string &key, const utility::JsonStore &data);
     static void set_shot_sequence_lookup(
         const std::string &key, const utility::JsonStore &data, utility::JsonStore &lookup);
+
+    void set_reference_cache(const std::string &key, const utility::JsonStore &data);
+    static void set_reference_cache(
+        const std::string &key, const utility::JsonStore &data, utility::JsonStore &cache);
 
     utility::JsonStore get_user_data() const;
     bool is_shotgrid_login_allowed() const;
@@ -693,6 +713,9 @@ class QueryEngine {
     void merge_group(nlohmann::json &destination, const nlohmann::json &source);
 
     bool preset_diff(const nlohmann::json &a, const nlohmann::json &b);
+
+    static utility::JsonStore apply_reference_hack(const utility::JsonStore &query);
+
 
     // handle expansion into OR/AND
     static utility::JsonStore preprocess_terms(

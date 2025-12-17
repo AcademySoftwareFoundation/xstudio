@@ -55,8 +55,7 @@ void MediaMetadataRenderer::render_image_overlay(
     const Imath::M44f &transform_viewport_to_image_space,
     const float viewport_du_dpixel,
     const float device_pixel_ratio,
-    const xstudio::media_reader::ImageBufPtr &frame,
-    const bool have_alpha_buffer) {
+    const xstudio::media_reader::ImageBufPtr &frame) {
 
     auto t0 = utility::clock::now();
 

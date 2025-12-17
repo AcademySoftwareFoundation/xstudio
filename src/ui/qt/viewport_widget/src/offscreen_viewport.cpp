@@ -917,6 +917,10 @@ void OffscreenViewport::render(
         throw std::runtime_error("OffscreenrenderToImageBuffer - GL Context is not valid.");
     }
 
+    // glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION, GL_DEBUG_TYPE_MARKER, 0,
+    //                      GL_DEBUG_SEVERITY_NOTIFICATION, -1, "OffscreenViewport::render
+    //                      START");
+
     // No QML .. much simpler. Just set-up and render our xstudio viewport
 
     glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
@@ -1065,6 +1069,10 @@ void OffscreenViewport::render(
 
     // unbind
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION, GL_DEBUG_TYPE_MARKER, 0,
+    //                      GL_DEBUG_SEVERITY_NOTIFICATION, -1, "OffscreenViewport::render
+    //                      END");
 }
 
 void OffscreenViewport::sync_python_hud_data() {

@@ -215,6 +215,7 @@ namespace playhead {
         module::FloatAttribute *playhead_position_seconds_;
         module::IntegerAttribute *playhead_position_flicks_;
         module::FloatAttribute *playhead_rate_attr_;
+        module::FloatAttribute *playhead_volume_;
         module::IntegerAttribute *playhead_media_logical_frame_;
         module::IntegerAttribute *playhead_media_frame_;
         module::IntegerAttribute *duration_frames_;

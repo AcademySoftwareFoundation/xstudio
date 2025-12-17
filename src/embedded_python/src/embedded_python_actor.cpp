@@ -500,6 +500,30 @@ void EmbeddedPythonActor::main_loop() {
                 return make_error(xstudio_error::error, error);
             },
 
+            [=](python_create_session_atom, const bool interactive, caf::actor requester) {
+                if (not base_.enabled())
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, "EmbeddedPython disabled");
+
+                py::gil_scoped_acquire gil;
+
+                std::string error;
+
+                try {
+                    PyStdErrOutStreamRedirect out{};
+                    auto session_uuid = base_.create_session(interactive);
+                    send_output(this, event_group_, out, session_uuid);
+                    anon_mail(utility::event_atom_v, python_create_session_atom_v, session_uuid)
+                        .send(requester);
+                } catch (py::error_already_set &err) {
+                    err.restore();
+                    error = err.what();
+                    py_print(error);
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", err.what());
+                }
+            },
+
             [=](python_create_session_atom, const bool interactive) -> result<utility::Uuid> {
                 if (not base_.enabled())
                     return make_error(xstudio_error::error, "EmbeddedPython disabled");
@@ -868,11 +892,12 @@ void EmbeddedPythonActor::main_loop() {
                             while (p != packed_args.cend()) {
                                 if (p.value().is_string()) {
                                     const std::string v = p.value().get<std::string>();
-                                    // could be an actor as a string. Try to convert to actual actor here. This
-                                    // saves us doing string_to_actor in Python code, which currently fails
-                                    // on MacOS due to reasons not understood. But ... it's pretty ugly as 
-                                    // we are trying EVERY string. Need a way to IDENTIFY actor as string before
-                                    // running actor_from_string.
+                                    // could be an actor as a string. Try to convert to actual
+                                    // actor here. This saves us doing string_to_actor in Python
+                                    // code, which currently fails on MacOS due to reasons not
+                                    // understood. But ... it's pretty ugly as we are trying
+                                    // EVERY string. Need a way to IDENTIFY actor as string
+                                    // before running actor_from_string.
                                     caf::actor actor = utility::actor_from_string(system(), v);
                                     if (actor) {
                                         py::str s(p.key());
@@ -953,7 +978,7 @@ void EmbeddedPythonActor::main_loop() {
             },
 
             [=](ui::viewport::hud_settings_atom,
-                std::vector<caf::actor> media_actors) -> result<utility::JsonStore> {
+                std::vector<caf::actor> &media_actors) -> result<utility::JsonStore> {
                 // this message handler is used by the offscreen viewport to retrieve
                 // display data for Python HUD overlay plugins. We pass the HUD Plugins
                 // the full set of on-screen media actors. They return Json data for

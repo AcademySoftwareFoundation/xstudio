@@ -11,15 +11,15 @@ namespace colour_pipeline {
     struct OCIOGlobalData {
         bool colour_bypass{false};
         bool global_view{true};
-        bool adjust_source{true};
-        std::string preferred_view;
+        bool untonemapped_mode{true};
         std::string default_config;
+        std::string preferred_config_version;
 
         bool operator==(const OCIOGlobalData &other) const {
             return colour_bypass == other.colour_bypass and global_view == other.global_view and
-                   adjust_source == other.adjust_source and
-                   preferred_view == other.preferred_view and
-                   default_config == other.default_config;
+                   untonemapped_mode == other.untonemapped_mode and
+                   default_config == other.default_config and
+                   preferred_config_version == other.preferred_config_version;
         }
 
         bool operator!=(const OCIOGlobalData &other) const { return not(*this == other); }
@@ -71,11 +71,11 @@ namespace colour_pipeline {
         // General settings
         module::BooleanAttribute *colour_bypass_;
         module::BooleanAttribute *global_view_;
-        module::BooleanAttribute *adjust_source_;
-        module::StringChoiceAttribute *preferred_view_;
+        module::BooleanAttribute *untonemapped_mode_;
         module::Attribute *user_view_display_settings_attr_;
         module::StringAttribute *custom_ocio_config_;
         module::StringAttribute *default_ocio_config_;
+        module::StringAttribute *preferred_config_version_;
 
         utility::JsonStore user_view_display_settings_;
 

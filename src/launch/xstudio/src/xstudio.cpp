@@ -198,9 +198,15 @@ void execute_xstudio_ui(
     int argc,
     char **argv) {
 
+    QByteArray previous_factor;
+
     // apply global UI scaling preference here by setting the
     // QT_SCALE_FACTOR env var before creating the QApplication
+
+    // this must be unset after engine runs, or we'll pollute and processes we create..
+
     if (ui_scale_factor != 1.0f) {
+        previous_factor  = qgetenv("QT_SCALE_FACTOR");
         std::string fstr = fmt::format("{}", ui_scale_factor);
         qputenv("QT_SCALE_FACTOR", fstr.c_str());
     }
@@ -264,6 +270,11 @@ void execute_xstudio_ui(
     QOpenGLWidget *dummy = new QOpenGLWidget();
     delete dummy;
 #endif
+    if (ui_scale_factor != 1.0f) {
+        qunsetenv("QT_SCALE_FACTOR");
+        if (not previous_factor.isNull())
+            qputenv("QT_SCALE_FACTOR", previous_factor);
+    }
 
     app.exec();
 

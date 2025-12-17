@@ -13,6 +13,8 @@ import xstudio.qml.bookmarks 1.0
 GridLayout {
 
     id: toolProperties
+
+    property var root
     
     columns: horizontal ? -1 : 1
     rows: horizontal ? 1 : -1
@@ -49,9 +51,43 @@ GridLayout {
     }
     property alias hide_drawings: __hide_drawings.value
 
+    XsAttributeValue {
+        id: pen_colour
+        attributeTitle: "Pen Colour"
+        model: annotations_model_data
+    }
+    property alias tool_colour_value: pen_colour.value
+
+    XsColourDialog {
+        id: colourDialog
+        title: "Please pick a colour"
+        property var lastColour
+        
+        linkColour: tool_colour_value
+
+        onCurrentColourChanged: {
+            tool_colour_value = currentColour
+        }
+        onAccepted: {
+            close()
+        }
+        onRejected: {
+            tool_colour_value = lastColour
+            close()
+        }
+        onVisibleChanged: {
+            if (visible) {
+                currentColour = tool_colour_value
+                lastColour = tool_colour_value
+            }
+        }
+    }
+
+    property alias colourDialog: colourDialog 
+
     Item{ 
 
-        id: colorProp
+        id: colourProp
 
         Layout.preferredWidth: horizontal ? XsStyleSheet.primaryButtonStdHeight*4 : -1
         Layout.preferredHeight: horizontal ? -1 : XsStyleSheet.primaryButtonStdHeight
@@ -62,14 +98,13 @@ GridLayout {
         property bool isMouseHovered: colorMArea.containsMouse
 
         XsGradientRectangle {
-
             anchors.fill: parent
-            border.color: colorProp.isMouseHovered ? palette.highlight: "transparent"
+            border.color: colourProp.isMouseHovered ? palette.highlight: "transparent"
             border.width: 1
     
             flatColor: topColor
-            topColor: colorProp.isPressed ? palette.highlight : XsStyleSheet.controlColour
-            bottomColor: colorProp.isPressed ? palette.highlight : "#1AFFFFFF"
+            topColor: colourProp.isPressed ? palette.highlight : XsStyleSheet.controlColour
+            bottomColor: colourProp.isPressed ? palette.highlight : "#1AFFFFFF"
         }
 
         RowLayout {
@@ -83,7 +118,7 @@ GridLayout {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                color: currentToolColour ? currentToolColour : "grey"
+                color: tool_colour_value ? tool_colour_value : "grey"
                 border.width: 1
                 border.color: "black"                       
             }

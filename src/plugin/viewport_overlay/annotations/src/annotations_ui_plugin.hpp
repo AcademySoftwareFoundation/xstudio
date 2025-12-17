@@ -2,27 +2,36 @@
 #pragma once
 
 #include "xstudio/plugin_manager/plugin_base.hpp"
-#include "annotation.hpp"
-#include "annotation_opengl_renderer.hpp"
+#include "pixel_patch.hpp"
 
 namespace xstudio {
 namespace ui {
     namespace viewport {
 
-        class AnnotationsTool : public plugin::StandardPlugin {
+        /*
+        This plugin class provides UI elements and handles all user interaction
+        events (keyboard/mouse) when creating and editing on-screen annotations.
+
+        It does not modify or modify annotation data itself, however. Instead
+        it sends user interaction event messages to the AnnotationsCore plugin.
+        This approach allows us to use the AnnotationsCore plugin to implement 
+        remote user annotations editing as well as in-app edits (from this
+        plugin)
+        */
+        class AnnotationsUI : public plugin::StandardPlugin {
           public:
             inline static const utility::Uuid PLUGIN_UUID =
-                utility::Uuid("46f386a0-cb9a-4820-8e99-fb53f6c019eb");
+                utility::Uuid("33377e04-13f0-4b86-b062-04e00abd8feb");
 
-            AnnotationsTool(caf::actor_config &cfg, const utility::JsonStore &init_settings);
-            virtual ~AnnotationsTool();
+            AnnotationsUI(caf::actor_config &cfg, const utility::JsonStore &init_settings);
+            virtual ~AnnotationsUI();
 
           protected:
+
             caf::message_handler message_handler_extensions() override;
 
-            void attribute_changed(
-                const utility::Uuid &attribute_uuid, const int /*role*/
-                ) override;
+            void
+            attribute_changed(const utility::Uuid &attribute_uuid, const int /*role*/) override;
 
             void update_attrs_from_preferences(const utility::JsonStore &) override;
 
@@ -35,6 +44,7 @@ namespace ui {
                 const utility::Uuid &uuid,
                 const std::string &context,
                 const bool due_to_focus_change) override;
+
             bool pointer_event(const ui::PointerEvent &e) override;
             void text_entered(const std::string &text, const std::string &context) override;
             void key_pressed(
@@ -42,9 +52,6 @@ namespace ui {
 
             plugin::ViewportOverlayRendererPtr
             make_overlay_renderer(const std::string &viewport_name) override;
-
-            bookmark::AnnotationBasePtr
-            build_annotation(const utility::JsonStore &anno_data) override;
 
             void images_going_on_screen(
                 const media_reader::ImageBufDisplaySetPtr &images,
@@ -65,60 +72,57 @@ namespace ui {
             void turn_off_overlay_interaction() override;
 
           private:
-            bool is_laser_mode() const;
 
             media_reader::ImageBufPtr image_under_pointer(
                 const std::string &viewport_name,
                 const Imath::V2f &pointer_position,
-                Imath::V2i *pixel_position = nullptr);
+                Imath::V2i *pixel_position = nullptr
+                );
 
-            void start_editing(
+            float pressure_source(const ui::PointerEvent &e);
+
+            media_reader::ImageBufPtr image_under_mouse(
                 const std::string &viewport_name,
-                const Imath::V2f &pointer_position = Imath::V2f(-1e6f, -1e6f));
+                const Imath::V2f &pos,
+                const bool fallback_to_hero_image) const;
 
-            void start_stroke(const Imath::V2f &point);
-            void update_stroke(const Imath::V2f &point);
+            bool check_click_on_caption(
+                const Imath::V2f &pos,
+                const std::string &viewport_id);
 
-            void start_shape(const Imath::V2f &p);
-            void update_shape(const Imath::V2f &pointer_pos);
-
-            void start_or_edit_caption(const Imath::V2f &p, float viewport_pixel_scale);
-            void update_caption_action(const Imath::V2f &p);
-            bool
-            update_caption_hovered(const Imath::V2f &pointer_pos, float viewport_pixel_scale);
-            void update_caption_handle();
-            void clear_caption_handle();
-
-            void end_drawing();
-
-            void undo();
-            void redo();
-
-            void create_new_annotation();
-            void clear_onscreen_annotations();
-            void restore_onscreen_annotations();
-            void clear_edited_annotation();
-            void update_bookmark_annotation_data();
-            Imath::V2f image_transformed_ptr_pos(const Imath::V2f &p) const;
-            void do_redraw();
             caf::actor get_colour_pipeline_actor(const std::string &viewport_name);
             void update_colour_picker_info(const ui::PointerEvent &e);
 
-#ifdef ANNO_SYNC_EXTENSIONS
-            void paint_start_event(const Imath::V2f &point);
-            void paint_point_event(const Imath::V2f &point);
-            void paint_end_event();
-            void incoming_paint_event(const utility::JsonStore &event_data);
-#endif
+            void send_event(const std::string &event, const utility::JsonStore &payload);
+            void start_item(const ui::PointerEvent &e);
+            void modify_item(const ui::PointerEvent &e);
+            void end_item();
+            void clear_annotation(const std::string viewport_name);
+            void undo(const std::string viewport_name);
+            void redo(const std::string viewport_name);
 
           private:
-            enum Tool { Draw, Laser, Square, Circle, Arrow, Line, Text, Erase, Dropper, None };
+            enum Tool {
+                Draw,
+                Brush,
+                Laser,
+                Square,
+                Circle,
+                Arrow,
+                Line,
+                Text,
+                Erase,
+                Dropper,
+                None
+            };
             enum DisplayMode { OnlyWhenPaused, Always };
 
             [[nodiscard]] Tool current_tool() const { return current_tool_; }
+            [[nodiscard]] bool is_curr_tool(Tool tool) const { return current_tool_ == tool; }
 
             const std::map<Tool, std::string> tool_names_ = {
                 {Draw, "Draw"},
+                {Brush, "Brush"},
                 {Laser, "Laser"},
                 {Square, "Square"},
                 {Circle, "Circle"},
@@ -138,19 +142,30 @@ namespace ui {
 
             module::StringChoiceAttribute *active_tool_{nullptr};
 
-            module::IntegerAttribute *draw_pen_size_{nullptr};
-            module::IntegerAttribute *shapes_pen_size_{nullptr};
-            module::IntegerAttribute *erase_pen_size_{nullptr};
-            module::IntegerAttribute *text_size_{nullptr};
+            module::IntegerAttribute *pen_size_{nullptr};
             module::IntegerAttribute *pen_opacity_{nullptr};
             module::ColourAttribute *pen_colour_{nullptr};
-            module::ColourAttribute *text_bgr_colour_{nullptr};
-            module::IntegerAttribute *text_bgr_opacity_{nullptr};
 
-            module::BooleanAttribute *text_cursor_blink_attr_{nullptr};
-            module::StringAttribute *action_attribute_{nullptr};
-            module::IntegerAttribute *moving_scaling_text_attr_{nullptr};
+            module::IntegerAttribute *brush_softness_{nullptr};
+            module::IntegerAttribute *brush_size_{nullptr};
+            module::IntegerAttribute *brush_size_sensitivity_{nullptr};
+            module::IntegerAttribute *brush_opacity_{nullptr};
+            module::IntegerAttribute *brush_opacity_sensitivity_{nullptr};
+            // module::ColourAttribute  *brush_colour_{nullptr};
+
+            module::IntegerAttribute *shapes_width_{nullptr};
+
+            module::IntegerAttribute *erase_size_{nullptr};
+
+            module::IntegerAttribute *text_size_{nullptr};
+            module::IntegerAttribute *text_bgr_opacity_{nullptr};
+            module::ColourAttribute *text_bgr_colour_{nullptr};
+
             module::StringChoiceAttribute *font_choice_{nullptr};
+
+            module::IntegerAttribute *moving_scaling_text_attr_{nullptr};
+
+            module::StringAttribute *action_attribute_{nullptr};
 
             module::StringChoiceAttribute *display_mode_attribute_{nullptr};
 
@@ -173,12 +188,6 @@ namespace ui {
             // Annotations
             utility::Uuid current_bookmark_uuid_;
 
-            // N.B. this badboy is thread-safe. This means we can happily modify
-            // and access its data both in our class methods and also in the
-            // AnnotationsRenderer which has a direct access to it for on-screen
-            // rendering of brush-strokes during user interaction.
-            xstudio::ui::canvas::Canvas interaction_canvas_;
-
             PixelPatch pixel_patch_;
 
             std::string current_interaction_viewport_name_;
@@ -186,8 +195,6 @@ namespace ui {
             utility::BlindDataObjectPtr immediate_render_data_;
 
             // Current media info (for Bookmark creation)
-
-            xstudio::ui::canvas::HandleState handle_state_;
 
             Imath::V2f caption_drag_pointer_start_pos_;
             Imath::V2f caption_drag_caption_start_pos_;
@@ -202,6 +209,14 @@ namespace ui {
             std::map<std::string, media_reader::ImageBufDisplaySetPtr> viewport_current_images_;
             media_reader::ImageBufPtr image_being_annotated_;
             std::map<std::string, caf::actor> colour_pipelines_;
+
+            caf::actor core_plugin_;
+            utility::Uuid current_item_id_;
+            utility::Uuid user_id_ = {utility::Uuid::generate()};
+            std::map<std::string, Imath::M44f> viewport_transforms_;
+            std::optional<canvas::Caption> edited_caption_;
+            std::size_t focus_caption_id_ = {0};
+
         };
 
     } // namespace viewport

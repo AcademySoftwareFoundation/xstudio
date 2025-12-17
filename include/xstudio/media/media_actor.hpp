@@ -144,7 +144,9 @@ namespace media {
             caf::typed_response_promise<media::AVFrameIDs> rp,
             const utility::Uuid clip_uuid,
             const utility::JsonStore &colour_mgmt_data,
-            const StreamDetail &media_detail);
+            const StreamDetail &media_detail,
+            const Imath::M44f &parent_tform,
+            const Imath::M44f &stream_tform);
 
         caf::uri uri_for_logical_frame(
             const MediaType media_type,
@@ -164,8 +166,14 @@ namespace media {
 
         void duplicate(caf::typed_response_promise<utility::UuidUuidActor> rp);
 
+        void build_media_streams(
+            caf::typed_response_promise<bool> rp,
+            const MediaDetail &md,
+            const utility::FrameRate &rate);
+
         inline static const std::string NAME = "MediaSourceActor";
         void init();
+
         MediaSource base_;
         caf::actor json_store_;
         std::map<utility::Uuid, caf::actor> media_streams_;
@@ -209,6 +217,8 @@ namespace media {
         const char *name() const override { return NAME.c_str(); }
 
       private:
+        void apply_auto_rotation(const float rotation_degrees);
+
         inline static const std::string NAME = "MediaStreamActor";
         void init();
         MediaStream base_;

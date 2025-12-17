@@ -206,13 +206,26 @@ namespace ui {
             QString getPipeStep() { return getPipeStepFuture().result(); }
             QFuture<QString> getPipeStepFuture();
 
+
             QString getEntity(const QString &entity, const int id) {
                 return getEntityFuture(entity, id).result();
             }
             QFuture<QString> getEntityFuture(const QString &entity, const int id);
 
-            QString getReferenceTags() { return getReferenceTagsFuture().result(); }
-            QFuture<QString> getReferenceTagsFuture();
+            // QString getReferenceTags() { return getReferenceTagsFuture().result(); }
+            // QFuture<QString> getReferenceTagsFuture();
+
+            QString refTagNameFromEntity(const QString &entity, const int record_id) const {
+                return QStringFromStd(
+                    query_engine_.ref_tag_name_from_entity(StdFromQString(entity), record_id));
+            }
+
+            QString tagEntityFromName(
+                const QString &entity, const int record_id, const QString &tagName) {
+                return tagEntityFromNameFuture(entity, record_id, tagName).result();
+            }
+            QFuture<QString> tagEntityFromNameFuture(
+                const QString &entity, const int record_id, const QString &tagName);
 
             QString tagEntity(const QString &entity, const int record_id, const int tag_id) {
                 return tagEntityFuture(entity, record_id, tag_id).result();
@@ -237,12 +250,19 @@ namespace ui {
             QString removeTag(const int tag_id) { return removeTagFuture(tag_id).result(); }
             QFuture<QString> removeTagFuture(const int tag_id);
 
+
             QString updateEntity(
-                const QString &entity, const int record_id, const QString &update_json) {
-                return updateEntityFuture(entity, record_id, update_json).result();
+                const QString &entity,
+                const int record_id,
+                const QString &update_json,
+                const QStringList &qfields) {
+                return updateEntityFuture(entity, record_id, update_json, qfields).result();
             }
             QFuture<QString> updateEntityFuture(
-                const QString &entity, const int record_id, const QString &update_json);
+                const QString &entity,
+                const int record_id,
+                const QString &update_json,
+                const QStringList &qfields);
 
             QString updatePlaylistVersions(const QUuid &playlist, const bool append = false) {
                 return updatePlaylistVersionsFuture(playlist, append).result();
@@ -360,19 +380,33 @@ namespace ui {
             }
             QFuture<QString> getPlaylistLinkMediaFuture(const QUuid &playlist);
 
+
+            // -D {0,1,all}, -get-dependencies {0,1,all}
+            //                        Get dependencies of any provided dnuuids.
+
+            //                        The default is 0.
+
+            //                        choices are:
+            //                          [0]   do not get any dependencies.
+            //                          [1]   get the immediate relations of the provided
+            //                          dnuuids. [all] get all of the dependencies.
+
             QString requestFileTransfer(
                 const QVariantList &items,
                 const QString &project,
                 const QString &src_location,
-                const QString &dest_location) {
-                return requestFileTransferFuture(items, project, src_location, dest_location)
+                const QString &dest_location,
+                const QString &deps = "0") {
+                return requestFileTransferFuture(
+                           items, project, src_location, dest_location, deps)
                     .result();
             }
             QFuture<QString> requestFileTransferFuture(
                 const QVariantList &items,
                 const QString &project,
                 const QString &src_location,
-                const QString &dest_location);
+                const QString &dest_location,
+                const QString &deps = "0");
 
             void populateCaches();
 
@@ -454,7 +488,7 @@ namespace ui {
                     return downloadImageFuture(entity_id, entity, entity_name, project_name)
                         .result();
                 } catch (const std::exception &err) {
-                    spdlog::warn("{}", err.what());
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                     return QUrl();
                 }
             }

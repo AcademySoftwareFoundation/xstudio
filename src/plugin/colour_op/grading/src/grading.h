@@ -88,6 +88,8 @@ class GradingTool : public plugin::StandardPlugin {
     void create_bookmark_if_empty();
     void create_bookmark();
     void select_bookmark(const utility::Uuid &uuid);
+    void select_bookmark_on_media_changed(
+        const utility::Uuid &prevMediaUuid, const utility::Uuid &newMediaUuid);
     void update_boomark_shape(const utility::Uuid &uuid);
     void save_bookmark();
     void remove_bookmark();
@@ -157,6 +159,9 @@ class GradingTool : public plugin::StandardPlugin {
     media_reader::ImageBufDisplaySetPtr viewport_current_images_;
     std::string current_viewport_;
     media::AVFrameID current_frame_id_;
+
+    utility::Uuid current_media_uuid_;
+    std::map<utility::Uuid, utility::Uuid> grading_bookmark_selected_;
 
     // Grading
     ui::viewport::GradingData grading_data_;

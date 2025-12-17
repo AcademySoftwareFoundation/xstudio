@@ -25,6 +25,7 @@ GridLayout {
     }
 
     property var toolImages: [
+        "qrc:///anno_icons/draw_stylus.svg",
         "qrc:///anno_icons/draw_brush.svg",
         "qrc:///anno_icons/draw_laser.svg",
         "qrc:///anno_icons/draw_shape_square.svg",
@@ -37,8 +38,9 @@ GridLayout {
     ]
 
     property var tootTips: [
-        "Free paint strokes",
-        "Lazer mode - unrecorded strokes",
+        "Free pen strokes",
+        "Free paint brush strokes",
+        "Laser mode - unrecorded strokes",
         "Square - click & drag to draw rectangles",
         "Circle - click & drag to draw circles",
         "Arrow - click & drag to draw arrows",

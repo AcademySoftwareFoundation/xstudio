@@ -48,6 +48,10 @@ nlohmann::json JSONTreeModel::modelData() const {
     return tree_to_json(data_, children_);
 }
 
+QVariant JSONTreeModel::qModelData() const {
+    return mapFromValue(modelData());
+}
+
 nlohmann::json JSONTreeModel::indexToFullData(const QModelIndex &index, const int depth) const {
     return tree_to_json(*indexToTree(index), children_, depth);
 }
@@ -133,6 +137,11 @@ void JSONTreeModel::setModelDataBase(const nlohmann::json &data, const bool loca
     endResetModel();
     emit lengthChanged();
     emit jsonChanged();
+}
+
+
+void JSONTreeModel::setQModelData(const QVariant &value) {
+    setModelData(mapFromValue(value));
 }
 
 void JSONTreeModel::setModelData(const nlohmann::json &data) { setModelDataBase(data, true); }
@@ -590,6 +599,11 @@ bool JSONTreeModel::setData(const QModelIndex &index, const QVariant &value, int
                 value.canConvert(QMetaType::Int)) {
                 // preserving int types from being changed to doubles
                 j[field] = value.toInt();
+            } else if (
+                j.count(field) && j[field].is_number_float() &&
+                value.canConvert(QMetaType::Float)) {
+                // preserving int types from being changed to doubles
+                j[field] = value.toFloat();
             } else {
                 j[field] = mapFromValue(value);
             }

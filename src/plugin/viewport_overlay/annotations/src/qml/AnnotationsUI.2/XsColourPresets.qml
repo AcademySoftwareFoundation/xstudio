@@ -31,7 +31,7 @@ GridLayout {
                 cursorShape: Qt.PointingHandCursor
 
                 onClicked: {
-                    currentToolColour = color
+                    tool_colour_value = color
                 }
             }
 

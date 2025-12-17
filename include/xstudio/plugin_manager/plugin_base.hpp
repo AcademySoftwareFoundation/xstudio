@@ -56,29 +56,28 @@ namespace plugin {
         enum RenderPass { BeforeImage, AfterImage };
 
         /* An overlay can render before the image is rendered - the
-        image is themn plotted with an 'Under' blend operation. This
+        image is then plotted with an 'Under' blend operation. This
         allows for alpha blending on a black background. Alternatively
-        the overlay can render ontop of the image, after it is drawn.
-        If 'have_alpha_buffer' is false, the BeforeImage pass is not
-        executed. */
+        the overlay can render ontop of the image, after it is drawn.*/
         virtual void render_image_overlay(
             const Imath::M44f &transform_window_to_viewport_space,
             const Imath::M44f &transform_viewport_to_image_space,
             const float viewport_du_dpixel,
             const float device_pixel_ratio,
-            const xstudio::media_reader::ImageBufPtr &frame,
-            const bool have_alpha_buffer){};
+            const xstudio::media_reader::ImageBufPtr &frame){};
 
         /* An overlay can render visuals to the viewport without an associated
         image via this method. */
         virtual void render_viewport_overlay(
             const Imath::M44f &transform_window_to_viewport_space,
             const Imath::M44f &transform_viewport_to_normalised_coords,
+            const media_reader::ImageBufDisplaySetPtr &on_screen_frames,
             const float viewport_du_dpixel,
-            const float device_pixel_ratio,
-            const bool have_alpha_buffer){};
+            const float device_pixel_ratio) {};
 
         [[nodiscard]] virtual RenderPass preferred_render_pass() const { return AfterImage; }
+
+        virtual float stack_order() const { return 0.0f; }
     };
 
     typedef std::shared_ptr<ViewportOverlayRenderer> ViewportOverlayRendererPtr;
@@ -111,13 +110,28 @@ namespace plugin {
 
         caf::message_handler message_handler_;
 
-        // TODO: deprecate prepare_render_data and use this everywhere
+        // Reimplement this function to attach custom data (based on BlindDataObject
+        // class) to an inidividual image. When your plugin executes per-image custom
+        // overlay render via its ViewportOverlayRenderer at draw time, the
+        // custom overlay data can be retrieved from the image. See
+        // annotations plugin for a rederence example
         virtual utility::BlindDataObjectPtr onscreen_render_data(
             const media_reader::ImageBufPtr & /*image*/,
             const std::string & /*viewport_name*/,
             const utility::Uuid &playhead_uuid,
             const bool is_hero_image,
             const bool images_are_in_grid_layout) const {
+            return utility::BlindDataObjectPtr();
+        }
+
+        // Reimplement this function to attach custom data (based on BlindDataObject
+        // class) to a whole image set. When the viewport is re-drawn you will
+        // be able to execute custom overlay render code via your custom
+        // ViewportOverlayRenderer to do overlay graphics on the entire viewport.
+        virtual utility::BlindDataObjectPtr onscreen_render_data(
+            const media_reader::ImageBufDisplaySetPtr &/*image_set*/,
+            const std::string & /*viewport_name*/,
+            const utility::Uuid &/*playhead_uuid*/) const {
             return utility::BlindDataObjectPtr();
         }
 
@@ -216,7 +230,7 @@ namespace plugin {
         void update_bookmark_detail(
             const utility::Uuid bookmark_id, const bookmark::BookmarkDetail &bmd);
 
-        void remove_bookmark(const utility::Uuid &bookmark_id);
+        void remove_bookmark(const utility::Uuid &bookmark_id, const bool only_if_empty=false);
 
         /* Get the (unique) name of the current, active viewport in xSTUDIO's
         main UI window. */

@@ -388,6 +388,25 @@ caf::message_handler BookmarksActor::message_handler() {
         },
 
         // create and assign.
+        [=](add_bookmark_atom, const UuidActor &src, const utility::Uuid &bookmark_uuid) -> result<utility::UuidActor> {
+            auto rp = make_response_promise<utility::UuidActor>();
+            mail(add_bookmark_atom_v, bookmark_uuid)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](const utility::UuidActor &ua) mutable {
+                        // associate..
+                        BookmarkDetail bd;
+                        bd.owner_ = src;
+                        anon_mail(bookmark_detail_atom_v, bd).send(ua.actor());
+                        rp.deliver(ua);
+                    },
+                    [=](const caf::error &err) mutable { rp.deliver(err); });
+
+            return rp;
+        },
+
+
+        // create and assign.
         [=](add_bookmark_atom, const UuidActor &src) -> result<utility::UuidActor> {
             auto rp = make_response_promise<utility::UuidActor>();
             mail(add_bookmark_atom_v)
@@ -412,6 +431,23 @@ caf::message_handler BookmarksActor::message_handler() {
                 bookmark_change_atom_v,
                 UuidActor(uuid, bookmarks_[uuid]))
                 .send(base_.event_group());
+        },
+
+        [=](add_bookmark_atom, const utility::Uuid &uuid) -> utility::UuidActor {
+
+            if (bookmarks_.find(uuid) != bookmarks_.end()) return UuidActor(uuid, bookmarks_[uuid]);
+            
+            auto actor = spawn<BookmarkActor>(uuid);
+
+            bookmarks_[uuid] = actor;
+            monitor_bookmark(actor);
+            join_event_group(this, actor);
+
+            base_.send_changed();
+            mail(utility::event_atom_v, add_bookmark_atom_v, UuidActor(uuid, actor))
+                .send(base_.event_group());
+
+            return UuidActor(uuid, actor);
         },
 
         [=](add_bookmark_atom) -> utility::UuidActor {
@@ -611,17 +647,21 @@ caf::message_handler BookmarksActor::message_handler() {
         [=](session::export_atom,
             const session::ExportFormat ef,
             const caf::uri &path) -> result<std::pair<std::string, std::vector<std::byte>>> {
+            auto rp = make_response_promise<std::pair<std::string, std::vector<std::byte>>>();
+
             switch (ef) {
             case session::ExportFormat::EF_CSV:
             case session::ExportFormat::EF_CSV_WITH_ANNOTATIONS:
             case session::ExportFormat::EF_CSV_WITH_IMAGES:
+                csv_export(rp, ef, path);
+                break;
+            case session::ExportFormat::EF_DIGEST_WITH_ANNOTATIONS:
+                annotation_export(rp, ef, path);
                 break;
             default:
-                return make_error(xstudio_error::error, "Unsupported export format.");
+                rp.deliver(make_error(xstudio_error::error, "Unsupported export format."));
                 break;
             }
-            auto rp = make_response_promise<std::pair<std::string, std::vector<std::byte>>>();
-            csv_export(rp, ef, path);
             return rp;
         },
 
@@ -813,6 +853,79 @@ void csv_exporter(
     rp.deliver(std::make_pair(utility::to_csv(data), std::vector<std::byte>()));
 }
 
+void annotation_exporter(
+    blocking_actor *self,
+    caf::typed_response_promise<std::pair<std::string, std::vector<std::byte>>> rp,
+    const session::ExportFormat ef,
+    const caf::uri &path,
+    std::vector<BookmarkDetail> details) {
+
+    try {
+
+        std::vector<std::vector<std::string>> data;
+
+        sort(details.begin(), details.end(), [](const auto &lhs, const auto &rhs) {
+            return (lhs.subject_ ? *(lhs.subject_) : "") <
+                   (rhs.subject_ ? *(rhs.subject_) : "");
+        });
+
+        scoped_actor sys{self->system()};
+        fs::path fp = uri_to_posix_path(path);
+
+        // might already exist. ?
+        fs::create_directory(fp);
+
+        auto offscreen_renderer =
+            self->system().registry().template get<caf::actor>(offscreen_viewport_registry);
+
+        auto thumbnail_manager =
+            self->system().registry().template get<caf::actor>(thumbnail_manager_registry);
+
+        for (const auto &i : details) {
+            if (not(i.has_annotation_ ? *(i.has_annotation_) : false))
+                continue;
+
+            if (not(i.subject_ ? not((i.subject_)->empty()) : false))
+                continue;
+
+            auto image_name = fmt::format("{}.{:04d}.jpg", *(i.subject_), i.start_frame() + 1);
+            auto image_file_path = (fp / image_name).string();
+
+            // render annotation
+            try {
+                auto thumb = request_receive<thumbnail::ThumbnailBufferPtr>(
+                    *sys,
+                    offscreen_renderer,
+                    ui::viewport::render_viewport_to_image_atom_v,
+                    i.owner_->actor(),                     // media used to fetch image
+                    *(i.logical_start_frame_),             // media frame
+                    thumbnail::THUMBNAIL_FORMAT::TF_RGB24, // format
+                    2560,                                  // output width
+                    false, // 'auto scale' (where width is set by source image)
+                    true   // render annotations
+                );
+
+                auto jpeg_buf = request_receive<std::vector<std::byte>>(
+                    *sys, thumbnail_manager, media_reader::get_thumbnail_atom_v, thumb, 100);
+
+                std::ofstream o(image_file_path);
+                o.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+                o.write(reinterpret_cast<const char *>(jpeg_buf.data()), jpeg_buf.size());
+                o.close();
+            } catch (const std::exception &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+            }
+
+            data.emplace_back(std::vector<std::string>({image_name}));
+        }
+
+        rp.deliver(std::make_pair(utility::to_csv(data), std::vector<std::byte>()));
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        rp.deliver(make_error(xstudio_error::error, err.what()));
+    }
+}
+
 
 void BookmarksActor::csv_export(
     caf::typed_response_promise<std::pair<std::string, std::vector<std::byte>>> rp,
@@ -824,6 +937,20 @@ void BookmarksActor::csv_export(
         .then(
             [=](const std::vector<BookmarkDetail> &details) mutable {
                 spawn(csv_exporter, rp, ef, path, details);
+            },
+            [=](error &err) mutable { rp.deliver(std::move(err)); });
+}
+
+void BookmarksActor::annotation_export(
+    caf::typed_response_promise<std::pair<std::string, std::vector<std::byte>>> rp,
+    const session::ExportFormat ef,
+    const caf::uri &path) {
+    // collect all bookmark details..
+    mail(bookmark_detail_atom_v, UuidVector())
+        .request(actor_cast<caf::actor>(this), infinite)
+        .then(
+            [=](const std::vector<BookmarkDetail> &details) mutable {
+                spawn(annotation_exporter, rp, ef, path, details);
             },
             [=](error &err) mutable { rp.deliver(std::move(err)); });
 }

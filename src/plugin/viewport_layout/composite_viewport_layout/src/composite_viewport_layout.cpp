@@ -351,7 +351,7 @@ void CompositeViewportLayout::do_layout(
             layout_data.custom_layout_data_["screen"] = true;
         }
 
-        layout_data.layout_aspect_ = image_aspect(image_set->onscreen_image(wipeA));
+        layout_data.layout_aspect_ = image_layout_aspect(image_set->onscreen_image(wipeA));
 
     } else {
 
@@ -366,7 +366,8 @@ void CompositeViewportLayout::do_layout(
         // identity matrices here, no transform for 'over' mode'
         layout_data.image_transforms_.resize(image_set->num_onscreen_images());
 
-        layout_data.layout_aspect_ = image_aspect(image_set->onscreen_image(num_images - 1));
+        layout_data.layout_aspect_ =
+            image_layout_aspect(image_set->onscreen_image(num_images - 1));
         layout_data.custom_layout_data_["mode"] = layout_mode == "Over" ? 1 : 2;
     }
 }

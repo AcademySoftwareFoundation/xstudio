@@ -98,6 +98,9 @@ const auto PostCreateTag = R"({"operation": "CreateTag", "value": null})"_json;
 const auto PostTagEntity =
     R"({"operation": "TagEntity", "entity": null, "entity_id": null, "tag_id": null})"_json;
 
+const auto PostTagEntityFromName =
+    R"({"operation": "TagEntityFromName", "entity": null, "entity_id": null, "tag_name": null})"_json;
+
 const auto PostUnTagEntity =
     R"({"operation": "UnTagEntity", "entity": null, "entity_id": null, "tag_id": null})"_json;
 
@@ -223,7 +226,14 @@ const auto ProjectFields = std::vector<std::string>(
      "sg_status"});
 
 const auto EpisodeFields = std::vector<std::string>(
-    {"id", "project", "code", "sg_status_list", "sg_versions", "sg_sequences", "sg_shots"});
+    {"id",
+     "project",
+     "code",
+     "sg_status_list",
+     "sg_versions",
+     "sg_sequences",
+     "sg_shots",
+     "tags"});
 
 const auto NoteFields = std::vector<std::string>(
     {"id",
@@ -261,7 +271,10 @@ const auto SequenceFields = std::vector<std::string>(
      "sg_sequence_type",
      "sg_status_list",
      "shots",
+     "tags",
      "type"});
+
+const auto DnTagFields = std::vector<std::string>({"code", "sg_value", "sg_link"});
 
 const auto AssetFields = std::vector<std::string>(
     {"code", "id", "sg_asset_name", "sg_asset_folder", "sg_status_list"});
@@ -277,7 +290,8 @@ const auto SequenceShotFields = std::vector<std::string>(
      "sg_asset_type",
      "sg_status_list",
      "sg_unit",
-     "sg_primary_shot_location"});
+     "sg_primary_shot_location",
+     "tags"});
 
 const auto ShotFields = std::vector<std::string>(
     {"code",
@@ -292,7 +306,8 @@ const auto ShotFields = std::vector<std::string>(
      "sg_asset_type",
      "sg_status_list",
      "sg_hero_focal_length",
-     "sg_unit"});
+     "sg_unit",
+     "tags"});
 
 const std::string shotbrowser_datasource_registry{"SHOTBROWSER"};
 

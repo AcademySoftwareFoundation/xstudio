@@ -46,7 +46,7 @@ class OCIOColourPipeline : public ColourPipeline {
 
     virtual ~OCIOColourPipeline() override;
 
-    size_t fast_display_transform_hash(const media::AVFrameID &media_ptr) override;
+    size_t fast_colour_transform_hash(const media::AVFrameID &media_ptr) override;
 
     /* Create the ColourOperationDataPtr containing the necessary LUT and
     shader data for linearising the source colourspace RGB data from the
@@ -114,9 +114,12 @@ class OCIOColourPipeline : public ColourPipeline {
     caf::message_handler message_handler_extensions() override;
 
   private:
-    bool global_view() const {
-        return force_global_view_ ? true : global_settings_.global_view;
-    }
+    std::string view_for_source(const utility::JsonStore &src_colour_mgmt_metadata) const;
+
+    void stored_per_config_display_view(
+        const utility::JsonStore &src_colour_mgmt_metadata,
+        std::string &display,
+        std::string &view) const;
 
     void setup_ui();
 
@@ -125,6 +128,8 @@ class OCIOColourPipeline : public ColourPipeline {
     void update_views(const std::string &new_display);
 
     void update_bypass(bool bypass);
+
+    void update_untonemapped(const utility::JsonStore &src_colour_mgmt_metadata);
 
     void reset() override;
 
@@ -169,7 +174,6 @@ class OCIOColourPipeline : public ColourPipeline {
     // Holds info about the currently on screen media
     utility::Uuid current_source_uuid_;
     std::string current_config_name_;
-    std::string last_update_hash_;
     utility::JsonStore current_source_colour_mgmt_metadata_;
 
     // Holds data on display screen option

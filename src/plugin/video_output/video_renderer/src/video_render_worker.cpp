@@ -42,24 +42,24 @@ template <typename T> void flop_rgba_image(const media_reader::ImageBufPtr &imag
         other_end_buf -= line_size;
     }
 }
-    
-#ifdef _WIN32    
+
+#ifdef _WIN32
 
 std::string last_error() {
 
     std::string rt;
     LPVOID lpMsgBuf = nullptr;
-    DWORD dw = GetLastError(); 
+    DWORD dw        = GetLastError();
 
     if (FormatMessage(
-        FORMAT_MESSAGE_ALLOCATE_BUFFER | 
-        FORMAT_MESSAGE_FROM_SYSTEM |
-        FORMAT_MESSAGE_IGNORE_INSERTS,
-        NULL,
-        dw,
-        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-        (LPTSTR) &lpMsgBuf,
-        0, NULL) == 0) {
+            FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+                FORMAT_MESSAGE_IGNORE_INSERTS,
+            NULL,
+            dw,
+            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+            (LPTSTR)&lpMsgBuf,
+            0,
+            NULL) == 0) {
         rt = "Couldn't fetch error message";
     }
 
@@ -72,7 +72,7 @@ std::string last_error() {
 HANDLE open_named_pipe(std::string name) {
 
     std::wstring stemp = std::wstring(name.begin(), name.end());
-    HANDLE result = CreateNamedPipe(
+    HANDLE result      = CreateNamedPipe(
         stemp.c_str(),
         PIPE_ACCESS_OUTBOUND,
         PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
@@ -83,13 +83,12 @@ HANDLE open_named_pipe(std::string name) {
         NULL);
 
     if (result == INVALID_HANDLE_VALUE) {
-            throw std::runtime_error(
-            fmt::format(
-                "{} failed to open pipe {} with error: {}",
-                __PRETTY_FUNCTION__,
-                name,
-                last_error())
-                .c_str());
+        throw std::runtime_error(fmt::format(
+                                     "{} failed to open pipe {} with error: {}",
+                                     __PRETTY_FUNCTION__,
+                                     name,
+                                     last_error())
+                                     .c_str());
     }
     return result;
 }
@@ -104,8 +103,7 @@ class RenderPipeActor : public caf::event_based_actor {
         const utility::Uuid &uuid,
         std::string output_pipe_name,
         int bytes_per_pixel,
-        HANDLE server_pipe
-    )
+        HANDLE server_pipe)
         : caf::event_based_actor(cfg),
           output_pipe_name_(output_pipe_name),
           bytes_per_pixel_(bytes_per_pixel),
@@ -126,7 +124,8 @@ class RenderPipeActor : public caf::event_based_actor {
         }
 
         DWORD bytesWritten = 0;
-        bool rt = WriteFile(output_file_desc_, reinterpret_cast<const char *>(data), size, &bytesWritten, NULL);
+        bool rt            = WriteFile(
+            output_file_desc_, reinterpret_cast<const char *>(data), size, &bytesWritten, NULL);
         if (!rt || bytesWritten != size) {
             throw std::runtime_error(
                 fmt::format(
@@ -137,7 +136,6 @@ class RenderPipeActor : public caf::event_based_actor {
                     last_error())
                     .c_str());
         }
-
     }
 
     caf::behavior make_behavior() override {
@@ -171,7 +169,6 @@ class RenderPipeActor : public caf::event_based_actor {
     HANDLE output_file_desc_ = nullptr;
     const int bytes_per_pixel_;
     const std::string output_pipe_name_;
-
 };
 
 #else
@@ -184,8 +181,7 @@ class RenderPipeActor : public caf::event_based_actor {
         caf::actor_config &cfg,
         const utility::Uuid &uuid,
         std::string output_audio_file_path,
-        int bytes_per_pixel
-    )
+        int bytes_per_pixel)
         : caf::event_based_actor(cfg),
           output_file_path_(output_audio_file_path),
           bytes_per_pixel_(bytes_per_pixel) {}
@@ -286,7 +282,7 @@ VideoRenderWorker::VideoRenderWorker(
       renderer_plugin_(renderer_plugin) {
 
 #ifdef _WIN32
-#else        
+#else
     // we are using named pipes (fifos) to stream image and audio data to ffmpeg.
     // If ffmpeg exits early we get a SIGPIPE signal, which would kill the app
     // if we don't do this:
@@ -700,17 +696,15 @@ void VideoRenderWorker::start_ffmpeg_process() {
 
 #ifdef _WIN32
 
-    output_yuv_filename_ = fmt::format(
-        "\\\\.\\pipe\\xSTUDIO_Pipe_{}.yuv",
-        to_string(job_uuid_));
+    output_yuv_filename_ =
+        fmt::format("\\\\.\\pipe\\xSTUDIO_Pipe_{}.yuv", to_string(job_uuid_));
 
     HANDLE video_pipe = open_named_pipe(output_yuv_filename_);
     HANDLE audio_pipe = NULL;
 
     if (!audio_codec_opts_.empty()) {
-        output_audio_filename_ = fmt::format(
-            "\\\\.\\pipe\\xSTUDIO_Pipe_{}.raw",
-            to_string(job_uuid_));
+        output_audio_filename_ =
+            fmt::format("\\\\.\\pipe\\xSTUDIO_Pipe_{}.raw", to_string(job_uuid_));
         audio_pipe = open_named_pipe(output_audio_filename_);
     }
 
@@ -786,24 +780,25 @@ void VideoRenderWorker::start_ffmpeg_process() {
 
                 // Open FIFO for write only
                 if (!audio_codec_opts_.empty()) {
-                    audio_out_pipe_ =
-                        spawn<RenderPipeActor>(
-                            job_uuid_,
-                            output_audio_filename_,
-                            0
-#ifdef _WIN32                    
-                            ,audio_pipe
-#endif                    
-                        );
+                    audio_out_pipe_ = spawn<RenderPipeActor>(
+                        job_uuid_,
+                        output_audio_filename_,
+                        0
+#ifdef _WIN32
+                        ,
+                        audio_pipe
+#endif
+                    );
                 }
                 video_out_pipe_ = spawn<RenderPipeActor>(
                     job_uuid_,
                     output_yuv_filename_,
                     render_format_ == viewport::ImageFormat::RGBA_16 ? 8 : 4
-#ifdef _WIN32                    
-                    ,video_pipe
-#endif                    
-                    );
+#ifdef _WIN32
+                    ,
+                    video_pipe
+#endif
+                );
 
                 // start the rendering after initialising the colour settings
                 set_colour_params_and_start();

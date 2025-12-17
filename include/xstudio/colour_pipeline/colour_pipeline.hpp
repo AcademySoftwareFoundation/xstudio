@@ -218,7 +218,7 @@ namespace colour_pipeline {
         refresh.
 
         See the OCIO plugin for a reference implementation. */
-        virtual size_t fast_display_transform_hash(const media::AVFrameID &media_ptr) = 0;
+        virtual size_t fast_colour_transform_hash(const media::AVFrameID &media_ptr) = 0;
 
       protected:
         void make_pre_draw_gpu_hook(

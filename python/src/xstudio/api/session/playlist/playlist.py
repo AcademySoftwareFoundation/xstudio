@@ -101,10 +101,14 @@ class Playlist(Container, NotificationHandler, JsonStoreHandler):
         media = Media(self.connection, result.actor, result.uuid)
         audiosource = media.add_media_source(audio_path)
         if audiosource:
-            if audio_offset != 0:
-                mr = audiosource.media_reference
-                mr.set_offset(audio_offset)
-                audiosource.media_reference = mr
+            audio_mr = audiosource.media_reference
+            if audio_offset != 0 or audio_mr.timecode().frames() == 0:
+                # to line up audio and image sources on their respective first
+                # frames their timecodes should match
+                image_tc = media.media_source().media_reference.timecode()
+                audio_mr.set_offset(audio_offset)
+                audio_mr.set_timecode(image_tc)
+                audiosource.media_reference = audio_mr
 
             media.set_media_source(audiosource, MediaType.MT_AUDIO)
 

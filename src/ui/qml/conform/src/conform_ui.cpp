@@ -180,7 +180,9 @@ QFuture<QList<QUuid>> ConformEngineUI::conformItemsFuture(
     const QModelIndex &container,
     const QModelIndex &item,
     const bool fanOut,
-    const bool removeSource) const {
+    const bool removeSource,
+    const bool limitResults,
+    const bool reuseMedia) const {
     const auto task = StdFromQString(qtask);
 
     // get container detail
@@ -266,11 +268,16 @@ QFuture<QList<QUuid>> ConformEngineUI::conformItemsFuture(
         // get uuid of next media..
         auto buuid = Uuid();
         if (media_index.isValid()) {
-            auto next_index =
-                media_index.model()->sibling(media_index.row() + 1, 0, media_index);
-            if (next_index.isValid())
-                buuid =
-                    UuidFromQUuid(next_index.data(SessionModel::Roles::actorUuidRole).toUuid());
+            if (removeSource) {
+                // use before as we might be deleting it's sibling..
+                buuid = iuuid;
+            } else {
+                auto next_index =
+                    media_index.model()->sibling(media_index.row() + 1, 0, media_index);
+                if (next_index.isValid())
+                    buuid = UuidFromQUuid(
+                        next_index.data(SessionModel::Roles::actorUuidRole).toUuid());
+            }
         }
 
         if (not iuuid.is_null()) {
@@ -314,7 +321,9 @@ QFuture<QList<QUuid>> ConformEngineUI::conformItemsFuture(
                     UuidActor(cuuid, cactor),
                     item_type,
                     utility::UuidVector({before_uv.at(i)}),
-                    removeSource));
+                    removeSource,
+                    limitResults,
+                    reuseMedia));
             }
 
             if (nofity_item) {
@@ -358,6 +367,8 @@ QFuture<QList<QUuid>> ConformEngineUI::conformItemsFuture(
         item_type,
         before_uv,
         removeSource,
+        limitResults,
+        reuseMedia,
         QPersistentModelIndex(item),
         notify_uuid);
 }
@@ -510,6 +521,8 @@ QFuture<QList<QUuid>> ConformEngineUI::conformItemsFuture(
     const std::string &item_type,
     const utility::UuidVector &before,
     const bool removeSource,
+    const bool limitResults,
+    const bool reuseMedia,
     const QPersistentModelIndex &notifyIndex,
     const QUuid &notifyUuid) const {
 
@@ -527,12 +540,14 @@ QFuture<QList<QUuid>> ConformEngineUI::conformItemsFuture(
         // always inserts next to old items ?
         // how would this work with timelines ?
         try {
-            auto operations                  = JsonStore(conform::ConformOperationsJSON);
-            operations["create_media"]       = true;
-            operations["insert_media"]       = true;
-            operations["replace_clip"]       = true;
-            operations["remove_media"]       = removeSource;
-            operations["remove_failed_clip"] = removeSource;
+            auto operations                   = JsonStore(conform::ConformOperationsJSON);
+            operations["create_media"]        = true;
+            operations["insert_media"]        = true;
+            operations["replace_clip"]        = true;
+            operations["remove_media"]        = removeSource;
+            operations["remove_failed_clip"]  = removeSource;
+            operations["limit_to_one_result"] = limitResults;
+            operations["reuse_media"]         = reuseMedia;
 
             auto reply = request_receive<conform::ConformReply>(
                 *sys,

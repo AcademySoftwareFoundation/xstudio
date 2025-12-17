@@ -22,25 +22,10 @@ class OCIOEngine {
         const media::AVFrameID &frame_id,
         const std::string &display,
         const std::string &view,
-        const bool auto_adjust_source,
+        const bool untonemapped_mode,
         const float exposure,
         const float gamma,
         const float saturation);
-
-    /* Get the default OCIO display*/
-    const char *default_display(const utility::JsonStore &src_colour_mgmt_metadata) const;
-
-    /* Get the name (filesystem path) of the OCIO config that applied to the
-    given source colour management metadata*/
-    std::string get_ocio_config_name(const utility::JsonStore &src_colour_mgmt_metadata) const {
-        return get_ocio_config(src_colour_mgmt_metadata)->getName();
-    }
-
-    /* Pick the preferred OCIO view for the given source colour management
-    metadata and a client-defined override preferred view*/
-    std::string preferred_view(
-        const utility::JsonStore &src_colour_mgmt_metadata,
-        const std::string user_preferred_view) const;
 
     /* This function is executed just before rendering an image to screen.
     In our case user_data carries the OCIO GPU shader desc and GradingPrimary
@@ -56,15 +41,6 @@ class OCIOEngine {
         const float exposure,
         const float gamma);
 
-    /* For given media source colour metadata we fetch the appropriate OCIO
-    config and query it for possible source colour spaces, the list of available
-    displays and the views per display.*/
-    void get_ocio_displays_view_colourspaces(
-        const utility::JsonStore &src_colour_mgmt_metadata,
-        std::vector<std::string> &all_colourspaces,
-        std::vector<std::string> &displays,
-        std::map<std::string, std::vector<std::string>> &display_views) const;
-
     /* Make a unique size_t from the source colour metadata that will change
     when any aspect of the colour management of the source is expected to cahnge
     the way the source will be transformed to display space.*/
@@ -75,22 +51,15 @@ class OCIOEngine {
     /* For given media source colour metadata determine the expected source
     colourspace.*/
     std::string detect_source_colourspace(
-        const utility::JsonStore &src_colour_mgmt_metadata,
-        const bool auto_adjust_source,
-        const std::string &view);
-
-    /* Select the most appropriate source colour space for the provided OCIO view */
-    std::string input_space_for_view(
-        const utility::JsonStore &src_colour_mgmt_metadata, const std::string &view) const;
+        const utility::JsonStore &src_colour_mgmt_metadata, const bool untonemapped_mode);
 
     /* For the given information about the frame returns the ColourOperationData
     object with GPU shader and LUT data required for tranforming from
     source colourspace to linear colourspace. */
     ColourOperationDataPtr linearise_op_data(
         const utility::JsonStore &src_colour_mgmt_metadata,
-        const bool colour_bypass_,
-        const bool auto_adjust_source_cs,
-        const std::string &view);
+        const bool untonemapped_mode,
+        const bool colour_bypass_);
 
     /* For the given information about the frame plus OCIO display and view
     return the ColourOperationData object with GPU shader and LUT data required
@@ -101,17 +70,63 @@ class OCIOEngine {
         const std::string &view,
         const bool bypass);
 
-    /*Process an RGB float format thumbnail image from the source colourspace
+    /* Process an RGB float format thumbnail image from the source colourspace
     of the source media into display space*/
     thumbnail::ThumbnailBufferPtr process_thumbnail(
         const utility::JsonStore &src_colour_mgmt_metadata,
         const thumbnail::ThumbnailBufferPtr &buf,
         const std::string &display,
-        const std::string &view);
+        const std::string &view,
+        const bool untonemapped_mode);
 
+    /* When no ocio_config metadata is provided from a MediaHook plugin,
+    this OCIO config will be used.*/
     void set_default_config(const std::string &default_config) {
         default_config_ = default_config;
     }
+
+    /* When multiple config versions are available (from a MediaHook plugin),
+    this can be used to set the preferred one. This can be useful in case
+    newer configs use more advanced shaders and the workstation GPU can
+    not keep up (eg. combined with 4K SDI output).*/
+    void set_preferred_config_version(const std::string &version) {
+        preferred_config_version_ = version;
+    }
+
+    /* Get the name of the OCIO config that applied to the given source colour management
+     metadata, this can be used to track config changes accros medias.*/
+    const char *ocio_config_name(const utility::JsonStore &src_colour_mgmt_metadata) const;
+
+    /* Get the default OCIO display.*/
+    const char *default_display(const utility::JsonStore &src_colour_mgmt_metadata) const;
+
+    /* Get the default OCIO view.*/
+    const char *default_view(
+        const utility::JsonStore &src_colour_mgmt_metadata,
+        const std::string &display = std::string()) const;
+
+    /* Return true if display is available.*/
+    bool has_display(
+        const utility::JsonStore &src_colour_mgmt_metadata, const std::string &display) const;
+
+    /* Return true if display (or default display) has the given view.*/
+    bool has_view(
+        const utility::JsonStore &src_colour_mgmt_metadata,
+        const std::string &view,
+        const std::string &display = std::string()) const;
+
+    /* Pick the most appropriate OCIO view for the given source colour management
+    metadata using rules from the media hook or OCIO v2 Viewing Rules.*/
+    std::string automatic_view(const utility::JsonStore &src_colour_mgmt_metadata) const;
+
+    /* For given media source colour metadata we fetch the appropriate OCIO
+    config and query it for possible source colour spaces, the list of available
+    displays and the views per display.*/
+    void get_ocio_displays_view_colourspaces(
+        const utility::JsonStore &src_colour_mgmt_metadata,
+        std::vector<std::string> &all_colourspaces,
+        std::vector<std::string> &displays,
+        std::map<std::string, std::vector<std::string>> &display_views) const;
 
   private:
     // OCIO logic
@@ -120,8 +135,7 @@ class OCIOEngine {
     // OCIO Transform helpers
     OCIO::TransformRcPtr source_transform(
         const utility::JsonStore &src_colour_mgmt_metadata,
-        const bool auto_adjust_source,
-        const std::string &view,
+        const bool untonemapped_mode,
         const bool bypass) const;
 
     OCIO::TransformRcPtr display_transform(
@@ -137,13 +151,16 @@ class OCIOEngine {
     OCIO::ConstConfigRcPtr
     get_ocio_config(const utility::JsonStore &src_colour_mgmt_metadata) const;
 
+    void get_ocio_config_version_override(
+        const utility::JsonStore &src_colour_mgmt_metadata, std::string &config_name) const;
+
     OCIO::ContextRcPtr
     setup_ocio_context(const utility::JsonStore &src_colour_mgmt_metadata) const;
 
     OCIO::ConstProcessorRcPtr make_to_lin_processor(
         const utility::JsonStore &src_colour_mgmt_metadata,
         const std::string &view,
-        const bool auto_adjust_source,
+        const bool untonemapped_mode,
         const bool bypass) const;
 
     OCIO::ConstProcessorRcPtr make_display_processor(
@@ -160,6 +177,7 @@ class OCIOEngine {
     OCIO::ConstCPUProcessorRcPtr pixel_probe_to_display_proc_;
     OCIO::ConstCPUProcessorRcPtr pixel_probe_to_lin_proc_;
     std::string default_config_;
+    std::string preferred_config_version_;
 };
 
 /* Actor wrapper for OCIOEngine, allowing us to execute 'heavy' OCIO based

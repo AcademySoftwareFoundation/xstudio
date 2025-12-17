@@ -384,7 +384,8 @@ void BookmarkActor::build_annotation_via_plugin(const utility::JsonStore &anno_d
                         .request(annotations_plugin, infinite)
                         .then(
                             [=](AnnotationBasePtr &anno) {
-                                anno->bookmark_uuid_ = base_.uuid();
+                                // nobody else owns the content of anno yet so const cast is ok.
+                                const_cast<AnnotationBase *>(anno.get())->bookmark_uuid_ = base_.uuid();
                                 base_.annotation_    = anno;
                                 mail(
                                     utility::event_atom_v, bookmark_change_atom_v, base_.uuid())

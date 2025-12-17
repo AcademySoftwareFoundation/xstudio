@@ -50,7 +50,6 @@ class PluginBase(ModuleBase):
                 sys.modules[self.__module__].__file__
             )
         )
-        self.qml_item_attrs = {}
         self.playhead_subscriptions = []
 
         self.user_attr_handler_ = None
@@ -60,7 +59,8 @@ class PluginBase(ModuleBase):
         attribute_name,
         attribute_value,
         attribute_role_data={},
-        register_as_preference=None
+        register_as_preference=False,
+        preference_path=None
     ):
         """Add an attribute to your plugin class. Attributes provide a flexible
         way to store data and/or pass data between your plugin and the xStudio
@@ -73,9 +73,9 @@ class PluginBase(ModuleBase):
                 attribute
             attribute_role_data(dict): Other role data of the attribute
             register_as_preference(bool): If true the attribute value will be
-                recorded in the users preferences data when xstudio closes and 
+                recorded in the users preferences data when xstudio closes and
                 the value restored next time xstudio starts up.
-
+            preference_path(str): Override prefeerence path.
         """
 
         # if qml code is being added as attribute data and we also have qml_folder
@@ -92,8 +92,7 @@ class PluginBase(ModuleBase):
                     attribute_role_data["qml_code"]
                 )
 
-        preference_path = None
-        if register_as_preference:
+        if register_as_preference and preference_path is None:
             preference_path = "/plugin/" + make_simple_string(self.name) + \
                 "/" + make_simple_string(attribute_name)
 
@@ -101,7 +100,7 @@ class PluginBase(ModuleBase):
             attribute_name,
             attribute_value,
             attribute_role_data,
-            preference_path=preference_path)
+            preference_path)
 
     def current_playhead(self):
 
@@ -140,18 +139,14 @@ class PluginBase(ModuleBase):
 
     def create_qml_item(
         self,
-        qml_item,
-        callback_fn=None
+        qml_item
         ):
         """Create and show a qml item (typically a pop-up window, dialog etc.).
         Args:
-            qml_item(str): The class name for the item to be created
-            callback_fn(method): Callback function that receives data from the
-            qml item (e.g. text entered by the user). On the qml side the 
-            item can trigger the callback by calling xstudio_callback(JSON)
-            function somewhere in the qml signal handlers etc.
+            qml_item(str): QML snippet to instanciate your QML item (e.g. a
+            popup window, dialog or similar)
         Returns:
-            item_id(uuid): The id of the attribute that injects the item into 
+            item_id(uuid): The id of the attribute that injects the item into
             the UI. Use this with 'delete_qml_item' to destroy the item.
         """
 
@@ -172,10 +167,8 @@ class PluginBase(ModuleBase):
                     "enabled": False
                 })
 
-        if callback_fn:
-            self.qml_item_attrs[attr.uuid] = (attr, callback_fn)
         # 'attr_enabled' controls the visibility of the widget
-        attr.set_role_data("attr_enabled", True) 
+        attr.set_role_data("attr_enabled", True)
         return attr.uuid
 
     def delete_qml_item(self, item_uuid):
@@ -183,28 +176,13 @@ class PluginBase(ModuleBase):
         Args:
             item_uuid(uuid): The id of the item created by 'create_qml_item'
         """
-        self.remove_attribute(item_uuid)        
-
-    def attribute_changed(
-        self,
-        attribute,
-        role
-        ):
-        # check if 'CallbackData' has been set - if the attribute is one of our 
-        # qml_item_attrs then we execute the associated callback
-        if role == AttributeRole.CallbackData and \
-            attribute.uuid in self.qml_item_attrs and \
-            attribute.role_data("callback_data") != {}:
-            self.qml_item_attrs[attribute.uuid][1](attribute.role_data("callback_data"))
-            # now reset the callback data so if the callback is called again with
-            # the same data as before we still get an 'attribute_changed' signal
-            attribute.set_role_data("callback_data", {})
+        self.remove_attribute(item_uuid)
 
     def get_plugin(
         self,
         plugin_name
         ):
-        """Get an/the instance of the named xSTUDIO plugin. If the plugin is 
+        """Get an/the instance of the named xSTUDIO plugin. If the plugin is
         'resident' then the singleton instance of the plugin will be returned,
         otherwise a new spawning of the plugin will be returned.
 
@@ -225,7 +203,7 @@ class PluginBase(ModuleBase):
             if plugin_detail.name() == plugin_name:
                 plugin_actor = self.connection.api.plugin_manager.get_plugin_instance(plugin_detail.uuid())
                 return PluginBase(connection=self.connection, actor=plugin_actor)
-        
+
         raise RuntimeError("No plugin found with name \"{}\"".format(plugin_name))
 
     def subscribe_to_playhead_events(self, playhead, callback_method, auto_cancel=True):
@@ -237,7 +215,7 @@ class PluginBase(ModuleBase):
             callback_method(Callable): The function which will be called
             with playhead events. Must take a single argument (a tuple of the event
             data)
-        
+
         Returns:
             uuid (callback id): A uuid for the subscription. Pass to
             unsubscribe_from_event_group to cancel an event subscription
@@ -271,7 +249,7 @@ class PluginBase(ModuleBase):
             callback_method(Callable): The function which will be called
             with event. Must take a single argument (a tuple of the event
             data)
-        
+
         Returns:
             uuid (callback id): A uuid for the subscription. Pass to
             unsubscribe_from_event_group to cancel an event subscription

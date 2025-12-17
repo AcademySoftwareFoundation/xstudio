@@ -456,10 +456,17 @@ AudioBufPtr FFMpegMediaReader::audio(const media::AVFrameID &mptr) {
         // Decode the audio frame using the decoder and get the resulting audio buffer.
         audio_decoder->decode_audio_frame(mptr.frame(), rt);
 
+
         // If decoding didn't produce an audio buffer (i.e., rt is null), then initialize
         // a new empty audio buffer.
         if (!rt) {
             rt.reset(new AudioBuffer());
+        }
+
+        if (audio_decoder->frame_rate() != mptr.rate()) {
+            // The media rate has been overridden, meaning we need to stretch or
+            // shrink the audio buffer to match
+            rt->set_new_sample_rate(rt->sample_rate(), mptr.rate().to_flicks());
         }
 
         // Return the obtained/created audio buffer.
@@ -510,7 +517,7 @@ xstudio::media::MediaDetail FFMpegMediaReader::detail(const caf::uri &uri) const
                 fmt::format("stream {}", p.first),
                 (p.second->codec_type() == AVMEDIA_TYPE_VIDEO ? media::MT_IMAGE
                                                               : media::MT_AUDIO),
-                "{0}@{1}/{2},{3}",
+                p.second->codec_type() == AVMEDIA_TYPE_VIDEO ? "{0}@{1}/{2},{3}" : "{0}@{1}/{2},{3},{4}", // for audio source, the media rate is made part of the cache key
                 p.second->resolution(),
                 p.second->pixel_aspect(),
                 p.first));

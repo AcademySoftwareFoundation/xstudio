@@ -112,6 +112,9 @@ void AudioOutputActor::init() {
             samples.resize(num_samps_to_push * num_channels);
             memset(samples.data(), 0, samples.size() * sizeof(int16_t));
 
+            if (muted() || (!playing_ && !audio_scrubbing_))
+                return samples;
+
             try {
 
                 if (!playing_) {
@@ -151,13 +154,19 @@ void AudioOutputActor::init() {
             const float volume,
             const bool muted,
             const bool repitch,
-            const bool scrubbing) { set_attrs(volume, muted, repitch, scrubbing); },
+            const bool scrubbing,
+            const std::string & scrub_behaviour,
+            const int scrub_window_millisecs) {
+            set_attrs(volume, muted, repitch, scrubbing, scrub_behaviour, scrub_window_millisecs);
+        },
         [=](utility::event_atom,
             playhead::sound_audio_atom,
             const std::vector<media_reader::AudioBufPtr> &audio_buffers,
             const utility::Uuid &sub_playhead,
             const bool scrubbing,
-            const timebase::flicks playhead_position) {
+            const timebase::flicks playhead_position,
+            const float playhead_volume) {
+            playhead_volume_ = playhead_volume;
             if (scrubbing) {
 
                 prepare_samples_for_audio_scrubbing(audio_buffers, playhead_position);
@@ -178,6 +187,8 @@ void AudioOutputActor::init() {
         [=](utility::event_atom,
             playhead::position_atom,
             const timebase::flicks playhead_position,
+            const timebase::flicks playhead_loop_in,
+            const timebase::flicks playhead_loop_out,
             const bool forward,
             const float velocity,
             const bool playing,
@@ -185,7 +196,7 @@ void AudioOutputActor::init() {
             // these event messages are very fine-grained, so we know very accurately the
             // playhead position during playback
             playhead_position_changed(
-                playhead_position, forward, velocity, playing, when_position_changed);
+                playhead_position, playhead_loop_in, playhead_loop_out, forward, velocity, playing, when_position_changed);
         },
         [=](utility::event_atom,
             audio::audio_samples_atom,
@@ -219,6 +230,22 @@ GlobalAudioOutputActor::GlobalAudioOutputActor(caf::actor_config &cfg)
     muted_->set_role_data(module::Attribute::UIDataModels, nlohmann::json{"audio_output"});
     muted_->set_role_data(module::Attribute::PreferencePath, "/core/audio/muted");
 
+    scrub_behaviour_ =
+        add_string_attribute("scrub_behaviour", "scrub_behaviour", "Hear 1 frame of audio");
+    scrub_behaviour_->set_role_data(
+        module::Attribute::PreferencePath, "/core/audio/audio_scrub_duration");
+
+    scrub_window_millisecs_ =
+        add_integer_attribute("scrub_window_millisecs", "scrub_window_millisecs", false);
+    scrub_window_millisecs_->set_role_data(
+        module::Attribute::PreferencePath, "/core/audio/scrub_window_millisecs");
+
+        auto prefs = global_store::GlobalStoreHelper(system());
+        prefs.set(
+            "read only int",
+            "/core/audio/scrub_window_millisecs/datatype",
+            false);
+
     spdlog::debug("Created GlobalAudioOutputActor");
     print_on_exit(this, "GlobalAudioOutputActor");
 
@@ -229,7 +256,9 @@ GlobalAudioOutputActor::GlobalAudioOutputActor(caf::actor_config &cfg)
 
     set_parent_actor_addr(actor_cast<caf::actor_addr>(this));
 
-    mute_hotkey_ = register_hotkey("/", "Mute Audio", "Mute/Un-mute audio.", true, "Playback");
+    mute_hotkey_ = register_hotkey("/", "Mute Audio", "Mute/Un-mute audio.", false, "Playback");
+    audio_scrubbing_hotkey_ = register_hotkey(
+        "Shift+?", "Audio Scrubbing", "Toggle audio scrubbing on/off", false, "Playback");
 
     behavior_.assign(
 
@@ -248,6 +277,8 @@ GlobalAudioOutputActor::GlobalAudioOutputActor(caf::actor_config &cfg)
         },
         [=](playhead::position_atom,
             const timebase::flicks playhead_position,
+            const timebase::flicks playhead_loop_in,
+            const timebase::flicks playhead_loop_out,
             const bool forward,
             const float velocity,
             const bool playing,
@@ -261,10 +292,33 @@ GlobalAudioOutputActor::GlobalAudioOutputActor(caf::actor_config &cfg)
                     utility::event_atom_v,
                     playhead::position_atom_v,
                     playhead_position,
+                    playhead_loop_in,
+                    playhead_loop_out,
                     forward,
                     velocity,
                     playing,
                     when_position_changed)
+                    .send(dest);
+            }
+        },
+        [=](playhead::sound_audio_atom,
+            const std::vector<media_reader::AudioBufPtr> &audio_buffers,
+            const Uuid &sub_playhead_id,
+            bool global,
+            const utility::Uuid &playhead_uuid,
+            const bool scrubbing,
+            const timebase::flicks playhead_position,
+            const float playhead_volume) {
+            auto dest = global ? event_group_ : independent_output(playhead_uuid);
+            if (dest) {
+                mail(
+                    utility::event_atom_v,
+                    playhead::sound_audio_atom_v,
+                    audio_buffers,
+                    sub_playhead_id,
+                    scrubbing,
+                    playhead_position,
+                    playhead_volume)
                     .send(dest);
             }
         },
@@ -284,7 +338,8 @@ GlobalAudioOutputActor::GlobalAudioOutputActor(caf::actor_config &cfg)
                     audio_buffers,
                     sub_playhead_id,
                     scrubbing,
-                    playhead_position)
+                    playhead_position,
+                    100.0f)
                     .send(dest);
             }
         },
@@ -295,7 +350,9 @@ GlobalAudioOutputActor::GlobalAudioOutputActor(caf::actor_config &cfg)
                 volume_->value(),
                 muted_->value(),
                 audio_repitch_->value(),
-                audio_scrubbing_->value())
+                audio_scrubbing_->value(),
+                scrub_behaviour_->value(),
+                int(scrub_window_millisecs_->value()))
                 .send(requester);
         },
         [=](audio::audio_samples_atom,
@@ -329,6 +386,16 @@ void GlobalAudioOutputActor::on_exit() { system().registry().erase(audio_output_
 
 void GlobalAudioOutputActor::attribute_changed(const utility::Uuid &attr_uuid, const int role) {
 
+    if (attr_uuid == scrub_behaviour_->uuid()) {
+
+        auto prefs = global_store::GlobalStoreHelper(system());
+        prefs.set(
+            scrub_behaviour_->value() == "Custom Duration" ? "int" : "read only int",
+            "/core/audio/scrub_window_millisecs/datatype",
+            false);
+
+    }
+
     // update and audio output clients with volume, mute etc.
     mail(
         utility::event_atom_v,
@@ -336,7 +403,9 @@ void GlobalAudioOutputActor::attribute_changed(const utility::Uuid &attr_uuid, c
         volume_->value(),
         muted_->value(),
         audio_repitch_->value(),
-        audio_scrubbing_->value())
+        audio_scrubbing_->value(),
+        scrub_behaviour_->value(),
+        int(scrub_window_millisecs_->value()))
         .send(event_group_);
 
     for (auto &p : independent_outputs_) {
@@ -346,7 +415,9 @@ void GlobalAudioOutputActor::attribute_changed(const utility::Uuid &attr_uuid, c
             volume_->value(),
             muted_->value(),
             audio_repitch_->value(),
-            audio_scrubbing_->value())
+            audio_scrubbing_->value(),
+            scrub_behaviour_->value(),
+            int(scrub_window_millisecs_->value()))
             .send(p.second);
     }
 
@@ -358,6 +429,8 @@ void GlobalAudioOutputActor::hotkey_pressed(
 
     if (hotkey_uuid == mute_hotkey_) {
         muted_->set_value(!muted_->value());
+    } else if (hotkey_uuid == audio_scrubbing_hotkey_) {
+        audio_scrubbing_->set_value(!audio_scrubbing_->value());
     }
 }
 

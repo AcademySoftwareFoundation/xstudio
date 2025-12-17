@@ -31,7 +31,38 @@
                 "datatype": "bool",
                 "context": ["APPLICATION"],
                 "category": "Audio",
-                "display_name": "Audio Scrubbing"
+                "display_name": "Enable Audio Scrubbing"
+            },
+            "audio_scrub_duration": {
+                "path": "/core/audio/audio_scrub_duration",
+                "default_value": "Hear 1 frame of audio",
+                "description": "This controls how much audio you hear when scrubbing or stepping the timeline, if you have audio scrubbing enabled. For example choose '1 Frame' to hear 1 frame's worth of audio according to the on-screen frame rate (such that for 60fps media you will hear a much shorter burst of audio than for 24fps media, say). Alternatively you can choose to hear a fixed duration of audio so that you always hear the same length shot of audio regardless of the frame rate of the media you are viewing. Choose the custom option to set your own audio burst duration if desired.",
+                "value": "Play 1 frame of audio",
+                "datatype": "multichoice string",
+                "options": [
+                    "1 Frame",
+                    "1.25 Frames",
+                    "1.5 Frames",
+                    "2 Frames",
+                    "3 Frames",
+                    "1/24th Sec",
+                    "1/30th Sec",
+                    "1/60th Sec",
+                    "Custom Duration"
+                ],
+                "context": ["APPLICATION"],
+                "category": "Audio",
+                "display_name": "Audio Scrub Duration"
+            },
+            "scrub_window_millisecs": {
+                "path": "/core/audio/scrub_window_millisecs",
+                "default_value": 50,
+                "description": "When \"Audio Scrub Behaviour\" is set to 'Custom duration', this sets the length of the audio burst (in milliseconds) that you will hear when stepping or scrubbing frames (when audio scrubbing is enabled).",
+                "value": 50,
+                "datatype": "int",
+                "context": ["APPLICATION"],
+                "category": "Audio",
+                "display_name": "Custom Audio Scrub Duration / ms"
             },
 			"volume": {
 				"path": "/core/audio/volume",
@@ -62,10 +93,10 @@
                 },
                 "buffer_size": {
                     "path": "/core/audio/pulse_audio_prefs/buffer_size",
-                    "default_value": 2048,
-                    "description": "Souncard audio samples buffer size",
-                    "value": 2048,
-                    "minimum": 512,
+                    "default_value": 1024,
+                    "description": "Souncard audio samples buffer size. The larger this number, the greater the latency in xSTUDIO's audio pipeline but the more robust it will be to underruns that cause audio distortion.",
+                    "value": 1024,
+                    "minimum": 256,
                     "maximum": 16384,
                     "datatype": "int",
                     "context": ["APPLICATION"]

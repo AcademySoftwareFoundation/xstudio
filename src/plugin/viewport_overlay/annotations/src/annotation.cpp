@@ -2,7 +2,7 @@
 #include <utility>
 
 #include "annotation.hpp"
-#include "annotations_tool.hpp"
+#include "annotations_core_plugin.hpp"
 #include "annotation_serialiser.hpp"
 
 using namespace xstudio::ui::viewport;
@@ -18,6 +18,6 @@ Annotation::Annotation(const utility::JsonStore &s) : bookmark::AnnotationBase()
 
 utility::JsonStore Annotation::serialise(utility::Uuid &plugin_uuid) const {
 
-    plugin_uuid = AnnotationsTool::PLUGIN_UUID;
-    return AnnotationSerialiser::serialise((const Annotation *)this);
+    plugin_uuid = AnnotationsCore::PLUGIN_UUID;
+    return AnnotationSerialiser::serialise((const Annotation *)this, 2, 0);
 }

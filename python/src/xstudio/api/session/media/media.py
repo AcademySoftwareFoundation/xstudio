@@ -3,6 +3,7 @@ from xstudio.core import get_media_source_atom, current_media_source_atom, get_j
 from xstudio.core import invalidate_cache_atom, get_media_pointer_atom, MediaType, Uuid, media_status_atom
 from xstudio.core import add_media_source_atom, FrameRate, FrameList, parse_posix_path, URI, MediaStatus
 from xstudio.core import set_json_atom, JsonStore, quickview_media_atom, media_display_info_atom
+from xstudio.core import transform_matrix_atom
 
 from xstudio.api.session.container import Container
 from xstudio.api.session.media.media_source import MediaSource
@@ -288,3 +289,23 @@ class Media(Container):
             display_info(json): Media display info
         """        
         return json.loads(self.connection.request_receive(self.remote, media_display_info_atom())[0].dump())
+
+    @property
+    def transform_matrix(self):
+        """Get media item transform matrix. This matrix is used when the image
+        is drawn into the xstudio viewport, and can be changed to apply scaling,
+        rotation, shear and so-on.
+
+        Returns:
+            transform_matrix(Imath::M44f): Media transform matrix.
+        """
+        return self.connection.request_receive(self.remote, transform_matrix_atom())[0]
+
+    @transform_matrix.setter
+    def transform_matrix(self, new_matrix):
+        """Set media item transform matrix.
+
+        Args:
+            new_matrix(M44f): Set media item transform matrix.
+        """
+        self.connection.request_receive(self.remote, transform_matrix_atom(), new_matrix)

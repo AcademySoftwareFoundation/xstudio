@@ -128,7 +128,7 @@ Item{
                 engine.conformItemsFuture(
                     task,
                     pl_index,
-                    selection[i], true, true)
+                    selection[i], true, true, true)
             ).then(
                 function(media_uuid_list) {
                     // add to current selection..
@@ -146,7 +146,7 @@ Item{
             Future.promise(
                 engine.conformItemsFuture(task,
                     selection[i].model.getContainerIndex(selection[i]),
-                    selection[i], true, false)
+                    selection[i], true, false, true, true)
             ).then(
                 function(media_uuid_list) {
                     // console.log(media_uuid_list)
@@ -164,7 +164,7 @@ Item{
             Future.promise(
                 engine.conformItemsFuture(task,
                     dst.model.getContainerIndex(dst),
-                    dst, true, true)
+                    dst, true, true, true, true)
             ).then(
                 function(media_uuid_list) {
                     // console.log(media_uuid_list)
@@ -183,7 +183,7 @@ Item{
             Future.promise(
                 engine.conformItemsFuture(task,
                     clips[i].model.getContainerIndex(clips[i]),
-                    clips[i], true, true)
+                    clips[i], true, true, true, true)
             ).then(
                 function(media_uuid_list) {
                     // console.log(media_uuid_list)
@@ -296,11 +296,11 @@ Item{
         }
     }
 
-    function conformWithSiblingsToNewSequence(selection, task, playlistIndex=helpers.qModelIndex()) {
+    function conformWithSiblingsToNewSequence(selection, task, count, playlistIndex=helpers.qModelIndex()) {
         if(selection.length) {
             Future.promise(
                 engine.conformToNewSequenceFuture(
-                    selection, task, siblingPref.value, playlistIndex
+                    selection, task, count, playlistIndex
                 )
             ).then(
                 function(uuid_list) {
@@ -580,12 +580,49 @@ Item{
                     onActivated: (menuContext) =>  conformWithToNewSequence(menuContext.mediaSelection, text)
                 }
                 XsMenuModelItem {
-                    text: nameRole
+                    text: "Custom "+siblingPref.value
                     menuItemType: "button"
-                    menuPath: "Conform With Neighbours"
-                    menuItemPosition: index
+                    menuPath: "Conform With Neighbours|"+nameRole
+                    menuItemPosition: 1
                     menuModelName: "media_list_menu_"
-                    onActivated: (menuContext) =>  conformWithSiblingsToNewSequence(menuContext.mediaSelection, text)
+                    onActivated: (menuContext) =>  conformWithSiblingsToNewSequence(menuContext.mediaSelection, nameRole, siblingPref.value)
+                }
+                XsMenuModelItem {
+                    text: "2"
+                    menuItemType: "button"
+                    menuPath: "Conform With Neighbours|"+nameRole
+                    menuItemPosition: 2
+                    menuModelName: "media_list_menu_"
+                    onActivated: (menuContext) =>  conformWithSiblingsToNewSequence(menuContext.mediaSelection, nameRole, text)
+                }
+                XsMenuModelItem {
+                    text: "3"
+                    menuItemType: "button"
+                    menuPath: "Conform With Neighbours|"+nameRole
+                    menuItemPosition: 3
+                    menuModelName: "media_list_menu_"
+                    onActivated: (menuContext) =>  conformWithSiblingsToNewSequence(menuContext.mediaSelection, nameRole, text)
+                }
+                XsMenuModelItem {
+                    text: "4"
+                    menuItemType: "button"
+                    menuPath: "Conform With Neighbours|"+nameRole
+                    menuItemPosition: 4
+                    menuModelName: "media_list_menu_"
+                    onActivated: (menuContext) =>  conformWithSiblingsToNewSequence(menuContext.mediaSelection, nameRole, text)
+                }
+                XsMenuModelItem {
+                    text: "5"
+                    menuItemType: "button"
+                    menuPath: "Conform With Neighbours|"+nameRole
+                    menuItemPosition: 5
+                    menuModelName: "media_list_menu_"
+                    onActivated: (menuContext) =>  conformWithSiblingsToNewSequence(menuContext.mediaSelection, nameRole, text)
+                }
+
+               Component.onCompleted: {
+                    // make sure the 'Add' sub-menu appears in the correct place
+                    helpers.setMenuPathPosition("Conform With Neighbours|"+nameRole, "media_list_menu_", index)
                 }
 			}
 	}

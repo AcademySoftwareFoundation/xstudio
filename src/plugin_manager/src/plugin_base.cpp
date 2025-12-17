@@ -66,7 +66,13 @@ StandardPlugin::StandardPlugin(
             // here for each image in the display set we generate the onscreen
             // render data and return in a vector
             utility::BlindDataObjectPtrVec result;
-            result.reserve(image_set->num_onscreen_images());
+            result.reserve(image_set->num_onscreen_images()+1);
+            
+            result.emplace_back(onscreen_render_data(
+                image_set,
+                viewport_name,
+                playhead_id));
+
             const bool is_grid_layout = image_set->has_grid_layout();
             for (int i = 0; i < image_set->num_onscreen_images(); ++i) {
                 result.emplace_back(onscreen_render_data(
@@ -489,7 +495,9 @@ utility::Uuid StandardPlugin::create_bookmark_on_frame(
                 *sys,
                 bookmark_manager_,
                 bookmark::add_bookmark_atom_v,
-                utility::UuidActor(media_uuid, media));
+                utility::UuidActor(media_uuid, media),
+                detail.uuid_.is_null() ? utility::Uuid::generate() : detail.uuid_
+            );
 
             bookmark::BookmarkDetail bmd = detail;
 
@@ -527,7 +535,6 @@ utility::Uuid StandardPlugin::create_bookmark_on_frame(
     return result;
 }
 
-
 utility::Uuid StandardPlugin::create_bookmark_on_current_media(
     const std::string &viewport_name,
     const std::string &bookmark_subject,
@@ -538,7 +545,6 @@ utility::Uuid StandardPlugin::create_bookmark_on_current_media(
 
     scoped_actor sys{system()};
     try {
-
 
         caf::actor playhead;
         try {
@@ -691,7 +697,17 @@ void StandardPlugin::update_bookmark_annotation(
     AnnotationBasePtr annotation_data,
     const bool annotation_is_empty) {
 
-    mail(bookmark::get_bookmark_atom_v, bookmark_id)
+    scoped_actor sys{system()};
+    try {
+        auto uuid_actor = utility::request_receive<utility::UuidActor>(
+            *sys, bookmark_manager_, bookmark::get_bookmark_atom_v, bookmark_id);
+        auto result = utility::request_receive<bool>(
+            *sys, uuid_actor.actor(), bookmark::add_annotation_atom_v, annotation_data);
+    } catch (std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+
+    /*mail(bookmark::get_bookmark_atom_v, bookmark_id)
         .request(bookmark_manager_, infinite)
         .then(
             [=](utility::UuidActor &bm) {
@@ -731,7 +747,7 @@ void StandardPlugin::update_bookmark_annotation(
             },
             [=](error &err) mutable {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-            });
+            });*/
 }
 
 void StandardPlugin::update_bookmark_detail(
@@ -748,10 +764,25 @@ void StandardPlugin::update_bookmark_detail(
     }
 }
 
-void StandardPlugin::remove_bookmark(const utility::Uuid &bookmark_id) {
+void StandardPlugin::remove_bookmark(const utility::Uuid &bookmark_id, const bool only_if_empty) {
 
-    mail(bookmark::remove_bookmark_atom_v, bookmark_id).send(bookmark_manager_);
-    // request(bookmark_manager_, infinite, bookmark::remove_bookmark_atom_v, bookmark_id);
+    scoped_actor sys{system()};
+    try {
+
+        if (only_if_empty) {
+         
+            const auto detail = utility::request_receive<BookmarkDetail>(
+                *sys, bookmark_manager_, bookmark::bookmark_detail_atom_v, bookmark_id);
+            if (detail.note_ && !detail.note_->empty()) return;
+            
+        }
+
+        utility::request_receive<bool>(
+            *sys, bookmark_manager_,bookmark::remove_bookmark_atom_v, bookmark_id);
+    } catch (std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+
 }
 
 

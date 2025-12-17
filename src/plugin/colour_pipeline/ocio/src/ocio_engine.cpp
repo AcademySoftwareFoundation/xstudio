@@ -28,16 +28,15 @@ typedef std::shared_ptr<ShaderDescriptor> ShaderDescriptorPtr;
 
 ColourOperationDataPtr OCIOEngine::linearise_op_data(
     const utility::JsonStore &src_colour_mgmt_metadata,
-    const bool bypass,
-    const bool auto_adjust_source,
-    const std::string &view) {
+    const bool untonemapped_mode,
+    const bool bypass) {
 
     auto data = std::make_shared<ColourOperationData>("OCIO Linearise OP");
 
     OCIO::ConstConfigRcPtr config = get_ocio_config(src_colour_mgmt_metadata);
     OCIO::ContextRcPtr context    = setup_ocio_context(src_colour_mgmt_metadata);
     OCIO::TransformRcPtr transform =
-        source_transform(src_colour_mgmt_metadata, auto_adjust_source, view, bypass);
+        source_transform(src_colour_mgmt_metadata, untonemapped_mode, bypass);
 
     auto shader_builder = ShaderBuilder()
                               .setConfig(config)
@@ -131,7 +130,8 @@ thumbnail::ThumbnailBufferPtr OCIOEngine::process_thumbnail(
     const utility::JsonStore &src_colour_mgmt_metadata,
     const thumbnail::ThumbnailBufferPtr &buf,
     const std::string &display,
-    const std::string &view) {
+    const std::string &view,
+    const bool untonemapped_mode) {
 
     if (buf->format() != thumbnail::TF_RGBF96) {
         throw std::runtime_error(
@@ -149,8 +149,9 @@ thumbnail::ThumbnailBufferPtr OCIOEngine::process_thumbnail(
         _view    = ocio_config->getDefaultView(_display.c_str());
     }
 
-    auto to_lin_group = make_to_lin_processor(src_colour_mgmt_metadata, view, false, false)
-                            ->createGroupTransform();
+    auto to_lin_group =
+        make_to_lin_processor(src_colour_mgmt_metadata, view, untonemapped_mode, false)
+            ->createGroupTransform();
     auto to_display_group =
         make_display_processor(src_colour_mgmt_metadata, _display, _view, false)
             ->createGroupTransform();
@@ -199,7 +200,7 @@ void OCIOEngine::extend_pixel_info(
     const media::AVFrameID &frame_id,
     const std::string &display,
     const std::string &view,
-    const bool auto_adjust_source,
+    const bool untonemapped_mode,
     const float exposure,
     const float gamma,
     const float saturation) {
@@ -209,8 +210,7 @@ void OCIOEngine::extend_pixel_info(
 
     auto raw_info = pixel_info.raw_channels_info();
 
-    const auto hash = compute_hash(
-        frame_id.params(), display + view + (auto_adjust_source ? "auto_adjust" : ""));
+    const auto hash = compute_hash(frame_id.params(), display + view);
 
     if (hash != last_pixel_probe_source_hash_) {
 
@@ -219,7 +219,7 @@ void OCIOEngine::extend_pixel_info(
         auto display_proc = make_display_processor(colour_mgmt_params, display, view, false);
         pixel_probe_to_display_proc_ = display_proc->getDefaultCPUProcessor();
         pixel_probe_to_lin_proc_ =
-            make_to_lin_processor(colour_mgmt_params, view, auto_adjust_source, false)
+            make_to_lin_processor(colour_mgmt_params, view, untonemapped_mode, false)
                 ->getDefaultCPUProcessor();
         last_pixel_probe_source_hash_ = hash;
     }
@@ -250,8 +250,7 @@ void OCIOEngine::extend_pixel_info(
 
     // Source
 
-    std::string source_cs =
-        detect_source_colourspace(frame_id.params(), auto_adjust_source, view);
+    std::string source_cs = detect_source_colourspace(frame_id.params(), untonemapped_mode);
 
     if (!source_cs.empty()) {
 
@@ -333,13 +332,18 @@ OCIOEngine::get_ocio_config(const utility::JsonStore &src_colour_mgmt_metadata) 
             src_colour_mgmt_metadata.get_or("ocio_config", default_config_));
     const std::string displays =
         src_colour_mgmt_metadata.get_or("active_displays", std::string(""));
-    const std::string views  = src_colour_mgmt_metadata.get_or("active_views", std::string(""));
-    const std::string concat = config_name + displays + views;
+    const std::string views = src_colour_mgmt_metadata.get_or("active_views", std::string(""));
 
-    auto it = ocio_config_cache_.find(concat);
+    const std::string config_cache_key = config_name + displays + views;
+    auto it                            = ocio_config_cache_.find(config_cache_key);
     if (it != ocio_config_cache_.end()) {
         return it->second;
     }
+
+    // For performance reasons, we do this after the cache lookup.
+    // Note this only works because the preferred version setting is read-only
+    // and can't be changed after xStudio launch.
+    get_ocio_config_version_override(src_colour_mgmt_metadata, config_name);
 
     // This specific OCIO config has not been loaded yet.
     OCIO::ConstConfigRcPtr config;
@@ -372,7 +376,7 @@ OCIOEngine::get_ocio_config(const utility::JsonStore &src_colour_mgmt_metadata) 
     }
 
     auto econfig = config->createEditableCopy();
-    econfig->setName(concat.c_str());
+    econfig->setName(config_cache_key.c_str());
     // Workaround OCIO < 2.3.1 bug
     // See https://github.com/AcademySoftwareFoundation/OpenColorIO/issues/1885
     econfig->setDefaultViewTransformName(config->getDefaultViewTransformName());
@@ -394,6 +398,24 @@ OCIOEngine::get_ocio_config(const utility::JsonStore &src_colour_mgmt_metadata) 
     return config;
 }
 
+void OCIOEngine::get_ocio_config_version_override(
+    const utility::JsonStore &src_colour_mgmt_metadata, std::string &config_name) const {
+
+    // User preference driven OCIO config version override
+    if (!preferred_config_version_.empty() and preferred_config_version_ != "default") {
+        if (src_colour_mgmt_metadata.contains("ocio_config_versions")) {
+            if (src_colour_mgmt_metadata["ocio_config_versions"].is_object()) {
+                for (auto &item : src_colour_mgmt_metadata["ocio_config_versions"].items()) {
+                    if (item.key() == preferred_config_version_) {
+                        config_name = item.value();
+                        return;
+                    }
+                }
+            }
+        }
+    }
+}
+
 std::string
 OCIOEngine::working_space(const utility::JsonStore &src_colour_mgmt_metadata) const {
     auto config = get_ocio_config(src_colour_mgmt_metadata);
@@ -408,38 +430,9 @@ OCIOEngine::working_space(const utility::JsonStore &src_colour_mgmt_metadata) co
     }
 }
 
-std::string OCIOEngine::input_space_for_view(
-    const utility::JsonStore &src_colour_mgmt_metadata, const std::string &view) const {
-
-    auto config = get_ocio_config(src_colour_mgmt_metadata);
-    const std::string empty;
-    std::string new_colourspace;
-
-    auto colourspace_or = [config](const std::string &cs, const std::string &fallback) {
-        const bool has_cs = bool(config->getColorSpace(cs.c_str()));
-        return has_cs ? cs : fallback;
-    };
-
-    const auto is_untonemapped = view == "Un-tone-mapped";
-    const auto input_space     = src_colour_mgmt_metadata.get_or("input_colorspace", empty);
-    const auto untonemapped_space =
-        src_colour_mgmt_metadata.get_or("untonemapped_colorspace", empty);
-
-    new_colourspace = is_untonemapped ? untonemapped_space : input_space;
-
-    for (const auto &cs : xstudio::utility::split(new_colourspace, ':')) {
-        new_colourspace = colourspace_or(new_colourspace, cs);
-    }
-
-    // Double check the new colourspace actually exists
-    new_colourspace = colourspace_or(new_colourspace, "");
-
-    // Avoid role names, helps with the source colour space menu
-    if (!new_colourspace.empty()) {
-        new_colourspace = config->getCanonicalName(new_colourspace.c_str());
-    }
-
-    return new_colourspace;
+const char *
+OCIOEngine::ocio_config_name(const utility::JsonStore &src_colour_mgmt_metadata) const {
+    return get_ocio_config(src_colour_mgmt_metadata)->getName();
 }
 
 const char *
@@ -449,11 +442,43 @@ OCIOEngine::default_display(const utility::JsonStore &src_colour_mgmt_metadata) 
     return config->getDefaultDisplay();
 }
 
+const char *OCIOEngine::default_view(
+    const utility::JsonStore &src_colour_mgmt_metadata, const std::string &display) const {
+
+    auto config = get_ocio_config(src_colour_mgmt_metadata);
+    return config->getDefaultView(
+        !display.empty() ? display.c_str() : config->getDefaultDisplay());
+}
+
+bool OCIOEngine::has_display(
+    const utility::JsonStore &src_colour_mgmt_metadata, const std::string &display) const {
+
+    auto config = get_ocio_config(src_colour_mgmt_metadata);
+    for (int i = 0; i < config->getNumDisplays(); ++i) {
+        if (display == std::string(config->getDisplay(i))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// This follows OCIO 2.5 implementation, can be removed when migrating
+// to this version and use config->hasView().
+bool OCIOEngine::has_view(
+    const utility::JsonStore &src_colour_mgmt_metadata,
+    const std::string &view,
+    const std::string &display) const {
+
+    auto config           = get_ocio_config(src_colour_mgmt_metadata);
+    const char *disp_name = !display.empty() ? display.c_str() : config->getDefaultDisplay();
+    const char *cs        = config->getDisplayViewColorSpaceName(disp_name, view.c_str());
+    return (cs && *cs);
+}
+
 // Return the transform to bring incoming data to scene_linear space.
 OCIO::TransformRcPtr OCIOEngine::source_transform(
     const utility::JsonStore &src_colour_mgmt_metadata,
-    const bool auto_adjust_source,
-    const std::string &auto_adjust_view,
+    const bool untonemapped_mode,
     const bool bypass) const {
 
     auto config = get_ocio_config(src_colour_mgmt_metadata);
@@ -462,15 +487,12 @@ OCIO::TransformRcPtr OCIOEngine::source_transform(
         return identity_transform();
     }
 
+    std::string untonemapped_cs =
+        src_colour_mgmt_metadata.get_or("untonemapped_colorspace", std::string());
+
     // get the user source colourspace override, if it has been set
     std::string override_input_cs =
         src_colour_mgmt_metadata.get_or("override_input_cs", std::string(""));
-
-    if (auto_adjust_source) {
-        // When 'auto adjust source' global setting is on, the source colourspace
-        // is overriden by our own logic
-        override_input_cs = input_space_for_view(src_colour_mgmt_metadata, auto_adjust_view);
-    }
 
     const std::string filepath   = src_colour_mgmt_metadata.get_or("path", std::string(""));
     const std::string working_cs = working_space(src_colour_mgmt_metadata);
@@ -490,7 +512,15 @@ OCIO::TransformRcPtr OCIOEngine::source_transform(
         }
     }
 
-    if (!override_input_cs.empty()) {
+    // Note that Un-tone-mapped mode takes precedence over user source selection
+    // This could happen if a choice was made, then the Un-tone-mapped mode was
+    // enabled after.
+    if (untonemapped_mode && !untonemapped_cs.empty()) {
+        OCIO::ColorSpaceTransformRcPtr csc = OCIO::ColorSpaceTransform::Create();
+        csc->setSrc(untonemapped_cs.c_str());
+        csc->setDst(working_cs.c_str());
+        return csc;
+    } else if (!override_input_cs.empty()) {
         OCIO::ColorSpaceTransformRcPtr csc = OCIO::ColorSpaceTransform::Create();
         csc->setSrc(override_input_cs.c_str());
         csc->setDst(working_cs.c_str());
@@ -606,7 +636,7 @@ OCIO::ContextRcPtr OCIOEngine::setup_ocio_context(const utility::JsonStore &meta
 OCIO::ConstProcessorRcPtr OCIOEngine::make_to_lin_processor(
     const utility::JsonStore &src_colour_mgmt_metadata,
     const std::string &view,
-    const bool auto_adjust_source,
+    const bool untonemapped_mode,
     const bool bypass) const {
 
     const auto &ocio_config = get_ocio_config(src_colour_mgmt_metadata);
@@ -614,7 +644,7 @@ OCIO::ConstProcessorRcPtr OCIOEngine::make_to_lin_processor(
     try {
 
         OCIO::TransformRcPtr transform =
-            source_transform(src_colour_mgmt_metadata, auto_adjust_source, view, bypass);
+            source_transform(src_colour_mgmt_metadata, untonemapped_mode, bypass);
         OCIO::ContextRcPtr context = setup_ocio_context(src_colour_mgmt_metadata);
         auto proc = ocio_config->getProcessor(context, transform, OCIO::TRANSFORM_DIR_FORWARD);
         return proc;
@@ -650,14 +680,14 @@ OCIO::ConstProcessorRcPtr OCIOEngine::make_display_processor(
 }
 
 std::string OCIOEngine::detect_source_colourspace(
-    const utility::JsonStore &src_colour_mgmt_metadata,
-    const bool auto_adjust_source,
-    const std::string &view) {
+    const utility::JsonStore &src_colour_mgmt_metadata, const bool untonemapped_mode) {
+
+    auto config = get_ocio_config(src_colour_mgmt_metadata);
 
     // Extract the input colorspace as detected by the plugin and update the UI
     std::string detected_cs;
     OCIO::TransformRcPtr transform =
-        source_transform(src_colour_mgmt_metadata, auto_adjust_source, view, false);
+        source_transform(src_colour_mgmt_metadata, untonemapped_mode, false);
     if (transform->getTransformType() == OCIO::TRANSFORM_TYPE_COLORSPACE) {
         OCIO::ColorSpaceTransformRcPtr csc =
             std::static_pointer_cast<OCIO::ColorSpaceTransform>(transform);
@@ -669,7 +699,6 @@ std::string OCIOEngine::detect_source_colourspace(
         // of sync with what the input transform actually is (inverse display view).
         OCIO::DisplayViewTransformRcPtr disp =
             std::static_pointer_cast<OCIO::DisplayViewTransform>(transform);
-        auto config = get_ocio_config(src_colour_mgmt_metadata);
         const std::string view_cs =
             config->getDisplayViewColorSpaceName(disp->getDisplay(), disp->getView());
         detected_cs = view_cs;
@@ -678,12 +707,16 @@ std::string OCIOEngine::detect_source_colourspace(
             "OCIOColourPipeline: Internal error trying to extract source colour space.");
     }
 
+    // Avoid role names, helps with the source colour space menu
+    if (!detected_cs.empty()) {
+        detected_cs = config->getCanonicalName(detected_cs.c_str());
+    }
+
     return detected_cs;
 }
 
-std::string OCIOEngine::preferred_view(
-    const utility::JsonStore &src_colour_mgmt_metadata,
-    const std::string user_preferred_view) const {
+std::string
+OCIOEngine::automatic_view(const utility::JsonStore &src_colour_mgmt_metadata) const {
 
     auto ocio_config = get_ocio_config(src_colour_mgmt_metadata);
 
@@ -691,29 +724,23 @@ std::string OCIOEngine::preferred_view(
     const std::string default_display = ocio_config->getDefaultDisplay();
     const std::string default_view    = ocio_config->getDefaultView(default_display.c_str());
 
-    std::string _preferred_view = default_view;
-    if (user_preferred_view == "Default") {
-        _preferred_view = default_view;
-    } else if (user_preferred_view == "Automatic") {
-        // Metadata from the media hook
-        if (src_colour_mgmt_metadata.get_or("automatic_view", std::string("")) != "") {
-            _preferred_view = src_colour_mgmt_metadata.get_or("automatic_view", default_view);
+    std::string _automatic_view = default_view;
+
+    // Metadata from the media hook
+    if (src_colour_mgmt_metadata.get_or("automatic_view", std::string("")) != "") {
+        _automatic_view = src_colour_mgmt_metadata.get_or("automatic_view", default_view);
+    }
+    // Viewing Rules from OCIO v2 config
+    else if (ocio_config->getViewingRules()->getNumEntries() > 0) {
+        const std::string filepath = src_colour_mgmt_metadata.get_or("path", std::string(""));
+        const std::string auto_input_cs =
+            ocio_config->getColorSpaceFromFilepath(filepath.c_str());
+        const int num_cs =
+            ocio_config->getNumViews(default_display.c_str(), auto_input_cs.c_str());
+        if (num_cs > 0) {
+            _automatic_view =
+                ocio_config->getView(default_display.c_str(), auto_input_cs.c_str(), 0);
         }
-        // Viewing Rules from OCIO v2 config
-        else if (ocio_config->getViewingRules()->getNumEntries() > 0) {
-            const std::string filepath =
-                src_colour_mgmt_metadata.get_or("path", std::string(""));
-            const std::string auto_input_cs =
-                ocio_config->getColorSpaceFromFilepath(filepath.c_str());
-            const int num_cs =
-                ocio_config->getNumViews(default_display.c_str(), auto_input_cs.c_str());
-            if (num_cs > 0) {
-                _preferred_view =
-                    ocio_config->getView(default_display.c_str(), auto_input_cs.c_str(), 0);
-            }
-        }
-    } else {
-        _preferred_view = user_preferred_view;
     }
 
     // Validate that the view is in ocio config
@@ -723,8 +750,8 @@ std::string OCIOEngine::preferred_view(
 
     for (auto it = begin(display_views); it != end(display_views); ++it) {
         for (auto view_in_ocio_config : it->second) {
-            if (view_in_ocio_config == _preferred_view) {
-                return _preferred_view;
+            if (view_in_ocio_config == _automatic_view) {
+                return _automatic_view;
             }
         }
     }
@@ -801,6 +828,7 @@ OCIOEngineActor::OCIOEngineActor(caf::actor_config &cfg)
     behavior_.assign(
         [=](global_ocio_controls_atom, const utility::JsonStore &settings) {
             set_default_config(settings.value("default_config", ""));
+            set_preferred_config_version(settings.value("preferred_config_version", ""));
         },
         [=](colour_pipe_display_data_atom,
             const utility::JsonStore &media_metadata,
@@ -816,12 +844,11 @@ OCIOEngineActor::OCIOEngineActor(caf::actor_config &cfg)
         },
         [=](colour_pipe_linearise_data_atom,
             const utility::JsonStore &media_metadata,
-            const bool bypass,
-            const bool auto_adjust_source_cs,
-            const std::string &view) -> result<ColourOperationDataPtr> {
+            const bool untonemapped_mode,
+            const bool bypass) -> result<ColourOperationDataPtr> {
             // This message is sent from main OCIOColourPipeline
             try {
-                return linearise_op_data(media_metadata, bypass, auto_adjust_source_cs, view);
+                return linearise_op_data(media_metadata, untonemapped_mode, bypass);
             } catch (std::exception &e) {
                 return caf::make_error(xstudio_error::error, e.what());
             }
@@ -830,10 +857,11 @@ OCIOEngineActor::OCIOEngineActor(caf::actor_config &cfg)
             const utility::JsonStore &media_metadata,
             const thumbnail::ThumbnailBufferPtr &buf,
             const std::string &display,
-            const std::string &view) -> result<thumbnail::ThumbnailBufferPtr> {
+            const std::string &view,
+            const bool untonemapped_mode) -> result<thumbnail::ThumbnailBufferPtr> {
             // This message is sent from main OCIOColourPipeline
             try {
-                return process_thumbnail(media_metadata, buf, display, view);
+                return process_thumbnail(media_metadata, buf, display, view, untonemapped_mode);
             } catch (std::exception &e) {
                 return caf::make_error(xstudio_error::error, e.what());
             }

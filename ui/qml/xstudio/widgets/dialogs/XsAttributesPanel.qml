@@ -14,6 +14,18 @@ XsWindow {
 
 
     property var attributesGroupName
+    property var descriptionGroupName
+
+    XsModuleData {
+        id: description_set
+        modelDataName: descriptionGroupName
+    }
+    XsAttributeValue {
+        id: __description
+        attributeTitle: "description"
+        model: description_set
+    }
+    property alias description: __description.value
 
     XsModuleData {
         id: attribute_set
@@ -160,7 +172,38 @@ XsWindow {
         }
     }
 
+    XsIcon {
+
+        anchors.right: closeButton.left
+        anchors.bottom: parent.bottom
+        anchors.margins: 10
+        width: height
+        height: closeButton.height
+        source: "qrc:/icons/help.svg"
+        imgOverlayColor: ma.containsMouse ? palette.highlight : XsStyleSheet.hintColor
+        antialiasing: true
+        smooth: true
+        visible: description != undefined
+
+        MouseArea {
+            id: ma
+            anchors.fill: parent
+            hoverEnabled: true
+        }
+
+        XsToolTip {
+            text: description
+            visible: ma.containsMouse
+            x: 0 //#TODO: flex/pointer
+            y_reposition: -1.0
+            maxWidth: dialog.width*0.8
+        }
+
+    }
+
+
     XsSimpleButton {
+        id: closeButton
         text: qsTr("Close")
         width: XsStyleSheet.primaryButtonStdWidth*2
         anchors.right: parent.right

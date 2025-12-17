@@ -75,6 +75,14 @@
 				"datatype": "string",
 				"context": ["QML_UI"]
 			},
+			"contactsheet_chunk_size": {
+				"path": "/ui/qml/contactsheet_chunk_size",
+				"default_value": 9,
+				"description": "Chunk size for ContactSheets.",
+				"value": 9,
+				"datatype": "int",
+				"context": ["QML_UI"]
+			},
 			"start_play_on_load": {
 				"path": "/ui/qml/start_play_on_load",
 				"default_value": true,

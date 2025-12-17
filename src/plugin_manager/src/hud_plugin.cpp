@@ -64,6 +64,16 @@ void HUDPluginBase::add_hud_settings_attribute(module::Attribute *attr) {
     hud_data_->set_role_data(module::Attribute::DisabledValue, false);
 }
 
+void HUDPluginBase::add_hud_description(const std::string &description) {
+
+    if (!description_) {
+        description_ = add_string_attribute("description", "description", "");
+        description_->expose_in_ui_attrs_group(Module::name() + " Description");
+    }
+    description_->set_value(description);
+
+}
+
 void HUDPluginBase::attribute_changed(const utility::Uuid &attribute_uuid, const int role) {
     if (hud_item_position_ && hud_item_position_->uuid() == attribute_uuid &&
         role == module::Attribute::Value) {

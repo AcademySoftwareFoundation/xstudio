@@ -81,6 +81,31 @@ Item {
     }
 
 
+    function cycleColour(indexes) {
+        let colours = [
+            "#FFFF0000",
+            "#FF00FF00",
+            "#FF0000FF",
+            "#FFFFFF00",
+            "#FFFFA500",
+            "#FF800080",
+            "#FF000000",
+            "#FFFFFFFF",
+            "#00000000",
+        ]
+
+        indexes.forEach(
+            function (item, index) {
+                let current = theSessionData.get(item, "flagColourRole")
+                let cind = colours.indexOf(current)
+                if(cind == -1 || cind == colours.length-1)
+                    theSessionData.set(item, colours[0], "flagColourRole")
+                else
+                    theSessionData.set(item, colours[cind+1], "flagColourRole")
+            }
+        )
+    }
+
     function deselectAll() {
         mediaSelectionModel.clear()
     }
@@ -215,10 +240,24 @@ Item {
         theSessionData.copyRows(mediaSelectionModel.selectedIndexes, 0, sub)
     }
 
-    function addToNewContactSheet(name) {
-        let sub = theSessionData.createPlaylistChild(name, "ContactSheet", "", theSessionData.getPlaylistIndex(mediaSelectionModel.selectedIndexes[0]))
-        theSessionData.copyRows(mediaSelectionModel.selectedIndexes, 0, sub)
+
+    function addToNewContactSheet(name, count = -1) {
+        if(count == -1) {
+            let sub = theSessionData.createPlaylistChild(name, "ContactSheet", "", theSessionData.getPlaylistIndex(mediaSelectionModel.selectedIndexes[0]))
+            theSessionData.copyRows(mediaSelectionModel.selectedIndexes, 0, sub)
+        } else {
+            function splitArray(arr, chunkSize) {
+                return Array.from({ length: Math.ceil(arr.length / chunkSize) }, (_, i) =>
+                    arr.slice(i * chunkSize, i * chunkSize + chunkSize)
+                );
+            }
+
+            let chunks = splitArray(mediaSelectionModel.selectedIndexes, count);
+            let parent = theSessionData.getPlaylistIndex(mediaSelectionModel.selectedIndexes[0])
+            for(let i = 0; i < chunks.length; i++) {
+                let sub = theSessionData.createPlaylistChild(theSessionData.getNextName(name), "ContactSheet", "", parent)
+                theSessionData.copyRows(chunks[i], 0, sub)
+            }
+        }
     }
-
-
 }

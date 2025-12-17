@@ -11,26 +11,42 @@ import xstudio.qml.helpers 1.0
 Item {
     
     id: root
+
+    property bool muted: true
+    
     function loadMedia(path) {
-        view.quickViewFromPath(path);
+        the_viewport.quickViewFromPath(path);
     }
 
     function playToggle() {
-        viewportPlayhead.playing = true
+        viewportPlayhead.playing = !viewportPlayhead.playing
+        if (muted) {
+            viewportPlayhead.volume = 0
+        } else {
+            viewportPlayhead.volume = 100;
+        }
+    }
+
+    onMutedChanged: {
+        if (muted) {
+            viewportPlayhead.volume = 0
+        } else {
+            viewportPlayhead.volume = 100;
+        }
     }
 
     XsPlayhead {
         id: viewportPlayhead
-        uuid: view.playheadUuid
+        uuid: the_viewport.playheadUuid
     }
 
     ColumnLayout {
 
         anchors.fill: parent
-        spacing: 2
+        spacing: 0
 
         Viewport {
-            id: view
+            id: the_viewport
             Layout.fillWidth: true
             Layout.fillHeight: true
             z: 100.0
@@ -62,11 +78,7 @@ Item {
                     Layout.fillHeight: true
                     imgSrc: viewportPlayhead.playing ? "qrc:/icons/pause.svg" : "qrc:/icons/play_arrow.svg"
                     onClicked: {
-                        if(!viewportPlayhead.playing) {
-                            viewportPlayhead.velocityMultiplier = 1.0
-                            viewportPlayhead.playingForwards = true
-                        }
-                        viewportPlayhead.playing = !viewportPlayhead.playing
+                        playToggle()
                     }
                 }
 
@@ -74,6 +86,18 @@ Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                 }
+
+                XsSecondaryButton { 
+
+                    Layout.preferredWidth: XsStyleSheet.widgetStdHeight
+                    Layout.fillHeight: true
+                    imgSrc: muted ? "qrc:/icons/volume_mute.svg" : "qrc:/icons/volume_up.svg"
+                    onClicked: {
+                        muted = !muted
+                    }
+                }
+
+
             }
         }
 

@@ -92,6 +92,7 @@ class ShotBrowserResultModel : public JSONTreeModel {
         productionStatusFullRole,
         projectIdRole,
         projectRole,
+        // refTagRole,
         resultRowRole,
         sequenceRole,
         shotRole,
@@ -213,6 +214,7 @@ class ShotBrowserResultFilterModel : public QSortFilterProxyModel {
     Q_PROPERTY(QString filterPipeStep READ filterPipeStep WRITE setFilterPipeStep NOTIFY
                    filterPipeStepChanged)
     Q_PROPERTY(QString filterName READ filterName WRITE setFilterName NOTIFY filterNameChanged)
+    Q_PROPERTY(QString filterLink READ filterLink WRITE setFilterLink NOTIFY filterLinkChanged)
 
     QML_NAMED_ELEMENT("ShotBrowserResultFilterModel")
 
@@ -263,6 +265,14 @@ class ShotBrowserResultFilterModel : public QSortFilterProxyModel {
 
     [[nodiscard]] QString filterPipeStep() const { return filterPipeStep_; }
     [[nodiscard]] QString filterName() const { return filterName_; }
+    [[nodiscard]] QString filterLink() const {
+        auto result = QString("All");
+        if (filterUnlinked_)
+            result = "Unlinked";
+        else if (filterLinked_)
+            result = "Linked";
+        return result;
+    }
 
     [[nodiscard]] int length() const { return rowCount(); }
 
@@ -280,6 +290,7 @@ class ShotBrowserResultFilterModel : public QSortFilterProxyModel {
 
     void setFilterPipeStep(const QString &value);
     void setFilterName(const QString &value);
+    void setFilterLink(const QString &value);
 
   signals:
     void sortByChanged();
@@ -294,6 +305,7 @@ class ShotBrowserResultFilterModel : public QSortFilterProxyModel {
 
     void filterPipeStepChanged();
     void filterNameChanged();
+    void filterLinkChanged();
 
     void lengthChanged();
 
@@ -312,6 +324,9 @@ class ShotBrowserResultFilterModel : public QSortFilterProxyModel {
     bool filterMum_{false};
     // bool filterVan_{false};
     bool filterSyd_{false};
+
+    bool filterUnlinked_{false};
+    bool filterLinked_{false};
 
     QString filterPipeStep_{};
     QString filterName_{};

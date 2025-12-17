@@ -101,9 +101,10 @@ Imath::M44f matrix_from_corners(const float *in) {
 }
 
 std::string make_viewport_name(const bool quickview) {
-    static int idx = 0;
+    static int idx       = 0;
     static int quick_idx = 0;
-    return quickview ? fmt::format("quickview_viewport{0}", quick_idx++) : fmt::format("viewport{0}", idx++);
+    return quickview ? fmt::format("quickview_viewport{0}", quick_idx++)
+                     : fmt::format("viewport{0}", idx++);
 }
 
 } // namespace
@@ -132,26 +133,100 @@ Viewport::Viewport(
         window_id_     = window_id_ + fmt::format("{}", idx++);
     }
 
+    std::cerr << "New viewport " << name() << "\n";
+
+    // Viewport Controls
     // TODO: set these up via Json prefs coming in from framework
     // so pointer controls are user configurable
-    static const Signature zoom_pointer_event_sig{
-        EventType::Drag, Signature::Button::Middle, Signature::Modifier::ControlModifier};
-    static const Signature pan_pointer_event_sig{
-        EventType::Drag, Signature::Button::Middle, Signature::Modifier::NoModifier};
-    static const Signature wheel_zoom_pointer_event_sig{
-        EventType::MouseWheel, Signature::Button::None, Signature::Modifier::NoModifier};
-    static const Signature reset_zoom_pointer_event_sig{
+    //
+    // Zoom Control
+    //
+
+    // Mouse
+    static const Signature mouse_zoom_pointer_event_sig{
+        EventType::Drag,
+        Signature::Button::Middle,
+        Signature::Modifier::ControlModifier,
+        Signature::InputType::Mouse,
+        Signature::PointerType::Generic};
+
+    static const Signature wheel_mouse_zoom_pointer_event_sig{
+        EventType::MouseWheel,
+        Signature::Button::None,
+        Signature::Modifier::NoModifier,
+        Signature::InputType::Mouse,
+        Signature::PointerType::Generic};
+
+    static const Signature force_mouse_zoom_pointer_event_sig{
+        EventType::Drag,
+        Signature::Button::Left,
+        Signature::Modifier::ZoomActionModifier,
+        Signature::InputType::Mouse,
+        Signature::PointerType::Generic};
+
+    static const Signature reset_mouse_zoom_pointer_event_sig{
         EventType::DoubleClick,
         Signature::Button::Left,
-        Signature::Modifier::ZoomActionModifier};
-    static const Signature reset_pan_pointer_event_sig{
+        Signature::Modifier::ZoomActionModifier,
+        Signature::InputType::Mouse,
+        Signature::PointerType::Generic};
+
+    // Stylus
+    static const Signature stylus_zoom_pointer_event_sig{
+        EventType::Drag,
+        Signature::Button::Middle,
+        Signature::Modifier::ControlModifier,
+        Signature::InputType::Stylus,
+        Signature::PointerType::Pen};
+
+    static const Signature force_stylus_zoom_pointer_event_sig{
+        EventType::Drag,
+        Signature::Button::Left,
+        Signature::Modifier::ZoomActionModifier,
+        Signature::InputType::Stylus,
+        Signature::PointerType::Pen};
+
+    //
+    // Panning Control
+    //
+
+    // Mouse
+    static const Signature mouse_pan_pointer_event_sig{
+        EventType::Drag,
+        Signature::Button::Middle,
+        Signature::Modifier::NoModifier,
+        Signature::InputType::Mouse,
+        Signature::PointerType::Generic};
+
+    static const Signature force_mouse_pan_pointer_event_sig{
+        EventType::Drag,
+        Signature::Button::Left,
+        Signature::Modifier::PanActionModifier,
+        Signature::InputType::Mouse,
+        Signature::PointerType::Generic};
+
+    static const Signature reset_mouse_pan_pointer_event_sig{
         EventType::DoubleClick,
         Signature::Button::Left,
-        Signature::Modifier::PanActionModifier};
-    static const Signature force_zoom_pointer_event_sig{
-        EventType::Drag, Signature::Button::Left, Signature::Modifier::ZoomActionModifier};
-    static const Signature force_pan_pointer_event_sig{
-        EventType::Drag, Signature::Button::Left, Signature::Modifier::PanActionModifier};
+        Signature::Modifier::PanActionModifier,
+        Signature::InputType::Mouse,
+        Signature::PointerType::Generic};
+
+    // Stylus
+    static const Signature stylus_pan_pointer_event_sig{
+        EventType::Drag,
+        Signature::Button::Middle,
+        Signature::Modifier::NoModifier,
+        Signature::InputType::Stylus,
+        Signature::PointerType::Pen};
+
+    static const Signature force_stylus_pan_pointer_event_sig{
+        EventType::Drag,
+        Signature::Button::Left,
+        Signature::Modifier::PanActionModifier,
+        Signature::InputType::Stylus,
+        Signature::PointerType::Pen};
+
 
     static const xstudio::utility::JsonStore default_settings = nlohmann::json(
         {{"bg_colour", {0.18f, 0.18f, 0.18f}},
@@ -172,23 +247,7 @@ Viewport::Viewport(
         deserialise(r);
     }
 
-    pointer_event_handlers_[pan_pointer_event_sig] =
-        [=](const PointerEvent & /*pointer_event*/) {
-            const Imath::V4f delta_trans =
-                interact_start_state_.pointer_position_ -
-                normalised_pointer_position() * interact_start_projection_matrix_;
-            state_.translate_.x =
-                (state_.mirror_mode_ & MirrorMode::Flip ? -delta_trans.x : delta_trans.x) +
-                interact_start_state_.translate_.x;
-            state_.translate_.y =
-                (state_.mirror_mode_ & MirrorMode::Flop ? -delta_trans.y : delta_trans.y) +
-                interact_start_state_.translate_.y;
-            set_fit_mode(FitMode::Free, false);
-            update_matrix();
-            return true;
-        };
-
-    pointer_event_handlers_[zoom_pointer_event_sig] =
+    pointer_event_handlers_[mouse_zoom_pointer_event_sig] =
         [=](const PointerEvent & /*pointer_event*/) {
             const Imath::V4f delta_trans =
                 interact_start_state_.pointer_position_ -
@@ -212,7 +271,7 @@ Viewport::Viewport(
             return true;
         };
 
-    pointer_event_handlers_[wheel_zoom_pointer_event_sig] =
+    pointer_event_handlers_[wheel_mouse_zoom_pointer_event_sig] =
         [=](const PointerEvent &pointer_event) {
             if (mouse_wheel_behaviour_->value() != "Zoom Viewer")
                 return false;
@@ -221,7 +280,7 @@ Viewport::Viewport(
                 state_.scale_ *
                 powf(
                     2.0f,
-                    float(pointer_event.angle_delta().second) *
+                    float(pointer_event.wheel_delta().second) *
                         settings_["pointer_wheel_senistivity"].get<float>() /
                         1000.0f); // basic pointer wheel causes an angle delta of 120 degrees.
             set_fit_mode(FitMode::Free, false);
@@ -234,22 +293,49 @@ Viewport::Viewport(
             return true;
         };
 
-    pointer_event_handlers_[reset_zoom_pointer_event_sig] =
+    pointer_event_handlers_[reset_mouse_zoom_pointer_event_sig] =
         [=](const PointerEvent & /*pointer_event*/) {
             revert_fit_zoom_to_previous();
             return true;
         };
 
-    pointer_event_handlers_[reset_pan_pointer_event_sig] =
+    pointer_event_handlers_[mouse_pan_pointer_event_sig] =
+        [=](const PointerEvent & /*pointer_event*/) {
+            const Imath::V4f delta_trans =
+                interact_start_state_.pointer_position_ -
+                normalised_pointer_position() * interact_start_projection_matrix_;
+            state_.translate_.x =
+                (state_.mirror_mode_ & MirrorMode::Flip ? -delta_trans.x : delta_trans.x) +
+                interact_start_state_.translate_.x;
+            state_.translate_.y =
+                (state_.mirror_mode_ & MirrorMode::Flop ? -delta_trans.y : delta_trans.y) +
+                interact_start_state_.translate_.y;
+            set_fit_mode(FitMode::Free, false);
+            update_matrix();
+            return true;
+        };
+
+    pointer_event_handlers_[reset_mouse_pan_pointer_event_sig] =
         [=](const PointerEvent & /*pointer_event*/) {
             revert_fit_zoom_to_previous();
             return true;
         };
 
-    pointer_event_handlers_[force_zoom_pointer_event_sig] =
-        pointer_event_handlers_[zoom_pointer_event_sig];
-    pointer_event_handlers_[force_pan_pointer_event_sig] =
-        pointer_event_handlers_[pan_pointer_event_sig];
+    pointer_event_handlers_[force_mouse_zoom_pointer_event_sig] =
+        pointer_event_handlers_[mouse_zoom_pointer_event_sig];
+
+    pointer_event_handlers_[stylus_zoom_pointer_event_sig] =
+        pointer_event_handlers_[mouse_zoom_pointer_event_sig];
+    pointer_event_handlers_[force_stylus_zoom_pointer_event_sig] =
+        pointer_event_handlers_[stylus_zoom_pointer_event_sig];
+
+    pointer_event_handlers_[force_mouse_pan_pointer_event_sig] =
+        pointer_event_handlers_[mouse_pan_pointer_event_sig];
+
+    pointer_event_handlers_[stylus_pan_pointer_event_sig] =
+        pointer_event_handlers_[mouse_pan_pointer_event_sig];
+    pointer_event_handlers_[force_stylus_pan_pointer_event_sig] =
+        pointer_event_handlers_[stylus_pan_pointer_event_sig];
 
     zoom_mode_toggle_ = add_boolean_attribute("Zoom", "Zm", false);
 
@@ -642,8 +728,8 @@ bool Viewport::process_pointer_event(PointerEvent &pointer_event) {
         rt_val = true;
     }
 
-    if (pointer_event.type() == EventType::ButtonDown) // pointer button down
-    {
+    if (pointer_event.type() == EventType::ButtonDown) { // pointer button down
+
         interact_start_state_                 = state_;
         interact_start_projection_matrix_     = projection_matrix_;
         interact_start_inv_projection_matrix_ = inv_projection_matrix_;
@@ -652,6 +738,7 @@ bool Viewport::process_pointer_event(PointerEvent &pointer_event) {
 
             pointer_select_media(pointer_event);
         }
+
     } else if (hover_image_select_ && pointer_event.type() == EventType::Move) {
 
         pointer_select_media(pointer_event);
@@ -914,6 +1001,11 @@ void Viewport::update_matrix() {
     projection_matrix_.scale(Imath::V3f(1.0f, -1.0f, 1.0f));
 
     calc_image_bounds_in_viewport_pixels();
+
+    // broadcast the projection matrix to the global playhead actor
+    anon_mail(viewport_atom_v, media::transform_matrix_atom_v, name(), projection_matrix_)
+            .send(global_playhead_events_group_);
+
 }
 
 void Viewport::calc_image_bounds_in_viewport_pixels() {
@@ -1485,34 +1577,8 @@ void Viewport::attribute_changed(const utility::Uuid &attr_uuid, const int role)
         if (user_fps == "")
             return;
 
-        caf::actor media_source =
-            caf::actor_cast<caf::actor>(on_screen_hero_frame_.frame_id().media_source_addr());
+        override_onscreen_media_fps(user_fps);
 
-        if (media_source) {
-            try {
-                scoped_actor sys{self()->home_system()};
-                if (user_fps == "reset") {
-                    // this will reset the media rate
-                    anon_mail(utility::rate_atom_v, true).send(media_source);
-                } else {
-                    float v = std::atof(user_fps.c_str());
-                    if (v) {
-                        // this is how we override media frame rate
-                        auto mr = request_receive<MediaReference>(
-                            *sys, media_source, media::media_reference_atom_v);
-                        mr.set_rate(utility::FrameRate(1.0f / v));
-                        anon_mail(media::media_reference_atom_v, mr).send(media_source);
-                    }
-                }
-                // we need to blank 'userdata' so that next time the user sets FPS, if
-                // it's the same as the last time they set it, then we still get a
-                // change notficiation
-                fps_->set_role_data(module::Attribute::UserData, "");
-
-            } catch (std::exception &e) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-            }
-        }
     }
 }
 
@@ -1823,7 +1889,11 @@ void Viewport::instance_overlay_plugins() {
                     *sys, overlay_actor, overlay_render_function_atom_v, name());
 
                 if (overlay_renderer) {
-                    viewport_overlay_renderers_[pd.uuid_] = overlay_renderer;
+                    viewport_overlay_renderers_.push_back(overlay_renderer);
+                    std::sort(viewport_overlay_renderers_.begin(), viewport_overlay_renderers_.end(),
+                        [](const auto &a, const auto &b) -> bool {
+                            return a->stack_order() < b->stack_order();
+                        });
                 }
 
                 auto pre_render_hook = request_receive<plugin::GPUPreDrawHookPtr>(
@@ -1864,7 +1934,11 @@ void Viewport::instance_overlay_plugins() {
                     *sys, overlay_actor, overlay_render_function_atom_v, name());
 
                 if (overlay_renderer) {
-                    viewport_overlay_renderers_[pd.uuid_] = overlay_renderer;
+                    viewport_overlay_renderers_.push_back(overlay_renderer);
+                    std::sort(viewport_overlay_renderers_.begin(), viewport_overlay_renderers_.end(),
+                        [](const auto &a, const auto &b) -> bool {
+                            return a->stack_order() < b->stack_order();
+                        });
                 }
 
                 auto pre_render_hook = request_receive<plugin::GPUPreDrawHookPtr>(
@@ -1938,19 +2012,14 @@ void Viewport::get_colour_pipeline() {
     }
 }
 
-void Viewport::set_screen_infos(
-    const std::string &name,
-    const std::string &model,
-    const std::string &manufacturer,
-    const std::string &serialNumber,
-    const double refresh_rate) {
+void Viewport::set_screen_infos(const ScreenInfo &screen_info) {
 
     anon_mail(
-        /*utility::event_atom_v,*/ xstudio::ui::viewport::screen_info_atom_v,
-        name,
-        model,
-        manufacturer,
-        serialNumber)
+        xstudio::ui::viewport::screen_info_atom_v,
+        screen_info.name,
+        screen_info.model,
+        screen_info.manufacturer,
+        screen_info.serial_number)
         .send(colour_pipeline_);
 
     // N.B. The screen refresh rate would be stored here, and passed on to
@@ -1966,7 +2035,8 @@ void Viewport::set_screen_infos(
 
 #ifdef __apple__
     // On modern Apple hardware the refresh rate is accurate.
-    screen_refresh_period_ = timebase::to_flicks(1.0 / refresh_rate);
+    if (screen_info.refresh_rate)
+        screen_refresh_period_ = timebase::to_flicks(1.0 / screen_info.refresh_rate);
 #endif
 }
 
@@ -2245,4 +2315,55 @@ void Viewport::custom_cursor(
         j["y_offset"] = y_offset;
     }
     custom_cursor_name_->set_value(j);
+}
+
+void Viewport::override_onscreen_media_fps(const std::string user_fps) {
+
+    caf::actor media_source =
+        caf::actor_cast<caf::actor>(on_screen_hero_frame_.frame_id().media_source_addr());
+
+    auto set_media_source_rate = [=](caf::actor media_source, const std::string user_fps) {
+
+        scoped_actor sys{self()->home_system()};
+        if (user_fps == "reset") {
+            // this will reset the media rate
+            anon_mail(utility::rate_atom_v, true).send(media_source);
+        } else {
+            float v = std::atof(user_fps.c_str());
+            if (v) {
+                // this is how we override media frame rate
+                auto mr = request_receive<MediaReference>(
+                    *sys, media_source, media::media_reference_atom_v);
+                mr.set_rate(utility::FrameRate(1.0f / v));
+                anon_mail(media::media_reference_atom_v, mr).send(media_source);                        
+            }
+        }
+
+    };
+
+    if (media_source) {
+        try {
+
+            set_media_source_rate(media_source, user_fps);
+
+            caf::actor media =
+                caf::actor_cast<caf::actor>(on_screen_hero_frame_.frame_id().media_addr());
+            if (media) {
+                scoped_actor sys{self()->home_system()};
+                    auto audio_source = request_receive<utility::UuidActor>(
+                    *sys, media, media::current_media_source_atom_v, media::MT_AUDIO).actor();
+                if (audio_source && audio_source != media_source) {
+                    set_media_source_rate(audio_source, user_fps);
+                }
+            }
+
+            // we need to blank 'userdata' so that next time the user sets FPS, if
+            // it's the same as the last time they set it, then we still get a
+            // change notficiation
+            fps_->set_role_data(module::Attribute::UserData, "");
+
+        } catch (std::exception &e) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+        }
+    }
 }

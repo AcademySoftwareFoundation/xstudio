@@ -15,6 +15,15 @@ This is the documentation for xStudio builtin OpenColorIO plugin.
       // __curent__ will use OCIO::GetCurrentConfig()
       // __raw__ will use OCIO::Config::Create()
       "ocio_config": "__current__",
+      // List of available OCIO config versions, these config should be
+      // compatible with each other, with newer configs using more accurate
+      // transforms or new attributes. Only useful if your pipeline generates
+      // multiple OCIO config versions.
+      ocio_config_versions": {
+        "2.1": "/path/to/config_v2.1.ocio",
+        "2.0": "/path/to/config_v2.0.ocio",
+        "1.0": "/path/to/config_v1.0.ocio"
+      },
       // Dict containing OCIO context key / value
       "ocio_context": {
         "SHOT" : "myshot",
@@ -50,4 +59,7 @@ This is the documentation for xStudio builtin OpenColorIO plugin.
       },
       // Two modes are available for CDL replacement (config and processor)
       "dynamic_cdl_mode": "config",
+      // Display referred optional workflow to avoid LUT inversion
+      "untonemapped_colorspace": "disp_Rec709-G24",
+      "untonemapped_view": "Un-tone-mapped",
     }

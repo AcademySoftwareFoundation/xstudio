@@ -57,6 +57,7 @@ SessionModel::SessionModel(QObject *parent) : super(parent) {
          {"propertyRole"},
          {"rateFPSRole"},
          {"resolutionRole"},
+         {"rotationRole"},
          {"selectionRole"},
          {"thumbnailImageRole"},
          {"thumbnailURLRole"},
@@ -526,6 +527,21 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                             role);
                     } else {
                         result = QVariant::fromValue(j.at("pixel_aspect").get<double>());
+                    }
+                }
+                break;
+
+            case Roles::rotationRole:
+                if (j.count("rotation")) {
+                    if (j.at("rotation").is_null()) {
+                        requestData(
+                            QVariant::fromValue(QUuidFromUuid(j.at("actor_uuid"))),
+                            actorUuidRole,
+                            getPlaylistIndex(index),
+                            index,
+                            role);
+                    } else {
+                        result = QVariant::fromValue(j.at("rotation").get<double>());
                     }
                 }
                 break;
@@ -1317,6 +1333,20 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                 if (image_source_actor) {
                     anon_mail(media::pixel_aspect_atom_v, value.get<double>())
                         .send(image_source_actor);
+                }
+            }
+
+            case rotationRole: {
+                if (type == "Media") {
+                    if (index.isValid()) {
+                        nlohmann::json &j = indexToData(index);
+                        auto actor        = j.count("actor") and not j.at("actor").is_null()
+                                                ? actorFromString(system(), j.at("actor"))
+                                                : caf::actor();
+                        if (actor) {
+                            anon_mail(media::rotation_atom_v, value.get<float>()).send(actor);
+                        }
+                    }
                 }
             }
 

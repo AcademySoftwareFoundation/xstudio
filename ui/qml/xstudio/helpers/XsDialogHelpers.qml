@@ -93,7 +93,7 @@ Item {
                 file_dlg_loader.sourceComponent = undefined
             }
             onRejected: {
-                resultSignal(undefined, chaser)
+                resultSignal(false, chaser)
                 // unload (important!)
                 file_dlg_loader.sourceComponent = undefined
             }
@@ -124,12 +124,14 @@ Item {
     function showFolderDialog(
         resultCallback,
         folder,
-        title) {
+        title,
+        acceptLabel="") {
 
         file_dlg_loader.sourceComponent = folderDialog
         file_dlg_loader.item.resultSignal.connect(resultCallback)
         file_dlg_loader.item.currentFolder = folder
         file_dlg_loader.item.title = title
+        file_dlg_loader.item.acceptLabel = acceptLabel
         file_dlg_loader.item.open()
     }
 
@@ -303,6 +305,171 @@ Item {
         loader.item.body = body
         loader.item.choices = choices
         loader.item.chaser = chaserFunc
+        showDialog(callback)
+    }
+
+
+    /**************************************************************
+
+    xSTUDIO ContactSheet Dialog Box
+
+    ****************************************************************/
+
+    Component {
+
+        id: contactSheet
+
+        XsWindow {
+            id: popup
+
+            title: ""
+            property string body: ""
+            property string initialText: ""
+            property string initialCount: ""
+            property var choices: []
+            width: 400
+            height: 200
+            signal response(variant text, variant count, variant button_press)
+            property var chaser
+
+            onVisibleChanged: {
+                if (!visible) {
+                    loader.sourceComponent = undefined
+                }
+            }
+
+            ColumnLayout {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                anchors.top: parent.top
+                anchors.margins: 20
+                spacing: 20
+
+                GridLayout {
+                    columns: 2
+
+                    XsText {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 30
+                        Layout.fillHeight: true
+                        text: body
+                        verticalAlignment: Text.AlignVCenter
+                        horizontalAlignment: Text.AlignHCenter
+                        wrapMode: Text.Wrap
+                        font.weight: Font.Bold
+                        font.pixelSize: XsStyleSheet.fontSize*1.2
+                    }
+
+                    XsText {
+                        id:chunk_label
+                        Layout.fillWidth: false
+                        Layout.preferredHeight: 30
+                        Layout.fillHeight: true
+                        text: "Cells"
+                        verticalAlignment: Text.AlignVCenter
+                        horizontalAlignment: Text.AlignHCenter
+                        wrapMode: Text.Wrap
+                        font.weight: Font.Bold
+                        font.pixelSize: XsStyleSheet.fontSize*1.2
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 30
+                        Layout.fillHeight: false
+                        color: "transparent"
+                        border.color: "black"
+
+                        Keys.onReturnPressed:{
+                            popup.response(input.text, maxCount.text, popup.choices[popup.choices.length-1])
+                            popup.visible = false
+                        }
+                        Keys.onEscapePressed: {
+                            popup.response(input.text, maxCount.text, popup.choices[0])
+                            popup.visible = false
+                        }
+
+                        XsTextField{ id: input
+                            anchors.fill: parent
+                            text: initialText
+                            wrapMode: Text.Wrap
+                            clip: true
+                            focus: true
+                            onActiveFocusChanged:{
+                                if(activeFocus) selectAll()
+                            }
+
+                            background: Rectangle{
+                                color: input.activeFocus? Qt.darker(palette.highlight, 1.5): input.hovered? Qt.lighter(palette.base, 2):Qt.lighter(palette.base, 1.5)
+                                border.width: input.hovered || input.active? 1:0
+                                border.color: palette.highlight
+                                opacity: enabled? 0.7 : 0.3
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: false
+                        Layout.preferredWidth: chunk_label.width
+                        Layout.preferredHeight: 30
+                        Layout.fillHeight: false
+                        color: "transparent"
+                        border.color: "black"
+
+                        XsTextField{ id: maxCount
+                            anchors.fill: parent
+                            text: initialCount
+                            wrapMode: Text.Wrap
+                            clip: true
+                            onActiveFocusChanged:{
+                                if(activeFocus) selectAll()
+                            }
+
+                            background: Rectangle{
+                                color: maxCount.activeFocus? Qt.darker(palette.highlight, 1.5): maxCount.hovered? Qt.lighter(palette.base, 2):Qt.lighter(palette.base, 1.5)
+                                border.width: maxCount.hovered || maxCount.active? 1:0
+                                border.color: palette.highlight
+                                opacity: enabled? 0.7 : 0.3
+                            }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.alignment: Qt.AlignRight
+                    Repeater {
+                        model: popup.choices
+
+                        XsSimpleButton {
+                            text: popup.choices[index]
+                            //width: XsStyleSheet.primaryButtonStdWidth*2
+                            Layout.alignment: Qt.AlignRight
+                            onClicked: {
+                                popup.response(input.text, maxCount.text, popup.choices[index])
+                                popup.visible = false
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    function contactSheetDialog(
+        callback,
+        title,
+        body,
+        initialText,
+        initialCount,
+        choices)
+    {
+        loader.sourceComponent = contactSheet
+        loader.item.title = title
+        loader.item.body = body
+        loader.item.initialText = initialText
+        loader.item.initialCount = initialCount
+        loader.item.choices = choices
         showDialog(callback)
     }
 

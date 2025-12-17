@@ -21,6 +21,7 @@ XsHotkeyArea {
     property alias select_all_hotkey: select_all_hotkey
     property alias deselect_all_hotkey: deselect_all_hotkey
     property alias reload_selected_media_hotkey: reload_selected_media_hotkey
+    property alias cycle_colour_hotkey: cycle_colour_hotkey
 
     XsHotkey {
         id: select_all_hotkey
@@ -33,6 +34,17 @@ XsHotkeyArea {
             selectAll()
         }
     }
+
+    XsHotkey {
+        id: cycle_colour_hotkey
+        context: "" + parent
+        sequence:  "SHIFT+C"
+        name: "Cycle Media Colour"
+        description: "Cycle Selected Media Colour"
+        onActivated: cycleColour(mediaSelectionModel.selectedIndexes)
+        componentName: "Media List"
+    }
+
     XsHotkey {
         id: deselect_all_hotkey
         sequence: "Ctrl+D"

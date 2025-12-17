@@ -28,11 +28,21 @@ const char *vertex_shader = R"(
     uniform float hscale;
     uniform float vscale;
     uniform float v_pos;
+    uniform float du_dx;
+    uniform float horiz_scale;
     uniform int offset;
+    uniform int red_line;
+   // uniform int x_nudge;
+    //uniform int y_nudge;
+    flat out int inside_current_frame;
 
     void main()
     {
+        float uvv = float(gl_VertexID-offset)*hscale*horiz_scale*0.5 - (horiz_scale-1.0)/2.0f;
+        inside_current_frame = int(uvv > 0.0 && uvv < 1.0);
         vec4 rpos = vec4(-1.0 + float(gl_VertexID-offset)*hscale, v_pos+ypos*vscale*10.0, vec2(0.0, 1.0));
+        //rpos.x += (-0.5f + (x_nudge + 0.5f) / 4.0f)*du_dx*2.0;
+        //rpos.y += (-0.5f + (y_nudge + 0.5f) / 4.0f)*du_dx*2.0;
         gl_Position = rpos*to_canvas;
     }
     )";
@@ -41,10 +51,13 @@ const char *frag_shader = R"(
     #version 330 core
     out vec4 FragColor;
     uniform vec3 line_colour;
+    uniform vec3 extra_line_colour;
+    
+    flat in int inside_current_frame;
 
     void main(void)
     {
-        FragColor = vec4(line_colour, 1.0);
+        FragColor = vec4(inside_current_frame==1 ? line_colour : extra_line_colour, 1.0);
     }
 
     )";
@@ -62,8 +75,7 @@ void AudioWaveformOverlayRenderer::render_image_overlay(
     const Imath::M44f &transform_viewport_to_image_space,
     const float viewport_du_dpixel,
     const float device_pixel_ratio,
-    const xstudio::media_reader::ImageBufPtr &frame,
-    const bool have_alpha_buffer) {
+    const xstudio::media_reader::ImageBufPtr &frame) {
 
     if (!shader_)
         init_overlay_opengl();
@@ -97,17 +109,40 @@ void AudioWaveformOverlayRenderer::render_image_overlay(
     shader_params["hscale"]      = 2.0f / float(n_samps);
     shader_params["vscale"]      = data->vscale * device_pixel_ratio;
     shader_params["line_colour"] = data->line_colour;
+    shader_params["extra_line_colour"] = data->extra_line_colour;
+    shader_params["du_dx"] = viewport_du_dpixel;
+    shader_params["horiz_scale"] = data->horizontal_scale;
     shader_->set_shader_parameters(shader_params);
     shader_->use();
     glEnableVertexAttribArray(0);
+    glDisable(GL_BLEND);
+    utility::JsonStore es;
 
     for (int c = 0; c < data->num_chans; ++c) {
-        utility::JsonStore es;
+
+        glLineWidth(1.0f);
         es["v_pos"]  = data->v_pos + data->chan_spacing * c;
         es["offset"] = c * n_samps;
+        es["red_line"] = 0;
         shader_->set_shader_parameters(es);
-        // the actual draw!
+
+        // the actual draw! (dodgy anti-aliasing commented out)
+        /*for (int x_nudge = 0; x_nudge < 4; x_nudge++) {
+            v["x_nudge"] = x_nudge;
+            for (int y_nudge = 0; y_nudge < 4; y_nudge++) {
+                v["y_nudge"] = y_nudge;
+                shader_->set_shader_parameters(v);
+                glDrawArrays(GL_LINE_STRIP, c * n_samps, n_samps);
+            }
+        }*/
         glDrawArrays(GL_LINE_STRIP, c * n_samps, n_samps);
+
+        es["line_colour"] = utility::ColourTriplet(1.0, 0.0, 0.0);
+        es["red_line"] = 1;
+        shader_->set_shader_parameters(es);
+        glLineWidth(3.0f);
+        glDrawArrays(GL_LINE_STRIP, 0, 2);
+
     }
     shader_->stop_using();
     glDisableVertexAttribArray(0);
@@ -127,16 +162,17 @@ AudioWaveformOverlay::AudioWaveformOverlay(
     caf::actor_config &cfg, const utility::JsonStore &init_settings)
     : plugin::HUDPluginBase(cfg, "Audio Waveform", init_settings, 0.0f) {
 
+    add_hud_description("This overlay draws the sound waveform corresponding to the current on-screen frame. You can see more or less of the audio waveform by varying the 'Horizontal Scale' value. If 'Horizontal Scale' is set to 1.0 you will see the waveform corresponding exactly to the sound you hear when frame scrubbing / stepping (if you have audio scrubbing enabled in your preferences). The red line indicates the central point of the audio wave for the current frame. The audio samples that fall outside of the audio scrub window (i.e. the samples you won't hear for this frame) are drawn with a faded line.");
+
+    horizontal_scale_ =
+        add_float_attribute("Horizontal Scale", "Horizontal Scale", 1.0f, 1.0f, 5.0f, 0.1f);
+    add_hud_settings_attribute(horizontal_scale_);
+    horizontal_scale_->set_tool_tip("Sets the horizontal scaling of the waveform - the unit "
+                                    "corresponds to the number of frames of audio shown on the screen.");
     vertical_scale_ =
         add_float_attribute("Vertical Scale", "Vertical Scale", 0.1f, 0.01f, 1.0f, 0.01f);
     add_hud_settings_attribute(vertical_scale_);
     vertical_scale_->set_tool_tip("Sets the vertical scaling of the waveform");
-
-    horizontal_scale_ =
-        add_float_attribute("Horizontal Scale", "Horizontal Scale", 50.0f, 10.0f, 100.0f, 1.0f);
-    add_hud_settings_attribute(horizontal_scale_);
-    horizontal_scale_->set_tool_tip("Sets the horizontal scaling of the waveform - the units "
-                                    "are milliseconds of audio shown on the screen");
 
     chan_position_spacing_ = add_float_attribute(
         "Chan Position Spacing", "Chan Position Spacing", 0.05f, 0.0f, 1.0f, 0.01f);
@@ -154,17 +190,23 @@ AudioWaveformOverlay::AudioWaveformOverlay(
     separate_channels_->set_tool_tip(
         "Shows the waveforms of each channel, or combine channels if not selected.");
 
-    line_colour_ = add_colour_attribute(
-        "Line Colour", "Line Colour", utility::ColourTriplet(1.0f, 1.0f, 0.0f));
-    add_hud_settings_attribute(line_colour_);
-    line_colour_->set_tool_tip("The colour of the waveform line");
+    in_frame_waveform_colour_ = add_colour_attribute(
+        "Inside Frame Colour", "In Frame Colour", utility::ColourTriplet(1.0f, 1.0f, 0.0f));
+    add_hud_settings_attribute(in_frame_waveform_colour_);
+    in_frame_waveform_colour_->set_tool_tip("The colour of the waveform line");
+
+    outside_frame_waveform_colour_ = add_colour_attribute(
+        "Outside Frame Colour", "Outside Frame Colour", utility::ColourTriplet(0.4f, 0.4f, 1.0f));
+    add_hud_settings_attribute(outside_frame_waveform_colour_);
+    outside_frame_waveform_colour_->set_tool_tip("The colour of the waveform line");
 
     // Registering preference path allows these values to persist between sessions
     vertical_scale_->set_preference_path("/plugin/audio_waveform/vertical_scale");
-    horizontal_scale_->set_preference_path("/plugin/audio_waveform/horizontal_scale");
+    horizontal_scale_->set_preference_path("/plugin/audio_waveform/horizontal_scale_frames");
     chan_position_spacing_->set_preference_path("/plugin/audio_waveform/chan_position_spacing");
     vertical_position_->set_preference_path("/plugin/audio_waveform/vertical_position");
-    line_colour_->set_preference_path("/plugin/audio_waveform/line_colour");
+    in_frame_waveform_colour_->set_preference_path("/plugin/audio_waveform/line_colour");
+    outside_frame_waveform_colour_->set_preference_path("/plugin/audio_waveform/extra_line_colour");
 
     // get the global audio output actor and join its event group. This means we
     // receive the broadcasted Audiobuffers
@@ -172,22 +214,35 @@ AudioWaveformOverlay::AudioWaveformOverlay(
         system().registry().template get<caf::actor>(audio_output_registry);
     utility::join_event_group(this, global_audio_actor);
 
+    // this kicks the global_audio_actor to send us the scrub settings (first
+    // message handler below)
+    anon_mail(module::change_attribute_event_atom_v, caf::actor_cast<caf::actor>(this)).send(global_audio_actor);
+
     message_handler_ext_ = {
         [=](utility::event_atom,
             module::change_attribute_event_atom,
             const float volume,
             const bool muted,
             const bool repitch,
-            const bool scrubbing) {},
+            const bool scrubbing,
+            const std::string scrub_behaviour,
+            const int scrub_window_millisecs) {
+                scrub_helper_.set_behaviour(scrub_behaviour);
+                scrub_helper_.set_custom_duration_ms(scrub_window_millisecs);
+                redraw_viewport();
+            },
         [=](utility::event_atom,
             playhead::sound_audio_atom,
             const std::vector<media_reader::AudioBufPtr> &audio_buffers,
             const utility::Uuid &sub_playhead,
             const bool scrubbing,
-            const timebase::flicks) {},
+            const timebase::flicks,
+            const float playhead_vol) {},
         [=](utility::event_atom,
             playhead::position_atom,
             const timebase::flicks playhead_position,
+            const timebase::flicks in,
+            const timebase::flicks out,
             const bool forward,
             const float velocity,
             const bool playing,
@@ -195,6 +250,8 @@ AudioWaveformOverlay::AudioWaveformOverlay(
         [=](utility::event_atom,
             playhead::position_atom,
             const timebase::flicks playhead_position,
+            const timebase::flicks in,
+            const timebase::flicks out,
             const bool forward,
             const float velocity,
             const bool playing,
@@ -240,35 +297,37 @@ utility::BlindDataObjectPtr AudioWaveformOverlay::onscreen_render_data(
     // check our sample buffers to get sample rate & num channels
     int nc               = 0;
     uint64_t sample_rate = 0;
+    double aud_buf_duration = 0.0;
     for (const auto &aud_buf : latest_audio_buffers) {
 
         if (aud_buf && !sample_rate && !nc) {
             nc          = aud_buf->num_channels();
             sample_rate = aud_buf->sample_rate();
+            aud_buf_duration = aud_buf->duration_seconds();
         }
     }
 
     if (!sample_rate)
         return r;
 
-    float millisecs  = horizontal_scale_->value();
-    int samps_needed = int(round(millisecs * float(sample_rate) / 1000.0f));
+    // the number of samples we need depends on the audio scurbbing duration and horizontal_scale_
+    const auto window = scrub_helper_.scrub_duration(aud_buf_duration)*int(horizontal_scale_->value()*10000)/10000;
+
+    const int samps_needed = int(round(timebase::to_seconds(window) * double(sample_rate) ));
 
     std::vector<float> verts(samps_needed * (separate_channels_->value() ? nc : 1));
 
     // this gives us the ref timestamp for the start of the window of samples that
     // we will draw to the screen
     timebase::flicks tt =
-        image.timeline_timestamp() -
-        timebase::to_flicks((millisecs / 1000.0 - image.frame_id().rate().to_seconds()) * 0.5);
+        image.timeline_timestamp() - (window - image.frame_id().rate())/2;
 
     for (const auto &aud_buf : latest_audio_buffers) {
 
         if (aud_buf) {
             // reference timeline timestamp for first sample
-            timebase::flicks when_samples_play =
-                aud_buf.timeline_timestamp() + std::chrono::duration_cast<timebase::flicks>(
-                                                   aud_buf->time_delta_to_video_frame());
+            timebase::flicks when_samples_play = aud_buf.timeline_timestamp();
+
             const int nsamp = aud_buf->num_samples();
 
             if (separate_channels_->value()) {
@@ -323,7 +382,9 @@ utility::BlindDataObjectPtr AudioWaveformOverlay::onscreen_render_data(
         vertical_scale_->value(),
         chan_position_spacing_->value(),
         vertical_position_->value(),
-        line_colour_->value()));
+        in_frame_waveform_colour_->value(),
+        outside_frame_waveform_colour_->value(),
+        horizontal_scale_->value()));
 
     return r;
 }

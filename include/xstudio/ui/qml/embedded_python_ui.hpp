@@ -148,7 +148,7 @@ namespace ui {
             void pyEvalFile(const QUrl &path);
             void pyExec(const QString &str) const;
             QVariant pyEval(const QString &str);
-            QUuid createSession();
+            void createSession();
             bool sendInput(const QString &str);
             bool sendInterrupt();
             void reloadSnippets() const;

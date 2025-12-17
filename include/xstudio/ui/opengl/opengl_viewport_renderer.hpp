@@ -55,7 +55,7 @@ namespace ui {
                 const Imath::M44f &viewport_to_image_matrix,
                 const Imath::V2i &window_size,
                 const float device_pixel_ratio,
-                const std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr>
+                const std::vector<plugin::ViewportOverlayRendererPtr>
                     &overlay_renderers) override;
 
             virtual void draw_image(
@@ -85,7 +85,7 @@ namespace ui {
                 const Imath::M44f &viewport_to_image_space,
                 const float viewport_du_dx,
                 const float device_pixel_ratio,
-                const std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr>
+                const std::vector<plugin::ViewportOverlayRendererPtr>
                     &overlay_renderers);
 
             void pre_init() override;

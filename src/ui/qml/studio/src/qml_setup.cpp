@@ -53,6 +53,7 @@ void xstudio::ui::qml::setup_xstudio_qml_emgine(QQmlEngine *engine, caf::actor_s
         "xstudio.qml.global_store_model", 1, 0, "XsPreferencesModel");
     qmlRegisterType<ModelProperty>("xstudio.qml.helpers", 1, 0, "XsModelProperty");
     qmlRegisterType<JSONTreeFilterModel>("xstudio.qml.helpers", 1, 0, "XsFilterModel");
+    qmlRegisterType<JSONTreeModel>("xstudio.qml.helpers", 1, 0, "XsJsonTreeModel");
     qmlRegisterType<TimeCode>("xstudio.qml.helpers", 1, 0, "XsTimeCode");
     qmlRegisterType<ModelRowCount>("xstudio.qml.helpers", 1, 0, "XsModelRowCount");
     qmlRegisterType<ModelPropertyMap>("xstudio.qml.helpers", 1, 0, "XsModelPropertyMap");

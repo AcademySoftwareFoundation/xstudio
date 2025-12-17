@@ -1,4 +1,5 @@
 SET(LINK_DEPS
+	xstudio::audio_output
 	xstudio::colour_pipeline
 	xstudio::global_store
 	xstudio::utility
