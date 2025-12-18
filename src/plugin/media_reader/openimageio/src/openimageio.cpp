@@ -612,7 +612,7 @@ void fill_rendered_image(
     const ImageType image_type,
     const std::map<char, int> &channel_indices,
     const OIIO::TypeDesc &rendered_format,
-    byte *buffer,
+    xstudio::media_reader::byte *buffer,
     size_t width,
     size_t height,
     int bytes_per_channel) {
