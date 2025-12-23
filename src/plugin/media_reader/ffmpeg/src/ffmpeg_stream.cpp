@@ -677,10 +677,10 @@ FFMpegStream::FFMpegStream(
             codec_context_->get_buffer2 = setup_video_buffer;
             using_own_frame_allocation  = true;
             if (!strcmp(codec_->name, "mjpeg")) {
-               is_mjpeg = true;
+                is_mjpeg = true;
             }
-        } 
-        codec_context_->opaque = this;        
+        }
+        codec_context_->opaque = this;
 
     } else if (codec_type_ == AVMEDIA_TYPE_AUDIO && codec_) {
         stream_type_ = AUDIO_STREAM;
@@ -704,19 +704,21 @@ FFMpegStream::FFMpegStream(
 
     } else {
 
-        // Set the fps if it has been set correctly in the stream       
+        // Set the fps if it has been set correctly in the stream
 
         // Note that neither r_frame_rate or avg_frame_rate seem to be completely reliable! And
-        // the best one to use also seems codec dependent. We've seen 48fps mjpeg encodings where
-        // r_frame_rate is correct and avg_frame_rate is not. We've seen other encodings where
-        // the reverse is true. Hence the ordering below:
+        // the best one to use also seems codec dependent. We've seen 48fps mjpeg encodings
+        // where r_frame_rate is correct and avg_frame_rate is not. We've seen other encodings
+        // where the reverse is true. Hence the ordering below:
 
-        if (is_mjpeg && avc_stream_->r_frame_rate.num != 0 && avc_stream_->r_frame_rate.den != 0) {
+        if (is_mjpeg && avc_stream_->r_frame_rate.num != 0 &&
+            avc_stream_->r_frame_rate.den != 0) {
             fpsNum_     = avc_stream_->r_frame_rate.num;
             fpsDen_     = avc_stream_->r_frame_rate.den;
             frame_rate_ = xstudio::utility::FrameRate(
                 static_cast<double>(fpsDen_) / static_cast<double>(fpsNum_));
-        } else if (avc_stream_->avg_frame_rate.num != 0 && avc_stream_->avg_frame_rate.den != 0) {
+        } else if (
+            avc_stream_->avg_frame_rate.num != 0 && avc_stream_->avg_frame_rate.den != 0) {
             fpsNum_     = avc_stream_->avg_frame_rate.num;
             fpsDen_     = avc_stream_->avg_frame_rate.den;
             frame_rate_ = xstudio::utility::FrameRate(
@@ -731,7 +733,6 @@ FFMpegStream::FFMpegStream(
             fpsDen_     = 0;
             frame_rate_ = xstudio::utility::FrameRate(timebase::k_flicks_24fps);
         }
-
     }
 }
 
@@ -894,8 +895,8 @@ size_t FFMpegStream::resample_audio(
             throw media_corrupt_error(errbuf.data());
         }
 
-        src_audio_fmt_ = (AVSampleFormat)ffmpeg_frame_->format;
-        src_audio_sample_rate_ = ffmpeg_frame_->sample_rate;
+        src_audio_fmt_            = (AVSampleFormat)ffmpeg_frame_->format;
+        src_audio_sample_rate_    = ffmpeg_frame_->sample_rate;
         src_audio_channel_layout_ = dec_channel_layout;
     }
 

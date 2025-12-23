@@ -203,17 +203,21 @@ class Notification {
     void update_expires() { expires_ = utility::sysclock::now() + expires_in_; }
 
     [[nodiscard]] std::string progress_text_percentage() const {
-        return std::string(fmt::format(
-            fmt::runtime(text_), std::string(fmt::format("{:>5.1f}%", progress_percentage()))));
+        return std::string(
+            fmt::format(
+                fmt::runtime(text_),
+                std::string(fmt::format("{:>5.1f}%", progress_percentage()))));
     }
 
     [[nodiscard]] std::string progress_text_range() const {
-        return std::string(fmt::format(
-            fmt::runtime(text_),
-            std::string(fmt::format(
-                "{}/{}",
-                progress_ - progress_minimum_,
-                progress_maximum_ - progress_minimum_))));
+        return std::string(
+            fmt::format(
+                fmt::runtime(text_),
+                std::string(
+                    fmt::format(
+                        "{}/{}",
+                        progress_ - progress_minimum_,
+                        progress_maximum_ - progress_minimum_))));
     }
 
 

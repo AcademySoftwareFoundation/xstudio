@@ -563,10 +563,11 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
 
             case Roles::mtimeRole:
                 if (j.count("mtime") and not j.at("mtime").is_null()) {
-                    result = QVariant::fromValue(QDateTime::fromMSecsSinceEpoch(
-                        std::chrono::duration_cast<std::chrono::milliseconds>(
-                            j.at("mtime").get<fs::file_time_type>().time_since_epoch())
-                            .count()));
+                    result = QVariant::fromValue(
+                        QDateTime::fromMSecsSinceEpoch(
+                            std::chrono::duration_cast<std::chrono::milliseconds>(
+                                j.at("mtime").get<fs::file_time_type>().time_since_epoch())
+                                .count()));
                 }
                 break;
 

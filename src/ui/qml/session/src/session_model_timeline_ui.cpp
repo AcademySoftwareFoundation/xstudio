@@ -1568,17 +1568,17 @@ bool SessionModel::moveTimelineItem(const QModelIndex &index, const int distance
             auto type       = StdFromQString(index.data(typeRole).toString());
             if (distance > 0 and type == "Video Track") {
                 // check next entry..
-                auto ntype =
-                    StdFromQString(SessionModel::index(index.row() + 1, 0, index.parent())
-                                       .data(typeRole)
-                                       .toString());
+                auto ntype = StdFromQString(
+                    SessionModel::index(index.row() + 1, 0, index.parent())
+                        .data(typeRole)
+                        .toString());
                 if (ntype != "Video Track")
                     block_move = true;
             } else if (distance < 0 and type == "Audio Track") {
-                auto ntype =
-                    StdFromQString(SessionModel::index(index.row() - 1, 0, index.parent())
-                                       .data(typeRole)
-                                       .toString());
+                auto ntype = StdFromQString(
+                    SessionModel::index(index.row() - 1, 0, index.parent())
+                        .data(typeRole)
+                        .toString());
                 if (ntype != "Audio Track")
                     block_move = true;
             }
@@ -1724,8 +1724,9 @@ QFuture<QList<QUuid>> SessionModel::handleTimelineIdDropFuture(
 
                     auto item_type = StdFromQString(mind.data(typeRole).toString());
 
-                    items.push_back(std::make_tuple(
-                        mind, item_uuid, item_actor, item_parent_actor, item_type));
+                    items.push_back(
+                        std::make_tuple(
+                            mind, item_uuid, item_actor, item_parent_actor, item_type));
                 }
             }
 
@@ -2141,20 +2142,24 @@ QModelIndexList SessionModel::modifyItemSelectionVertical(
                                     it->second.second == nit->first.second) {
                                     // match but we'll need to deal with under / overhang.
                                     if (it->second.first < nit->second.first) {
-                                        boxes.emplace_back(std::make_pair(
-                                            std::make_pair(it->second.first, nit->first.second),
+                                        boxes.emplace_back(
                                             std::make_pair(
-                                                nit->second.first, nit->second.second)));
+                                                std::make_pair(
+                                                    it->second.first, nit->first.second),
+                                                std::make_pair(
+                                                    nit->second.first, nit->second.second)));
                                         it->second.second = nit->second.second;
                                         boxes.erase(nit);
                                         done = false;
                                         break;
 
                                     } else if (it->second.first > nit->second.first) {
-                                        boxes.emplace_back(std::make_pair(
-                                            std::make_pair(nit->second.first, it->first.second),
+                                        boxes.emplace_back(
                                             std::make_pair(
-                                                it->second.first, it->second.second)));
+                                                std::make_pair(
+                                                    nit->second.first, it->first.second),
+                                                std::make_pair(
+                                                    it->second.first, it->second.second)));
 
                                         it->second.first  = nit->second.first;
                                         it->second.second = nit->second.second;
@@ -2188,10 +2193,12 @@ QModelIndexList SessionModel::modifyItemSelectionVertical(
                                     it->second.second == nit->first.second) {
                                     // match but we'll need to deal with under / overhang.
                                     if (it->first.first < nit->first.first) {
-                                        boxes.emplace_back(std::make_pair(
-                                            std::make_pair(it->first.first, it->first.second),
+                                        boxes.emplace_back(
                                             std::make_pair(
-                                                nit->first.first, it->second.second)));
+                                                std::make_pair(
+                                                    it->first.first, it->first.second),
+                                                std::make_pair(
+                                                    nit->first.first, it->second.second)));
                                         it->first.first   = nit->first.first;
                                         it->second.second = nit->second.second;
                                         boxes.erase(nit);
@@ -2199,10 +2206,12 @@ QModelIndexList SessionModel::modifyItemSelectionVertical(
                                         break;
 
                                     } else if (it->first.first > nit->first.first) {
-                                        boxes.emplace_back(std::make_pair(
-                                            std::make_pair(nit->first.first, nit->first.second),
+                                        boxes.emplace_back(
                                             std::make_pair(
-                                                it->first.first, nit->second.second)));
+                                                std::make_pair(
+                                                    nit->first.first, nit->first.second),
+                                                std::make_pair(
+                                                    it->first.first, nit->second.second)));
 
                                         it->second.second = nit->second.second;
                                         boxes.erase(nit);

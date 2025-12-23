@@ -69,8 +69,7 @@ caf::message_handler AnnotationsCore::message_handler_extensions() {
             }
             redraw_viewport();
         },
-        [=](utility::event_atom, ui::viewport::annotation_atom, const std::string &data) {
-        },
+        [=](utility::event_atom, ui::viewport::annotation_atom, const std::string &data) {},
         [=](bookmark::add_bookmark_atom) {
             // we sent this to ourselves to push live annotation data to the corresponding
             // bookmark
@@ -82,9 +81,7 @@ caf::message_handler AnnotationsCore::message_handler_extensions() {
         },
         [=](utility::event_atom,
             ui::viewport::annotation_atom,
-            const utility::JsonStore &data) {
-            receive_annotation_data(data);
-        },
+            const utility::JsonStore &data) { receive_annotation_data(data); },
         [=](ui::viewport::annotation_atom,
             ui::viewport::viewport_atom,
             const std::string &viewport_name,
@@ -175,7 +172,6 @@ void AnnotationsCore::receive_annotation_data(const utility::JsonStore &d) {
         } else {
             show_annotations_during_playback_ = true;
         }
-
     }
 
 
@@ -222,8 +218,9 @@ void AnnotationsCore::start_stroke_or_shape(
             auto softness            = payload["paint"]["softness"].get<float>();
             auto size_sensitivity    = payload["paint"]["size_sensitivity"].get<float>();
             auto opacity_sensitivity = payload["paint"]["opacity_sensitivity"].get<float>();
-            user_edit_data->live_stroke.reset(Stroke::Brush(
-                colour, size, softness, opacity, size_sensitivity, opacity_sensitivity));
+            user_edit_data->live_stroke.reset(
+                Stroke::Brush(
+                    colour, size, softness, opacity, size_sensitivity, opacity_sensitivity));
             user_edit_data->item_type = Canvas::ItemType::Brush;
 
         } else if (item_type == "Square") {
@@ -446,10 +443,11 @@ void AnnotationsCore::caption_drag(
             user_edit_data->start_point + pointer_position - user_edit_data->drag_start);
     } else if (
         user_edit_data->caption_handle_over_state_ == HandleHoverState::HoveredOnResizeHandle) {
-        user_edit_data->live_caption->set_wrap_width(std::max(
-            0.05f,
-            user_edit_data->start_point.x +
-                (pointer_position.x - user_edit_data->drag_start.x)));
+        user_edit_data->live_caption->set_wrap_width(
+            std::max(
+                0.05f,
+                user_edit_data->start_point.x +
+                    (pointer_position.x - user_edit_data->drag_start.x)));
     }
 }
 
@@ -985,14 +983,16 @@ void AnnotationsCore::images_going_on_screen(
     if (hide_all_per_viewport_.find(viewport_name) == hide_all_per_viewport_.end()) {
         hide_all_per_viewport_[viewport_name] = new std::atomic_bool(false);
     }
-    *(hide_all_per_viewport_[viewport_name]) = show_annotations_during_playback_ ? false : playhead_playing;
+    *(hide_all_per_viewport_[viewport_name]) =
+        show_annotations_during_playback_ ? false : playhead_playing;
 
     // what if a new image is going on screen, and we have an active edit going
     // on with the given viewport? We need to wipe the active edit so that we
     // don't see the caption overlays
     auto p = live_edit_data_.begin();
     while (p != live_edit_data_.end()) {
-        if (p->second->viewport_name == viewport_name && p->second->item_type != Canvas::ItemType::Laser) {
+        if (p->second->viewport_name == viewport_name &&
+            p->second->item_type != Canvas::ItemType::Laser) {
             bool still_on_screen = false;
             for (int i = 0; i < images->num_onscreen_images(); ++i) {
                 if (images->onscreen_image(i).frame_id().key() ==
@@ -1309,7 +1309,6 @@ void AnnotationsCore::fade_all_laser_strokes() {
     // laser strokes have all faded to nothing.
     if (!n)
         laser_stroke_animation_ = false;
-
 }
 
 extern "C" {

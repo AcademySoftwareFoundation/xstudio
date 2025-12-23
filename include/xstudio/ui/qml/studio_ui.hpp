@@ -29,8 +29,9 @@ namespace ui {
             Q_OBJECT
 
             Q_PROPERTY(QList<QObject *> dataSources READ dataSources NOTIFY dataSourcesChanged)
-            Q_PROPERTY(QString sessionActorAddr READ sessionActorAddr WRITE setSessionActorAddr
-                           NOTIFY sessionActorAddrChanged)
+            Q_PROPERTY(
+                QString sessionActorAddr READ sessionActorAddr WRITE setSessionActorAddr NOTIFY
+                    sessionActorAddrChanged)
 
           public:
             explicit StudioUI(caf::actor_system &system, QObject *parent = nullptr);

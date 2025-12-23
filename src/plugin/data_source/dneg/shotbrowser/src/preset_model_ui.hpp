@@ -220,20 +220,25 @@ namespace ui::qml {
         Q_OBJECT
 
         Q_PROPERTY(bool showHidden READ showHidden WRITE setShowHidden NOTIFY showHiddenChanged)
-        Q_PROPERTY(bool onlyShowFavourite READ onlyShowFavourite WRITE setOnlyShowFavourite
-                       NOTIFY onlyShowFavouriteChanged)
+        Q_PROPERTY(
+            bool onlyShowFavourite READ onlyShowFavourite WRITE setOnlyShowFavourite NOTIFY
+                onlyShowFavouriteChanged)
 
-        Q_PROPERTY(bool onlyShowPresets READ onlyShowPresets WRITE setOnlyShowPresets NOTIFY
-                       onlyShowPresetsChanged)
+        Q_PROPERTY(
+            bool onlyShowPresets READ onlyShowPresets WRITE setOnlyShowPresets NOTIFY
+                onlyShowPresetsChanged)
 
-        Q_PROPERTY(bool ignoreToolbar READ ignoreToolbar WRITE setIgnoreToolbar NOTIFY
-                       ignoreToolbarChanged)
+        Q_PROPERTY(
+            bool ignoreToolbar READ ignoreToolbar WRITE setIgnoreToolbar NOTIFY
+                ignoreToolbarChanged)
 
-        Q_PROPERTY(QVariant filterUserData READ filterUserData WRITE setFilterUserData NOTIFY
-                       filterUserDataChanged)
+        Q_PROPERTY(
+            QVariant filterUserData READ filterUserData WRITE setFilterUserData NOTIFY
+                filterUserDataChanged)
 
-        Q_PROPERTY(QVariant filterGroupUserData READ filterGroupUserData WRITE
-                       setFilterGroupUserData NOTIFY filterGroupUserDataChanged)
+        Q_PROPERTY(
+            QVariant filterGroupUserData READ filterGroupUserData WRITE setFilterGroupUserData
+                NOTIFY filterGroupUserDataChanged)
 
 
       public:

@@ -486,8 +486,11 @@ nlohmann::json xstudio::ui::qml::mapFromValue(const QVariant &value) {
 
         case QMetaType::QColor: {
             auto c = v.value<QColor>();
-            result = nlohmann::json(utility::ColourTriplet(
-                float(c.red()) / 255.0f, float(c.green()) / 255.0f, float(c.blue()) / 255.0f));
+            result = nlohmann::json(
+                utility::ColourTriplet(
+                    float(c.red()) / 255.0f,
+                    float(c.green()) / 255.0f,
+                    float(c.blue()) / 255.0f));
         } break;
 
         case QMetaType::QVector4D: {
@@ -556,8 +559,11 @@ nlohmann::json xstudio::ui::qml::mapFromValue(const QVariant &value) {
 
         case QMetaType::QColor: {
             auto c = value.value<QColor>();
-            result = nlohmann::json(utility::ColourTriplet(
-                float(c.red()) / 255.0f, float(c.green()) / 255.0f, float(c.blue()) / 255.0f));
+            result = nlohmann::json(
+                utility::ColourTriplet(
+                    float(c.red()) / 255.0f,
+                    float(c.green()) / 255.0f,
+                    float(c.blue()) / 255.0f));
         } break;
 
         case QMetaType::QVector4D: {

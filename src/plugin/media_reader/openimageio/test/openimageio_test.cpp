@@ -12,4 +12,3 @@ GTEST_TEST(OIIOMediaReaderTest, Test) {
     // Simple test to verify that the plugin compiles
     EXPECT_TRUE(true);
 }
-

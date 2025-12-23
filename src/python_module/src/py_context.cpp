@@ -416,8 +416,9 @@ xstudio::utility::Uuid py_context::py_add_message_callback(const py::args &xs) {
         anon_mail(remote_actor, uuid).send(message_callback_handler_actor_);
 
     } else {
-        throw std::runtime_error("Set message callback expecting tuple of size 2 "
-                                 "(remote_event_group_actor, callack_func).");
+        throw std::runtime_error(
+            "Set message callback expecting tuple of size 2 "
+            "(remote_event_group_actor, callack_func).");
     }
     return uuid;
 }

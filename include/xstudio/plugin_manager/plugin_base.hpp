@@ -64,7 +64,7 @@ namespace plugin {
             const Imath::M44f &transform_viewport_to_image_space,
             const float viewport_du_dpixel,
             const float device_pixel_ratio,
-            const xstudio::media_reader::ImageBufPtr &frame){};
+            const xstudio::media_reader::ImageBufPtr &frame) {};
 
         /* An overlay can render visuals to the viewport without an associated
         image via this method. */
@@ -73,7 +73,7 @@ namespace plugin {
             const Imath::M44f &transform_viewport_to_normalised_coords,
             const media_reader::ImageBufDisplaySetPtr &on_screen_frames,
             const float viewport_du_dpixel,
-            const float device_pixel_ratio){};
+            const float device_pixel_ratio) {};
 
         [[nodiscard]] virtual RenderPass preferred_render_pass() const { return AfterImage; }
 
@@ -177,7 +177,8 @@ namespace plugin {
 
         /* Function signature for current playhead playing status change - reimplement to
         receive this event */
-        virtual void on_playhead_playing_changed(const bool // is playing
+        virtual void on_playhead_playing_changed(
+            const bool // is playing
         ) {}
 
         /* Reimplement to receive this notification telling us when the playhead driving a given

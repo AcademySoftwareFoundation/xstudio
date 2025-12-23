@@ -769,10 +769,11 @@ void ShotBrowser::prepare_playlist_notes(
                                     jsn["note_annotation"] = R"([])"_json;
 
                                 if (has_anno) {
-                                    auto title            = std::string(fmt::format(
-                                        "{}_{}.jpg",
-                                        jsn["shot"].get<std::string>(),
-                                        detail.start_timecode_tc().total_frames()));
+                                    auto title = std::string(
+                                        fmt::format(
+                                            "{}_{}.jpg",
+                                            jsn["shot"].get<std::string>(),
+                                            detail.start_timecode_tc().total_frames()));
                                     auto item             = nlohmann::json();
                                     item["title"]         = title;
                                     item["bookmark_uuid"] = j.uuid();
@@ -802,17 +803,19 @@ void ShotBrowser::prepare_playlist_notes(
 
                                 // yeah this is a bit convoluted.
                                 if (not notes_by_type.count(cat)) {
-                                    notes_by_type.insert(std::make_pair(
-                                        cat,
-                                        std::map<int, std::vector<JsonStore>>(
-                                            {{detail.start_frame(), {{jsn}}}})));
+                                    notes_by_type.insert(
+                                        std::make_pair(
+                                            cat,
+                                            std::map<int, std::vector<JsonStore>>(
+                                                {{detail.start_frame(), {{jsn}}}})));
                                 } else {
                                     if (notes_by_type[cat].count(detail.start_frame())) {
                                         notes_by_type[cat][detail.start_frame()].push_back(jsn);
                                     } else {
-                                        notes_by_type[cat].insert(std::make_pair(
-                                            detail.start_frame(),
-                                            std::vector<JsonStore>({jsn})));
+                                        notes_by_type[cat].insert(
+                                            std::make_pair(
+                                                detail.start_frame(),
+                                                std::vector<JsonStore>({jsn})));
                                     }
                                 }
                             } catch (const std::exception &err) {
@@ -2147,11 +2150,12 @@ void ShotBrowser::execute_preset(
                     group_detail["id"]    = preset.value("id", utility::Uuid());
                     group_detail["flags"] = preset.value("flags", std::vector<std::string>());
                 } else {
-                    auto tmp = engine().user_presets().at(json::json_pointer(i)
-                                                              .parent_pointer()
-                                                              .parent_pointer()
-                                                              .parent_pointer()
-                                                              .parent_pointer());
+                    auto tmp = engine().user_presets().at(
+                        json::json_pointer(i)
+                            .parent_pointer()
+                            .parent_pointer()
+                            .parent_pointer()
+                            .parent_pointer());
 
                     entity                = tmp.at("entity");
                     preset_group          = tmp.at("children").at(0).at("children");

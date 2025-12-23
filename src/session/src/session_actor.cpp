@@ -640,11 +640,12 @@ void SessionActor::init() {
     //     }
     // });
 
-    behavior_.assign(message_handler()
-                         .or_else(base_.container_message_handler(this))
-                         .or_else(notification_.message_handler(this, base_.event_group()))
-                         .or_else(bookmark::BookmarksActor::default_event_handler())
-                         .or_else(playlist::PlaylistActor::default_event_handler()));
+    behavior_.assign(
+        message_handler()
+            .or_else(base_.container_message_handler(this))
+            .or_else(notification_.message_handler(this, base_.event_group()))
+            .or_else(bookmark::BookmarksActor::default_event_handler())
+            .or_else(playlist::PlaylistActor::default_event_handler()));
 
     anon_mail(bookmark::associate_bookmark_atom_v).send(caf::actor_cast<caf::actor>(this));
 

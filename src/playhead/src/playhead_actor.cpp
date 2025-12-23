@@ -1965,9 +1965,10 @@ void PlayheadActor::switch_key_playhead(int idx) {
                 // got all the data it needs from its source
                 request_receive<caf::actor>(*sys, ph.actor(), source_atom_v);
 
-                if (to_string(request_receive<utility::UuidActor>(
-                                  *sys, ph.actor(), media_source_atom_v, true)
-                                  .uuid()) == current_media_source_uuid_->value()) {
+                if (to_string(
+                        request_receive<utility::UuidActor>(
+                            *sys, ph.actor(), media_source_atom_v, true)
+                            .uuid()) == current_media_source_uuid_->value()) {
                     idx = i;
                     break;
                 }

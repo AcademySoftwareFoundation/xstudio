@@ -731,17 +731,18 @@ void csv_exporter(
         return (lhs.subject_ ? *(lhs.subject_) : "") < (rhs.subject_ ? *(rhs.subject_) : "");
     });
 
-    data.emplace_back(std::vector<std::string>(
-        {"Subject",
-         "Notes",
-         "Start Frame",
-         "End Frame",
-         "Created",
-         "User Name",
-         "Note Type",
-         "Media Flag",
-         "Annotated",
-         "Image"}));
+    data.emplace_back(
+        std::vector<std::string>(
+            {"Subject",
+             "Notes",
+             "Start Frame",
+             "End Frame",
+             "Created",
+             "User Name",
+             "Note Type",
+             "Media Flag",
+             "Annotated",
+             "Image"}));
 
     scoped_actor sys{self->system()};
     fs::path fp       = uri_to_posix_path(path);
@@ -839,17 +840,18 @@ void csv_exporter(
         }
 
 
-        data.emplace_back(std::vector<std::string>(
-            {i.subject_ ? *(i.subject_) : "",
-             i.note_ ? *(i.note_) : "",
-             i.start_timecode(),
-             i.end_timecode(),
-             i.created(),
-             i.author_ ? *(i.author_) : "",
-             i.category_ ? *(i.category_) : "",
-             i.media_flag_ ? *(i.media_flag_) : "",
-             has_annotation ? "true" : "false",
-             image}));
+        data.emplace_back(
+            std::vector<std::string>(
+                {i.subject_ ? *(i.subject_) : "",
+                 i.note_ ? *(i.note_) : "",
+                 i.start_timecode(),
+                 i.end_timecode(),
+                 i.created(),
+                 i.author_ ? *(i.author_) : "",
+                 i.category_ ? *(i.category_) : "",
+                 i.media_flag_ ? *(i.media_flag_) : "",
+                 has_annotation ? "true" : "false",
+                 image}));
     }
 
     rp.deliver(std::make_pair(utility::to_csv(data), std::vector<std::byte>()));

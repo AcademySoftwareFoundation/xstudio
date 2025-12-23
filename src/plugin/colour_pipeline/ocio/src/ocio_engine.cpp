@@ -327,9 +327,8 @@ void OCIOEngine::extend_pixel_info(
 OCIO::ConstConfigRcPtr
 OCIOEngine::get_ocio_config(const utility::JsonStore &src_colour_mgmt_metadata) const {
 
-    std::string config_name =
-        utility::forward_remap_file_path(
-            src_colour_mgmt_metadata.get_or("ocio_config", default_config_));
+    std::string config_name = utility::forward_remap_file_path(
+        src_colour_mgmt_metadata.get_or("ocio_config", default_config_));
     const std::string displays =
         src_colour_mgmt_metadata.get_or("active_displays", std::string(""));
     const std::string views = src_colour_mgmt_metadata.get_or("active_views", std::string(""));
@@ -387,12 +386,12 @@ OCIOEngine::get_ocio_config(const utility::JsonStore &src_colour_mgmt_metadata) 
 
     econfig->clearSearchPaths();
     for (int i = 0; i < config->getNumSearchPaths(); ++i) {
-        auto path = std::string(config->getSearchPath(i));
+        auto path    = std::string(config->getSearchPath(i));
         auto newpath = utility::forward_remap_file_path(path);
         econfig->addSearchPath(newpath.c_str());
     }
 
-    config                     = econfig;
+    config                               = econfig;
     ocio_config_cache_[config_cache_key] = config;
 
     return config;

@@ -164,8 +164,9 @@ class DNRun : public Utility {
                     } else {
                         // ignore \n as we get those when using socat etc.
                         if (i != '\n')
-                            throw std::runtime_error(std::string(
-                                fmt::format("Invalid character in header '{}'", i)));
+                            throw std::runtime_error(
+                                std::string(
+                                    fmt::format("Invalid character in header '{}'", i)));
                     }
                 } else {
                     if (require_tail) {

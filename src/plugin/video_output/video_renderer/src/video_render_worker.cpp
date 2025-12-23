@@ -83,12 +83,13 @@ HANDLE open_named_pipe(std::string name) {
         NULL);
 
     if (result == INVALID_HANDLE_VALUE) {
-        throw std::runtime_error(fmt::format(
-                                     "{} failed to open pipe {} with error: {}",
-                                     __PRETTY_FUNCTION__,
-                                     name,
-                                     last_error())
-                                     .c_str());
+        throw std::runtime_error(
+            fmt::format(
+                "{} failed to open pipe {} with error: {}",
+                __PRETTY_FUNCTION__,
+                name,
+                last_error())
+                .c_str());
     }
     return result;
 }
@@ -720,12 +721,13 @@ void VideoRenderWorker::start_ffmpeg_process() {
         std::string(*tmpdir),
         to_string(job_uuid_)); // utility::temp_file("test.yuv");
     if (mkfifo(output_yuv_filename_.c_str(), 0666) == -1) {
-        throw std::runtime_error(fmt::format(
-                                     "{} failed to create fifo with name {}, errno error: {}",
-                                     __PRETTY_FUNCTION__,
-                                     output_yuv_filename_,
-                                     strerror(errno))
-                                     .c_str());
+        throw std::runtime_error(
+            fmt::format(
+                "{} failed to create fifo with name {}, errno error: {}",
+                __PRETTY_FUNCTION__,
+                output_yuv_filename_,
+                strerror(errno))
+                .c_str());
     }
     if (!audio_codec_opts_.empty()) {
         output_audio_filename_ = fmt::format(
@@ -1127,8 +1129,10 @@ void VideoRenderWorker::add_output_to_session() {
                         .request(session, infinite)
                         .then(do_send, handle_error);
                 } else {
-                    do_send(utility::UuidUuidActor(
-                        utility::Uuid(), utility::UuidActor(utility::Uuid(), check_playlist)));
+                    do_send(
+                        utility::UuidUuidActor(
+                            utility::Uuid(),
+                            utility::UuidActor(utility::Uuid(), check_playlist)));
                 }
             },
             handle_error);

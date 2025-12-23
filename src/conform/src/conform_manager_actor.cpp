@@ -1252,8 +1252,9 @@ void ConformWorkerActor::conform_step_get_reuse_map(
                                                     std::pair<std::string, std::string>>
                                                     source_names;
                                                 for (const auto &i : sources)
-                                                    source_names.insert(std::make_pair(
-                                                        i.first.uuid(), i.second));
+                                                    source_names.insert(
+                                                        std::make_pair(
+                                                            i.first.uuid(), i.second));
 
                                                 for (const auto &i : meta)
                                                     conform_request.reuse_list_.emplace_back(

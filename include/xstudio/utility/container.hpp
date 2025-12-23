@@ -295,12 +295,13 @@ namespace utility {
     };
 
     inline std::string to_string(const PlaylistItem &pli) {
-        return std::string(fmt::format(
-            "uuid: {} name: {} type: {} flag: {}",
-            to_string(pli.uuid()),
-            pli.name(),
-            pli.type(),
-            pli.flag()));
+        return std::string(
+            fmt::format(
+                "uuid: {} name: {} type: {} flag: {}",
+                to_string(pli.uuid()),
+                pli.name(),
+                pli.type(),
+                pli.flag()));
     }
 
 
@@ -460,11 +461,12 @@ namespace utility {
         for (const auto &i : plt.children_ref()) {
             children += "{" + to_string(i) + "}";
         }
-        return std::string(fmt::format(
-            "uuid: {} value: {} children: {}",
-            to_string(plt.uuid()),
-            to_string(plt.value()),
-            children));
+        return std::string(
+            fmt::format(
+                "uuid: {} value: {} children: {}",
+                to_string(plt.uuid()),
+                to_string(plt.value()),
+                children));
     }
 
     template <typename U> std::ostream &operator<<(std::ostream &out, const UuidTree<U> &rhs) {

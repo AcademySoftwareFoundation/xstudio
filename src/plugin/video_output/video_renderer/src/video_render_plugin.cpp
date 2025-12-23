@@ -566,9 +566,10 @@ void VideoRenderPlugin::playback_render_output(
                             .request(session, infinite)
                             .then(do_load, handle_error);
                     } else {
-                        do_load(utility::UuidUuidActor(
-                            utility::Uuid(),
-                            utility::UuidActor(utility::Uuid(), check_playlist)));
+                        do_load(
+                            utility::UuidUuidActor(
+                                utility::Uuid(),
+                                utility::UuidActor(utility::Uuid(), check_playlist)));
                     }
                 },
                 handle_error);

@@ -1437,8 +1437,9 @@ void Viewport::set_playhead(caf::actor playhead, const bool wait_for_refresh) {
             }
         }
 
-        set_compare_mode(utility::request_receive<std::string>(
-            *sys, playhead, playhead::compare_mode_atom_v));
+        set_compare_mode(
+            utility::request_receive<std::string>(
+                *sys, playhead, playhead::compare_mode_atom_v));
 
         // tell the playhead events actor that the on-screen playhead has changed
         anon_mail(viewport::viewport_playhead_atom_v, name(), playhead)

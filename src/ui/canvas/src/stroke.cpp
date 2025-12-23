@@ -13,9 +13,10 @@ static const struct CircPts {
 
     CircPts(const int n) {
         for (int i = 0; i < n + 1; ++i) {
-            pts_.emplace_back(Imath::V2f(
-                cos(float(i) * M_PI * 2.0f / float(n)),
-                sin(float(i) * M_PI * 2.0f / float(n))));
+            pts_.emplace_back(
+                Imath::V2f(
+                    cos(float(i) * M_PI * 2.0f / float(n)),
+                    sin(float(i) * M_PI * 2.0f / float(n))));
         }
     }
 
@@ -51,9 +52,7 @@ void Stroke::update_hash(const bool update_with_last_point_only) {
             _hash = __hash_combine(point.pos.y, _hash);
             _hash = __hash_combine(point.pressure, _hash);
         }
-
     }
-
 }
 
 Stroke *Stroke::Pen(
@@ -62,7 +61,7 @@ Stroke *Stroke::Pen(
     const float _softness,
     const float _opacity) {
 
-    Stroke *s              = new Stroke;
+    Stroke *s               = new Stroke;
     s->_thickness           = _thickness;
     s->_softness            = _softness;
     s->_colour              = _colour;
@@ -83,7 +82,7 @@ Stroke *Stroke::Brush(
     const float _size_sensitivity,
     const float _opacity_sensitivity) {
 
-    Stroke *s              = new Stroke;
+    Stroke *s               = new Stroke;
     s->_thickness           = _thickness;
     s->_softness            = _softness;
     s->_colour              = _colour;
@@ -98,7 +97,7 @@ Stroke *Stroke::Brush(
 
 Stroke *Stroke::Erase(const float _thickness) {
 
-    Stroke *s              = new Stroke;
+    Stroke *s               = new Stroke;
     s->_thickness           = _thickness;
     s->_softness            = 0.0f;
     s->_colour              = {1.0f, 1.0f, 1.0f};
@@ -115,7 +114,8 @@ bool Stroke::operator==(const Stroke &o) const {
     return (
         _opacity == o._opacity && _thickness == o._thickness && _softness == o._softness &&
         _colour == o._colour && _size_sensitivity == o._size_sensitivity &&
-        _opacity_sensitivity == o._opacity_sensitivity && _type == o._type && _points == o._points);
+        _opacity_sensitivity == o._opacity_sensitivity && _type == o._type &&
+        _points == o._points);
 }
 
 void Stroke::make_line(const Imath::V2f &start, const Imath::V2f &end) {
@@ -168,11 +168,9 @@ void Stroke::add_point(const Imath::V2f &pt, float pressure) {
     }
 
     update_hash(true);
-
 }
 
-bool Stroke::fade(const float fade_amount)
-{
+bool Stroke::fade(const float fade_amount) {
     bool is_invisible = true;
     for (auto &point : _points) {
         point.pressure = std::max(0.0f, point.pressure - fade_amount);
@@ -182,7 +180,7 @@ bool Stroke::fade(const float fade_amount)
     update_hash();
     return is_invisible;
 }
-    
+
 // Note the below is slightly more complex than it could because
 // we try to maintain bakward compatibility with previous format.
 void xstudio::ui::canvas::from_json(const nlohmann::json &j, Stroke &s) {
@@ -229,7 +227,6 @@ void xstudio::ui::canvas::from_json(const nlohmann::json &j, Stroke &s) {
             }
         }
     }
-
 }
 
 void xstudio::ui::canvas::to_json(nlohmann::json &j, const Stroke &s) {

@@ -89,8 +89,8 @@ nlohmann::json OpenImageIOMediaMetadata::read_metadata(const caf::uri &uri) {
         nlohmann::json metadata;
 
         // Step 4: Populate basic image properties (width, height, resolution)
-        metadata["width"] = spec.width;
-        metadata["height"] = spec.height;
+        metadata["width"]      = spec.width;
+        metadata["height"]     = spec.height;
         metadata["resolution"] = fmt::format("{} x {}", spec.width, spec.height);
 
         // Step 5: Extract and format the file extension (format)
@@ -101,7 +101,7 @@ nlohmann::json OpenImageIOMediaMetadata::read_metadata(const caf::uri &uri) {
         std::string ext = ltrim_char(to_upper(p.extension().string()), '.');
 #endif
         metadata["format"] = ext;
-        
+
         // Step 6: Determine bit depth and add to metadata
         if (spec.format == OIIO::TypeDesc::UINT8) {
             metadata["bit_depth"] = "8 bits";
@@ -114,11 +114,11 @@ nlohmann::json OpenImageIOMediaMetadata::read_metadata(const caf::uri &uri) {
         } else {
             metadata["bit_depth"] = "unknown";
         }
-        
+
         // Step 7: Read pixel aspect ratio and aspect ratio
         metadata["pixel_aspect"] = spec.get_float_attribute("PixelAspectRatio", 1.0f);
-        metadata["aspect_ratio"]  = spec.get_float_attribute("XResolution", spec.width)
-                                    / spec.get_float_attribute("YResolution", spec.height);
+        metadata["aspect_ratio"] = spec.get_float_attribute("XResolution", spec.width) /
+                                   spec.get_float_attribute("YResolution", spec.height);
 
         // Step 8: Add extra attributes to metadata
         for (const auto &param : spec.extra_attribs) {

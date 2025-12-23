@@ -47,10 +47,12 @@ TEST(JsonStoreUI, Test) {
     auto store3_f = make_function_view(store3);
 
 
-    JsonStore json_data1(nlohmann::json::parse(
-        R"({ "happy": true, "sub": {}, "pi": 3.141, "arr": [0, 2, 4] })"));
-    JsonStore json_data2(nlohmann::json::parse(
-        R"({ "happy": false, "sub": {}, "pi": 3.141, "arr": [0, 2, 4] })"));
+    JsonStore json_data1(
+        nlohmann::json::parse(
+            R"({ "happy": true, "sub": {}, "pi": 3.141, "arr": [0, 2, 4] })"));
+    JsonStore json_data2(
+        nlohmann::json::parse(
+            R"({ "happy": false, "sub": {}, "pi": 3.141, "arr": [0, 2, 4] })"));
     JsonStore json_data3(
         nlohmann::json::parse(R"({ "happy": false, "pi": 3.141, "arr": [0, 2, 4] })"));
     store1_f(set_json_atom_v, json_data1);

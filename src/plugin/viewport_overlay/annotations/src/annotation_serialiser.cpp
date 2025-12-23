@@ -49,8 +49,9 @@ void AnnotationSerialiser::register_serialiser(
     int fver = (maj_ver << 8) + minor_ver;
     assert(sptr);
     if (serialisers.find(fver) != serialisers.end()) {
-        throw std::runtime_error("Attempt to register Annotation Serialiser with a used "
-                                 "version number that is already used.");
+        throw std::runtime_error(
+            "Attempt to register Annotation Serialiser with a used "
+            "version number that is already used.");
     }
     serialisers[fver] = sptr;
 }

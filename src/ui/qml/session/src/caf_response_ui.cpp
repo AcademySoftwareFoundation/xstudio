@@ -546,11 +546,11 @@ class CafRequest : public ControllableJob<QMap<int, QString>> {
 
             // session tree contains...
 
-            result[JSONTreeModel::Roles::childrenRole] =
-                QStringFromStd(SessionModel::sessionTreeToJson(
-                                   containers, system_, uuidactor_vect_to_map(actors))
-                                   .at("children")
-                                   .dump());
+            result[JSONTreeModel::Roles::childrenRole] = QStringFromStd(
+                SessionModel::sessionTreeToJson(
+                    containers, system_, uuidactor_vect_to_map(actors))
+                    .at("children")
+                    .dump());
 
         } else if (type == "Media List") {
             // spdlog::error(
@@ -618,11 +618,11 @@ class CafRequest : public ControllableJob<QMap<int, QString>> {
                 playlist::get_container_atom_v,
                 true);
 
-            result[JSONTreeModel::Roles::childrenRole] =
-                QStringFromStd(SessionModel::playlistTreeToJson(
-                                   containers, system_, uuidactor_vect_to_map(actors))
-                                   .at("children")
-                                   .dump());
+            result[JSONTreeModel::Roles::childrenRole] = QStringFromStd(
+                SessionModel::playlistTreeToJson(
+                    containers, system_, uuidactor_vect_to_map(actors))
+                    .at("children")
+                    .dump());
 
         } else if (type == "Media") {
             auto target = actorFromString(system_, json_.at("actor"));

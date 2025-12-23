@@ -28,8 +28,9 @@ using namespace caf;
 class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
     Q_OBJECT
 
-    Q_PROPERTY(QString sessionActorAddr READ sessionActorAddr WRITE setSessionActorAddr NOTIFY
-                   sessionActorAddrChanged)
+    Q_PROPERTY(
+        QString sessionActorAddr READ sessionActorAddr WRITE setSessionActorAddr NOTIFY
+            sessionActorAddrChanged)
 
     Q_PROPERTY(bool modified READ modified WRITE setModified NOTIFY modifiedChanged)
     Q_PROPERTY(QString bookmarkActorAddr READ bookmarkActorAddr NOTIFY bookmarkActorAddrChanged)
@@ -39,8 +40,9 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
 
     // currentMediaContainerIndex is the index of the Playlist/Subset/Timeline that is being
     // viewed in the MediaList panels etc.
-    Q_PROPERTY(QPersistentModelIndex currentMediaContainerIndex READ currentMediaContainerIndex
-                   WRITE setCurrentMediaContainer NOTIFY currentMediaContainerChanged)
+    Q_PROPERTY(
+        QPersistentModelIndex currentMediaContainerIndex READ currentMediaContainerIndex WRITE
+            setCurrentMediaContainer NOTIFY currentMediaContainerChanged)
 
     // viewportCurrentMediaContainerIndex is the index of the Playlist/Subset/Timeline that owns
     // the Plyhead that is currently driving the viewport This can be different to
