@@ -31,24 +31,23 @@ struct ScrubHelper {
 
     ScrubHelper() = default;
 
-    void set_custom_duration_ms(const int ms) { 
-        scrub_window_millisecs_ = ms; 
-    }
-    void set_behaviour(const std::string &behaviour) { 
+    void set_custom_duration_ms(const int ms) { scrub_window_millisecs_ = ms; }
+    void set_behaviour(const std::string &behaviour) {
         const auto p = scrubBehaviourMap.find(behaviour);
-        if (p != scrubBehaviourMap.end()) scrub_behaviour_= p->second;
-        else scrub_behaviour_ = ScrubBehaviour::OneFrame;
+        if (p != scrubBehaviourMap.end())
+            scrub_behaviour_ = p->second;
+        else
+            scrub_behaviour_ = ScrubBehaviour::OneFrame;
     }
 
-    timebase::flicks scrub_duration(const utility::FrameRate & media_rate) const;
-    double scrub_duration_secs(const utility::FrameRate & media_rate) const {
+    timebase::flicks scrub_duration(const utility::FrameRate &media_rate) const;
+    double scrub_duration_secs(const utility::FrameRate &media_rate) const {
         return timebase::to_seconds(scrub_duration(media_rate));
     }
 
-    private:
-    int scrub_window_millisecs_        = {50};
-    ScrubBehaviour scrub_behaviour_    = {OneFrame};
-
+  private:
+    int scrub_window_millisecs_     = {50};
+    ScrubBehaviour scrub_behaviour_ = {OneFrame};
 };
 
 /**
@@ -60,8 +59,6 @@ struct ScrubHelper {
 class AudioOutputControl {
 
   public:
-
-
     /**
      *  @brief Constructor
      *
@@ -145,12 +142,12 @@ class AudioOutputControl {
         const bool muted,
         const bool audio_repitch,
         const bool audio_scrubbing,
-        const std::string & scrub_behaviour,
+        const std::string &scrub_behaviour,
         const int scrub_window_millisecs) {
-        volume_                 = volume;
-        muted_                  = muted;
-        audio_repitch_          = audio_repitch;
-        audio_scrubbing_        = audio_scrubbing;
+        volume_          = volume;
+        muted_           = muted;
+        audio_repitch_   = audio_repitch;
+        audio_scrubbing_ = audio_scrubbing;
         scrub_helper_.set_behaviour(scrub_behaviour);
         scrub_helper_.set_custom_duration_ms(scrub_window_millisecs);
     }
@@ -185,8 +182,10 @@ class AudioOutputControl {
     int fade_in_out_ = {NoFade};
 
     timebase::flicks playhead_position_;
-    timebase::flicks playhead_loop_in_ = {timebase::flicks(std::numeric_limits<timebase::flicks::rep>::lowest())};
-    timebase::flicks playhead_loop_out_ = {timebase::flicks(std::numeric_limits<timebase::flicks::rep>::max())};
+    timebase::flicks playhead_loop_in_ = {
+        timebase::flicks(std::numeric_limits<timebase::flicks::rep>::lowest())};
+    timebase::flicks playhead_loop_out_ = {
+        timebase::flicks(std::numeric_limits<timebase::flicks::rep>::max())};
     bool playing_forward_ = {true};
     utility::time_point playhead_position_update_tp_;
     timebase::flicks last_buffer_pts_;

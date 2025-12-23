@@ -52,7 +52,7 @@ namespace plugin {
         /**
          *  @brief Provide a description for the HUD plugin
          *
-         *  @details The string passed into this function will be displayed at the 
+         *  @details The string passed into this function will be displayed at the
          *  top of the settings panel for this HUD Plugin
          */
         void add_hud_description(const std::string &description);
@@ -87,7 +87,7 @@ namespace plugin {
 
         module::BooleanAttribute *hud_data_;
         module::StringChoiceAttribute *hud_item_position_ = {nullptr};
-        module::StringAttribute *description_ = {nullptr};
+        module::StringAttribute *description_             = {nullptr};
         bool globally_enabled_                            = {false};
         std::string plugin_underscore_name_;
 

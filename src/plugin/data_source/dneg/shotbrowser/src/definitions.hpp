@@ -290,6 +290,7 @@ const auto SequenceShotFields = std::vector<std::string>(
      "sg_asset_type",
      "sg_status_list",
      "sg_unit",
+     "sg_hero_shot",
      "sg_primary_shot_location",
      "tags"});
 
@@ -306,6 +307,7 @@ const auto ShotFields = std::vector<std::string>(
      "sg_asset_type",
      "sg_status_list",
      "sg_hero_focal_length",
+     "sg_hero_shot",
      "sg_unit",
      "tags"});
 

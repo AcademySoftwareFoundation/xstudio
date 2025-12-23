@@ -372,11 +372,15 @@ void GlobalActor::init(
                                                 if (session_name.empty())
                                                     session_name = "Unsaved";
 
+                                                const std::time_t t0 =  std::time(nullptr);
+                                                std::tm * tt = std::localtime(&t0);
+                                                std::array<char, 1024> b;
+                                                std::strftime(b.data(), 1024, "%Y%m%d_%H%M%S", tt);
+
                                                 // add timestamp+ext
                                                 auto session_fullname = std::string(fmt::format(
-                                                    "{}_{:%Y%m%d_%H%M%S}.xsz",
-                                                    session_name,
-                                                    fmt::localtime(std::time(nullptr))));
+                                                    "{}_{}.xsz",
+                                                    session_name, b.data()));
 
                                                 // build path to autosave store.
                                                 auto fspath = fs::path(uri_to_posix_path(

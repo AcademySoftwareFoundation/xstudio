@@ -60,13 +60,13 @@ void OpenGLStrokeRenderer::cleanup_gl() {
 const int OpenGLStrokeRenderer::vertex_array_filler(
     const xstudio::ui::canvas::Stroke &stroke,
     std::vector<Imath::V2f> &line_start_end_per_vertex) {
-    const Stroke::Point *v0 = stroke.points.data();
+    const Stroke::Point *v0 = stroke.points().data();
     const Stroke::Point *v1 = v0;
 
-    if (stroke.points.size() > 1)
+    if (stroke.points().size() > 1)
         v1++;
 
-    int n_segments = std::max(size_t(1), (stroke.points.size() - 1));
+    int n_segments = std::max(size_t(1), (stroke.points().size() - 1));
 
     for (int i = 0; i < n_segments; ++i) {
         Imath::V2f pt_sz(v0->pressure, v1->pressure);
@@ -108,7 +108,7 @@ void OpenGLStrokeRenderer::render_erase_strokes(
     for (const auto &stroke : strokes) {
 
         // Only render erase strokes here
-        if (stroke.type != StrokeType_Erase)
+        if (stroke.type() != StrokeType_Erase)
             continue;
 
         const int n_segments = vertex_array_filler(stroke, line_start_end_per_vertex);
@@ -144,21 +144,22 @@ void OpenGLStrokeRenderer::render_erase_strokes(
         depth += 0.001;
 
         // Only render erase strokes here
-        if (stroke.type != StrokeType_Erase) {
+        if (stroke.type() != StrokeType_Erase) {
             continue;
         }
 
         utility::JsonStore shader_params;
         shader_params["to_coord_system"] = transform_viewport_to_image_space.inverse();
         shader_params["to_canvas"]       = transform_window_to_viewport_space;
-        shader_params["soft_edge"] = std::max(viewport_du_dx * 4.0f, stroke.thickness * stroke.softness);
+        shader_params["soft_edge"] =
+            std::max(viewport_du_dx * 4.0f, stroke.thickness() * stroke.softness());
         // stroke.thickness * 0.1; //viewport_du_dx * 4.0f;
         shader_params["z_adjust"]            = depth;
-        shader_params["brush_colour"]        = stroke.colour;
+        shader_params["brush_colour"]        = stroke.colour();
         shader_params["brush_opacity"]       = 0.0f;
-        shader_params["thickness"]           = stroke.thickness;
-        shader_params["size_sensitivity"]    = stroke.size_sensitivity;
-        shader_params["opacity_sensitivity"] = stroke.opacity_sensitivity;
+        shader_params["thickness"]           = stroke.thickness();
+        shader_params["size_sensitivity"]    = stroke.size_sensitivity();
+        shader_params["opacity_sensitivity"] = stroke.opacity_sensitivity();
         stroke_shader_->set_shader_parameters(shader_params);
 
         glDrawArrays(GL_TRIANGLES, offset, *p_n_vtx_per_stroke);
@@ -178,7 +179,7 @@ void OpenGLStrokeRenderer::render_erase_strokes(
     for (const auto &stroke : strokes) {
 
         // Only render erase strokes here
-        if (stroke->type != StrokeType_Erase)
+        if (stroke->type() != StrokeType_Erase)
             continue;
 
         const int n_segments = vertex_array_filler(*stroke, line_start_end_per_vertex);
@@ -214,20 +215,21 @@ void OpenGLStrokeRenderer::render_erase_strokes(
         depth += 0.001;
 
         // Only render erase strokes here
-        if (stroke->type != StrokeType_Erase) {
+        if (stroke->type() != StrokeType_Erase) {
             continue;
         }
 
         utility::JsonStore shader_params;
         shader_params["to_coord_system"] = transform_viewport_to_image_space.inverse();
         shader_params["to_canvas"]       = transform_window_to_viewport_space;
-        shader_params["soft_edge"] =
-            stroke->softness == 0 ? viewport_du_dx * 4.0f : stroke->thickness * stroke->softness;
+        shader_params["soft_edge"]       = stroke->softness() == 0
+                                               ? viewport_du_dx * 4.0f
+                                               : stroke->thickness() * stroke->softness();
         // stroke.thickness * 0.1; //viewport_du_dx * 4.0f;
         shader_params["z_adjust"]            = depth;
-        shader_params["thickness"]           = stroke->thickness;
-        shader_params["size_sensitivity"]    = stroke->size_sensitivity;
-        shader_params["opacity_sensitivity"] = stroke->opacity_sensitivity;
+        shader_params["thickness"]           = stroke->thickness();
+        shader_params["size_sensitivity"]    = stroke->size_sensitivity();
+        shader_params["opacity_sensitivity"] = stroke->opacity_sensitivity();
         stroke_shader_->set_shader_parameters(shader_params);
 
         glDrawArrays(GL_TRIANGLES, offset, *p_n_vtx_per_stroke);
@@ -285,13 +287,13 @@ void OpenGLStrokeRenderer::render_single_stroke(
     shader_params["to_coord_system"] = transform_viewport_to_image_space.inverse();
     shader_params["to_canvas"]       = transform_window_to_viewport_space;
     shader_params["soft_edge"] =
-        stroke.softness == 0 ? viewport_du_dx * 4.0f : stroke.thickness * stroke.softness;
+        stroke.softness() == 0 ? viewport_du_dx * 4.0f : stroke.thickness() * stroke.softness();
     shader_params["z_adjust"]            = depth;
-    shader_params["brush_colour"]        = stroke.colour;
-    shader_params["brush_opacity"]       = stroke.opacity;
-    shader_params["thickness"]           = stroke.thickness;
-    shader_params["size_sensitivity"]    = stroke.size_sensitivity;
-    shader_params["opacity_sensitivity"] = stroke.opacity_sensitivity;
+    shader_params["brush_colour"]        = stroke.colour();
+    shader_params["brush_opacity"]       = stroke.opacity();
+    shader_params["thickness"]           = stroke.thickness();
+    shader_params["size_sensitivity"]    = stroke.size_sensitivity();
+    shader_params["opacity_sensitivity"] = stroke.opacity_sensitivity();
     stroke_shader_->set_shader_parameters(shader_params);
 
     // For each adjacent PAIR of points in a stroke, we draw a quad  of
@@ -378,7 +380,7 @@ void OpenGLStrokeRenderer::render_strokes(
 
         depth += 0.001;
 
-        if (stroke.type == StrokeType_Erase) {
+        if (stroke.type() == StrokeType_Erase) {
             continue;
         }
 
@@ -407,7 +409,7 @@ void OpenGLStrokeRenderer::render_strokes(
         // Start rendering offscreen texture to default framebuffer
         glBlendEquation(GL_FUNC_ADD);
 
-        render_offscreen_texture(transform_window_to_viewport_space, stroke.colour);
+        render_offscreen_texture(transform_window_to_viewport_space, stroke.colour());
 
         // glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION, GL_DEBUG_TYPE_MARKER, 0,
         //                      GL_DEBUG_SEVERITY_NOTIFICATION, -1,
@@ -425,8 +427,9 @@ void OpenGLStrokeRenderer::render_strokes(
     const Imath::M44f &transform_viewport_to_image_space,
     float viewport_du_dx) {
 
-    // glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION, GL_DEBUG_TYPE_MARKER, 0, 
-    //                      GL_DEBUG_SEVERITY_NOTIFICATION, -1, "OpenGLStrokeRenderer::render_strokes START");
+    // glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION, GL_DEBUG_TYPE_MARKER, 0,
+    //                      GL_DEBUG_SEVERITY_NOTIFICATION, -1,
+    //                      "OpenGLStrokeRenderer::render_strokes START");
 
     if (!gl_initialized) {
         init_gl();
@@ -467,11 +470,7 @@ void OpenGLStrokeRenderer::render_strokes(
 
     glBindVertexArray(stroke_vao_);
 
-    render_erase_strokes(
-        strokes,
-        identity,
-        transform_viewport_to_image_space,
-        viewport_du_dx);
+    render_erase_strokes(strokes, identity, transform_viewport_to_image_space, viewport_du_dx);
 
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
@@ -480,17 +479,19 @@ void OpenGLStrokeRenderer::render_strokes(
 
     float depth = 0.0f;
 
-    // glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION, GL_DEBUG_TYPE_MARKER, 0, 
-    //                      GL_DEBUG_SEVERITY_NOTIFICATION, -1, "OpenGLStrokeRenderer::render_strokes BEFORE LOOP");
+    // glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION, GL_DEBUG_TYPE_MARKER, 0,
+    //                      GL_DEBUG_SEVERITY_NOTIFICATION, -1,
+    //                      "OpenGLStrokeRenderer::render_strokes BEFORE LOOP");
 
     for (const auto &stroke : strokes) {
 
-        // glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION, GL_DEBUG_TYPE_MARKER, 0, 
-        //                      GL_DEBUG_SEVERITY_NOTIFICATION, -1, "OpenGLStrokeRenderer::render_strokes INIT LOOP");
+        // glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION, GL_DEBUG_TYPE_MARKER, 0,
+        //                      GL_DEBUG_SEVERITY_NOTIFICATION, -1,
+        //                      "OpenGLStrokeRenderer::render_strokes INIT LOOP");
 
         depth += 0.001;
 
-        if (stroke->type == StrokeType_Erase) {
+        if (stroke->type() == StrokeType_Erase) {
             continue;
         }
 
@@ -508,11 +509,7 @@ void OpenGLStrokeRenderer::render_strokes(
         glBindVertexArray(stroke_vao_);
 
         render_single_stroke(
-            *stroke,
-            identity,
-            transform_viewport_to_image_space,
-            viewport_du_dx,
-            depth);
+            *stroke, identity, transform_viewport_to_image_space, viewport_du_dx, depth);
 
         // End rendering on offscreen texture
         offscreen_renderer_->end();
@@ -523,25 +520,27 @@ void OpenGLStrokeRenderer::render_strokes(
         // Start rendering offscreen texture to default framebuffer
         glBlendEquation(GL_FUNC_ADD);
 
-        render_offscreen_texture(transform_window_to_viewport_space, stroke->colour);
+        render_offscreen_texture(transform_window_to_viewport_space, stroke->colour());
 
-        // glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION, GL_DEBUG_TYPE_MARKER, 0, 
-        //                      GL_DEBUG_SEVERITY_NOTIFICATION, -1, "OpenGLStrokeRenderer::render_strokes LOOP NEXT");
+        // glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION, GL_DEBUG_TYPE_MARKER, 0,
+        //                      GL_DEBUG_SEVERITY_NOTIFICATION, -1,
+        //                      "OpenGLStrokeRenderer::render_strokes LOOP NEXT");
     }
 
-    // glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION, GL_DEBUG_TYPE_MARKER, 0, 
-    //                     GL_DEBUG_SEVERITY_NOTIFICATION, -1, "OpenGLStrokeRenderer::render_strokes END");
+    // glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION, GL_DEBUG_TYPE_MARKER, 0,
+    //                     GL_DEBUG_SEVERITY_NOTIFICATION, -1,
+    //                     "OpenGLStrokeRenderer::render_strokes END");
 }
 
 void OpenGLStrokeRenderer::render_offscreen_texture(
     const Imath::M44f &transform_window_to_viewport_space,
-    const utility::ColourTriplet & brush_colour) {
+    const utility::ColourTriplet &brush_colour) {
     offscreen_shader_->use();
 
     utility::JsonStore params;
     params["to_canvas"]        = transform_window_to_viewport_space;
     params["offscreenTexture"] = 11;
-    params["brush_colour"] = brush_colour;
+    params["brush_colour"]     = brush_colour;
     offscreen_shader_->set_shader_parameters(params);
 
     // Save current GL_ACTIVE_TEXTURE

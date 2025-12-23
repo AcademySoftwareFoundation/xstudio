@@ -62,8 +62,9 @@ namespace ui {
                 float viewport_du_dx,
                 float depth);
 
-            void render_offscreen_texture(const Imath::M44f &transform_window_to_viewport_space,
-                const utility::ColourTriplet & brush_colour);
+            void render_offscreen_texture(
+                const Imath::M44f &transform_window_to_viewport_space,
+                const utility::ColourTriplet &brush_colour);
 
             const Imath::V2i
             calculate_viewport_size(const Imath::M44f &transform_window_to_viewport_space);

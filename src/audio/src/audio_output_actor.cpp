@@ -155,9 +155,10 @@ void AudioOutputActor::init() {
             const bool muted,
             const bool repitch,
             const bool scrubbing,
-            const std::string & scrub_behaviour,
+            const std::string &scrub_behaviour,
             const int scrub_window_millisecs) {
-            set_attrs(volume, muted, repitch, scrubbing, scrub_behaviour, scrub_window_millisecs);
+            set_attrs(
+                volume, muted, repitch, scrubbing, scrub_behaviour, scrub_window_millisecs);
         },
         [=](utility::event_atom,
             playhead::sound_audio_atom,
@@ -196,7 +197,13 @@ void AudioOutputActor::init() {
             // these event messages are very fine-grained, so we know very accurately the
             // playhead position during playback
             playhead_position_changed(
-                playhead_position, playhead_loop_in, playhead_loop_out, forward, velocity, playing, when_position_changed);
+                playhead_position,
+                playhead_loop_in,
+                playhead_loop_out,
+                forward,
+                velocity,
+                playing,
+                when_position_changed);
         },
         [=](utility::event_atom,
             audio::audio_samples_atom,
@@ -240,11 +247,8 @@ GlobalAudioOutputActor::GlobalAudioOutputActor(caf::actor_config &cfg)
     scrub_window_millisecs_->set_role_data(
         module::Attribute::PreferencePath, "/core/audio/scrub_window_millisecs");
 
-        auto prefs = global_store::GlobalStoreHelper(system());
-        prefs.set(
-            "read only int",
-            "/core/audio/scrub_window_millisecs/datatype",
-            false);
+    auto prefs = global_store::GlobalStoreHelper(system());
+    prefs.set("read only int", "/core/audio/scrub_window_millisecs/datatype", false);
 
     spdlog::debug("Created GlobalAudioOutputActor");
     print_on_exit(this, "GlobalAudioOutputActor");
@@ -393,7 +397,6 @@ void GlobalAudioOutputActor::attribute_changed(const utility::Uuid &attr_uuid, c
             scrub_behaviour_->value() == "Custom Duration" ? "int" : "read only int",
             "/core/audio/scrub_window_millisecs/datatype",
             false);
-
     }
 
     // update and audio output clients with volume, mute etc.

@@ -31,7 +31,7 @@ namespace bookmark {
         }
         utility::Uuid bookmark_uuid_;
 
-        virtual const void * user_data() const { return nullptr; }
+        virtual const void *user_data() const { return nullptr; }
 
         virtual size_t hash() const { return 0; }
 

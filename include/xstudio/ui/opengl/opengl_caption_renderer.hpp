@@ -26,7 +26,7 @@ namespace ui {
                 const Imath::M44f &transform_viewport_to_image_space,
                 const float viewport_du_dx,
                 const float device_pixel_ratio,
-                const std::set<std::size_t> & skip_captions);
+                const std::set<std::size_t> &skip_captions);
 
             void render_single_caption(
                 const xstudio::ui::canvas::Caption &caption,
@@ -36,7 +36,6 @@ namespace ui {
                 const float device_pixel_ratio);
 
           private:
-          
             void init_gl();
             void cleanup_gl();
 

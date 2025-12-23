@@ -75,7 +75,7 @@ MouseArea {
                     Layout.preferredHeight: parent.height
                     Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
 
-                    opacity: ["na", "del", "omt", "omtnto", "omtnwd"].includes(statusRole) ? 0.5 : 1.0
+                    opacity: ["na", "del", "omt", "omtnto", "omtnwd"].includes(statusRole) ? 0.5 : (heroRole ? 1.0 : 0.8)
 
                     color: "hld" == statusRole ? "red" : palette.text
 
@@ -83,6 +83,8 @@ MouseArea {
                     horizontalAlignment: Text.AlignLeft
                     verticalAlignment: Text.AlignVCenter
                     font.pixelSize: XsStyleSheet.fontSize*1.2
+                    // font.weight: heroRole ? Font.ExtraBold : Font.Normal
+                    font.bold: heroRole
                     elide: Text.ElideRight
                     leftPadding: 2
                 }

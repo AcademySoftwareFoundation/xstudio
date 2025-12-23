@@ -173,4 +173,4 @@ XsTimer                   1.0 ../helpers/XsTimer.qml
 XsBufferedProperty        1.0 ../helpers/XsBufferedProperty.qml
 XsBufferedUIProperty      1.0 ../helpers/XsBufferedUIProperty.qml
 
-singleton XsStyleSheet    1.0 ../xStudio/XsStyleSheet.qml
+singleton XsStyleSheet    1.0 XsStyleSheet.qml

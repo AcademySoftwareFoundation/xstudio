@@ -256,7 +256,7 @@ class HELPER_QML_EXPORT JSONTreeModel : public QAbstractItemModel {
         const int depth = -1);
 
     std::string children_{"children"};
-    std::string display_role_ {"name"};
+    std::string display_role_{"name"};
     std::vector<std::string> role_names_;
     utility::JsonTree data_;
     utility::Uuid model_id_;
@@ -288,8 +288,8 @@ class HELPER_QML_EXPORT JSONTreeFilterModel : public QSortFilterProxyModel {
     Q_PROPERTY(
         QString sortRoleName READ sortRoleName WRITE setSortRoleName NOTIFY sortRoleNameChanged)
 
-   Q_PROPERTY(
-        QString filterRoleName READ filterRoleName WRITE setFilterRoleName NOTIFY filterRoleNameChanged)
+    Q_PROPERTY(QString filterRoleName READ filterRoleName WRITE setFilterRoleName NOTIFY
+                   filterRoleNameChanged)
 
   public:
     JSONTreeFilterModel(QObject *parent = nullptr) : QSortFilterProxyModel(parent) {
@@ -362,7 +362,7 @@ class HELPER_QML_EXPORT JSONTreeFilterModel : public QSortFilterProxyModel {
     }
 
     void setFilterRoleName(const QString &value) {
-        if(filterRoleName_  != value) {
+        if (filterRoleName_ != value) {
             filterRoleName_ = value;
 
             setFilterRole(roleId(value));
@@ -372,9 +372,7 @@ class HELPER_QML_EXPORT JSONTreeFilterModel : public QSortFilterProxyModel {
         }
     }
 
-    QString filterRoleName() const {
-        return filterRoleName_;
-    }
+    QString filterRoleName() const { return filterRoleName_; }
 
 
   signals:
@@ -391,6 +389,6 @@ class HELPER_QML_EXPORT JSONTreeFilterModel : public QSortFilterProxyModel {
   private:
     std::map<int, QVariant> roleFilterMap_;
     bool invert_ = {false};
-    QString filterRoleName_ {"display"};
+    QString filterRoleName_{"display"};
 };
 } // namespace xstudio::ui::qml

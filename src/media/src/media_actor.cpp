@@ -495,7 +495,8 @@ caf::message_handler MediaActor::message_handler() {
                                     UuidActor(base_.uuid(), this), std::make_pair(name, name)));
                             } else {
                                 mail(name_atom_v)
-                                    .request(media_sources_.at(base_.current(MT_AUDIO)), infinite)
+                                    .request(
+                                        media_sources_.at(base_.current(MT_AUDIO)), infinite)
                                     .then(
                                         [=](const std::string &aname) mutable {
                                             rp.deliver(std::make_pair(
@@ -517,7 +518,7 @@ caf::message_handler MediaActor::message_handler() {
                                 std::make_pair(std::string(), std::string())));
                             spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                         });
-            } catch(...) {
+            } catch (...) {
                 rp.deliver(std::make_pair(
                     UuidActor(base_.uuid(), this),
                     std::make_pair(std::string(), std::string())));
@@ -571,7 +572,7 @@ caf::message_handler MediaActor::message_handler() {
                         media_type)
                         .send(base_.event_group());
                 }
-            } catch(const std::exception &err) {
+            } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                 result = false;
             }
@@ -626,8 +627,8 @@ caf::message_handler MediaActor::message_handler() {
                     mail(utility::event_atom_v, media_reader::get_thumbnail_atom_v, buf)
                         .send(base_.event_group());
                 }
-            } catch(...){}
-
+            } catch (...) {
+            }
         },
 
         [=](media_reader::get_thumbnail_atom,
@@ -692,7 +693,7 @@ caf::message_handler MediaActor::message_handler() {
                         MT_IMAGE)
                         .send(base_.event_group());
                 }
-            } catch(const std::exception &err) {
+            } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                 result = false;
             }
@@ -763,9 +764,11 @@ caf::message_handler MediaActor::message_handler() {
                             mail(atom, media_type, ranges, clip_uuid)
                                 .request(media_sources_.at(base_.current(media_type)), infinite)
                                 .then(
-                                    [=](const media::AVFrameIDs &ids) mutable { rp.deliver(ids); },
+                                    [=](const media::AVFrameIDs &ids) mutable {
+                                        rp.deliver(ids);
+                                    },
                                     [=](error &err) mutable { rp.deliver(err); });
-                        } catch(const std::exception &err) {
+                        } catch (const std::exception &err) {
                             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                             rp.deliver(make_error(xstudio_error::error, "No MediaSources"));
                         }
@@ -921,7 +924,6 @@ caf::message_handler MediaActor::message_handler() {
 
         [=](get_media_source_names_atom)
             -> caf::result<std::vector<std::pair<utility::Uuid, std::string>>> {
-
             auto sources = map_value_to_vec(media_sources_);
 
             if (base_.empty() or sources.empty())
@@ -1110,18 +1112,16 @@ caf::message_handler MediaActor::message_handler() {
                         });
                 return rp;
             } else if (media_sources_.count(uuid)) {
-                auto rp = make_response_promise<std::pair<UuidActor, JsonStore>>();
+                auto rp        = make_response_promise<std::pair<UuidActor, JsonStore>>();
                 const auto msa = media_sources_.at(uuid);
                 mail(atom, path)
                     .request(msa, infinite)
                     .then(
                         [=](const JsonStore &jsn) mutable {
-                            rp.deliver(
-                                std::make_pair(UuidActor(uuid, msa), jsn));
+                            rp.deliver(std::make_pair(UuidActor(uuid, msa), jsn));
                         },
                         [=](error &err) mutable {
-                            rp.deliver(std::make_pair(
-                                UuidActor(uuid, msa), JsonStore()));
+                            rp.deliver(std::make_pair(UuidActor(uuid, msa), JsonStore()));
                         });
                 return rp;
             }
@@ -1142,8 +1142,9 @@ caf::message_handler MediaActor::message_handler() {
                         [=](error &) mutable {
                             // our own store doesn't have data at 'path'. Try the
                             // current media source as a fallback
-                            if(media_sources_.count(base_.current()))
-                                rp.delegate(media_sources_.at(base_.current()), atom, path, true);
+                            if (media_sources_.count(base_.current()))
+                                rp.delegate(
+                                    media_sources_.at(base_.current()), atom, path, true);
                             else
                                 rp.deliver(make_error(xstudio_error::error, "No MediaSources"));
                         });
@@ -1703,10 +1704,11 @@ void MediaActor::auto_set_current_source(
                     utility::event_atom_v,
                     current_media_source_atom_v,
                     UuidActor(
-                        base_.current(media_type), media_sources_.at(base_.current(media_type))),
+                        base_.current(media_type),
+                        media_sources_.at(base_.current(media_type))),
                     media_type)
                     .send(base_.event_group());
-            } catch(const std::exception &err) {
+            } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
             }
             if (rp.pending())

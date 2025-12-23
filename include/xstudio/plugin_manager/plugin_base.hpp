@@ -73,7 +73,7 @@ namespace plugin {
             const Imath::M44f &transform_viewport_to_normalised_coords,
             const media_reader::ImageBufDisplaySetPtr &on_screen_frames,
             const float viewport_du_dpixel,
-            const float device_pixel_ratio) {};
+            const float device_pixel_ratio){};
 
         [[nodiscard]] virtual RenderPass preferred_render_pass() const { return AfterImage; }
 
@@ -129,9 +129,9 @@ namespace plugin {
         // be able to execute custom overlay render code via your custom
         // ViewportOverlayRenderer to do overlay graphics on the entire viewport.
         virtual utility::BlindDataObjectPtr onscreen_render_data(
-            const media_reader::ImageBufDisplaySetPtr &/*image_set*/,
+            const media_reader::ImageBufDisplaySetPtr & /*image_set*/,
             const std::string & /*viewport_name*/,
-            const utility::Uuid &/*playhead_uuid*/) const {
+            const utility::Uuid & /*playhead_uuid*/) const {
             return utility::BlindDataObjectPtr();
         }
 
@@ -230,7 +230,8 @@ namespace plugin {
         void update_bookmark_detail(
             const utility::Uuid bookmark_id, const bookmark::BookmarkDetail &bmd);
 
-        void remove_bookmark(const utility::Uuid &bookmark_id, const bool only_if_empty=false);
+        void
+        remove_bookmark(const utility::Uuid &bookmark_id, const bool only_if_empty = false);
 
         /* Get the (unique) name of the current, active viewport in xSTUDIO's
         main UI window. */

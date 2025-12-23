@@ -400,6 +400,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_complex_types, FIRST_CUSTOM_ID + 200)
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<xstudio::utility::UuidActor, std::pair<std::string, xstudio::utility::UuidActor>>))
 
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<xstudio::playhead::AutoAlignMode, xstudio::playhead::AssemblyMode>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<Imath::M44f>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<float, std::vector<Imath::M44f>>))
 
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::optional<std::pair<xstudio::timeline::Item, xstudio::utility::FrameRate>>>))

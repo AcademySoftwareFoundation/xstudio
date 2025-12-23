@@ -81,7 +81,7 @@ void OpenGLCaptionRenderer::render_captions(
     const Imath::M44f &transform_viewport_to_image_space,
     const float viewport_du_dx,
     const float device_pixel_ratio,
-    const std::set<std::size_t> & skip_captions) {
+    const std::set<std::size_t> &skip_captions) {
 
     if (!bg_shader_) {
         init_gl();
@@ -93,7 +93,8 @@ void OpenGLCaptionRenderer::render_captions(
 
     for (const auto &caption : captions) {
 
-        if (skip_captions.find(caption.hash()) != skip_captions.end()) continue;
+        if (skip_captions.find(caption.hash()) != skip_captions.end())
+            continue;
 
         auto it = text_renderers_.find(caption.font_name());
         auto text_renderer =
@@ -116,7 +117,6 @@ void OpenGLCaptionRenderer::render_captions(
             caption.font_size(),
             caption.opacity());
     }
-
 }
 
 void OpenGLCaptionRenderer::render_single_caption(
@@ -154,7 +154,6 @@ void OpenGLCaptionRenderer::render_single_caption(
         viewport_du_dx,
         caption.font_size(),
         caption.opacity());
-
 }
 
 void OpenGLCaptionRenderer::render_background(

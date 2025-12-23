@@ -348,13 +348,12 @@ void GradingTool::on_screen_media_changed(
         .then(
             [=](const utility::Uuid media_uuid) {
                 const utility::Uuid previous_media_uuid = current_media_uuid_;
-                current_media_uuid_ = media_uuid;
+                current_media_uuid_                     = media_uuid;
                 select_bookmark_on_media_changed(previous_media_uuid, current_media_uuid_);
             },
-            [=](const caf::error & err) {
+            [=](const caf::error &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-            }
-        );
+            });
 }
 
 void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const int role) {
@@ -1139,7 +1138,8 @@ void GradingTool::select_bookmark(const utility::Uuid &uuid) {
     refresh_ui_from_current_grade();
 }
 
-void GradingTool::select_bookmark_on_media_changed(const utility::Uuid &prevMediaUuid, const utility::Uuid &newMediaUuid) {
+void GradingTool::select_bookmark_on_media_changed(
+    const utility::Uuid &prevMediaUuid, const utility::Uuid &newMediaUuid) {
 
     // Save bookmark selection
     if (prevMediaUuid) {

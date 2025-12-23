@@ -481,9 +481,9 @@ void ViewportFrameQueueActor::append_overlays_data(
                         for (int i = 0;
                              i < std::min(result->num_onscreen_images(), (int)bdata.size());
                              ++i) {
-                            if (bdata[i+1]) {
+                            if (bdata[i + 1]) {
                                 result->onscreen_image_m(i).add_plugin_blind_data(
-                                    overlay_plugin_uuid, bdata[i+1]);
+                                    overlay_plugin_uuid, bdata[i + 1]);
                             }
                         }
                         auto_responder.decrement();

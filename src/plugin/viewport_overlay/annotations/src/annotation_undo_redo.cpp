@@ -9,16 +9,18 @@ using namespace xstudio::ui::viewport;
 
 namespace fs = std::filesystem;
 
-bool AddStroke::redo(Annotation ** annotation) {
+bool AddStroke::redo(Annotation **annotation) {
 
-    if (!(*annotation)) return false;
+    if (!(*annotation))
+        return false;
     (*annotation)->canvas().append_item(stroke_);
     return true;
 }
 
-bool AddStroke::undo(Annotation ** annotation) {
+bool AddStroke::undo(Annotation **annotation) {
 
-    if (!(*annotation)) return false;
+    if (!(*annotation))
+        return false;
 
     // find the matching stroke and remove. The assumption here is that
     // every stroke is unique.
@@ -36,9 +38,10 @@ bool AddStroke::undo(Annotation ** annotation) {
     return false;
 }
 
-bool ModifyOrAddCaption::redo(Annotation ** annotation) {
+bool ModifyOrAddCaption::redo(Annotation **annotation) {
 
-    if (!(*annotation)) return false;
+    if (!(*annotation))
+        return false;
 
     auto p = (*annotation)->canvas().end();
     while (p != (*annotation)->canvas().begin()) {
@@ -55,12 +58,12 @@ bool ModifyOrAddCaption::redo(Annotation ** annotation) {
 
     (*annotation)->canvas().append_item(caption_);
     return true;
-
 }
 
-bool ModifyOrAddCaption::undo(Annotation ** annotation) {
+bool ModifyOrAddCaption::undo(Annotation **annotation) {
 
-    if (!(*annotation)) return false;
+    if (!(*annotation))
+        return false;
 
     // do we have 'original_caption_' with content ? If so, we're undoing
     // a modification
@@ -89,14 +92,14 @@ bool ModifyOrAddCaption::undo(Annotation ** annotation) {
         }
     }
     return false;
-
 }
 
-bool DeleteCaption::redo(Annotation ** annotation) {
+bool DeleteCaption::redo(Annotation **annotation) {
 
-    if (!(*annotation)) return false;
+    if (!(*annotation))
+        return false;
 
-    auto p = (*annotation)->canvas().end();
+    auto p     = (*annotation)->canvas().end();
     size_t idx = (*annotation)->canvas().size();
     while (p != (*annotation)->canvas().begin()) {
         p--;
@@ -105,21 +108,21 @@ bool DeleteCaption::redo(Annotation ** annotation) {
             auto &caption = std::get<Caption>(*p);
             if (caption.id() == caption_id_) {
                 caption_idx_ = idx;
-                caption_ = caption;
+                caption_     = caption;
                 (*annotation)->canvas().remove_item(p);
                 return true;
             }
         }
     }
     return false;
-
 }
 
-bool DeleteCaption::undo(Annotation ** annotation) {
+bool DeleteCaption::undo(Annotation **annotation) {
 
-    if (!(*annotation)) return false;
+    if (!(*annotation))
+        return false;
 
-    auto p = (*annotation)->canvas().begin();
+    auto p     = (*annotation)->canvas().begin();
     size_t idx = caption_idx_;
     while (p != (*annotation)->canvas().end() && idx) {
         idx--;
@@ -132,4 +135,3 @@ bool DeleteCaption::undo(Annotation ** annotation) {
     }
     return true;
 }
-

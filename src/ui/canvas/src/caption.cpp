@@ -25,22 +25,18 @@ Caption::Caption(
       background_colour_(background_colour),
       background_opacity_(background_opacity),
       id_(utility::Uuid::generate()) {
-        
-        update_vertices();
-      }
 
-bool Caption::operator==(const Caption &o) const {
-
-    return hash_ == o.hash_;
+    update_vertices();
 }
+
+bool Caption::operator==(const Caption &o) const { return hash_ == o.hash_; }
 
 void Caption::set_cursor_position(const Imath::V2f &screen_pos) {
 
     cursor_position_ =
-            SDFBitmapFont::font_by_name(font_name_)
-                ->viewport_position_to_cursor(
-                    screen_pos, text_, position_, wrap_width_, font_size_, justification_, 1.0f);
-                    
+        SDFBitmapFont::font_by_name(font_name_)
+            ->viewport_position_to_cursor(
+                screen_pos, text_, position_, wrap_width_, font_size_, justification_, 1.0f);
 }
 
 void Caption::move_cursor(int key) {
@@ -49,26 +45,26 @@ void Caption::move_cursor(int key) {
     if (key == 16777235) {
         // up arrow
         cursor_position_ = SDFBitmapFont::font_by_name(font_name_)
-                                ->cursor_up_or_down(
-                                    cursor_position_,
-                                    true,
-                                    text_,
-                                    wrap_width_,
-                                    font_size_,
-                                    justification_,
-                                    1.0f);
+                               ->cursor_up_or_down(
+                                   cursor_position_,
+                                   true,
+                                   text_,
+                                   wrap_width_,
+                                   font_size_,
+                                   justification_,
+                                   1.0f);
 
     } else if (key == 16777237) {
         // down arrow
         cursor_position_ = SDFBitmapFont::font_by_name(font_name_)
-                                ->cursor_up_or_down(
-                                    cursor_position_,
-                                    false,
-                                    text_,
-                                    wrap_width_,
-                                    font_size_,
-                                    justification_,
-                                    1.0f);
+                               ->cursor_up_or_down(
+                                   cursor_position_,
+                                   false,
+                                   text_,
+                                   wrap_width_,
+                                   font_size_,
+                                   justification_,
+                                   1.0f);
 
     } else if (key == 16777236) {
         // right arrow
@@ -102,11 +98,12 @@ void Caption::modify_text(const std::string &t) {
 
     const char ascii_code = t.c_str()[0];
 
-    const int cpos = std::distance<std::string::const_iterator>(text_.cbegin(), cursor_position_);
+    const int cpos =
+        std::distance<std::string::const_iterator>(text_.cbegin(), cursor_position_);
 
-    // N.B. - calling text_.begin() invalidates 'cursor_position_' as the string data gets copied
-    // to writeable buffer (or something). Maybe the way I use a string iterator for
-    // the caption cursor_position_ is bad.
+    // N.B. - calling text_.begin() invalidates 'cursor_position_' as the string data gets
+    // copied to writeable buffer (or something). Maybe the way I use a string iterator for the
+    // caption cursor_position_ is bad.
     auto cr = text_.begin();
 
     std::advance(cr, cpos);
@@ -136,20 +133,19 @@ void Caption::modify_text(const std::string &t) {
 std::array<Imath::V2f, 2> Caption::cursor_position_on_image() const {
 
     std::array<Imath::V2f, 2> result = {Imath::V2f(0.0f, 0.0f), Imath::V2f(0.0f, 0.0f)};
-    Imath::V2f v = SDFBitmapFont::font_by_name(font_name_)
-                        ->get_cursor_screen_position(
-                            text_,
-                            position_,
-                            wrap_width_,
-                            font_size_,
-                            justification_,
-                            1.0f,
-                            cursor_position_);
+    Imath::V2f v                     = SDFBitmapFont::font_by_name(font_name_)
+                       ->get_cursor_screen_position(
+                           text_,
+                           position_,
+                           wrap_width_,
+                           font_size_,
+                           justification_,
+                           1.0f,
+                           cursor_position_);
 
     result[0] = v;
     result[1] = v - Imath::V2f(0.0f, font_size_ * 2.0f / 1920.0f * 0.8f);
     return result;
-
 }
 
 void Caption::update_hash() {
@@ -174,8 +170,9 @@ void Caption::update_vertices() {
 
     if (old_hash != hash_) {
         bounding_box_ =
-            SDFBitmapFont::font_by_name(font_name_)->precompute_text_rendering_vertex_layout(
-                vertices_, text_, position_, wrap_width_, font_size_, justification_, 1.0f);
+            SDFBitmapFont::font_by_name(font_name_)
+                ->precompute_text_rendering_vertex_layout(
+                    vertices_, text_, position_, wrap_width_, font_size_, justification_, 1.0f);
     }
 }
 

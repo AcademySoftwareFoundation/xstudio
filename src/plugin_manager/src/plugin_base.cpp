@@ -66,12 +66,9 @@ StandardPlugin::StandardPlugin(
             // here for each image in the display set we generate the onscreen
             // render data and return in a vector
             utility::BlindDataObjectPtrVec result;
-            result.reserve(image_set->num_onscreen_images()+1);
-            
-            result.emplace_back(onscreen_render_data(
-                image_set,
-                viewport_name,
-                playhead_id));
+            result.reserve(image_set->num_onscreen_images() + 1);
+
+            result.emplace_back(onscreen_render_data(image_set, viewport_name, playhead_id));
 
             const bool is_grid_layout = image_set->has_grid_layout();
             for (int i = 0; i < image_set->num_onscreen_images(); ++i) {
@@ -496,8 +493,7 @@ utility::Uuid StandardPlugin::create_bookmark_on_frame(
                 bookmark_manager_,
                 bookmark::add_bookmark_atom_v,
                 utility::UuidActor(media_uuid, media),
-                detail.uuid_.is_null() ? utility::Uuid::generate() : detail.uuid_
-            );
+                detail.uuid_.is_null() ? utility::Uuid::generate() : detail.uuid_);
 
             bookmark::BookmarkDetail bmd = detail;
 
@@ -764,25 +760,25 @@ void StandardPlugin::update_bookmark_detail(
     }
 }
 
-void StandardPlugin::remove_bookmark(const utility::Uuid &bookmark_id, const bool only_if_empty) {
+void StandardPlugin::remove_bookmark(
+    const utility::Uuid &bookmark_id, const bool only_if_empty) {
 
     scoped_actor sys{system()};
     try {
 
         if (only_if_empty) {
-         
+
             const auto detail = utility::request_receive<BookmarkDetail>(
                 *sys, bookmark_manager_, bookmark::bookmark_detail_atom_v, bookmark_id);
-            if (detail.note_ && !detail.note_->empty()) return;
-            
+            if (detail.note_ && !detail.note_->empty())
+                return;
         }
 
         utility::request_receive<bool>(
-            *sys, bookmark_manager_,bookmark::remove_bookmark_atom_v, bookmark_id);
+            *sys, bookmark_manager_, bookmark::remove_bookmark_atom_v, bookmark_id);
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
-
 }
 
 

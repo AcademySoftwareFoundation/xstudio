@@ -67,10 +67,14 @@ namespace playhead {
         void broadcast_audio_samples();
 
         std::vector<timebase::flicks> get_lookahead_frame_pointers(
-            media::AVFrameIDsAndTimePoints &result, const int max_num_frames, const bool use_headroom);
+            media::AVFrameIDsAndTimePoints &result,
+            const int max_num_frames,
+            const bool use_headroom);
 
         std::vector<timebase::flicks> get_lookahead_frame_pointers(
-            media::AVFrameIDsAndTimePoints &result, const timebase::flicks lookahead, const timebase::flicks headroom);
+            media::AVFrameIDsAndTimePoints &result,
+            const timebase::flicks lookahead,
+            const timebase::flicks headroom);
 
         void request_future_frames();
 
@@ -132,7 +136,6 @@ namespace playhead {
         void check_if_media_changed(const media::AVFrameID *frame_id);
 
       protected:
-
         media::FrameTimeMap::iterator current_frame_iterator();
         media::FrameTimeMap::iterator current_frame_iterator(const timebase::flicks t);
         utility::FrameRate current_frame_rate() const;
