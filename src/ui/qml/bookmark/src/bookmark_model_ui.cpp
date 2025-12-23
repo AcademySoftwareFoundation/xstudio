@@ -293,36 +293,37 @@ void BookmarkFilterModel::setsortbyCreated(const bool value) {
 BookmarkModel::BookmarkModel(QObject *parent) : super(parent) {
     init(CafSystemObject::get_actor_system());
 
-    setRoleNames(std::vector<std::string>(
-        {"authorRole",
-         "categoryRole",
-         "colourRole",
-         "createdEpochRole",
-         "createdRole",
-         "durationFrameRole",
-         "durationRole",
-         "durationTimecodeRole",
-         "enabledRole",
-         "endFrameRole",
-         "endTimecodeRole",
-         "focusRole",
-         "frameFromTimecodeRole",
-         "frameRole",
-         "hasAnnotationRole",
-         "hasNoteRole",
-         "metadataChangedRole",
-         "noteRole",
-         "objectRole",
-         "ownerRole",
-         "startFrameRole",
-         "startRole",
-         "startTimecodeRole",
-         "subjectRole",
-         "thumbnailRole",
-         "userDataRole",
-         "userTypeRole",
-         "uuidRole",
-         "visibleRole"}));
+    setRoleNames(
+        std::vector<std::string>(
+            {"authorRole",
+             "categoryRole",
+             "colourRole",
+             "createdEpochRole",
+             "createdRole",
+             "durationFrameRole",
+             "durationRole",
+             "durationTimecodeRole",
+             "enabledRole",
+             "endFrameRole",
+             "endTimecodeRole",
+             "focusRole",
+             "frameFromTimecodeRole",
+             "frameRole",
+             "hasAnnotationRole",
+             "hasNoteRole",
+             "metadataChangedRole",
+             "noteRole",
+             "objectRole",
+             "ownerRole",
+             "startFrameRole",
+             "startRole",
+             "startTimecodeRole",
+             "subjectRole",
+             "thumbnailRole",
+             "userDataRole",
+             "userTypeRole",
+             "uuidRole",
+             "visibleRole"}));
 }
 
 // don't optimise yet.
@@ -800,15 +801,17 @@ QVariant BookmarkModel::data(const QModelIndex &index, int role) const {
                 break;
             case createdRole:
                 if (detail.created_) {
-                    result = QVariant::fromValue(QLocale::system().toString(
-                        QDateTime::fromSecsSinceEpoch(
-                            std::chrono::duration_cast<std::chrono::seconds>(
-                                (*(detail.created_)).time_since_epoch())
-                                .count()),
-                        QLocale::ShortFormat));
+                    result = QVariant::fromValue(
+                        QLocale::system().toString(
+                            QDateTime::fromSecsSinceEpoch(
+                                std::chrono::duration_cast<std::chrono::seconds>(
+                                    (*(detail.created_)).time_since_epoch())
+                                    .count()),
+                            QLocale::ShortFormat));
                 } else {
-                    result = QVariant::fromValue(QLocale::system().toString(
-                        QDateTime::currentDateTime(), QLocale::ShortFormat));
+                    result = QVariant::fromValue(
+                        QLocale::system().toString(
+                            QDateTime::currentDateTime(), QLocale::ShortFormat));
                 }
                 break;
             case createdEpochRole:
@@ -1041,9 +1044,10 @@ bool BookmarkModel::setData(const QModelIndex &index, const QVariant &value, int
                             .toJson(QJsonDocument::Compact)
                             .constData());
                 } else {
-                    jval = nlohmann::json::parse(QJsonDocument::fromVariant(value)
-                                                     .toJson(QJsonDocument::Compact)
-                                                     .constData());
+                    jval = nlohmann::json::parse(
+                        QJsonDocument::fromVariant(value)
+                            .toJson(QJsonDocument::Compact)
+                            .constData());
                 }
 
                 if (not detail.user_data_ or (*detail.user_data_) != jval) {

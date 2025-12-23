@@ -270,7 +270,7 @@ void AnnotationsUI::attribute_changed(const utility::Uuid &attribute_uuid, const
 
         std::string action;
         utility::JsonStore payload;
-        action = "SetDisplayMode";
+        action                  = "SetDisplayMode";
         payload["display_mode"] = display_mode_attribute_->value();
         send_event(action, payload);
 
@@ -443,9 +443,10 @@ void AnnotationsUI::send_event(const std::string &event, const utility::JsonStor
 
         anon_mail(utility::event_atom_v, ui::viewport::annotation_atom_v, d).send(core_plugin_);
     } else {
-        
-        anon_mail(utility::event_atom_v, ui::viewport::annotation_atom_v, d, 0).delay(std::chrono::milliseconds(100)).send(caf::actor_cast<caf::actor>(this));
-        
+
+        anon_mail(utility::event_atom_v, ui::viewport::annotation_atom_v, d, 0)
+            .delay(std::chrono::milliseconds(100))
+            .send(caf::actor_cast<caf::actor>(this));
     }
 }
 
@@ -789,26 +790,30 @@ caf::message_handler AnnotationsUI::message_handler_extensions() {
         [=](utility::event_atom, bool) {
             // this message is sent when the user finishes a laser bruish stroke
         },
-        [=](utility::event_atom) {
-        },
+        [=](utility::event_atom) {},
         [=](utility::event_atom,
             ui::viewport::annotation_atom,
             const utility::JsonStore &payload,
             int retry) {
-            
-            // At start up, the core plugin might not be reachable while this UI 
+            // At start up, the core plugin might not be reachable while this UI
             // plugin is getting annotation changed events that we need to share
             // with the core plugin. We send the message to ourselves with a delay
-            // so that we can retry sending it when the core plugin will be 
+            // so that we can retry sending it when the core plugin will be
             // available
-            if (retry > 10) return;
+            if (retry > 10)
+                return;
             if (!core_plugin_) {
-                core_plugin_ = system().registry().template get<caf::actor>("ANNOTATIONS_CORE_PLUGIN");
+                core_plugin_ =
+                    system().registry().template get<caf::actor>("ANNOTATIONS_CORE_PLUGIN");
             }
             if (core_plugin_) {
-                anon_mail(utility::event_atom_v, ui::viewport::annotation_atom_v, payload).send(core_plugin_);
+                anon_mail(utility::event_atom_v, ui::viewport::annotation_atom_v, payload)
+                    .send(core_plugin_);
             } else {
-                anon_mail(utility::event_atom_v, ui::viewport::annotation_atom_v, payload, retry+1).delay(std::chrono::milliseconds(100)).send(caf::actor_cast<caf::actor>(this));
+                anon_mail(
+                    utility::event_atom_v, ui::viewport::annotation_atom_v, payload, retry + 1)
+                    .delay(std::chrono::milliseconds(100))
+                    .send(caf::actor_cast<caf::actor>(this));
             }
         },
         [=](utility::event_atom,
@@ -1048,17 +1053,19 @@ void AnnotationsUI::update_colour_picker_info(const ui::PointerEvent &e) {
                     std::max(0.0f, std::min(1.0f, picked_pixel_colour.z));
                 cumulative_picked_colour_.w += 1.0f;
 
-                pen_colour_->set_value(utility::ColourTriplet(
-                    cumulative_picked_colour_.x / cumulative_picked_colour_.w,
-                    cumulative_picked_colour_.y / cumulative_picked_colour_.w,
-                    cumulative_picked_colour_.z / cumulative_picked_colour_.w));
+                pen_colour_->set_value(
+                    utility::ColourTriplet(
+                        cumulative_picked_colour_.x / cumulative_picked_colour_.w,
+                        cumulative_picked_colour_.y / cumulative_picked_colour_.w,
+                        cumulative_picked_colour_.z / cumulative_picked_colour_.w));
 
             } else {
 
-                pen_colour_->set_value(utility::ColourTriplet(
-                    std::max(0.0f, std::min(1.0f, picked_pixel_colour.x)),
-                    std::max(0.0f, std::min(1.0f, picked_pixel_colour.y)),
-                    std::max(0.0f, std::min(1.0f, picked_pixel_colour.z))));
+                pen_colour_->set_value(
+                    utility::ColourTriplet(
+                        std::max(0.0f, std::min(1.0f, picked_pixel_colour.x)),
+                        std::max(0.0f, std::min(1.0f, picked_pixel_colour.y)),
+                        std::max(0.0f, std::min(1.0f, picked_pixel_colour.z))));
             }
         }
 

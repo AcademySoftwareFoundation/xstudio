@@ -198,9 +198,10 @@ void PlayheadBase::deserialise(const JsonStore &jsn) {
 PlayheadBase::OptionalTimePoint PlayheadBase::play_step() {
 
     const auto now = utility::clock::now();
-    const timebase::flicks delta(timebase::flicks::rep(
-        throttle_ * velocity_->value() * velocity_multiplier_->value() *
-        float(std::chrono::duration_cast<timebase::flicks>(now - last_step_).count())));
+    const timebase::flicks delta(
+        timebase::flicks::rep(
+            throttle_ * velocity_->value() * velocity_multiplier_->value() *
+            float(std::chrono::duration_cast<timebase::flicks>(now - last_step_).count())));
     last_step_ = now;
 
     if (forward()) {
@@ -537,9 +538,10 @@ void PlayheadBase::set_playing(const bool play) {
 
 timebase::flicks PlayheadBase::effective_frame_period() const {
 
-    return throttle_ == 1.0f ? playhead_rate_.to_flicks()
-                             : timebase::to_flicks(static_cast<double>(
-                                   playhead_rate_.to_seconds() * (1.0f / throttle_)));
+    return throttle_ == 1.0f
+               ? playhead_rate_.to_flicks()
+               : timebase::to_flicks(
+                     static_cast<double>(playhead_rate_.to_seconds() * (1.0f / throttle_)));
 }
 
 timebase::flicks PlayheadBase::clamp_timepoint_to_loop_range(const timebase::flicks pos) const {

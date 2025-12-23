@@ -17,64 +17,65 @@ using namespace xstudio;
 
 
 ShotBrowserResultModel::ShotBrowserResultModel(QObject *parent) : JSONTreeModel(parent) {
-    setRoleNames(std::vector<std::string>(
-        {"addressingRole",
-         "artistRole",
-         "assetRole",
-         "attachmentsRole",
-         "authorRole",
-         "clientFilenameRole",
-         "clientNoteRole",
-         "contentRole",
-         "createdByRole",
-         "createdDateRole",
-         "dateSubmittedToClientRole",
-         "departmentRole",
-         "detailRole",
-         "entityRole",
-         "frameRangeRole",
-         "frameSequenceRole",
-         "linkedVersionsRole",
-         "locationRole",
-         "loginRole",
-         "movieRole",
-         "nameRole",
-         "noteCountRole",
-         "noteTypeRole",
-         "onSiteChn",
-         "onSiteLon",
-         "onSiteMtl",
-         "onSiteMum",
-         "onSiteSyd",
-         // "onSiteVan",
-         "pipelineStatusFullRole",
-         "pipelineStatusRole",
-         "pipelineStepRole",
-         "playlistNameRole",
-         "playlistTypeRole",
-         "productionStatusRole",
-         "productionStatusFullRole",
-         "projectIdRole",
-         "projectRole",
-         // "refTagRole",
-         "resultRowRole",
-         "sequenceRole",
-         "shotRole",
-         "siteRole",
-         "stageRole",
-         "stalkUuidRole",
-         "subjectRole",
-         "submittedToDailiesRole",
-         "tagRole",
-         "textFilterRole",
-         "thumbRole",
-         "twigNameRole",
-         "twigTypeRole",
-         "typeRole",
-         "URLRole",
-         "versionCountRole",
-         "versionNameRole",
-         "versionRole"}));
+    setRoleNames(
+        std::vector<std::string>(
+            {"addressingRole",
+             "artistRole",
+             "assetRole",
+             "attachmentsRole",
+             "authorRole",
+             "clientFilenameRole",
+             "clientNoteRole",
+             "contentRole",
+             "createdByRole",
+             "createdDateRole",
+             "dateSubmittedToClientRole",
+             "departmentRole",
+             "detailRole",
+             "entityRole",
+             "frameRangeRole",
+             "frameSequenceRole",
+             "linkedVersionsRole",
+             "locationRole",
+             "loginRole",
+             "movieRole",
+             "nameRole",
+             "noteCountRole",
+             "noteTypeRole",
+             "onSiteChn",
+             "onSiteLon",
+             "onSiteMtl",
+             "onSiteMum",
+             "onSiteSyd",
+             // "onSiteVan",
+             "pipelineStatusFullRole",
+             "pipelineStatusRole",
+             "pipelineStepRole",
+             "playlistNameRole",
+             "playlistTypeRole",
+             "productionStatusRole",
+             "productionStatusFullRole",
+             "projectIdRole",
+             "projectRole",
+             // "refTagRole",
+             "resultRowRole",
+             "sequenceRole",
+             "shotRole",
+             "siteRole",
+             "stageRole",
+             "stalkUuidRole",
+             "subjectRole",
+             "submittedToDailiesRole",
+             "tagRole",
+             "textFilterRole",
+             "thumbRole",
+             "twigNameRole",
+             "twigTypeRole",
+             "typeRole",
+             "URLRole",
+             "versionCountRole",
+             "versionNameRole",
+             "versionRole"}));
 }
 
 void ShotBrowserResultModel::setEmpty() {
@@ -625,10 +626,12 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
             break;
 
         case Roles::URLRole:
-            result = QStringFromStd(std::string(fmt::format(
-                "http://shotgun/detail/{}/{}",
-                j.at("type").get<std::string>(),
-                j.at("id").get<int>())));
+            result = QStringFromStd(
+                std::string(
+                    fmt::format(
+                        "http://shotgun/detail/{}/{}",
+                        j.at("type").get<std::string>(),
+                        j.at("id").get<int>())));
             break;
 
         case Roles::artistRole: {
@@ -727,31 +730,40 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
         case Roles::thumbRole:
             // result = "qrc:/feather_icons/film.svg";
             if (j.at("type") == "Playlist") {
-                result = QStringFromStd(fmt::format(
-                    "image://shotgrid/thumbnail/{}/{}", j.value("type", ""), j.value("id", 0)));
+                result = QStringFromStd(
+                    fmt::format(
+                        "image://shotgrid/thumbnail/{}/{}",
+                        j.value("type", ""),
+                        j.value("id", 0)));
             } else if (
                 j.at("attributes").count("image") and
                 not j.at("attributes").at("image").is_null())
-                result = QStringFromStd(fmt::format(
-                    "image://shotgrid/thumbnail/{}/{}", j.value("type", ""), j.value("id", 0)));
+                result = QStringFromStd(
+                    fmt::format(
+                        "image://shotgrid/thumbnail/{}/{}",
+                        j.value("type", ""),
+                        j.value("id", 0)));
             else {
                 for (const auto &i : j.at("relationships").at("note_links").at("data")) {
                     if (i.at("type") == "Version") {
-                        result = QStringFromStd(fmt::format(
-                            "image://shotgrid/thumbnail/{}/{}",
-                            i.value("type", ""),
-                            i.value("id", 0)));
+                        result = QStringFromStd(
+                            fmt::format(
+                                "image://shotgrid/thumbnail/{}/{}",
+                                i.value("type", ""),
+                                i.value("id", 0)));
                         break;
                     } else if (i.at("type") == "Shot") {
-                        result = QStringFromStd(fmt::format(
-                            "image://shotgrid/thumbnail/{}/{}",
-                            i.value("type", ""),
-                            i.value("id", 0)));
+                        result = QStringFromStd(
+                            fmt::format(
+                                "image://shotgrid/thumbnail/{}/{}",
+                                i.value("type", ""),
+                                i.value("id", 0)));
                     } else if (result.isNull() and i.at("type") == "Playlist") {
-                        result = QStringFromStd(fmt::format(
-                            "image://shotgrid/thumbnail/{}/{}",
-                            i.value("type", ""),
-                            i.value("id", 0)));
+                        result = QStringFromStd(
+                            fmt::format(
+                                "image://shotgrid/thumbnail/{}/{}",
+                                i.value("type", ""),
+                                i.value("id", 0)));
                     }
                 }
             }

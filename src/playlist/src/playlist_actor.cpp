@@ -208,7 +208,10 @@ void blocking_loader_other(
                         [=](const bool) mutable {
                             if (auto_gather) {
                                 for (const auto &i : uav) {
-                                    anon_mail(media_hook::gather_media_sources_atom_v, i.actor(), default_rate)
+                                    anon_mail(
+                                        media_hook::gather_media_sources_atom_v,
+                                        i.actor(),
+                                        default_rate)
                                         .send(session);
                                 }
                             }
@@ -641,8 +644,7 @@ caf::message_handler PlaylistActor::message_handler() {
 
             mail(utility::event_atom_v, loading_media_atom_v, true).send(base_.event_group());
 
-            if (path.scheme() == "file" or
-                path.scheme().find("http") == 0) {
+            if (path.scheme() == "file" or path.scheme().find("http") == 0) {
                 spawn(
                     blocking_loader,
                     rp,
@@ -655,7 +657,8 @@ caf::message_handler PlaylistActor::message_handler() {
                     uuid_before);
 
             } else {
-                // Unrecognised URI scheme, so see if one of the plugins can do something with it
+                // Unrecognised URI scheme, so see if one of the plugins can do something with
+                // it
                 auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
                 spawn(
                     blocking_loader_other,
@@ -668,7 +671,7 @@ caf::message_handler PlaylistActor::message_handler() {
                     pm,
                     uuid_before);
             }
-                    
+
             return rp;
         },
 
@@ -1038,8 +1041,9 @@ caf::message_handler PlaylistActor::message_handler() {
                 .request(actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const UuidActor &result) mutable {
-                        rp.deliver(std::make_pair(
-                            UuidActor(base_.uuid(), actor_cast<caf::actor>(this)), result));
+                        rp.deliver(
+                            std::make_pair(
+                                UuidActor(base_.uuid(), actor_cast<caf::actor>(this)), result));
                     },
 
                     [=](error &err) mutable { rp.deliver(std::move(err)); });

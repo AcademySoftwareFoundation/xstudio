@@ -346,10 +346,11 @@ namespace utility {
         result.reserve(chunk_count);
         for (size_t chunk = 0; chunk < chunk_count; chunk++) {
 
-            result.emplace_back(std::vector<typename V::value_type>(
-                m.begin() + (chunk * count),
-                m.begin() + (chunk * count) +
-                    ((chunk + 1) * count <= m.size() ? count : m.size() % count)));
+            result.emplace_back(
+                std::vector<typename V::value_type>(
+                    m.begin() + (chunk * count),
+                    m.begin() + (chunk * count) +
+                        ((chunk + 1) * count <= m.size() ? count : m.size() % count)));
         }
 
         // for (auto it = m.begin(); it != m.end(); ++it) {

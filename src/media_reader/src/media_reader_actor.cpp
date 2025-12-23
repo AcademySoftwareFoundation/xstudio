@@ -114,12 +114,13 @@ ReaderHelper::ReaderHelper(
                                     make_error(media_error::unsupported, "Unsupported format"));
                             } else {
                                 try {
-                                    rp.deliver(spawn<CachingMediaReaderActor>(
-                                        best_reader_plugin_uuid,
-                                        system().registry().template get<caf::actor>(
-                                            image_cache_registry),
-                                        system().registry().template get<caf::actor>(
-                                            audio_cache_registry)));
+                                    rp.deliver(
+                                        spawn<CachingMediaReaderActor>(
+                                            best_reader_plugin_uuid,
+                                            system().registry().template get<caf::actor>(
+                                                image_cache_registry),
+                                            system().registry().template get<caf::actor>(
+                                                audio_cache_registry)));
                                 } catch (...) {
                                     // shutting down
                                     return rp.deliver(

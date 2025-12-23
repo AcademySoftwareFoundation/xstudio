@@ -289,8 +289,9 @@ std::vector<Marker> process_markers(
         auto m = Marker(om->name());
 
         if (colors::wpf_named_color_converter::is_named(om->color()))
-            m.set_flag(colors::to_ahex_str<char>(colors::color(
-                colors::value_of(colors::wpf_named_color_converter::value(om->color())))));
+            m.set_flag(
+                colors::to_ahex_str<char>(colors::color(
+                    colors::value_of(colors::wpf_named_color_converter::value(om->color())))));
 
         auto marker_metadata = JsonStore();
         try {
@@ -859,7 +860,7 @@ void timeline_importer(
         }
 
         // active_path maybe relative..
-	const auto uri = caf::make_uri(active_path);
+        const auto uri = caf::make_uri(active_path);
         if (not uri) {
             // not uri....
             // assume relative ?
@@ -893,21 +894,21 @@ void timeline_importer(
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         }
 
-	if (uri and uri->scheme() != "file" and
-	    not uri->scheme().starts_with("http")) {
-	    // unrecognized URI scheme, so send it to the data_source plugins
-	    auto pm = self->system().registry().template get<caf::actor>(plugin_manager_registry);
-	    caf::scoped_actor sys(self->system());
-	    auto plugin_media_tmp = request_receive<UuidActorVector>(
-		*sys, pm, data_source::use_data_atom_v, *uri, timeline_rate, false);
-	    if (not plugin_media_tmp.empty()) {
-		target_url_map[active_path] = plugin_media_tmp[0];
-		if (not clip_metadata.is_null())
-		    anon_mail(json_store::set_json_atom_v, clip_metadata, "/metadata/timeline")
-			.send(target_url_map[active_path].actor());
-		continue;
-	    }
-	}
+        if (uri and uri->scheme() != "file" and not uri->scheme().starts_with("http")) {
+            // unrecognized URI scheme, so send it to the data_source plugins
+            auto pm =
+                self->system().registry().template get<caf::actor>(plugin_manager_registry);
+            caf::scoped_actor sys(self->system());
+            auto plugin_media_tmp = request_receive<UuidActorVector>(
+                *sys, pm, data_source::use_data_atom_v, *uri, timeline_rate, false);
+            if (not plugin_media_tmp.empty()) {
+                target_url_map[active_path] = plugin_media_tmp[0];
+                if (not clip_metadata.is_null())
+                    anon_mail(json_store::set_json_atom_v, clip_metadata, "/metadata/timeline")
+                        .send(target_url_map[active_path].actor());
+                continue;
+            }
+        }
 
         // check we're not adding the same media twice.
         UuidActorVector sources;
@@ -3506,15 +3507,16 @@ void TimelineActor::export_otio_as_string(caf::typed_response_promise<std::strin
                                     auto extref = new otio::ExternalReference(p);
 
                                     if (citem.available_range()) {
-                                        extref->set_available_range(otio::TimeRange(
-                                            otio::RationalTime::from_frames(
-                                                citem.available_frame_start()->frames() +
-                                                    mr.start_frame_offset(),
-                                                citem.rate().to_fps()),
-                                            otio::RationalTime::from_frames(
-                                                citem.available_frame_duration()->frames() -
-                                                    mr.start_frame_offset(),
-                                                citem.rate().to_fps())));
+                                        extref->set_available_range(
+                                            otio::TimeRange(
+                                                otio::RationalTime::from_frames(
+                                                    citem.available_frame_start()->frames() +
+                                                        mr.start_frame_offset(),
+                                                    citem.rate().to_fps()),
+                                                otio::RationalTime::from_frames(
+                                                    citem.available_frame_duration()->frames() -
+                                                        mr.start_frame_offset(),
+                                                    citem.rate().to_fps())));
                                     }
                                     extref->set_name(name);
                                     clip->set_media_reference(extref);
@@ -3546,13 +3548,15 @@ void TimelineActor::export_otio_as_string(caf::typed_response_promise<std::strin
                                         extref->set_name(name);
 
                                         if (citem.available_range()) {
-                                            extref->set_available_range(otio::TimeRange(
-                                                otio::RationalTime::from_frames(
-                                                    citem.available_frame_start()->frames(),
-                                                    citem.rate().to_fps()),
-                                                otio::RationalTime::from_frames(
-                                                    citem.available_frame_duration()->frames(),
-                                                    citem.rate().to_fps())));
+                                            extref->set_available_range(
+                                                otio::TimeRange(
+                                                    otio::RationalTime::from_frames(
+                                                        citem.available_frame_start()->frames(),
+                                                        citem.rate().to_fps()),
+                                                    otio::RationalTime::from_frames(
+                                                        citem.available_frame_duration()
+                                                            ->frames(),
+                                                        citem.rate().to_fps())));
                                         }
                                         clip->set_media_reference(extref);
                                     }

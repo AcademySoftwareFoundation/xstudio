@@ -294,11 +294,11 @@ void OCIOColourPipeline::register_hotkeys() {
     }
 
     for (int i = 1; i <= 9; ++i) {
-        auto suffix = std::string(fmt::format(" #{}", i));
+        auto suffix    = std::string(fmt::format(" #{}", i));
         auto hotkey_id = register_hotkey(
-            int('0')+i,
+            int('0') + i,
             ui::MetaModifier,
-            std::string("Change OCIO View Transform")+suffix,
+            std::string("Change OCIO View Transform") + suffix,
             "Changes OCIO view transform",
             false,
             "Viewer");
@@ -373,7 +373,7 @@ void OCIOColourPipeline::hotkey_pressed(
         auto v = view_hotkeys_.find(hotkey_uuid);
         if (v != view_hotkeys_.end()) {
             const auto &views = display_views_[display_->value()];
-            int idx = v->second-1;
+            int idx           = v->second - 1;
             if (idx >= 0 and idx < views.size()) {
                 const auto &new_view = views[idx];
                 if (new_view != view_->value()) {

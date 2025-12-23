@@ -25,8 +25,8 @@ namespace ui {
                 "fa41b47a-6fde-4627-bd38-6e7834e75007"};
 
           protected:
-            virtual ViewportRenderer *
-            make_renderer(const std::string &window_id, const utility::JsonStore &prefs) override;
+            virtual ViewportRenderer *make_renderer(
+                const std::string &window_id, const utility::JsonStore &prefs) override;
 
             void do_layout(
                 const std::string &layout_mode,

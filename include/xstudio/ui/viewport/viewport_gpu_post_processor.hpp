@@ -43,7 +43,7 @@ namespace ui {
                 const int fb_width,
                 const int fb_height,
                 const ImageFormat format,
-                media_reader::ImageBufPtr &destination_image){};
+                media_reader::ImageBufPtr &destination_image) {};
 
             // This method can be overridden to execute custom GPU code (or
             // anything else) when an offscreen viewport re-draws. This is
@@ -57,7 +57,7 @@ namespace ui {
                 const int fb_height,
                 const ImageFormat format,
                 const media_reader::ImageBufDisplaySetPtr &onscreen_images,
-                const Imath::M44f projection_matrix){};
+                const Imath::M44f projection_matrix) {};
 
             // Override this method to enact any cleanup of graphics resources
             // etc. The graphics context (OpenGL) will be valid when this

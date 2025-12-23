@@ -56,9 +56,11 @@ uri_from_file_list(const std::vector<std::string> &paths) {
     for (const auto &i : sequences) {
         // convert sequence into uri
         if (i.is_sequence()) {
-            result.emplace_back(std::make_pair(
-                posix_path_to_uri(std::regex_replace(i.name_, percent_match, "{:0$1d}"), true),
-                FrameList(i.frames_)));
+            result.emplace_back(
+                std::make_pair(
+                    posix_path_to_uri(
+                        std::regex_replace(i.name_, percent_match, "{:0$1d}"), true),
+                    FrameList(i.frames_)));
         } else {
             result.emplace_back(std::make_pair(posix_path_to_uri(i.name_, true), FrameList()));
         }

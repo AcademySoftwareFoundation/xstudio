@@ -16,23 +16,24 @@ SnapshotMenuModel::SnapshotMenuModel(QObject *parent) : JSONTreeModel(parent) {
 
     // This model provides the same roles as the MenusModelData class which
     // is the QAbstractItemModel that drives xSTUDIO's dynamic menu creation.
-    setRoleNames(std::vector<std::string>{
-        "uuid",
-        "menu_model",
-        "menu_item_type",
-        "name",
-        "is_checked",
-        "choices",
-        "current_choice",
-        "hotkey_uuid",
-        "menu_icon",
-        "custom_menu_qml",
-        "menu_tooltip",
-        "user_data",
-        "snapshot_filesystem_path",
-        "hotkey_sequence",
-        "menu_item_enabled",
-        "watch_visibility"});
+    setRoleNames(
+        std::vector<std::string>{
+            "uuid",
+            "menu_model",
+            "menu_item_type",
+            "name",
+            "is_checked",
+            "choices",
+            "current_choice",
+            "hotkey_uuid",
+            "menu_icon",
+            "custom_menu_qml",
+            "menu_tooltip",
+            "user_data",
+            "snapshot_filesystem_path",
+            "hotkey_sequence",
+            "menu_item_enabled",
+            "watch_visibility"});
 
     try {
         items_.bind_ignore_entry_func(ignore_not_session);

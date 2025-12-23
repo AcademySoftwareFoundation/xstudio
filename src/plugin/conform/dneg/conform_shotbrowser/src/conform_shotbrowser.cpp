@@ -301,9 +301,10 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                     if (reuse_media) {
                         for (const auto &m : crequest.reuse_list_) {
                             try {
-                                reuse_map.insert(std::make_pair(
-                                    m.first.second.at(ivy_uuid_jp).get<Uuid>(),
-                                    std::make_pair(m.first.first, m.second)));
+                                reuse_map.insert(
+                                    std::make_pair(
+                                        m.first.second.at(ivy_uuid_jp).get<Uuid>(),
+                                        std::make_pair(m.first.first, m.second)));
                             } catch (...) {
                             }
                         }
@@ -832,9 +833,9 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                             if (m.start() == tframe) {
                                 if (m.prop().contains(fcpp) and
                                     m.prop().at(fcpp).is_string() and not m.name().empty()) {
-                                    const static auto cutcompre =
-                                        std::regex("\\s*(\\d+)\\s*,\\s*(\\d+)\\s*-\\s*(\\d+)"
-                                                   "\\s*,\\s*(\\d+)\\s*");
+                                    const static auto cutcompre = std::regex(
+                                        "\\s*(\\d+)\\s*,\\s*(\\d+)\\s*-\\s*(\\d+)"
+                                        "\\s*,\\s*(\\d+)\\s*");
                                     auto comment = m.prop().at(fcpp).get<std::string>();
                                     std::cmatch match;
                                     if (std::regex_match(comment.c_str(), match, cutcompre)) {

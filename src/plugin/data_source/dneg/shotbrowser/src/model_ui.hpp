@@ -80,8 +80,9 @@ namespace ui::qml {
 
         Q_PROPERTY(QStringList types READ types WRITE setTypes NOTIFY typesChanged)
         Q_PROPERTY(QVariant tags READ tags WRITE setTags NOTIFY tagsChanged)
-        Q_PROPERTY(QStringList shotManifestTags READ shotManifestTags WRITE setShotManifestTags
-                       NOTIFY shotManifestTagsChanged)
+        Q_PROPERTY(
+            QStringList shotManifestTags READ shotManifestTags WRITE setShotManifestTags NOTIFY
+                shotManifestTagsChanged)
 
       public:
         const static inline std::vector<std::string> RoleNames = {
@@ -169,17 +170,21 @@ namespace ui::qml {
         Q_PROPERTY(bool hideEmpty READ hideEmpty WRITE setHideEmpty NOTIFY hideEmptyChanged)
         Q_PROPERTY(bool showHidden READ showHidden WRITE setShowHidden NOTIFY showHiddenChanged)
 
-        Q_PROPERTY(QVariantList unitFilter READ unitFilter WRITE setUnitFilter NOTIFY
-                       unitFilterChanged)
+        Q_PROPERTY(
+            QVariantList unitFilter READ unitFilter WRITE setUnitFilter NOTIFY
+                unitFilterChanged)
 
-        Q_PROPERTY(QVariantList typeFilter READ typeFilter WRITE setTypeFilter NOTIFY
-                       typeFilterChanged)
+        Q_PROPERTY(
+            QVariantList typeFilter READ typeFilter WRITE setTypeFilter NOTIFY
+                typeFilterChanged)
 
-        Q_PROPERTY(QVariantList locationFilter READ locationFilter WRITE setLocationFilter
-                       NOTIFY locationFilterChanged)
+        Q_PROPERTY(
+            QVariantList locationFilter READ locationFilter WRITE setLocationFilter NOTIFY
+                locationFilterChanged)
 
-        Q_PROPERTY(QVariant manifestFilter READ manifestFilter WRITE setManifestFilter NOTIFY
-                       manifestFilterChanged)
+        Q_PROPERTY(
+            QVariant manifestFilter READ manifestFilter WRITE setManifestFilter NOTIFY
+                manifestFilterChanged)
 
 
         QML_NAMED_ELEMENT("ShotBrowserSequenceFilterModel")
@@ -314,14 +319,17 @@ namespace ui::qml {
         Q_PROPERTY(int length READ length NOTIFY lengthChanged)
         Q_PROPERTY(int count READ length NOTIFY lengthChanged)
 
-        Q_PROPERTY(QVariantList divisionFilter READ divisionFilter WRITE setDivisionFilter
-                       NOTIFY divisionFilterChanged)
+        Q_PROPERTY(
+            QVariantList divisionFilter READ divisionFilter WRITE setDivisionFilter NOTIFY
+                divisionFilterChanged)
 
-        Q_PROPERTY(QVariantList projectStatusFilter READ projectStatusFilter WRITE
-                       setProjectStatusFilter NOTIFY projectStatusFilterChanged)
+        Q_PROPERTY(
+            QVariantList projectStatusFilter READ projectStatusFilter WRITE
+                setProjectStatusFilter NOTIFY projectStatusFilterChanged)
 
-        Q_PROPERTY(QItemSelection selectionFilter READ selectionFilter WRITE setSelectionFilter
-                       NOTIFY selectionFilterChanged)
+        Q_PROPERTY(
+            QItemSelection selectionFilter READ selectionFilter WRITE setSelectionFilter NOTIFY
+                selectionFilterChanged)
 
       public:
         ShotBrowserFilterModel(QObject *parent = nullptr) : QSortFilterProxyModel(parent) {

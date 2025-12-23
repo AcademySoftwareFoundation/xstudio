@@ -24,9 +24,8 @@ namespace media_reader {
         thumbnail(const media::AVFrameID &mpr, const size_t thumb_size) override;
 
         media::MediaDetail detail(const caf::uri &uri) const override;
-        
+
         [[nodiscard]] utility::Uuid plugin_uuid() const override;
     };
 } // namespace media_reader
 } // namespace xstudio
-

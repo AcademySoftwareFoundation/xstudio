@@ -79,17 +79,16 @@ namespace ui {
             [[nodiscard]] float opacity_sensitivity() const { return _opacity_sensitivity; }
             [[nodiscard]] StrokeType type() const { return _type; }
             [[nodiscard]] size_t hash() const { return _hash; }
-            const utility::ColourTriplet & colour() const { return _colour; }
-            const utility::Uuid & id() const { return _id; }
+            const utility::ColourTriplet &colour() const { return _colour; }
+            const utility::Uuid &id() const { return _id; }
 
             friend void from_json(const nlohmann::json &j, Stroke &s);
             friend void to_json(nlohmann::json &j, const Stroke &s);
 
-        private:
+          private:
+            void update_hash(const bool update_with_last_point_only = false);
 
-            void update_hash(const bool update_with_last_point_only=false);
-
-            size_t _hash {0};
+            size_t _hash{0};
             float _opacity{1.0f};
             float _thickness{0.0f};
             float _softness{0.0f};
@@ -101,7 +100,6 @@ namespace ui {
             // Type type{Type::Unknown};
             StrokeType _type{StrokeType_Pen};
             std::vector<Point> _points;
-
         };
 
         void from_json(const nlohmann::json &j, Stroke &s);

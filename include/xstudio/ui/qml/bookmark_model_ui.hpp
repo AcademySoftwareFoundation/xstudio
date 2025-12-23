@@ -52,19 +52,23 @@ class BOOKMARK_QML_EXPORT BookmarkFilterModel : public QSortFilterProxyModel {
 
     Q_PROPERTY(
         QVariantMap mediaOrder READ mediaOrder WRITE setMediaOrder NOTIFY mediaOrderChanged)
-    Q_PROPERTY(QVariant currentMedia READ currentMedia WRITE setCurrentMedia NOTIFY
-                   currentMediaChanged)
+    Q_PROPERTY(
+        QVariant currentMedia READ currentMedia WRITE setCurrentMedia NOTIFY
+            currentMediaChanged)
 
     Q_PROPERTY(int depth READ depth WRITE setDepth NOTIFY depthChanged)
     Q_PROPERTY(bool showHidden READ showHidden WRITE setShowHidden NOTIFY showHiddenChanged)
     Q_PROPERTY(
         QString showUserType READ showUserType WRITE setShowUserType NOTIFY showUserTypeChanged)
-    Q_PROPERTY(QStringList excludedCategories READ excludedCategories WRITE
-                   setExcludedCategories NOTIFY excludedCategoriesChanged)
-    Q_PROPERTY(QStringList includedCategories READ includedCategories WRITE
-                   setIncludedCategories NOTIFY includedCategoriesChanged)
-    Q_PROPERTY(bool sortbyCreated READ sortbyCreated WRITE setsortbyCreated NOTIFY
-                   sortbyCreatedChanged)
+    Q_PROPERTY(
+        QStringList excludedCategories READ excludedCategories WRITE setExcludedCategories
+            NOTIFY excludedCategoriesChanged)
+    Q_PROPERTY(
+        QStringList includedCategories READ includedCategories WRITE setIncludedCategories
+            NOTIFY includedCategoriesChanged)
+    Q_PROPERTY(
+        bool sortbyCreated READ sortbyCreated WRITE setsortbyCreated NOTIFY
+            sortbyCreatedChanged)
     Q_PROPERTY(int length READ length NOTIFY lengthChanged)
 
 
@@ -138,8 +142,9 @@ class BOOKMARK_QML_EXPORT BookmarkFilterModel : public QSortFilterProxyModel {
 class BOOKMARK_QML_EXPORT BookmarkModel : public caf::mixin::actor_object<JSONTreeModel> {
     Q_OBJECT
 
-    Q_PROPERTY(QString bookmarkActorAddr READ bookmarkActorAddr WRITE setBookmarkActorAddr
-                   NOTIFY bookmarkActorAddrChanged)
+    Q_PROPERTY(
+        QString bookmarkActorAddr READ bookmarkActorAddr WRITE setBookmarkActorAddr NOTIFY
+            bookmarkActorAddrChanged)
     Q_PROPERTY(int length READ length NOTIFY lengthChanged)
 
   public:

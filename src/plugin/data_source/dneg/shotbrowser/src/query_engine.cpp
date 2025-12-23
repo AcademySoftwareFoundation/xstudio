@@ -1588,13 +1588,16 @@ void QueryEngine::add_version_term_to_filter(
 
     } else if (term == "Partial Render") {
         if (value == "False")
-            qry->push_back(FilterBy().And(
-                Text("frame_range").not_contains("x"), Text("frame_range").not_contains(",")));
+            qry->push_back(
+                FilterBy().And(
+                    Text("frame_range").not_contains("x"),
+                    Text("frame_range").not_contains(",")));
         else if (value == "True")
-            qry->push_back(FilterBy().Or(
-                Text("frame_range").contains("x"),
-                Text("frame_range").contains(","),
-                Text("frame_range").is_null()));
+            qry->push_back(
+                FilterBy().Or(
+                    Text("frame_range").contains("x"),
+                    Text("frame_range").contains(","),
+                    Text("frame_range").is_null()));
         else
             throw XStudioError("Invalid query term " + term + " " + value);
 
@@ -1668,12 +1671,14 @@ void QueryEngine::add_version_term_to_filter(
             throw XStudioError("Invalid query term " + term + " " + value);
     } else if (term == "Viewable") {
         if (value == "False")
-            qry->push_back(FilterBy().And(
-                Text("sg_path_to_movie").is_null(), Text("sg_path_to_frames").is_null()));
+            qry->push_back(
+                FilterBy().And(
+                    Text("sg_path_to_movie").is_null(), Text("sg_path_to_frames").is_null()));
         else if (value == "True")
-            qry->push_back(FilterBy().Or(
-                Text("sg_path_to_movie").is_not_null(),
-                Text("sg_path_to_frames").is_not_null()));
+            qry->push_back(
+                FilterBy().Or(
+                    Text("sg_path_to_movie").is_not_null(),
+                    Text("sg_path_to_frames").is_not_null()));
         else
             throw XStudioError("Invalid query term " + term + " " + value);
     } else if (term == "Entity") {
@@ -1760,20 +1765,22 @@ void QueryEngine::add_version_term_to_filter(
         if (value == "Client")
             qry->push_back(DateTime("sg_date_submitted_to_client").is_not_null());
         else if (value == "Dailies") {
-            qry->push_back(FilterBy().Or(
-                DateTime("sg_submit_dailies").is_not_null(),
-                DateTime("sg_submit_dailies_chn").is_not_null(),
-                DateTime("sg_submit_dailies_mtl").is_not_null(),
-                // DateTime("sg_submit_dailies_van").is_not_null(),
-                DateTime("sg_submit_dailies_mum").is_not_null()));
+            qry->push_back(
+                FilterBy().Or(
+                    DateTime("sg_submit_dailies").is_not_null(),
+                    DateTime("sg_submit_dailies_chn").is_not_null(),
+                    DateTime("sg_submit_dailies_mtl").is_not_null(),
+                    // DateTime("sg_submit_dailies_van").is_not_null(),
+                    DateTime("sg_submit_dailies_mum").is_not_null()));
         } else if (value == "Any") {
-            qry->push_back(FilterBy().Or(
-                DateTime("sg_date_submitted_to_client").is_not_null(),
-                DateTime("sg_submit_dailies").is_not_null(),
-                DateTime("sg_submit_dailies_chn").is_not_null(),
-                DateTime("sg_submit_dailies_mtl").is_not_null(),
-                // DateTime("sg_submit_dailies_van").is_not_null(),
-                DateTime("sg_submit_dailies_mum").is_not_null()));
+            qry->push_back(
+                FilterBy().Or(
+                    DateTime("sg_date_submitted_to_client").is_not_null(),
+                    DateTime("sg_submit_dailies").is_not_null(),
+                    DateTime("sg_submit_dailies_chn").is_not_null(),
+                    DateTime("sg_submit_dailies_mtl").is_not_null(),
+                    // DateTime("sg_submit_dailies_van").is_not_null(),
+                    DateTime("sg_submit_dailies_mum").is_not_null()));
         }
     } else if (term == "Sent To Client") {
         if (value == "False")
@@ -1784,19 +1791,21 @@ void QueryEngine::add_version_term_to_filter(
             throw XStudioError("Invalid query term " + term + " " + value);
     } else if (term == "Sent To Dailies") {
         if (value == "False")
-            qry->push_back(FilterBy().And(
-                DateTime("sg_submit_dailies").is_null(),
-                DateTime("sg_submit_dailies_chn").is_null(),
-                DateTime("sg_submit_dailies_mtl").is_null(),
-                // DateTime("sg_submit_dailies_van").is_null(),
-                DateTime("sg_submit_dailies_mum").is_null()));
+            qry->push_back(
+                FilterBy().And(
+                    DateTime("sg_submit_dailies").is_null(),
+                    DateTime("sg_submit_dailies_chn").is_null(),
+                    DateTime("sg_submit_dailies_mtl").is_null(),
+                    // DateTime("sg_submit_dailies_van").is_null(),
+                    DateTime("sg_submit_dailies_mum").is_null()));
         else if (value == "True")
-            qry->push_back(FilterBy().Or(
-                DateTime("sg_submit_dailies").is_not_null(),
-                DateTime("sg_submit_dailies_chn").is_not_null(),
-                DateTime("sg_submit_dailies_mtl").is_not_null(),
-                // DateTime("sg_submit_dailies_van").is_not_null(),
-                DateTime("sg_submit_dailies_mum").is_not_null()));
+            qry->push_back(
+                FilterBy().Or(
+                    DateTime("sg_submit_dailies").is_not_null(),
+                    DateTime("sg_submit_dailies_chn").is_not_null(),
+                    DateTime("sg_submit_dailies_mtl").is_not_null(),
+                    // DateTime("sg_submit_dailies_van").is_not_null(),
+                    DateTime("sg_submit_dailies_mum").is_not_null()));
         else
             throw XStudioError("Invalid query term " + term + " " + value);
     } else if (term == "Has Notes") {
@@ -1818,8 +1827,9 @@ void QueryEngine::add_version_term_to_filter(
         qry->push_back(
             QueryEngine::add_text_value("entity.Shot.tags.Tag.name", value, negated));
     } else if (term == "dnTag") {
-        qry->push_back(QueryEngine::add_text_value(
-            "entity.Shot.sg_dnbreakdown_tags.Tag.name", value, negated));
+        qry->push_back(
+            QueryEngine::add_text_value(
+                "entity.Shot.sg_dnbreakdown_tags.Tag.name", value, negated));
     } else if (term == "Shot Type") {
         if (negated)
             qry->push_back(Text("entity.Shot.sg_shot_type").is_not(value));
@@ -2485,10 +2495,12 @@ utility::JsonStore QueryEngine::get_livelink_value(
         } else if (term == "Entity") {
 
             if (metadata.contains(json::json_pointer("/metadata/shotgun/version"))) {
-                auto type = metadata.at(json::json_pointer(
-                    "/metadata/shotgun/version/relationships/entity/data/type"));
-                auto id   = metadata.at(json::json_pointer(
-                    "/metadata/shotgun/version/relationships/entity/data/id"));
+                auto type = metadata.at(
+                    json::json_pointer(
+                        "/metadata/shotgun/version/relationships/entity/data/type"));
+                auto id = metadata.at(
+                    json::json_pointer(
+                        "/metadata/shotgun/version/relationships/entity/data/id"));
 
                 auto sg_pipe_tag_3 = nlohmann::json();
                 if (metadata.contains(jp_sg_pipe_tag_3))
@@ -2541,19 +2553,23 @@ utility::JsonStore QueryEngine::get_livelink_value(
                                .get<long>();
                 result = nlohmann::json(std::to_string(val));
             } else if (term == "Id") {
-                result = nlohmann::json(std::to_string(
-                    metadata.at(json::json_pointer("/metadata/shotgun/version/id"))
-                        .get<int>()));
+                result = nlohmann::json(
+                    std::to_string(
+                        metadata.at(json::json_pointer("/metadata/shotgun/version/id"))
+                            .get<int>()));
             } else if (term == "Author" or term == "Recipient") {
-                result = metadata.at(json::json_pointer(
-                    "/metadata/shotgun/version/relationships/user/data/name"));
+                result = metadata.at(
+                    json::json_pointer(
+                        "/metadata/shotgun/version/relationships/user/data/name"));
             } else if (term == "Shot") {
                 result = nlohmann::json(get_shot_name(metadata));
             } else if (term == "Ref Tag") {
-                auto type = metadata.at(json::json_pointer(
-                    "/metadata/shotgun/version/relationships/entity/data/type"));
-                auto id   = metadata.at(json::json_pointer(
-                    "/metadata/shotgun/version/relationships/entity/data/id"));
+                auto type = metadata.at(
+                    json::json_pointer(
+                        "/metadata/shotgun/version/relationships/entity/data/type"));
+                auto id = metadata.at(
+                    json::json_pointer(
+                        "/metadata/shotgun/version/relationships/entity/data/id"));
 
                 result = nlohmann::json(ref_tag_name_from_entity(type, id));
             } else if (term == "Twig Name") {
@@ -2565,8 +2581,9 @@ utility::JsonStore QueryEngine::get_livelink_value(
                         .get<std::string>() +
                     std::string("$"));
             } else if (term == "Pipeline Step") {
-                result = metadata.at(json::json_pointer(
-                    "/metadata/shotgun/version/attributes/sg_pipeline_step"));
+                result = metadata.at(
+                    json::json_pointer(
+                        "/metadata/shotgun/version/attributes/sg_pipeline_step"));
             } else if (term == "Project") {
                 result = nlohmann::json(get_project_id(metadata, lookup));
             } else if (term == "Twig Type") {
@@ -2579,24 +2596,28 @@ utility::JsonStore QueryEngine::get_livelink_value(
                 result = metadata.at(
                     json::json_pointer("/metadata/shotgun/shot/attributes/sg_asset_type"));
             } else if (term == "Episode") {
-                auto type = metadata.at(json::json_pointer(
-                    "/metadata/shotgun/version/relationships/entity/data/type"));
+                auto type = metadata.at(
+                    json::json_pointer(
+                        "/metadata/shotgun/version/relationships/entity/data/type"));
                 if (type == "CustomEntity20") {
-                    result = metadata.at(json::json_pointer(
-                        "/metadata/shotgun/version/relationships/entity/data/name"));
+                    result = metadata.at(
+                        json::json_pointer(
+                            "/metadata/shotgun/version/relationships/entity/data/name"));
                 }
             } else if (term == "Asset") {
                 // name is not unique, so need to use id.. ACK..
-                auto type = metadata.at(json::json_pointer(
-                    "/metadata/shotgun/version/relationships/entity/data/type"));
+                auto type = metadata.at(
+                    json::json_pointer(
+                        "/metadata/shotgun/version/relationships/entity/data/type"));
                 if (type == "Asset") {
                     auto project_id =
                         metadata
                             .at(json::json_pointer(
                                 "/metadata/shotgun/version/relationships/project/data/id"))
                             .get<int>();
-                    auto asset_id = metadata.at(json::json_pointer(
-                        "/metadata/shotgun/version/relationships/entity/data/id"));
+                    auto asset_id = metadata.at(
+                        json::json_pointer(
+                            "/metadata/shotgun/version/relationships/entity/data/id"));
                     // do lookup against assets.
                     auto asset_name = get_asset_name(project_id, asset_id, lookup);
 
@@ -2604,11 +2625,13 @@ utility::JsonStore QueryEngine::get_livelink_value(
                         result = nlohmann::json(asset_name);
                 }
             } else if (term == "Sequence") {
-                auto type = metadata.at(json::json_pointer(
-                    "/metadata/shotgun/version/relationships/entity/data/type"));
+                auto type = metadata.at(
+                    json::json_pointer(
+                        "/metadata/shotgun/version/relationships/entity/data/type"));
                 if (type == "Sequence") {
-                    result = metadata.at(json::json_pointer(
-                        "/metadata/shotgun/version/relationships/entity/data/name"));
+                    result = metadata.at(
+                        json::json_pointer(
+                            "/metadata/shotgun/version/relationships/entity/data/name"));
                 } else {
                     auto project_id =
                         metadata

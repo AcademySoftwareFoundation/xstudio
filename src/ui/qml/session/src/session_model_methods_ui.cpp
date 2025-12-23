@@ -33,8 +33,9 @@ QString SessionModel::getNextName(const QString &nameTemplate) const {
 
     scoped_actor sys{system()};
     try {
-        result = QStringFromStd(request_receive<std::string>(
-            *sys, session_actor_, name_atom_v, StdFromQString(nameTemplate), true));
+        result = QStringFromStd(
+            request_receive<std::string>(
+                *sys, session_actor_, name_atom_v, StdFromQString(nameTemplate), true));
 
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -1034,8 +1035,14 @@ QFuture<QList<QUuid>> SessionModel::handleUriListDropFuture(
                             // hacky...
                             if (is_timeline_supported(*uri)) {
                                 // spdlog::warn("LOAD TIMELINE {}", to_string(*uri));
-                                new_media.push_back(request_receive<UuidActor>(
-                                    *sys, target, session::import_atom_v, *uri, before, true));
+                                new_media.push_back(
+                                    request_receive<UuidActor>(
+                                        *sys,
+                                        target,
+                                        session::import_atom_v,
+                                        *uri,
+                                        before,
+                                        true));
                             } else {
                                 auto new_media_tmp = request_receive<UuidActorVector>(
                                     *sys,

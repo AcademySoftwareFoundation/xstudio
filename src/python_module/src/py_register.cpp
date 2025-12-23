@@ -430,23 +430,24 @@ void register_matrix44_class(py::module &m, const std::string &name) {
     };
     py::class_<Imath::M44f>(m, name.c_str())
         .def(py::init<>())
-        .def(py::init<
-             float,
-             float,
-             float,
-             float,
-             float,
-             float,
-             float,
-             float,
-             float,
-             float,
-             float,
-             float,
-             float,
-             float,
-             float,
-             float>())
+        .def(
+            py::init<
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float>())
         .def(
             "rotate",
             [](Imath::M44f &s, float x, float y, float z) { s.rotate(Imath::V3f(x, y, z)); })
@@ -611,9 +612,10 @@ void register_frame_range_class(py::module &m, const std::string &name) {
     py::class_<utility::FrameRange>(m, name.c_str())
         .def(py::init())
         .def(py::init<xstudio::utility::FrameRateDuration>())
-        .def(py::init<
-             xstudio::utility::FrameRateDuration,
-             xstudio::utility::FrameRateDuration>())
+        .def(
+            py::init<
+                xstudio::utility::FrameRateDuration,
+                xstudio::utility::FrameRateDuration>())
         .def("rate", &utility::FrameRange::rate)
         .def("start", &utility::FrameRange::start)
         .def("duration", &utility::FrameRange::duration)

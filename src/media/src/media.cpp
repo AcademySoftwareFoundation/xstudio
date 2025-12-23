@@ -18,13 +18,14 @@ MediaKey::MediaKey(
     const std::string &stream_id,
     const size_t mod_timestamp,
     const utility::FrameRate &rate)
-    : std::string(fmt::format(
-          fmt::runtime(key_format),
-          to_string(uri),
-          (frame == std::numeric_limits<int>::min() ? 0 : frame),
-          stream_id,
-          mod_timestamp,
-          rate.count())) {
+    : std::string(
+          fmt::format(
+              fmt::runtime(key_format),
+              to_string(uri),
+              (frame == std::numeric_limits<int>::min() ? 0 : frame),
+              stream_id,
+              mod_timestamp,
+              rate.count())) {
     hash_ = std::hash<std::string>{}(static_cast<const std::string &>(*this));
 }
 

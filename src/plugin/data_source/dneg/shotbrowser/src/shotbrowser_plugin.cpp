@@ -1161,8 +1161,9 @@ void ShotBrowser::update_preferences(const JsonStore &js) {
             // set server
             anon_mail(
                 shotgun_host_atom_v,
-                std::string(fmt::format(
-                    "{}://{}{}", protocol, host, (port ? ":" + std::to_string(port) : ""))))
+                std::string(
+                    fmt::format(
+                        "{}://{}{}", protocol, host, (port ? ":" + std::to_string(port) : ""))))
                 .send(shotgun_);
 
             auto auth = get_authentication();
@@ -1321,8 +1322,9 @@ void ShotBrowser::refresh_playlist_versions(
                                                             playlist::move_media_atom_v,
                                                             playlist,
                                                             JsonStore(result["data"]))
-                                                            .send(caf::actor_cast<caf::actor>(
-                                                                this));
+                                                            .send(
+                                                                caf::actor_cast<caf::actor>(
+                                                                    this));
                                                 },
                                                 [=](error &err) mutable {
                                                     spdlog::warn(
@@ -1497,21 +1499,22 @@ void ShotBrowser::add_media_to_playlist(
             // can be used to build the media sources for each media
             // item in the playlist
             ordered_uuids->push_back(utility::Uuid::generate());
-            build_playlist_media_tasks_.emplace_back(std::make_shared<BuildPlaylistMediaJob>(
-                playlist,
-                ordered_uuids->back(),
-                i.at("attributes").at("code").get<std::string>(), // name for the media
-                JsonStore(i),
-                media_rate,
-                visual_sources,
-                audio_sources,
-                ordered_uuids,
-                before,
-                flag_colour,
-                flag_text,
-                rp,
-                result,
-                result_count));
+            build_playlist_media_tasks_.emplace_back(
+                std::make_shared<BuildPlaylistMediaJob>(
+                    playlist,
+                    ordered_uuids->back(),
+                    i.at("attributes").at("code").get<std::string>(), // name for the media
+                    JsonStore(i),
+                    media_rate,
+                    visual_sources,
+                    audio_sources,
+                    ordered_uuids,
+                    before,
+                    flag_colour,
+                    flag_text,
+                    rp,
+                    result,
+                    result_count));
         }
 
         // this call starts the work of building the media and consuming
@@ -1659,8 +1662,11 @@ void ShotBrowser::load_playlist(
                         [=](const JsonStore &order) mutable {
                             std::vector<std::string> version_ids;
                             for (const auto &i : order["data"])
-                                version_ids.emplace_back(std::to_string(
-                                    i["relationships"]["version"]["data"].at("id").get<int>()));
+                                version_ids.emplace_back(
+                                    std::to_string(
+                                        i["relationships"]["version"]["data"]
+                                            .at("id")
+                                            .get<int>()));
 
                             if (version_ids.empty())
                                 return rp.deliver(
@@ -2197,8 +2203,9 @@ void ShotBrowser::reorder_playlist(
                     for (const auto &i : version_ids)
                         if (media_id.count(i)) {
                             new_media_order.push_back(media_id.at(i));
-                            unused_media.erase(std::find(
-                                unused_media.begin(), unused_media.end(), media_id.at(i)));
+                            unused_media.erase(
+                                std::find(
+                                    unused_media.begin(), unused_media.end(), media_id.at(i)));
                         }
 
                     new_media_order.insert(

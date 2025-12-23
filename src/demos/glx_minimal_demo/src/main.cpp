@@ -447,8 +447,9 @@ void GLXWindowViewportActor::create_glx_window() {
     // If either is not present, use GLX 1.3 context creation method.
     if (!isExtensionSupported(glxExts, "GLX_ARB_create_context") ||
         !glXCreateContextAttribsARB) {
-        printf("glXCreateContextAttribsARB() not found"
-               " ... using old-style GLX context\n");
+        printf(
+            "glXCreateContextAttribsARB() not found"
+            " ... using old-style GLX context\n");
         ctx = glXCreateNewContext(display, bestFbc, GLX_RGBA_TYPE, 0, True);
     }
 
@@ -481,8 +482,9 @@ void GLXWindowViewportActor::create_glx_window() {
 
             ctxErrorOccurred = false;
 
-            printf("Failed to create GL 3.0 context"
-                   " ... using old-style GLX context\n");
+            printf(
+                "Failed to create GL 3.0 context"
+                " ... using old-style GLX context\n");
             ctx = glXCreateContextAttribsARB(display, bestFbc, 0, True, context_attribs);
         }
     }

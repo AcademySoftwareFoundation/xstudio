@@ -62,7 +62,9 @@ namespace media_reader {
                 y >= exr_data_win.max.y)
                 return RGB();
 
-            half * pix = (half *)(exr_buf_->buffer() + (x-exr_data_win.min.x)*exr_bytes_per_pixel + (y-exr_data_win.min.y)*exr_bytes_per_line);
+            half *pix =
+                (half *)(exr_buf_->buffer() + (x - exr_data_win.min.x) * exr_bytes_per_pixel +
+                         (y - exr_data_win.min.y) * exr_bytes_per_line);
             if (exr_chans <= 2) {
                 return RGB(pix[0]);
             } else {
@@ -75,7 +77,9 @@ namespace media_reader {
                 y >= exr_data_win.max.y)
                 return std::array<float, 3>({0.0f, 0.0f, 0.0f});
 
-            half * pix = (half *)(exr_buf_->buffer() + (x-exr_data_win.min.x)*exr_bytes_per_pixel + (y-exr_data_win.min.y)*exr_bytes_per_line);
+            half *pix =
+                (half *)(exr_buf_->buffer() + (x - exr_data_win.min.x) * exr_bytes_per_pixel +
+                         (y - exr_data_win.min.y) * exr_bytes_per_line);
             if (exr_chans <= 2)
                 return std::array<float, 3>({pix[0], pix[0], pix[0]});
 
@@ -88,10 +92,9 @@ namespace media_reader {
                 y >= exr_data_win.max.y)
                 return RGB();
 
-            float * pix = (float *)(exr_buf_->buffer()
-                + (x-exr_data_win.min.x)*exr_bytes_per_pixel
-                + (y-exr_data_win.min.y)*exr_bytes_per_line
-                );
+            float *pix =
+                (float *)(exr_buf_->buffer() + (x - exr_data_win.min.x) * exr_bytes_per_pixel +
+                          (y - exr_data_win.min.y) * exr_bytes_per_line);
             if (exr_chans <= 2) {
                 return RGB(pix[0]);
             } else {
@@ -105,10 +108,9 @@ namespace media_reader {
                 y >= exr_data_win.max.y)
                 return std::array<float, 3>();
 
-            float * pix = (float *)(exr_buf_->buffer()
-                + (x-exr_data_win.min.x)*exr_bytes_per_pixel
-                + (y-exr_data_win.min.y)*exr_bytes_per_line
-                );
+            float *pix =
+                (float *)(exr_buf_->buffer() + (x - exr_data_win.min.x) * exr_bytes_per_pixel +
+                          (y - exr_data_win.min.y) * exr_bytes_per_line);
             if (exr_chans <= 2)
                 return std::array<float, 3>({pix[0], pix[0], pix[0]});
 

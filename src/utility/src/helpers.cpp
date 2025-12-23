@@ -877,8 +877,9 @@ std::string xstudio::utility::xstudio_root(const std::string &append_path) {
     DWORD nSize  = _countof(filename);
     DWORD result = GetModuleFileNameA(NULL, filename, nSize);
     if (result == 0) {
-        spdlog::critical("Unable to determine executable path from Windows API, falling back "
-                         "to standard methods");
+        spdlog::critical(
+            "Unable to determine executable path from Windows API, falling back "
+            "to standard methods");
     } else {
         auto exePath = fs::path(filename);
 

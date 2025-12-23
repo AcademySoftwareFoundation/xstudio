@@ -166,10 +166,11 @@ void ShotBrowser::create_playlist_notes(
                                 }
                             }
 
-                            jsn["data"]["status"] = std::string(fmt::format(
-                                "Successfully published {} / {} notes.",
-                                *succeed,
-                                (*failed) + (*succeed)));
+                            jsn["data"]["status"] = std::string(
+                                fmt::format(
+                                    "Successfully published {} / {} notes.",
+                                    *succeed,
+                                    (*failed) + (*succeed)));
                             rp.deliver(jsn);
                         }
                     },
@@ -206,10 +207,11 @@ void ShotBrowser::create_playlist_notes(
                                 index++;
                             }
 
-                            jsn["data"]["status"] = std::string(fmt::format(
-                                "Successfully published {} / {} notes.",
-                                *succeed,
-                                (*failed) + (*succeed)));
+                            jsn["data"]["status"] = std::string(
+                                fmt::format(
+                                    "Successfully published {} / {} notes.",
+                                    *succeed,
+                                    (*failed) + (*succeed)));
                             rp.deliver(jsn);
                         }
                     });
