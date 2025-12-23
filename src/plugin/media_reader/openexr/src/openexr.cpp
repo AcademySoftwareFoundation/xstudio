@@ -451,7 +451,7 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
 MRCertainty
 OpenEXRMediaReader::supported(const caf::uri &, const std::array<uint8_t, 16> &sig) {
     if (sig[0] == 0x76 && sig[1] == 0x2f && sig[2] == 0x31 && sig[3] == 0x01)
-        return MRC_FULLY;
+        return MRC_FORCE;
 
     return MRC_NO;
 }
