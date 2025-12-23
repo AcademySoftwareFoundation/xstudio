@@ -27,22 +27,24 @@ namespace ui {
                 const float device_pixel_ratio,
                 const float image_aspectratio,
                 const bool hide_strokes,
-                const std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>> &live_erase_stroked = std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>>(),
-                const std::set<std::size_t> & skip_captions = std::set<std::size_t>());
+                const std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>>
+                    &live_erase_stroked =
+                        std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>>(),
+                const std::set<std::size_t> &skip_captions = std::set<std::size_t>());
 
             void render_single_caption(
                 const xstudio::ui::canvas::Caption &caption,
                 const Imath::M44f &transform_window_to_viewport_space,
                 const Imath::M44f &transform_viewport_to_image_space,
                 const float viewport_du_dx,
-                const float device_pixel_ratio);                
+                const float device_pixel_ratio);
 
             void render_strokes(
                 const std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>> &strokes,
                 const Imath::M44f &transform_window_to_viewport_space,
                 const Imath::M44f &transform_viewport_to_image_space,
                 const float viewport_du_dx,
-                const float device_pixel_ratio);                
+                const float device_pixel_ratio);
 
           private:
             template <typename T>

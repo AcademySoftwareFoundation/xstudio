@@ -23,7 +23,6 @@ void Canvas::full_clear() {
     clear_redo_stack();
     items_.clear();
     current_item_.reset();
-
 }
 
 void Canvas::clear(const bool clear_history) {
@@ -78,43 +77,6 @@ void Canvas::update_stroke(const Imath::V2f &pt, const float pressure) {
         current_item<Stroke>().add_point(pt, pressure);
     }
     changed();
-}
-
-bool Canvas::fade_all_strokes(float opacity) {
-
-    std::unique_lock l(mutex_);
-    for (auto &item : items_) {
-        if (std::holds_alternative<Stroke>(item)) {
-            auto &stroke = std::get<Stroke>(item);
-
-            if (stroke.opacity > opacity * 0.95) {
-                stroke.opacity -= 0.005f * opacity;
-            } else if (stroke.opacity > 0.0f) {
-                stroke.opacity -= 0.05f * opacity;
-            }
-        }
-    }
-
-    // Number of stroke still visible (opacity greater than 0)
-    size_t remaining_strokes = 0;
-    items_.erase(
-        std::remove_if(
-            items_.begin(),
-            items_.end(),
-            [&remaining_strokes](auto &item) {
-                if (std::holds_alternative<Stroke>(item)) {
-                    const auto &stroke = std::get<Stroke>(item);
-                    if (stroke.opacity <= 0.0f) {
-                        return true;
-                    } else {
-                        remaining_strokes++;
-                    }
-                }
-                return false;
-            }),
-        items_.end());
-    changed();
-    return remaining_strokes > 0;
 }
 
 uint32_t Canvas::start_quad(
@@ -335,7 +297,6 @@ void Canvas::end_draw_no_lock() {
         items_.push_back(current_item_.value());
         current_item_.reset();
     }
-
 }
 
 void Canvas::changed() {

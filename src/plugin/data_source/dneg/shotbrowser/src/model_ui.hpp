@@ -85,12 +85,13 @@ namespace ui::qml {
 
       public:
         const static inline std::vector<std::string> RoleNames = {
-            "assetNameRole", "tagRole", "manifestRole"};
+            "assetNameRole", "tagRole", "manifestRole", "heroRole"};
 
         enum Roles {
             assetNameRole = ShotBrowserListModel::Roles::LASTROLE,
             tagRole,
-            manifestRole
+            manifestRole,
+            heroRole
         };
 
         ShotBrowserSequenceModel(QObject *parent = nullptr) : ShotBrowserListModel(parent) {

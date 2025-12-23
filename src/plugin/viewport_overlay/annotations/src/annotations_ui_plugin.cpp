@@ -26,8 +26,7 @@ using namespace xstudio::ui;
 
 namespace fs = std::filesystem;
 
-AnnotationsUI::AnnotationsUI(
-    caf::actor_config &cfg, const utility::JsonStore &init_settings)
+AnnotationsUI::AnnotationsUI(caf::actor_config &cfg, const utility::JsonStore &init_settings)
     : plugin::StandardPlugin(cfg, "AnnotationsUI", init_settings) {
 
     // Create tool attributes
@@ -209,7 +208,7 @@ void AnnotationsUI::attribute_changed(const utility::Uuid &attribute_uuid, const
         if (current_tool() != Dropper) {
 
             utility::JsonStore payload;
-            send_event("ShowDrawings",payload);
+            send_event("ShowDrawings", payload);
             pixel_patch_.hide();
         }
 
@@ -232,12 +231,11 @@ void AnnotationsUI::attribute_changed(const utility::Uuid &attribute_uuid, const
                     Imath::V2f(0.0f, 0.0f),
                     false,
                     colour_picker_hide_drawings_->value());
-                    
+
                 if (colour_picker_hide_drawings_->value()) {
 
                     utility::JsonStore payload;
-                    send_event("HideDrawings",payload);
-
+                    send_event("HideDrawings", payload);
                 }
 
             } else if (current_tool() != Text) {
@@ -257,7 +255,7 @@ void AnnotationsUI::attribute_changed(const utility::Uuid &attribute_uuid, const
     } else if (
         attribute_uuid == action_attribute_->uuid() && action_attribute_->value() != "") {
 
-        // When user clicks 'Redo', 'Undo' buttons etc the action_attribute_ is 
+        // When user clicks 'Redo', 'Undo' buttons etc the action_attribute_ is
         // set with the action name plus the name of the viewport for the toolbox
         if (action_attribute_->value().find("Clear") == 0) {
             clear_annotation(std::string(action_attribute_->value(), 6));
@@ -270,46 +268,46 @@ void AnnotationsUI::attribute_changed(const utility::Uuid &attribute_uuid, const
 
     } else if (attribute_uuid == display_mode_attribute_->uuid()) {
 
-        if (display_mode_attribute_->value() == "Only When Paused") {
-            display_mode_ = OnlyWhenPaused;
-        } else if (display_mode_attribute_->value() == "Always") {
-            display_mode_ = Always;
-        }
+        std::string action;
+        utility::JsonStore payload;
+        action = "SetDisplayMode";
+        payload["display_mode"] = display_mode_attribute_->value();
+        send_event(action, payload);
 
     } else if (current_tool() == Text) {
-        
+
         std::string action;
         utility::JsonStore payload;
 
         if (attribute_uuid == pen_colour_->uuid()) {
 
-            action = "CaptionProperty";
+            action            = "CaptionProperty";
             payload["colour"] = pen_colour_->value();
 
         } else if (attribute_uuid == text_size_->uuid()) {
 
-            action = "CaptionProperty";
+            action               = "CaptionProperty";
             payload["font_size"] = text_size_->value();
 
         } else if (attribute_uuid == pen_opacity_->uuid()) {
 
-            action = "CaptionProperty";
-            payload["opacity"] = pen_opacity_->value()/100.0f;
+            action             = "CaptionProperty";
+            payload["opacity"] = pen_opacity_->value() / 100.0f;
 
         } else if (attribute_uuid == font_choice_->uuid()) {
 
-            action = "CaptionProperty";
+            action               = "CaptionProperty";
             payload["font_name"] = font_choice_->value();
 
         } else if (attribute_uuid == text_bgr_colour_->uuid()) {
 
-            action = "CaptionProperty";
+            action                       = "CaptionProperty";
             payload["background_colour"] = text_bgr_colour_->value();
 
         } else if (attribute_uuid == text_bgr_opacity_->uuid()) {
 
-            action = "CaptionProperty";
-            payload["background_opacity"] = text_bgr_opacity_->value()/100.0f;
+            action                        = "CaptionProperty";
+            payload["background_opacity"] = text_bgr_opacity_->value() / 100.0f;
         }
 
         if (!payload.is_null()) {
@@ -333,11 +331,8 @@ void AnnotationsUI::attribute_changed(const utility::Uuid &attribute_uuid, const
 
             utility::JsonStore payload;
             send_event("ShowDrawings", payload);
-
         }
-
     }
-
 }
 
 void AnnotationsUI::update_attrs_from_preferences(const utility::JsonStore &j) {
@@ -434,103 +429,104 @@ void AnnotationsUI::hotkey_released(
 }
 
 void AnnotationsUI::send_event(const std::string &event, const utility::JsonStore &payload) {
- 
+
     if (!core_plugin_) {
         core_plugin_ = system().registry().template get<caf::actor>("ANNOTATIONS_CORE_PLUGIN");
     }
 
+    utility::JsonStore d(R"({"event": "", "payload": {}})"_json);
+    d["event"]   = event;
+    d["user_id"] = user_id_;
+    d["payload"] = payload;
+
     if (core_plugin_) {
 
-        utility::JsonStore d(R"({"event": "", "payload": {}})"_json);
-        d["event"] = event;
-        d["user_id"] = user_id_;
-        d["payload"] = payload;
         anon_mail(utility::event_atom_v, ui::viewport::annotation_atom_v, d).send(core_plugin_);
+    } else {
+        
+        anon_mail(utility::event_atom_v, ui::viewport::annotation_atom_v, d, 0).delay(std::chrono::milliseconds(100)).send(caf::actor_cast<caf::actor>(this));
+        
     }
-    
 }
 
 void AnnotationsUI::start_item(const ui::PointerEvent &e) {
 
     utility::JsonStore payload;
-    current_item_id_ = utility::Uuid::generate();
-    payload["uuid"] = current_item_id_;
-    payload["item_type"] = active_tool_->value();
-    payload["point"]["x"] = float(e.x())/float(e.width());
-    payload["point"]["y"] = float(e.y())/float(e.height());
-    payload["viewport"] = e.context();
+    current_item_id_      = utility::Uuid::generate();
+    payload["uuid"]       = current_item_id_;
+    payload["item_type"]  = active_tool_->value();
+    payload["point"]["x"] = float(e.x()) / float(e.width());
+    payload["point"]["y"] = float(e.y()) / float(e.height());
+    payload["viewport"]   = e.context();
 
-    const auto colour = std::vector<float>({pen_colour_->value().r, pen_colour_->value().g, pen_colour_->value().b, (current_tool() == Brush ? brush_opacity_->value() : pen_opacity_->value()) / 100.0f});
+    const auto colour = std::vector<float>(
+        {pen_colour_->value().r,
+         pen_colour_->value().g,
+         pen_colour_->value().b,
+         (current_tool() == Brush ? brush_opacity_->value() : pen_opacity_->value()) / 100.0f});
 
     switch (current_tool()) {
-        case Draw:
-        case Laser:
-            {
-                payload["paint"]["rgba"] = colour;
-                payload["paint"]["size"] = pen_size_->value() / PEN_STROKE_THICKNESS_SCALE;
-            }
-            break;
-        case Brush:
-            {
-                payload["paint"]["rgba"] = colour;
-                payload["paint"]["size"] = brush_size_->value() / PEN_STROKE_THICKNESS_SCALE;
-                payload["paint"]["softness"] = float(brush_softness_->value()) / 10.0f;
-                payload["paint"]["size_sensitivity"] = float(brush_size_sensitivity_->value()) / 10.0f;
-                payload["paint"]["opacity_sensitivity"] = float(brush_opacity_sensitivity_->value()) / 10.0f;
-            }
-            break;        
-        case Erase:
-            payload["paint"]["size"] = erase_size_->value() / PEN_STROKE_THICKNESS_SCALE;
-            break;
-        case Circle:
-        case Line:
-        case Square:
-        case Arrow:
-            {
-                payload["paint"]["rgba"] = colour;
-                payload["paint"]["size"] = shapes_width_->value() / PEN_STROKE_THICKNESS_SCALE;
-            }
-            break;
-        case Text:
-            {
-                payload["caption"]["font"] = font_choice_->value();
-                payload["caption"]["size"] = text_size_->value();
-                payload["caption"]["rgba"] = colour;
-                payload["caption"]["bg_opacity"] = text_bgr_opacity_->value() / 100.0;
-            }
-            break;
-        default:
-            break;
+    case Draw:
+    case Laser: {
+        payload["paint"]["rgba"] = colour;
+        payload["paint"]["size"] = pen_size_->value() / PEN_STROKE_THICKNESS_SCALE;
+    } break;
+    case Brush: {
+        payload["paint"]["rgba"]     = colour;
+        payload["paint"]["size"]     = brush_size_->value() / PEN_STROKE_THICKNESS_SCALE;
+        payload["paint"]["softness"] = float(brush_softness_->value()) / 10.0f;
+        payload["paint"]["size_sensitivity"] = float(brush_size_sensitivity_->value()) / 10.0f;
+        payload["paint"]["opacity_sensitivity"] =
+            float(brush_opacity_sensitivity_->value()) / 10.0f;
+    } break;
+    case Erase:
+        payload["paint"]["size"] = erase_size_->value() / PEN_STROKE_THICKNESS_SCALE;
+        break;
+    case Circle:
+    case Line:
+    case Square:
+    case Arrow: {
+        payload["paint"]["rgba"] = colour;
+        payload["paint"]["size"] = shapes_width_->value() / PEN_STROKE_THICKNESS_SCALE;
+    } break;
+    case Text: {
+        payload["caption"]["font"]       = font_choice_->value();
+        payload["caption"]["size"]       = text_size_->value();
+        payload["caption"]["rgba"]       = colour;
+        payload["caption"]["bg_opacity"] = text_bgr_opacity_->value() / 100.0;
+    } break;
+    default:
+        break;
     }
 
     send_event("PaintStart", payload);
-
 }
 
 void AnnotationsUI::modify_item(const ui::PointerEvent &e) {
 
     auto tp = utility::clock::now();
-    auto vv = std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch()).count();
-    if (current_item_id_.is_null()) return;
+    auto vv =
+        std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch()).count();
+    if (current_item_id_.is_null())
+        return;
 
     utility::JsonStore payload;
-    payload["uuid"] = current_item_id_;
-    payload["point"]["x"] = float(e.x())/float(e.width());
-    payload["point"]["y"] = float(e.y())/float(e.height());
-    payload["point"]["pressure"] = pressure_source(e);   
-    payload["point"]["size"] = 0.0f;   
+    payload["uuid"]              = current_item_id_;
+    payload["point"]["x"]        = float(e.x()) / float(e.width());
+    payload["point"]["y"]        = float(e.y()) / float(e.height());
+    payload["point"]["pressure"] = pressure_source(e);
+    payload["point"]["size"]     = 0.0f;
     send_event("PaintPoint", payload);
-
 }
 
 void AnnotationsUI::end_item() {
 
-    if (current_item_id_.is_null()) return;
+    if (current_item_id_.is_null())
+        return;
     utility::JsonStore payload;
-    payload["uuid"] = current_item_id_;
+    payload["uuid"]  = current_item_id_;
     current_item_id_ = utility::Uuid();
     send_event("PaintEnd", payload);
-
 }
 
 void AnnotationsUI::clear_annotation(const std::string viewport_name) {
@@ -538,7 +534,6 @@ void AnnotationsUI::clear_annotation(const std::string viewport_name) {
     utility::JsonStore payload;
     payload["viewport"] = viewport_name;
     send_event("PaintClear", payload);
-
 }
 
 void AnnotationsUI::undo(const std::string viewport_name) {
@@ -546,15 +541,13 @@ void AnnotationsUI::undo(const std::string viewport_name) {
     utility::JsonStore payload;
     payload["viewport"] = viewport_name;
     send_event("PaintUndo", payload);
-
 }
 
 void AnnotationsUI::redo(const std::string viewport_name) {
-    
+
     utility::JsonStore payload;
     payload["viewport"] = viewport_name;
     send_event("PaintRedo", payload);
-
 }
 
 bool AnnotationsUI::pointer_event(const ui::PointerEvent &e) {
@@ -573,17 +566,17 @@ bool AnnotationsUI::pointer_event(const ui::PointerEvent &e) {
         update_colour_picker_info(e);
         redraw_viewport();
 
-    } else if (e.type() == ui::EventType::ButtonDown && e.buttons() == ui::Signature::Button::Left) {
+    } else if (
+        e.type() == ui::EventType::ButtonDown && e.buttons() == ui::Signature::Button::Left) {
 
         if (current_tool() == Text) {
 
-            if (check_click_on_caption(
-                pointer_pos,
-                e.context())) {
+            if (check_click_on_caption(pointer_pos, e.context())) {
 
                 utility::JsonStore payload;
-                payload["pointer_position"] = Imath::V2f(float(e.x())/float(e.width()), float(e.y())/float(e.height()));
-                payload["viewport"] = e.context();
+                payload["pointer_position"] = Imath::V2f(
+                    float(e.x()) / float(e.width()), float(e.y()) / float(e.height()));
+                payload["viewport"]           = e.context();
                 payload["viewport_pix_scale"] = e.viewport_pixel_scale();
                 grab_keyboard_focus();
                 send_event("CaptionStartEdit", payload);
@@ -591,26 +584,25 @@ bool AnnotationsUI::pointer_event(const ui::PointerEvent &e) {
             } else {
 
                 utility::JsonStore payload;
-                payload["pointer_position"] = Imath::V2f(float(e.x())/float(e.width()), float(e.y())/float(e.height()));
-                payload["viewport"] = e.context();
+                payload["pointer_position"] = Imath::V2f(
+                    float(e.x()) / float(e.width()), float(e.y()) / float(e.height()));
+                payload["viewport"]           = e.context();
                 payload["viewport_pix_scale"] = e.viewport_pixel_scale();
-                payload["font_name"] = font_choice_->value();
-                payload["font_size"] = text_size_->value();
-                payload["colour"] = pen_colour_->value();
-                payload["opacity"] = pen_opacity_->value() / 100.0f;
-                payload["wrap_width"] = text_size_->value() * 0.01f;
-                payload["justification"] = int(JustifyLeft);
-                payload["background_colour"] = text_bgr_colour_->value();
+                payload["font_name"]          = font_choice_->value();
+                payload["font_size"]          = text_size_->value();
+                payload["colour"]             = pen_colour_->value();
+                payload["opacity"]            = pen_opacity_->value() / 100.0f;
+                payload["wrap_width"]         = text_size_->value() * 0.01f;
+                payload["justification"]      = int(JustifyLeft);
+                payload["background_colour"]  = text_bgr_colour_->value();
                 payload["background_opacity"] = text_bgr_opacity_->value() / 100.0f;
                 grab_keyboard_focus();
                 send_event("CaptionInteract", payload);
-
             }
 
         } else {
 
             start_item(e);
-
         }
 
     } else if (e.type() == ui::EventType::Drag && e.buttons() == ui::Signature::Button::Left) {
@@ -618,38 +610,39 @@ bool AnnotationsUI::pointer_event(const ui::PointerEvent &e) {
         if (current_tool() == Text) {
 
             utility::JsonStore payload;
-            payload["pointer_position"] = Imath::V2f(float(e.x())/float(e.width()), float(e.y())/float(e.height()));
-            payload["viewport"] = e.context();
+            payload["pointer_position"] =
+                Imath::V2f(float(e.x()) / float(e.width()), float(e.y()) / float(e.height()));
+            payload["viewport"]           = e.context();
             payload["viewport_pix_scale"] = e.viewport_pixel_scale();
             send_event("CaptionMove", payload);
 
         } else if (current_tool() != None) {
 
             modify_item(e);
-
         }
 
     } else if (e.type() == ui::EventType::ButtonRelease) {
 
         if (current_tool() == Text) {
             utility::JsonStore payload;
-            payload["pointer_position"] = Imath::V2f(float(e.x())/float(e.width()), float(e.y())/float(e.height()));
-            payload["viewport"] = e.context();
+            payload["pointer_position"] =
+                Imath::V2f(float(e.x()) / float(e.width()), float(e.y()) / float(e.height()));
+            payload["viewport"]           = e.context();
             payload["viewport_pix_scale"] = e.viewport_pixel_scale();
             send_event("CaptionEndMove", payload);
 
         } else {
             end_item();
         }
-    
+
     } else if (current_tool() == Text && e.buttons() == ui::Signature::Button::None) {
 
         utility::JsonStore payload;
-        payload["pointer_position"] = Imath::V2f(float(e.x())/float(e.width()), float(e.y())/float(e.height()));
-        payload["viewport"] = e.context();
+        payload["pointer_position"] =
+            Imath::V2f(float(e.x()) / float(e.width()), float(e.y()) / float(e.height()));
+        payload["viewport"]           = e.context();
         payload["viewport_pix_scale"] = e.viewport_pixel_scale();
         send_event("CaptionPointerHover", payload);
-
     }
 
     return false;
@@ -658,10 +651,9 @@ bool AnnotationsUI::pointer_event(const ui::PointerEvent &e) {
 void AnnotationsUI::text_entered(const std::string &text, const std::string &context) {
 
     utility::JsonStore payload;
-    payload["text"] = text;
+    payload["text"]     = text;
     payload["viewport"] = context;
     send_event("CaptionTextEntry", payload);
-
 }
 
 void AnnotationsUI::key_pressed(
@@ -672,20 +664,17 @@ void AnnotationsUI::key_pressed(
         utility::JsonStore payload;
 
         if (key == 16777216) { // escape key
-            //end_drawing();
+            // end_drawing();
             release_keyboard_focus();
             payload["viewport"] = context;
             send_event("CaptionEndEdit", payload);
 
         } else {
 
-            payload["key"] = key;
+            payload["key"]      = key;
             payload["viewport"] = context;
             send_event("CaptionKeyPress", payload);
-
         }
-
-
     }
 }
 
@@ -701,9 +690,7 @@ void AnnotationsUI::images_going_on_screen(
     // to is visible on screen for this viewport. If not, it could be that
     // the user has scrubbed the timeline since our last edit.
 
-    playhead_is_playing_ = playhead_playing;
     viewport_current_images_[viewport_name] = images;
-
 }
 
 plugin::ViewportOverlayRendererPtr
@@ -727,9 +714,7 @@ void AnnotationsUI::viewport_dockable_widget_deactivated(std::string &widget_nam
     }
 }
 
-void AnnotationsUI::turn_off_overlay_interaction() { 
-    active_tool_->set_value("None"); 
-}
+void AnnotationsUI::turn_off_overlay_interaction() { active_tool_->set_value("None"); }
 
 media_reader::ImageBufPtr AnnotationsUI::image_under_pointer(
     const std::string &viewport_name,
@@ -738,8 +723,10 @@ media_reader::ImageBufPtr AnnotationsUI::image_under_pointer(
 
     media_reader::ImageBufPtr result;
 
-    const media_reader::ImageBufDisplaySetPtr &onscreen_image_set = viewport_current_images_[viewport_name];
-    if (!onscreen_image_set || !onscreen_image_set->layout_data()) return result;
+    const media_reader::ImageBufDisplaySetPtr &onscreen_image_set =
+        viewport_current_images_[viewport_name];
+    if (!onscreen_image_set || !onscreen_image_set->layout_data())
+        return result;
 
     // check if pointer_position lands on one of the images in
     // the viewport
@@ -762,7 +749,6 @@ media_reader::ImageBufPtr AnnotationsUI::image_under_pointer(
                 result = cim;
                 break;
             }
-
         }
     }
 
@@ -780,7 +766,7 @@ media_reader::ImageBufPtr AnnotationsUI::image_under_pointer(
 }
 
 float AnnotationsUI::pressure_source(const ui::PointerEvent &e) {
-    
+
     if (current_tool() == Brush) {
         if (e.pointer_type() == Signature::PointerType::Pen)
             return e.pressure();
@@ -804,7 +790,26 @@ caf::message_handler AnnotationsUI::message_handler_extensions() {
             // this message is sent when the user finishes a laser bruish stroke
         },
         [=](utility::event_atom) {
-            // note Annotation::fade_all_strokes() returns false when all strokes have vanished
+        },
+        [=](utility::event_atom,
+            ui::viewport::annotation_atom,
+            const utility::JsonStore &payload,
+            int retry) {
+            
+            // At start up, the core plugin might not be reachable while this UI 
+            // plugin is getting annotation changed events that we need to share
+            // with the core plugin. We send the message to ourselves with a delay
+            // so that we can retry sending it when the core plugin will be 
+            // available
+            if (retry > 10) return;
+            if (!core_plugin_) {
+                core_plugin_ = system().registry().template get<caf::actor>("ANNOTATIONS_CORE_PLUGIN");
+            }
+            if (core_plugin_) {
+                anon_mail(utility::event_atom_v, ui::viewport::annotation_atom_v, payload).send(core_plugin_);
+            } else {
+                anon_mail(utility::event_atom_v, ui::viewport::annotation_atom_v, payload, retry+1).delay(std::chrono::milliseconds(100)).send(caf::actor_cast<caf::actor>(this));
+            }
         },
         [=](utility::event_atom,
             ui::viewport::viewport_atom,
@@ -813,24 +818,22 @@ caf::message_handler AnnotationsUI::message_handler_extensions() {
             const Imath::M44f &proj_matrix) {
             // these update events come from the global playhead events group
             viewport_transforms_[viewport_name] = proj_matrix;
-        }
-    );
+        });
 }
 
 media_reader::ImageBufPtr AnnotationsUI::image_under_mouse(
     const std::string &viewport_name,
     const Imath::V2f &pos,
-    const bool fallback_to_hero_image) const
-{
+    const bool fallback_to_hero_image) const {
     media_reader::ImageBufPtr result;
 
-    Imath::V2f pointer_position(pos.x*2.0f-1.0f, 1.0f-pos.y*2.0f);
+    Imath::V2f pointer_position(pos.x * 2.0f - 1.0f, 1.0f - pos.y * 2.0f);
     auto q = viewport_transforms_.find(viewport_name);
     if (q != viewport_transforms_.end()) {
         Imath::V4f pp(pointer_position.x, pointer_position.y, 0.0f, 1.0f);
-        pp = pp*q->second;
-        pointer_position.x = pp.x/pp.w;
-        pointer_position.y = pp.y/pp.w;
+        pp                 = pp * q->second;
+        pointer_position.x = pp.x / pp.w;
+        pointer_position.y = pp.y / pp.w;
     }
 
     auto p = viewport_current_images_.find(viewport_name);
@@ -859,30 +862,27 @@ media_reader::ImageBufPtr AnnotationsUI::image_under_mouse(
                     pt.y / pt.w <= a) {
                     result = cim;
                 }
-
             }
         }
 
         if (!result && fallback_to_hero_image) {
             result = onscreen_image_set->hero_image();
         }
-
     }
     return result;
 }
 
 bool AnnotationsUI::check_click_on_caption(
-    const Imath::V2f &pos,
-    const std::string &viewport_id) {
+    const Imath::V2f &pos, const std::string &viewport_id) {
 
     media_reader::ImageBufPtr img = image_under_mouse(viewport_id, pos, true);
 
     Imath::V4f pt(pos.x, pos.y, 0.0f, 1.0f);
-    pt *= img.layout_transform().inverse();    
-    const Imath::V2f image_pointer_position(pt.x/pt.w, pt.y/pt.w);
+    pt *= img.layout_transform().inverse();
+    const Imath::V2f image_pointer_position(pt.x / pt.w, pt.y / pt.w);
 
-    auto old_capt_id = focus_caption_id_;
-    focus_caption_id_= 0;
+    auto old_capt_id  = focus_caption_id_;
+    focus_caption_id_ = 0;
     utility::Uuid bookmark_id;
     for (const auto &bookmark : img.bookmarks()) {
         // get to annotation data by dynamic casing the annotation_ pointer on
@@ -900,9 +900,10 @@ bool AnnotationsUI::check_click_on_caption(
                         font_choice_->set_value(caption.font_name(), false);
                         text_size_->set_value(caption.font_size(), false);
                         pen_colour_->set_value(caption.colour(), false);
-                        pen_opacity_->set_value(caption.opacity()*100.0f, false);
+                        pen_opacity_->set_value(caption.opacity() * 100.0f, false);
                         text_bgr_colour_->set_value(caption.background_colour(), false);
-                        text_bgr_opacity_->set_value(caption.background_opacity()*100.0f, false);
+                        text_bgr_opacity_->set_value(
+                            caption.background_opacity() * 100.0f, false);
                         return true;
                     }
                 }
@@ -912,7 +913,6 @@ bool AnnotationsUI::check_click_on_caption(
     }
 
     return false;
-
 }
 
 void AnnotationsUI::update_colour_picker_info(const ui::PointerEvent &e) {
@@ -1100,5 +1100,4 @@ utility::BlindDataObjectPtr AnnotationsUI::onscreen_render_data(
 
     auto data = new AnnotationExtrasRenderDataSet();
     return utility::BlindDataObjectPtr(data);
-
 }

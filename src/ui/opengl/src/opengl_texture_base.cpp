@@ -15,7 +15,8 @@ void GLBlindTex::release() { when_last_used_ = utility::clock::now(); }
 GLBlindTex::GLBlindTex() {
 
     static int f = 0;
-    media_key_   = media::MediaKey("EmptyTex{}{}{}", caf::uri(), f++, "_0", 0, utility::FrameRate());
+    media_key_ =
+        media::MediaKey("EmptyTex{}{}{}", caf::uri(), f++, "_0", 0, utility::FrameRate());
 }
 
 GLBlindTex::~GLBlindTex() {}

@@ -1004,8 +1004,7 @@ void Viewport::update_matrix() {
 
     // broadcast the projection matrix to the global playhead actor
     anon_mail(viewport_atom_v, media::transform_matrix_atom_v, name(), projection_matrix_)
-            .send(global_playhead_events_group_);
-
+        .send(global_playhead_events_group_);
 }
 
 void Viewport::calc_image_bounds_in_viewport_pixels() {
@@ -1578,7 +1577,6 @@ void Viewport::attribute_changed(const utility::Uuid &attr_uuid, const int role)
             return;
 
         override_onscreen_media_fps(user_fps);
-
     }
 }
 
@@ -1890,7 +1888,9 @@ void Viewport::instance_overlay_plugins() {
 
                 if (overlay_renderer) {
                     viewport_overlay_renderers_.push_back(overlay_renderer);
-                    std::sort(viewport_overlay_renderers_.begin(), viewport_overlay_renderers_.end(),
+                    std::sort(
+                        viewport_overlay_renderers_.begin(),
+                        viewport_overlay_renderers_.end(),
                         [](const auto &a, const auto &b) -> bool {
                             return a->stack_order() < b->stack_order();
                         });
@@ -1935,7 +1935,9 @@ void Viewport::instance_overlay_plugins() {
 
                 if (overlay_renderer) {
                     viewport_overlay_renderers_.push_back(overlay_renderer);
-                    std::sort(viewport_overlay_renderers_.begin(), viewport_overlay_renderers_.end(),
+                    std::sort(
+                        viewport_overlay_renderers_.begin(),
+                        viewport_overlay_renderers_.end(),
                         [](const auto &a, const auto &b) -> bool {
                             return a->stack_order() < b->stack_order();
                         });
@@ -2323,7 +2325,6 @@ void Viewport::override_onscreen_media_fps(const std::string user_fps) {
         caf::actor_cast<caf::actor>(on_screen_hero_frame_.frame_id().media_source_addr());
 
     auto set_media_source_rate = [=](caf::actor media_source, const std::string user_fps) {
-
         scoped_actor sys{self()->home_system()};
         if (user_fps == "reset") {
             // this will reset the media rate
@@ -2335,10 +2336,9 @@ void Viewport::override_onscreen_media_fps(const std::string user_fps) {
                 auto mr = request_receive<MediaReference>(
                     *sys, media_source, media::media_reference_atom_v);
                 mr.set_rate(utility::FrameRate(1.0f / v));
-                anon_mail(media::media_reference_atom_v, mr).send(media_source);                        
+                anon_mail(media::media_reference_atom_v, mr).send(media_source);
             }
         }
-
     };
 
     if (media_source) {
@@ -2350,8 +2350,10 @@ void Viewport::override_onscreen_media_fps(const std::string user_fps) {
                 caf::actor_cast<caf::actor>(on_screen_hero_frame_.frame_id().media_addr());
             if (media) {
                 scoped_actor sys{self()->home_system()};
-                    auto audio_source = request_receive<utility::UuidActor>(
-                    *sys, media, media::current_media_source_atom_v, media::MT_AUDIO).actor();
+                auto audio_source =
+                    request_receive<utility::UuidActor>(
+                        *sys, media, media::current_media_source_atom_v, media::MT_AUDIO)
+                        .actor();
                 if (audio_source && audio_source != media_source) {
                     set_media_source_rate(audio_source, user_fps);
                 }

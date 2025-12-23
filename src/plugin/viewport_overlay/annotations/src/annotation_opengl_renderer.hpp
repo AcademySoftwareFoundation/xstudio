@@ -38,7 +38,12 @@ namespace ui {
         class AnnotationsRenderer : public plugin::ViewportOverlayRenderer {
 
           public:
-            AnnotationsRenderer(const std::string &viewport_name, std::atomic_bool &cursor_blink, std::atomic_bool &hide_all, std::atomic_bool *hide_strokes);
+            AnnotationsRenderer(
+                const std::string &viewport_name,
+                std::atomic_bool &cursor_blink,
+                std::atomic_bool &hide_all,
+                std::atomic_bool *hide_strokes,
+                std::atomic_bool *hide_all2);
 
             void render_image_overlay(
                 const Imath::M44f &transform_window_to_viewport_space,
@@ -57,7 +62,6 @@ namespace ui {
             float stack_order() const override { return 2.0f; }
 
           private:
-
             std::unique_ptr<xstudio::ui::opengl::OpenGLCanvasRenderer> canvas_renderer_;
             std::unique_ptr<CaptionHandleRenderer> texthandle_renderer_;
 
@@ -66,15 +70,14 @@ namespace ui {
             std::atomic_bool &cursor_blink_;
             std::atomic_bool &hide_all_;
             std::atomic_bool *hide_strokes_;
-
+            std::atomic_bool *hide_all_2_;
         };
 
         class AnnotationsExtrasRenderer : public plugin::ViewportOverlayRenderer {
 
           public:
-            AnnotationsExtrasRenderer(
-                PixelPatch &pixel_patch,
-                const std::string &viewport_name) : pixel_patch_(pixel_patch), viewport_name_(viewport_name) {}
+            AnnotationsExtrasRenderer(PixelPatch &pixel_patch, const std::string &viewport_name)
+                : pixel_patch_(pixel_patch), viewport_name_(viewport_name) {}
 
             void render_image_overlay(
                 const Imath::M44f &transform_window_to_viewport_space,
@@ -93,7 +96,6 @@ namespace ui {
             float stack_order() const override { return 3.0f; }
 
           private:
-
             // PixelPatch is (sort-of) thread safe - we need to lock it when using
             PixelPatch &pixel_patch_;
 

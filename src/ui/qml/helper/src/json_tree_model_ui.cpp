@@ -48,9 +48,7 @@ nlohmann::json JSONTreeModel::modelData() const {
     return tree_to_json(data_, children_);
 }
 
-QVariant JSONTreeModel::qModelData() const {
-    return mapFromValue(modelData());
-}
+QVariant JSONTreeModel::qModelData() const { return mapFromValue(modelData()); }
 
 nlohmann::json JSONTreeModel::indexToFullData(const QModelIndex &index, const int depth) const {
     return tree_to_json(*indexToTree(index), children_, depth);
@@ -140,9 +138,7 @@ void JSONTreeModel::setModelDataBase(const nlohmann::json &data, const bool loca
 }
 
 
-void JSONTreeModel::setQModelData(const QVariant &value) {
-    setModelData(mapFromValue(value));
-}
+void JSONTreeModel::setQModelData(const QVariant &value) { setModelData(mapFromValue(value)); }
 
 void JSONTreeModel::setModelData(const nlohmann::json &data) { setModelDataBase(data, true); }
 

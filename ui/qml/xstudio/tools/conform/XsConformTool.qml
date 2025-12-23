@@ -516,6 +516,7 @@ Item{
                         helpers.QVariantFromUuidString("")
                     }
 				}
+
                 XsMenuModelItem {
                     text: nameRole
                     menuItemType: "button"
@@ -524,6 +525,31 @@ Item{
                     menuModelName: "timeline_track_menu_"
                     onActivated: (menuContext) =>  autoConformSelectionTimeline(text, menuContext.theTimeline.conformSourceIndex, menuContext.theTimeline.timelineSelection.selectedIndexes[0])
                 }
+
+                XsMenuModelItem {
+                    text: nameRole
+                    menuItemType: "button"
+                    menuPath: "Auto-Conform Video"
+                    menuItemPosition: index
+                    menuModelName: "timeline_menu_"
+                    onActivated: (menuContext) =>  {
+                        let new_index = menuContext.theTimeline.addTrack("Video Track")[0]
+                        autoConformSelectionTimeline(text, menuContext.theTimeline.conformSourceIndex, new_index)
+                    }
+                }
+
+                XsMenuModelItem {
+                    text: nameRole
+                    menuItemType: "button"
+                    menuPath: "Auto-Conform Audio"
+                    menuItemPosition: index
+                    menuModelName: "timeline_menu_"
+                    onActivated: (menuContext) =>  {
+                        let new_index = menuContext.theTimeline.addTrack("Audio Track")[0]
+                        autoConformSelectionTimeline(text, menuContext.theTimeline.conformSourceIndex, new_index)
+                    }
+                }
+
                 XsMenuModelItem {
                     text: nameRole
                     menuItemType: "button"
@@ -623,6 +649,8 @@ Item{
                Component.onCompleted: {
                     // make sure the 'Add' sub-menu appears in the correct place
                     helpers.setMenuPathPosition("Conform With Neighbours|"+nameRole, "media_list_menu_", index)
+                    helpers.setMenuPathPosition("Auto-Conform Video", "timeline_menu_", 52)
+                    helpers.setMenuPathPosition("Auto-Conform Audio", "timeline_menu_", 53)
                 }
 			}
 	}

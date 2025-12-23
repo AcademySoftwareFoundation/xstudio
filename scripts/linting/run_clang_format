@@ -1,0 +1,3 @@
+#!/bin/bash
+set -o pipefail
+find include/xstudio src -type f -iregex '^.*\.cpp' -print0 | xargs -0 clang-format -i --verbose -style=file

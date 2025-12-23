@@ -168,8 +168,13 @@ AnnotationsRenderer::AnnotationsRenderer(
     const std::string &viewport_name,
     std::atomic_bool &cursor_blink,
     std::atomic_bool &hide_all,
-    std::atomic_bool *hide_strokes)
-    : viewport_name_(viewport_name), cursor_blink_(cursor_blink), hide_all_(hide_all), hide_strokes_(hide_strokes) {
+    std::atomic_bool *hide_strokes,
+    std::atomic_bool *hide_all2)
+    : viewport_name_(viewport_name),
+      cursor_blink_(cursor_blink),
+      hide_all_(hide_all),
+      hide_strokes_(hide_strokes),
+      hide_all_2_(hide_all2) {
     canvas_renderer_.reset(new ui::opengl::OpenGLCanvasRenderer());
     texthandle_renderer_.reset(new CaptionHandleRenderer());
 }
@@ -181,15 +186,17 @@ void AnnotationsRenderer::render_image_overlay(
     const float device_pixel_ratio,
     const xstudio::media_reader::ImageBufPtr &frame) {
 
-    if (hide_all_) return;
+    if (hide_all_ || *hide_all_2_)
+        return;
 
     // 'live' annotation edit data (strokes & shapes under construction) is
     // attached to the frame as plugin blind data. We get to it here (if it
     // is available)
-    const PerImageAnnotationRenderDataSet * live_canvas_data = nullptr;
+    const PerImageAnnotationRenderDataSet *live_canvas_data = nullptr;
     auto render_data = frame.plugin_blind_data(AnnotationsCore::PLUGIN_UUID);
     if (render_data) {
-        live_canvas_data = dynamic_cast<const PerImageAnnotationRenderDataSet *>(render_data.get());
+        live_canvas_data =
+            dynamic_cast<const PerImageAnnotationRenderDataSet *>(render_data.get());
     }
 
     // render annotated bookmarks .. loop on bookmars attached to the frame
@@ -211,8 +218,7 @@ void AnnotationsRenderer::render_image_overlay(
                 1.f,
                 *hide_strokes_,
                 live_canvas_data->live_erase_strokes(bookmark->detail_.uuid_),
-                live_canvas_data->skip_captions()
-            );
+                live_canvas_data->skip_captions());
         } else if (my_annotation) {
             canvas_renderer_->render_canvas(
                 my_annotation->canvas(),
@@ -236,17 +242,17 @@ void AnnotationsRenderer::render_image_overlay(
                 viewport_du_dpixel,
                 device_pixel_ratio);
 
-        const auto &captions = live_canvas_data->captions();
+        const auto &captions       = live_canvas_data->captions();
         auto caption_handle_states = live_canvas_data->handle_states().begin();
 
-        for (const auto &caption: captions) {
+        for (const auto &caption : captions) {
 
             canvas_renderer_->render_single_caption(
                 *caption,
                 transform_window_to_viewport_space,
                 transform_viewport_to_image_space,
                 viewport_du_dpixel,
-                device_pixel_ratio);            
+                device_pixel_ratio);
 
             const auto cursor = caption->cursor_position_on_image();
 
@@ -262,11 +268,10 @@ void AnnotationsRenderer::render_image_overlay(
                 device_pixel_ratio);
 
             caption_handle_states++;
-
         }
 
         const auto &hovered_caption_bdbs = live_canvas_data->hovered_caption_boxes();
-        for (const auto &bdb: hovered_caption_bdbs) {
+        for (const auto &bdb : hovered_caption_bdbs) {
             texthandle_renderer_->render_caption_handle(
                 HandleHoverState::HoveredInCaptionArea,
                 bdb,
@@ -280,9 +285,9 @@ void AnnotationsRenderer::render_image_overlay(
         }
     }
 
-    //restore_opengl_status();
+    // restore_opengl_status();
 
-    //glClear(GL_DEPTH_BUFFER_BIT);
+    // glClear(GL_DEPTH_BUFFER_BIT);
 }
 
 void AnnotationsRenderer::render_viewport_overlay(
@@ -290,14 +295,16 @@ void AnnotationsRenderer::render_viewport_overlay(
     const Imath::M44f &transform_viewport_to_normalised_coords,
     const media_reader::ImageBufDisplaySetPtr &on_screen_frames,
     const float viewport_du_dpixel,
-    const float device_pixel_ratio)
-{
+    const float device_pixel_ratio) {
 
-    if (hide_all_) return;
+    if (hide_all_ || *hide_all_2_)
+        return;
 
     if (on_screen_frames) {
 
-        auto overlays_data = on_screen_frames->plugin_blind_data<const LaserStrokesRenderDataSet>(AnnotationsCore::PLUGIN_UUID);
+        auto overlays_data =
+            on_screen_frames->plugin_blind_data<const LaserStrokesRenderDataSet>(
+                AnnotationsCore::PLUGIN_UUID);
         if (overlays_data) {
 
             canvas_renderer_->render_strokes(
@@ -306,10 +313,8 @@ void AnnotationsRenderer::render_viewport_overlay(
                 transform_viewport_to_normalised_coords,
                 viewport_du_dpixel,
                 device_pixel_ratio);
-
         }
     }
-
 }
 
 void AnnotationsExtrasRenderer::render_image_overlay(
@@ -317,14 +322,12 @@ void AnnotationsExtrasRenderer::render_image_overlay(
     const Imath::M44f &transform_viewport_to_image_space,
     const float viewport_du_dpixel,
     const float device_pixel_ratio,
-    const xstudio::media_reader::ImageBufPtr &frame) 
-{
+    const xstudio::media_reader::ImageBufPtr &frame) {
 
-    auto overlays_data = frame.plugin_blind_data<const AnnotationExtrasRenderDataSet>(AnnotationsUI::PLUGIN_UUID);
+    auto overlays_data = frame.plugin_blind_data<const AnnotationExtrasRenderDataSet>(
+        AnnotationsUI::PLUGIN_UUID);
     if (overlays_data) {
-    
     }
-
 }
 
 void AnnotationsExtrasRenderer::render_viewport_overlay(
@@ -332,8 +335,7 @@ void AnnotationsExtrasRenderer::render_viewport_overlay(
     const Imath::M44f &transform_viewport_to_normalised_coords,
     const media_reader::ImageBufDisplaySetPtr &on_screen_frames,
     const float viewport_du_dpixel,
-    const float device_pixel_ratio)
-{
+    const float device_pixel_ratio) {
 
     if (pixel_patch_.skip_render(viewport_name_))
         return;
@@ -388,11 +390,9 @@ void AnnotationsExtrasRenderer::render_viewport_overlay(
     glDisableVertexAttribArray(0);
     glDisableVertexAttribArray(1);
     glBindVertexArray(0);
-
 }
 
-void AnnotationsExtrasRenderer::init_overlay_opengl()
-{
+void AnnotationsExtrasRenderer::init_overlay_opengl() {
     glGenBuffers(1, &vbo_);
     glGenVertexArrays(1, &vao_);
     shader_ = std::make_unique<ui::opengl::GLShaderProgram>(vertex_shader, frag_shader);
@@ -431,7 +431,8 @@ CaptionHandleRenderer::~CaptionHandleRenderer() { cleanup_gl(); }
 void CaptionHandleRenderer::init_gl() {
 
     if (!shader_) {
-        shader_ = std::make_unique<ui::opengl::GLShaderProgram>(caption_box_vertex_shader, caption_box_frag_shader);
+        shader_ = std::make_unique<ui::opengl::GLShaderProgram>(
+            caption_box_vertex_shader, caption_box_frag_shader);
     }
 
     if (!handles_vertex_buffer_obj_ && !handles_vertex_array_) {
@@ -526,8 +527,7 @@ void CaptionHandleRenderer::render_caption_handle(
         const auto positions = std::vector<Imath::V2f>(
             {caption_box.min - handle_size,
              caption_box.max,
-             {caption_box.max.x,
-              caption_box.min.y - handle_size.y}});
+             {caption_box.max.x, caption_box.min.y - handle_size.y}});
 
         shader_params2["box_size"] = handle_size;
 
@@ -588,16 +588,14 @@ void CaptionHandleRenderer::render_caption_handle(
             glLineWidth(2.0f);
             glDrawArrays(GL_LINE_LOOP, 0, 4);
         }
-
     }
 
-    if (cursor) {//handle_state.cursor_position[0] != Imath::V2f(0.0f, 0.0f)) {
+    if (cursor) { // handle_state.cursor_position[0] != Imath::V2f(0.0f, 0.0f)) {
 
         shader_params2["opacity"]      = 0.6f;
         shader_params2["box_position"] = cursor[0];
-        shader_params2["box_size"] =
-            cursor[1] - cursor[0];
-        shader_params2["box_type"] = cursor_blink_state ? 2 : 0;
+        shader_params2["box_size"]     = cursor[1] - cursor[0];
+        shader_params2["box_type"]     = cursor_blink_state ? 2 : 0;
         shader_->set_shader_parameters(shader_params2);
         glBindVertexArray(handles_vertex_array_);
         glLineWidth(3.0f);

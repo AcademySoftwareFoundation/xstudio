@@ -29,9 +29,11 @@ namespace ui {
             const xstudio::ui::canvas::Canvas &canvas() const { return canvas_; }
 
             // this allows other parts of the app (notably the Sync plugin) to
-            // access the canvas from the AnnotationBase, because 'Annotation' 
+            // access the canvas from the AnnotationBase, because 'Annotation'
             // is only defined here in the plugin, not in xSTUDIO's general API
-            const void * user_data() const override { return reinterpret_cast<const void*>(&canvas_); }
+            const void *user_data() const override {
+                return reinterpret_cast<const void *>(&canvas_);
+            }
 
           private:
             bool is_laser_annotation_{false};

@@ -56,19 +56,20 @@ namespace utility {
 
         // For text display, we don't want to apply the image rotation but we still
         // want the scale and translate. Here's my hokey way to do that:
-        Imath::V4f a(0.0f, 0.0f ,0.0f , 1.0f);
-        Imath::V4f b(1.0f, 0.0f ,0.0f , 1.0f);
-        Imath::V4f c(0.0f, 1.0f ,0.0f , 1.0f);
+        Imath::V4f a(0.0f, 0.0f, 0.0f, 1.0f);
+        Imath::V4f b(1.0f, 0.0f, 0.0f, 1.0f);
+        Imath::V4f c(0.0f, 1.0f, 0.0f, 1.0f);
         a *= in;
         b *= in;
         c *= in;
-        float x_scale = (Imath::V2f(b.x/b.w, b.y/b.w) - Imath::V2f(a.x/a.w, a.y/a.w)).length();
-        float y_scale = (Imath::V2f(c.x/c.w, c.y/c.w) - Imath::V2f(a.x/a.w, a.y/a.w)).length();
+        float x_scale =
+            (Imath::V2f(b.x / b.w, b.y / b.w) - Imath::V2f(a.x / a.w, a.y / a.w)).length();
+        float y_scale =
+            (Imath::V2f(c.x / c.w, c.y / c.w) - Imath::V2f(a.x / a.w, a.y / a.w)).length();
         Imath::M44f result;
-        result.setTranslation(Imath::V3f(a.x/a.w, a.y/a.w, 0.0f));
+        result.setTranslation(Imath::V3f(a.x / a.w, a.y / a.w, 0.0f));
         result.scale(Imath::V3f(x_scale, -y_scale, 1.0f));
         return result;
-
     }
 
 

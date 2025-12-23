@@ -51,13 +51,12 @@ namespace ui {
         class Canvas {
 
           public:
-
             using Item    = std::variant<Stroke, Caption, Quad, Polygon, Ellipse>;
             using ItemVec = std::vector<Item>;
 
-            enum class ItemType { 
+            enum class ItemType {
                 None,
-                Brush, 
+                Brush,
                 Draw,
                 Polygon,
                 Quad,
@@ -68,7 +67,8 @@ namespace ui {
                 Line,
                 Text,
                 Erase,
-                Laser };
+                Laser
+            };
 
             Canvas() : uuid_(utility::Uuid::generate()) {}
             Canvas(const Canvas &o)
@@ -114,18 +114,18 @@ namespace ui {
             ItemVec::const_iterator begin() const { return items_.begin(); }
             ItemVec::const_iterator end() const { return items_.end(); }
 
-            void append_item(const Item & item) {
+            void append_item(const Item &item) {
                 std::shared_lock l(mutex_);
                 items_.push_back(item);
             }
 
-            void overwrite_item(ItemVec::const_iterator p, const Item & item) {
+            void overwrite_item(ItemVec::const_iterator p, const Item &item) {
                 std::shared_lock l(mutex_);
                 const auto idx = std::distance(begin(), p);
                 if (idx >= 0 && idx < items_.size()) {
                     items_[idx] = item;
                 }
-            }            
+            }
 
             void remove_item(ItemVec::const_iterator p) {
                 std::shared_lock l(mutex_);
@@ -135,7 +135,7 @@ namespace ui {
                 }
             }
 
-            void insert_item(ItemVec::const_iterator p, const Item & item) {
+            void insert_item(ItemVec::const_iterator p, const Item &item) {
                 std::shared_lock l(mutex_);
                 const auto idx = std::distance(begin(), p);
                 if (idx >= 0 && idx < items_.size()) {
@@ -174,7 +174,6 @@ namespace ui {
 
             void update_stroke(const Imath::V2f &pt, const float pressure = 1.0f);
             // Delete the strokes when reaching 0 opacity.
-            bool fade_all_strokes(float opacity);
 
             // Shapes (filled)
 
@@ -278,26 +277,24 @@ namespace ui {
                 return std::get<T>(current_item_.value());
             }
 
-            const Item &current_item_untyped() const {
-                return current_item_.value();
-            }
+            const Item &current_item_untyped() const { return current_item_.value(); }
 
             const size_t num_strokes() const {
                 size_t result = 0;
                 for (auto &item : items_) {
-                    if (std::holds_alternative<Stroke>(item)) result++;
+                    if (std::holds_alternative<Stroke>(item))
+                        result++;
                 }
                 return result;
             }
 
           private:
-          
             void end_draw_no_lock();
 
             template <typename T> T &current_item() {
                 return std::get<T>(current_item_.value());
             }
-            
+
             friend class UndoRedoAdd;
             friend class UndoRedoDel;
             friend class UndoRedoClear;

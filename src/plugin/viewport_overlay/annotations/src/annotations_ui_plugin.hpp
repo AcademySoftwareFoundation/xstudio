@@ -14,7 +14,7 @@ namespace ui {
 
         It does not modify or modify annotation data itself, however. Instead
         it sends user interaction event messages to the AnnotationsCore plugin.
-        This approach allows us to use the AnnotationsCore plugin to implement 
+        This approach allows us to use the AnnotationsCore plugin to implement
         remote user annotations editing as well as in-app edits (from this
         plugin)
         */
@@ -27,7 +27,6 @@ namespace ui {
             virtual ~AnnotationsUI();
 
           protected:
-
             caf::message_handler message_handler_extensions() override;
 
             void
@@ -72,12 +71,10 @@ namespace ui {
             void turn_off_overlay_interaction() override;
 
           private:
-
             media_reader::ImageBufPtr image_under_pointer(
                 const std::string &viewport_name,
                 const Imath::V2f &pointer_position,
-                Imath::V2i *pixel_position = nullptr
-                );
+                Imath::V2i *pixel_position = nullptr);
 
             float pressure_source(const ui::PointerEvent &e);
 
@@ -86,9 +83,7 @@ namespace ui {
                 const Imath::V2f &pos,
                 const bool fallback_to_hero_image) const;
 
-            bool check_click_on_caption(
-                const Imath::V2f &pos,
-                const std::string &viewport_id);
+            bool check_click_on_caption(const Imath::V2f &pos, const std::string &viewport_id);
 
             caf::actor get_colour_pipeline_actor(const std::string &viewport_name);
             void update_colour_picker_info(const ui::PointerEvent &e);
@@ -115,7 +110,6 @@ namespace ui {
                 Dropper,
                 None
             };
-            enum DisplayMode { OnlyWhenPaused, Always };
 
             [[nodiscard]] Tool current_tool() const { return current_tool_; }
             [[nodiscard]] bool is_curr_tool(Tool tool) const { return current_tool_ == tool; }
@@ -175,9 +169,6 @@ namespace ui {
 
             module::Attribute *dockable_widget_attr_{nullptr};
 
-            DisplayMode display_mode_{OnlyWhenPaused};
-            bool playhead_is_playing_{false};
-
             utility::Uuid toggle_active_hotkey_;
             utility::Uuid undo_hotkey_;
             utility::Uuid redo_hotkey_;
@@ -216,7 +207,6 @@ namespace ui {
             std::map<std::string, Imath::M44f> viewport_transforms_;
             std::optional<canvas::Caption> edited_caption_;
             std::size_t focus_caption_id_ = {0};
-
         };
 
     } // namespace viewport

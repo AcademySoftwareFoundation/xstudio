@@ -71,7 +71,6 @@ void HUDPluginBase::add_hud_description(const std::string &description) {
         description_->expose_in_ui_attrs_group(Module::name() + " Description");
     }
     description_->set_value(description);
-
 }
 
 void HUDPluginBase::attribute_changed(const utility::Uuid &attribute_uuid, const int role) {

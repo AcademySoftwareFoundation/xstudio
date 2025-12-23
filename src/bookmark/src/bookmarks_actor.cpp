@@ -388,7 +388,9 @@ caf::message_handler BookmarksActor::message_handler() {
         },
 
         // create and assign.
-        [=](add_bookmark_atom, const UuidActor &src, const utility::Uuid &bookmark_uuid) -> result<utility::UuidActor> {
+        [=](add_bookmark_atom,
+            const UuidActor &src,
+            const utility::Uuid &bookmark_uuid) -> result<utility::UuidActor> {
             auto rp = make_response_promise<utility::UuidActor>();
             mail(add_bookmark_atom_v, bookmark_uuid)
                 .request(caf::actor_cast<caf::actor>(this), infinite)
@@ -434,9 +436,9 @@ caf::message_handler BookmarksActor::message_handler() {
         },
 
         [=](add_bookmark_atom, const utility::Uuid &uuid) -> utility::UuidActor {
+            if (bookmarks_.find(uuid) != bookmarks_.end())
+                return UuidActor(uuid, bookmarks_[uuid]);
 
-            if (bookmarks_.find(uuid) != bookmarks_.end()) return UuidActor(uuid, bookmarks_[uuid]);
-            
             auto actor = spawn<BookmarkActor>(uuid);
 
             bookmarks_[uuid] = actor;

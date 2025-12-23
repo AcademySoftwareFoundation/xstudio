@@ -91,7 +91,8 @@ void SubPlayhead::init() {
             preference_value<size_t>(j, "/core/playhead/static_cache_delay_milliseconds"));
 
         int scrub_ms = preference_value<int>(j, "/core/audio/scrub_window_millisecs");
-        auto scrub_behaviour = preference_value<std::string>(j, "/core/audio/audio_scrub_duration");
+        auto scrub_behaviour =
+            preference_value<std::string>(j, "/core/audio/audio_scrub_duration");
         scrub_helper_.set_behaviour(scrub_behaviour);
         scrub_helper_.set_custom_duration_ms(scrub_ms);
 
@@ -1300,17 +1301,15 @@ void SubPlayhead::broadcast_audio_frame(
         //
         const auto scrub_dur = scrub_helper_.scrub_duration(current_frame_rate());
 
-        auto frame = current_frame_iterator(std::max(
-            position_flicks_ - scrub_dur / 2,
-            timebase::k_flicks_zero_seconds));
+        auto frame = current_frame_iterator(
+            std::max(position_flicks_ - scrub_dur / 2, timebase::k_flicks_zero_seconds));
         if (frame == retimed_frames_.end() || !frame->second) {
             return;
         }
 
         // very roughly where the end of the window of samples that we need
         // for audio scrub sounding, plus some headroom (50ms)
-        const auto window_end =
-            frame->first + scrub_dur + std::chrono::milliseconds(50);
+        const auto window_end = frame->first + scrub_dur + std::chrono::milliseconds(50);
 
         auto tt = utility::clock::now();
         while (frame->first < window_end) {
@@ -1330,9 +1329,8 @@ void SubPlayhead::broadcast_audio_frame(
         // 'soundcard' (real or virtual) topped up
         static const timebase::flicks audio_lookahead = timebase::k_flicks_one_second;
         // we will start getting frames -0.1 seconds from instantaneous playhead position
-        static const timebase::flicks headroom = timebase::to_flicks(0.1); 
+        static const timebase::flicks headroom = timebase::to_flicks(0.1);
         tps = get_lookahead_frame_pointers(future_frames, audio_lookahead, headroom);
-
     }
 
     // now fetch audio samples for playback
@@ -1426,9 +1424,10 @@ void SubPlayhead::broadcast_audio_samples() {
 }
 
 
-
 std::vector<timebase::flicks> SubPlayhead::get_lookahead_frame_pointers(
-    media::AVFrameIDsAndTimePoints &result, const timebase::flicks lookahead, const timebase::flicks headroom) {
+    media::AVFrameIDsAndTimePoints &result,
+    const timebase::flicks lookahead,
+    const timebase::flicks headroom) {
 
     std::vector<timebase::flicks> tps;
     if (num_retimed_frames_ < 2) {
@@ -1502,7 +1501,8 @@ std::vector<timebase::flicks> SubPlayhead::get_lookahead_frame_pointers(
     // the instantaneous playhead position. We need these extra frames in case
     // the user stops playback and steps back a couple of frames immediately,
     // for example.
-    const timebase::flicks headroom = use_headroom ? timebase::to_flicks(0.5) : timebase::k_flicks_zero_seconds;
+    const timebase::flicks headroom =
+        use_headroom ? timebase::to_flicks(0.5) : timebase::k_flicks_zero_seconds;
 
     timebase::flicks look_ahead_start_point =
         playing_forwards_ ? position_flicks_ - headroom : position_flicks_ + headroom;
@@ -1573,7 +1573,7 @@ void SubPlayhead::request_future_frames() {
                     imbuf.set_playhead_logical_frame(logical_frame_from_pts(*(tp)));
                     imbuf.set_playhead_logical_duration(logical_frames_.size());
                     imbuf.set_timline_timestamp(*(tp++));
-                    imbuf.when_to_display_ = (idsp)->first;
+                    imbuf.when_to_display_                         = (idsp)->first;
                     std::shared_ptr<const media::AVFrameID> av_idx = (idsp++)->second;
 
                     if (av_idx) {

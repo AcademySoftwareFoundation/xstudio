@@ -517,7 +517,10 @@ xstudio::media::MediaDetail FFMpegMediaReader::detail(const caf::uri &uri) const
                 fmt::format("stream {}", p.first),
                 (p.second->codec_type() == AVMEDIA_TYPE_VIDEO ? media::MT_IMAGE
                                                               : media::MT_AUDIO),
-                p.second->codec_type() == AVMEDIA_TYPE_VIDEO ? "{0}@{1}/{2},{3}" : "{0}@{1}/{2},{3},{4}", // for audio source, the media rate is made part of the cache key
+                p.second->codec_type() == AVMEDIA_TYPE_VIDEO
+                    ? "{0}@{1}/{2},{3}"
+                    : "{0}@{1}/{2},{3},{4}", // for audio source, the media rate is made part of
+                                             // the cache key
                 p.second->resolution(),
                 p.second->pixel_aspect(),
                 p.first));

@@ -319,7 +319,7 @@ void register_bookmark_detail_class(py::module &m, const std::string &name) {
         .def_readwrite("visible", &bookmark::BookmarkDetail::visible_)
         .def_readwrite("start", &bookmark::BookmarkDetail::start_)
         .def_readwrite("duration", &bookmark::BookmarkDetail::duration_)
-        //.def_readwrite("user_data", &bookmark::BookmarkDetail::user_data_)
+        .def_readwrite("user_data", &bookmark::BookmarkDetail::user_data_)
         .def_readwrite("author", &bookmark::BookmarkDetail::author_)
         .def_readwrite("owner", &bookmark::BookmarkDetail::owner_)
         .def_readwrite("note", &bookmark::BookmarkDetail::note_)

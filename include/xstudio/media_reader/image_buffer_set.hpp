@@ -131,7 +131,8 @@ namespace media_reader {
             plugin_blind_data_[plugin_uuid] = data;
         }
 
-        template <typename T> [[nodiscard]] const T * plugin_blind_data(const utility::Uuid &plugin_uuid) const {
+        template <typename T>
+        [[nodiscard]] const T *plugin_blind_data(const utility::Uuid &plugin_uuid) const {
             auto p = plugin_blind_data_.find(plugin_uuid);
             if (p != plugin_blind_data_.end())
                 return dynamic_cast<T *>(p->second.get());

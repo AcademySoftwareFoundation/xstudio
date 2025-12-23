@@ -612,6 +612,8 @@ FFMpegStream::FFMpegStream(
 
     codec_context_ = avcodec_alloc_context3(codec_);
 
+    bool is_mjpeg = false;
+
     if (codec_type_ == AVMEDIA_TYPE_DATA) {
 
         AVC_CHECK_THROW(
@@ -674,9 +676,11 @@ FFMpegStream::FFMpegStream(
             // codec_ allows us to allocated AVFrame buffers
             codec_context_->get_buffer2 = setup_video_buffer;
             using_own_frame_allocation  = true;
-        }
-        codec_context_->opaque = this;
-
+            if (!strcmp(codec_->name, "mjpeg")) {
+               is_mjpeg = true;
+            }
+        } 
+        codec_context_->opaque = this;        
 
     } else if (codec_type_ == AVMEDIA_TYPE_AUDIO && codec_) {
         stream_type_ = AUDIO_STREAM;
@@ -700,8 +704,19 @@ FFMpegStream::FFMpegStream(
 
     } else {
 
-        // Set the fps if it has been set correctly in the stream
-        if (avc_stream_->avg_frame_rate.num != 0 && avc_stream_->avg_frame_rate.den != 0) {
+        // Set the fps if it has been set correctly in the stream       
+
+        // Note that neither r_frame_rate or avg_frame_rate seem to be completely reliable! And
+        // the best one to use also seems codec dependent. We've seen 48fps mjpeg encodings where
+        // r_frame_rate is correct and avg_frame_rate is not. We've seen other encodings where
+        // the reverse is true. Hence the ordering below:
+
+        if (is_mjpeg && avc_stream_->r_frame_rate.num != 0 && avc_stream_->r_frame_rate.den != 0) {
+            fpsNum_     = avc_stream_->r_frame_rate.num;
+            fpsDen_     = avc_stream_->r_frame_rate.den;
+            frame_rate_ = xstudio::utility::FrameRate(
+                static_cast<double>(fpsDen_) / static_cast<double>(fpsNum_));
+        } else if (avc_stream_->avg_frame_rate.num != 0 && avc_stream_->avg_frame_rate.den != 0) {
             fpsNum_     = avc_stream_->avg_frame_rate.num;
             fpsDen_     = avc_stream_->avg_frame_rate.den;
             frame_rate_ = xstudio::utility::FrameRate(
@@ -716,6 +731,7 @@ FFMpegStream::FFMpegStream(
             fpsDen_     = 0;
             frame_rate_ = xstudio::utility::FrameRate(timebase::k_flicks_24fps);
         }
+
     }
 }
 
@@ -747,7 +763,7 @@ int64_t FFMpegStream::current_frame() {
 
     current_frame_ = 0;
     if (fpsNum_) {
-        current_frame_ = int(floor(
+        current_frame_ = int(round(
             double(
                 (ffmpeg_frame_->best_effort_timestamp) * avc_stream_->time_base.num * fpsNum_) /
             double(avc_stream_->time_base.den * fpsDen_)));

@@ -51,7 +51,7 @@
       ]
     }
   ],
-    "builtin-baseline": "f9b54c1c539dda8d61c3001bb30eb9f0c5032086",
+    "builtin-baseline": "6bc1613f18f850c60d906575296f982c6dfcc9e0",
   "overrides": [
     {
       "name": "opencolorio",

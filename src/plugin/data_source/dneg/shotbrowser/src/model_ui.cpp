@@ -529,7 +529,8 @@ void ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
                     auto secit = seqs.find(seqid);
 
                     // only top level sequences can go under episode.
-                    if (secit != std::end(seqs) and result.at(secit->second).at("parent_id") == seqid) {
+                    if (secit != std::end(seqs) and
+                        result.at(secit->second).at("parent_id") == seqid) {
                         // copy into our children
                         ep["children"].push_back(result.at(secit->second));
                         remove_seqs.push_back(seqid);
@@ -887,6 +888,7 @@ QModelIndex ShotBrowserSequenceFilterModel::searchRecursive(
 QVariant ShotBrowserSequenceModel::data(const QModelIndex &index, int role) const {
     auto result                     = QVariant();
     const static auto sg_asset_name = json::json_pointer("/attributes/sg_asset_name");
+    const static auto sg_hero       = json::json_pointer("/attributes/sg_hero_shot");
 
     try {
         const auto &j = indexToData(index);
@@ -904,6 +906,11 @@ QVariant ShotBrowserSequenceModel::data(const QModelIndex &index, int role) cons
             auto it = tag_lookup_.find(tag_id);
             result  = it != std::end(tag_lookup_) ? it->second : 0;
         } break;
+
+        case Roles::heroRole:
+            if (j.contains(sg_hero))
+                result = j.at(sg_hero).get<bool>();
+            break;
 
         case Roles::manifestRole: {
             if (j.contains("shot_manifest_tags")) {
@@ -965,7 +972,8 @@ void ShotBrowserSequenceFilterModel::setManifestFilter(const QVariant &value) {
             if (jsn.contains("OR") and jsn.at("OR").is_array() and jsn.at("OR").size()) {
                 for (const auto &i : jsn.at("OR"))
                     or_in_.insert(QStringFromStd(i));
-            } else if (jsn.contains("AND") and jsn.at("AND").is_array() and jsn.at("AND").size()) {
+            } else if (
+                jsn.contains("AND") and jsn.at("AND").is_array() and jsn.at("AND").size()) {
                 for (const auto &i : jsn.at("AND"))
                     and_in_.insert(QStringFromStd(i));
             }

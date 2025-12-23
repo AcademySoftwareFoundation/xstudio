@@ -337,7 +337,6 @@ void OpenGLViewportRenderer::render(
             images,
             abs(viewport_du_dx),
             device_pixel_ratio);
-            
     }
     glDisable(GL_SCISSOR_TEST);
 

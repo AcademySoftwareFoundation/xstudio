@@ -158,16 +158,25 @@ template <typename T>
 media_reader::AudioBufPtr
 super_simple_respeed_audio_buffer(const media_reader::AudioBufPtr in, const float velocity);
 
-timebase::flicks ScrubHelper::scrub_duration(const utility::FrameRate & media_rate) const {
-    if (scrub_behaviour_ == OneFrame) return media_rate.to_flicks();
-    else if (scrub_behaviour_ == OnePt25Frames) return (media_rate.to_flicks()*125)/100;
-    else if (scrub_behaviour_ == OnePt5Frames) return (media_rate.to_flicks()*150)/100;
-    else if (scrub_behaviour_ == TwoFrames) return media_rate.to_flicks()*2;
-    else if (scrub_behaviour_ == ThreeFrames) return media_rate.to_flicks()*3;
-    else if (scrub_behaviour_ == OneFrameAt24Fps) return timebase::k_flicks_24fps;
-    else if (scrub_behaviour_ == OneFrameAt30Fps) return timebase::k_flicks_one_thirtieth_second;
-    else if (scrub_behaviour_ == OneFrameAt60Fps) return timebase::k_flicks_one_sixtieth_second;
-    else if (scrub_behaviour_ == Custom) return (timebase::k_flicks_one_second*scrub_window_millisecs_)/1000;
+timebase::flicks ScrubHelper::scrub_duration(const utility::FrameRate &media_rate) const {
+    if (scrub_behaviour_ == OneFrame)
+        return media_rate.to_flicks();
+    else if (scrub_behaviour_ == OnePt25Frames)
+        return (media_rate.to_flicks() * 125) / 100;
+    else if (scrub_behaviour_ == OnePt5Frames)
+        return (media_rate.to_flicks() * 150) / 100;
+    else if (scrub_behaviour_ == TwoFrames)
+        return media_rate.to_flicks() * 2;
+    else if (scrub_behaviour_ == ThreeFrames)
+        return media_rate.to_flicks() * 3;
+    else if (scrub_behaviour_ == OneFrameAt24Fps)
+        return timebase::k_flicks_24fps;
+    else if (scrub_behaviour_ == OneFrameAt30Fps)
+        return timebase::k_flicks_one_thirtieth_second;
+    else if (scrub_behaviour_ == OneFrameAt60Fps)
+        return timebase::k_flicks_one_sixtieth_second;
+    else if (scrub_behaviour_ == Custom)
+        return (timebase::k_flicks_one_second * scrub_window_millisecs_) / 1000;
     return media_rate.to_flicks();
 }
 
@@ -326,7 +335,8 @@ void AudioOutputControl::prepare_samples_for_audio_scrubbing(
     }
 
     // how many samples do we want to sound for this scrub event?
-    long num_scrub_samps = long(scrub_helper_.scrub_duration_secs(frame_duration) * double(r->second->sample_rate()));
+    long num_scrub_samps = long(
+        scrub_helper_.scrub_duration_secs(frame_duration) * double(r->second->sample_rate()));
 
     // now we fill our scrub samples buffer.
 
@@ -474,7 +484,7 @@ void AudioOutputControl::playhead_position_changed(
         // playhead hasn't moved
     }
     playhead_position_           = playhead_position;
-    playhead_loop_in_           = playhead_loop_in;
+    playhead_loop_in_            = playhead_loop_in;
     playhead_loop_out_           = playhead_loop_out;
     playback_velocity_           = std::max(0.1f, velocity);
     playing_                     = playing;
@@ -514,9 +524,11 @@ media_reader::AudioBufPtr AudioOutputControl::pick_audio_buffer(
         timebase::to_flicks(v * timebase::to_seconds(delta)) + playhead_position_;
 
     if (!playing_forward_ && playhead_loop_in_ > future_playhead_position) {
-        future_playhead_position = playhead_loop_out_ - (playhead_loop_in_-future_playhead_position);
-    } else if (playing_forward_ && playhead_loop_out_ < future_playhead_position)  {
-        future_playhead_position = playhead_loop_in_ + (future_playhead_position-playhead_loop_out_);
+        future_playhead_position =
+            playhead_loop_out_ - (playhead_loop_in_ - future_playhead_position);
+    } else if (playing_forward_ && playhead_loop_out_ < future_playhead_position) {
+        future_playhead_position =
+            playhead_loop_in_ + (future_playhead_position - playhead_loop_out_);
     }
 
     // during playback, we just pick the audio buffer immediately after

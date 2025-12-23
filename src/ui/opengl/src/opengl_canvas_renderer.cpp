@@ -25,14 +25,14 @@ void OpenGLCanvasRenderer::render_canvas(
     const float image_aspectratio,
     const bool hide_strokes,
     const std::vector<std::shared_ptr<Stroke>> &live_erase_strokes,
-    const std::set<std::size_t> & skip_captions) {
+    const std::set<std::size_t> &skip_captions) {
 
     if (canvas.empty())
         return;
 
     if (!hide_strokes) {
         auto strokes = all_canvas_items<Stroke>(canvas);
-        for (const auto &live_erase_stroke: live_erase_strokes) {
+        for (const auto &live_erase_stroke : live_erase_strokes) {
             strokes.emplace_back(*live_erase_stroke);
         }
 
@@ -76,8 +76,7 @@ void OpenGLCanvasRenderer::render_strokes(
     const Imath::M44f &transform_window_to_viewport_space,
     const Imath::M44f &transform_viewport_to_image_space,
     const float viewport_du_dx,
-    const float device_pixel_ratio)
-{
+    const float device_pixel_ratio) {
     stroke_renderer_->render_strokes(
         strokes,
         transform_window_to_viewport_space,
@@ -98,5 +97,4 @@ void OpenGLCanvasRenderer::render_single_caption(
         transform_viewport_to_image_space,
         viewport_du_dx,
         device_pixel_ratio);
-
 }
