@@ -88,6 +88,7 @@ namespace media {
         utility::JsonTree media_list_columns_config_;
         utility::JsonStore human_readable_info_;
         utility::JsonStore media_list_columns_info_;
+        utility::time_point creation_time_ = {utility::clock::now()};
     };
 
     class MediaSourceActor : public caf::event_based_actor {

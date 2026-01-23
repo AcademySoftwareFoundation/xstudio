@@ -2075,8 +2075,28 @@ void MediaActor::build_media_list_info(caf::typed_response_promise<utility::Json
             if (media_list_columns_info_ != *result) {
                 media_list_columns_info_ = *result;
 
-                mail(utility::event_atom_v, media_display_info_atom_v, media_list_columns_info_)
-                    .send(base_.event_group());
+                // Media display info has changed. Emit a change event so the UI can update.
+                // This is needed so that the columns in the media list update when metadata
+                // changes.
+
+                // Temporary hack ... this event_atom, media_display_info_atom message will hit
+                // the SessionModelUI (via the parent playlist of this media). In SessionModelUI
+                // it then looks up the corresponding Media item in it's internal model data and
+                // updates the data for media_display_info. However, if this media item hasn't 
+                // quite yet been added to the SessionModelUI then the lookup is very slow and
+                // then fails, as it falls back to a brute force recursive search for the matching 
+                // actor_address so it looks through the whole model.
+
+                // On MediaActor creation the media_list_columns_info_ is updated a coupld of 
+                // times as the media item (and media sources) are built so we end up here.
+
+                // Thus if we add lots of media at once (e.g. building a playlist) xstudio can
+                // freeze due to all these recursive searches. We therefore don't want to emit
+                // these events until some time after the media item has been created.
+                if ((utility::clock::now()-creation_time_) > std::chrono::seconds(5)) {
+                    mail(utility::event_atom_v, media_display_info_atom_v, media_list_columns_info_)
+                        .send(base_.event_group());
+                }
             }
             rp.deliver(*result);
         }
