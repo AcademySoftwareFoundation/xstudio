@@ -1916,50 +1916,68 @@ caf::message_handler PlaylistActor::message_handler() {
 
             try {
                 caf::scoped_actor sys(system());
-                auto global = system().registry().template get<caf::actor>(global_registry);
-                auto epa = request_receive<caf::actor>(*sys, global, global::get_python_atom_v);
-                // spdlog::warn("Load from python");
-                // request otio xml from embedded_python.
-                mail(session::import_atom_v, path)
-                    .request(epa, infinite)
-                    .then(
-                        [=](const std::string &data) mutable {
-                            // got data create timeline and load it..
-                            const auto name = fs::path(uri_to_posix_path(path)).stem().string();
-                            // spdlog::warn("Loaded from python {}", name);
-                            mail(create_timeline_atom_v, name, uuid_before, false, false)
-                                .request(actor_cast<caf::actor>(this), infinite)
-                                .then(
-                                    [=](const utility::UuidUuidActor &uua) mutable {
-                                        // request loading of timeline
-                                        if (not wait) {
-                                            anon_mail(session::import_atom_v, path, data)
-                                                .send(uua.second.actor());
-                                            rp.deliver(uua.second);
-                                        } else {
-                                            mail(session::import_atom_v, path, data)
-                                                .request(uua.second.actor(), infinite)
-                                                .then(
-                                                    [=](const bool) mutable {
-                                                        rp.deliver(uua.second);
-                                                    },
 
-                                                    [=](error &err) mutable {
-                                                        spdlog::warn(
-                                                            "{} {}",
-                                                            __PRETTY_FUNCTION__,
-                                                            to_string(err));
-                                                        rp.deliver(std::move(err));
-                                                    });
-                                        }
-                                    },
-                                    [=](error &err) mutable {
-                                        spdlog::warn(
-                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
-                                        rp.deliver(std::move(err));
-                                    });
-                        },
-                        [=](error &err) mutable { rp.deliver(std::move(err)); });
+                if (path.scheme() != "file") {
+
+                    // Send path URI to data_source plugins to create and populate the timeline.
+                    auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
+                    mail(data_source::use_data_atom_v, path,
+                         caf::actor_cast<caf::actor>(this), base_.media_rate(), uuid_before, wait)
+                        .request(pm, infinite)
+                        .then(
+                            [=](const UuidActor &ua) mutable {
+                                rp.deliver(ua);
+                            },
+                            [=](error &err) mutable { rp.deliver(std::move(err)); });
+
+                } else {
+
+                    auto global = system().registry().template get<caf::actor>(global_registry);
+                    auto epa = request_receive<caf::actor>(*sys, global, global::get_python_atom_v);
+                    // spdlog::warn("Load from python");
+                    // request otio xml from embedded_python.
+                    mail(session::import_atom_v, path)
+                        .request(epa, infinite)
+                        .then(
+                            [=](const std::string &data) mutable {
+                                // got data create timeline and load it..
+                                const auto name = fs::path(uri_to_posix_path(path)).stem().string();
+                                // spdlog::warn("Loaded from python {}", name);
+                                mail(create_timeline_atom_v, name, uuid_before, false, false)
+                                    .request(actor_cast<caf::actor>(this), infinite)
+                                    .then(
+                                        [=](const utility::UuidUuidActor &uua) mutable {
+                                            // request loading of timeline
+                                            if (not wait) {
+                                                anon_mail(session::import_atom_v, path, data)
+                                                    .send(uua.second.actor());
+                                                rp.deliver(uua.second);
+                                            } else {
+                                                mail(session::import_atom_v, path, data)
+                                                    .request(uua.second.actor(), infinite)
+                                                    .then(
+                                                        [=](const bool) mutable {
+                                                            rp.deliver(uua.second);
+                                                        },
+
+                                                        [=](error &err) mutable {
+                                                            spdlog::warn(
+                                                                "{} {}",
+                                                                __PRETTY_FUNCTION__,
+                                                                to_string(err));
+                                                            rp.deliver(std::move(err));
+                                                        });
+                                            }
+                                        },
+                                        [=](error &err) mutable {
+                                            spdlog::warn(
+                                                "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                            rp.deliver(std::move(err));
+                                        });
+                            },
+                            [=](error &err) mutable { rp.deliver(std::move(err)); });
+
+                }
             } catch (const std::exception &err) {
                 rp.deliver(make_error(xstudio_error::error, err.what()));
             }
