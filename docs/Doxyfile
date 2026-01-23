@@ -58,7 +58,7 @@ PROJECT_LOGO           =
 # entered, it will be relative to the location where doxygen was started. If
 # left blank the current directory will be used.
 
-OUTPUT_DIRECTORY       = "/user_data/ted/dev/xstudio/__build/docs/docs/doxygen"
+OUTPUT_DIRECTORY       = "_build/doxygen"
 
 # If the CREATE_SUBDIRS tag is set to YES, then doxygen will create 4096 sub-
 # directories (in 2 levels) under the output directory of each output format and
@@ -731,7 +731,7 @@ WARN_FORMAT            = "$file:$line: $text"
 # messages should be written. If left blank the output is written to standard
 # error (stderr).
 
-WARN_LOGFILE           = "/user_data/ted/dev/xstudio/__build/docs/docs/doxygen/log.txt
+WARN_LOGFILE           = "_build/doxygen/log.txt
 
 #---------------------------------------------------------------------------
 # Configuration options related to the input files
@@ -743,9 +743,9 @@ WARN_LOGFILE           = "/user_data/ted/dev/xstudio/__build/docs/docs/doxygen/l
 # spaces.
 # Note: If this tag is empty the current directory is searched.
 
-INPUT                  = "/user_data/ted/dev/xstudio/include/" \
-                         "/user_data/ted/dev/xstudio/src/" \
-                         "/user_data/ted/dev/xstudio/python/src/"
+INPUT                  = "../include/" \
+                         "../src/" \
+                         "../python/src/"
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses
