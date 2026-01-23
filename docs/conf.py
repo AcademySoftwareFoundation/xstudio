@@ -51,7 +51,11 @@ autosummary_generate = False
 
 breathe_default_project = "xStudio"
 breathe_projects = {
+<<<<<<< HEAD
     "xStudio": "/user_data/ted/xstudio/__build2/docs/docs/doxygen/xml"
+=======
+    "xStudio": "_build/doxygen/xml"
+>>>>>>> 0b8690b (Make the doc paths relative.)
 }
 
 
