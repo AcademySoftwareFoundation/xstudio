@@ -1,6 +1,6 @@
 {
-    "name": "xstudio",
-    "version": "1.0.0",
+  "name": "xstudio",
+  "version": "1.0.0",
   "dependencies": [
     "stduuid",
     "reproc",
@@ -8,6 +8,7 @@
     "glew",
     "freetype",
     "libjpeg-turbo",
+    "libffi",
     "pybind11",
     "python3",
     "spdlog",
@@ -50,11 +51,15 @@
       ]
     }
   ],
-    "builtin-baseline": "f9b54c1c539dda8d61c3001bb30eb9f0c5032086",
+  "builtin-baseline": "f9b54c1c539dda8d61c3001bb30eb9f0c5032086",
   "overrides": [
     {
       "name": "opencolorio",
       "version": "2.2.1#1"
+    },
+    {
+      "name": "python3",
+      "version": "3.11.11"
     },
     {
       "name": "caf",

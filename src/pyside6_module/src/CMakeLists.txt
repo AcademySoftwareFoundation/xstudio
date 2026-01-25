@@ -9,8 +9,8 @@ if (CLANG_PATH)
 	set(ENV{CLANG_INSTALL_DIR} $CLANG_PATH)
 endif()
 
-find_package(Shiboken6 REQUIRED)
-find_package(PySide6 REQUIRED)
+# find_package(Shiboken6 REQUIRED)
+# find_package(PySide6 REQUIRED)
 find_package(Python COMPONENTS Interpreter Development)
 
 get_target_property(PySide6_INCLUDE_DIR PySide6::pyside6 INTERFACE_INCLUDE_DIRECTORIES)
@@ -47,14 +47,46 @@ set(QT_INCLUDE_DIRS ${QT_CORE_INCLUDE_DIRS} ${QT_GUI_INCLUDE_DIRS} ${QT_WIDGETS_
 	${QT_QUICKWIDGETS_INCLUDE_DIRS} ${QT_QUICK_INCLUDE_DIRS} ${QT_NETWORK_INCLUDE_DIRS} ${QT_QML_INCLUDE_DIRS}
 	${QT_OPENGL_INCLUDE_DIRS} ${QT_OPNGLWIDGETS_INCLUDE_DIRS})
 set(INCLUDES "")
+
 foreach(INCLUDE_DIR ${QT_INCLUDE_DIRS})
     list(APPEND INCLUDES "-I${INCLUDE_DIR}")
 endforeach()
 
-# hack alert. Adding this is the only way I can get the 'clang_parseTranslationUnit2' step
-# to complete without failing with this --- fatal error: 'stddef.h' file not found
-# Unlikely to work on systems other than Rock8.9!!!
-list(APPEND INCLUDES "-I/opt/rh/gcc-toolset-11/root/usr/lib/gcc/x86_64-redhat-linux/11/include")
+if (APPLE)
+    # create a flat include tree to make shiboken happy with <Module/Header.h> includes
+    set(SHIBOKEN_FIX_DIR "${CMAKE_CURRENT_BINARY_DIR}/shiboken_include_fix")
+    file(MAKE_DIRECTORY ${SHIBOKEN_FIX_DIR})
+    list(APPEND INCLUDES "-I${SHIBOKEN_FIX_DIR}")
+    foreach(INCLUDE_DIR ${QT_INCLUDE_DIRS})
+        # INCLUDE_DIR is .../Name.framework/Headers usually
+        get_filename_component(FRAMEWORK_DIR "${INCLUDE_DIR}/.." ABSOLUTE)
+        get_filename_component(FRAMEWORK_NAME_EXT "${FRAMEWORK_DIR}" NAME) # Name.framework
+        string(REPLACE ".framework" "" MODULE_NAME "${FRAMEWORK_NAME_EXT}")
+        
+        if ("${FRAMEWORK_NAME_EXT}" MATCHES "\\.framework$")
+             set(TARGET_DIR "${SHIBOKEN_FIX_DIR}/${MODULE_NAME}")
+             if (NOT EXISTS "${TARGET_DIR}")
+                execute_process(COMMAND ln -s "${INCLUDE_DIR}" "${TARGET_DIR}")
+             endif()
+        endif()
+    endforeach()
+endif()
+if (APPLE)
+    get_target_property(QT_CORE_LIB Qt6::Core LOCATION)
+    # QT_CORE_LIB is .../lib/QtCore.framework/Versions/A/QtCore
+    # We need .../lib
+    get_filename_component(QT_LIB_DIR ${QT_CORE_LIB} DIRECTORY)
+    get_filename_component(QT_LIB_DIR ${QT_LIB_DIR} DIRECTORY)
+    get_filename_component(QT_LIB_DIR ${QT_LIB_DIR} DIRECTORY)
+    get_filename_component(QT_LIB_DIR ${QT_LIB_DIR} DIRECTORY)
+    # Add clang resource path for stddef.h etc
+    list(APPEND INCLUDES "-I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/17/include")
+    list(APPEND INCLUDES "-F${QT_LIB_DIR}")
+    list(APPEND INCLUDES "-I${QT_LIB_DIR}/../include")
+    list(APPEND INCLUDES "--clang-options=-isysroot,/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk")
+endif()
+
+
 
 set(SHIBOKEN_OPTIONS --generator-set=shiboken --enable-parent-ctor-heuristic
     --enable-pyside-extensions --enable-return-value-heuristic --use-isnull-as-nb_nonzero
@@ -62,7 +94,7 @@ set(SHIBOKEN_OPTIONS --generator-set=shiboken --enable-parent-ctor-heuristic
     ${INCLUDES}
     -I${CMAKE_CURRENT_SOURCE_DIR}
     -T${CMAKE_CURRENT_SOURCE_DIR}
-    -T${PySide6_INCLUDE_DIR}/../../share/PySide6/typesystems
+    -T${PySide6_INCLUDE_DIR}/../typesystems
     --output-directory=${CMAKE_CURRENT_BINARY_DIR}
     )
 
@@ -78,7 +110,10 @@ set(GENERATED_SOURCES_DEPENDENCIES
     ${TYPESYSTEM_FILE}
     )
 
-set(SHIBOKEN_PATH shiboken6)
+find_program(SHIBOKEN_PATH shiboken6 HINTS "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/bin")
+if (NOT SHIBOKEN_PATH)
+    set(SHIBOKEN_PATH shiboken6)
+endif()
 
 # Add custom target to run shiboken.
 add_custom_command(OUTPUT ${GENERATED_SOURCES}
@@ -144,8 +179,10 @@ target_link_libraries(${PROJECT_NAME}
 		Qt6::Qml
 		OpenSSL::SSL
 		ZLIB::ZLIB
-		Shiboken6::libshiboken
-		PySide6::pyside6
+		ZLIB::ZLIB
+		"${SHIBOKEN6_LIB_DIR}/${SHIBOKEN6_LIB_NAME}"
+		"${PYSIDE6_LIB_DIR}/${PYSIDE6_LIB_NAME}"
+		Python::Module
 )
 
 default_options(${PROJECT_NAME})
@@ -159,8 +196,9 @@ include_directories("${PySide6_INCLUDE_DIR}/QtQuick")
 include_directories("${PySide6_INCLUDE_DIR}/QtQuickWidgets")
 include_directories("${PySide6_INCLUDE_DIR}/QtNetwork")
 include_directories("${PySide6_INCLUDE_DIR}/QtQml")
-include_directories("${PySide6_INCLUDE_DIR}/PySide6")
-include_directories(${SHIBOKEN_PYTHON_INCLUDE_DIRS})
+include_directories("${PySide6_INCLUDE_DIR}")
+include_directories(${SHIBOKEN6_INCLUDE_DIRS})
+include_directories(${Python_INCLUDE_DIRS})
 
 set(PYTHONVP "python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}")
 

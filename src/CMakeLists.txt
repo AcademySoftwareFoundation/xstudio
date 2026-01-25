@@ -76,11 +76,16 @@ endif ()
 if (BUILD_PYSIDE_WIDGETS)
 
 	cmake_policy(SET CMP0148 OLD) # shiboken uses deprecated FindPythonInterp
-	find_package(Shiboken6 QUIET)
-	find_package(PySide6 QUIET)
+    
+    # We build PySide6 locally to ensure version compatibility
+    include("${CMAKE_CURRENT_SOURCE_DIR}/../cmake/BuildPySide6.cmake")
+    
+    # Manually set FOUND variables so downstream logic works
+    set(Shiboken6_FOUND TRUE)
+    set(PySide6_FOUND TRUE)
 
 	if (INSTALL_PYTHON_MODULE AND Shiboken6_FOUND AND PySide6_FOUND)
-		message("PySide6 and Shiboken6 packages found. Adding PySide6 demo to targets!")
+		message("PySide6 and Shiboken6 are being built locally. Adding PySide6 demo to targets!")
 		add_src_and_test_always(pyside6_module)
 		add_src_and_test_always(demos/pyside_demo)
 	else()
