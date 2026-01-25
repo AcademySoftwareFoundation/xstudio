@@ -444,7 +444,7 @@ nlohmann::json populate_stream(AVFormatContext *avfc, int index, MediaStream *is
     result["profile"] = nullptr;
     if (profile = avcodec_profile_name(par->codec_id, par->profile))
         result["profile"] = profile;
-    else if (par->profile != FF_PROFILE_UNKNOWN) {
+    else if (par->profile != AV_PROFILE_UNKNOWN) {
         result["profile"] = std::to_string(par->profile);
     }
 
