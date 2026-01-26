@@ -1,6 +1,6 @@
 {
-    "name": "xstudio",
-    "version": "1.0.0",
+  "name": "xstudio",
+  "version": "1.0.0",
   "dependencies": [
     "stduuid",
     "reproc",
@@ -51,7 +51,7 @@
       ]
     }
   ],
-    "builtin-baseline": "6bc1613f18f850c60d906575296f982c6dfcc9e0",
+  "builtin-baseline": "6d332a018c433fad20822ff4b536e4ccdc3413bd",
   "overrides": [
     {
       "name": "opencolorio",
@@ -67,7 +67,7 @@
     },
     {
       "name": "ffmpeg",
-      "version": "7.1.1#2"
+      "version": "8.0.1#2"
     },
     {
       "name": "freetype",
