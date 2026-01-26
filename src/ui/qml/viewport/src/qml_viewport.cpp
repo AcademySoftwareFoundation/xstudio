@@ -123,12 +123,30 @@ Signature::PointerType qtPointerTypeToOurs(QPointingDevice::PointerType qt_point
 QMLViewport::QMLViewport(QQuickItem *parent) : QQuickItem(parent), cursor_(Qt::ArrowCursor) {
 
     connect(this, &QQuickItem::windowChanged, this, &QMLViewport::handleWindowChanged);
-    static int index = 0;
-
-    renderer_actor = new QMLViewportRenderer(this);
 
     keypress_monitor_ = CafSystemObject::get_actor_system().registry().template get<caf::actor>(
         xstudio::keyboard_events);
+
+    connect(this, SIGNAL(visibleChanged()), this, SLOT(onVisibleChanged()));
+
+    setAcceptedMouseButtons(Qt::AllButtons);
+    setAcceptHoverEvents(true);
+
+    createRenderer();
+}
+
+void QMLViewport::initRenderer() {
+    if (!renderer_actor) {
+        spdlog::info("QMLViewport::initRenderer recreating renderer");
+        createRenderer();
+    }
+}
+
+void QMLViewport::createRenderer() {
+    if (renderer_actor)
+        return;
+
+    renderer_actor = new QMLViewportRenderer(this);
 
     connect(
         renderer_actor,
@@ -163,20 +181,40 @@ QMLViewport::QMLViewport(QQuickItem *parent) : QQuickItem(parent), cursor_(Qt::A
         this,
         SIGNAL(snapshotRequestResult(QString)));
 
-    connect(this, SIGNAL(visibleChanged()), this, SLOT(onVisibleChanged()));
-
-    setAcceptedMouseButtons(Qt::AllButtons);
-    setAcceptHoverEvents(true);
-
     if (renderer_actor)
         renderer_actor->visibleChanged(isVisible());
+
+    if (window()) {
+        connect(
+            window(),
+            &QQuickWindow::frameSwapped,
+            renderer_actor,
+            &QMLViewportRenderer::frameSwapped,
+            Qt::DirectConnection);
+
+        connect(
+            renderer_actor, &QMLViewportRenderer::doRedraw, window(), &QQuickWindow::update);
+
+        renderer_actor->setWindow(window());
+        
+        // Reset connected state so sync() will reconnect the render loop signal
+        connected_ = false; 
+    }
+
+    // Restore state
+    renderer_actor->setIsQuickViewer(is_quickview_);
+    renderer_actor->setHasOverlays(has_overlays_);
+    if (m_playhead) renderer_actor->set_playhead(m_playhead);
+    
+    emit nameChanged();
+    emit playheadUuidChanged(); // Ensure bindings update
 }
 
 QMLViewport::~QMLViewport() { delete renderer_actor; }
 
 void QMLViewport::handleWindowChanged(QQuickWindow *win) {
 
-    spdlog::debug("QMLViewport::handleWindowChanged");
+    spdlog::info("QMLViewport::handleWindowChanged");
     if (win) {
         // Send screen info for the first time
         QScreen *screen = win->screen();
@@ -194,6 +232,13 @@ void QMLViewport::handleWindowChanged(QQuickWindow *win) {
             &QQuickWindow::sceneGraphInvalidated,
             this,
             &QMLViewport::cleanup,
+            Qt::DirectConnection);
+
+        connect(
+            win,
+            &QQuickWindow::sceneGraphInitialized,
+            this,
+            &QMLViewport::initRenderer,
             Qt::DirectConnection);
 
         connect(
@@ -225,7 +270,18 @@ void QMLViewport::handleWindowChanged(QQuickWindow *win) {
 
 void QMLViewport::handleScreenChanged(QScreen *screen) {
 
-    spdlog::debug("QMLViewport::handleScreenChanged");
+    spdlog::info("QMLViewport::handleScreenChanged {}", StdFromQString(screen->name()));
+    
+    // If we have a renderer, destroy and recreate it.
+    // This is necessary because on some platforms (macOS), moving screens can change
+    // the underlying OpenGL context/pixel format without firing sceneGraphInvalidated,
+    // leaving us with invalid shared resources (VAOs).
+    if (renderer_actor) {
+        spdlog::info("Forcing renderer recreation on screen change");
+        cleanup();
+        initRenderer();
+    }
+
     if (renderer_actor)
         renderer_actor->setScreenInfos(
             screen->name(),
@@ -332,7 +388,7 @@ void QMLViewport::setHasOverlays(const bool hasOverlays) {
 
 void QMLViewport::cleanup() {
 
-    spdlog::debug("QMLViewport::cleanup");
+    spdlog::info("QMLViewport::cleanup");
     if (renderer_actor) {
         // delete renderer_actor;
         delete renderer_actor;
@@ -620,8 +676,11 @@ void QMLViewport::setPlayhead(const QString actorAddress) {
     if (actorAddress != "") {
         caf::actor playhead =
             actorFromQString(CafSystemObject::get_actor_system(), actorAddress);
-        if (playhead && renderer_actor) {
-            renderer_actor->set_playhead(playhead);
+        if (playhead) {
+             m_playhead = playhead;
+             if (renderer_actor) {
+                 renderer_actor->set_playhead(playhead);
+             }
         } else {
             spdlog::warn(
                 "{} bad playhead actor address: {}",
