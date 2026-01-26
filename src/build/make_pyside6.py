@@ -234,34 +234,35 @@ def build() -> None:
     subprocess.run(pyside_build_args, check=True, env=env)
 
     # Cleanup generator
-    generator_cleanup_args = python_interpreter_args + [
-        "-m",
-        "pip",
-        "uninstall",
-        "-y",
-        "shiboken6_generator",
-    ]
+    # Cleanup generator
+    # generator_cleanup_args = python_interpreter_args + [
+    #     "-m",
+    #     "pip",
+    #     "uninstall",
+    #     "-y",
+    #     "shiboken6_generator",
+    # ]
 
-    print(f"Executing {generator_cleanup_args}")
-    subprocess.run(generator_cleanup_args, check=False) # Don't fail if not present
+    # print(f"Executing {generator_cleanup_args}")
+    # subprocess.run(generator_cleanup_args, check=False) # Don't fail if not present
 
     # Even if we remove shiboken6_generator from pip, the files stays... for some reasons
-    generator_cleanup_args = python_interpreter_args + [
-        "-c",
-        "\n".join(
-            [
-                "import os, shutil",
-                "try:",
-                "  import shiboken6_generator",
-                "except:",
-                "  exit(0)",
-                "shutil.rmtree(os.path.dirname(shiboken6_generator.__file__))",
-            ]
-        ),
-    ]
+    # generator_cleanup_args = python_interpreter_args + [
+    #     "-c",
+    #     "\n".join(
+    #         [
+    #             "import os, shutil",
+    #             "try:",
+    #             "  import shiboken6_generator",
+    #             "except:",
+    #             "  exit(0)",
+    #             "shutil.rmtree(os.path.dirname(shiboken6_generator.__file__))",
+    #         ]
+    #     ),
+    # ]
 
-    print(f"Executing {generator_cleanup_args}")
-    subprocess.run(generator_cleanup_args, check=False)
+    # print(f"Executing {generator_cleanup_args}")
+    # subprocess.run(generator_cleanup_args, check=False)
 
     if OPENSSL_OUTPUT_DIR and platform.system() == "Windows":
         # ... (OpenSSL copy logic, probably skipped for now)

@@ -110,16 +110,20 @@ set(GENERATED_SOURCES_DEPENDENCIES
     ${TYPESYSTEM_FILE}
     )
 
-find_program(SHIBOKEN_PATH shiboken6 HINTS "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/bin")
+find_program(SHIBOKEN_PATH shiboken6 HINTS "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/bin" "${CMAKE_BINARY_DIR}/python/bin")
 if (NOT SHIBOKEN_PATH)
-    set(SHIBOKEN_PATH shiboken6)
+    # If not found during configure, assume it will be built at this location
+    set(SHIBOKEN_PATH "${CMAKE_BINARY_DIR}/python/bin/shiboken6")
 endif()
+
+
+set(PYTHONVP "python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}")
 
 # Add custom target to run shiboken.
 add_custom_command(OUTPUT ${GENERATED_SOURCES}
-                    COMMAND ${SHIBOKEN_PATH}
+                    COMMAND ${CMAKE_COMMAND} -E env PYTHONPATH=${CMAKE_BINARY_DIR}/python/lib/${PYTHONVP}/site-packages ${SHIBOKEN_PATH}
                     ${SHIBOKEN_OPTIONS} ${WRAPPED_HEADER} ${TYPESYSTEM_FILE}
-                    DEPENDS ${GENERATED_SOURCES_DEPENDENCIES}
+                    DEPENDS ${GENERATED_SOURCES_DEPENDENCIES} pyside6_local_build
                     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
                     COMMENT "Running generator for ${TYPESYSTEM_FILE}.")
 
