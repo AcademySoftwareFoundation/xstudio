@@ -140,6 +140,9 @@ elseif(APPLE)
         COMMAND ${CMAKE_COMMAND} -E copy
         ${FFMPEG_APP} "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/MacOS/ffmpeg")
 
+    # Install PySide6 and Shiboken6 into the app bundle for local execution
+    # PySide6 installation moved to end of file to ensure it runs after macdeployqt
+
     get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)
     get_filename_component(_qt_bin_dir "${_qmake_executable}" DIRECTORY)
     find_program(macdeployqt_exe macdeployqt HINTS "${_qt_bin_dir}")
@@ -169,9 +172,26 @@ else()
 	  DESTINATION bin
 	  RENAME xstudio)
 
-	install(PROGRAMS
+    install(PROGRAMS
 	  ${CMAKE_CURRENT_SOURCE_DIR}/xstudio_desktop_integration.sh
 	  DESTINATION bin
 	  RENAME xstudio_desktop_integration)
 
+endif()
+
+# Install PySide6 and Shiboken6 into the app bundle for local execution (Apple only for now in this block)
+if(APPLE)
+    # Construct path manually as target property might be empty or config-specific
+    set(_pyside6_site_packages "${CMAKE_BINARY_DIR}/python/lib/python3.11/site-packages")
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/python/lib"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${_pyside6_site_packages}/PySide6"
+        "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/python/lib/PySide6"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${_pyside6_site_packages}/shiboken6"
+        "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/python/lib/shiboken6"
+        # Sign all copied binaries to prevent SIGKILL on Apple Silicon
+        COMMAND find "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/python/lib" -name "*.so" -o -name "*.dylib" | xargs codesign --force -s -
+    )
 endif()
