@@ -131,6 +131,15 @@ class FilesystemBrowserPlugin(PluginBase):
             register_as_preference=False
         )
         self.progress_attr.expose_in_ui_attrs_group("Filesystem Browser")
+
+        # New: Progress attribute
+        self.scanned_attr = self.add_attribute(
+            "scanned_count",
+            "0",
+            {"title": "scanned_count"},
+            register_as_preference=False
+        )
+        self.scanned_attr.expose_in_ui_attrs_group("Filesystem Browser")
         
         # New: Filter attributes
         self.filter_time_attr = self.add_attribute(
@@ -228,6 +237,14 @@ class FilesystemBrowserPlugin(PluginBase):
                 elif action == "complete_path":
                     partial = data.get("path", "")
                     self.compute_completions(partial)
+
+                elif action == "replace_current_media":
+                    path = data.get("path")
+                    self._replace_current_media(path)
+
+                elif action == "compare_with_current_media":
+                    path = data.get("path")
+                    self._compare_with_current_media(path)
 
                 elif action == "set_attribute":
                     attr_name = data.get("name")
@@ -508,15 +525,21 @@ class FilesystemBrowserPlugin(PluginBase):
             # We send a JSON with status string and scanned count
             scanned = info.get("scanned", 0)
             phase = info.get("phase", "")
+            progress = info.get("progress", 0)
             
             # Update progress attribute
-            self.progress_attr.set_value(str(scanned))
+            # Because of the scanning algorithm, the progress is not linear, so we need to bias it
+            # to make it feel more linear to the user.
+            biased_progress = pow(progress / 100.0, 2.0)*100
+            self.progress_attr.set_value(str(biased_progress))
+            self.scanned_attr.set_value(str(scanned))
+            #self.scanProgress.set_value(str(progress))
             
             # Handle partial results
-            if results and phase == "scanning_partial":
+            if results and phase == "scanning":
                  # This might be heavy on UI thread if huge?
                  # But it's every 5 secs.
-                 self.current_scan_results = results
+                 self.current_scan_results.extend(results)
                  # We trigger filter application which updates 'files_attr'
                  # But apply_filters runs on main thread usually? 
                  # We are in worker thread here. attributes set_value handles cross-thread.
@@ -621,6 +644,167 @@ class FilesystemBrowserPlugin(PluginBase):
         if role == AttributeRole.Value:
             # Re-apply filters on cached results
             threading.Thread(target=self.apply_filters).start()
+
+
+    def _replace_current_media(self, path):
+        try:
+            print(f"Replacing current media with: {path}")
+            # 1. Identify valid playlist (use same logic as load_file or simplify)
+            # For replace, we usually mean the "active" playlist/viewed one.
+            playlist = None
+            try:
+                viewed = self.connection.api.session.viewed_container
+                if hasattr(viewed, 'add_media'):
+                    playlist = viewed
+            except:
+                pass
+                
+            if not playlist:
+                # Fallback to selection
+                try:
+                    selection = self.connection.api.session.selected_containers
+                    if selection and hasattr(selection[0], 'add_media'):
+                        playlist = selection[0]
+                except:
+                    pass
+            
+            if not playlist:
+                print("No active playlist found for replace.")
+                return
+
+            self.connection.api.session.set_on_screen_source(playlist)
+
+            # 2. Add new media
+            # Use same helpers as load_file for sequences? 
+            # Ideally load_file should be refactored to return the media object.
+            # For now, duplicate simple add logic or internal helper.
+            # Let's use simple add for now to save complexity, or better, 
+            # we need sequence logic.
+            # Refactor load_file is risky mid-flight. 
+            # I will assume path is safe or reuse the sequence logic block?
+            # Let's extract sequence loading to a helper `_add_media_to_playlist(playlist, path)`
+            
+            new_media = self._add_media_to_playlist(playlist, path)
+            if not new_media:
+                return
+
+            # 3. Find currently selected/playing components to remove
+            # We want to remove the item that playhead is focusing on? 
+            # Or just the selection?
+            # "Replaces the media in the current viewport" implies the one being watched.
+            
+            items_to_remove = []
+            if hasattr(playlist, 'playhead_selection'):
+                 # Get what is currently selected/playing
+                 # selected_sources returns list of Media objects
+                 current_selection = playlist.playhead_selection.selected_sources
+                 if current_selection:
+                     items_to_remove = current_selection
+                 
+            # 4. Select new media
+            if hasattr(playlist, 'playhead_selection'):
+                playlist.playhead_selection.set_selection([new_media.uuid])
+                
+            # 5. Move new media to position of old media?
+            # playlist.move_media(new_media, before=old_media_uuid)
+            if items_to_remove:
+                # Move before the first removed item
+                try:
+                    playlist.move_media(new_media, before=items_to_remove[0].uuid)
+                except Exception as e:
+                    print(f"Move error: {e}")
+                
+            # 6. Remove old media
+            for m in items_to_remove:
+                try:
+                    playlist.remove_media(m)
+                except Exception as e:
+                    print(f"Remove error: {e}")
+
+            # 7. Play
+            if hasattr(playlist, 'playhead'):
+                playlist.playhead.playing = True
+
+        except Exception as e:
+            print(f"Replace error: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _compare_with_current_media(self, path):
+        try:
+            print(f"Comparing current media with: {path}")
+            # 1. Identify valid playlist
+            playlist = None
+            try:
+                viewed = self.connection.api.session.viewed_container
+                if hasattr(viewed, 'add_media'):
+                    playlist = viewed
+            except:
+                pass
+            
+            if not playlist:
+                print("No active playlist found for compare.")
+                return
+
+            self.connection.api.session.set_on_screen_source(playlist)
+
+            # 2. Add new media
+            new_media = self._add_media_to_playlist(playlist, path)
+            if not new_media:
+                return
+
+            # 3. Get current selection and append new media
+            new_selection = []
+            if hasattr(playlist, 'playhead_selection'):
+                 current_m = playlist.playhead_selection.selected_sources
+                 for m in current_m:
+                     new_selection.append(m.uuid)
+            
+            new_selection.append(new_media.uuid)
+            
+            # 4. Set selection
+            if hasattr(playlist, 'playhead_selection'):
+                playlist.playhead_selection.set_selection(new_selection)
+                
+            # 5. Set Compare Mode
+            if hasattr(playlist, 'playhead'):
+                # Check for AB mode availability? 
+                # Assuming "A/B" string is correct based on other plugins/docs
+                playlist.playhead.compare_mode = "A/B"
+                playlist.playhead.playing = True
+
+        except Exception as e:
+             print(f"Compare error: {e}")
+             import traceback
+             traceback.print_exc()
+
+    def _add_media_to_playlist(self, playlist, path):
+        """Helper to add media handling sequences."""
+        import os
+        try:
+             tgt_path = os.path.normpath(os.path.abspath(path))
+             
+             # Check for sequence
+             if fileseq_available:
+                 try:
+                    seq = fileseq.FileSequence(path)
+                    if len(seq) > 1:
+                        dirname = seq.dirname()
+                        basename = seq.basename()
+                        pad_str = seq.padding()
+                        pad_len = len(pad_str) if pad_str else 0
+                        brace_padding = f"{{:0{pad_len}d}}" if pad_len > 0 else ""
+                        frames = str(seq.frameSet())
+                        ext = seq.extension()
+                        seq_path = f"{dirname}{basename}{brace_padding}{ext}={frames}"
+                        return playlist.add_media(seq_path)
+                 except:
+                    pass
+             
+             return playlist.add_media(path)
+        except Exception as e:
+            print(f"Add media error: {e}")
+            return None
 
 
 def create_plugin_instance(connection):

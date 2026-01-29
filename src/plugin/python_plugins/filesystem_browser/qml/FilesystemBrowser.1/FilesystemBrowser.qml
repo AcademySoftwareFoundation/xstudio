@@ -77,6 +77,12 @@ Rectangle {
     }
     
     XsAttributeValue {
+        id: scanned_attr
+        attributeTitle: "scanned_count"
+        model: pluginData
+    }
+
+    XsAttributeValue {
         id: progress_attr
         attributeTitle: "scan_progress"
         model: pluginData
@@ -706,16 +712,29 @@ Rectangle {
                         hoverEnabled: true
                         onEntered: isHovered = true
                         onExited: isHovered = false
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
                         onClicked: {
                             fileListView.currentIndex = index
-                            // Single click: just select (maybe preview later?)
-                            // For now single click does nothing but select
+                            if (mouse.button === Qt.RightButton) {
+                                contextMenu.popup()
+                            }
                         }
                         onDoubleClicked: {
                             fileListView.currentIndex = index
                             sendCommand({"action": "load_file", "path": modelData.path})
                         }
-
+                    }
+                    
+                    Menu {
+                        id: contextMenu
+                        MenuItem {
+                            text: "Replace"
+                            onTriggered: sendCommand({"action": "replace_current_media", "path": modelData.path})
+                        }
+                        MenuItem {
+                            text: "Compare with"
+                            onTriggered: sendCommand({"action": "compare_with_current_media", "path": modelData.path})
+                        }
                     }
                 }
             }
@@ -750,6 +769,7 @@ Rectangle {
                     Layout.alignment: Qt.AlignVCenter
                     from: 0
                     to: 100
+                    value: progress_attr.value
                     indeterminate: true 
                     
                     background: Rectangle {
@@ -772,7 +792,7 @@ Rectangle {
                 }
                 
                 Text {
-                    text: "Scanning: " + (parseInt(progress_attr.value) || 0) + " items..."
+                    text: "Scanning: " + (parseInt(scanned_attr.value) || 0) + " items..."
                     color: hintColor
                     font.pixelSize: 10
                     Layout.alignment: Qt.AlignVCenter
