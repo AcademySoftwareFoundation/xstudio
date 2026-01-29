@@ -1,6 +1,6 @@
 
 from xstudio.plugin import PluginBase
-from xstudio.core import JsonStore
+from xstudio.core import JsonStore, FrameList, add_media_atom, Uuid, URI
 import os
 import json
 import threading
@@ -16,31 +16,15 @@ except ImportError:
     fileseq_available = False
     print("Warning: fileseq module not found. Sequence detection will be disabled.")
 
-from PySide6.QtCore import QObject, Signal, Qt
-from PySide6.QtWidgets import QApplication, QFileDialog
 
-class MainThreadExecutor(QObject):
-    execute_signal = Signal(object, object)
+# PySide6 dependency removed
+# from PySide6.QtCore import QObject, Signal, Qt
+# from PySide6.QtWidgets import QApplication, QFileDialog
 
-    def __init__(self):
-        super().__init__()
-        # Use simple direct connection if on same thread, otherwise queued.
-        # But we specifically want to FORCE main thread execution from worker threads.
-        # So we trust moveToThread + QueuedConnection.
-        self.execute_signal.connect(self._execute, Qt.QueuedConnection)
-        
-        app = QApplication.instance()
-        if app:
-            self.moveToThread(app.thread())
+# MainThreadExecutor removed. 
+# xstudio attributes .set_value() is generally thread-safe (posts to actor).
+# For GUI dialogs, we need another approach or they are disabled without PySide.
 
-    def _execute(self, func, args):
-        try:
-            func(*args)
-        except Exception as e:
-            print(f"MainThreadExecutor error: {e}")
-
-    def execute(self, func, *args):
-        self.execute_signal.emit(func, args)
 
 class FilesystemBrowserPlugin(PluginBase):
     def __init__(self, connection):
@@ -51,7 +35,8 @@ class FilesystemBrowserPlugin(PluginBase):
             qml_folder="qml/FilesystemBrowser.1"
         )
         
-        self.main_executor = MainThreadExecutor()
+        
+        # self.main_executor = MainThreadExecutor()
 
         # Attribute to communicate list of files to QML (as JSON string)
         self.files_attr = self.add_attribute(
@@ -137,9 +122,40 @@ class FilesystemBrowserPlugin(PluginBase):
             register_as_preference=False
         )
         self.searching_attr.expose_in_ui_attrs_group("Filesystem Browser")
+
+        # New: Progress attribute
+        self.progress_attr = self.add_attribute(
+            "scan_progress",
+            "0",
+            {"title": "scan_progress"},
+            register_as_preference=False
+        )
+        self.progress_attr.expose_in_ui_attrs_group("Filesystem Browser")
+        
+        # New: Filter attributes
+        self.filter_time_attr = self.add_attribute(
+            "filter_time",
+            "Any", 
+            {"title": "Time Filter", "values": ["Any", "Last 1 day", "Last 2 days", "Last 1 week", "Last 1 month"]},
+            register_as_preference=True
+        )
+        self.filter_time_attr.expose_in_ui_attrs_group("Filesystem Browser")
+        
+        self.filter_version_attr = self.add_attribute(
+            "filter_version",
+            "All Versions",
+            {"title": "Version Filter", "values": ["All Versions", "Latest Version", "Latest 2 Versions"]},
+            register_as_preference=True
+        )
+        self.filter_version_attr.expose_in_ui_attrs_group("Filesystem Browser")
+        
+        # Connect listeners
+        # Note: We need to register callbacks properly.
+        # attribute_changed method handles all.
         
         # Internal state
         self.extensions = {".mov", ".exr", ".png", ".mp4"}
+        self.ignore_dirs = {".git", ".svn", "__pycache__", ".DS_Store"}
         self.search_thread = None
         self.cancel_search = False
         
@@ -161,15 +177,17 @@ class FilesystemBrowserPlugin(PluginBase):
 
     def _open_browser_dialog(self, initial_path):
         """Runs on main thread to show dialog."""
-        dir_path = QFileDialog.getExistingDirectory(None, "Select Directory", initial_path)
-        if dir_path:
-            # We can update the attribute directly here since we are on main thread (safe)
-            # or use the worker thread if needed, but set_value is thread safe-ish in xstudio API usually,
-            # or better yet, since we are in python plugin, set_value modifies the backend attribute.
-            # The backend attribute change will trigger notification.
-            # However, start_search expects to run on... wait, start_search runs a thread.
-            self.current_path_attr.set_value(dir_path)
-            self.start_search(dir_path)
+        try:
+            from PySide6.QtWidgets import QFileDialog
+            dir_path = QFileDialog.getExistingDirectory(None, "Select Directory", initial_path)
+            if dir_path:
+                self.current_path_attr.set_value(dir_path)
+                self.start_search(dir_path)
+        except ImportError:
+            print("PySide6 not available. Directory dialog disabled.")
+        except Exception as e:
+            print(f"Error opening dialog: {e}")
+
 
     def attribute_changed(self, attribute, role):
         # Handle commands from QML via the command attribute
@@ -204,15 +222,20 @@ class FilesystemBrowserPlugin(PluginBase):
                 elif action == "request_browser":
                     # Open native directory dialog
                     current = self.current_path_attr.value()
-                    # Execute on main thread
-                    if hasattr(self, 'main_executor'):
-                        self.main_executor.execute(self._open_browser_dialog, current)
-                    else:
-                        print("Error: Main executor not available for dialog")
+                    # Execute directly (will fail gracefully if PySide6 missing)
+                    self._open_browser_dialog(current)
                         
                 elif action == "complete_path":
                     partial = data.get("path", "")
                     self.compute_completions(partial)
+
+                elif action == "set_attribute":
+                    attr_name = data.get("name")
+                    attr_value = data.get("value")
+                    if attr_name == "filter_time":
+                        self.filter_time_attr.set_value(attr_value)
+                    elif attr_name == "filter_version":
+                        self.filter_version_attr.set_value(attr_value)
                 
                 # Clear command channel
                 self.command_attr.set_value("")
@@ -221,6 +244,10 @@ class FilesystemBrowserPlugin(PluginBase):
                 print(f"Command error: {e}")
                 import traceback
                 traceback.print_exc()
+                
+        elif attribute.uuid in (self.filter_time_attr.uuid, self.filter_version_attr.uuid):
+            if role == AttributeRole.Value:
+                self._on_filter_changed(attribute, role)
 
     def compute_completions(self, partial_path):
         """Minimal logic to find subdirectories matching partial path."""
@@ -249,6 +276,9 @@ class FilesystemBrowserPlugin(PluginBase):
             candidates = []
             try:
                 for item in os.listdir(directory):
+                    if item in self.ignore_dirs or item.startswith('.'):
+                        continue
+                        
                     full_p = os.path.join(directory, item)
                     if os.path.isdir(full_p):
                         # Filter by base
@@ -269,53 +299,176 @@ class FilesystemBrowserPlugin(PluginBase):
 
     def load_file(self, path):
         # Logic to load file into xstudio
-        # We need to find the playlist and add media
         try:
-            # Create a playlist if none exists
-            playlists = self.connection.api.session.playlists
-            if not playlists:
-                self.connection.api.session.create_playlist("Filesystem Import")
-                playlist = self.connection.api.session.playlists[0]
-            else:
-                playlist = playlists[0]
+            valid_playlist = None
+            
+            # 1. Try Selected Containers
+            try:
+                selection = self.connection.api.session.selected_containers
+                for item in selection:
+                    if hasattr(item, 'add_media'):
+                        valid_playlist = item
+                        self.last_used_playlist_uuid = item.uuid
+                        print(f"Targeting Selected Playlist: {item.name}")
+                        break
+            except Exception:
+                pass
+            
+            # 2. Try Cached Playlist (Sticky)
+            if not valid_playlist and hasattr(self, 'last_used_playlist_uuid'):
+                try:
+                    target_uuid_str = str(self.last_used_playlist_uuid)
+                    for p in self.connection.api.session.playlists:
+                        if str(p.uuid) == target_uuid_str:
+                            valid_playlist = p
+                            print(f"Targeting Cached Playlist: {p.name}")
+                            break
+                except:
+                    pass
+
+            # 3. Try Viewed Container
+            if not valid_playlist:
+                try:
+                    viewed = self.connection.api.session.viewed_container
+                    if hasattr(viewed, 'add_media'):
+                        valid_playlist = viewed
+                        self.last_used_playlist_uuid = viewed.uuid
+                        print(f"Targeting Viewed Playlist: {viewed.name}")
+                except Exception:
+                    pass
+
+            # 4. Fallback to first playlist
+            if not valid_playlist:
+                 playlists = self.connection.api.session.playlists
+                 if playlists:
+                     valid_playlist = playlists[0]
+                     # print(f"Targeting First Playlist (Fallback): {valid_playlist.name}")
+                 else:
+                     self.connection.api.session.create_playlist("Filesystem Import")
+                     valid_playlist = self.connection.api.session.playlists[0]
+                 # Update cache to this fallback
+                 self.last_used_playlist_uuid = valid_playlist.uuid
+            
+            playlist = valid_playlist
+            
+            # --- Duplicate Check Logic: Local Cache ---
+            if not hasattr(self, 'playlist_path_cache'):
+                self.playlist_path_cache = {} # Dict[uuid_str, set(paths)]
+
+            pl_uuid = str(playlist.uuid)
+            if pl_uuid not in self.playlist_path_cache:
+                self.playlist_path_cache[pl_uuid] = set()
+            
             # Check if media already exists in playlist
             existing_media = None
             try:
-                # playlist.media returns a list of Media objects
+                # Force refresh of media list?? No direct method, accessing .media should request it.
                 current_media_list = playlist.media
                 
-                # Normalize path for comparison
+                # Normalize input path: absolute + normpath
+                tgt_path = os.path.normpath(os.path.abspath(path))
+                
+                print(f"Checking for duplicates of: {tgt_path}")
+                
                 for m in current_media_list:
-                    # m is a Media object. We need its path.
-                    # Media -> MediaSource -> MediaReference -> URI -> path
-                    # This chain might fail if media is invalid/loading, so try/except
                     try:
                         ms = m.media_source()
                         mr = ms.media_reference
                         if mr:
-                            mr_path = mr.uri().path()
-                            if mr_path == path:
-                                existing_media = m
-                                break
+                            # URI path might include file:// scheme or be absolute
+                            u = mr.uri()
+                            mp = u.path()
+                            if mp:
+                                # Also abspath/normpath the existing media path
+                                mp_norm = os.path.normpath(os.path.abspath(mp))
+                                # print(f"  Existing: {mp_norm}")
+                                if mp_norm == tgt_path:
+                                    existing_media = m
+                                    print("  -> Match found!")
+                                    break
                     except:
                         continue
-            except:
-                pass
+            except Exception as e:
+                print(f"Dup check error: {e}")
 
 
             if existing_media:
                 media = existing_media
                 print(f"Media already exists: {path}")
+            elif tgt_path in self.playlist_path_cache[pl_uuid]:
+                 # In cache but not in media list yet (pending)
+                 print(f"Skipping duplicate (pending load): {path}")
+                 return
             else:
-                media = playlist.add_media(path)
-                print(f"Loaded: {path}")
+                # --- Sequence Handling ---
+                loaded_as_sequence = False
+                if fileseq_available:
+                    try:
+                        seq = fileseq.FileSequence(path)
+                        if len(seq) > 1:
+                            # It's a sequence!
+                            # Construct xstudio-compatible sequence string with Explicit Range:
+                            # /path/to/prefix_{:04d}.ext=1001-1050
+                            
+                            dirname = seq.dirname()
+                            basename = seq.basename() # e.g. 'shot_' or 'shot.'
+                            
+                            # Calculate padding width from '####' or '@@@@@'
+                            pad_str = seq.padding()
+                            pad_len = len(pad_str) if pad_str else 0
+                            
+                            # Construct brace pattern e.g. {:04d}
+                            # If no padding, just empty brace? No, xstudio expects {:0Nd} usually.
+                            # But fileseq handling > 1 implies padding.
+                            
+                            brace_padding = f"{{:0{pad_len}d}}" if pad_len > 0 else ""
+                            
+                            frames = str(seq.frameSet()) # e.g. 1001-1050
+                            ext = seq.extension() # e.g. .exr
+                            
+                            # Normalize basename: sometimes fileseq puts the whole thing in basename.
+                            # But typical usage: dirname + basename + padded_part + ext
+                            
+                            # Construct the special path for xstudio parsing
+                            # IMPORTANT: xstudio regex expects: ^(.*\{.+\}.*?)(=([-0-9x,]+))?$
+                            # So we put the brace pattern in the path, and the range at end.
+                            
+                            seq_path = f"{dirname}{basename}{brace_padding}{ext}={frames}"
+                            
+                            print(f"Loading Sequence via Brace Pattern: {seq_path}")
+                            
+                            # playlist.add_media(path) calls parse_posix_path internally 
+                            # which handles this pattern.
+                            media = playlist.add_media(seq_path)
+                            loaded_as_sequence = True
+                            
+                    except Exception as e:
+                        print(f"Sequence load error: {e}")
 
-            # Switch view to the playlist containing the media
-            self.connection.api.session.viewed_container = playlist
+                if not loaded_as_sequence:
+                    media = playlist.add_media(path)
+                    
+                print(f"Loaded: {path}")
+                # Add to cache immediately
+                self.playlist_path_cache[pl_uuid].add(tgt_path)
+
+            # Force the viewport to display the playlist (parent of the media)
+            # We can't set the media directly as source if we want to use the playlist's playhead logic effectively 
+            # (and avoid "create_playhead_atom" errors on MediaActor).
+            self.connection.api.session.set_on_screen_source(playlist)
             
-            # Force the viewport to display this specific media
-            # media object is a Container, so this should work to set it as active source
-            self.connection.api.session.set_on_screen_source(media)
+            # Select the media in the playlist's playhead selection
+            # This ensures the playhead jumps to/plays this specific media
+            if hasattr(playlist, 'playhead_selection'):
+                playlist.playhead_selection.set_selection([media.uuid])
+
+            # Start playback
+            try:
+                # Use the playlist's playhead to control playback
+                if hasattr(playlist, 'playhead'):
+                    playlist.playhead.playing = True
+            except Exception as e:
+                print(f"Playback trigger error: {e}")
 
         except Exception as e:
             print(f"Error loading file: {e}")
@@ -324,10 +477,12 @@ class FilesystemBrowserPlugin(PluginBase):
     def start_search(self, start_path):
         if self.search_thread and self.search_thread.is_alive():
             self.cancel_search = True
+            if hasattr(self, 'scanner'):
+                self.scanner.stop()
             self.search_thread.join()
         
         self.cancel_search = False
-        self.searching_attr.set_value(True) # Set immediately on start
+        self.searching_attr.set_value(True)
         self.search_thread = threading.Thread(target=self._search_worker, args=(start_path,))
         self.search_thread.daemon = True
         self.search_thread.start()
@@ -335,169 +490,139 @@ class FilesystemBrowserPlugin(PluginBase):
     def _search_worker(self, start_path):
         print(f"Starting search in {start_path}")
         
-        results = []
+        from .scanner import FileScanner
         
-        # Breadth-first search
-        q = queue.Queue()
-        q.put(start_path)
+        # Config (could be loaded from prefs)
+        config = {
+            "extensions": list(self.extensions),
+            "ignore_dirs": list(self.ignore_dirs),
+            # "version_regex": r"_v(\d+)" 
+        }
         
-        scanned_files = [] # List of all files found to pass to fileseq
+        self.scanner = FileScanner(config)
+        self.scanner = FileScanner(config)
+        self.current_scan_results = [] # Cache results for filtering
         
-        # Limit depth or count to avoid hanging forever?
-        # User asked for recursive.
-        
-        count = 0
-        max_files = 5000 # Safety limit for demo
-        
+        def progress_callback(results, info):
+            # Report progress to UI
+            # We send a JSON with status string and scanned count
+            scanned = info.get("scanned", 0)
+            phase = info.get("phase", "")
+            
+            # Update progress attribute
+            self.progress_attr.set_value(str(scanned))
+            
+            # Handle partial results
+            if results and phase == "scanning_partial":
+                 # This might be heavy on UI thread if huge?
+                 # But it's every 5 secs.
+                 self.current_scan_results = results
+                 # We trigger filter application which updates 'files_attr'
+                 # But apply_filters runs on main thread usually? 
+                 # We are in worker thread here. attributes set_value handles cross-thread.
+                 # But applying filters involves internal logic.
+                 # Let's hope set_value handles JSON serialization without blocking UI too much.
+                 self.apply_filters()
+
+            if phase == "complete":
+                self.searching_attr.set_value(False)
+            
         try:
-            while not q.empty() and not self.cancel_search:
-                current_dir = q.get()
-                
-                try:
-                    with os.scandir(current_dir) as entries:
-                        dir_entries = []
-                        file_entries = []
-                        
-                        for entry in entries:
-                            if entry.is_dir(follow_symlinks=False):
-                                if not entry.name.startswith('.'): # Skip hidden dirs
-                                    dir_entries.append(entry.path)
-                            elif entry.is_file():
-                                ext = os.path.splitext(entry.name)[1].lower()
-                                if ext in self.extensions:
-                                    file_entries.append(entry)
-                        
-                        # Add subdirs to queue (breadth-first)
-                        for d in dir_entries:
-                            q.put(d)
-                            
-                        # Add files to raw list
-                        for f in file_entries:
-                            scanned_files.append(f)
-                            count += 1
-                        
-                        # Use directories as explicit entries in the UI too? 
-                        # User asked for files. But usually navigating requires seeing folders.
-                        # For now, let's just list files as requested + sequences.
-                        # But wait, if we are doing recursive search, maybe we just show ALL matching files flattened?
-                        # "resulting files should be displayed in a table like a conventional file list"
-                        # "search should be by file-system level (bredth first)"
-                        
-                        # If we just show a flattened list of 1000s of files, it might be overwhelming.
-                        # But that seems to be the request.
-                        
-                except PermissionError:
-                    continue
-                
-                if count >= max_files:
-                    print("Hit file limit")
-                    break
+            results = self.scanner.scan(start_path, callback=progress_callback)
             
             if self.cancel_search:
                 return
 
-            # Now process with fileseq
-            final_list = []
+            self.current_scan_results = results
+            self.apply_filters()
             
-            # Convert scandir entries to paths
-            file_paths = [f.path for f in scanned_files]
-            
-            if fileseq_available and file_paths:
-                sequences = fileseq.findSequencesInList(file_paths)
-                for seq in sequences:
-                    item = {}
-                    if len(seq) > 1:
-                        # fileseq object
-                        # Name: just the basename with padding
-                        f_name = seq.format("{basename}{padding}{extension}")
-                        item["name"] = f_name
-                        item["type"] = "Sequence"
-                        # Frames: Show the range (e.g. 1-100)
-                        item["frames"] = str(seq.frameRange())
-                        
-                        # Path: Construct robust path with # padding, ensuring directory is included
-                        # fileseq v2 might behave differently with format so we construct manually
-                        # getting the padding char count
-                        pad_len = len(str(seq.end()))
-                        # Check if we can get padding string from fileseq
-                        try:
-                             # simple heuristic if padding char is standard
-                             padding_str = "#" * len(list(seq.padding())[0]) if seq.padding() else "#" * pad_len
-                        except:
-                             padding_str = "#" * 4 # fallback
-
-                        # Use native fileseq formatting if possible, forcing hash style
-                        # But user reported path being just "." or dir.
-                        # Ideally: /path/to/seq.####.exr
-                        # fileseq.format with specific template usually works. 
-                        # We will try strict reconstruction.
-                        item["path"] = f"{seq.dirname()}{seq.basename()}{padding_str}{seq.extension()}"
-                        # Relpath
-                        try:
-                            # Use directory of sequence for relpath
-                            seq_dir = seq.dirname()
-                            item["relpath"] = os.path.relpath(seq_dir, start_path)
-                        except:
-                            item["relpath"] = "."
-                    else:
-                        # Single file (represented as a sequence of 1 by fileseq)
-                        item["name"] = seq.basename() + seq.extension()
-                        item["type"] = "File"
-                        item["frames"] = "1"
-                        item["path"] = seq[0]
-                        try:
-                            item["relpath"] = os.path.relpath(seq[0], start_path)
-                        except:
-                            item["relpath"] = "."
-                        
-                        # Get size
-                        try:
-                           item["size_str"] = f"{os.path.getsize(seq[0]) / 1024:.1f} KB"
-                        except:
-                           item["size_str"] = "?"
-
-                    final_list.append(item)
-            else:
-                 # Fallback if no fileseq
-                 for f in scanned_files:
-                     item = {
-                         "name": f.name,
-                         "type": "File",
-                         "size_str": f"{f.stat().st_size / 1024:.1f} KB",
-                         "frames": "1",
-                         "path": f.path,
-                     }
-                     try:
-                         item["relpath"] = os.path.relpath(f.path, start_path)
-                     except:
-                         item["relpath"] = "."
-                         
-                     final_list.append(item)
-
-            # Sort by name
-            final_list.sort(key=lambda x: x["name"])
-            
-            # Prepare JSON
-            json_str = json.dumps(final_list)
-            
-            # Update attribute in main thread via executor
-            if hasattr(self, 'main_executor'):
-                 self.main_executor.execute(self.files_attr.set_value, json_str)
-            else:
-                 self.files_attr.set_value(json_str)
-                 
-            print(f"Search finished, found {len(final_list)} items")
+            print(f"Search finished, found {len(results)} items")
             
         except Exception as e:
             print(f"Search error: {e}")
             import traceback
             traceback.print_exc()
         finally:
-            # Always ensure searching is False at the end
             if hasattr(self, 'main_executor'):
                  self.main_executor.execute(self.searching_attr.set_value, False)
             else:
                  self.searching_attr.set_value(False)
 
+    def apply_filters(self):
+        # Filtering logic
+        # Retrieve filter preferences (we need to add attributes for them)
+        # For now, we'll assume defaults or handle attributes later in this refactor
+        
+        results = list(self.current_scan_results)
+        
+        # 1. Time Filter
+        # 2. Version Filter
+        
+        # We need attributes for these filters.
+        # But wait, I haven't added them yet. I should add them in __init__.
+        # I'll rely on attributes being present (I'll add them in next chunk)
+        
+        filter_time = self.filter_time_attr.value() if hasattr(self, 'filter_time_attr') else "Any"
+        filter_version = self.filter_version_attr.value() if hasattr(self, 'filter_version_attr') else "All Versions"
+        
+        # Apply Time Filter
+        if filter_time != "Any":
+            now = time.time()
+            cutoff = 0
+            if filter_time == "Last 1 day":
+                cutoff = now - 86400
+            elif filter_time == "Last 2 days":
+                cutoff = now - 2 * 86400
+            elif filter_time == "Last 1 week":
+                cutoff = now - 7 * 86400
+            elif filter_time == "Last 1 month":
+                cutoff = now - 30 * 86400
+            
+            if cutoff > 0:
+                results = [r for r in results if r.get("date", 0) >= cutoff]
+
+        # Apply Version Filter
+        if filter_version == "Latest Version":
+             results = [r for r in results if r.get("is_latest_version", True)]
+        elif filter_version == "Latest 2 Versions":
+             # We need to know version rank?
+             # scanner returns "version" number.
+             # We need to filter per group.
+             # This is expensive to re-compute logic unless scanner provides it.
+             # Scanner provided "is_latest_version".
+             # Scanner groups result by "version_group".
+             # I can re-group and pick top 2.
+             
+             groups = {}
+             for r in results:
+                 grp = r.get("version_group")
+                 if grp:
+                     groups.setdefault(grp, []).append(r)
+                 else:
+                     groups.setdefault(id(r), [r])
+            
+             filtered = []
+             for grp, items in groups.items():
+                 # Sort desc
+                 items.sort(key=lambda x: x.get("version", 0), reverse=True)
+                 filtered.extend(items[:2])
+             
+             # Re-sort by name
+             filtered.sort(key=lambda x: x["name"])
+             results = filtered
+
+        # Serialize
+        json_str = json.dumps(results)
+        
+        self.files_attr.set_value(json_str)
+
+    def _on_filter_changed(self, attribute, role):
+        from xstudio.core import AttributeRole
+        if role == AttributeRole.Value:
+            # Re-apply filters on cached results
+            threading.Thread(target=self.apply_filters).start()
+
+
 def create_plugin_instance(connection):
     return FilesystemBrowserPlugin(connection)
+
