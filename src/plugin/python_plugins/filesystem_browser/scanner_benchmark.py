@@ -1,5 +1,7 @@
 # This is a test of the scanner. Its not part of the plugin, but
 # its used to test the performance of the scanner against real world data.
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Sam Richards
 
 import os
 import shutil
