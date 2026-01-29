@@ -727,6 +727,35 @@ Rectangle {
                     
                     Menu {
                         id: contextMenu
+                        
+                        background: Rectangle {
+                            implicitWidth: 150
+                            implicitHeight: 40
+                            color: "#333333"
+                            border.color: "#555555"
+                            radius: 3
+                        }
+                        
+                        delegate: MenuItem {
+                            id: menuItem
+                            
+                            contentItem: Text {
+                                text: menuItem.text
+                                color: "#e0e0e0"
+                                font.pixelSize: 12
+                                horizontalAlignment: Text.AlignLeft
+                                verticalAlignment: Text.AlignVCenter
+                                elide: Text.ElideRight
+                                leftPadding: 10
+                            }
+                            
+                            background: Rectangle {
+                                implicitWidth: 150
+                                implicitHeight: 25
+                                color: menuItem.highlighted ? "#555555" : "transparent"
+                            }
+                        }
+
                         MenuItem {
                             text: "Replace"
                             onTriggered: sendCommand({"action": "replace_current_media", "path": modelData.path})
