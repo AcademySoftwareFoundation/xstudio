@@ -521,6 +521,8 @@ class FilesystemBrowserPlugin(PluginBase):
         self.scanner = FileScanner(config)
         self.scanner = FileScanner(config)
         self.current_scan_results = [] # Cache results for filtering
+        self.pending_scan_results = []
+        self.last_update = 0
         
         def progress_callback(results, info):
             # Report progress to UI
@@ -539,15 +541,13 @@ class FilesystemBrowserPlugin(PluginBase):
             
             # Handle partial results
             if results and phase == "scanning":
-                 # This might be heavy on UI thread if huge?
-                 # But it's every 5 secs.
-                 self.current_scan_results.extend(results)
-                 # We trigger filter application which updates 'files_attr'
-                 # But apply_filters runs on main thread usually? 
-                 # We are in worker thread here. attributes set_value handles cross-thread.
-                 # But applying filters involves internal logic.
-                 # Let's hope set_value handles JSON serialization without blocking UI too much.
-                 self.apply_filters()
+                self.pending_scan_results.extend(results)
+                now = time.time()
+                if now - self.last_update > 5:
+                    self.last_update = now
+                    self.current_scan_results.extend(self.pending_scan_results)
+                    self.apply_filters()
+                    self.pending_scan_results = []
 
             if phase == "complete":
                 self.searching_attr.set_value(False)
