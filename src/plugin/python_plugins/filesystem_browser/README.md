@@ -27,6 +27,21 @@ A high-performance, multi-threaded filesystem browser for xStudio, designed to h
     - Or use the hotkey **'B'**.
 2.  **Navigation**:
     - Enter a path in the text field or click the folder icon to browse.
+    - **Double-click** a folder to navigate into it.
+    - **Quick Access (▼)**: Click the arrow next to the path field to open the Quick Access list.
+      - **History**: Shows recently visited directories.
+      - **Pinned**: Shows your pinned locations for easy access.
+      - **Pinning**: Click the "Pin" icon (📌) next to any item to pin or unpin it. Pinned items appear at the top in gold.
+
+## Configuration
+
+### Environment Variables
+
+- `XSTUDIO_BROWSER_PINS`: Pre-define a list of pinned directories.
+  - Format: JSON list of objects or simple path string (colon-separated on Unix, semicolon on Windows).
+  - Example (JSON): `'[{"name": "Show", "path": "/jobs/show"}, "/home/user"]'`
+  - Example (Simple): `/jobs/show:/home/user`
+
 3.  **Loading Media**:
     - **Double-click** a file/sequence to load it into the current or new playlist.
     - **Right-click** for advanced actions (Replace, Compare).
