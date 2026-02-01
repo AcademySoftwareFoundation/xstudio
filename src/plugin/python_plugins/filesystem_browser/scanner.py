@@ -85,13 +85,14 @@ class FileScanner:
                         
                         if callback:
                             # Send partial results
-                            callback(items, {"scanned": scanned_count, "progress": int(total_progress * 100), "phase": "scanning"})
+                            callback(items, {"scanned": scanned_count, "progress": total_progress * 100, "phase": "scanning"})
                     
                     # Distribute weight or complete it
                     if subdirs:
-                        child_weight = weight / len(subdirs)
-                        for d in subdirs:
-                            queue.append((d, child_weight))
+                        if len(subdirs) > 0:
+                            child_weight = weight / len(subdirs)
+                            for d in subdirs:
+                                queue.append((d, child_weight))
                     else:
                         # Leaf node (in terms of dirs), this weight is done
                         total_progress += weight

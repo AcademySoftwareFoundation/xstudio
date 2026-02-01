@@ -2,7 +2,7 @@ import QtQuick 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Controls 2.15
 import Qt.labs.qmlmodels 1.0
-import QtQuick.Dialogs
+import QtQuick.Shapes 1.15    // Added for vector icon
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -17,27 +17,133 @@ Rectangle {
     property string currentFilterTime: "Any"
     property string currentFilterVersion: "All Versions"
 
-    FolderDialog {
-        id: folderDialog
-        title: "Select Directory"
-        currentFolder: current_path_attr.value ? "file://" + current_path_attr.value : ""
-        onAccepted: {
-            var path = folderDialog.selectedFolder.toString()
-            // Remove file:// prefix if present
-            if (path.startsWith("file://")) {
-                path = path.substring(7)
-            }
-            // Update Text Field
-            pathField.text = path
-            // Trigger search via command
-            sendCommand({"action": "change_path", "path": path})
-        }
-    }
-
     XsModuleData {
         id: pluginData
         modelDataName: "Filesystem Browser" 
     }
+    
+    // Additional Attributes for History/Pins
+    XsAttributeValue {
+        id: history_attr
+        attributeTitle: "history_paths"
+        model: pluginData
+        role: "value"
+        
+        function updateList() {
+            var rawVal = value
+            try {
+                if (typeof(rawVal) === "string" && rawVal !== "") {
+                    if (rawVal === "[]") {
+                        historyList = []
+                    } else {
+                        var parsed = JSON.parse(rawVal)
+                        historyList = parsed
+                    }
+                } else {
+                    historyList = []
+                }
+            } catch(e) {
+                console.log("history_attr: Parse Error: " + e)
+                historyList = []
+            }
+        }
+        
+        onValueChanged: updateList()
+        Component.onCompleted: updateList()
+    }
+    
+    XsAttributeValue {
+        id: pinned_attr
+        attributeTitle: "pinned_paths"
+        model: pluginData
+        role: "value"
+        
+        function updateList() {
+            var rawVal = value
+            try {
+                if (typeof(rawVal) === "string" && rawVal !== "") {
+                    if (rawVal === "[]") {
+                        pinnedList = []
+                    } else {
+                        var parsed = JSON.parse(rawVal)
+                        pinnedList = parsed
+                    }
+                } else {
+                    pinnedList = []
+                }
+            } catch(e) {
+                console.log("pinned_attr: Parse Error: " + e)
+                pinnedList = []
+            }
+        }
+        
+        onValueChanged: updateList()
+        Component.onCompleted: updateList()
+    }
+    
+    property var historyList: []
+    property var pinnedList: []
+    property var combinedList: []
+
+    function updateCombinedList() {
+        var combined = []
+        var seen = new Set() // Set of paths
+        
+        // 1. Add Pinned Items
+        if (pinnedList) {
+            for (var i = 0; i < pinnedList.length; i++) {
+                var p = pinnedList[i]
+                combined.push({
+                    "name": p.name,
+                    "path": p.path,
+                    "isPinned": true
+                })
+                // Add to seen set (mock Set using object for ES5/QML compat if needed, but modern QML has Set)
+                // actually JS in QML usually has Set. If not, use object keys.
+                seen.add(p.path)
+            }
+        }
+        
+        // 2. Add History Items
+        if (historyList) {
+            for (var j = 0; j < historyList.length; j++) {
+                var h = historyList[j]
+                if (!seen.has(h)) {
+                     // Determine name (basename)
+                     var name = h
+                     if (h && h.indexOf("/") !== -1) {
+                         var parts = h.split("/")
+                         // Handle trailing slash
+                         var last = parts[parts.length-1]
+                         if (!last && parts.length > 1) last = parts[parts.length-2]
+                         if (last) name = last
+                     }
+                     
+                     combined.push({
+                        "name": name, 
+                        "path": h,
+                        "isPinned": false
+                     })
+                     seen.add(h)
+                }
+            }
+        }
+        
+        combinedList = combined
+    }
+    
+    // Trigger update when source lists change
+    onHistoryListChanged: updateCombinedList()
+    onPinnedListChanged: updateCombinedList()
+    
+    property bool isCurrentPinned: {
+        var curr = current_path_attr.value
+        for(var i=0; i<pinnedList.length; i++) {
+            if (pinnedList[i].path === curr) return true
+        }
+        return false
+    }
+
     XsAttributeValue {
         id: files_attr
         attributeTitle: "file_list"
@@ -404,28 +510,172 @@ Rectangle {
             }
             
             Button {
-                id: browseBtn
+                id: historyBtn
                 Layout.preferredHeight: rowHeight
-                Layout.preferredWidth: rowHeight // Square for icon
+                Layout.preferredWidth: rowHeight
                 
-                icon.source: "icons/folder_closed.svg"
-                icon.color: "#e0e0e0"
+                // Using a down arrow character for simplicity if icon not available, 
+                // but user asked for "Down Triangle".
+                text: "▼" 
+                font.pixelSize: 10
                 
-                display: AbstractButton.IconOnly
+                contentItem: Text {
+                    text: parent.text
+                    font: parent.font
+                    color: "#e0e0e0"
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
                 
                 background: Rectangle {
-                    color: parent.down ? "#444444" : (parent.hovered ? "#3a3a3a" : "#333333")
-                    border.color: "#555555"
-                    border.width: 1
+                    color: parent.down || pathPopup.opened ? "#222222" : (parent.hovered ? "#444444" : "transparent")
+                    border.width: 0
                 }
 
-                ToolTip.visible: hovered
-                ToolTip.delay: 500
-                ToolTip.text: "Directory Picker"
+                property var lastCloseTime: 0
                 
-                onClicked: folderDialog.open()
+                onClicked: {
+                    var timeSinceClose = Date.now() - lastCloseTime
+                    if (timeSinceClose > 100) {
+                        pathPopup.open()
+                    }
+                }
+                
+                Popup {
+                    id: pathPopup
+                    y: parent.height
+                    x: parent.width - width // Right align with button
+                    width: 500
+                    height: 300
+                    padding: 0
+                    
+                    onClosed: {
+                        historyBtn.lastCloseTime = Date.now()
+                    }
+                    
+                    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+                    
+                    background: Rectangle {
+                        color: "#2a2a2a"
+                        border.color: "#555555"
+                    }
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 1
+                        spacing: 0
+
+                        // Header
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 25
+                            color: "#333333"
+                            Label { 
+                                text: "QUICK ACCESS"
+                                color: "#aaaaaa"
+                                font.pixelSize: 10
+                                anchors.centerIn: parent
+                            }
+                        }
+                        
+                        ListView {
+                            id: combinedView
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            clip: true
+                            model: combinedList
+                            
+                            delegate: Rectangle {
+                                width: ListView.view.width
+                                height: 25
+                                color: mouseArea.containsMouse ? "#444444" : "transparent"
+                                
+                                MouseArea {
+                                    id: mouseArea
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        sendCommand({"action": "change_path", "path": modelData.path})
+                                        pathPopup.close()
+                                    }
+                                }
+                                
+                                RowLayout {
+                                    anchors.fill: parent
+                                    spacing: 5
+                                    
+                                    // Pin Toggle Button
+                                    Button {
+                                        Layout.preferredWidth: 25
+                                        Layout.preferredHeight: 25
+                                        
+                                        background: Rectangle {
+                                            color: "transparent"
+                                        }
+                                        
+                                        contentItem: Shape {
+                                            anchors.centerIn: parent
+                                            width: 14
+                                            height: 14
+                                            
+                                            // Scale the 24x24 SVG path to our 14x14 box
+                                            scale: 14/24.0
+                                            transformOrigin: Item.Center
+
+                                            ShapePath {
+                                                strokeWidth: 0
+                                                strokeColor: "transparent"
+                                                fillColor: modelData.isPinned ? "#ffffff" : "#444444"
+                                                
+                                                // M16 12V4h1V2H7v2h1v8l-2 5v2h6v3.5l1 1 1-1V19h6v-2l-2-5z  (Standard Pin)
+                                                // Coordinate system is roughly 24x24
+                                                PathSvg {
+                                                    path: "M16 12V4h1V2H7v2h1v8l-2 5v2h6v3.5l1 1 1-1V19h6v-2l-2-5z"
+                                                }
+                                            }
+                                        }
+                                        
+                                        onClicked: {
+                                            if (modelData.isPinned) {
+                                                sendCommand({"action": "remove_pin", "path": modelData.path})
+                                            } else {
+                                                sendCommand({"action": "add_pin", "name": modelData.name, "path": modelData.path})
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Path Name
+                                    Text {
+                                        text: modelData.name
+                                        color: "#e0e0e0"
+                                        font.pixelSize: 11
+                                        Layout.fillWidth: true
+                                        elide: Text.ElideMiddle
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+                                    
+                                    // Path Hint (Right aligned, faded)
+                                    Text {
+                                        text: modelData.path
+                                        color: "#666666"
+                                        font.pixelSize: 9
+                                        Layout.preferredWidth: parent.width * 0.4
+                                        elide: Text.ElideRight
+                                        verticalAlignment: Text.AlignVCenter
+                                        visible: parent.width > 300
+                                    }
+                                    
+                                    Item { Layout.preferredWidth: 5 }
+                                }
+                            }
+                            ScrollBar.vertical: ScrollBar {}
+                        }
+                    }
+                }
             }
         }
+    
+
         
         // Filter Row
         RowLayout {

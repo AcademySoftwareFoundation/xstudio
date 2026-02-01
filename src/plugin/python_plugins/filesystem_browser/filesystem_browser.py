@@ -159,7 +159,92 @@ class FilesystemBrowserPlugin(PluginBase):
             register_as_preference=True
         )
         self.filter_version_attr.expose_in_ui_attrs_group("Filesystem Browser")
+
+        # History and Pinned Attributes
+        self.history_attr = self.add_attribute(
+            "history_paths",
+            "[]",
+            {"title": "history_paths"},  # Must match QML attributeTitle
+            register_as_preference=True
+        )
+        self.history_attr.expose_in_ui_attrs_group("Filesystem Browser")
+
+        # Default pinned items
+        default_pins = []
         
+        # 1. Environment Variable Pre-defines (JSON list of dicts or paths)
+        env_pins = os.environ.get("XSTUDIO_BROWSER_PINS")
+        if env_pins:
+            try:
+                # Try parsing as JSON first
+                parsed = json.loads(env_pins)
+                if isinstance(parsed, list):
+                    for item in parsed:
+                        if isinstance(item, dict) and "path" in item:
+                            default_pins.append(item)
+                        elif isinstance(item, str):
+                            default_pins.append({"name": os.path.basename(item), "path": item})
+            except:
+                # Fallback to standard path separator (colon on Unix, semicolon on Win)
+                # We also normalize semicolons to os.pathsep to be lenient
+                normalized = env_pins
+                if os.pathsep == ":":
+                    normalized = env_pins.replace(";", ":")
+                
+                paths = normalized.split(os.pathsep)
+                for p in paths:
+                    p = p.strip()
+                    if p:
+                        default_pins.append({"name": os.path.basename(p), "path": p})
+
+        # 2. Standard Defaults
+        home = os.environ.get("HOME")
+        if home:
+            # Avoid duplicates
+            if not any(p["path"] == home for p in default_pins):
+                default_pins.append({"name": "Home", "path": home})
+            
+            downloads = os.path.join(home, "Downloads")
+            if os.path.exists(downloads):
+                if not any(p["path"] == downloads for p in default_pins):
+                    default_pins.append({"name": "Downloads", "path": downloads})
+        
+        self.pinned_attr = self.add_attribute(
+            "pinned_paths",
+            json.dumps(default_pins),
+            {"title": "pinned_paths"},  # Must match QML attributeTitle
+            register_as_preference=True
+        )
+        self.pinned_attr.expose_in_ui_attrs_group("Filesystem Browser")
+
+        # ENFORCE: Merge default_pins (env vars + explicit defaults) into the actual attribute value
+        try:
+            current_val = self.pinned_attr.value()
+            
+            current_pins = []
+            if current_val:
+                try:
+                    current_pins = json.loads(current_val)
+                except Exception:
+                    current_pins = []
+            
+            # Merge
+            changed = False
+            existing_paths = set(p["path"] for p in current_pins)
+            
+            for pin in reversed(default_pins): 
+                if pin["path"] not in existing_paths:
+                    current_pins.insert(0, pin)
+                    existing_paths.add(pin["path"])
+                    changed = True
+            
+            if changed or not current_val:
+                new_val = json.dumps(current_pins)
+                self.pinned_attr.set_value(new_val)
+                
+        except Exception as e:
+            print(f"FilesystemBrowser: Error merging pins: {e}")
+
         # Connect listeners
         # Note: We need to register callbacks properly.
         # attribute_changed method handles all.
@@ -169,6 +254,8 @@ class FilesystemBrowserPlugin(PluginBase):
         self.ignore_dirs = {".git", ".svn", "__pycache__", ".DS_Store"}
         self.search_thread = None
         self.cancel_search = False
+        self.results_lock = threading.Lock()  # Protects current_scan_results
+        self.current_scan_results = []
         
         # Initial search
         self.start_search(self.current_path_attr.value())
@@ -216,12 +303,9 @@ class FilesystemBrowserPlugin(PluginBase):
                 
                 if action == "change_path":
                     new_path = data.get("path")
-                    # Update current path attribute so UI reflects it (if it didn't already)
-                    # self.current_path_attr.set_value(new_path)
-                    # Use set_value on current_path_attr to update UI and trigger search?
-                    # No, we trigger search directly to be sure, or better:
                     if os.path.exists(new_path) and os.path.isdir(new_path):
                          self.current_path_attr.set_value(new_path)
+                         self._add_to_history(new_path)
                          self.start_search(new_path)
                     else:
                          print(f"Invalid path: {new_path}")
@@ -255,6 +339,15 @@ class FilesystemBrowserPlugin(PluginBase):
                         self.filter_time_attr.set_value(attr_value)
                     elif attr_name == "filter_version":
                         self.filter_version_attr.set_value(attr_value)
+
+                elif action == "add_pin":
+                    name = data.get("name")
+                    path = data.get("path")
+                    self._add_pin(name, path)
+
+                elif action == "remove_pin":
+                    path = data.get("path")
+                    self._remove_pin(path)
                 
                 # Clear command channel
                 self.command_attr.set_value("")
@@ -317,6 +410,13 @@ class FilesystemBrowserPlugin(PluginBase):
 
 
     def load_file(self, path):
+        # Handle directory navigation
+        if os.path.isdir(path):
+            self.current_path_attr.set_value(path)
+            self._add_to_history(path)
+            self.start_search(path)
+            return
+
         # Logic to load file into xstudio
         try:
             valid_playlist = None
@@ -519,8 +619,8 @@ class FilesystemBrowserPlugin(PluginBase):
         }
         
         self.scanner = FileScanner(config)
-        self.scanner = FileScanner(config)
-        self.current_scan_results = [] # Cache results for filtering
+        with self.results_lock:
+            self.current_scan_results = [] # Cache results for filtering
         self.pending_scan_results = []
         self.last_update = 0
         
@@ -545,7 +645,8 @@ class FilesystemBrowserPlugin(PluginBase):
                 now = time.time()
                 if now - self.last_update > 5:
                     self.last_update = now
-                    self.current_scan_results.extend(self.pending_scan_results)
+                    with self.results_lock:
+                        self.current_scan_results.extend(self.pending_scan_results)
                     self.apply_filters()
                     self.pending_scan_results = []
 
@@ -558,7 +659,8 @@ class FilesystemBrowserPlugin(PluginBase):
             if self.cancel_search:
                 return
 
-            self.current_scan_results = results
+            with self.results_lock:
+                self.current_scan_results = results
             self.apply_filters()
             
             print(f"Search finished, found {len(results)} items")
@@ -578,7 +680,8 @@ class FilesystemBrowserPlugin(PluginBase):
         # Retrieve filter preferences (we need to add attributes for them)
         # For now, we'll assume defaults or handle attributes later in this refactor
         
-        results = list(self.current_scan_results)
+        with self.results_lock:
+            results = list(self.current_scan_results)
         
         # 1. Time Filter
         # 2. Version Filter
@@ -779,6 +882,49 @@ class FilesystemBrowserPlugin(PluginBase):
              print(f"Compare error: {e}")
              import traceback
              traceback.print_exc()
+
+    def _add_to_history(self, path):
+        try:
+            current_history = json.loads(self.history_attr.value())
+        except:
+            current_history = []
+        
+        # Remove if exists to bubble to top
+        try:
+            current_history.remove(path)
+        except ValueError:
+            pass
+            
+        current_history.insert(0, path)
+        # Limit history
+        if len(current_history) > 20:
+            current_history = current_history[:20]
+            
+        self.history_attr.set_value(json.dumps(current_history))
+
+    def _add_pin(self, name, path):
+        try:
+            pins = json.loads(self.pinned_attr.value())
+        except:
+            pins = []
+            
+        # Check if already pinned
+        for p in pins:
+            if p["path"] == path:
+                 return # Already pinned
+        
+        pins.append({"name": name, "path": path})
+        self.pinned_attr.set_value(json.dumps(pins))
+
+    def _remove_pin(self, path):
+        try:
+            pins = json.loads(self.pinned_attr.value())
+        except:
+            pins = []
+        
+        new_pins = [p for p in pins if p["path"] != path]
+        if len(new_pins) != len(pins):
+            self.pinned_attr.set_value(json.dumps(new_pins))
 
     def _add_media_to_playlist(self, playlist, path):
         """Helper to add media handling sequences."""
