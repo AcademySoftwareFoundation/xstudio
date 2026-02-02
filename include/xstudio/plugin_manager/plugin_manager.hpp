@@ -12,12 +12,7 @@ namespace plugin_manager {
     class PluginEntry {
       public:
         PluginEntry(std::shared_ptr<PluginFactory> pf, std::string path)
-            : plugin_factory_(std::move(pf)), path_(std::move(path)) {
-            // auto enable xstudio plugins
-            // we might want to use uuids list.
-            if (plugin_factory_.get()->author() != "xStudio")
-                enabled_ = false;
-        }
+            : plugin_factory_(std::move(pf)), path_(std::move(path)) {}
 
         virtual ~PluginEntry() = default;
 
@@ -29,6 +24,7 @@ namespace plugin_manager {
       private:
         std::shared_ptr<PluginFactory> plugin_factory_;
         std::string path_;
+        // Plugins are always enabled by default
         bool enabled_{true};
     };
 
@@ -101,8 +97,6 @@ namespace plugin_manager {
             caf::blocking_actor &sys,
             const utility::Uuid &uuid,
             const utility::JsonStore &json = utility::JsonStore());
-        [[nodiscard]] std::string spawn_widget_ui(const utility::Uuid &uuid);
-        [[nodiscard]] std::string spawn_menu_ui(const utility::Uuid &uuid);
 
       private:
         std::list<std::string> plugin_paths_;

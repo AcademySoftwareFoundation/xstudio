@@ -39,6 +39,14 @@ ApplicationWindow {
     palette.brightText: "#bb7700"
 
     FontLoader {id: fontInter; source: "qrc:/fonts/Inter/Inter-Regular.ttf"}
+    FontLoader {source: "qrc:/fonts/Inter/Inter-Black.ttf"}
+    FontLoader {source: "qrc:/fonts/Inter/Inter-Bold.ttf"}
+    FontLoader {source: "qrc:/fonts/Inter/Inter-ExtraBold.ttf"}
+    FontLoader {source: "qrc:/fonts/Inter/Inter-ExtraLight.ttf"}
+    FontLoader {source: "qrc:/fonts/Inter/Inter-Light.ttf"}
+    FontLoader {source: "qrc:/fonts/Inter/Inter-Medium.ttf"}
+    FontLoader {source: "qrc:/fonts/Inter/Inter-SemiBold.ttf"}
+    FontLoader {source: "qrc:/fonts/Inter/Inter-Thin.ttf"}
     FontLoader {id: fontVera; source: "qrc:/fonts/VeraMono.ttf"}
 
     XsPanelsLayoutModel {

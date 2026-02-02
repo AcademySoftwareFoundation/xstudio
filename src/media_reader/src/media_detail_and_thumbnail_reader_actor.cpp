@@ -185,14 +185,47 @@ void MediaDetailAndThumbnailReaderActor::get_thumbnail_from_reader_plugin(
                             },
                             [=](const caf::error &err) mutable { rp.deliver(err); });
                 } else {
-                    if (mptr.media_source_addr()) {
-                        auto dest = caf::actor_cast<caf::actor>(mptr.media_source_addr());
-                        if (dest)
-                            anon_mail(media_status_atom_v, MediaStatus::MS_UNSUPPORTED)
-                                .send(dest);
-                    }
-                    rp.deliver(make_error(
-                        media_error::corrupt, "thumbnail loaded returned empty buffer."));
+
+                    // media reader could not give us a thumbnail. Instead, lets try and
+                    // read the full image and get the offscreen viewport to render it
+                    // to a thumbnail...
+                    mail(get_image_atom_v, mptr)
+                        .request(reader_plugin, infinite)
+                        .then(
+                            [=](const media_reader::ImageBufPtr &buf) mutable {
+                                float aspect =
+                                    static_cast<float>(buf->image_size_in_pixels().x) /
+                                    static_cast<float>(buf->image_size_in_pixels().y);
+                                int thumb_width  = size;
+                                int thumb_height = size;
+
+                                if (aspect > 1.0f) {
+                                    // Wider than tall, constrain height.
+                                    thumb_height = static_cast<int>(size / aspect);
+                                } else {
+                                    // Taller than wide, constrain width.
+                                    thumb_width = static_cast<int>(size * aspect);
+                                }
+
+                                auto offscreen_renderer =
+                                    system().registry().template get<caf::actor>(
+                                        offscreen_viewport_registry);
+                                mail(
+                                    ui::viewport::render_viewport_to_image_atom_v,
+                                    thumb_width,
+                                    thumb_height,
+                                    buf,
+                                    false)
+                                    .request(offscreen_renderer, infinite)
+                                    .then(
+                                        [=](const thumbnail::ThumbnailBufferPtr &buf) mutable {
+                                            rp.deliver(buf);
+                                        },
+                                        [=](const caf::error &err) mutable {
+                                            rp.deliver(err);
+                                        });
+                            },
+                            [=](const caf::error &err) mutable { rp.deliver(err); });
                 }
             },
             [=](const caf::error &err) mutable {

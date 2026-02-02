@@ -1296,9 +1296,7 @@ static std::vector<std::shared_ptr<plugin_manager::PluginFactory>> factories(
          "Remi Achard",
          "Plugin providing interface for creating interactive grading notes with painted "
          "masks.",
-         semver::version("0.0.0"),
-         "",
-         ""),
+         semver::version("0.0.0")),
      std::make_shared<plugin_manager::PluginFactoryTemplate<GradingColourOperator>>(
          GradingColourOperator::PLUGIN_UUID,
          "GradingToolColourOp",
@@ -1307,7 +1305,7 @@ static std::vector<std::shared_ptr<plugin_manager::PluginFactory>> factories(
          "Remi Achard",
          "Colour operator to apply CDL with optional painted masking in viewport.")});
 
-#define PLUGIN_DECLARE_END()                                                                   \
+#define XSTUDIO_PLUGIN_DECLARE_END()                                                                   \
     extern "C" {                                                                               \
     plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {                 \
         return new plugin_manager::PluginFactoryCollection(                                    \
@@ -1315,4 +1313,4 @@ static std::vector<std::shared_ptr<plugin_manager::PluginFactory>> factories(
     }                                                                                          \
     }
 
-PLUGIN_DECLARE_END()
+XSTUDIO_PLUGIN_DECLARE_END()

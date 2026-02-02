@@ -356,7 +356,6 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::plugin_manager, add_path_atom);
     ADD_ATOM(xstudio::plugin_manager, spawn_plugin_atom);
     ADD_ATOM(xstudio::plugin_manager, spawn_plugin_base_atom);
-    ADD_ATOM(xstudio::plugin_manager, spawn_plugin_ui_atom);
     ADD_ATOM(xstudio::plugin_manager, enable_atom);
     ADD_ATOM(xstudio::plugin_manager, get_resident_atom);
     ADD_ATOM(xstudio::data_source, get_data_atom);

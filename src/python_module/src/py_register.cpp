@@ -164,7 +164,7 @@ void register_notification_class(py::module &m, const std::string &name) {
         ;
 }
 
-void register_plugindetail_class(py::module &m, const std::string &name) {
+void XSTUDIO_REGISTER_PLUGINdetail_class(py::module &m, const std::string &name) {
     py::class_<plugin_manager::PluginDetail>(m, name.c_str())
         .def(py::init<>())
         .def("name", [](const plugin_manager::PluginDetail &x) { return x.name_; })

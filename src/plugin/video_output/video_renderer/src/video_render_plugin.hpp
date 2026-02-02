@@ -21,7 +21,7 @@ namespace video_render_plugin_1_0 {
         void menu_item_activated(
             const utility::JsonStore &menu_item_data, const std::string &user_data) override;
 
-        void qml_item_callback(
+        utility::JsonStore qml_item_callback(
             const utility::Uuid &qml_item_id, const utility::JsonStore &callback_data) override;
 
         void on_exit() override;

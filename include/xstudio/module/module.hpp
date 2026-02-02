@@ -378,8 +378,10 @@ namespace module {
 
         // Override this function to receive callbacks from QML from items
         // created by 'create_qml_item'
-        virtual void qml_item_callback(
-            const utility::Uuid &qml_item_id, const utility::JsonStore &callback_data) {}
+        virtual utility::JsonStore qml_item_callback(
+            const utility::Uuid &qml_item_id, const utility::JsonStore &callback_data) {
+            return utility::JsonStore();
+        }
 
         // This method can be overriden to receive a callback when the number of viewports
         // connected to the module changes. This is used by the Playhead class, for example

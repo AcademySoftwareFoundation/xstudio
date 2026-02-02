@@ -163,22 +163,10 @@ caf::actor PluginManager::spawn(
     caf::blocking_actor &sys, const utility::Uuid &uuid, const utility::JsonStore &json) {
 
     auto spawned = caf::actor();
-    if (factories_.count(uuid))
+    if (factories_.count(uuid)) {
         spawned = factories_.at(uuid).factory()->spawn(sys, json);
-    else
+    } else
         throw std::runtime_error("Invalid plugin uuid");
 
     return spawned;
-}
-
-std::string PluginManager::spawn_widget_ui(const utility::Uuid &uuid) {
-    if (factories_.count(uuid))
-        return factories_.at(uuid).factory()->spawn_widget_ui();
-    return "";
-}
-
-std::string PluginManager::spawn_menu_ui(const utility::Uuid &uuid) {
-    if (factories_.count(uuid))
-        return factories_.at(uuid).factory()->spawn_menu_ui();
-    return "";
 }

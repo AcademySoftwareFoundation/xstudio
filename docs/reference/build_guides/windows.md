@@ -29,10 +29,11 @@ Start a Windows Powershell to continue these instructions, where you must run a 
     mkdir dev
     cd dev
 
-To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo and run the bootstrap script before we build xstudio. Run these commands in the Powershell:
+To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo, run the bootstrap script and then switch to a specific git commit before we build xstudio. Run these commands in the Powershell:
 
     git clone https://github.com/microsoft/vcpkg.git
     ./vcpkg/bootstrap-vcpkg.bat
+    git checkout c2aeddd80357b17592e59ad965d2adf65a19b22f
 
 ### Download the xSTUDIO repo
 

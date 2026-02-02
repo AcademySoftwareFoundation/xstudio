@@ -495,7 +495,16 @@ void GlobalActor::init(
 
         [=](get_global_thumbnail_atom) -> caf::actor { return thumbnail; },
 
-        [=](get_python_atom) -> caf::actor { return pa; },
+        [=](get_python_atom) -> result<caf::actor> {
+            auto rp = make_response_promise<caf::actor>();
+            if (connection_attempted_) {
+                rp.deliver(pa);
+            } else {
+                pending_python_interp_requests_.push_back(rp);
+            }
+            return rp;
+        },
+
         [=](get_scanner_atom) -> caf::actor { return scanner; },
 
         [&](get_studio_atom) -> caf::actor { return studio_; },
@@ -622,6 +631,13 @@ void GlobalActor::on_exit() {
     system().registry().erase(pc_audio_output_registry);
 }
 
+void GlobalActor::honour_requests_for_python_interpreter(const caf::actor &embedded_python) {
+    for (auto &rp : pending_python_interp_requests_) {
+        rp.deliver(embedded_python);
+    }
+    pending_python_interp_requests_.clear();
+}
+
 void GlobalActor::connect_api(const caf::actor &embedded_python) {
     if (not connected_ and api_enabled_) {
         port_ = publish_port(port_minimum_, port_maximum_, bind_address_, apia_);
@@ -646,10 +662,18 @@ void GlobalActor::connect_api(const caf::actor &embedded_python) {
                                 spdlog::debug("Connected {}", result);
                             else
                                 spdlog::warn("Connected failed {}", result);
+
+                            honour_requests_for_python_interpreter(embedded_python);
+                            connection_attempted_ = true;
                         },
                         [=](const error &err) {
                             spdlog::warn("Connected failed {}.", to_string(err));
+                            honour_requests_for_python_interpreter(embedded_python);
+                            connection_attempted_ = true;
                         });
+            } else {
+                honour_requests_for_python_interpreter(embedded_python);
+                connection_attempted_ = true;
             }
         } else {
             spdlog::warn(
@@ -657,6 +681,8 @@ void GlobalActor::connect_api(const caf::actor &embedded_python) {
                 bind_address_,
                 port_minimum_,
                 port_maximum_);
+            honour_requests_for_python_interpreter(embedded_python);
+            connection_attempted_ = true;
         }
     }
 }

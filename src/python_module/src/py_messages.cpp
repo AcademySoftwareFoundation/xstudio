@@ -30,7 +30,7 @@ namespace caf::python {
 
 extern void register_abs_class(py::module &m, const std::string &name);
 extern void register_uuid_class(py::module &m, const std::string &name);
-extern void register_plugindetail_class(py::module &m, const std::string &name);
+extern void XSTUDIO_REGISTER_PLUGINdetail_class(py::module &m, const std::string &name);
 extern void register_playlisttree_class(py::module &m, const std::string &name);
 extern void register_thumbnailbuffer_class(py::module &m, const std::string &name);
 extern void register_streamdetail_class(py::module &m, const std::string &name);
@@ -66,7 +66,7 @@ void py_config::add_messages() {
     add_message_type<media::StreamDetail>(
         "StreamDetail", "xstudio::media::StreamDetail", &register_streamdetail_class);
     add_message_type<plugin_manager::PluginDetail>(
-        "PluginDetail", "xstudio::plugin_manager::PluginDetail", &register_plugindetail_class);
+        "PluginDetail", "xstudio::plugin_manager::PluginDetail", &XSTUDIO_REGISTER_PLUGINdetail_class);
     add_message_type<std::vector<plugin_manager::PluginDetail>>(
         "PluginDetailVec", "std::vector<xstudio::plugin_manager::PluginDetail>", nullptr);
     add_message_type<playhead::AssemblyMode>(

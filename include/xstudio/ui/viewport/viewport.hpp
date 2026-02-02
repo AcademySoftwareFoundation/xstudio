@@ -116,7 +116,8 @@ namespace ui {
              *
              *  Calling prepare_render_data is not required before using this method.
              */
-            void render(const media_reader::ImageBufPtr &image_buf);
+            void render(
+                const media_reader::ImageBufPtr &image_buf, const bool include_overlays = true);
 
             /**
              *  @brief Any pre-render interaction with Viewport state data etc. must be done

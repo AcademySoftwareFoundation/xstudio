@@ -18,6 +18,7 @@ CAF_POP_WARNINGS
 
 #include "xstudio/utility/caf_helpers.hpp"
 #include "xstudio/utility/uuid.hpp"
+#include "xstudio/utility/json_store.hpp"
 
 namespace caf::python {
 
@@ -39,6 +40,9 @@ class py_context : public py_config {
     void py_send_exit(const py::args &xs);
     py::tuple
     tuple_from_message(const message_id mid, const strong_actor_ptr sender, const message &msg);
+
+    // xstudio::utility::JsonStore process_non_specific_message(message &msg);
+
     void
     execute_event_callback(const caf::message &msg, const xstudio::utility::Uuid &callback_id);
     void erase_func(py::function &callback_func);

@@ -1216,6 +1216,7 @@ void GlobalUIModelData::insert_into_menu_model(
                     // a checkbox menu item has been clicked on. Let's  broadcast
                     // the change to watchers
                     if (!needs_reorering) {
+
                         std::string path = path_from_node(menu_model_data);
                         for (auto it = new_data.begin(); it != new_data.end(); it++) {
                             if (!old_data.contains(it.key()) ||
