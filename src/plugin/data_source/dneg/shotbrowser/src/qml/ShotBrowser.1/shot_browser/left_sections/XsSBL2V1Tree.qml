@@ -28,7 +28,14 @@ Item{
 
     XsSBManifestDialog{
         id: manifestDialog
-        model: assetMode ? (assetBaseModel ? assetBaseModel.shotManifestTags : []): (sequenceBaseModel ? sequenceBaseModel.shotManifestTags : [])
+        tagModel: assetMode ? (
+            assetBaseModel ? assetBaseModel.shotManifestTags : []) :
+            (sequenceBaseModel ? sequenceBaseModel.shotManifestTags : []
+        )
+        variantModel: assetMode ? (
+            assetBaseModel ? assetBaseModel.assetTags : []) :
+            (sequenceBaseModel ? sequenceBaseModel.assetTags: []
+        )
 
         property bool setup: false
 
@@ -53,7 +60,7 @@ Item{
             if(!setup) {
                 let tmptags = {}
                 if(notTags.length || tags.length )
-                    tmptags = {"NOT": notTags, "AND": andMode ? tags : [], "OR": andMode ? [] : tags }
+                    tmptags = {"NOT": notTags, "AND": andMode ? tags : [], "OR": andMode ? [] : tags , "MODE": tagMode}
 
                 if(assetMode)
                     assetFilterModel.manifestFilter = tmptags;

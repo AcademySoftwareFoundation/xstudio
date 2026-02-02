@@ -264,6 +264,8 @@ void ShotBrowser::get_action(
             link_media(rp, utility::Uuid(action.at("playlist_uuid")));
         } else if (operation == "AddShotgridMedia") {
             add_shotgrid_media(rp, utility::Uuid(action.at("media_uuid")));
+        } else if (operation == "RefreshMetadata") {
+            refresh_metadata(rp, utility::Uuid(action.at("media_uuid")));
         } else if (operation == "DownloadShotgridMedia") {
             download_shotgrid_media(
                 rp,

@@ -121,22 +121,8 @@ Item { id: dialog
                     Sec3MaskTools{
                         Layout.fillWidth: true
                         Layout.preferredHeight: btnHeight
-                    } 
-                    XsPrimaryButton{ id: moreBtn
-                        Layout.preferredWidth: btnWidth
-                        Layout.preferredHeight: btnHeight
-                        Layout.alignment: Qt.AlignRight
-                        imgSrc: "qrc:/icons/more_vert.svg"
-                        onClicked:{
-                            if(moreMenu.visible) moreMenu.visible = false
-                            else{
-                                moreMenu.x = x + width + leftBar.width
-                                moreMenu.y = y + height
-                                moreMenu.visible = true
-                            }
-                        }
                     }
-                }        
+                }
                 RowLayout{
                     Layout.fillWidth: true
                     Layout.fillHeight: true

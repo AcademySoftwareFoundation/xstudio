@@ -86,7 +86,7 @@ class GradingTool : public plugin::StandardPlugin {
     utility::Uuid current_bookmark() const;
     utility::UuidList current_clip_bookmarks();
     void create_bookmark_if_empty();
-    void create_bookmark();
+    void create_bookmark(int layerno = -1, const bookmark::BookmarkDetail &from = bookmark::BookmarkDetail());
     void select_bookmark(const utility::Uuid &uuid);
     void select_bookmark_on_media_changed(
         const utility::Uuid &prevMediaUuid, const utility::Uuid &newMediaUuid);
@@ -104,6 +104,7 @@ class GradingTool : public plugin::StandardPlugin {
     module::BooleanAttribute *grading_bypass_       {nullptr};
     module::StringAttribute  *drawing_action_       {nullptr};
     module::BooleanAttribute *media_colour_managed_ {nullptr};
+    module::BooleanAttribute *grade_copying_        {nullptr};
 
     // Grading
     module::StringAttribute       *grading_bookmark_ {nullptr};
@@ -159,12 +160,14 @@ class GradingTool : public plugin::StandardPlugin {
     media_reader::ImageBufDisplaySetPtr viewport_current_images_;
     std::string current_viewport_;
     media::AVFrameID current_frame_id_;
+    size_t current_bookmarks_count_ = {0};
 
     utility::Uuid current_media_uuid_;
     std::map<utility::Uuid, utility::Uuid> grading_bookmark_selected_;
 
     // Grading
     ui::viewport::GradingData grading_data_;
+    bookmark::BookmarkAndAnnotations grading_bookmark_buffer_;
 
     std::vector<caf::actor> grading_colour_op_actors_;
 };

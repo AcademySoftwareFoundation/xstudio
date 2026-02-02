@@ -22,17 +22,19 @@ void xstudio::colour_pipeline::from_json(const nlohmann::json &j, OCIOGlobalData
     j.at("colour_bypass").get_to(d.colour_bypass);
     j.at("global_view").get_to(d.global_view);
     j.at("untonemapped_mode").get_to(d.untonemapped_mode);
+    j.at("apply_saturation_after_lut").get_to(d.apply_saturation_after_lut);
     j.at("default_config").get_to(d.default_config);
     j.at("preferred_config_version").get_to(d.preferred_config_version);
 }
 
 void xstudio::colour_pipeline::to_json(nlohmann::json &j, const OCIOGlobalData &d) {
 
-    j["colour_bypass"]            = d.colour_bypass;
-    j["global_view"]              = d.global_view;
-    j["untonemapped_mode"]        = d.untonemapped_mode;
-    j["default_config"]           = d.default_config;
-    j["preferred_config_version"] = d.preferred_config_version;
+    j["colour_bypass"]              = d.colour_bypass;
+    j["global_view"]                = d.global_view;
+    j["untonemapped_mode"]          = d.untonemapped_mode;
+    j["apply_saturation_after_lut"] = d.apply_saturation_after_lut;
+    j["default_config"]             = d.default_config;
+    j["preferred_config_version"]   = d.preferred_config_version;
 }
 
 OCIOGlobalControls::OCIOGlobalControls(
@@ -75,6 +77,17 @@ OCIOGlobalControls::OCIOGlobalControls(
         module::Attribute::UIDataModels, nlohmann::json{"colour_pipe_attributes"});
     untonemapped_mode_->set_role_data(module::Attribute::ToolTip, ui_text_.UTM_MODE_TOOLTIP);
     untonemapped_mode_->set_preference_path("/plugin/colour_pipeline/ocio/untonemapped_mode");
+
+    // Viewport saturation order
+    apply_saturation_after_lut_ =
+        add_boolean_attribute(ui_text_.SAT_ORDER, ui_text_.SAT_ORDER_SHORT, false);
+    apply_saturation_after_lut_->set_redraw_viewport_on_change(true);
+    apply_saturation_after_lut_->set_role_data(
+        module::Attribute::UIDataModels, nlohmann::json{"colour_pipe_attributes"});
+    apply_saturation_after_lut_->set_role_data(
+        module::Attribute::ToolTip, ui_text_.SAT_ORDER_TOOLTIP);
+    apply_saturation_after_lut_->set_preference_path(
+        "/plugin/colour_pipeline/ocio/apply_saturation_after_lut");
 
     // this attr is used to store the display/view that the user has selected
     // so the settings can be restored between xstudio instances
@@ -178,6 +191,13 @@ OCIOGlobalControls::OCIOGlobalControls(
         "main menu bar", ui_text_.GLOBAL_VIEW, "Colour", 2.0f, global_view_, false);
     insert_menu_item(
         "main menu bar", ui_text_.UTM_MODE, "Colour", 2.0f, untonemapped_mode_, false);
+    insert_menu_item(
+        "main menu bar",
+        ui_text_.SAT_ORDER,
+        "Colour",
+        3.0f,
+        apply_saturation_after_lut_,
+        false);
 
     // make sure the colour menu appears in the right place in the main menu bar.
     set_submenu_position_in_parent("main menu bar", "Colour", 30.0f);
@@ -396,11 +416,12 @@ std::string OCIOGlobalControls::default_ocio_config() {
 utility::JsonStore OCIOGlobalControls::settings_json() {
 
     utility::JsonStore j;
-    j["colour_bypass"]            = colour_bypass_->value();
-    j["global_view"]              = global_view_->value();
-    j["untonemapped_mode"]        = untonemapped_mode_->value();
-    j["default_config"]           = default_ocio_config();
-    j["preferred_config_version"] = preferred_config_version_->value();
+    j["colour_bypass"]              = colour_bypass_->value();
+    j["global_view"]                = global_view_->value();
+    j["untonemapped_mode"]          = untonemapped_mode_->value();
+    j["apply_saturation_after_lut"] = apply_saturation_after_lut_->value();
+    j["default_config"]             = default_ocio_config();
+    j["preferred_config_version"]   = preferred_config_version_->value();
     return j;
 }
 

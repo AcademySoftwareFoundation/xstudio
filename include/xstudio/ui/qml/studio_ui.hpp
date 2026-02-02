@@ -98,11 +98,13 @@ namespace ui {
             void init(caf::actor_system &system) override;
             void updateDataSources();
             xstudio::ui::qt::OffscreenViewport *offscreen_snapshot_viewport();
+            void loadVideoOutputPlugin(const utility::Uuid &plugin_id);
+
 
             QList<QObject *> data_sources_;
             xstudio::ui::qt::OffscreenViewport *snapshot_offscreen_viewport_ = nullptr;
             std::vector<xstudio::ui::qt::OffscreenViewport *> offscreen_viewports_;
-            std::vector<caf::actor> video_output_plugins_;
+            std::map<utility::Uuid, caf::actor> video_output_plugins_;
             QString session_actor_addr_;
         };
     } // namespace qml

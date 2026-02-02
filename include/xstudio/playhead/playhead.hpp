@@ -226,6 +226,7 @@ namespace playhead {
         module::IntegerAttribute *current_frame_timecode_as_frame_;
         module::StringAttribute *current_media_uuid_;
         module::StringAttribute *current_media_source_uuid_;
+        module::StringAttribute *current_clip_uuid_;
         module::BooleanAttribute *zoom_to_loop_;
         module::BooleanAttribute *loop_range_enabled_;
         module::BooleanAttribute *user_is_frame_scrubbing_;

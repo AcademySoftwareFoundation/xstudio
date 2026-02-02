@@ -90,11 +90,18 @@ Item {
     //     menuModelName: "media_list_menu_"
     //     onActivated: ShotBrowserHelpers.downloadMissingMovies(menuContext.mediaSelection)
     // }
+    XsMenuModelItem {
+        text: "Refresh SG Metadata"
+        menuPath: ""
+        menuItemPosition: 260
+        menuModelName: "media_list_menu_"
+        onActivated: ShotBrowserHelpers.refreshMetadata(menuContext.mediaSelection)
+    }
 
     XsMenuModelItem {
         text: "Download SG Movie"
         menuPath: ""
-        menuItemPosition: 260
+        menuItemPosition: 261
         menuModelName: "media_list_menu_"
         onActivated: ShotBrowserHelpers.downloadMovies(menuContext.mediaSelection)
     }

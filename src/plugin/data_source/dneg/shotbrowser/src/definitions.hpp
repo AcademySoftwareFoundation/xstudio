@@ -38,7 +38,10 @@ const auto GetExecutePreset = R"({
 
 const auto GetValidMediaCount = R"({"operation": "MediaCount", "playlist_uuid": null})"_json;
 
+const auto RefreshMetadata = R"({"operation": "RefreshMetadata", "media_uuid": null})"_json;
+
 const auto GetShotgridMedia = R"({"operation": "AddShotgridMedia", "media_uuid": null})"_json;
+
 const auto GetDownloadMedia = R"({
     "operation": "DownloadShotgridMedia",
     "entity": "version",
@@ -292,6 +295,8 @@ const auto SequenceShotFields = std::vector<std::string>(
      "sg_unit",
      "sg_hero_shot",
      "sg_primary_shot_location",
+     "sg_dnbreakdown_envprop_variants",
+     "sg_dnbreakdown_assemblies",
      "tags"});
 
 const auto ShotFields = std::vector<std::string>(

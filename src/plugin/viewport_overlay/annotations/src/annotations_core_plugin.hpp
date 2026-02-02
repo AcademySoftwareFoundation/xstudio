@@ -146,9 +146,17 @@ namespace ui {
 
             void push_live_edit_to_bookmark(LiveEditData &user_edit_data);
 
+            void broadcast_live_stroke(
+                const LiveEditData &user_edit_data,
+                const utility::Uuid &user_id,
+                const bool stroke_completed = false);
+
             void start_cursor_blink();
 
             void fade_all_laser_strokes();
+
+            void annotation_about_to_be_edited(
+                const bookmark::AnnotationBasePtr &anno, const utility::Uuid &anno_uuid);
 
             void remove_bookmark(const utility::Uuid &bookmark_id) {
                 plugin::StandardPlugin::remove_bookmark(bookmark_id);
@@ -203,8 +211,10 @@ namespace ui {
             bool show_annotations_during_playback_{false};
             std::atomic_bool hide_all_drawings_{false};
             std::atomic_bool cursor_blink_;
-            std::map<std::string, std::atomic_bool *> hide_strokes_per_viewport_;
+            std::map<std::string, std::atomic_int *> hide_strokes_per_viewport_;
             std::map<std::string, std::atomic_bool *> hide_all_per_viewport_;
+            caf::actor live_edit_event_group_;
+            utility::Uuid current_edited_annotation_uuid_;
 
             const media_reader::ImageBufDisplaySetPtr &
             get_viewport_image_set(const std::string &viewport_name) {
@@ -214,6 +224,7 @@ namespace ui {
 
             // Annotations
             utility::Uuid current_bookmark_uuid_;
+            utility::Uuid next_bookmark_uuid_ = {utility::Uuid::generate()};
         };
 
     } // namespace viewport

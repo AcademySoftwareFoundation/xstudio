@@ -235,7 +235,7 @@ template <typename T> caf::message_handler IvyDataSourceActor<T>::message_handle
                     files_by_path(show: "{}", paths: ["{}"]){{
                         id, name, path, timeline_range
                         version{{
-                            id, name, show{{id, name}}, scope {{id, name}}, kind{{id, name}}
+                            id, name, show{{id, name}}, scope {{id, name}}, kind{{id, name}}, status
                         }},
                     }}
                 }})",
@@ -930,7 +930,7 @@ void IvyDataSourceActor<T>::get_version(
         fmt::format(
             R"({{
             versions_by_id(show: "{}", ids: ["{}"]){{
-                id, name, show{{name}}, number{{major,minor,micro}}, kind{{id,name}},scope{{id,name}}
+                id, name, show{{name}}, number{{major,minor,micro}}, kind{{id,name}},scope{{id,name}}, status
                 files{{
                     id,name,path,timeline_range,type,version{{id,name,kind{{id,name}},scope{{id,name}}}}
                 }},
@@ -1079,7 +1079,7 @@ void IvyDataSourceActor<T>::ivy_load_version(
         fmt::format(
             R"({{
             versions_by_id(show: "{}", ids: [{}]){{
-                id, name, show{{name}}, number{{major,minor,micro}}, kind{{id,name}},scope{{id,name}}
+                id, name, show{{name}}, number{{major,minor,micro}}, kind{{id,name}},scope{{id,name}}, status
                 files{{id,name,path,timeline_range,type,version{{id,name,kind{{id,name}},scope{{id,name}}}}}},
             }}
         }})",

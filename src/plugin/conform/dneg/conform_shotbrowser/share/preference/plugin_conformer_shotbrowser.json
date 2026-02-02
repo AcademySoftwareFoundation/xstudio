@@ -7,10 +7,10 @@
                         "PLUGIN"
                     ],
                     "datatype": "bool",
-                    "default_value": true,
+                    "default_value": false,
                     "description": "Purge additional tracks on import.",
                     "path": "/plugin/conformer/shotbrowser/purge_sequence_on_import",
-                    "value": true,
+                    "value": false,
                     "category": "Shot Browser"
                 },
                 "reuse_media": {

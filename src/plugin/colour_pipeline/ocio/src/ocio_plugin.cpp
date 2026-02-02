@@ -233,7 +233,8 @@ utility::JsonStore OCIOColourPipeline::update_shader_uniforms(
 
     // TODO: ColSci
     // Saturation is not managed by OCIO currently
-    uniforms["saturation"] = saturation_->value();
+    uniforms["saturation"]                 = saturation_->value();
+    uniforms["apply_saturation_after_lut"] = global_settings_.apply_saturation_after_lut;
 
     m_engine_.update_shader_uniforms(user_data, uniforms, exposure_->value(), gamma_->value());
 
@@ -269,6 +270,7 @@ void OCIOColourPipeline::extend_pixel_info(
             display_->value(),
             view_->value(),
             global_settings_.untonemapped_mode,
+            global_settings_.apply_saturation_after_lut,
             exposure_->value(),
             gamma_->value(),
             saturation_->value());
@@ -888,6 +890,9 @@ void OCIOColourPipeline::update_untonemapped(
     source_colour_space_->set_role_data(
         module::Attribute::Enabled, !untonemapped_source, false);
     view_->set_role_data(module::Attribute::Enabled, !untonemapped_source, false);
+    if (untonemapped_source) {
+        view_->set_value(untonemapped_view, false);
+    }
 }
 
 void OCIOColourPipeline::update_media_metadata(

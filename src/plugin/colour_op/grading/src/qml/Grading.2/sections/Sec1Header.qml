@@ -47,6 +47,7 @@ Item{ id: toolDiv
             imgSrc: ""
             font.pixelSize: XsStyleSheet.fontSize
             font.family: XsStyleSheet.fontFamily
+            enabled: !mask_attrs.polygon_init
             isActive: !mask_attrs.mask_shapes_visible
             onClicked:{
                 mask_attrs.mask_shapes_visible = !mask_attrs.mask_shapes_visible;
@@ -67,6 +68,20 @@ Item{ id: toolDiv
             toolTip: "Bypass all grades applied on all media "
             hotkeyNameForTooltip: "Bypass all grades"
             
+        }
+        XsPrimaryButton{ id: moreBtn
+            Layout.preferredWidth: btnWidth
+            Layout.preferredHeight: btnHeight
+            Layout.alignment: Qt.AlignRight
+            imgSrc: "qrc:/icons/more_vert.svg"
+            onClicked:{
+                if(moreMenu.visible) moreMenu.visible = false
+                else{
+                    moreMenu.x = x + width
+                    moreMenu.y = y + height
+                    moreMenu.visible = true
+                }
+            }
         }
 
     }

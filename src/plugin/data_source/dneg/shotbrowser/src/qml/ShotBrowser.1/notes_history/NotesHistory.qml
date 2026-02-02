@@ -25,6 +25,7 @@ Item{
 
     // Track the uuid of the media that is currently visible in the Viewport
     property var onScreenMediaUuid: currentPlayhead.mediaUuid
+    property var onScreenClipUuid: currentPlayhead.clipUuid
     property var onScreenLogicalFrame: currentPlayhead.logicalFrame
 
     readonly property string panelType: "NotesHistory"
@@ -36,10 +37,8 @@ Item{
 
     property bool isPaused: false
 
-    onOnScreenMediaUuidChanged: {
-        if(visible)
-            updateTimer.start()
-    }
+    onOnScreenMediaUuidChanged: { if(visible) updateTimer.start() }
+    onOnScreenClipUuidChanged: { if(visible) updateTimer.start() }
 
     property real panelPadding: XsStyleSheet.panelPadding
 
@@ -73,7 +72,7 @@ Item{
         repeat: false
         onTriggered: {
             isPaused = false
-            ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid)
+            ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid, onScreenClipUuid)
         }
     }
 
@@ -197,7 +196,7 @@ Item{
     }
 
     onIsPanelEnabledChanged: {
-        ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid)
+        ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid, onScreenClipUuid)
         runQuery()
     }
 
@@ -270,7 +269,7 @@ Item{
         if(visible) {
             ShotBrowserEngine.connected = true
             setIndexesFromPreferences()
-            ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid)
+            ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid, onScreenClipUuid)
             isPaused = false
             runQuery()
         }
@@ -280,7 +279,7 @@ Item{
         if(visible) {
             ShotBrowserEngine.connected = true
             setIndexesFromPreferences()
-            ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid)
+            ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid, onScreenClipUuid)
             isPaused = false
             runQuery()
         }

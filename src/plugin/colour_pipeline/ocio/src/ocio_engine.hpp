@@ -23,6 +23,7 @@ class OCIOEngine {
         const std::string &display,
         const std::string &view,
         const bool untonemapped_mode,
+        const bool apply_saturation_after_lut,
         const float exposure,
         const float gamma,
         const float saturation);

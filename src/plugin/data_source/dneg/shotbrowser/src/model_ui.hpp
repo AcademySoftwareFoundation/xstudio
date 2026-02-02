@@ -80,19 +80,25 @@ namespace ui::qml {
 
         Q_PROPERTY(QStringList types READ types WRITE setTypes NOTIFY typesChanged)
         Q_PROPERTY(QVariant tags READ tags WRITE setTags NOTIFY tagsChanged)
+
+        Q_PROPERTY(
+            QStringList assetTags READ assetTags WRITE setAssetTags NOTIFY assetTagsChanged)
+
         Q_PROPERTY(
             QStringList shotManifestTags READ shotManifestTags WRITE setShotManifestTags NOTIFY
                 shotManifestTagsChanged)
 
+
       public:
         const static inline std::vector<std::string> RoleNames = {
-            "assetNameRole", "tagRole", "manifestRole", "heroRole"};
+            "assetNameRole", "heroRole", "manifestRole", "tagRole", "variantRole"};
 
         enum Roles {
             assetNameRole = ShotBrowserListModel::Roles::LASTROLE,
-            tagRole,
+            heroRole,
             manifestRole,
-            heroRole
+            tagRole,
+            variantRole
         };
 
         ShotBrowserSequenceModel(QObject *parent = nullptr) : ShotBrowserListModel(parent) {
@@ -109,12 +115,26 @@ namespace ui::qml {
             }
         }
 
+        void setAssetTags(const QStringList &value) {
+            if (asset_tags_ != value) {
+                asset_tags_ = value;
+
+                // spdlog::warn("AT {}", asset_tags_.size());
+                // for(const auto &i: asset_tags_)
+                //     spdlog::warn("AT {}", StdFromQString(i));
+
+                emit assetTagsChanged();
+            }
+        }
+
         void setShotManifestTags(const QStringList &value) {
             if (shot_manifest_tags_ != value) {
                 shot_manifest_tags_ = value;
 
+                // spdlog::warn("SMY {}", shot_manifest_tags_.size());
+
                 // for(const auto &i: shot_manifest_tags_)
-                //     spdlog::warn("{}", StdFromQString(i));
+                //     spdlog::warn("SMY {}", StdFromQString(i));
 
                 emit shotManifestTagsChanged();
             }
@@ -129,6 +149,7 @@ namespace ui::qml {
         data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 
         [[nodiscard]] QStringList shotManifestTags() const { return shot_manifest_tags_; }
+        [[nodiscard]] QStringList assetTags() const { return asset_tags_; }
 
         [[nodiscard]] QStringList types() const { return types_; }
         [[nodiscard]] QVariant tags() const { return tags_; }
@@ -139,6 +160,7 @@ namespace ui::qml {
         void typesChanged();
         void tagsChanged();
         void shotManifestTagsChanged();
+        void assetTagsChanged();
 
       private:
         static nlohmann::json sortByNameAndType(const nlohmann::json &json);
@@ -147,6 +169,7 @@ namespace ui::qml {
         QStringList types_{};
         QVariant tags_;
         QStringList shot_manifest_tags_{};
+        QStringList asset_tags_{};
 
         std::map<std::string, int> tag_lookup_;
 
@@ -307,6 +330,9 @@ namespace ui::qml {
         QSet<QString> not_in_;
         QSet<QString> and_in_;
         QSet<QString> or_in_;
+
+        bool variant_tag_{false};
+        bool tag_{false};
 
         bool hide_empty_{false};
         bool show_hidden_{true};

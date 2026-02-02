@@ -124,7 +124,7 @@ class Playlist(Container, NotificationHandler, JsonStoreHandler):
             media(Media): Media.
         """
         if isinstance(path, URI):
-            result = self.connection.request_receive(self.remote, add_media_atom(), path, False, Uuid())[0][0]
+            result = self.connection.request_receive(self.remote, add_media_atom(), path, False, Uuid())[0]
         else:
             ppp = parse_posix_path(path)
 

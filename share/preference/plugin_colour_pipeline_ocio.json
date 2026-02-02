@@ -18,6 +18,14 @@
 					"datatype": "bool",
 					"context": ["APPLICATION"]
 				},
+				"apply_saturation_after_lut": {
+					"path": "/plugin/colour_pipeline/ocio/apply_saturation_after_lut",
+					"default_value": false,
+					"description": "Apply viewport saturation after OCIO display view.",
+					"value": false,
+					"datatype": "bool",
+					"context": ["APPLICATION"]
+				},
 				"default_ocio_config": {
 					"path": "/plugin/colour_pipeline/ocio/default_ocio_config",
 					"default_value": "xstudio-config-v2.1.0_aces-v1.3_ocio-v2.1.ocio",

@@ -133,8 +133,6 @@ Viewport::Viewport(
         window_id_     = window_id_ + fmt::format("{}", idx++);
     }
 
-    std::cerr << "New viewport " << name() << "\n";
-
     // Viewport Controls
     // TODO: set these up via Json prefs coming in from framework
     // so pointer controls are user configurable

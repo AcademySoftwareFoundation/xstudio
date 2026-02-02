@@ -1,5 +1,7 @@
 add_src_and_test(ffprobe)
 add_src_and_test(openexr)
-add_src_and_test(openimageio)
+if (${OPENIMAGEIO_PLUGIN})
+    add_src_and_test(openimageio)
+endif()
 
 build_studio_plugins("${STUDIO_PLUGINS}")

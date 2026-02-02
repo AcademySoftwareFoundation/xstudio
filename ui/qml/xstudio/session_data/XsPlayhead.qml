@@ -145,6 +145,12 @@ Item {
     }
 
     XsAttributeValue {
+        id: __playheadClipUuid
+        attributeTitle: "Current Clip Uuid"
+        model: playhead_attrs_model
+    }
+
+    XsAttributeValue {
         id: __playheadImageSourceName
         attributeTitle: "Source Name"
         model: playhead_attrs_model
@@ -273,6 +279,7 @@ Item {
     property alias playingForwards: __playheadPlayingForward.value
     property var mediaUuid: helpers.QVariantFromUuidString(__playheadSourceUuid.value)
     property var mediaSourceUuid: helpers.QVariantFromUuidString(__playheadMediaSourceUuid.value)
+    property var clipUuid: helpers.QVariantFromUuidString(__playheadClipUuid.value)    
     property alias imageSourceName: __playheadImageSourceName.value
     property alias playheadImageURI: __playheadImageURI.value
     property alias compareMode: __playheadCompareMode.value

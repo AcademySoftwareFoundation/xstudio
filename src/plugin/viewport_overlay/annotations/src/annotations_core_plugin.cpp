@@ -36,6 +36,9 @@ AnnotationsCore::AnnotationsCore(
 
     // This allows any other component of xSTUDIO to find this plugin instance
     system().registry().put("ANNOTATIONS_CORE_PLUGIN", this);
+
+    live_edit_event_group_ = spawn<broadcast::BroadcastActor>(this);
+    link_to(live_edit_event_group_);
 }
 
 AnnotationsCore::~AnnotationsCore() {}
@@ -93,15 +96,21 @@ caf::message_handler AnnotationsCore::message_handler_extensions() {
             if (action == "DONT_RENDER_STROKES") {
                 if (hide_strokes_per_viewport_.find(viewport_name) ==
                     hide_strokes_per_viewport_.end()) {
-                    hide_strokes_per_viewport_[viewport_name] = new std::atomic_bool(false);
+                    hide_strokes_per_viewport_[viewport_name] = new std::atomic_int(0);
                 }
-                *(hide_strokes_per_viewport_[viewport_name]) = true;
+                *(hide_strokes_per_viewport_[viewport_name]) = 1;
             } else if (action == "DO_RENDER_STROKES") {
                 if (hide_strokes_per_viewport_.find(viewport_name) ==
                     hide_strokes_per_viewport_.end()) {
-                    hide_strokes_per_viewport_[viewport_name] = new std::atomic_bool(false);
+                    hide_strokes_per_viewport_[viewport_name] = new std::atomic_int(0);
                 }
-                *(hide_strokes_per_viewport_[viewport_name]) = false;
+                *(hide_strokes_per_viewport_[viewport_name]) = 0;
+            } else if (action == "DONT_RENDER_LIVE_STROKES") {
+                if (hide_strokes_per_viewport_.find(viewport_name) ==
+                    hide_strokes_per_viewport_.end()) {
+                    hide_strokes_per_viewport_[viewport_name] = new std::atomic_int(0);
+                }
+                *(hide_strokes_per_viewport_[viewport_name]) = 2;
             }
         },
         [=](utility::event_atom,
@@ -111,6 +120,13 @@ caf::message_handler AnnotationsCore::message_handler_extensions() {
             const Imath::M44f &proj_matrix) {
             // these update events come from the global playhead events group
             viewport_transforms_[viewport_name] = proj_matrix;
+        },
+        [=](broadcast::join_broadcast_atom,
+            ui::viewport::annotation_atom,
+            caf::actor joiner,
+            bool join) {
+            // SYNC plugin uses this so it gets updates on live annotations as they are drawn
+            anon_mail(broadcast::join_broadcast_atom_v, joiner).send(live_edit_event_group_);
         });
 }
 
@@ -132,7 +148,9 @@ void AnnotationsCore::receive_annotation_data(const utility::JsonStore &d) {
 
     if (event == "PaintStart" || event == "PaintPoint") {
         modify_stroke_or_shape(payload, user_edit_data);
+        broadcast_live_stroke(user_edit_data, user_id);
     } else if (event == "PaintEnd") {
+        broadcast_live_stroke(user_edit_data, user_id, true);
         push_live_edit_to_bookmark(user_edit_data);
         user_edit_data->item_type = Canvas::ItemType::None;
     } else if (event == "CaptionStartEdit") {
@@ -174,7 +192,6 @@ void AnnotationsCore::receive_annotation_data(const utility::JsonStore &d) {
         }
     }
 
-
     redraw_viewport();
 }
 
@@ -182,7 +199,16 @@ void AnnotationsCore::start_stroke_or_shape(
     const utility::JsonStore &payload, LiveEditData &user_edit_data) {
 
     const auto item_type = payload.value("item_type", "");
-    Imath::V2f pos(payload["point"]["x"].get<float>(), payload["point"]["y"].get<float>());
+    Imath::V2f pos;
+    if (payload.contains("points")) {
+        pos = Imath::V2f(
+            payload.at("points").at(0).at("x").get<float>(),
+            payload.at("points").at(0).at("y").get<float>());
+    } else {
+        pos =
+            Imath::V2f(payload["point"]["x"].get<float>(), payload["point"]["y"].get<float>());
+    }
+
     auto size = payload["paint"]["size"].get<float>();
 
     // we may have multiple images on the screen (e.g. Grid mode) ...
@@ -260,52 +286,79 @@ void AnnotationsCore::start_stroke_or_shape(
             }
         }
     }
+
+    if (user_edit_data->live_stroke && payload.contains("id")) {
+        user_edit_data->live_stroke->set_id(payload["id"].get<std::string>());
+    }
 }
 
 void AnnotationsCore::modify_stroke_or_shape(
     const utility::JsonStore &payload, LiveEditData &user_edit_data) {
 
-    const Imath::V2f pos(
-        payload["point"]["x"].get<float>(), payload["point"]["y"].get<float>());
+    std::vector<Stroke::Point> points;
 
-    Imath::V2f pointer_position = transform_pointer_to_image_coord(pos, user_edit_data);
-    Imath::V2f shape_anchor     = user_edit_data->start_point;
+    if (payload.contains("points")) {
+        for (const auto &i : payload.at("points")) {
+            Imath::V2f p;
+            if (user_edit_data->item_type == Canvas::ItemType::Laser)
+                p = transform_pointer_to_viewport_coord(
+                    Imath::V2f(i.at("x").get<float>(), i.at("y").get<float>()), user_edit_data);
+            else
+                p = transform_pointer_to_image_coord(
+                    Imath::V2f(i.at("x").get<float>(), i.at("y").get<float>()), user_edit_data);
 
+            points.emplace_back(p, i.value("pressure", 1.0f));
+        }
+    } else {
+        Imath::V2f p;
+        if (user_edit_data->item_type == Canvas::ItemType::Laser)
+            p = transform_pointer_to_viewport_coord(
+                Imath::V2f(
+                    payload.at("point").at("x").get<float>(),
+                    payload.at("point").at("y").get<float>()),
+                user_edit_data);
+        else
+            p = transform_pointer_to_image_coord(
+                Imath::V2f(
+                    payload.at("point").at("x").get<float>(),
+                    payload.at("point").at("y").get<float>()),
+                user_edit_data);
+
+        points.emplace_back(p, payload.at("point").value("pressure", 1.0f));
+    }
+
+    Imath::V2f shape_anchor = user_edit_data->start_point;
 
     if (user_edit_data->item_type == Canvas::ItemType::Brush ||
         user_edit_data->item_type == Canvas::ItemType::Draw) {
 
-        auto pressure = payload["point"].value("pressure", 1.0f);
-        user_edit_data->live_stroke->add_point(pointer_position, pressure);
+        user_edit_data->live_stroke->add_points(points);
 
     } else if (user_edit_data->item_type == Canvas::ItemType::Square) {
 
-        user_edit_data->live_stroke->make_square(shape_anchor, pointer_position);
+        user_edit_data->live_stroke->make_square(shape_anchor, points.front().pos);
 
     } else if (user_edit_data->item_type == Canvas::ItemType::Circle) {
 
         user_edit_data->live_stroke->make_circle(
-            shape_anchor, (shape_anchor - pointer_position).length());
+            shape_anchor, (shape_anchor - points.front().pos).length());
 
     } else if (user_edit_data->item_type == Canvas::ItemType::Arrow) {
 
-        user_edit_data->live_stroke->make_arrow(shape_anchor, pointer_position);
+        user_edit_data->live_stroke->make_arrow(shape_anchor, points.front().pos);
 
     } else if (user_edit_data->item_type == Canvas::ItemType::Line) {
 
-        user_edit_data->live_stroke->make_line(shape_anchor, pointer_position);
+        user_edit_data->live_stroke->make_line(shape_anchor, points.front().pos);
 
     } else if (user_edit_data->item_type == Canvas::ItemType::Erase) {
 
-        user_edit_data->live_stroke->add_point(pointer_position);
+        user_edit_data->live_stroke->add_points(points);
 
     } else if (user_edit_data->item_type == Canvas::ItemType::Laser) {
 
         if (!user_edit_data->laser_strokes.empty()) {
-
-            Imath::V2f viewport_pointer_position =
-                transform_pointer_to_viewport_coord(pos, user_edit_data);
-            user_edit_data->laser_strokes.back()->add_point(viewport_pointer_position);
+            user_edit_data->laser_strokes.back()->add_points(points);
         }
     }
 }
@@ -819,6 +872,8 @@ void AnnotationsCore::pick_image_to_annotate(
 
     user_edit_data->edited_bookmark_id = utility::Uuid();
 
+    AnnotationBasePtr annotation_to_add_to;
+
     // loop over bookmarks already on the image that the given user is annotating
     for (const auto &anno : user_edit_data->annotated_image.bookmarks()) {
 
@@ -827,6 +882,7 @@ void AnnotationsCore::pick_image_to_annotate(
             dynamic_cast<const Annotation *>(anno->annotation_.get());
         if (my_annotation) {
             user_edit_data->edited_bookmark_id = anno->detail_.uuid_;
+            annotation_to_add_to               = anno->annotation_;
             break;
         }
     }
@@ -835,10 +891,21 @@ void AnnotationsCore::pick_image_to_annotate(
         // we didn't find an existing annotation to edit. We now check if there
         // is a bookmark WITHOUT an annotation the we can use to start adding
         // annotations to
-        if (!user_edit_data->annotated_image.bookmarks().empty()) {
+        if (!user_edit_data->annotated_image.bookmarks().empty() &&
+            user_edit_data->annotated_image.bookmarks()[0]->detail_.user_type_.value_or("") !=
+                "Grading") {
             user_edit_data->edited_bookmark_id =
                 user_edit_data->annotated_image.bookmarks()[0]->detail_.uuid_;
         }
+    }
+
+    // for xSTUDIO Sync plugin, we need to send it the whole of the annotation
+    // that we're about to start adding a stroke to so it can send annotations
+    // data to web clients (so that they can render the annotation locally)
+    if (user_edit_data->edited_bookmark_id.is_null()) {
+        annotation_about_to_be_edited(annotation_to_add_to, next_bookmark_uuid_);
+    } else {
+        annotation_about_to_be_edited(annotation_to_add_to, user_edit_data->edited_bookmark_id);
     }
 }
 
@@ -917,6 +984,10 @@ utility::BlindDataObjectPtr AnnotationsCore::onscreen_render_data(
         return utility::BlindDataObjectPtr();
 
     PerImageAnnotationRenderDataSet *data = nullptr;
+    if (!current_edited_annotation_uuid_.is_null()) {
+        data = new PerImageAnnotationRenderDataSet();
+        data->set_skip_annotation_uuid(current_edited_annotation_uuid_);
+    }
 
     for (const auto &p : live_edit_data_) {
 
@@ -989,12 +1060,14 @@ void AnnotationsCore::images_going_on_screen(
     // what if a new image is going on screen, and we have an active edit going
     // on with the given viewport? We need to wipe the active edit so that we
     // don't see the caption overlays
-    auto p = live_edit_data_.begin();
+    bool images_went_off_the_screen = false;
+    auto p                          = live_edit_data_.begin();
     while (p != live_edit_data_.end()) {
         if (p->second->viewport_name == viewport_name &&
             p->second->item_type != Canvas::ItemType::Laser) {
             bool still_on_screen = false;
             for (int i = 0; i < images->num_onscreen_images(); ++i) {
+
                 if (images->onscreen_image(i).frame_id().key() ==
                     p->second->annotated_image.frame_id().key()) {
                     // updating the annotated image means the attached bookmark
@@ -1005,8 +1078,9 @@ void AnnotationsCore::images_going_on_screen(
                 }
             }
             if (!still_on_screen) {
-                p                = live_edit_data_.erase(p);
-                cursor_blinking_ = false;
+                p                          = live_edit_data_.erase(p);
+                cursor_blinking_           = false;
+                images_went_off_the_screen = true;
             }
 
             else
@@ -1015,13 +1089,35 @@ void AnnotationsCore::images_going_on_screen(
             p++;
         }
     }
+
+    // if the on-screen frame(s) have changed, is the bookmark that we were
+    // editing still on screen? If not, we need to inform plugins that
+    if (!current_edited_annotation_uuid_.is_null() && images_went_off_the_screen) {
+
+        bool current_edited_bookmark_is_on_screen = false;
+        for (int i = 0; i < images->num_onscreen_images(); ++i) {
+            for (const auto &bookmark : images->onscreen_image(i).bookmarks()) {
+                if (bookmark->detail_.uuid_ == current_edited_annotation_uuid_) {
+                    current_edited_bookmark_is_on_screen = true;
+                }
+            }
+        }
+        if (!current_edited_bookmark_is_on_screen) {
+            annotation_about_to_be_edited(nullptr, utility::Uuid());
+        }
+    }
 }
 
 plugin::ViewportOverlayRendererPtr
 AnnotationsCore::make_overlay_renderer(const std::string &viewport_name) {
 
+    // Note ... using these atomics is awkward. The trouble is the instance of
+    // the overlay renderer is owned by the xSTUDIO UI (Viewport) and can be
+    // destroyed without us knowing. So how do we communicate with it when
+    // some state changes?
+    // TODO: find a better (neater) way!
     if (hide_strokes_per_viewport_.find(viewport_name) == hide_strokes_per_viewport_.end()) {
-        hide_strokes_per_viewport_[viewport_name] = new std::atomic_bool(false);
+        hide_strokes_per_viewport_[viewport_name] = new std::atomic_int(0);
     }
 
     if (hide_all_per_viewport_.find(viewport_name) == hide_all_per_viewport_.end()) {
@@ -1055,8 +1151,15 @@ void AnnotationsCore::undo(LiveEditData &user_edit_data) {
 
     if (undo_redo_impl_.undo(user_edit_data->user_id, &mod_annotation)) {
 
-        update_bookmark_annotation(
-            bookmark_for_undo_id, AnnotationBasePtr(mod_annotation), false);
+        AnnotationBasePtr modified_annotation(mod_annotation);
+        update_bookmark_annotation(bookmark_for_undo_id, modified_annotation, false);
+
+        if (current_edited_annotation_uuid_ != bookmark_for_undo_id) {
+            annotation_about_to_be_edited(modified_annotation, bookmark_for_undo_id);
+        } else {
+            mail(utility::event_atom_v, annotation_data_atom_v, modified_annotation)
+                .send(live_edit_event_group_);
+        }
 
     } else {
 
@@ -1073,13 +1176,39 @@ void AnnotationsCore::redo(LiveEditData &user_edit_data) {
     Annotation *mod_annotation = modifiable_annotation(user_edit_data);
 
     if (undo_redo_impl_.redo(user_edit_data->user_id, &mod_annotation)) {
-        update_bookmark_annotation(
-            bookmark_for_undo_id, AnnotationBasePtr(mod_annotation), false);
+
+        AnnotationBasePtr modified_annotation(mod_annotation);
+        update_bookmark_annotation(bookmark_for_undo_id, modified_annotation, false);
+
+        if (current_edited_annotation_uuid_ != bookmark_for_undo_id) {
+            annotation_about_to_be_edited(modified_annotation, bookmark_for_undo_id);
+        } else {
+            mail(utility::event_atom_v, annotation_data_atom_v, modified_annotation)
+                .send(live_edit_event_group_);
+        }
 
     } else {
 
         delete mod_annotation;
     }
+}
+
+void AnnotationsCore::broadcast_live_stroke(
+    const LiveEditData &user_edit_data,
+    const utility::Uuid &user_id,
+    const bool stroke_completed) {
+
+    Annotation *anno = new Annotation();
+    if (user_edit_data->live_stroke)
+        anno->canvas().append_item(*(user_edit_data->live_stroke));
+
+    mail(
+        utility::event_atom_v,
+        annotation_data_atom_v,
+        AnnotationBasePtr(anno),
+        user_id,
+        stroke_completed)
+        .send(live_edit_event_group_);
 }
 
 void AnnotationsCore::make_bookmark_for_annotations(
@@ -1204,6 +1333,7 @@ void AnnotationsCore::clear_annotation(LiveEditData &user_edit_data) {
     const bool bookmark_is_empty    = !(detail.note_ && !detail.note_->empty());
 
     Annotation *mod_annotation = modifiable_annotation(user_edit_data);
+    AnnotationBasePtr anno_ptr(mod_annotation);
 
     undoable_action<ClearAnnotation>(
         user_edit_data,
@@ -1213,9 +1343,11 @@ void AnnotationsCore::clear_annotation(LiveEditData &user_edit_data) {
         user_edit_data->edited_bookmark_id,
         bookmark_is_empty);
 
+    // for Sync plugin, broadcast new state of annotation after clear
+    mail(utility::event_atom_v, annotation_data_atom_v, anno_ptr).send(live_edit_event_group_);
+
     if (!bookmark_is_empty) {
-        update_bookmark_annotation(
-            user_edit_data->edited_bookmark_id, AnnotationBasePtr(mod_annotation), false);
+        update_bookmark_annotation(user_edit_data->edited_bookmark_id, anno_ptr, false);
     }
 }
 
@@ -1236,8 +1368,8 @@ void AnnotationsCore::push_live_edit_to_bookmark(LiveEditData &user_edit_data) {
     // a suitable bookmark to append our annotations onto
     if (user_edit_data->edited_bookmark_id.is_null()) {
 
-        user_edit_data->edited_bookmark_id = utility::Uuid::generate();
-
+        user_edit_data->edited_bookmark_id = next_bookmark_uuid_;
+        next_bookmark_uuid_                = utility::Uuid::generate();
         Annotation dummy;
         undoable_action<CreateBookmark>(
             user_edit_data,
@@ -1310,6 +1442,19 @@ void AnnotationsCore::fade_all_laser_strokes() {
     if (!n)
         laser_stroke_animation_ = false;
 }
+
+void AnnotationsCore::annotation_about_to_be_edited(
+    const AnnotationBasePtr &anno, const utility::Uuid &anno_uuid) {
+    if (anno && anno_uuid != current_edited_annotation_uuid_) {
+        current_edited_annotation_uuid_ = anno_uuid;
+        mail(utility::event_atom_v, annotation_data_atom_v, anno).send(live_edit_event_group_);
+    } else if (anno_uuid != current_edited_annotation_uuid_) {
+        current_edited_annotation_uuid_ = anno_uuid;
+        mail(utility::event_atom_v, annotation_data_atom_v, AnnotationBasePtr())
+            .send(live_edit_event_group_);
+    }
+}
+
 
 extern "C" {
 

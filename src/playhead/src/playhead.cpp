@@ -111,6 +111,8 @@ void PlayheadBase::add_attributes() {
     current_media_source_uuid_ =
         add_string_attribute("Current Media Source Uuid", "Current Media Source Uuid", "");
 
+    current_clip_uuid_ = add_string_attribute("Current Clip Uuid", "Current Clip Uuid", "");
+
     loop_range_enabled_ =
         add_boolean_attribute("Enable Loop Range", "Enable Loop Range", false);
 

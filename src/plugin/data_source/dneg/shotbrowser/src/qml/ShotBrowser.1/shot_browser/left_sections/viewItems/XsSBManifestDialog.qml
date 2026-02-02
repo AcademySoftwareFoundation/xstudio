@@ -14,11 +14,23 @@ XsWindow{
     readonly property real itemHeight: btnHeight
     readonly property real itemSpacing: 5
 
-    property var model: []
+    property var tagModel: []
+    property var variantModel: []
+
+    property var model: {
+        if(tagMode == "Tag + Variant")
+            [...tagModel, ...variantModel]
+        else if(tagMode == "Tag")
+            tagModel
+        else
+            variantModel
+    }
 
     property var tags: []
     property var notTags: []
     property bool andMode: true
+
+    property string tagMode: "Tag + Variant"
 
     property bool ignoreUpdate: false
 
@@ -61,6 +73,10 @@ XsWindow{
             notWidget.text = notTags.join("\n");
         ignoreUpdate = false
     }
+
+    onTagModeChanged: typeCB.currentIndex = typeCB.find(tagMode)
+
+
 
     function parsePosition(widget) {
         // default to selection as key to tab completion
@@ -189,12 +205,22 @@ XsWindow{
 
             XsComboBox {
                 id: modeCB
-                Layout.maximumWidth: dialog.width / 5
+                Layout.maximumWidth: itemHeight * 2
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
                 model: ["ANY", "ALL"]
                 onActivated: {andMode = (currentIndex == 1)}
+            }
+
+            XsComboBox {
+                id: typeCB
+                Layout.maximumWidth: itemHeight * 4
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                currentIndex: 2
+                model: ["Tag", "Variant","Tag + Variant"]
+                onActivated: tagMode = currentText
             }
         }
 

@@ -89,8 +89,10 @@ uniform int pix_type_g;
 uniform int pix_type_b;
 uniform int pix_type_a;
 uniform int bytes_per_pixel;
-uniform ivec2 image_bounds_min;
-uniform ivec2 image_bounds_max;
+
+//Overall fragment shader provides these ones
+//uniform ivec2 image_bounds_min;
+//uniform ivec2 image_bounds_max;
 
 // we need to forward declare this function, which is defined by the base
 // gl shader class

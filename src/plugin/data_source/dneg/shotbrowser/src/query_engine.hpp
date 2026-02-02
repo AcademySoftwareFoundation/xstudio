@@ -517,7 +517,8 @@ class QueryEngine {
 
         try {
             std::vector<std::string> locations(
-                {{"/metadata/external/DNeg/shot"},
+                {{"/metadata/clip/metadata/external/DNeg/shot"},
+                 {"/metadata/external/DNeg/shot"},
                  {"/metadata/external/ivy/file/version/scope/name"},
                  {"/metadata/shotgun/version/relationships/entity/data/name"},
                  {"/metadata/shotgun/shot/attributes/code"},
@@ -530,7 +531,7 @@ class QueryEngine {
                  {"/metadata/image_source_metadata/colour_pipeline/ocio_context/SHOT"}});
             for (const auto &i : locations) {
                 if (metadata.contains(json::json_pointer(i))) {
-                    if (strict and i == locations.at(2) and
+                    if (strict and i == locations.at(3) and
                         metadata.value(
                             json::json_pointer(
                                 "/metadata/shotgun/version/relationships/entity/data/type"),
@@ -557,6 +558,7 @@ class QueryEngine {
                  {"/metadata/external/ivy/file/show"},
                  {"/metadata/shotgun/version/relationships/project/data/name"},
                  {"/metadata/shotgun/shot/relationships/project/data/name"},
+                 {"/metadata/clip/metadata/external/DNeg/show"},
                  {"/metadata/image_source_metadata/metadata/external/DNeg/show"},
                  {"/metadata/audio_source_metadata/metadata/external/DNeg/show"},
                  {"/metadata/image_source_metadata/metadata/external/ivy/file/show"},

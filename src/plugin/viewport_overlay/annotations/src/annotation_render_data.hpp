@@ -68,6 +68,14 @@ namespace ui {
                 skip_captions_.insert(caption_hash);
             }
 
+            void set_skip_annotation_uuid(const utility::Uuid &uiud) {
+                skip_render_annotation_uuid_ = uiud;
+            }
+
+            const utility::Uuid &skip_annotation_uuid() const {
+                return skip_render_annotation_uuid_;
+            }
+
             const CaptionVec &captions() const { return captions_; }
 
             const HandleStateVec &handle_states() const { return handles_; }
@@ -88,6 +96,7 @@ namespace ui {
             }
 
           private:
+            utility::Uuid skip_render_annotation_uuid_;
             const StrokeVec dummy;
             const CaptionVec dummy2;
             std::map<utility::Uuid, StrokeVec> live_erase_strokes_;

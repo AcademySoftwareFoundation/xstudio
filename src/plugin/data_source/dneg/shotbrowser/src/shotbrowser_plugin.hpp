@@ -170,6 +170,9 @@ namespace shotbrowser {
         void add_shotgrid_media(
             caf::typed_response_promise<utility::JsonStore> rp, const utility::Uuid &uuid);
 
+        void refresh_metadata(
+            caf::typed_response_promise<utility::JsonStore> rp, const utility::Uuid &uuid);
+
         void download_shotgrid_media(
             caf::typed_response_promise<utility::JsonStore> rp,
             const std::string &entity,

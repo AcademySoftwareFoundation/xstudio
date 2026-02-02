@@ -453,6 +453,12 @@ namespace ui {
                 const int project_id = -1);
 
             QFuture<QString> addDownloadToMediaFuture(const QUuid &uuid);
+            QFuture<QVariant> refreshMetadataFuture(const QUuid &uuid);
+
+            QVariant refreshMetadata(const QUuid &uuid) {
+                return refreshMetadataFuture(uuid).result();
+            }
+
             QString addDownloadToMedia(const QUuid &uuid) {
                 return addDownloadToMediaFuture(uuid).result();
             }

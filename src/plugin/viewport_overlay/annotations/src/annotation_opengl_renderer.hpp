@@ -42,7 +42,7 @@ namespace ui {
                 const std::string &viewport_name,
                 std::atomic_bool &cursor_blink,
                 std::atomic_bool &hide_all,
-                std::atomic_bool *hide_strokes,
+                std::atomic_int *hide_strokes,
                 std::atomic_bool *hide_all2);
 
             void render_image_overlay(
@@ -69,7 +69,7 @@ namespace ui {
             const std::string viewport_name_;
             std::atomic_bool &cursor_blink_;
             std::atomic_bool &hide_all_;
-            std::atomic_bool *hide_strokes_;
+            std::atomic_int *hide_strokes_;
             std::atomic_bool *hide_all_2_;
         };
 

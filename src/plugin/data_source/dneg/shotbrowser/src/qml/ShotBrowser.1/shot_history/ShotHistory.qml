@@ -25,6 +25,7 @@ Item{
 
     // Track the uuid of the media that is currently visible in the Viewport
     property var onScreenMediaUuid: currentPlayhead.mediaUuid
+    property var onScreenClipUuid: currentPlayhead.clipUuid
     property var onScreenLogicalFrame: currentPlayhead.logicalFrame
 
     property int queryCounter: 0
@@ -43,6 +44,7 @@ Item{
     readonly property bool linkMode: false
 
     onOnScreenMediaUuidChanged: {if(visible) updateTimer.start()}
+    onOnScreenClipUuidChanged: { if(visible) updateTimer.start() }
 
     onSentToChanged: {
         runQuery()
@@ -100,7 +102,7 @@ Item{
         repeat: false
         onTriggered: {
             isPaused = false
-            ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid)
+            ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid, onScreenClipUuid)
         }
     }
 
@@ -149,7 +151,7 @@ Item{
 
     onIsPanelEnabledChanged: {
         if(isPanelEnabled) {
-            ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid)
+            ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid, onScreenClipUuid)
             runQuery()
         }
     }
@@ -158,7 +160,7 @@ Item{
         if(visible) {
             ShotBrowserEngine.connected = true
             setIndexFromPreference()
-            ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid)
+            ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid, onScreenClipUuid)
             isPaused = false
             runQuery()
         } else
@@ -169,7 +171,7 @@ Item{
         if(visible) {
             ShotBrowserEngine.connected = true
             setIndexFromPreference()
-            ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid)
+            ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid, onScreenClipUuid)
             isPaused = false
             runQuery()
         }

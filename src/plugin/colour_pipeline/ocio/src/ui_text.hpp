@@ -83,6 +83,8 @@ struct UiText {
     std::string GLOBAL_VIEW_SHORT       = "Apply OCIO view all";
     std::string UTM_MODE                = "Avoid LUT inversion for external media";
     std::string UTM_MODE_SHORT          = "Avoid LUT inv";
+    std::string SAT_ORDER               = "Apply viewport saturation after OCIO display view";
+    std::string SAT_ORDER_SHORT         = "Apply sat after";
 
     std::string CS_MSG_CMS_SELECT_CLR_TIP =
         "Select colour channel to display. You can also use R,G,B,A,Ctrl+L hotkeys.";
@@ -123,6 +125,8 @@ struct UiText {
                                       "(uncheck to use different views per media)";
     std::string UTM_MODE_TOOLTIP = "Avoid full scene-linear roundtrip for external media (can "
                                    "mitigate LUT inversion artefacts)";
+    std::string SAT_ORDER_TOOLTIP =
+        "Apply saturation after the OCIO display view transform (as opposed to before)";
 
     std::vector<std::string> OCIO_LOAD_ERROR = {"Error could not load OCIO config"};
 };

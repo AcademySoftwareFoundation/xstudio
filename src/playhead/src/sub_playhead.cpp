@@ -2633,8 +2633,9 @@ void SubPlayhead::check_if_media_changed(const media::AVFrameID *frame_id) {
     // need to knw about what the on-screen media is (like HUD Plugins or colour pipeline) will
     // recieve this info which is forwarded on by other intermediaries (ViewportFrameQueueActor,
     // GlobalPlayheadEventsActor etc)
-    if (frame_id && (frame_id->source_uuid() != current_source_ ||
-                     frame_id->media_uuid() != current_media_)) {
+    if (frame_id &&
+        (frame_id->source_uuid() != current_source_ ||
+         frame_id->media_uuid() != current_media_ || frame_id->clip_uuid() != current_clip_)) {
 
         // if current_source_ is null, it means we've had a change event and
         // rebuilt the timeline frames. This could be because the media rate
@@ -2644,6 +2645,7 @@ void SubPlayhead::check_if_media_changed(const media::AVFrameID *frame_id) {
 
         current_source_ = frame_id->source_uuid();
         current_media_  = frame_id->media_uuid();
+        current_clip_   = frame_id->clip_uuid();
         mail(
             event_atom_v,
             media_source_atom_v,
@@ -2651,6 +2653,7 @@ void SubPlayhead::check_if_media_changed(const media::AVFrameID *frame_id) {
                 current_media_, caf::actor_cast<caf::actor>(frame_id->media_addr())),
             utility::UuidActor(
                 current_source_, caf::actor_cast<caf::actor>(frame_id->media_source_addr())),
+            current_clip_,
             sub_playhead_index_,
             check_rate)
             .send(parent_);
@@ -2664,6 +2667,7 @@ void SubPlayhead::check_if_media_changed(const media::AVFrameID *frame_id) {
             media_source_atom_v,
             utility::UuidActor(),
             utility::UuidActor(),
+            utility::Uuid(),
             sub_playhead_index_,
             false)
             .send(parent_);

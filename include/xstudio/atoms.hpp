@@ -512,6 +512,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_framework_atoms, FIRST_CUSTOM_ID + (200 * 2))
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::global_store, read_only_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::sync, kick_client_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::sync, mute_client_atom)
+    CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::sync, session_event_atom)
 
 CAF_END_TYPE_ID_BLOCK(xstudio_framework_atoms)
 

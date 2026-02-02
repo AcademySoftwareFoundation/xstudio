@@ -13,6 +13,35 @@ using namespace xstudio;
 using namespace xstudio::ui::viewport;
 
 
+bookmark::BookmarkAndAnnotations xstudio::ui::viewport::get_active_grade_bookmarks(
+    const xstudio::media_reader::ImageBufPtr &image) {
+
+    bookmark::BookmarkAndAnnotations grade_bookmarks;
+
+    // Make sure the bookmarks are applied in a consistent order.
+    // The order matters when applying multiple CDLs.
+    bookmark::BookmarkAndAnnotations all_bookmarks = image.bookmarks();
+    std::sort(all_bookmarks.begin(), all_bookmarks.end(), [](auto &a, auto &b) {
+        if (a->detail_.created_ && b->detail_.created_) {
+            return a->detail_.created_.value() < b->detail_.created_.value();
+        } else {
+            // Make a guess
+            return true;
+        }
+    });
+
+    for (auto &bookmark : all_bookmarks) {
+        if (bookmark->detail_.user_type_.value_or("") == "Grading") {
+            auto grading_data = dynamic_cast<const GradingData *>(bookmark->annotation_.get());
+            if (grading_data) {
+                grade_bookmarks.push_back(bookmark);
+            }
+        }
+    }
+
+    return grade_bookmarks;
+}
+
 std::vector<GradingInfo>
 xstudio::ui::viewport::get_active_grades(const xstudio::media_reader::ImageBufPtr &image) {
 
@@ -31,11 +60,16 @@ xstudio::ui::viewport::get_active_grades(const xstudio::media_reader::ImageBufPt
     });
 
     for (auto &bookmark : bookmarks) {
-        auto bookmark_data = dynamic_cast<const GradingData *>(bookmark->annotation_.get());
-        if (bookmark_data) {
-            auto json_data = bookmark->detail_.user_data_.value_or(utility::JsonStore());
-            bool isActive  = json_data.get_or("grade_active", true);
-            active_grades.push_back({bookmark_data, isActive});
+        if (bookmark->detail_.user_type_.value_or("") == "Grading") {
+            auto grading_data = dynamic_cast<const GradingData *>(bookmark->annotation_.get());
+            if (grading_data) {
+                auto json_data    = bookmark->detail_.user_data_.value_or(utility::JsonStore());
+                bool grade_active = json_data.get_or("grade_active", true);
+                active_grades.push_back({
+                    grading_data,
+                    grade_active,
+                });
+            }
         }
     }
 
@@ -52,14 +86,17 @@ xstudio::ui::viewport::get_active_grades(const xstudio::media_reader::ImageBufPt
             auto blind_uuid = render_data->interaction_grading_data_.bookmark_uuid_;
 
             if (!active_grades.empty()) {
-                for (auto &[grade_data, _] : active_grades) {
-                    if (grade_data->bookmark_uuid_ == blind_uuid) {
-                        grade_data = &(render_data->interaction_grading_data_);
+                for (auto &grade_info : active_grades) {
+                    if (grade_info.data->bookmark_uuid_ == blind_uuid) {
+                        grade_info.data = &(render_data->interaction_grading_data_);
                         break;
                     }
                 }
             } else {
-                active_grades.push_back({&(render_data->interaction_grading_data_), true});
+                active_grades.push_back({
+                    &(render_data->interaction_grading_data_),
+                    true,
+                });
             }
         }
     }

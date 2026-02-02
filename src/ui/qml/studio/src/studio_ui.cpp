@@ -31,8 +31,8 @@ StudioUI::StudioUI(caf::actor_system &system, QObject *parent) : QMLActor(parent
 
 StudioUI::~StudioUI() {
     caf::scoped_actor sys(system());
-    for (auto output_plugin : video_output_plugins_) {
-        sys->send_exit(output_plugin, caf::exit_reason::user_shutdown);
+    for (const auto &output_plugin : video_output_plugins_) {
+        sys->send_exit(output_plugin.second, caf::exit_reason::user_shutdown);
     }
     video_output_plugins_.clear();
     // Ofscreen viewports are unparented as they are running
@@ -162,6 +162,15 @@ void StudioUI::init(actor_system &system_) {
                 anon_mail(
                     ui::offscreen_viewport_atom_v, offscreen_viewports_.back()->as_actor())
                     .send(requester);
+            },
+
+            [=](plugin_manager::spawn_plugin_atom, const utility::Uuid plugin_uuid) {
+                // This message handler allows us to selectively enable a
+                // video output plugin that is disabled by default. For example
+                // the xSTYDUI Sync plugin requires the NVidiaVideoStream video
+                // output plugin. It uses this message to switch it on.
+
+                loadVideoOutputPlugin(plugin_uuid);
             }
 
         };
@@ -422,45 +431,66 @@ void StudioUI::updateDataSources() {
     }
 }
 
-void StudioUI::loadVideoOutputPlugins() {
+void StudioUI::loadVideoOutputPlugin(const utility::Uuid &plugin_id) {
+
+    if (video_output_plugins_.find(plugin_id) != video_output_plugins_.end())
+        return;
 
     try {
+
         scoped_actor sys{system()};
-        bool changed = false;
+
+        auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
+
+        auto video_output_plugin = request_receive<caf::actor>(
+            *sys, pm, plugin_manager::spawn_plugin_atom_v, plugin_id);
+
+        video_output_plugins_[plugin_id] = video_output_plugin;
+
+        self()->monitor(
+            video_output_plugin, [this, addr = video_output_plugin.address()](const error &) {
+                for (auto p = video_output_plugins_.begin(); p != video_output_plugins_.end();
+                     ++p) {
+                    if (p->second == addr) {
+                        video_output_plugins_.erase(p);
+                        break;
+                    }
+                }
+            });
+
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+}
+
+
+void StudioUI::loadVideoOutputPlugins() {
+
+    std::vector<plugin_manager::PluginDetail> plugin_details;
+    try {
+
+        scoped_actor sys{system()};
+        auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
 
         // connect to plugin manager, acquire enabled datasource plugins
         // watch for changes..
-        auto pm      = system().registry().template get<caf::actor>(plugin_manager_registry);
-        auto details = request_receive<std::vector<plugin_manager::PluginDetail>>(
+        plugin_details = request_receive<std::vector<plugin_manager::PluginDetail>>(
             *sys,
             pm,
             utility::detail_atom_v,
             plugin_manager::PluginType(plugin_manager::PluginFlags::PF_VIDEO_OUTPUT));
 
-        for (const auto &i : details) {
-
-            auto video_output_plugin = request_receive<caf::actor>(
-                *sys, pm, plugin_manager::spawn_plugin_atom_v, i.uuid_);
-
-            self()->monitor(
-                video_output_plugin,
-                [this, addr = video_output_plugin.address()](const error &) {
-                    for (auto p = video_output_plugins_.begin();
-                         p != video_output_plugins_.end();
-                         ++p) {
-                        if (*p == addr) {
-                            video_output_plugins_.erase(p);
-                            break;
-                        }
-                    }
-                });
-
-            video_output_plugins_.push_back(video_output_plugin);
-        }
-
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
+
+    for (const auto &i : plugin_details) {
+
+        if (i.enabled_) {
+            loadVideoOutputPlugin(i.uuid_);
+        }
+    }
+
 
     // here we tell the studio that we're up and running so it can send us
     // any pending 'quickview' requests. This is only needed if the app itself is

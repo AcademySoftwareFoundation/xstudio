@@ -141,6 +141,17 @@ XsWindow {
                 onActivated: {
                 	project_id = parseInt(currentValue)
                 }
+
+                onAccepted: {
+                    if (find(editText) === -1) {
+                        project_id = 0
+                        currentIndex = 0
+                    } else {
+                        currentIndex = find(editText)
+                        project_id = parseInt(currentValue)
+                    }
+                    focus = false
+                }
             }
 
 
@@ -161,9 +172,8 @@ XsWindow {
                 	currentIndex = find(helpers.expandEnvVars(locationPref.value), Qt.MatchExactly)
                 }
 
-                onActivated: {
-                	locationPref.value = currentText
-                }
+                onActivated: {locationPref.value = currentText}
+                onAccepted: {locationPref.value = currentText}
             }
 
             XsLabel {
@@ -244,7 +254,10 @@ XsWindow {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.bottomMargin: 10
-                onClicked: publish()
+                onClicked: {
+                    myFooter.focus = true
+                    publish()
+                }
             }
         }
     }

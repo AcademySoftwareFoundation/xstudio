@@ -179,7 +179,7 @@ namespace playhead {
         caf::actor parent_;
         caf::actor event_group_;
 
-        utility::Uuid current_source_, current_media_;
+        utility::Uuid current_source_, current_media_, current_clip_;
         utility::time_point last_image_timepoint_;
         bool waiting_for_next_frame_ = {false};
         timebase::flicks loop_in_point_;

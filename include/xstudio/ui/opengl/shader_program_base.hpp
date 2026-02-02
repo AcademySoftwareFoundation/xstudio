@@ -50,7 +50,7 @@ namespace ui {
 
             void inject_colour_op_shader(const std::string &colour_op_shader);
 
-            void compile(const bool force_combine_frag_shaders = false);
+            void compile(const bool force_combine_frag_shaders = true);
             void use() const;
             void stop_using() const;
             void set_shader_parameters(const utility::JsonStore &shader_params);
@@ -69,6 +69,7 @@ namespace ui {
             std::map<std::string, int> locations_;
             std::vector<std::string> vertex_shaders_;
             std::vector<std::string> fragment_shaders_;
+            std::vector<std::string> orig_fragment_shaders_;
             std::vector<GLuint> shaders_;
             int colour_operation_index_ = {1};
         };

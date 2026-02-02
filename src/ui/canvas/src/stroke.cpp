@@ -161,6 +161,11 @@ void Stroke::make_arrow(const Imath::V2f &start, const Imath::V2f &end) {
     add_point(end + v - t);
 }
 
+void Stroke::add_points(const std::vector<Point> &points) {
+    _points.insert(_points.end(), points.begin(), points.end());
+    update_hash(true);
+}
+
 void Stroke::add_point(const Imath::V2f &pt, float pressure) {
 
     if ((_points.empty() || _points.back().pos != pt)) {

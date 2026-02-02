@@ -621,6 +621,9 @@ struct CLIArguments {
     args::Flag disable_vsync = {
         misc, "disable-vsync", "Disable sync to video refresh", {"disable-vsync"}};
 
+    args::ValueFlagList<std::string> force_enable_plugin = {
+        misc, "UUID", "Force enable a disabled plugin with its UUID", {"enable-plugin"}};
+
     args::CompletionFlag completion = {parser, {"complete"}};
     void parse_args(int argc, char **argv) {
         try {
@@ -670,6 +673,13 @@ struct Launcher {
         actions["disable_vsync"]       = cli_args.disable_vsync.Matched();
         actions["compare"]             = static_cast<std::string>(args::get(cli_args.compare));
         actions["silence_qt_warnings"] = cli_args.silence_qt_warnings.Matched();
+
+        for (const auto ep : args::get(cli_args.force_enable_plugin)) {
+            if (!actions.contains("force_enable_plugins")) {
+                actions["force_enable_plugins"] = nlohmann::json::array();
+            }
+            actions["force_enable_plugins"].push_back(ep);
+        }
 
         // check for xstudio url..
         if (args::get(cli_args.media_paths).size() == 1 and
@@ -822,6 +832,23 @@ struct Launcher {
 
         auto pm =
             request_receive<caf::actor>(*self, global_actor, global::get_plugin_manager_atom_v);
+
+        if (actions.contains("force_enable_plugins")) {
+            try {
+                for (auto &p : actions["force_enable_plugins"]) {
+                    const auto id = p.get<utility::Uuid>();
+                    anon_mail(
+                        plugin_manager::spawn_plugin_atom_v,
+                        id,                   // plugin UUID
+                        utility::JsonStore(), // init settings (not used)
+                        true                  // resident flag
+                        )
+                        .send(pm);
+                }
+            } catch (std::exception &e) {
+                spdlog::warn("Failed to use --enable-plugin CLI option: {}", e.what());
+            }
+        }
 
         auto media_sent = false;
         for (const auto &p : actions["playlists"].items()) {

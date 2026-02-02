@@ -34,6 +34,7 @@ Item{
     property bool linkMode: false
 
     property var onScreenMediaUuid: currentPlayhead.mediaUuid
+    property var onScreenClipUuid: currentPlayhead.clipUuid
     property var onScreenLogicalFrame: currentPlayhead.logicalFrame
 
     property int projectId: -1
@@ -66,6 +67,7 @@ Item{
     property bool isPaused: false
 
     onOnScreenMediaUuidChanged: {if(visible) updateTimer.start()}
+    onOnScreenClipUuidChanged: { if(visible) updateTimer.start() }
 
     onCurrentPresetIndexChanged: {
         if(currentPresetIndex.valid)
@@ -140,7 +142,7 @@ Item{
     function updateMetaData() {
         if(visible) {
             if((currentCategory == "Menus" && currentPresetIndex.valid) || (currentCategory == "Tree" && sequenceTreeLiveLink))
-                return ShotBrowserHelpers.updateMetadata(true, onScreenMediaUuid)
+                return ShotBrowserHelpers.updateMetadata(true, onScreenMediaUuid, onScreenClipUuid)
         }
         return false
     }
@@ -393,6 +395,10 @@ Item{
                 sequenceFilterModel.typeFilter = prefs.filterType[proj]
             else
                 sequenceFilterModel.typeFilter = []
+
+
+            assetFilterModel.manifestFilter = {}
+            sequenceFilterModel.manifestFilter = {}
         }
     }
 

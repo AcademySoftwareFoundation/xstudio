@@ -198,7 +198,6 @@ void SessionModel::init(caf::actor_system &_system) {
                 caf::actor_addr media) {
                 // re-broadcast of media_display_info_atom event that came from
                 // a MediaActor. The playlist has done the re-braodcast
-
                 auto src     = caf::actor_cast<caf::actor>(self()->current_sender());
                 auto src_str = actorToString(system(), src);
                 // request update of children..
@@ -238,7 +237,6 @@ void SessionModel::init(caf::actor_system &_system) {
                     }
                 }
             },
-
             [=](utility::event_atom,
                 media::add_media_source_atom,
                 const utility::UuidActorVector &uav) {

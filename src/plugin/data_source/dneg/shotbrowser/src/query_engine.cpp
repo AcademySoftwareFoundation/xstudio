@@ -2494,7 +2494,9 @@ utility::JsonStore QueryEngine::get_livelink_value(
 
         } else if (term == "Entity") {
 
-            if (metadata.contains(json::json_pointer("/metadata/shotgun/version"))) {
+            if (metadata.contains(json::json_pointer("/metadata/shotgun/version")) and
+                not metadata.contains(
+                    json::json_pointer("/metadata/clip/metadata/external/DNeg/shot"))) {
                 auto type = metadata.at(
                     json::json_pointer(
                         "/metadata/shotgun/version/relationships/entity/data/type"));

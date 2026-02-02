@@ -3,6 +3,7 @@
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/chrono.hpp"
 #include "xstudio/media_reader/image_buffer_set.hpp"
+#include "xstudio/media/media_actor.hpp"
 
 #ifdef __apple__
 #include <OpenGL/gl3.h>
@@ -658,6 +659,17 @@ void MediaMetadataHUD::trim_cache() {
             }
             p++;
         }
+
+        // when we remove a particular media items data from our cache, we
+        // also stop listening for its change events
+        auto wm = watched_media_.find(q->first);
+        if (wm != watched_media_.end()) {
+            auto media_actor = caf::actor_cast<caf::actor>(wm->second);
+            if (media_actor)
+                utility::leave_event_group(this, media_actor);
+            watched_media_.erase(wm);
+        }
+
         media_metadata_.erase(q);
     }
 }
@@ -781,9 +793,25 @@ void MediaMetadataHUD::update_media_metadata_for_media(
 
     const auto media_actor = frame_id.media_actor();
 
+    if (watched_media_.find(media_source_actor.uuid()) == watched_media_.end()) {
+        // we want to subscribe to event group of media item, so that we know
+        // if metadata has changed and we can update the metadata ...
+        watched_media_[media_source_actor.uuid()] = frame_id.media_addr();
+        utility::join_event_group(this, media_actor.actor());
+    }
+
+    update_media_metadata_for_media(
+        media_source_actor, media_actor.actor(), update_profile_attr);
+}
+
+void MediaMetadataHUD::update_media_metadata_for_media(
+    utility::UuidActor media_source_actor,
+    caf::actor media_actor,
+    const bool update_profile_attr) {
+
     utility::JsonStore *result = new utility::JsonStore;
     mail(json_store::get_json_atom_v, media_selected_metadata_fields_)
-        .request(media_actor.actor(), infinite)
+        .request(media_actor, infinite)
         .then(
             [=](utility::JsonStore selected_media_metadata) mutable {
                 result->merge(selected_media_metadata);
@@ -1154,6 +1182,52 @@ void MediaMetadataHUD::new_metadata(
         }
         full_metadata_set_->set_value(j);
     }
+}
+
+caf::message_handler MediaMetadataHUD::message_handler_extensions() {
+
+    // Note we merge the default event handler for MediaActor because we are
+    // subscribing to the event messages from media items as they go on-screen
+    // so that we can update the on-screen metadata if it changes in the source
+    // MediaActor - so, for example, if some other plugin/component changes
+    // media metadata like refreshing shotgrid data the update is reflected on
+    // screen
+    return caf::message_handler(
+               {[=](json_store::update_atom,
+                    const utility::JsonStore &change,
+                    const std::string &path,
+                    const utility::JsonStore &) {
+                    // json store data has changed. Was it on a media item that we
+                    // have cached on-screen metadata values for ... ?
+                    auto actor_addr = caf::actor_cast<caf::actor_addr>(current_sender());
+                    for (const auto &p : watched_media_) {
+                        if (p.second == actor_addr) {
+                            // ... yes
+                            caf::actor media_actor =
+                                caf::actor_cast<caf::actor>(current_sender());
+                            if (media_actor) {
+                                // get the media source too
+                                mail(media::current_media_source_atom_v, media::MT_IMAGE)
+                                    .request(media_actor, infinite)
+                                    .then(
+                                        [=](utility::UuidActor media_source) {
+                                            // now update the metadata cache
+                                            update_media_metadata_for_media(
+                                                media_source, media_actor, true);
+                                            render_data_per_image_cache_.clear();
+                                        },
+                                        [=](caf::error &err) {
+                                            spdlog::warn(
+                                                "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                        });
+                            }
+                        }
+                    }
+                },
+                [=](json_store::update_atom, const utility::JsonStore &) {}})
+        .or_else(
+            media::MediaActor::default_event_handler().or_else(
+                plugin::HUDPluginBase::message_handler_extensions()));
 }
 
 extern "C" {

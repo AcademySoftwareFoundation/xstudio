@@ -115,7 +115,18 @@ MediaActor::MediaActor(
 
 caf::message_handler MediaActor::default_event_handler() {
     return {
+
+        [=](utility::event_atom, utility::change_atom) {},
+        [=](utility::event_atom,
+            bookmark::bookmark_change_atom,
+            const utility::Uuid &,
+            const utility::UuidList &) {},
+        [=](utility::event_atom, bookmark::bookmark_change_atom, const utility::Uuid &) {},
         [=](utility::event_atom, current_media_source_atom, const utility::UuidActor &) {},
+        [=](utility::event_atom,
+            current_media_source_atom,
+            const utility::UuidActor &,
+            const MediaType) {},
         [=](utility::event_atom,
             playlist::reflag_container_atom,
             const utility::Uuid &,
@@ -127,6 +138,9 @@ caf::message_handler MediaActor::default_event_handler() {
             const std::string &,
             const JsonStore &) {},
         [=](json_store::update_atom, const JsonStore &) {},
+        [=](utility::event_atom,
+            media_reader::get_thumbnail_atom,
+            const thumbnail::ThumbnailBufferPtr &) {},
         [=](utility::event_atom, media::media_display_info_atom, const utility::JsonStore &) {
         }};
 }
@@ -1469,13 +1483,17 @@ caf::message_handler MediaActor::message_handler() {
             const JsonStore &change,
             const std::string &path,
             const JsonStore &full) {
-            if (current_sender() == json_store_)
+            if (current_sender() == json_store_) {
                 mail(json_store::update_atom_v, change, path, full).send(base_.event_group());
+                anon_mail(media_display_info_atom_v).send(this);
+            }
         },
 
         [=](json_store::update_atom, const JsonStore &full) mutable {
-            if (current_sender() == json_store_)
+            if (current_sender() == json_store_) {
                 mail(json_store::update_atom_v, full).send(base_.event_group());
+                anon_mail(media_display_info_atom_v).send(this);
+            }
         },
 
         [=](media_display_info_atom,
@@ -2082,19 +2100,22 @@ void MediaActor::build_media_list_info(caf::typed_response_promise<utility::Json
                 // Temporary hack ... this event_atom, media_display_info_atom message will hit
                 // the SessionModelUI (via the parent playlist of this media). In SessionModelUI
                 // it then looks up the corresponding Media item in it's internal model data and
-                // updates the data for media_display_info. However, if this media item hasn't 
+                // updates the data for media_display_info. However, if this media item hasn't
                 // quite yet been added to the SessionModelUI then the lookup is very slow and
-                // then fails, as it falls back to a brute force recursive search for the matching 
-                // actor_address so it looks through the whole model.
+                // then fails, as it falls back to a brute force recursive search for the
+                // matching actor_address so it looks through the whole model.
 
-                // On MediaActor creation the media_list_columns_info_ is updated a coupld of 
+                // On MediaActor creation the media_list_columns_info_ is updated a coupld of
                 // times as the media item (and media sources) are built so we end up here.
 
                 // Thus if we add lots of media at once (e.g. building a playlist) xstudio can
                 // freeze due to all these recursive searches. We therefore don't want to emit
                 // these events until some time after the media item has been created.
-                if ((utility::clock::now()-creation_time_) > std::chrono::seconds(5)) {
-                    mail(utility::event_atom_v, media_display_info_atom_v, media_list_columns_info_)
+                if ((utility::clock::now() - creation_time_) > std::chrono::seconds(5)) {
+                    mail(
+                        utility::event_atom_v,
+                        media_display_info_atom_v,
+                        media_list_columns_info_)
                         .send(base_.event_group());
                 }
             }

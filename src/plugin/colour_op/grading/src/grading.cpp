@@ -8,6 +8,7 @@
 #include "xstudio/media_reader/image_buffer_set.hpp"
 
 #include "grading.h"
+#include "grading_common.h"
 #include "grading_mask_render_data.h"
 #include "grading_mask_gl_renderer.h"
 #include "grading_colour_op.hpp"
@@ -52,6 +53,10 @@ GradingTool::GradingTool(caf::actor_config &cfg, const utility::JsonStore &init_
     media_colour_managed_ =
         add_boolean_attribute("media_colour_managed", "media_colour_managed", false);
     media_colour_managed_->expose_in_ui_attrs_group("grading_settings");
+
+    grade_copying_ = add_boolean_attribute("grade_copying", "grade_copying", false);
+    grade_copying_->set_redraw_viewport_on_change(true);
+    grade_copying_->expose_in_ui_attrs_group("grading_settings");
 
     // Grading elements
 
@@ -290,17 +295,24 @@ void GradingTool::images_going_on_screen(
         return;
     }
 
+    // Make sure we have the latest images on screen, this is used for grading
+    // layers copy / pasting as the below doesn't refresh when grade values within
+    // a layer are updated.
+    viewport_current_images_ = images;
+
     // It's useful to keep a hold of the images that are on-screen so if the
     // user starts drawing when there is a bookmark on screen then we can
     // add the strokes to that existing bookmark instead of making a brand
     // new note
-    if (images && current_frame_id_.key() != images->hero_image().frame_id().key()) {
+    if (images && (current_frame_id_.key() != images->hero_image().frame_id().key() ||
+                   current_bookmarks_count_ != images->hero_image().bookmarks().size())) {
 
         current_viewport_        = viewport_name;
         viewport_current_images_ = images;
         playhead_media_frame_    = images->hero_image().frame_id().frame() -
                                 images->hero_image().frame_id().first_frame();
-        current_frame_id_ = images->hero_image().frame_id();
+        current_frame_id_        = images->hero_image().frame_id();
+        current_bookmarks_count_ = images->hero_image().bookmarks().size();
 
         if (!grading_data_.bookmark_uuid_.is_null()) {
             // here we check if the current edited bookmark is still on-screen,
@@ -321,7 +333,8 @@ void GradingTool::images_going_on_screen(
     } else if (!images) {
         viewport_current_images_.reset();
         select_bookmark(utility::Uuid());
-        current_frame_id_ = media::AVFrameID();
+        current_frame_id_        = media::AVFrameID();
+        current_bookmarks_count_ = 0;
     }
 }
 
@@ -386,6 +399,7 @@ void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const i
         if (grading_action_->value() == "Clear") {
 
             clear_grade();
+            clear_mask();
             refresh_current_grade_from_ui();
 
         } else if (utility::starts_with(grading_action_->value(), "Save CDL ")) {
@@ -437,6 +451,43 @@ void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const i
             }
 
             select_bookmark(bm_uuid);
+
+        } else if (grading_action_->value() == "Copy Layer") {
+
+            grading_bookmark_buffer_.clear();
+
+            if (viewport_current_images_ && viewport_current_images_->hero_image()) {
+
+                for (const auto &bookmark :
+                     get_active_grade_bookmarks(viewport_current_images_->hero_image())) {
+                    if (bookmark->detail_.uuid_ == current_bookmark()) {
+                        grading_bookmark_buffer_.push_back(bookmark);
+                    }
+                }
+            }
+
+            grade_copying_->set_value(!grading_bookmark_buffer_.empty(), false);
+
+        } else if (grading_action_->value() == "Copy All Layer") {
+
+            grading_bookmark_buffer_.clear();
+
+            if (viewport_current_images_ && viewport_current_images_->hero_image()) {
+                grading_bookmark_buffer_ =
+                    get_active_grade_bookmarks(viewport_current_images_->hero_image());
+            }
+
+            grade_copying_->set_value(!grading_bookmark_buffer_.empty(), false);
+
+        } else if (grading_action_->value() == "Paste Layer") {
+
+            int startlayerno = current_bookmarks_count_;
+            for (const auto &bookmark : grading_bookmark_buffer_) {
+                save_bookmark();
+                grading_data_ = *static_cast<const GradingData *>(bookmark->annotation_.get());
+                create_bookmark(startlayerno++, bookmark->detail_);
+                save_bookmark();
+            }
         }
 
         grading_action_->set_value("");
@@ -1055,9 +1106,6 @@ utility::Uuid GradingTool::current_bookmark() const {
 
 utility::UuidList GradingTool::current_clip_bookmarks() {
 
-    // const utility::UuidList bookmarks_list =
-    utility::UuidList d = get_bookmarks_on_current_media(current_viewport_);
-
     utility::UuidList filtered_list;
     if (viewport_current_images_ && viewport_current_images_->hero_image()) {
 
@@ -1078,7 +1126,7 @@ void GradingTool::create_bookmark_if_empty() {
     }
 }
 
-void GradingTool::create_bookmark() {
+void GradingTool::create_bookmark(int layerno, const bookmark::BookmarkDetail &from) {
 
     if (viewport_current_images_ && viewport_current_images_->hero_image()) {
 
@@ -1088,20 +1136,30 @@ void GradingTool::create_bookmark() {
         bmd.visible_   = false;
         bmd.user_type_ = "Grading";
 
+        // Update layer QML data
         utility::JsonStore user_data;
-        user_data["grade_active"] = true;
-        user_data["mask_active"]  = false;
-
-        auto clip_layers        = current_clip_bookmarks();
-        user_data["layer_name"] = "Grade Layer " + std::to_string(clip_layers.size() + 1);
-
+        utility::JsonStore from_user_data = from.user_data_.value_or(utility::JsonStore());
+        user_data["grade_active"]         = from_user_data.get_or("grade_active", true);
+        user_data["mask_active"]          = from_user_data.get_or("mask_active", false);
+        if (layerno == -1) {
+            auto clip_layers        = current_clip_bookmarks();
+            user_data["layer_name"] = "Grade Layer " + std::to_string(clip_layers.size() + 1);
+        } else {
+            user_data["layer_name"] = "Grade Layer " + std::to_string(layerno + 1);
+        }
         bmd.user_data_ = user_data;
+
+        // Entire clip by default
+        bool full_clip = true;
+        if (from.uuid_) {
+            full_clip = from.duration_ == timebase::k_flicks_max;
+        }
 
         auto uuid = StandardPlugin::create_bookmark_on_frame(
             viewport_current_images_->hero_image().frame_id(),
             "Grading Note", // bookmark_subject
             bmd,            // detail
-            true            // bookmark_entire_duration
+            full_clip       // bookmark_entire_duration
         );
 
         grading_data_.bookmark_uuid_ = uuid;

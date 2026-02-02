@@ -295,17 +295,23 @@ function downloadMissingMovies(indexes=[]) {
 	if(indexes.length) {
 		for(let i = 0; i< indexes.length; i++) {
 			let m = indexes[i].model
-            // let cindex = model.index(0, 0, indexes[i])
-            // let ccount = model.rowCount(cindex)
-            // for(let i =0; i< ccount; ++i) {
-            //     // is online.
-            //     let mindex = model.index(i,0,cindex)
 
             if(m.get(indexes[i], "mediaStatusRole") != "Online")
                 downloadMovies([indexes[i]])
-            // }
         }
     }
+}
+
+function refreshMetadata(indexes=[]) {
+	if(indexes.length) {
+		let m = indexes[0].model
+		for(let i = 0; i< indexes.length; i++) {
+		    Future.promise(ShotBrowserEngine.refreshMetadataFuture(m.get(indexes[i], "actorUuidRole"))).then(
+		        function(result) {},
+		        function() {}
+		    )
+		}
+	}
 }
 
 function downloadMovies(indexes=[]) {
@@ -954,20 +960,26 @@ function shiftSelectItem(selectionModel, index) {
 	}
 }
 
-function updateMetadata(enabled, mediaUuid) {
-    if(enabled && ShotBrowserEngine.liveLinkKey != mediaUuid) {
-        ShotBrowserEngine.liveLinkKey = mediaUuid
+function updateMetadata(enabled, mediaUuid, clipUuid) {
 
-        let mindex = theSessionData.searchRecursive(mediaUuid, "actorUuidRole", theSessionData.index(0, 0))
-        if(mindex.valid) {
+	if(enabled && ShotBrowserEngine.liveLinkKey != mediaUuid + clipUuid) {
+        ShotBrowserEngine.liveLinkKey = mediaUuid + clipUuid
+		let mindex = null
+		let cindex = null
+
+        if(mediaUuid != "{00000000-0000-0000-0000-000000000000}")
+			mindex = theSessionData.searchRecursive(mediaUuid, "actorUuidRole", theSessionData.index(0, 0))
+
+        if(clipUuid != "{00000000-0000-0000-0000-000000000000}")
+			cindex = theSessionData.searchRecursive(clipUuid, "idRole", theSessionData.index(0, 0))
+
+        if(mindex && mindex.valid) {
             Future.promise(
                 mindex.model.getJSONFuture(mindex, "", true)
             ).then(function(json_string) {
-                ShotBrowserEngine.liveLinkKey = mediaUuid
+                // ShotBrowserEngine.liveLinkKey = mediaUuid
                 // inject current sources.
-
                 let jsn = JSON.parse(json_string)
-
                 try {
 	                let image_actor_idx = mindex.model.searchRecursive(mindex.model.get(mindex, "imageActorUuidRole"), "actorUuidRole", mindex)
 	                let audio_actor_idx = mindex.model.searchRecursive(mindex.model.get(mindex, "audioActorUuidRole"), "actorUuidRole", mindex)
@@ -983,6 +995,10 @@ function updateMetadata(enabled, mediaUuid) {
 		                jsn["metadata"]["audio_source"] = ["movie_dneg"]
 	                }
 	            }catch(err){}
+
+	            if(cindex && cindex.valid)
+	            	jsn["metadata"]["clip"] = cindex.model.get(cindex,"propertyRole")
+
                 ShotBrowserEngine.liveLinkMetadata = JSON.stringify(jsn)
             })
             return true
@@ -1197,32 +1213,59 @@ function refreshTags(selected) {
     sequenceBaseModel.tags = tags
 }
 
-function tagResultVersions(type, id, results) {
+function tagResultVersions(type, id, results, prerun=true) {
 	let reftag = ShotBrowserEngine.refTagNameFromEntity(type, id)
 	let indexes = mapIndexesToResultModel(results)
 
-	indexes.forEach(function (item, index) {
+	if(prerun) {
 		Future.promise(
 		        ShotBrowserEngine.tagEntityFromNameFuture(
-		        	item.model.get(item, "typeRole"),
-		        	item.model.get(item, "idRole"),
+		        	indexes[0].model.get(indexes[0], "typeRole"),
+		        	indexes[0].model.get(indexes[0], "idRole"),
 		        	reftag
 		        )
 		    ).then(
 			    function(json_string) {
 			    	try {
 			    		let obj = JSON.parse(json_string)
-			    		item.model.set(item, obj.data.relationships.tags.data, "tagRole")
+			    		indexes[0].model.set(indexes[0], obj.data.relationships.tags.data, "tagRole")
 		                refreshTags(results)
+
 			    	} catch(err) {
 			    		console.log(err)
 			    	}
+					tagResultVersions(type, id, results, false)
 			    },
 			    function(err) {
-			    	console.log("ERROR: tagResultVersions", type, id, item, err)
+			    	console.log("ERROR: tagResultVersions", type, id, indexes[0], err)
+			    	tagResultVersions(type, id, results, false)
 			    }
 		    )
-	})
+	} else {
+		indexes.splice(0, 1)
+		indexes.forEach(function (item, index) {
+			Future.promise(
+			        ShotBrowserEngine.tagEntityFromNameFuture(
+			        	item.model.get(item, "typeRole"),
+			        	item.model.get(item, "idRole"),
+			        	reftag
+			        )
+			    ).then(
+				    function(json_string) {
+				    	try {
+				    		let obj = JSON.parse(json_string)
+				    		item.model.set(item, obj.data.relationships.tags.data, "tagRole")
+			                refreshTags(results)
+				    	} catch(err) {
+				    		console.log(err)
+				    	}
+				    },
+				    function(err) {
+				    	console.log("ERROR: tagResultVersions", type, id, item, err)
+				    }
+			    )
+		})
+	}
 }
 
 function untagResultVersions(tagid, results) {

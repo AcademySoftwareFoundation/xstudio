@@ -566,6 +566,25 @@ void ShotBrowserEngine::set_backend(caf::actor backend) {
         }
         anon_mail(module::connect_to_ui_atom_v).send(backend_);
         anon_mail(shotgun_authentication_source_atom_v, as_actor()).send(backend_);
+
+        // here we ping the plugin manager to tell it to load the SYNC plugin if
+        // the user has shotgrid login access (i.e. they are a lead/supe who will
+        // need Sync to run reviews)
+        if (query_engine_.is_shotgrid_login_allowed()) {
+
+            spdlog::info(
+                "You have shotgrid login permissions: xSTUDIO SYNC plugin will be enabled.");
+
+            auto plugin_manager =
+                system().registry().template get<caf::actor>(plugin_manager_registry);
+            anon_mail(
+                plugin_manager::spawn_plugin_atom_v,
+                utility::Uuid("0ceb4fdb-cb6e-4148-894c-b8a0fad6bec0"), // sync plugin UUID
+                utility::JsonStore(), // init settings (not needed)
+                true                  // resident
+                )
+                .send(plugin_manager);
+        }
     }
 }
 

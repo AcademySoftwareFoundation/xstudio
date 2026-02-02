@@ -38,6 +38,26 @@ using namespace xstudio::ui::qml;
     return QString();                                                                          \
     });
 
+#define QVARIANT_REQUEST_END()                                                                 \
+    }                                                                                          \
+    catch (const XStudioError &err) {                                                          \
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());                                \
+        JsonStore error;                                                                       \
+        error["error"]["source"]  = to_string(err.type());                                     \
+        error["error"]["message"] = err.caf_error().what();                                    \
+        return mapFromValue(error);                                                            \
+    }                                                                                          \
+    catch (const std::exception &err) {                                                        \
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());                                \
+        JsonStore error;                                                                       \
+        error["error"]["source"]  = "Exception";                                               \
+        error["error"]["message"] = err.what();                                                \
+        return mapFromValue(error);                                                            \
+    }                                                                                          \
+    }                                                                                          \
+    return QVariant();                                                                         \
+    });
+
 
 QFuture<QString> ShotBrowserEngine::loadPresetModelFuture() {
     REQUEST_BEGIN()
@@ -777,6 +797,20 @@ QFuture<QString> ShotBrowserEngine::addDownloadToMediaFuture(const QUuid &media)
             .dump());
 
     REQUEST_END()
+}
+
+QFuture<QVariant> ShotBrowserEngine::refreshMetadataFuture(const QUuid &media) {
+    REQUEST_BEGIN()
+
+    scoped_actor sys{system()};
+    auto req          = JsonStore(RefreshMetadata);
+    req["media_uuid"] = to_string(UuidFromQUuid(media));
+
+    return mapFromValue(
+        request_receive_wait<JsonStore>(
+            *sys, backend_, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req));
+
+    QVARIANT_REQUEST_END()
 }
 
 QFuture<QUrl> ShotBrowserEngine::downloadMediaFuture(

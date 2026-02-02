@@ -168,7 +168,7 @@ AnnotationsRenderer::AnnotationsRenderer(
     const std::string &viewport_name,
     std::atomic_bool &cursor_blink,
     std::atomic_bool &hide_all,
-    std::atomic_bool *hide_strokes,
+    std::atomic_int *hide_strokes,
     std::atomic_bool *hide_all2)
     : viewport_name_(viewport_name),
       cursor_blink_(cursor_blink),
@@ -206,6 +206,12 @@ void AnnotationsRenderer::render_image_overlay(
         // the bookmark to our 'Annotation' class.
         const Annotation *my_annotation =
             dynamic_cast<const Annotation *>(bookmark->annotation_.get());
+
+        bool hide_strokes = false;
+        if (*hide_strokes_ == 2 && live_canvas_data &&
+            live_canvas_data->skip_annotation_uuid() == bookmark->detail_.uuid_) {
+            hide_strokes = true;
+        }
         if (my_annotation && live_canvas_data) {
             // 'live' erase strokes must be injected so that they are applied
             // correctly to the existing bookmark.
@@ -216,7 +222,7 @@ void AnnotationsRenderer::render_image_overlay(
                 viewport_du_dpixel,
                 device_pixel_ratio,
                 1.f,
-                *hide_strokes_,
+                hide_strokes,
                 live_canvas_data->live_erase_strokes(bookmark->detail_.uuid_),
                 live_canvas_data->skip_captions());
         } else if (my_annotation) {
@@ -227,14 +233,14 @@ void AnnotationsRenderer::render_image_overlay(
                 viewport_du_dpixel,
                 device_pixel_ratio,
                 1.f,
-                *hide_strokes_);
+                hide_strokes);
         }
     }
 
     if (live_canvas_data) {
 
         // now we draw 'live' stroke data for the given image
-        if (!live_canvas_data->strokes().empty())
+        if (!live_canvas_data->strokes().empty() && !(*hide_strokes_))
             canvas_renderer_->render_strokes(
                 live_canvas_data->strokes(),
                 transform_window_to_viewport_space,

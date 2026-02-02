@@ -168,13 +168,20 @@ class DNegMediaHook : public MediaHook {
     std::optional<media::MediaDetail>
     modify_media_detail(const media::MediaDetail &detail, const caf::uri &uri) override {
 
+        // some DNxHD at 23.976 have timebase 2997/125 ... although this ratio is
+        // EXACTLY 23.976 it is wrong! The 23.976 *standard* is actually 1001/24000
+        // see http://jira.dneg.com/browse/XSTUDIO-3196
+        constexpr timebase::flicks bad_23_976{29429429};
+        constexpr timebase::flicks correct_23_976{29429400};
+
         bool need_frame_rate = false;
         // if stream detail says that its frame rate is 0 it means the frame rate is
         // unknown. This happens for frame based media like jpg, tiff and EXR (if there
         // is no standard frame rate metadata in the EXR)
         for (const auto &s : detail.streams_) {
             if (s.media_type_ == media::MT_IMAGE &&
-                s.duration_.rate() == timebase::k_flicks_zero_seconds) {
+                (s.duration_.rate() == timebase::k_flicks_zero_seconds ||
+                 s.duration_.rate() == bad_23_976)) {
                 need_frame_rate = true;
                 break;
             }
@@ -197,6 +204,8 @@ class DNegMediaHook : public MediaHook {
             if (s.media_type_ == media::MT_IMAGE &&
                 s.duration_.rate() == timebase::k_flicks_zero_seconds) {
                 s.duration_.set_rate(fr);
+            } else if (s.media_type_ == media::MT_IMAGE && s.duration_.rate() == bad_23_976) {
+                s.duration_.set_rate(correct_23_976);
             }
         }
         return mod_detail;
@@ -228,10 +237,21 @@ class DNegMediaHook : public MediaHook {
             try {
                 const static auto tcp = json::json_pointer("/metadata/ivy/file/timeline_range");
                 if (jsn.contains(tcp) and jsn.at(tcp).is_string()) {
+
+                    // Let's try and work out if there is a slate frame.
                     auto ifr = FrameList(jsn.at(tcp).get<std::string>());
 
-                    // there is a slate frame ?
-                    if (ifr.count() + 1 == result.frame_list().count()) {
+                    // When a render is done on 5s say, the ivy range might look
+                    // like "1001-1100x5,1101". However, the dneg movie will have
+                    // 101 frames or maybe (if it has a slate frame) 102 frames
+                    // in duration. In other words, the ivy range for movies
+                    // matches the source EXR frames not the actual range of the
+                    // movie (as the stepped frames are filled in with a frame
+                    // hold during movie generation)
+                    // The ivy timeline_range DOES NOT INCLUDE SLATE FRAME.
+                    const auto ivy_range_duration = (ifr.end() - ifr.start() + 1);
+                    if ((ivy_range_duration + 1) == result.frame_list().count()) {
+                        // so we're here it must be that this movie has a slate frame
                         // offset ifr start..
                         auto &ifg = ifr.frame_groups();
                         ifg.at(0).set_start(ifg.at(0).start() - 1);
@@ -627,7 +647,10 @@ class DNegMediaHook : public MediaHook {
                 if (input_category == "edit_ref" || input_category == "movie_media") {
                     r["untonemapped_colorspace"] = "disp_Rec709-G24";
                     r["untonemapped_view"]       = "Un-tone-mapped";
-                } else if (input_category == "still_media") {
+                } else if (
+                    input_category == "still_media"
+                    // Working playblast should not be locked to Un-tone-mapped
+                    && path.find("/ivy/wpb/") == std::string::npos) {
                     r["untonemapped_colorspace"] = "disp_sRGB";
                     r["untonemapped_view"]       = "Un-tone-mapped";
                 }

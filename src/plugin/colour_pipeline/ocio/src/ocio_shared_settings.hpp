@@ -12,12 +12,14 @@ namespace colour_pipeline {
         bool colour_bypass{false};
         bool global_view{true};
         bool untonemapped_mode{true};
+        bool apply_saturation_after_lut{false};
         std::string default_config;
         std::string preferred_config_version;
 
         bool operator==(const OCIOGlobalData &other) const {
             return colour_bypass == other.colour_bypass and global_view == other.global_view and
                    untonemapped_mode == other.untonemapped_mode and
+                   apply_saturation_after_lut == other.apply_saturation_after_lut and
                    default_config == other.default_config and
                    preferred_config_version == other.preferred_config_version;
         }
@@ -72,6 +74,7 @@ namespace colour_pipeline {
         module::BooleanAttribute *colour_bypass_;
         module::BooleanAttribute *global_view_;
         module::BooleanAttribute *untonemapped_mode_;
+        module::BooleanAttribute *apply_saturation_after_lut_;
         module::Attribute *user_view_display_settings_attr_;
         module::StringAttribute *custom_ocio_config_;
         module::StringAttribute *default_ocio_config_;

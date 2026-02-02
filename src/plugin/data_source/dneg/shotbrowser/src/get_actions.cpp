@@ -223,10 +223,127 @@ void ShotBrowser::link_media(
     }
 }
 
-void get_data(
-    caf::typed_response_promise<utility::JsonStore> rp,
-    const std::string &type,
-    const int project_id);
+// void get_data(
+//     caf::typed_response_promise<utility::JsonStore> rp,
+//     const std::string &type,
+//     const int project_id);
+
+void ShotBrowser::refresh_metadata(
+    caf::typed_response_promise<utility::JsonStore> rp, const utility::Uuid &uuid) {
+    try {
+        // get session actor
+        mail(session::session_atom_v)
+            .request(system().registry().template get<caf::actor>(global_registry), infinite)
+            .then(
+                [=](const caf::actor &sa) mutable {
+                    // get media actor
+                    mail(playlist::get_media_atom_v, uuid)
+                        .request(sa, infinite)
+                        .then(
+                            [=](const caf::actor &ma) mutable {
+                                // get current metadata
+                                mail(
+                                    json_store::get_json_atom_v,
+                                    utility::Uuid(),
+                                    "/metadata/shotgun/version/id")
+                                    .request(ma, infinite)
+                                    .then(
+                                        [=](const JsonStore &jsn) mutable {
+                                            try {
+                                                auto id = jsn.get<int>();
+
+                                                mail(
+                                                    shotgun_entity_atom_v,
+                                                    "version",
+                                                    id,
+                                                    VersionFields)
+                                                    .request(
+                                                        caf::actor_cast<caf::actor>(this),
+                                                        infinite)
+                                                    .then(
+                                                        [=](const JsonStore &sjsn) mutable {
+                                                            try {
+                                                                // spdlog::warn("{}",
+                                                                // jsn.dump(2));
+                                                                // spdlog::warn("{}",
+                                                                // sjsn.dump(2));
+
+                                                                mail(
+                                                                    json_store::set_json_atom_v,
+                                                                    utility::Uuid(),
+                                                                    JsonStore(sjsn.at("data")),
+                                                                    "/metadata/shotgun/version")
+                                                                    .request(ma, infinite)
+                                                                    .then(
+                                                                        [=](const bool
+                                                                                &) mutable {
+                                                                            rp.deliver(
+                                                                                JsonStore(
+                                                                                    sjsn.at(
+                                                                                        "dat"
+                                                                                        "a")));
+                                                                        },
+                                                                        [=](error
+                                                                                &err) mutable {
+                                                                            spdlog::error(
+                                                                                "{} {}",
+                                                                                __PRETTY_FUNCTION__,
+                                                                                to_string(err));
+                                                                            rp.deliver(JsonStore(
+                                                                                (R"({})"_json)
+                                                                                    ["error"] =
+                                                                                        to_string(
+                                                                                            err)));
+                                                                        });
+                                                            } catch (
+                                                                const std::exception &err) {
+                                                                spdlog::error(
+                                                                    "{} {}",
+                                                                    __PRETTY_FUNCTION__,
+                                                                    err.what());
+                                                                rp.deliver(JsonStore(
+                                                                    (R"({})"_json)["error"] =
+                                                                        err.what()));
+                                                            }
+                                                        },
+                                                        [=](error &err) mutable {
+                                                            spdlog::error(
+                                                                "{} {}",
+                                                                __PRETTY_FUNCTION__,
+                                                                to_string(err));
+                                                            rp.deliver(JsonStore(
+                                                                (R"({})"_json)["error"] =
+                                                                    to_string(err)));
+                                                        });
+                                            } catch (const std::exception &err) {
+                                                spdlog::error(
+                                                    "{} {}", __PRETTY_FUNCTION__, err.what());
+                                                rp.deliver(JsonStore(
+                                                    (R"({})"_json)["error"] = err.what()));
+                                            }
+                                        },
+                                        [=](error &err) mutable {
+                                            spdlog::error(
+                                                "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                            rp.deliver(JsonStore(
+                                                (R"({})"_json)["error"] = to_string(err)));
+                                        });
+                            },
+                            [=](error &err) mutable {
+                                spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                rp.deliver(JsonStore((R"({})"_json)["error"] = to_string(err)));
+                            });
+                },
+                [=](error &err) mutable {
+                    spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    rp.deliver(JsonStore((R"({})"_json)["error"] = to_string(err)));
+                });
+    } catch (const std::exception &err) {
+        spdlog::error("{} {}", __PRETTY_FUNCTION__, err.what());
+        rp.deliver(JsonStore((R"({})"_json)["error"] = err.what()));
+    }
+}
+
 
 void ShotBrowser::add_shotgrid_media(
     caf::typed_response_promise<utility::JsonStore> rp, const utility::Uuid &uuid) {

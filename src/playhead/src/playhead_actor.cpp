@@ -1162,6 +1162,7 @@ void PlayheadActor::init() {
             media_source_atom,
             utility::UuidActor media,
             utility::UuidActor media_source,
+            utility::Uuid clip_uuid,
             const int sub_playhead_index,
             const bool check_rate) {
             // message from one of our sub-playheads ... the media source and/or
@@ -1169,8 +1170,10 @@ void PlayheadActor::init() {
             if (sub_playhead_index == key_playhead_index_->value()) {
 
                 if (to_string(media.uuid()) != current_media_uuid_->value() or
-                    to_string(media_source.uuid()) != current_media_source_uuid_->value()) {
+                    to_string(media_source.uuid()) != current_media_source_uuid_->value() or
+                    to_string(clip_uuid) != current_clip_uuid_->value()) {
 
+                    current_clip_uuid_->set_value(to_string(clip_uuid));
                     current_media_uuid_->set_value(to_string(media.uuid()));
                     current_media_source_uuid_->set_value(to_string(media_source.uuid()));
                     current_media_changed(media.actor(), true);

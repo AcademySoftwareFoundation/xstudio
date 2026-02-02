@@ -201,6 +201,7 @@ void OCIOEngine::extend_pixel_info(
     const std::string &display,
     const std::string &view,
     const bool untonemapped_mode,
+    const bool apply_saturation_after_lut,
     const float exposure,
     const float gamma,
     const float saturation) {
@@ -277,23 +278,31 @@ void OCIOEngine::extend_pixel_info(
 
     // Display output
 
+    // TODO: ColSci
+    // Saturation is not managed by OCIO currently
+    auto apply_saturation = [](float RGB[], float saturation) {
+        const float W[3] = {0.2126f, 0.7152f, 0.0722f};
+        const float LUMA = RGB[0] * W[0] + RGB[1] * W[1] + RGB[2] * W[2];
+        RGB[0]           = LUMA + saturation * (RGB[0] - LUMA);
+        RGB[1]           = LUMA + saturation * (RGB[1] - LUMA);
+        RGB[2]           = LUMA + saturation * (RGB[2] - LUMA);
+    };
+
     {
         float RGB[3] = {
             raw_info[0].channel_value, raw_info[1].channel_value, raw_info[2].channel_value};
 
         pixel_probe_to_lin_proc_->applyRGB(RGB);
 
-        // TODO: ColSci
-        // Saturation is not managed by OCIO currently
-        if (saturation != 1.0) {
-            const float W[3] = {0.2126f, 0.7152f, 0.0722f};
-            const float LUMA = RGB[0] * W[0] + RGB[1] * W[1] + RGB[2] * W[2];
-            RGB[0]           = LUMA + saturation * (RGB[0] - LUMA);
-            RGB[1]           = LUMA + saturation * (RGB[1] - LUMA);
-            RGB[2]           = LUMA + saturation * (RGB[2] - LUMA);
+        if (saturation != 1.0 and !apply_saturation_after_lut) {
+            apply_saturation(RGB, saturation);
         }
 
         pixel_probe_to_display_proc_->applyRGB(RGB);
+
+        if (saturation != 1.0 and apply_saturation_after_lut) {
+            apply_saturation(RGB, saturation);
+        }
 
         pixel_info.add_display_rgb_info("R", RGB[0]);
         pixel_info.add_display_rgb_info("G", RGB[1]);
@@ -308,17 +317,16 @@ void OCIOEngine::extend_pixel_info(
             float RGB[3] = {extra_pix.x, extra_pix.y, extra_pix.z};
             pixel_probe_to_lin_proc_->applyRGB(RGB);
 
-            // TODO: ColSci
-            // Saturation is not managed by OCIO currently
-            if (saturation != 1.0) {
-                const float W[3] = {0.2126f, 0.7152f, 0.0722f};
-                const float LUMA = RGB[0] * W[0] + RGB[1] * W[1] + RGB[2] * W[2];
-                RGB[0]           = LUMA + saturation * (RGB[0] - LUMA);
-                RGB[1]           = LUMA + saturation * (RGB[1] - LUMA);
-                RGB[2]           = LUMA + saturation * (RGB[2] - LUMA);
+            if (saturation != 1.0 and !apply_saturation_after_lut) {
+                apply_saturation(RGB, saturation);
             }
 
             pixel_probe_to_display_proc_->applyRGB(RGB);
+
+            if (saturation != 1.0 and apply_saturation_after_lut) {
+                apply_saturation(RGB, saturation);
+            }
+
             pixel_info.add_extra_pixel_display_rgba(Imath::V4f(RGB[0], RGB[1], RGB[2], 1.0f));
         }
     }

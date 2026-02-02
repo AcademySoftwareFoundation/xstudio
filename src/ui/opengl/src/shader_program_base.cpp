@@ -745,27 +745,26 @@ void GLShaderProgram::compile(const bool force_combine_frag_shaders) {
 
     try {
 
-        // compile the vertex shader objects
-        std::for_each(
-            vertex_shaders_.begin(),
-            vertex_shaders_.end(),
-            [=](const std::string &shader_code) {
-                shaders_.push_back(compile_vertex_shader(shader_code));
-            });
+        // compile the vertex shader objects - if we are doing a retry (with
+        // force_combine_frag_shaders == false) we don't need to re-do the
+        // vertex shaders
+        if (force_combine_frag_shaders) {
+            std::for_each(
+                vertex_shaders_.begin(),
+                vertex_shaders_.end(),
+                [=](const std::string &shader_code) {
+                    shaders_.push_back(compile_vertex_shader(shader_code));
+                });
+        }
 
-        // Note: Our approach of compiling the fragment shader components
-        // separately and linking into the final program is resulting in link
-        // errors in some cases. This is likely a bug in the OpenGL drivers
-        // and Krohnos docs pages actually warns us NOT to use this approach,
-        // even though it is 'perfectly legal'.
-        // I'm thinking that our original approach has performance benefits
-        // as shader programs are cached to disk by nvidia drivers, so we might
-        // see quicker generation of the final program if we've seen some of
-        // the fragment shaders before. So we try the old approach (where
-        // force_combine_frag_shaders=false) and then retry if we hit a link
-        // error with force_combine_frag_shaders=true
-        // This does mean that in the case where link fails first time, we are
-        // wasting some time.
+        // Note: force_combine_frag_shaders is set to true on first attempt.
+
+        // We used to compile the frag shaders separately as it was assumed this
+        // was faster because the binaries might be cached by nvidia drivers
+        // so re-using the same frag shader components would be more efficient.
+        // However, we're seeing link errors with this approach and this could
+        // be a bug in the drivers as the approach is 'legal' according to
+        // Khronos docs (but not recommended ?!)
 
         if (force_combine_frag_shaders) {
 
@@ -785,7 +784,8 @@ void GLShaderProgram::compile(const bool force_combine_frag_shaders) {
             static std::regex version_regex(R"(\#version.+\n)");
             combined_shaders = std::regex_replace(combined_shaders, version_regex, " ");
             // add back in v410 directive (see note above)
-            combined_shaders = "#version 410\n" + combined_shaders;
+            combined_shaders       = "#version 410\n" + combined_shaders;
+            orig_fragment_shaders_ = fragment_shaders_;
             fragment_shaders_.clear();
             fragment_shaders_.emplace_back(std::move(combined_shaders));
         }
@@ -800,6 +800,15 @@ void GLShaderProgram::compile(const bool force_combine_frag_shaders) {
 
 
     } catch (...) {
+
+        if (force_combine_frag_shaders) {
+            fragment_shaders_ = orig_fragment_shaders_;
+            // here we re-try compilation but combine all our fragment_shaders_
+            // into a single shader, which may overcome the link error. See
+            // note above
+            compile(false);
+            return;
+        }
 
         // a shader hasn't compiled ... delete anthing that did compile
         std::for_each(
@@ -841,11 +850,11 @@ void GLShaderProgram::compile(const bool force_combine_frag_shaders) {
 
         shaders_.clear();
 
-        if (!force_combine_frag_shaders) {
+        if (force_combine_frag_shaders) {
             // here we re-try compilation but combine all our fragment_shaders_
             // into a single shader, which may overcome the link error. See
             // note above
-            compile(true);
+            compile(false);
             return;
         }
 

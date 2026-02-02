@@ -453,12 +453,13 @@ void AnnotationsUI::send_event(const std::string &event, const utility::JsonStor
 void AnnotationsUI::start_item(const ui::PointerEvent &e) {
 
     utility::JsonStore payload;
-    current_item_id_      = utility::Uuid::generate();
-    payload["uuid"]       = current_item_id_;
-    payload["item_type"]  = active_tool_->value();
-    payload["point"]["x"] = float(e.x()) / float(e.width());
-    payload["point"]["y"] = float(e.y()) / float(e.height());
-    payload["viewport"]   = e.context();
+    current_item_id_             = utility::Uuid::generate();
+    payload["id"]                = current_item_id_;
+    payload["item_type"]         = active_tool_->value();
+    payload["point"]["x"]        = float(e.x()) / float(e.width());
+    payload["point"]["y"]        = float(e.y()) / float(e.height());
+    payload["point"]["pressure"] = pressure_source(e);
+    payload["viewport"]          = e.context();
 
     const auto colour = std::vector<float>(
         {pen_colour_->value().r,
@@ -512,7 +513,7 @@ void AnnotationsUI::modify_item(const ui::PointerEvent &e) {
         return;
 
     utility::JsonStore payload;
-    payload["uuid"]              = current_item_id_;
+    payload["id"]                = current_item_id_;
     payload["point"]["x"]        = float(e.x()) / float(e.width());
     payload["point"]["y"]        = float(e.y()) / float(e.height());
     payload["point"]["pressure"] = pressure_source(e);
@@ -525,7 +526,7 @@ void AnnotationsUI::end_item() {
     if (current_item_id_.is_null())
         return;
     utility::JsonStore payload;
-    payload["uuid"]  = current_item_id_;
+    payload["id"]    = current_item_id_;
     current_item_id_ = utility::Uuid();
     send_event("PaintEnd", payload);
 }

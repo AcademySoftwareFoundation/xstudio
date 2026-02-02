@@ -230,31 +230,41 @@ void ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
 
     auto types              = std::set<std::string>();
     auto shot_manifest_tags = std::set<std::string>();
+    auto asset_tags         = std::set<std::string>();
 
     try {
 
         if (src.is_array()) {
             auto manifest = std::map<int, std::vector<std::string>>();
 
-            for (const auto tag : src.at(2)) {
-                try {
-                    auto tag_type = tag.at("relationships").at("sg_link").at("data").at("type");
-                    if (tag_type != "Shot")
-                        continue;
 
-                    auto id      = tag.at("relationships").at("sg_link").at("data").at("id");
-                    auto tag_str = tag.at("attributes").at("sg_value").get<std::string>();
-                    auto tags    = split(tag_str, ',');
+            try {
+                for (const auto tag : src.at(2)) {
+                    try {
+                        if (not tag.at("relationships").at("sg_link").at("data").is_null()) {
+                            auto tag_type =
+                                tag.at("relationships").at("sg_link").at("data").at("type");
+                            if (tag_type != "Shot")
+                                continue;
 
-                    if (tag_str.size() == 512)
-                        tags.pop_back();
+                            auto id = tag.at("relationships").at("sg_link").at("data").at("id");
+                            auto tag_str =
+                                tag.at("attributes").at("sg_value").get<std::string>();
+                            auto tags = split(tag_str, ',');
 
-                    manifest[id] = tags;
-                } catch (const std::exception &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                            if (tag_str.size() == 512)
+                                tags.pop_back();
+
+                            manifest[id] = tags;
+                        }
+                    } catch (const std::exception &err) {
+                        spdlog::warn(
+                            "TAG 2 {} {} {}", __PRETTY_FUNCTION__, err.what(), tag.dump(2));
+                    }
                 }
+            } catch (const std::exception &err) {
+                spdlog::warn("TAG {} {}", __PRETTY_FUNCTION__, err.what());
             }
-
 
             auto done = false;
 
@@ -329,6 +339,24 @@ void ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
                                                 }
                                             }
                                         }
+
+                                        if (i.at("type") == "Shot") {
+                                            i["asset_tags"] = json::array();
+                                            for (const auto &t :
+                                                 i.at("relationships")
+                                                     .at("sg_dnbreakdown_envprop_variants")
+                                                     .at("data")) {
+                                                i["asset_tags"].push_back(t.at("name"));
+                                                asset_tags.insert(t.at("name"));
+                                            }
+                                            for (const auto &t :
+                                                 i.at("relationships")
+                                                     .at("sg_dnbreakdown_assemblies")
+                                                     .at("data")) {
+                                                i["asset_tags"].push_back(t.at("name"));
+                                                asset_tags.insert(t.at("name"));
+                                            }
+                                        }
                                     }
                                     // seq["children"] =
                                     //     sort_by(shots,
@@ -394,6 +422,23 @@ void ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
                                                 }
                                             }
                                         }
+                                        if (i.at("type") == "Shot") {
+                                            i["asset_tags"] = json::array();
+                                            for (const auto &t :
+                                                 i.at("relationships")
+                                                     .at("sg_dnbreakdown_envprop_variants")
+                                                     .at("data")) {
+                                                i["asset_tags"].push_back(t.at("name"));
+                                                asset_tags.insert(t.at("name"));
+                                            }
+                                            for (const auto &t :
+                                                 i.at("relationships")
+                                                     .at("sg_dnbreakdown_assemblies")
+                                                     .at("data")) {
+                                                i["asset_tags"].push_back(t.at("name"));
+                                                asset_tags.insert(t.at("name"));
+                                            }
+                                        }
                                     }
                                     // sort_by(shots, nlohmann::json::json_pointer("/name"));
                                 } else
@@ -420,7 +465,8 @@ void ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
                             }
                         }
                     } catch (const std::exception &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                        spdlog::warn(
+                            "{} {} {} ", __PRETTY_FUNCTION__, err.what(), cseq.dump(2));
                     }
                 }
             }
@@ -484,6 +530,23 @@ void ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
                                         }
                                     }
                                 }
+
+                                if (i.at("type") == "Shot") {
+                                    i["asset_tags"] = json::array();
+                                    for (const auto &t :
+                                         i.at("relationships")
+                                             .at("sg_dnbreakdown_envprop_variants")
+                                             .at("data")) {
+                                        i["asset_tags"].push_back(t.at("name"));
+                                        asset_tags.insert(t.at("name"));
+                                    }
+                                    for (const auto &t : i.at("relationships")
+                                                             .at("sg_dnbreakdown_assemblies")
+                                                             .at("data")) {
+                                        i["asset_tags"].push_back(t.at("name"));
+                                        asset_tags.insert(t.at("name"));
+                                    }
+                                }
                             }
                             // sort_by(shots, nlohmann::json::json_pointer("/name"));
                         } else
@@ -501,7 +564,8 @@ void ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
                         count++;
                     }
                 } catch (const std::exception &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    spdlog::warn(
+                        "UNPARENT {} {} {}", __PRETTY_FUNCTION__, err.what(), cunseq.dump(2));
                 }
 
                 if (count)
@@ -512,52 +576,58 @@ void ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
             // add in any episodes..
             auto remove_seqs = std::vector<size_t>();
 
-            for (auto ep : src.at(0)) {
-                // spdlog::warn("{}", ep.dump(2));
+            try {
 
-                ep["name"]      = ep.at("attributes").at("code");
-                auto parent_id  = ep.at("id").get<int>();
-                ep["parent_id"] = parent_id;
-                ep["children"]  = json::array();
-                ep["type"]      = "Episode";
-                ep["subtype"]   = "Episode";
-                ep["hidden"]    = false;
+                for (auto ep : src.at(0)) {
+                    // spdlog::warn("{}", ep.dump(2));
 
-                name_lookup_
-                    [ep["type"].get<std::string>() + "-" +
-                     std::to_string(ep.at("id").get<int>())] =
-                        std::string("Episode ") +
-                        ep.at("attributes").at("code").get<std::string>();
+                    ep["name"]      = ep.at("attributes").at("code");
+                    auto parent_id  = ep.at("id").get<int>();
+                    ep["parent_id"] = parent_id;
+                    ep["children"]  = json::array();
+                    ep["type"]      = "Episode";
+                    ep["subtype"]   = "Episode";
+                    ep["hidden"]    = false;
 
-                // we now need to reparent any sequences.
-                for (const auto &i : ep.at("relationships").at("sg_sequences").at("data")) {
-                    auto seqid = i.at("id").get<int>();
-                    auto secit = seqs.find(seqid);
+                    name_lookup_
+                        [ep["type"].get<std::string>() + "-" +
+                         std::to_string(ep.at("id").get<int>())] =
+                            std::string("Episode ") +
+                            ep.at("attributes").at("code").get<std::string>();
 
-                    // only top level sequences can go under episode.
-                    if (secit != std::end(seqs) and
-                        result.at(secit->second).at("parent_id") == seqid) {
-                        // copy into our children
-                        ep["children"].push_back(result.at(secit->second));
-                        remove_seqs.push_back(seqid);
-                        seqs.erase(secit);
+                    // we now need to reparent any sequences.
+                    for (const auto &i : ep.at("relationships").at("sg_sequences").at("data")) {
+                        auto seqid = i.at("id").get<int>();
+                        auto secit = seqs.find(seqid);
+
+                        // only top level sequences can go under episode.
+                        if (secit != std::end(seqs) and
+                            result.at(secit->second).at("parent_id") == seqid) {
+                            // copy into our children
+                            ep["children"].push_back(result.at(secit->second));
+                            remove_seqs.push_back(seqid);
+                            seqs.erase(secit);
+                        }
+                    }
+
+                    ep["children"] =
+                        sort_by(ep["children"], nlohmann::json::json_pointer("/name"));
+
+                    result.push_back(ep);
+                }
+
+                for (const auto &id : remove_seqs) {
+                    for (auto it = result.begin(); it != result.end(); ++it) {
+                        if (it->at("id") == id) {
+                            result.erase(it);
+                            break;
+                        }
                     }
                 }
 
-                ep["children"] = sort_by(ep["children"], nlohmann::json::json_pointer("/name"));
-
-                result.push_back(ep);
+            } catch (const std::exception &err) {
+                spdlog::warn("EPISDOE {} {}", __PRETTY_FUNCTION__, err.what());
             }
-
-            for (const auto &id : remove_seqs) {
-                for (auto it = result.begin(); it != result.end(); ++it) {
-                    if (it->at("id") == id) {
-                        result.erase(it);
-                        break;
-                    }
-                }
-            }
-
 
             result = sortByNameAndType(result);
             // dumpNames(result, 0);
@@ -578,6 +648,12 @@ void ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
         _shot_manifest_tags.push_back(QStringFromStd(i));
     }
 
+    QStringList _asset_tags;
+    for (auto i : asset_tags) {
+        // spdlog::warn("{}", i);
+        _asset_tags.push_back(QStringFromStd(i));
+    }
+
     // spdlog::warn("flatToTree result {:.3} ", sw2);
     // sw2.reset();
 
@@ -588,6 +664,7 @@ void ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
 
     setTypes(_types);
     setShotManifestTags(_shot_manifest_tags);
+    setAssetTags(_asset_tags);
 
     // spdlog::warn("flatToTree setTypes {:.3} ", sw2);
 }
@@ -930,6 +1007,18 @@ QVariant ShotBrowserSequenceModel::data(const QModelIndex &index, int role) cons
             }
         } break;
 
+        case Roles::variantRole: {
+            if (j.contains("asset_tags")) {
+                auto tmp = QStringList();
+                for (const auto &i : j.at("asset_tags"))
+                    tmp.emplace_back(QStringFromStd(i));
+
+                result = tmp;
+            } else {
+                result = QStringList();
+            }
+        } break;
+
         default:
             result = ShotBrowserListModel::data(index, role);
             break;
@@ -972,6 +1061,9 @@ void ShotBrowserSequenceFilterModel::setManifestFilter(const QVariant &value) {
         and_in_.clear();
         or_in_.clear();
 
+        variant_tag_ = true;
+        tag_         = true;
+
         try {
             auto jsn = mapFromValue(value);
 
@@ -988,6 +1080,13 @@ void ShotBrowserSequenceFilterModel::setManifestFilter(const QVariant &value) {
                 for (const auto &i : jsn.at("NOT")) {
                     not_in_.insert(QStringFromStd(i));
                 }
+            }
+
+            if (jsn.contains("MODE") and jsn.at("MODE").is_string()) {
+                if (jsn.at("MODE") == "Tag")
+                    variant_tag_ = false;
+                else if (jsn.at("MODE") == "Variant")
+                    tag_ = false;
             }
         } catch (const std::exception &err) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -1043,10 +1142,18 @@ bool ShotBrowserSequenceFilterModel::filterAcceptsRow(
             source_index.data(ShotBrowserListModel::Roles::typeRole) == shot_type) {
             // build lookup..
             auto tmp = QSet<QString>();
-            for (const auto &i :
-                 source_index.data(ShotBrowserSequenceModel::Roles::manifestRole)
-                     .toStringList())
-                tmp.insert(i);
+
+            if (tag_)
+                for (const auto &i :
+                     source_index.data(ShotBrowserSequenceModel::Roles::manifestRole)
+                         .toStringList())
+                    tmp.insert(i);
+
+            if (variant_tag_)
+                for (const auto &i :
+                     source_index.data(ShotBrowserSequenceModel::Roles::variantRole)
+                         .toStringList())
+                    tmp.insert(i);
 
             if (not not_in_.empty() and tmp.intersects(not_in_))
                 return false;

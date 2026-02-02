@@ -21,7 +21,7 @@ namespace ui {
 
             // enum class Type { Unknown, Pen, Brush, Erase };
 
-            Stroke() : _id(utility::Uuid::generate()) {}
+            Stroke() : _id(to_string(utility::Uuid::generate())) {}
             Stroke(const Stroke &o) = default;
 
             struct Point {
@@ -67,6 +67,9 @@ namespace ui {
             void make_line(const Imath::V2f &start, const Imath::V2f &end);
 
             void add_point(const Imath::V2f &pt, float pressure = 1.0f);
+            void add_points(const std::vector<Point> &points);
+
+            void set_id(const std::string &id) { _id = id; }
 
             const std::vector<Point> &points() const { return _points; }
 
@@ -80,7 +83,7 @@ namespace ui {
             [[nodiscard]] StrokeType type() const { return _type; }
             [[nodiscard]] size_t hash() const { return _hash; }
             const utility::ColourTriplet &colour() const { return _colour; }
-            const utility::Uuid &id() const { return _id; }
+            const std::string &id() const { return _id; }
 
             friend void from_json(const nlohmann::json &j, Stroke &s);
             friend void to_json(nlohmann::json &j, const Stroke &s);
@@ -94,7 +97,7 @@ namespace ui {
             float _softness{0.0f};
             float _size_sensitivity{0.0f};
             float _opacity_sensitivity{0.0f};
-            utility::Uuid _id;
+            std::string _id;
 
             utility::ColourTriplet _colour;
             // Type type{Type::Unknown};
