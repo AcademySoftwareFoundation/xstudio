@@ -305,16 +305,24 @@ Rectangle {
            return node
         }
         
+        var rootAbs = current_path_attr.value || ""
+        // Ensure trailing slash for concatenation
+        if (rootAbs !== "" && rootAbs.charAt(rootAbs.length-1) !== '/') rootAbs += '/'
+
         for(var i=0; i<fileList.length; i++) {
             var file = fileList[i]
             var parts = file.relpath.split("/")
-            var currentPath = ""
+            var currentRelPath = ""
             var parentNode = null
             
             for(var j=0; j<parts.length-1; j++) {
                 var pName = parts[j]
-                currentPath = (currentPath ? currentPath + "/" : "") + pName
-                parentNode = getFolderNode(currentPath, pName, parentNode)
+                currentRelPath = (currentRelPath ? currentRelPath + "/" : "") + pName
+                
+                // Construct absolute path for the folder node
+                var absPath = rootAbs + currentRelPath
+                
+                parentNode = getFolderNode(absPath, pName, parentNode)
             }
             
             var leaf = {
@@ -1077,7 +1085,11 @@ Rectangle {
                         }
                         onDoubleClicked: {
                             fileListView.currentIndex = index
-                            sendCommand({"action": "load_file", "path": modelData.path})
+                            if (modelData.isFolder) {
+                                sendCommand({"action": "change_path", "path": modelData.path})
+                            } else {
+                                sendCommand({"action": "load_file", "path": modelData.path})
+                            }
                         }
                     }
 
