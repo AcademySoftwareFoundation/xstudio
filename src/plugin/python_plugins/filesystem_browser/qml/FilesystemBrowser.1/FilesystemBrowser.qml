@@ -698,7 +698,7 @@ Rectangle {
                      fileListView.forceLayout() 
                  }
                  delegate: ItemDelegate {
-                      width: parent.width
+                      width: ListView.view.width
                       contentItem: Text {
                           text: modelData
                           color: "#e0e0e0"
@@ -745,7 +745,7 @@ Rectangle {
                       fileListView.forceLayout()
                  }
                  delegate: ItemDelegate {
-                      width: parent.width
+                      width: ListView.view.width
                       contentItem: Text {
                           text: modelData
                           color: "#e0e0e0"
