@@ -422,7 +422,7 @@ class FilesystemBrowserPlugin(PluginBase):
                     full_p = os.path.join(directory, item)
                     if os.path.isdir(full_p):
                         # Filter by base
-                        if item.startswith(base):
+                        if item.lower().startswith(base.lower()):
                             candidates.append(full_p + os.path.sep)
             except OSError:
                 pass
