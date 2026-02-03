@@ -29,11 +29,27 @@ class FileScanner:
         # Better to create per scan or persistent? 
         # Persistent is better for repeated small scans, but let's just make it new or manage strict lifecycle.
         
+
+
     def get_owner(self, uid):
         try:
             return pwd.getpwuid(uid).pw_name
         except KeyError:
             return str(uid)
+
+    def format_size_str(self, size_bytes):
+        if size_bytes == 0:
+            return "0 B"
+        
+        size_name = ("B", "KB", "MB", "GB", "TB", "PB")
+        i = 0
+        p = float(size_bytes)
+        
+        while i < len(size_name) - 1 and p >= 1024:
+            p /= 1024.0
+            i += 1
+            
+        return f"{p:.2f} {size_name[i]}"
 
     def scan(self, start_path, callback=None):
         """
@@ -224,20 +240,35 @@ class FileScanner:
                 owner = self.get_owner(first_file_info[1].st_uid) if first_file_info else "?"
                 
                 try:
-                    pad_str = "#" * len(list(seq.padding())[0]) if seq.padding() else "#" * 4
+                    # fileseq.padding() returns the padding string (e.g. '#' or '@@@@@@')
+                    pad_str = seq.padding() if seq.padding() else "####"
+                    
+                    # Normalize to @ syntax for xstudio consistency and visual clarity
+                    # '#' implies 4 digits.
+                    # '#####' (5 digits) or '##' (2 digits? usually # is 4).
+                    # But fileseq treats SINGLE '#' as 4. Multiple hashes usually mean length = count.
+                    if pad_str == '#':
+                        pad_str = "@@@@"
+                    elif '#' in pad_str:
+                         pad_str = "@" * len(pad_str)
+                         
                 except:
-                    pad_str = "####"
+                    pad_str = "@@@@"
                     
                 name = f"{seq.basename()}{pad_str}{seq.extension()}"
-                relpath = os.path.relpath(str(seq), start_path)
+                
+                # Ensure path is absolute for xstudio loading
+                seq_path_str = os.path.abspath(str(seq))
+                relpath = os.path.relpath(seq_path_str, start_path)
                 
                 item = {
                     "name": name,
-                    "path": str(seq), 
+                    "path": seq_path_str, 
                     "relpath": relpath,
                     "type": "Sequence",
                     "frames": str(seq.frameRange()),
                     "size": total_size,
+                    "size_str": self.format_size_str(total_size),
                     "date": max_mtime,
                     "owner": owner,
                     "extension": seq.extension(),
@@ -263,6 +294,7 @@ class FileScanner:
             "type": "File",
             "frames": "1",
             "size": st.st_size,
+            "size_str": self.format_size_str(st.st_size),
             "date": st.st_mtime,
             "owner": self.get_owner(st.st_uid),
             "extension": os.path.splitext(name)[1],

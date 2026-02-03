@@ -265,13 +265,19 @@ Rectangle {
     property string sortColumn: "name"
     property int sortOrder: 1 // 1 for asc, -1 for desc
 
+
     // Column Widths (Default values)
-    property real colWidthName: 250
+    property real minWidthName: 250
+    property real colWidthName: 250 // kept for legacy reference or init
     property real colWidthOwner: 80
     property real colWidthVersion: 60
     property real colWidthDate: 140
     property real colWidthSize: 80
     property real colWidthFrames: 120
+    
+    // Width Calculations
+    readonly property real fixedColumnsWidth: colWidthVersion + colWidthOwner + colWidthDate + colWidthSize + colWidthFrames + 20 // +20 spacer
+    property real totalContentWidth: Math.max(fileListView.width, minWidthName + fixedColumnsWidth + 10) // +10 margin/padding
 
 
     // tree logic
@@ -313,7 +319,7 @@ Rectangle {
             
             var leaf = {
                "name": file.name,
-               "path": file.relpath,
+               "path": file.path, 
                "isFolder": false,
                "data": file,
                "children": [],
@@ -914,57 +920,63 @@ Rectangle {
             Layout.preferredHeight: rowHeight
             color: "#2a2a2a" // Background
             
-            RowLayout {
+            Item {
                 anchors.fill: parent
-                spacing: 0
-                
-                // Helper to create columns
-                component HeaderColumn: Rectangle {
-                    property string title
-                    property string colId
-                    property alias colWidth: rect.width
-                    property bool resizable: true
-                    id: rect
-                    Layout.fillHeight: true
-                    color: "transparent"
-                    Layout.preferredWidth: width
-                    Text {
-                        text: title + (sortColumn === colId ? (sortOrder === 1 ? " ▲" : " ▼") : "")
-                        anchors.fill: parent
-                        verticalAlignment: Text.AlignVCenter
-                        leftPadding: 5
-                        color: hintColor
-                        font.pixelSize: fontSize
-                        font.weight: Font.DemiBold
-                        elide: Text.ElideRight
+                clip: true
+                RowLayout {
+                    x: -fileListView.contentX
+                    width: Math.max(parent.width, totalContentWidth)
+                    height: parent.height
+                    spacing: 0
+                    
+                    // Helper to create columns
+                    component HeaderColumn: Rectangle {
+                        property string title
+                        property string colId
+                        property alias colWidth: rect.width
+                        property bool resizable: true
+                        id: rect
+                        Layout.fillHeight: true
+                        color: "transparent"
+                        Layout.preferredWidth: width
+                        Text {
+                            text: title + (sortColumn === colId ? (sortOrder === 1 ? " ▲" : " ▼") : "")
+                            anchors.fill: parent
+                            verticalAlignment: Text.AlignVCenter
+                            leftPadding: 5
+                            color: hintColor
+                            font.pixelSize: fontSize
+                            font.weight: Font.DemiBold
+                            elide: Text.ElideRight
+                        }
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: sortFiles(colId)
+                            cursorShape: Qt.PointingHandCursor
+                        }
+                        Rectangle {
+                             visible: resizable
+                             width: 5; height: parent.height
+                             anchors.right: parent.right
+                             color: "transparent"
+                             MouseArea {
+                                 anchors.fill: parent; cursorShape: Qt.SplitHCursor
+                                 drag.target: rect; drag.axis: Drag.XAxis
+                                 property real startX
+                                 onPressed: startX = mouseX
+                                 onPositionChanged: if(pressed) { var d=mouseX-startX; if(rect.width+d>30) rect.width+=d }
+                             }
+                        }
                     }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: sortFiles(colId)
-                        cursorShape: Qt.PointingHandCursor
-                    }
-                    Rectangle {
-                         visible: resizable
-                         width: 5; height: parent.height
-                         anchors.right: parent.right
-                         color: "transparent"
-                         MouseArea {
-                             anchors.fill: parent; cursorShape: Qt.SplitHCursor
-                             drag.target: rect; drag.axis: Drag.XAxis
-                             property real startX
-                             onPressed: startX = mouseX
-                             onPositionChanged: if(pressed) { var d=mouseX-startX; if(rect.width+d>30) rect.width+=d }
-                         }
-                    }
-                }
 
-                HeaderColumn { title: "Name"; colId: "name"; Layout.fillWidth: true; Layout.minimumWidth: 50; resizable: false }
-                HeaderColumn { title: "Version"; colId: "version"; width: colWidthVersion; onWidthChanged: colWidthVersion=width }
-                HeaderColumn { title: "Owner"; colId: "owner"; width: colWidthOwner; onWidthChanged: colWidthOwner=width }
-                HeaderColumn { title: "Date"; colId: "date"; width: colWidthDate; onWidthChanged: colWidthDate=width }
-                HeaderColumn { title: "Size"; colId: "size_str"; width: colWidthSize; onWidthChanged: colWidthSize=width }
-                HeaderColumn { title: "Frames"; colId: "frames"; width: colWidthFrames; onWidthChanged: colWidthFrames=width }
-                Item { width: 20 } // Spacer at end
+                    HeaderColumn { title: "Name"; colId: "name"; Layout.fillWidth: true; Layout.minimumWidth: minWidthName; resizable: false }
+                    HeaderColumn { title: "Version"; colId: "version"; width: colWidthVersion; onWidthChanged: colWidthVersion=width }
+                    HeaderColumn { title: "Frames"; colId: "frames"; width: colWidthFrames; onWidthChanged: colWidthFrames=width }
+                    HeaderColumn { title: "Owner"; colId: "owner"; width: colWidthOwner; onWidthChanged: colWidthOwner=width }
+                    HeaderColumn { title: "Date"; colId: "date"; width: colWidthDate; onWidthChanged: colWidthDate=width }
+                    HeaderColumn { title: "Size"; colId: "size_str"; width: colWidthSize; onWidthChanged: colWidthSize=width }
+                    Item { width: 20 } // Spacer at end
+                }
             }
         }
 
@@ -982,9 +994,13 @@ Rectangle {
                 clip: true
                 model: visibleTreeList
                 
+                contentWidth: totalContentWidth
+                flickableDirection: Flickable.HorizontalAndVerticalFlick
+                boundsBehavior: Flickable.StopAtBounds
+                
                 delegate: Rectangle {
                     id: delegate
-                    width: root.width - 20
+                    width: totalContentWidth
                     property bool matchesFilter: {
                         // Text Filter
                         var filterText = filterField.text.trim();
@@ -1104,12 +1120,12 @@ Rectangle {
                             }
                         }
                         
-                        Cell { text: modelData.name || ""; Layout.fillWidth: true; Layout.minimumWidth: 50; elideMode: Text.ElideMiddle }
+                        Cell { text: modelData.name || ""; Layout.fillWidth: true; Layout.minimumWidth: minWidthName; elideMode: Text.ElideMiddle }
                         Cell { text: (modelData.data && modelData.data.version) ? "v"+modelData.data.version : ""; w: colWidthVersion; color: isSelected?"#eee":"#999" }
+                        Cell { text: (modelData.data && modelData.data.frames) || ""; w: colWidthFrames }
                         Cell { text: (modelData.data && modelData.data.owner) || ""; w: colWidthOwner; color: isSelected?"#eee":"#999" }
                         Cell { text: modelData.data ? formatDate(modelData.data.date) : ""; w: colWidthDate; color: isSelected?"#eee":"#999" }
                         Cell { text: (modelData.data && modelData.data.size_str) || ""; w: colWidthSize; horizontalAlignment: Text.AlignRight; rightPadding: 5 }
-                        Cell { text: (modelData.data && modelData.data.frames) || ""; w: colWidthFrames }
                         Item { width: 20 } // Spacer at end
                     }
                     
