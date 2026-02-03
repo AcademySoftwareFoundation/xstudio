@@ -327,6 +327,17 @@ std::string xstudio::utility::uri_to_posix_path(const caf::uri &uri) {
             // Remove the leading /
             path.erase(0, 1);
         }
+
+        // Reconstruct UNC path from URI authority (server name)
+        // file://server/share/path -> \\server\share\path
+        if (!uri.authority().empty()) {
+            std::string host = to_string(uri.authority());
+            if (!host.empty() && host != "localhost") {
+                // Convert forward slashes to backslashes for Windows
+                std::replace(path.begin(), path.end(), '/', '\\');
+                path = R"(\\)" + host + R"(\)" + path;
+            }
+        }
 #endif
         return forward_remap_file_path(path);
     }
@@ -571,13 +582,28 @@ caf::uri xstudio::utility::posix_path_to_uri(const std::string &path, const bool
 #endif
     }
 
-    p = reverse_remap_file_path(path);
+    p = reverse_remap_file_path(p);
 
 
     // spdlog::warn("posix_path_to_uri: {} -> {}", path, p);
 
     // A valid file URI must therefore begin with either file:/path (no hostname), file:///path
     // (empty hostname), or file://hostname/path.
+
+#ifdef _WIN32
+    // Handle Windows UNC paths: \\server\share\path -> file://server/share/path
+    if (p.size() >= 2 && p[0] == '\\' && p[1] == '\\') {
+        // Find the server name (between first \\ and next \)
+        size_t server_end = p.find('\\', 2);
+        if (server_end != std::string::npos) {
+            std::string server = p.substr(2, server_end - 2);
+            std::string share_path = p.substr(server_end + 1);
+            // Convert backslashes to forward slashes for URI path
+            std::replace(share_path.begin(), share_path.end(), '\\', '/');
+            return caf::uri_builder().scheme("file").host(server).path(share_path).make();
+        }
+    }
+#endif
 
     // relative
     if (not p.empty() && p[0] != '/')
