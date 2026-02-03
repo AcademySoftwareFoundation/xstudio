@@ -87,10 +87,19 @@ class FilesystemBrowserPlugin(PluginBase):
         self.insert_menu_item(
             "main menu bar",
             "Filesystem Browser",
-            "Plugins|Filesystem Browser",
+            "View|Panels",
             0.0,
             hotkey_uuid=self.toggle_browser_action,
             callback=self.toggle_browser_from_menu
+        )
+
+        # Add menu item to open as floating window
+        self.insert_menu_item(
+            "main menu bar",
+            "Browser Open",
+            "Plugins",
+            0.1,
+            callback=self.open_floating_browser
         )
         
         # Register the panel, passing the action
@@ -267,6 +276,25 @@ class FilesystemBrowserPlugin(PluginBase):
         # We'll just log here.
         print("Menu item clicked. The Filesystem Browser is available in the Panels menu.")
         self.toggle_browser(None, "Menu Click")
+
+    def open_floating_browser(self):
+        # Create a floating window containing the FilesystemBrowser component
+        qml = """
+        import QtQuick.Window 2.15
+        import QtQuick.Controls 2.15
+        
+        Window {
+            width: 900
+            height: 600
+            visible: true
+            title: "Filesystem Browser"
+            
+            FilesystemBrowser {
+                anchors.fill: parent
+            }
+        }
+        """
+        self.create_qml_item(qml)
 
     def toggle_browser(self, converting, context):
         print(f"Toggling Filesystem Browser (Action Triggered). Context: {context}")
