@@ -212,6 +212,9 @@ void execute_xstudio_ui(
     }
 
     QSurfaceFormat format;
+    // Explicitly request desktop OpenGL (not OpenGL ES).
+    // On Wayland/EGL this is required, otherwise EGL may default to ES.
+    format.setRenderableType(QSurfaceFormat::OpenGL);
 #ifdef __OPENGL_4_1__
     // MacOS is limited to OpenGL 4.1, of course
     format.setVersion(4, 1);
