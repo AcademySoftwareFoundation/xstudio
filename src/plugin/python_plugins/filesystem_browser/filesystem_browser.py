@@ -585,8 +585,6 @@ class FilesystemBrowserPlugin(PluginBase):
                             
                             seq_path = f"{dirname}{basename}{brace_padding}{ext}={frames}"
                             
-                            print(f"Loading Sequence via Brace Pattern: {seq_path}")
-                            
                             # playlist.add_media(path) calls parse_posix_path internally 
                             # which handles this pattern.
                             media = playlist.add_media(seq_path)
@@ -597,8 +595,9 @@ class FilesystemBrowserPlugin(PluginBase):
 
                 if not loaded_as_sequence:
                     media = playlist.add_media(path)
-                    
-                print(f"Loaded: {path}")
+                    print(f"Loaded File: {path}")
+                else:
+                    print(f"Loaded Sequence: {seq_path}")
                 # Add to cache immediately
                 self.playlist_path_cache[pl_uuid].add(tgt_path)
 
