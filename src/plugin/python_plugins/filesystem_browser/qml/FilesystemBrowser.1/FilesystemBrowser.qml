@@ -200,16 +200,28 @@ Rectangle {
         attributeTitle: "filter_time"
         model: pluginData
         role: "value" 
-        onValueChanged: currentFilterTime = value || "Any"
-        Component.onCompleted: currentFilterTime = value || "Any"
+        onValueChanged: {
+            console.log("QML: filter_time changed to: " + value)
+            currentFilterTime = value || "Any"
+        }
+        Component.onCompleted: {
+             console.log("QML: filter_time init value: " + value)
+             currentFilterTime = value || "Any"
+        }
     }
     XsAttributeValue { 
         id: filter_version_attr
         attributeTitle: "filter_version"
         model: pluginData
         role: "value"
-        onValueChanged: currentFilterVersion = value || "All Versions"
-        Component.onCompleted: currentFilterVersion = value || "All Versions"
+        onValueChanged: {
+             console.log("QML: filter_version changed to: " + value)
+             currentFilterVersion = value || "All Versions"
+        }
+        Component.onCompleted: {
+             console.log("QML: filter_version init value: " + value)
+             currentFilterVersion = value || "All Versions"
+        }
     }
 
     XsAttributeValue {
@@ -809,6 +821,7 @@ Rectangle {
                     property string title
                     property string colId
                     property alias colWidth: rect.width
+                    property bool resizable: true
                     id: rect
                     Layout.fillHeight: true
                     color: "transparent"
@@ -829,6 +842,7 @@ Rectangle {
                         cursorShape: Qt.PointingHandCursor
                     }
                     Rectangle {
+                         visible: resizable
                          width: 5; height: parent.height
                          anchors.right: parent.right
                          color: "transparent"
@@ -848,10 +862,7 @@ Rectangle {
                 HeaderColumn { title: "Date"; colId: "date"; width: colWidthDate; onWidthChanged: colWidthDate=width }
                 HeaderColumn { title: "Size"; colId: "size_str"; width: colWidthSize; onWidthChanged: colWidthSize=width }
                 HeaderColumn { title: "Frames"; colId: "frames"; width: colWidthFrames; onWidthChanged: colWidthFrames=width }
-                HeaderColumn { title: "Path"; colId: "relpath"; width: colWidthPath; onWidthChanged: colWidthPath=width }
-
-                
-                Item { Layout.fillWidth: true }
+                HeaderColumn { title: "Path"; colId: "relpath"; Layout.fillWidth: true; resizable: false }
             }
         }
 
@@ -952,9 +963,7 @@ Rectangle {
                         Cell { text: formatDate(modelData.date); w: colWidthDate; color: isSelected?"#eee":"#999" }
                         Cell { text: modelData.size_str || ""; w: colWidthSize; horizontalAlignment: Text.AlignRight; rightPadding: 5 }
                         Cell { text: modelData.frames || ""; w: colWidthFrames }
-                        Cell { text: modelData.relpath || ""; w: colWidthPath; color: isSelected?"#eee":"#888" }
-                        
-                        Item { Layout.fillWidth: true }
+                        Cell { text: modelData.relpath || ""; Layout.fillWidth: true; color: isSelected?"#eee":"#888" }
                     }
 
                     MouseArea {

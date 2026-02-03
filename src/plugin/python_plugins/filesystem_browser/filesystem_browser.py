@@ -156,7 +156,7 @@ class FilesystemBrowserPlugin(PluginBase):
         self.filter_time_attr = self.add_attribute(
             "filter_time",
             "Any", 
-            {"title": "Time Filter", "values": ["Any", "Last 1 day", "Last 2 days", "Last 1 week", "Last 1 month"]},
+            {"title": "filter_time", "values": ["Any", "Last 1 day", "Last 2 days", "Last 1 week", "Last 1 month"]},
             register_as_preference=True
         )
         self.filter_time_attr.expose_in_ui_attrs_group("Filesystem Browser")
@@ -164,7 +164,7 @@ class FilesystemBrowserPlugin(PluginBase):
         self.filter_version_attr = self.add_attribute(
             "filter_version",
             "All Versions",
-            {"title": "Version Filter", "values": ["All Versions", "Latest Version", "Latest 2 Versions"]},
+            {"title": "filter_version", "values": ["All Versions", "Latest Version", "Latest 2 Versions"]},
             register_as_preference=True
         )
         self.filter_version_attr.expose_in_ui_attrs_group("Filesystem Browser")
@@ -562,7 +562,10 @@ class FilesystemBrowserPlugin(PluginBase):
                             
                             # Calculate padding width from '####' or '@@@@@'
                             pad_str = seq.padding()
-                            pad_len = len(pad_str) if pad_str else 0
+                            if pad_str == '#':
+                                pad_len = 4
+                            else:
+                                pad_len = len(pad_str) if pad_str else 0
                             
                             # Construct brace pattern e.g. {:04d}
                             # If no padding, just empty brace? No, xstudio expects {:0Nd} usually.
@@ -705,23 +708,17 @@ class FilesystemBrowserPlugin(PluginBase):
 
     def apply_filters(self):
         # Filtering logic
-        # Retrieve filter preferences (we need to add attributes for them)
-        # For now, we'll assume defaults or handle attributes later in this refactor
         
         with self.results_lock:
             results = list(self.current_scan_results)
+            
+        self._apply_filters_logic(results)
         
-        # 1. Time Filter
-        # 2. Version Filter
-        
-        # We need attributes for these filters.
-        # But wait, I haven't added them yet. I should add them in __init__.
-        # I'll rely on attributes being present (I'll add them in next chunk)
-        
+    def _apply_filters_logic(self, results):
         filter_time = self.filter_time_attr.value() if hasattr(self, 'filter_time_attr') else "Any"
         filter_version = self.filter_version_attr.value() if hasattr(self, 'filter_version_attr') else "All Versions"
-        
-        # Apply Time Filter
+
+        # 1. Apply Time Filter
         if filter_time != "Any":
             now = time.time()
             cutoff = 0
@@ -737,35 +734,40 @@ class FilesystemBrowserPlugin(PluginBase):
             if cutoff > 0:
                 results = [r for r in results if r.get("date", 0) >= cutoff]
 
-        # Apply Version Filter
-        if filter_version == "Latest Version":
-             results = [r for r in results if r.get("is_latest_version", True)]
-        elif filter_version == "Latest 2 Versions":
-             # We need to know version rank?
-             # scanner returns "version" number.
-             # We need to filter per group.
-             # This is expensive to re-compute logic unless scanner provides it.
-             # Scanner provided "is_latest_version".
-             # Scanner groups result by "version_group".
-             # I can re-group and pick top 2.
-             
-             groups = {}
-             for r in results:
-                 grp = r.get("version_group")
-                 if grp:
-                     groups.setdefault(grp, []).append(r)
-                 else:
-                     groups.setdefault(id(r), [r])
+        # 2. Apply Version Filter with Grouping
+        # Group items by version_group
+        grouped_results = {}
+        for r in results:
+            grp = r.get("version_group")
+            if grp:
+                grouped_results.setdefault(grp, []).append(r)
+            else:
+                # Use item ID as unique group so it survives
+                grouped_results.setdefault(id(r), [r])
+        
+        final_filtered = []
+        
+        for grp, items in grouped_results.items():
+            # If only 1 item, just take it
+            if len(items) <= 1:
+                final_filtered.extend(items)
+                continue
+                
+            # Sort by version descending
+            items.sort(key=lambda x: x.get("version", 0), reverse=True)
             
-             filtered = []
-             for grp, items in groups.items():
-                 # Sort desc
-                 items.sort(key=lambda x: x.get("version", 0), reverse=True)
-                 filtered.extend(items[:2])
-             
-             # Re-sort by name
-             filtered.sort(key=lambda x: x["name"])
-             results = filtered
+            if filter_version == "Latest Version":
+                final_filtered.extend(items[:1])
+            elif filter_version == "Latest 2 Versions":
+                final_filtered.extend(items[:2])
+            else:
+                # All Versions
+                final_filtered.extend(items)
+        
+        results = final_filtered
+        
+        # Resort by name for display
+        results.sort(key=lambda x: x["name"])
 
         # Serialize
         json_str = json.dumps(results)
@@ -985,4 +987,3 @@ class FilesystemBrowserPlugin(PluginBase):
 
 def create_plugin_instance(connection):
     return FilesystemBrowserPlugin(connection)
-
