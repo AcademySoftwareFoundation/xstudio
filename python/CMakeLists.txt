@@ -58,12 +58,23 @@ if(NOT APPLE)
                 DESTINATION lib/python/)
         endif()
 
-        install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio-control
-            DESTINATION bin)
-        install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio-inject
-            DESTINATION bin)
-        install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudiopy
-            DESTINATION bin)
+        if(WIN32)
+            # Windows: install .cmd wrappers (extensionless scripts don't work on Windows)
+            install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio-control.cmd
+                DESTINATION bin)
+            install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio-inject.cmd
+                DESTINATION bin)
+            install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudiopy.cmd
+                DESTINATION bin)
+        else()
+            # Linux/macOS: install shell scripts
+            install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio-control
+                DESTINATION bin)
+            install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio-inject
+                DESTINATION bin)
+            install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudiopy
+                DESTINATION bin)
+        endif()
      endif()
 endif()
 

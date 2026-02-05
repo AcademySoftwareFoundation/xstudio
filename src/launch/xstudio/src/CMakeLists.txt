@@ -39,9 +39,7 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 
 configure_file(.clang-tidy .clang-tidy)
 
-if(WIN32)
-	configure_file(xstudio.bat.in xstudio.bat)
-else()
+if(NOT WIN32)
 	configure_file(xstudio.sh.in xstudio.sh @ONLY)
 endif()
 
@@ -105,11 +103,6 @@ if(WIN32)
 
 	install(TARGETS ${PROJECT_NAME}
         RUNTIME DESTINATION bin)
-
-	install(PROGRAMS
-	  ${CMAKE_CURRENT_BINARY_DIR}/xstudio.bat
-	  DESTINATION bin
-	  RENAME xstudio)
 
 	# install FFMPEG and all dependencies into target bin folder
 	file(GLOB FFMPEG_COMPONENTS ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/ffmpeg/*)
