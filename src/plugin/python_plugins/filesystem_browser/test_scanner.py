@@ -44,7 +44,6 @@ class TestFileScanner(unittest.TestCase):
         results = scanner.scan(self.test_dir)
         
         names = [r["name"] for r in results]
-        print(f"DEBUG: Found files: {names}")
         
         # Check flags
         shot_v02 = next((r for r in results if r["name"] == "shot_v02.mov"), None)
