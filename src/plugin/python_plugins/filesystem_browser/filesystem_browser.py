@@ -152,6 +152,24 @@ class FilesystemBrowserPlugin(PluginBase):
         )
         self.scanned_attr.expose_in_ui_attrs_group("Filesystem Browser")
         
+        # New: Scanned directories list
+        self.scanned_dirs_attr = self.add_attribute(
+            "scanned_dirs",
+            "[]",
+            {"title": "scanned_dirs"},
+            register_as_preference=False
+        )
+        self.scanned_dirs_attr.expose_in_ui_attrs_group("Filesystem Browser")
+
+        # New: Recursion limit attribute
+        self.depth_limit_attr = self.add_attribute(
+            "recursion_limit",
+            6,
+            {"title": "Recursion Limit"},
+            register_as_preference=True
+        )
+        self.depth_limit_attr.expose_in_ui_attrs_group("Filesystem Browser")
+        
         # New: Filter attributes
         self.filter_time_attr = self.add_attribute(
             "filter_time",
@@ -367,6 +385,8 @@ class FilesystemBrowserPlugin(PluginBase):
                         self.filter_time_attr.set_value(attr_value)
                     elif attr_name == "filter_version":
                         self.filter_version_attr.set_value(attr_value)
+                    elif attr_name == "recursion_limit":
+                        self.depth_limit_attr.set_value(attr_value)
 
                 elif action == "add_pin":
                     name = data.get("name")
@@ -388,6 +408,11 @@ class FilesystemBrowserPlugin(PluginBase):
         elif attribute.uuid in (self.filter_time_attr.uuid, self.filter_version_attr.uuid):
             if role == AttributeRole.Value:
                 self._on_filter_changed(attribute, role)
+        elif attribute.uuid == self.depth_limit_attr.uuid:
+            if role == AttributeRole.Value:
+                # Recursion limit changed, re-scan
+                current = self.current_path_attr.value()
+                self.start_search(current)
 
     def compute_completions(self, partial_path):
         """Minimal logic to find subdirectories matching partial path."""
@@ -642,9 +667,11 @@ class FilesystemBrowserPlugin(PluginBase):
         from .scanner import FileScanner
         
         # Config (could be loaded from prefs)
+        max_depth = self.depth_limit_attr.value()
         config = {
             "extensions": list(self.extensions),
             "ignore_dirs": list(self.ignore_dirs),
+            "max_depth": max_depth
             # "version_regex": r"_v(\d+)" 
         }
         
@@ -652,6 +679,8 @@ class FilesystemBrowserPlugin(PluginBase):
         with self.results_lock:
             self.current_scan_results = [] # Cache results for filtering
         self.pending_scan_results = []
+        self.scanned_dirs_cache = []
+        self.scanned_dirs_attr.set_value("[]")
         self.last_update = 0
         
         def progress_callback(results, info):
@@ -660,6 +689,7 @@ class FilesystemBrowserPlugin(PluginBase):
             scanned = info.get("scanned", 0)
             phase = info.get("phase", "")
             progress = info.get("progress", 0)
+            new_dirs = info.get("scanned_dirs", [])
             
             # Update progress attribute
             # Because of the scanning algorithm, the progress is not linear, so we need to bias it
@@ -669,6 +699,15 @@ class FilesystemBrowserPlugin(PluginBase):
             self.scanned_attr.set_value(str(scanned))
             #self.scanProgress.set_value(str(progress))
             
+            # Accumulate scanned dirs
+            if new_dirs:
+                self.scanned_dirs_cache.extend(new_dirs)
+                # Cap the list size if needed/desired? No requirement yet.
+                # Update attribute periodically? Or always?
+                # The callback is already throttled to 0.2s in scanner.
+                import json
+                self.scanned_dirs_attr.set_value(json.dumps(self.scanned_dirs_cache))
+
             # Handle partial results
             if results and phase == "scanning":
                 self.pending_scan_results.extend(results)
@@ -717,7 +756,19 @@ class FilesystemBrowserPlugin(PluginBase):
         filter_time = self.filter_time_attr.value() if hasattr(self, 'filter_time_attr') else "Any"
         filter_version = self.filter_version_attr.value() if hasattr(self, 'filter_version_attr') else "All Versions"
 
-        # 1. Apply Time Filter
+        # Separate directories and files
+        dirs = []
+        files = []
+        for r in results:
+            if r.get("is_folder") or r.get("type") == "Folder":
+                dirs.append(r)
+            else:
+                files.append(r)
+
+        # 1. Apply Time Filter (to files only?)
+        # User wants to see directories "even if there isnt data in them".
+        # So we probably shouldn't filter directories by time unless requested.
+        # Let's Apply Time Filter ONLY to files for now.
         if filter_time != "Any":
             now = time.time()
             cutoff = 0
@@ -731,45 +782,43 @@ class FilesystemBrowserPlugin(PluginBase):
                 cutoff = now - 30 * 86400
             
             if cutoff > 0:
-                results = [r for r in results if r.get("date", 0) >= cutoff]
+                files = [r for r in files if r.get("date", 0) >= cutoff]
 
-        # 2. Apply Version Filter with Grouping
-        # Group items by version_group
+        # 2. Apply Version Filter with Grouping (Files only)
         grouped_results = {}
-        for r in results:
+        for r in files:
             grp = r.get("version_group")
             if grp:
                 grouped_results.setdefault(grp, []).append(r)
             else:
-                # Use item ID as unique group so it survives
                 grouped_results.setdefault(id(r), [r])
         
-        final_filtered = []
+        filtered_files = []
         
         for grp, items in grouped_results.items():
-            # If only 1 item, just take it
             if len(items) <= 1:
-                final_filtered.extend(items)
+                filtered_files.extend(items)
                 continue
                 
-            # Sort by version descending
             items.sort(key=lambda x: x.get("version", 0), reverse=True)
             
             if filter_version == "Latest Version":
-                final_filtered.extend(items[:1])
+                filtered_files.extend(items[:1])
             elif filter_version == "Latest 2 Versions":
-                final_filtered.extend(items[:2])
+                filtered_files.extend(items[:2])
             else:
-                # All Versions
-                final_filtered.extend(items)
+                filtered_files.extend(items)
         
-        results = final_filtered
+        # Combine
+        final_results = dirs + filtered_files
         
-        # Resort by name for display
-        results.sort(key=lambda x: x["name"])
+        # Resort by name for display (or keep dirs first?)
+        # QML handles sorting, but initial sort helps.
+        # Let's sort all by name.
+        final_results.sort(key=lambda x: x["name"])
 
         # Serialize
-        json_str = json.dumps(results)
+        json_str = json.dumps(final_results)
         
         self.files_attr.set_value(json_str)
 

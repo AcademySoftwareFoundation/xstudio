@@ -253,6 +253,32 @@ Rectangle {
         model: pluginData
     }
 
+    XsAttributeValue {
+        id: scanned_dirs_attr
+        attributeTitle: "scanned_dirs"
+        model: pluginData
+        role: "value"
+        onValueChanged: {
+             try {
+                 var val = value
+                 if (val && val !== "[]") {
+                     scannedDirsList = JSON.parse(val)
+                 } else {
+                     scannedDirsList = []
+                 }
+             } catch(e) { }
+        }
+    }
+    
+    XsAttributeValue {
+        id: depth_limit_attr
+        attributeTitle: "recursion_limit"
+        model: pluginData
+        role: "value"
+    }
+
+    property var scannedDirsList: []
+
     function sendCommand(cmd) {
         command_attr.value = JSON.stringify(cmd)
     }
@@ -264,6 +290,10 @@ Rectangle {
     // Sorting State
     property string sortColumn: "name"
     property int sortOrder: 1 // 1 for asc, -1 for desc
+    
+    // View Mode: 0=List, 1=Tree, 2=Grouped
+    property int viewMode: 2 
+    onViewModeChanged: buildTree()
 
 
     // Column Widths (Default values)
@@ -287,6 +317,32 @@ Rectangle {
 
     function buildTree() {
         var roots = []
+        
+        if (viewMode === 0) {
+            // LIST VIEW: Flat list, no hierarchy logic
+            for(var i=0; i<fileList.length; i++) {
+                var file = fileList[i]
+                
+                // User requested to hide directories in List view
+                var isDir = (file.is_folder === true || file.type === "Folder")
+                if (isDir) continue
+                
+                var node = {
+                    "name": file.name,
+                    "path": file.path,
+                    "isFolder": false,
+                    "data": file,
+                    "children": [],
+                    "expanded": false
+                }
+                roots.push(node)
+            }
+            treeRoots = roots
+            sortTree()
+            return
+        }
+
+        // TREE / GROUPED VIEW
         var lookups = {}
         
         function getFolderNode(path, name, parent) {
@@ -306,7 +362,6 @@ Rectangle {
         }
         
         var rootAbs = current_path_attr.value || ""
-        // Ensure trailing slash for concatenation
         if (rootAbs !== "" && rootAbs.charAt(rootAbs.length-1) !== '/') rootAbs += '/'
 
         for(var i=0; i<fileList.length; i++) {
@@ -315,40 +370,49 @@ Rectangle {
             var currentRelPath = ""
             var parentNode = null
             
-            for(var j=0; j<parts.length-1; j++) {
+            var isDir = (file.is_folder === true || file.type === "Folder")
+            
+            var loopMax = parts.length - 1
+            
+            for(var j=0; j<loopMax; j++) {
                 var pName = parts[j]
                 currentRelPath = (currentRelPath ? currentRelPath + "/" : "") + pName
-                
-                // Construct absolute path for the folder node
                 var absPath = rootAbs + currentRelPath
-                
                 parentNode = getFolderNode(absPath, pName, parentNode)
             }
             
-            var leaf = {
-               "name": file.name,
-               "path": file.path, 
-               "isFolder": false,
-               "data": file,
-               "children": [],
-               "expanded": false
+            if (isDir) {
+                var pName = parts[parts.length-1]
+                currentRelPath = (currentRelPath ? currentRelPath + "/" : "") + pName
+                var absPath = rootAbs + currentRelPath
+                
+                var folderNode = getFolderNode(absPath, pName, parentNode)
+                if (!folderNode.data) {
+                    folderNode.data = file
+                }
+            } else {
+                var leafName = parts[parts.length-1]
+                var leaf = {
+                   "name": leafName,
+                   "path": file.path, 
+                   "isFolder": false,
+                   "data": file,
+                   "children": [],
+                   "expanded": false
+                }
+                if (parentNode) parentNode.children.push(leaf);
+                else roots.push(leaf);
             }
-            if (parentNode) parentNode.children.push(leaf);
-            else roots.push(leaf);
         }
 
-        
         function compressNodes(nodes) {
              for (var i = 0; i < nodes.length; i++) {
                  var node = nodes[i];
                  if (node.isFolder) {
-                      // Recursively compress children first
                       if(node.children.length > 0) compressNodes(node.children);
                       
-                      // Now check if this node can absorb its single child
                       while (node.children.length === 1) {
                            var child = node.children[0];
-                           
                            node.name = node.name + "/" + child.name;
                            node.path = child.path; 
                            node.data = child.data;
@@ -365,7 +429,11 @@ Rectangle {
              }
         }
         
-        compressNodes(roots)
+        // Only compress if in Grouped mode (2)
+        if (viewMode === 2) {
+            compressNodes(roots)
+        }
+        
         treeRoots = roots
         sortTree()
     }
@@ -908,6 +976,53 @@ Rectangle {
                   }
              }
 
+              // recursion limit
+              RowLayout {
+                   spacing: 5
+                   Label { 
+                       text: "Depth:"
+                       color: "#aaaaaa"
+                       font.pixelSize: fontSize
+                       verticalAlignment: Text.AlignVCenter
+                   }
+                   SpinBox {
+                       id: depthSpin
+                       from: 1
+                       to: 10
+                       value: parseInt(depth_limit_attr.value) || 6
+                       editable: true
+                       Layout.preferredWidth: 80
+                       Layout.preferredHeight: rowHeight
+                       
+                       onValueModified: {
+                           sendCommand({"action": "set_attribute", "name": "recursion_limit", "value": value})
+                           // Optimistic update
+                           depth_limit_attr.value = value
+                       }
+                       
+                       // Customizing background to match dark theme
+                       contentItem: TextInput {
+                            z: 2
+                            text: depthSpin.textFromValue(depthSpin.value, depthSpin.locale)
+                            font: depthSpin.font
+                            color: "#e0e0e0"
+                            selectionColor: "#21be2b"
+                            selectedTextColor: "#ffffff"
+                            horizontalAlignment: Qt.AlignHCenter
+                            verticalAlignment: Qt.AlignVCenter
+                            readOnly: !depthSpin.editable
+                            validator: depthSpin.validator
+                            inputMethodHints: Qt.ImhDigitsOnly
+                        }
+                        background: Rectangle {
+                            implicitWidth: 80
+                            implicitHeight: rowHeight
+                            color: "#333333"
+                            border.color: "#555555"
+                        }
+                   }
+              }
+              
             // Text Filter
             TextField {
                 id: filterField
@@ -921,6 +1036,8 @@ Rectangle {
                 background: Rectangle { color: "#333333"; border.color: "#555555" }
             }
         }
+
+
 
         // Table Header
         Rectangle {
@@ -1010,31 +1127,26 @@ Rectangle {
                     id: delegate
                     width: totalContentWidth
                     property bool matchesFilter: {
+                        // Always show folders
+                        if (modelData.isFolder) return true;
+                        
                         // Text Filter
                         var filterText = filterField.text.trim();
                         if (filterText !== "") {
-                            // If filtering, we likely want to search matches. 
-                            // But with tree view, effectively we are filtering the SOURCE list.
-                            // Since we currently filter Backend side for major things, and rebuild tree...
-                            // If we filter here visually, we just hide rows?
-                            // But hiding a parent hides children.
-                            // If we filter, we probably should REBUILD tree with filtered items.
-                            // For this simple implementation, let's assume filtering is done on the flat list before build, 
-                            // OR we simply only match leaves and ensure parents are visible.
-                            
-                            // Currently, let's disable local text filtering on the Tree nodes for simplicity 
-                            // OR just verify the leaf/node compliance.
-                            // Since backend provides the list, local filtering might be redundant or could be moved to buildTree.
-                            return true; 
+                            // Simple name match for now
+                            return (modelData.name.toLowerCase().indexOf(filterText.toLowerCase()) !== -1);
                         }
-                        return true;
+                        
+                        // Access the underlying data
+                        var d = modelData.data;
+                        if (!d) return true; // Should not happen for files, but safe fallback
                         
                         // Time Filter
                         var timeMatch = true;
                         var t_val = currentFilterTime; // e.g. "Last 1 day"
-                        if (t_val !== "Any" && modelData.date) {
+                        if (t_val !== "Any" && d.date) {
                              var now = Date.now() / 1000.0;
-                             var diff = now - modelData.date;
+                             var diff = now - d.date;
                              var day = 86400;
                              if (t_val === "Last 1 day") timeMatch = diff <= day;
                              else if (t_val === "Last 2 days") timeMatch = diff <= 2*day;
@@ -1047,11 +1159,11 @@ Rectangle {
                         var verMatch = true;
                         var v_val = currentFilterVersion;
                         if (v_val === "Latest Version") {
-                            verMatch = modelData.is_latest_version === true;
+                            verMatch = d.is_latest_version === true;
                         } else if (v_val === "Latest 2 Versions") {
                              // Using version_rank exposed by scanner.py
-                             if (modelData.version_rank !== undefined) {
-                                  verMatch = (modelData.version_rank <= 1);
+                             if (d.version_rank !== undefined) {
+                                  verMatch = (d.version_rank <= 1);
                              }
                         }
                         
@@ -1122,7 +1234,7 @@ Rectangle {
                             Layout.fillHeight: true
                             Text {
                                 anchors.centerIn: parent
-                                text: modelData.isFolder ? (modelData.expanded ? "▼" : "▶") : ""
+                                text: (root.viewMode !== 0 && modelData.isFolder) ? (modelData.expanded ? "▼" : "▶") : ""
                                 color: "#aaaaaa"
                                 font.pixelSize: 10
                             }
@@ -1196,22 +1308,53 @@ Rectangle {
             }
         }
         
-        // Progress Bar (Bottom)
+        // Scanned Dirs Log (Visible during scan)
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 30
-            color: "transparent"
+            Layout.preferredHeight: searching_attr.value ? 100 : 0
+            color: "#1a1a1a"
             visible: searching_attr.value === true
+            clip: true
+            
+            ListView {
+                anchors.fill: parent
+                model: scannedDirsList
+                clip: true
+                delegate: Text {
+                    text: modelData
+                    color: "#888888"
+                    font.pixelSize: 10
+                    width: ListView.view.width
+                    elide: Text.ElideMiddle
+                }
+                
+                // Auto-scroll to bottom
+                onCountChanged: {
+                    positionViewAtEnd()
+                }
+            }
+        }
+
+        // Bottom Footer: Progress + View Modes
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 24
+            color: "transparent"
             
             RowLayout {
                 anchors.fill: parent
                 spacing: 10
                 
+                // Progress Bar (Left - fills remaining space)
                 ProgressBar {
                     id: scanProgress
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 6 // Slimmer progress bar
+                    Layout.preferredHeight: 6
                     Layout.alignment: Qt.AlignVCenter
+                    
+                    // Only visible when scanning
+                    visible: searching_attr.value === true
+                    
                     from: 0
                     to: 100
                     value: progress_attr.value
@@ -1226,7 +1369,6 @@ Rectangle {
                     contentItem: Item {
                         implicitWidth: 200
                         implicitHeight: 4
-                        
                         Rectangle {
                             width: scanProgress.visualPosition * parent.width
                             height: parent.height
@@ -1236,13 +1378,58 @@ Rectangle {
                     }
                 }
                 
-                Text {
-                    text: "Scanning: " + (parseInt(scanned_attr.value) || 0) + " items..."
-                    color: hintColor
-                    font.pixelSize: 10
+                // If not scanning, we need a spacer to push buttons to right
+                Item { 
+                    Layout.fillWidth: true 
+                    visible: !scanProgress.visible 
+                }
+
+                // Divider (Vertical line)
+                Rectangle {
+                    Layout.preferredWidth: 1
+                    Layout.preferredHeight: 14
+                    color: "#444444"
                     Layout.alignment: Qt.AlignVCenter
                 }
+
+                // View Mode Selector (Right)
+                RowLayout {
+                    spacing: 0
+                    Layout.alignment: Qt.AlignVCenter
+                    
+                    Repeater {
+                        model: ["List", "Tree", "Grouped"]
+                        delegate: Rectangle {
+                            width: 60
+                            height: 18
+                            color: (viewMode === index) ? "#444444" : "transparent"
+                            border.color: "#555555"
+                            border.width: 1
+                            
+                            // Connecting borders
+                            anchors.leftMargin: index > 0 ? -1 : 0 
+                            
+                            Text {
+                                anchors.centerIn: parent
+                                text: modelData
+                                color: (viewMode === index) ? "#ffffff" : "#888888"
+                                font.pixelSize: 10
+                            }
+                            
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: viewMode = index
+                                hoverEnabled: true
+                                onEntered: parent.color = (viewMode === index) ? "#555555" : "#333333"
+                                onExited: parent.color = (viewMode === index) ? "#444444" : "transparent"
+                            }
+                        }
+                    }
+                }
+                
+                Item { Layout.preferredWidth: 5 } // Right margin
             }
         }
     }
 }
+

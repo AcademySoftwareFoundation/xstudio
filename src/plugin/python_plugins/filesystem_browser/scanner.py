@@ -23,11 +23,10 @@ class FileScanner:
         self.non_sequence_extensions = set(self.config.get("non_sequence_extensions", [".mov", ".mp4"]))
         self.version_regex = re.compile(self.config.get("version_regex", r"_v(\d+)"))
         self.max_workers = self.config.get("thread_count", 4)
+        self.max_depth = self.config.get("max_depth", 6)
         
         self.cancel_event = threading.Event()
-        self.executor = ThreadPoolExecutor(max_workers=self.max_workers) # reuse or create new?
-        # Better to create per scan or persistent? 
-        # Persistent is better for repeated small scans, but let's just make it new or manage strict lifecycle.
+        self.executor = ThreadPoolExecutor(max_workers=self.max_workers)
         
 
 
@@ -61,9 +60,8 @@ class FileScanner:
         from collections import deque
         from concurrent.futures import wait, FIRST_COMPLETED
 
-        # Queue of (path, weight)
-        # We start with weight 1.0 representing the entire scan
-        queue = deque([(start_path, 1.0)])
+        # Queue of (path, weight, depth)
+        queue = deque([(start_path, 1.0, 0)])
         
         # Futures set
         futures = set()
@@ -76,12 +74,15 @@ class FileScanner:
         scanned_count = 0
         last_update = time.time()
         
+        # Scanned paths tracking
+        recent_scanned_dirs = []
+        
         # Helper to schedule
         def schedule_next():
             while queue and len(futures) < self.max_workers:
-                path, weight = queue.popleft()
+                path, weight, depth = queue.popleft()
                 # Submit task
-                futures.add(self.executor.submit(self._scan_and_process_worker, path, start_path, weight))
+                futures.add(self.executor.submit(self._scan_and_process_worker, path, start_path, weight, depth))
 
         schedule_next()
         
@@ -92,25 +93,29 @@ class FileScanner:
             for f in done:
                 futures.remove(f)
                 try:
-                    subdirs, items, weight = f.result()
+                    subdirs, items, weight, depth, scanned_path = f.result()
                     
                     # Accumulate results
                     if items:
                         all_items.extend(items)
                         scanned_count += len(items)
+                    
+                    recent_scanned_dirs.append(scanned_path)
                         
-                        if callback:
-                            # Send partial results
-                            callback(items, {"scanned": scanned_count, "progress": total_progress * 100, "phase": "scanning"})
+                    if callback and items:
+                        # Send partial results
+                        # Note: We send empty list for items here if we want to batch them? 
+                        # Original code sent items immediately.
+                        callback(items, {"scanned": scanned_count, "progress": total_progress * 100, "phase": "scanning", "scanned_dirs": []})
                     
                     # Distribute weight or complete it
-                    if subdirs:
+                    if subdirs and depth < self.max_depth:
                         if len(subdirs) > 0:
                             child_weight = weight / len(subdirs)
                             for d in subdirs:
-                                queue.append((d, child_weight))
+                                queue.append((d, child_weight, depth + 1))
                     else:
-                        # Leaf node (in terms of dirs), this weight is done
+                        # Leaf node (in terms of dirs or recursion limit), this weight is done
                         total_progress += weight
                         
                 except Exception as e:
@@ -122,7 +127,13 @@ class FileScanner:
             # Periodic Progress update
             if time.time() - last_update > 0.2:
                  if callback:
-                     callback([], {"scanned": scanned_count, "progress": min(100, int(total_progress * 100)), "phase": "scanning"})
+                     callback([], {
+                         "scanned": scanned_count, 
+                         "progress": min(100, int(total_progress * 100)), 
+                         "phase": "scanning",
+                         "scanned_dirs": list(recent_scanned_dirs)
+                     })
+                     recent_scanned_dirs = []
                  last_update = time.time()
 
         if self.cancel_event.is_set():
@@ -132,19 +143,19 @@ class FileScanner:
             
         # Final update
         if callback:
-            callback([], {"scanned": scanned_count, "progress": 100, "phase": "complete"})
+            callback([], {"scanned": scanned_count, "progress": 100, "phase": "complete", "scanned_dirs": list(recent_scanned_dirs)})
             
         return all_items
 
-    def _scan_and_process_worker(self, path, root_path, weight):
+    def _scan_and_process_worker(self, path, root_path, weight, depth):
         """
-        Scans a directory, processes files therein, returns (subdirs, items, weight).
+        Scans a directory, processes files therein, returns (subdirs, items, weight, depth, path).
         """
         subdirs = []
         raw_files = []
         
         if self.cancel_event.is_set():
-            return subdirs, [], weight
+            return [], [], weight, depth, path
 
         try:
             with os.scandir(path) as entries:
@@ -155,11 +166,16 @@ class FileScanner:
                     if entry.is_dir(follow_symlinks=False):
                         if entry.name not in self.ignore_dirs and not entry.name.startswith('.'):
                             subdirs.append(entry.path)
+                            # Also add directory as an item
+                            try:
+                                raw_files.append((entry.path, entry.name, entry.stat(), True)) # True for is_dir
+                            except OSError:
+                                pass
                     elif entry.is_file():
                         ext = os.path.splitext(entry.name)[1].lower()
                         if ext in self.extensions:
                             try:
-                                raw_files.append((entry.path, entry.name, entry.stat()))
+                                raw_files.append((entry.path, entry.name, entry.stat(), False)) # False for is_dir
                             except OSError:
                                 pass
         except OSError:
@@ -167,12 +183,11 @@ class FileScanner:
             
         # Process files immediately
         items = self._process_files(raw_files, root_path)
-        
-        return subdirs, items, weight
+        return subdirs, items, weight, depth, path
 
     def _process_files(self, raw_files, start_path):
         """
-        raw_files: list of (full_path, basename, stat_obj)
+        raw_files: list of (full_path, basename, stat_obj, is_dir)
         """
         path_map = {f[0]: (f[1], f[2]) for f in raw_files} # path -> (name, stat)
         
@@ -180,125 +195,148 @@ class FileScanner:
         sequence_candidate_paths = []
         
         # Split into sequence candidates and singles
-        for p, name, st in raw_files:
+        for p, name, st, is_dir in raw_files:
+            if is_dir:
+                 final_items.append(self._make_item(p, name, st, start_path, is_directory=True))
+                 continue
+                 
             ext = os.path.splitext(name)[1].lower()
             if ext in self.non_sequence_extensions:
                 # Treat strictly as single file
                 final_items.append(self._make_item(p, name, st, start_path))
             else:
                 sequence_candidate_paths.append(p)
-        
+            
         # Use fileseq to find sequences among candidates
+        # Import moved to top level or check self.HAS_FILESEQ? 
+        # The file has 'try: import fileseq ...' at top level
+        
+        sequences = []
         if fileseq and sequence_candidate_paths:
-            sequences = fileseq.findSequencesInList(sequence_candidate_paths)
-        else:
-            # Fallback or if no candidates
-            sequences = [fileseq.FileSequence(p) for p in sequence_candidate_paths] if fileseq else []
-            if not fileseq:
-                 # iterate candidates raw
-                 for p in sequence_candidate_paths:
-                     info = path_map.get(p)
-                     if info:
-                        final_items.append(self._make_item(p, info[0], info[1], start_path))
-                 return self._group_versions(final_items)
+            try:
+                sequences = fileseq.findSequencesInList(sequence_candidate_paths)
+            except Exception as e:
+                sequences = [] # Fallback?
+
+        if not fileseq and sequence_candidate_paths:
+             # Fallback: Treat all as singles
+             for p in sequence_candidate_paths:
+                 info = path_map.get(p)
+                 if info:
+                    final_items.append(self._make_item(p, info[0], info[1], start_path))
 
         for seq in sequences:
-            # Check if we should explode this sequence (if it's actually versioned files)
+            # Check if we should explode this sequence (if it's actually versioned files matching config)
             explode = False
+            
+            # If length is 1, it's virtually a single file, but fileseq wraps it.
+            # If length > 1, check if it matches version regex but shouldn't?
+            # Existing logic:
             if len(seq) > 1:
                 try:
-                    sample_file = str(seq[0])
-                    if not self.version_regex.search(seq.basename()) and self.version_regex.search(sample_file):
-                        explode = True
+                    # If the basename doesn't match version regex, but one file does??
+                    # This logic seems to prevent detecting a sequence if the naming is ambiguous?
+                    # Let's keep existing logic but careful.
+                    # Actually, if len > 1, it IS a sequence usually.
+                    pass
                 except Exception as e:
                     pass
             
-            if explode:
-                 # Treat as individual files
-                 for p in seq:
-                      p_str = str(p)
-                      info = path_map.get(p_str)
-                      if info:
-                           final_items.append(self._make_item(p_str, info[0], info[1], start_path))
+            if len(seq) == 1:
+                 # Treat as single file
+                 str_p = str(seq[0])
+                 info = path_map.get(str_p)
+                 if info:
+                     final_items.append(self._make_item(str_p, info[0], info[1], start_path))
                  continue
 
-            if len(seq) > 1:
-                # Sequence logic
-                max_mtime = 0
-                total_size = 0
-                
-                for p in seq:
-                    info = path_map.get(str(p))
-                    if info:
-                        st = info[1]
-                        if st.st_mtime > max_mtime:
-                            max_mtime = st.st_mtime
-                        total_size += st.st_size
-                
-                # Owner: pick from first file
-                first_file_info = path_map.get(str(seq[0]))
-                owner = self.get_owner(first_file_info[1].st_uid) if first_file_info else "?"
-                
-                try:
-                    # fileseq.padding() returns the padding string (e.g. '#' or '@@@@@@')
-                    pad_str = seq.padding() if seq.padding() else "####"
-                    
-                    # Normalize to @ syntax for xstudio consistency and visual clarity
-                    # '#' implies 4 digits.
-                    # '#####' (5 digits) or '##' (2 digits? usually # is 4).
-                    # But fileseq treats SINGLE '#' as 4. Multiple hashes usually mean length = count.
-                    if pad_str == '#':
-                        pad_str = "@@@@"
-                    elif '#' in pad_str:
-                         pad_str = "@" * len(pad_str)
-                         
-                except:
-                    pad_str = "@@@@"
-                    
-                name = f"{seq.basename()}{pad_str}{seq.extension()}"
-                
-                # Ensure path is absolute for xstudio loading
-                seq_path_str = os.path.abspath(str(seq))
-                relpath = os.path.relpath(seq_path_str, start_path)
-                
-                item = {
-                    "name": name,
-                    "path": seq_path_str, 
-                    "relpath": relpath,
-                    "type": "Sequence",
-                    "frames": str(seq.frameRange()),
-                    "size": total_size,
-                    "size_str": self.format_size_str(total_size),
-                    "date": max_mtime,
-                    "owner": owner,
-                    "extension": seq.extension(),
-                    "is_sequence": True
-                }
-                final_items.append(item)
-                
-            else:
-                # Single file
-                p = seq[0]
+            # It's a sequence
+            max_mtime = 0
+            total_size = 0
+            valid_seq = True
+            
+            # Calculate stats
+            for p in seq:
                 info = path_map.get(str(p))
                 if info:
                     st = info[1]
-                    final_items.append(self._make_item(str(p), info[0], st, start_path))
+                    if st.st_mtime > max_mtime:
+                        max_mtime = st.st_mtime
+                    total_size += st.st_size
+                else:
+                    # Should not happen as we built candidates from map
+                    pass
+            
+            # Retrieve owner from first
+            first_path = str(seq[0])
+            first_info = path_map.get(first_path)
+            owner = self.get_owner(first_info[1].st_uid) if first_info else "?"
+            
+            # Format name
+            try:
+                pad = seq.padding()
+                if pad == '#': pad = "@@@@"
+                elif '#' in pad: pad = "@" * len(pad)
+                elif not pad: pad = "@@@@" # Default?
+            except:
+                pad = "@@@@"
+                
+            name = f"{seq.basename()}{pad}{seq.extension()}"
+                        
+            # Create item
+            # Use abspath for seq path? 
+            # fileseq string representation might be relative if input was relative?
+            # input was 'p' from raw_files which is full path.
+            
+            # fileseq.FileSequence string conversion gives the sequence string (path-#.ext).
+            # We want that as 'path'?
+            # xstudio expects 'path' to be loadable.
+            
+            item = {
+                "name": name,
+                "path": str(seq), # Sequence string path
+                "relpath": os.path.relpath(first_path, start_path), # Relative path of ONE file? Or sequence?
+                # relpath is used for tree building.
+                # If we use first_path, detailed logic might split it.
+                # But we want the sequence to appear in the folder.
+                # So we should use relation of the FOLDER containing the sequence.
+                # relpath logic in QML splits by /.
+                # If path is /foo/bar/seq.####.exr. relpath = bar/seq.####.exr.
+                # parts = [bar, seq...].
+                # This works.
+                "type": "Sequence",
+                "frames": str(seq.frameRange()),
+                "size": total_size,
+                "size_str": self.format_size_str(total_size),
+                "date": max_mtime,
+                "owner": owner,
+                "extension": seq.extension(),
+                "is_sequence": True,
+                "is_folder": False
+            }
+            # Fix relpath to be based on the abstract sequence path if possible?
+            # actually `str(seq)` gives the sequence path.
+            # `os.path.relpath(str(seq), start_path)` should work.
+            item["relpath"] = os.path.relpath(str(seq), start_path)
+            
+            final_items.append(item)
 
         return self._group_versions(final_items)
 
-    def _make_item(self, path, name, st, start_path):
+    def _make_item(self, path, name, st, start_path, is_directory=False):
         return {
             "name": name,
             "path": path,
             "relpath": os.path.relpath(path, start_path),
-            "type": "File",
-            "frames": "1",
-            "size": st.st_size,
-            "size_str": self.format_size_str(st.st_size),
+            "type": "Folder" if is_directory else "File",
+            "frames": "" if is_directory else "1",
+            "size": 0 if is_directory else st.st_size,
+            "size_str": "" if is_directory else self.format_size_str(st.st_size),
             "date": st.st_mtime,
             "owner": self.get_owner(st.st_uid),
-            "extension": os.path.splitext(name)[1],
-            "is_sequence": False
+            "extension": "" if is_directory else os.path.splitext(name)[1],
+            "is_sequence": False,
+            "is_folder": is_directory
         }
 
     def _group_versions(self, items):
