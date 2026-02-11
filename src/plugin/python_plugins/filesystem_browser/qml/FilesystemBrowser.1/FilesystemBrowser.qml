@@ -204,6 +204,7 @@ Rectangle {
         onValueChanged: {
             console.log("QML: filter_time changed to: " + value)
             currentFilterTime = value || "Any"
+            refreshFiltering()
         }
         Component.onCompleted: {
              console.log("QML: filter_time init value: " + value)
@@ -218,6 +219,7 @@ Rectangle {
         onValueChanged: {
              console.log("QML: filter_version changed to: " + value)
              currentFilterVersion = value || "All Versions"
+             refreshFiltering()
         }
         Component.onCompleted: {
              console.log("QML: filter_version init value: " + value)
@@ -315,6 +317,70 @@ Rectangle {
     property var visibleTreeList: []
     property var collapsedPaths: ({})
 
+    function isVisible(data) {
+        if (!data) return true;
+        
+        // Text Filter
+        var filterText = filterField.text.trim();
+        if (filterText !== "") {
+            if (data.name.toLowerCase().indexOf(filterText.toLowerCase()) === -1) return false;
+        }
+        
+        // Time Filter
+        var t_val = currentFilterTime;
+        if (t_val !== "Any" && data.date) {
+             var now = Date.now() / 1000.0;
+             var diff = now - data.date;
+             var day = 86400;
+             var timeMatch = true;
+             if (t_val === "Last 1 day") timeMatch = diff <= day;
+             else if (t_val === "Last 2 days") timeMatch = diff <= 2*day;
+             else if (t_val === "Last 1 week") timeMatch = diff <= 7*day;
+             else if (t_val === "Last 1 month") timeMatch = diff <= 30*day;
+             
+             if (!timeMatch) return false;
+        }
+        
+        // Version Filter
+        var v_val = currentFilterVersion;
+        if (v_val === "Latest Version") {
+            if (data.is_latest_version !== true) return false;
+        } else if (v_val === "Latest 2 Versions") {
+             if (data.version_rank !== undefined && data.version_rank > 1) return false;
+        }
+        
+        return true;
+    }
+
+    function updateTreeVisibility(nodes) {
+        var hasVisible = false;
+        for(var i=0; i<nodes.length; i++) {
+            var node = nodes[i];
+            
+            if (node.isFolder) {
+                // Recursive check for folders
+                var childrenVisible = updateTreeVisibility(node.children);
+                // In Tree/Grouped view, folder is visible if it has visible children
+                // OR if the folder itself matches the text filter? 
+                // Usually for pruning, we only care if content is visible.
+                // But if user searches for "folderName", they might expect to see it.
+                // For now, strict pruning: only show if children are visible.
+                node.visible = childrenVisible; 
+            } else {
+                // File/Sequence
+                node.visible = isVisible(node.data);
+            }
+            
+            if (node.visible) hasVisible = true;
+        }
+        return hasVisible;
+    }
+    
+    function refreshFiltering() {
+        updateTreeVisibility(treeRoots);
+        flattenTree();
+    }
+
     function buildTree() {
         var roots = []
         
@@ -333,11 +399,13 @@ Rectangle {
                     "isFolder": false,
                     "data": file,
                     "children": [],
-                    "expanded": false
+                    "expanded": false,
+                    "visible": true // Default
                 }
                 roots.push(node)
             }
             treeRoots = roots
+            refreshFiltering() // Calculate visibility and flatten
             sortTree()
             return
         }
@@ -353,7 +421,8 @@ Rectangle {
                "isFolder": true,
                "children": [],
                "data": null,
-               "expanded": (collapsedPaths[path] === undefined) 
+               "expanded": (collapsedPaths[path] === undefined),
+               "visible": true
            }
            lookups[path] = node
            if (parent) parent.children.push(node);
@@ -398,7 +467,8 @@ Rectangle {
                    "isFolder": false,
                    "data": file,
                    "children": [],
-                   "expanded": false
+                   "expanded": false,
+                   "visible": true
                 }
                 if (parentNode) parentNode.children.push(leaf);
                 else roots.push(leaf);
@@ -435,6 +505,7 @@ Rectangle {
         }
         
         treeRoots = roots
+        refreshFiltering() // Calculate visibility and flatten
         sortTree()
     }
 
@@ -480,10 +551,12 @@ Rectangle {
         function traverse(nodes, depth) {
             for(var i=0; i<nodes.length; i++) {
                 var node = nodes[i]
-                node.depth = depth 
-                visible.push(node)
-                if (node.isFolder && node.expanded) {
-                    traverse(node.children, depth + 1)
+                if (node.visible) {
+                    node.depth = depth 
+                    visible.push(node)
+                    if (node.isFolder && node.expanded) {
+                        traverse(node.children, depth + 1)
+                    }
                 }
             }
         }
@@ -1034,6 +1107,7 @@ Rectangle {
                 font.pixelSize: fontSize
                 leftPadding: 5
                 background: Rectangle { color: "#333333"; border.color: "#555555" }
+                onTextEdited: refreshFiltering()
             }
         }
 
@@ -1126,54 +1200,7 @@ Rectangle {
                 delegate: Rectangle {
                     id: delegate
                     width: totalContentWidth
-                    property bool matchesFilter: {
-                        // Always show folders
-                        if (modelData.isFolder) return true;
-                        
-                        // Text Filter
-                        var filterText = filterField.text.trim();
-                        if (filterText !== "") {
-                            // Simple name match for now
-                            return (modelData.name.toLowerCase().indexOf(filterText.toLowerCase()) !== -1);
-                        }
-                        
-                        // Access the underlying data
-                        var d = modelData.data;
-                        if (!d) return true; // Should not happen for files, but safe fallback
-                        
-                        // Time Filter
-                        var timeMatch = true;
-                        var t_val = currentFilterTime; // e.g. "Last 1 day"
-                        if (t_val !== "Any" && d.date) {
-                             var now = Date.now() / 1000.0;
-                             var diff = now - d.date;
-                             var day = 86400;
-                             if (t_val === "Last 1 day") timeMatch = diff <= day;
-                             else if (t_val === "Last 2 days") timeMatch = diff <= 2*day;
-                             else if (t_val === "Last 1 week") timeMatch = diff <= 7*day;
-                             else if (t_val === "Last 1 month") timeMatch = diff <= 30*day;
-                        }
-                        if (!timeMatch) return false;
-                        
-                        // Version Filter
-                        var verMatch = true;
-                        var v_val = currentFilterVersion;
-                        if (v_val === "Latest Version") {
-                            verMatch = d.is_latest_version === true;
-                        } else if (v_val === "Latest 2 Versions") {
-                             // Using version_rank exposed by scanner.py
-                             if (d.version_rank !== undefined) {
-                                  verMatch = (d.version_rank <= 1);
-                             }
-                        }
-                        
-                        return verMatch;
-                    }
-                        
-
-                    
-                    height: matchesFilter ? rowHeight : 0
-                    visible: matchesFilter
+                    height: rowHeight
 
                     property bool isSelected: ListView.isCurrentItem
                     property bool isHovered: false
