@@ -50,6 +50,9 @@ autodoc_default_flags = ['members']
 autosummary_generate = False
 
 breathe_default_project = "xStudio"
+breathe_projects = {
+    "xStudio": "_build/doxygen/xml"
+}
 
 
 # Add any paths that contain templates here, relative to this directory.
