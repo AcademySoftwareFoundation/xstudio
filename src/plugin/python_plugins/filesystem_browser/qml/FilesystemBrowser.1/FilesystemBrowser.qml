@@ -250,6 +250,20 @@ Rectangle {
     }
 
     XsAttributeValue {
+        id: scan_required_attr
+        attributeTitle: "scan_required"
+        model: pluginData
+        role: "value"
+    }
+
+    XsAttributeValue {
+        id: auto_scan_threshold_attr
+        attributeTitle: "auto_scan_threshold"
+        model: pluginData
+        role: "value"
+    }
+
+    XsAttributeValue {
         id: searching_attr
         attributeTitle: "searching"
         model: pluginData
@@ -602,6 +616,16 @@ Rectangle {
         return prefix;
     }
 
+    // Toggle for Directory Tree
+    property bool showDirectoryTree: true
+    
+    Action {
+        id: toggleTreeAction
+        text: "Toggle Directory Tree"
+        shortcut: "Ctrl+T"
+        onTriggered: showDirectoryTree = !showDirectoryTree
+    }
+
     // Layout Constants - Hardcoded for reliability
     property real rowHeight: 30
     property color textColor: "#e0e0e0"
@@ -610,8 +634,182 @@ Rectangle {
 
 
 
-    ColumnLayout {
+    SplitView {
         anchors.fill: parent
+        orientation: Qt.Horizontal
+        
+        handle: Rectangle {
+            implicitWidth: 4
+            color: SplitHandle.pressed ? "#555555" : (SplitHandle.hovered ? "#444444" : "#222222")
+        }
+
+        // Tree Container (Manages Collapsed/Expanded states)
+        Item {
+            SplitView.preferredWidth: showDirectoryTree ? 250 : 30
+            SplitView.minimumWidth: showDirectoryTree ? 150 : 30
+            SplitView.maximumWidth: showDirectoryTree ? 400 : 30
+            
+            // Collapsed State (Sidebar)
+            Rectangle {
+                anchors.fill: parent
+                color: "#1a1a1a"
+                visible: !showDirectoryTree
+                
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 10
+                    
+                    Item { height: 10 } // Top spacer
+                    
+                    Button {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: "▶"
+                        
+                        background: Rectangle {
+                            color: "transparent"
+                        }
+                        contentItem: Text {
+                            text: parent.text
+                            color: "#aaaaaa"
+                            font.pixelSize: 14
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                        
+                        onClicked: showDirectoryTree = true
+                        
+                        ToolTip.visible: hovered
+                        ToolTip.text: "Expand Directory Tree"
+                    }
+                    
+                    Item { Layout.fillHeight: true } // Bottom spacer
+                }
+            }
+
+            // Expanded State (Tree with Header)
+            ColumnLayout {
+                anchors.fill: parent
+                visible: showDirectoryTree
+                spacing: 0
+                
+                // Header with Pin Button
+                Rectangle {
+                    id: treeHeader
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 30
+                    color: "#222222"
+                    z: 10
+                    
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 5
+                        
+                        Text {
+                            text: "Directories"
+                            color: "#e0e0e0"
+                            font.bold: true
+                            font.pixelSize: 12
+                            Layout.fillWidth: true
+                        }
+                        
+                        Button {
+                            text: dirTree.isPinned ? "Pinned" : "Pin"
+                            Layout.preferredHeight: 20
+                            flat: true
+                            
+                            background: Rectangle {
+                                color: parent.down ? "#444444" : "transparent"
+                                border.color: "#555555"
+                                border.width: 1
+                                radius: 2
+                            }
+                            
+                            contentItem: Text {
+                                text: parent.text
+                                color: dirTree.isPinned ? "#4facfe" : "#aaaaaa"
+                                font.pixelSize: 10
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            
+                            onClicked: dirTree.isPinned = !dirTree.isPinned
+                        }
+                        
+                        Button {
+                            text: "Hide"
+                            Layout.preferredHeight: 20
+                            flat: true
+                            
+                            background: Rectangle {
+                                color: parent.down ? "#444444" : "transparent"
+                                radius: 2
+                            }
+                             contentItem: Text {
+                                text: "×"
+                                color: "#aaaaaa"
+                                font.pixelSize: 16
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            onClicked: showDirectoryTree = false
+                        }
+                    }
+                    
+                    Rectangle {
+                        width: parent.width
+                        height: 1
+                        color: "#333333"
+                        anchors.bottom: parent.bottom
+                    }
+                }
+
+                // Directory Tree Component
+                DirectoryTree {
+                    id: dirTree
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    
+                    pluginData: pluginData
+                    currentPath: current_path_attr.value
+                    
+                    onSendCommand: (cmd) => root.sendCommand(cmd)
+                    
+                    // Pinning Logic (State)
+                    property bool isPinned: false
+                    property int autoHideThreshold: auto_scan_threshold_attr.value || 4
+                }
+            }
+            
+            // Auto-hide Logic Connection
+            Connections {
+                target: dirTree
+                function onCurrentPathChanged() {
+                    // console.warn("DEBUG: Path changed to " + dirTree.currentPath)
+                    if (!showDirectoryTree) return;
+                    if (dirTree.isPinned) return;
+                    
+                    var p = dirTree.currentPath;
+                    if (!p || p === "/") return;
+                    
+                    var threshold = dirTree.autoHideThreshold;
+                    
+                    // Calculate depth
+                    var parts = p.split("/");
+                    var depth = 0;
+                    for (var i=0; i<parts.length; i++) {
+                        if (parts[i] !== "") depth++;
+                    }
+                    
+                    if (depth > threshold) {
+                        console.warn("Auto-hiding directory tree. Depth " + depth + " > " + threshold);
+                        showDirectoryTree = false;
+                    }
+                }
+            }
+        }
+
+        ColumnLayout {
+            SplitView.fillWidth: true
         anchors.margins: 10
         spacing: 5
 
@@ -1197,6 +1395,46 @@ Rectangle {
                 flickableDirection: Flickable.HorizontalAndVerticalFlick
                 boundsBehavior: Flickable.StopAtBounds
                 
+                // Manual Scan Overlay
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: 200
+                    height: 100
+                    color: "#333333"
+                    visible: scan_required_attr.value === true
+                    z: 100 // Ensure it's on top
+                    
+                    ColumnLayout {
+                        anchors.centerIn: parent
+                        spacing: 10
+                        
+                        Text {
+                            text: "Manual Scan Required"
+                            color: "#aaaaaa"
+                            font.pixelSize: 14
+                            Layout.alignment: Qt.AlignHCenter
+                        }
+                        
+                        Button {
+                            text: "Scan Directory"
+                            Layout.alignment: Qt.AlignHCenter
+                            onClicked: sendCommand({"action": "force_scan"})
+                            
+                            background: Rectangle {
+                                color: parent.down ? "#444444" : "#555555"
+                                radius: 3
+                            }
+                            contentItem: Text {
+                                text: parent.text
+                                color: "white"
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                                font.pixelSize: 12
+                            }
+                        }
+                    }
+                }
+                
                 delegate: Rectangle {
                     id: delegate
                     width: totalContentWidth
@@ -1216,13 +1454,13 @@ Rectangle {
                         onEntered: isHovered = true
                         onExited: isHovered = false
                         acceptedButtons: Qt.LeftButton | Qt.RightButton
-                        onClicked: {
+                        onClicked: (mouse) => {
                             fileListView.currentIndex = index
                             if (mouse.button === Qt.RightButton) {
                                 contextMenu.popup()
                             }
                         }
-                        onDoubleClicked: {
+                        onDoubleClicked: (mouse) => {
                             fileListView.currentIndex = index
                             if (modelData.isFolder) {
                                 sendCommand({"action": "change_path", "path": modelData.path})
@@ -1456,6 +1694,7 @@ Rectangle {
                 
                 Item { Layout.preferredWidth: 5 } // Right margin
             }
+        }
         }
     }
 }

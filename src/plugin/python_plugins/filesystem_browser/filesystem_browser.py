@@ -36,7 +36,8 @@ class FilesystemBrowserPlugin(PluginBase):
             "Filesystem Browser",
             qml_folder="qml/FilesystemBrowser.1"
         )
-        
+        # Load Configuration
+        self.config = self.load_config()
         
         # self.main_executor = MainThreadExecutor()
 
@@ -161,14 +162,40 @@ class FilesystemBrowserPlugin(PluginBase):
         )
         self.scanned_dirs_attr.expose_in_ui_attrs_group("Filesystem Browser")
 
-        # New: Recursion limit attribute
+        # New: Directory Query Result (for Tree View)
+        self.directory_query_result = self.add_attribute(
+            "directory_query_result",
+            "{}",
+            {"title": "directory_query_result"},
+            register_as_preference=False
+        )
+        self.directory_query_result.expose_in_ui_attrs_group("Filesystem Browser")
+
         self.depth_limit_attr = self.add_attribute(
             "recursion_limit",
-            6,
+            self.config.get("max_recursion_depth", 6),
             {"title": "Recursion Limit"},
             register_as_preference=True
         )
         self.depth_limit_attr.expose_in_ui_attrs_group("Filesystem Browser")
+
+        # New: Scan Required flag (for manual scan mode)
+        self.scan_required_attr = self.add_attribute(
+            "scan_required",
+            False,
+            {"title": "scan_required"},
+            register_as_preference=False
+        )
+        self.scan_required_attr.expose_in_ui_attrs_group("Filesystem Browser")
+
+        # Auto-scan threshold (read-only for UI logic)
+        self.auto_scan_threshold_attr = self.add_attribute(
+            "auto_scan_threshold",
+            self.config.get("auto_scan_threshold", 4),
+            {"title": "auto_scan_threshold"},
+            register_as_preference=False
+        )
+        self.auto_scan_threshold_attr.expose_in_ui_attrs_group("Filesystem Browser")
         
         # New: Filter attributes
         self.filter_time_attr = self.add_attribute(
@@ -277,8 +304,10 @@ class FilesystemBrowserPlugin(PluginBase):
         # attribute_changed method handles all.
         
         # Internal state
-        self.extensions = {".mov", ".exr", ".png", ".mp4"}
-        self.ignore_dirs = {".git", ".svn", "__pycache__", ".DS_Store"}
+        # Load extensions and ignore dirs from config
+        self.extensions = set(self.config.get("extensions", []))
+        self.ignore_dirs = set(self.config.get("ignore_dirs", []))
+        self.root_ignore_dirs = set(self.config.get("root_ignore_dirs", []))
         self.search_thread = None
         self.cancel_search = False
         self.results_lock = threading.Lock()  # Protects current_scan_results
@@ -339,7 +368,13 @@ class FilesystemBrowserPlugin(PluginBase):
         
         # Check if it's our command attribute and the Value changed
         if attribute.uuid == self.command_attr.uuid and role == AttributeRole.Value:
-            val = self.command_attr.value()
+            # Safely get value
+            try:
+                val = self.command_attr.value()
+            except TypeError:
+                # Can happen if connection is shutting down or not ready
+                return
+
             if not val:
                 return # Empty command
                 
@@ -389,6 +424,17 @@ class FilesystemBrowserPlugin(PluginBase):
                         self.depth_limit_attr.set_value(attr_value)
 
                 elif action == "add_pin":
+                    path = data.get("path")
+                    self._add_pin(path)
+
+                elif action == "remove_pin":
+                    path = data.get("path")
+                    self._remove_pin(path)
+
+                elif action == "force_scan":
+                    # User clicked "Scan" button
+                    current = self.current_path_attr.value()
+                    self.start_search(current, force=True)
                     name = data.get("name")
                     path = data.get("path")
                     self._add_pin(name, path)
@@ -396,6 +442,10 @@ class FilesystemBrowserPlugin(PluginBase):
                 elif action == "remove_pin":
                     path = data.get("path")
                     self._remove_pin(path)
+
+                elif action == "get_subdirs":
+                    path = data.get("path")
+                    self._get_subdirs(path)
                 
                 # Clear command channel
                 self.command_attr.set_value("")
@@ -454,6 +504,13 @@ class FilesystemBrowserPlugin(PluginBase):
                 
             # Sort and limit
             candidates.sort()
+            
+        except Exception as e:
+            print(f"Search thread error: {e}")
+            self.searching_attr.set_value(False)
+                
+            # Sort and limit
+            candidates.sort()
             import json
             self.completions_attr.set_value(json.dumps(candidates[:10]))
             
@@ -461,6 +518,65 @@ class FilesystemBrowserPlugin(PluginBase):
             print(f"Completion error: {e}")
             self.completions_attr.set_value("[]")
 
+
+
+    def load_config(self):
+        """Load configuration from config.json in the plugin directory."""
+        config_path = os.path.join(os.path.dirname(__file__), "config.json")
+        default_config = {
+            "extensions": [".mov", ".mp4", ".mkv", ".exr", ".jpg", ".jpeg", ".png", 
+                           ".dpx", ".tiff", ".tif", ".wav", ".mp3"],
+            "ignore_dirs": [".git", ".quarantine", "eryx_unreal_plugin", ".DS_Store"],
+            "root_ignore_dirs": [],
+            "max_recursion_depth": 6,
+            "auto_scan_threshold": 4
+        }
+        
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, 'r') as f:
+                    loaded_config = json.load(f)
+                    # Merge with defaults
+                    for key, value in loaded_config.items():
+                        default_config[key] = value
+                    print(f"FilesystemBrowser: Loaded config from {config_path}")
+            except Exception as e:
+                print(f"FilesystemBrowser: Error loading config: {e}")
+        
+        return default_config
+
+    def _get_subdirs(self, path):
+        """Fetch subdirectories for the given path and update attribute."""
+        print(f"FilesystemBrowser: _get_subdirs called for {path}")
+        result = {"path": path, "dirs": []}
+        try:
+            if os.path.exists(path) and os.path.isdir(path):
+                dirs = []
+                with os.scandir(path) as it:
+                    for entry in it:
+                        # Check ignore dirs (names)
+                        if entry.name in self.ignore_dirs or entry.name.startswith('.'):
+                            continue
+                        
+                        # Check root ignore dirs (paths)
+                        if entry.path in self.root_ignore_dirs:
+                            continue
+                            
+                        if entry.is_dir():
+                            dirs.append({
+                                "name": entry.name,
+                                "path": entry.path
+                            })
+                # Sort alphabetically
+                dirs.sort(key=lambda x: x["name"].lower())
+                result["dirs"] = dirs
+                print(f"FilesystemBrowser: Found {len(dirs)} subdirs in {path}")
+        except Exception as e:
+            print(f"Error getting subdirs for {path}: {e}")
+        
+        # Ensure we use JSON dumping
+        import json
+        self.directory_query_result.set_value(json.dumps(result))
 
     def load_file(self, path):
         # Handle directory navigation
@@ -648,7 +764,59 @@ class FilesystemBrowserPlugin(PluginBase):
             print(f"Error loading file: {e}")
 
 
-    def start_search(self, start_path):
+    def start_search(self, start_path, force=False):
+        """
+        Start the file search in a separate thread.
+        If force=False and depth <= 4, skip auto-scan and ask user to confirm.
+        """
+        if not start_path:
+            return
+
+        # Check path depth
+        # Normalize path
+        norm_path = os.path.normpath(start_path)
+        # Split path
+        parts = norm_path.strip(os.sep).split(os.sep)
+        # On Mac/Linux, root is empty string at start if absolute?
+        # len(parts) for "/Users/sam" -> ["Users", "sam"] -> 2
+        # Root "/" -> [""] -> 1 (empty string)
+        # Let's count non-empty parts
+        depth = len([p for p in parts if p])
+        
+        # User requested: top 4 levels don't auto-scan.
+        # e.g. / (0), /Users (1), /Users/sam (2), /Users/sam/Desktop (3) -> Auto scan?
+        # Requirement: "looking at any directory in the top 4 levels ... shouldnt start recursive search"
+        # So depth <= threshold skips scan.
+        threshold = self.config.get("auto_scan_threshold", 4)
+        
+        if not force and depth <= threshold:
+            print(f"FilesystemBrowser: Path '{start_path}' (depth {depth}) requires manual scan.")
+            self.scan_required_attr.set_value(True)
+            self.searching_attr.set_value(False)
+            self.progress_attr.set_value("0")
+            
+            # Clear previous results
+            with self.results_lock:
+                self.current_scan_results = []
+            self.scanned_attr.set_value("0") 
+            self.scanned_dirs_attr.set_value("[]")
+            
+            # Update UI with empty list but correct path
+            self.apply_filters() # Will clear list
+            
+            # Ensure we cancel any running thread
+            if self.search_thread and self.search_thread.is_alive():
+                self.cancel_search = True
+                if hasattr(self, 'scanner'):
+                    self.scanner.stop()
+                self.search_thread.join()
+            
+            return
+
+        # Proceed with scan
+        self.scan_required_attr.set_value(False)
+
+        # Stop existing search if running
         if self.search_thread and self.search_thread.is_alive():
             self.cancel_search = True
             if hasattr(self, 'scanner'):
@@ -665,6 +833,10 @@ class FilesystemBrowserPlugin(PluginBase):
         print(f"Starting search in {start_path}")
         
         from .scanner import FileScanner
+        
+        # Cache current filter values for this search to avoid threading issues with attribute access
+        self.cached_filter_time = self.filter_time_attr.value()
+        self.cached_filter_version = self.filter_version_attr.value()
         
         # Config (could be loaded from prefs)
         max_depth = self.depth_limit_attr.value()
@@ -696,7 +868,7 @@ class FilesystemBrowserPlugin(PluginBase):
             # to make it feel more linear to the user.
             biased_progress = pow(progress / 100.0, 2.0)*100
             self.progress_attr.set_value(str(biased_progress))
-            self.scanned_attr.set_value(str(scanned))
+            self.scanned_attr.set_value(str(scanned)) # Fixed type to string
             #self.scanProgress.set_value(str(progress))
             
             # Accumulate scanned dirs
@@ -745,16 +917,34 @@ class FilesystemBrowserPlugin(PluginBase):
                  self.searching_attr.set_value(False)
 
     def apply_filters(self):
-        # Filtering logic
-        
-        with self.results_lock:
-            results = list(self.current_scan_results)
+        """Re-run filtering logic on the current results cache."""
+        try:
+            with self.results_lock:
+                 results = list(self.current_scan_results)
             
-        self._apply_filters_logic(results)
-        
+            # Offload heavy filtering if list is huge? 
+            # For now, do it in main thread or worker? 
+            # Safe to do in main thread if count < 100k?
+            # Better to spawn a thread if we want UI responsiveness.
+            
+            # Doing it synchronously for now, but catching errors
+            self._apply_filters_logic(results)
+        except Exception as e:
+            print(f"Error applying filters: {e}")
+
     def _apply_filters_logic(self, results):
-        filter_time = self.filter_time_attr.value() if hasattr(self, 'filter_time_attr') else "Any"
-        filter_version = self.filter_version_attr.value() if hasattr(self, 'filter_version_attr') else "All Versions"
+        # Use cached values if available (from worker), else fetch live (UI update)
+        if hasattr(self, 'cached_filter_time'):
+            filter_time = self.cached_filter_time
+        else:
+            filter_time = self.filter_time_attr.value() if hasattr(self, 'filter_time_attr') else "Any"
+
+        if hasattr(self, 'cached_filter_version'):
+            filter_version = self.cached_filter_version
+        else:
+            filter_version = self.filter_version_attr.value() if hasattr(self, 'filter_version_attr') else "All Versions"
+
+        print(f"Applying filters: Time={filter_time}, Version={filter_version}, Count={len(results)}")
 
         # Separate directories and files
         dirs = []
