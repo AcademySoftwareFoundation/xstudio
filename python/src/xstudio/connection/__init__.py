@@ -587,6 +587,7 @@ class Connection(object):
             path (str): Path to a directory on filesystem
         """
 
+        path = path.strip()
         if not os.path.isdir(path):
             # silently ignore invalid paths, this is accepted behaviour for
             # search path mechanisms
