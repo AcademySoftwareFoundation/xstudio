@@ -40,6 +40,7 @@ CAF_PUSH_WARNINGS
 #include <QString>
 #include <QtConcurrent>
 #include <QUrl>
+#include <QQuickItemGrabResult>
 #include <QUuid>
 
 CAF_POP_WARNINGS
@@ -583,6 +584,22 @@ namespace ui {
                         QGuiApplication::setOverrideCursor(
                             QCursor(QPixmap(name).scaledToWidth(32, Qt::SmoothTransformation)));
                 }
+            }
+
+            // alternate version taking an ItemGrabResult
+            Q_INVOKABLE void setOverrideCursor(QObject *i) {
+                if (i) {
+                    const auto item = qobject_cast<QQuickItemGrabResult*>(i);
+                    if (item) {
+                        const auto qi = item->image();
+                        const auto qp = QPixmap::fromImage(qi);
+
+                        auto qc = QCursor(qp);
+                        QGuiApplication::setOverrideCursor(qc);
+                        return;
+                    }
+                }
+                restoreOverrideCursor();
             }
 
             Q_INVOKABLE void restoreOverrideCursor() {

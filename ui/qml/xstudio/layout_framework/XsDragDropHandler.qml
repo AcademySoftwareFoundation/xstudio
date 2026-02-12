@@ -18,13 +18,16 @@ Item {
     signal dragExited()
     signal dragEnded()
 
-    function startDrag(mouseX, mouseY) {
+    function startDrag(mouseX, mouseY, item=null) {
         dragStartPosition = targetWidget.mapToItem(
             appWindow.contentItem,
             mouseX,
             mouseY
             )
         dragging = false
+
+        global_drag_drop_handler.dragItem = item
+        global_drag_drop_handler.dragCount = dragData.length
     }
 
     property bool dragging: false
@@ -54,7 +57,7 @@ Item {
             mouseY
             )
 
-        if (!dragging) {
+        if (!dragging && dragStartPosition != undefined) {
             // drag only starts whne the mouse has moved by dragThresholdPixels
             var dx = dragMousePosition.x-dragStartPosition.x
             var dy = dragMousePosition.y-dragStartPosition.y

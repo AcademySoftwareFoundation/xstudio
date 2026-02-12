@@ -129,7 +129,7 @@ XsListView {
         }
 
         onDragged: (mousePosition, source, data) => {
-            computeTargetDropIndex(mousePosition.y)
+            computeTargetDropIndex(mousePosition.y, source, data)
             autoScroll(mousePosition.y)
         }
 
@@ -144,6 +144,16 @@ XsListView {
 
         }
 
+        onDragExited: {
+            if (dragTargetIndex != undefined && dragTargetIndex.valid) {
+                mediaList.itemAtIndex(dragTargetIndex.row).isDragTarget = false
+            }
+            dragTargetIndex = undefined
+
+            scrollUp.cancel()
+            scrollDown.cancel()
+        }            
+
         onDropped: (mousePosition, source, data) => {
 
             scrollUp.cancel()
@@ -153,13 +163,15 @@ XsListView {
             if (idx == undefined || !idx.valid) {
                 idx = mediaListModelDataRoot
                 if (idx == undefined || !idx.valid) {
-                    idx = theSessionData.createPlaylist(theSessionData.getNextName("Playlist {}"))
+                    idx = theSessionData.createPlaylist(theSessionData.getNextName("Drag Drop {}"))
                 } else {
                     // mediaListModelDataRoot is the 'MediaList' that lives
                     // underneath a Playist, Subset etc. We want to call
                     // handleDropFuture with the Playlist/Subset/Timeline index
                     idx = idx.parent
                 }
+            } else {
+                mediaList.itemAtIndex(dragTargetIndex.row).isDragTarget = false
             }
 
             if (source == "External URIS") {
@@ -216,7 +228,7 @@ XsListView {
         return mediaSelectionModel.selectedIndexes.includes(mediaListModelData.rowToSourceIndex(idx))
     }
 
-    function computeTargetDropIndex(dropCoordY) {
+    function computeTargetDropIndex(dropCoordY, source, data) {
 
         var oldDragTarget = dragTargetIndex
         dragToEnd = false
@@ -247,26 +259,12 @@ XsListView {
             // the index that we are going to drop items into cannot
             // be one of the selected items. Find the nearest unselected
             // index
-            if (isInSelection(idx)) {
-                var lidx = idx
-                while (isInSelection(lidx)) {
-                    lidx = lidx-1
-                    if (!lidx) break
-                }
-                var hidx = idx
-                while (isInSelection(hidx)) {
-                    if (hidx = (mediaList.count-1)) break
-                    hidx = hidx+1
-                }
-
-                if ((idx-lidx) < (hidx-idx)) {
-                    idx = lidx
-                } else {
-                    idx = hidx
-                }
-
-            }
-            if (mediaList.itemAtIndex(idx)) {
+            if (source == "MediaList" &&
+                data.length && data[0].parent == mediaListModelDataRoot &&
+                isInSelection(idx)) {
+                dragTargetIndex = undefined
+                dragToEnd = false
+            } else if (mediaList.itemAtIndex(idx)) {
                 mediaList.itemAtIndex(idx).isDragTarget = true
                 dragTargetIndex = mediaList.itemAtIndex(idx).modelIndex()
             }

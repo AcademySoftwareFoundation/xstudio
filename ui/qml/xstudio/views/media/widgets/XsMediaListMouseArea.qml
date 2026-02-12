@@ -68,7 +68,7 @@ MouseArea {
             }
 
             if (underMouseItem && mouse.button == Qt.LeftButton) {
-                drag_drop_handler.startDrag(mouseX, mouseY)
+                drag_drop_handler.startDrag(mouseX, mouseY, underMouseItem)
             }
 
         }

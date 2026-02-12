@@ -116,20 +116,44 @@ XsGridView {
         }
 
         onDragged: (mousePosition, source, data) => {
-            computeTargetDropIndex(mousePosition.x, mousePosition.y)
+            computeTargetDropIndex(mousePosition.x, mousePosition.y, source, data)
             autoScroll(mousePosition.y)
         }
 
+        onDragEnded: {
+            if (dragTargetIndex != undefined && dragTargetIndex.valid) {
+                mediaList.itemAtIndex(dragTargetIndex.row).isDragTarget = false
+            }
+            dragTargetIndex = undefined
+
+            scrollUp.cancel()
+            scrollDown.cancel()
+        }
+
+        onDragExited: {
+            if (dragTargetIndex != undefined && dragTargetIndex.valid) {
+                mediaList.itemAtIndex(dragTargetIndex.row).isDragTarget = false
+            }
+            dragTargetIndex = undefined
+
+            scrollUp.cancel()
+            scrollDown.cancel()
+        }            
+
         onDropped: (mousePosition, source, data) => {
+            scrollUp.cancel()
+            scrollDown.cancel()
 
             var idx = dragTargetIndex
             if (idx == undefined || !idx.valid) {
                 idx = mediaListModelDataRoot
                 if (idx == undefined || !idx.valid) {
-                    idx = theSessionData.createPlaylist(theSessionData.getNextName("Playlist {}"))
+                    idx = theSessionData.createPlaylist(theSessionData.getNextName("Drag Drop {}"))
                 } else {
                     idx = idx.parent // mediaListModelDataRoot is the 'MediaList' underneath a Playist, Subset etc.
                 }
+            } else {
+                mediaList.itemAtIndex(dragTargetIndex.row).isDragTarget = false
             }
 
             if (source == "External URIS") {
@@ -143,6 +167,7 @@ XsGridView {
                     if (idx) mediaSelectionModel.selectNewMedia(idx, quuids)
                 })
 
+                dragTargetIndex = undefined
                 return
 
             } else if (source == "External JSON") {
@@ -155,6 +180,8 @@ XsGridView {
                 ).then(function(quuids){
                     if (idx) mediaSelectionModel.selectNewMedia(idx, quuids)
                 })
+
+                dragTargetIndex = undefined
                 return
             }
 
@@ -184,7 +211,7 @@ XsGridView {
         return mediaSelectionModel.selectedIndexes.includes(mediaListModelData.rowToSourceIndex(idx))
     }
 
-    function computeTargetDropIndex(dropCoordX, dropCoordY) {
+    function computeTargetDropIndex(dropCoordX, dropCoordY, source, data) {
 
         var oldDragTarget = dragTargetIndex
 
@@ -206,26 +233,13 @@ XsGridView {
             // the index that we are going to drop items into cannot
             // be one of the selected items. Find the nearest unselected
             // index
-            if (isInSelection(idx)) {
-                var lidx = idx
-                while (isInSelection(lidx)) {
-                    lidx = lidx-1
-                    if (!lidx) break
-                }
-                var hidx = idx
-                while (isInSelection(hidx)) {
-                    if (hidx = (mediaList.count-1)) break
-                    hidx = hidx+1
-                }
+            if (source == "MediaList" &&
+                data.length && data[0].parent == mediaListModelDataRoot &&
+                isInSelection(idx)) {
 
-                if ((idx-lidx) < (hidx-idx)) {
-                    idx = lidx
-                } else {
-                    idx = hidx
-                }
+                dragTargetIndex = undefined
 
-            }
-            if (mediaList.itemAtIndex(idx)) {
+            } else if (mediaList.itemAtIndex(idx)) {
                 mediaList.itemAtIndex(idx).isDragTarget = true
                 dragTargetIndex = mediaList.itemAtIndex(idx).modelIndex()
             }

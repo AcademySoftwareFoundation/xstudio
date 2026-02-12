@@ -127,16 +127,6 @@ Rectangle{
         visible: isDragTarget
         z: 11
     }
-    Rectangle {
-        id: drag_item_bg
-        anchors.fill: parent
-        visible: dragTargetIndex != undefined && isSelected
-        opacity: 0.5
-        color: "white"
-        z: 10
-    }
-
-
 
     ColumnLayout{ id: tileItems
         width: isDragTarget? parent.width-drag_target_indicator.width-drag_target_indicator.anchors.rightMargin

@@ -92,15 +92,6 @@ Rectangle {
         y: dragToEnd ? parent.height-height : 0
     }
 
-    Rectangle {
-        id: drag_item_bg
-        anchors.fill: parent
-        visible: dragTargetIndex != undefined && isSelected
-        opacity: 0.5
-        color: "white"
-        z: 100
-    }
-
     property var mediaSourceMetadataFields: mediaDisplayInfoRole
 
     property bool fieldsReady: typeof mediaSourceMetadataFields == "object"

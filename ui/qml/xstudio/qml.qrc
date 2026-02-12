@@ -284,6 +284,7 @@
 
 	<qresource prefix="/cursors">
 		<file alias="magnifier_cursor.svg">assets/cursors/magnifier_cursor.svg</file>
+		<file alias="drag_cursor.svg">assets/cursors/drag_cursor.svg</file>
 		<file alias="colour_picker_cursor.svg">assets/icons/dropper.svg</file>
 		<file alias="point_scan.svg">assets/icons/point_scan.svg</file>
 	</qresource>
