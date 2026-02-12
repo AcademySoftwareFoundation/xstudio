@@ -380,10 +380,25 @@ QString ClipboardProxy::html() const {
 
 QVariant ClipboardProxy::data() const {
     auto md = QGuiApplication::clipboard()->mimeData();
-    if (md)
-        return QVariant::fromValue(md->data("QVariant"));
+    if (not md)
+        return QVariant();
 
-    return QVariant();
+    QVariantMap results;
+    for (const auto &fmt : md->formats()) {
+        if (fmt == "text/plain") {
+            results.insert(fmt, md->text());
+        } else if (fmt == "text/uri-list") {
+            QVariantList url_list;
+            for (const auto url : md->urls())
+                url_list.append(url);
+            results.insert(fmt, url_list);
+        } else {
+            // assume all other data is UTF8 encoded strings
+            results.insert(fmt, QString::fromUtf8(md->data(fmt)));
+        }
+    }
+
+    return results;
 }
 
 void ClipboardProxy::setData(const QVariant &data) {

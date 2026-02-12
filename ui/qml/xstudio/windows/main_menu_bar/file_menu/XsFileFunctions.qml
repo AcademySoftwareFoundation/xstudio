@@ -325,12 +325,14 @@ Item {
     }
 
     function addMediaFromClipboard() {
-        if(clipboard.text.length) {
+        if (clipboard.data) {
             var index = sessionSelectionModel.currentIndex
             if (!index.valid) {
                 index = theSessionData.createPlaylist("Add Media")
+            } else if (mediaSelectionModel.selectedIndexes.length) {
+                index = mediaSelectionModel.selectedIndexes[0]
             }
-            Future.promise(index.model.handleDropFuture(Qt.CopyAction, {"text/plain": clipboard.text}, index)).then(function(quuids){
+            Future.promise(index.model.handleDropFuture(Qt.CopyAction, clipboard.data, index)).then(function(quuids){
                 mediaSelectionModel.selectFirstNewMedia(index, quuids)
             })
         }
