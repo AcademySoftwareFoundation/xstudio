@@ -273,7 +273,7 @@ xstudio::utility::frame_groups_from_sequence_spec(const caf::uri &from_path) {
                 continue;
             }
 #ifdef _WIN32
-            auto entryPath = entry.path().string(); // Convert to std::string
+            auto entryPath = entry.path().generic_string();
 #else
             auto entryPath = entry.path().c_str();
 #endif
