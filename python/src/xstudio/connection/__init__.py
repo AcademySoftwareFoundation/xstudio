@@ -549,7 +549,7 @@ class Connection(object):
         XSTUDIO_PYTHON_PLUGIN_PATH
         """
         if "XSTUDIO_PYTHON_PLUGIN_PATH" in os.environ:
-            search_paths = os.environ["XSTUDIO_PYTHON_PLUGIN_PATH"].split(":")
+            search_paths = os.environ["XSTUDIO_PYTHON_PLUGIN_PATH"].split(os.pathsep)
             for search_path in search_paths:
                 self.load_plugins_in_path(search_path)
 
