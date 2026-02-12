@@ -1425,6 +1425,10 @@ void MediaSourceActor::get_media_pointers_for_frames(
                         .then(
                             [=](const StreamDetail &detail) mutable {
                                 // get the transform matrix for the stream
+                                if (!media_streams_.contains(base_.current(media_type))) {
+                                    rp.deliver(make_error(xstudio_error::error, "No streams"));
+                                    return;
+                                }
                                 mail(transform_matrix_atom_v)
                                     .request(
                                         media_streams_.at(base_.current(media_type)), infinite)
