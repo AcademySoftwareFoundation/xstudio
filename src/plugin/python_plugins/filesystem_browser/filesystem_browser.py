@@ -933,6 +933,7 @@ class FilesystemBrowserPlugin(PluginBase):
             print(f"Error applying filters: {e}")
 
     def _apply_filters_logic(self, results):
+        import os
         # Use cached values if available (from worker), else fetch live (UI update)
         if hasattr(self, 'cached_filter_time'):
             filter_time = self.cached_filter_time
@@ -999,8 +1000,37 @@ class FilesystemBrowserPlugin(PluginBase):
             else:
                 filtered_files.extend(items)
         
+
+        # 3. Filter directories based on kept files
+        # A directory is kept if it is an ancestor of any kept file.
+        kept_dirs_paths = set()
+        
+        # Helper to add path and all parents
+        def add_path_recursive(path):
+            if not path or path == os.path.sep:
+                return
+            kept_dirs_paths.add(path)
+            parent = os.path.dirname(path)
+            if parent and parent != path:
+                add_path_recursive(parent)
+
+        if filtered_files:
+            for f in filtered_files:
+                # Add the directory containing the file
+                # Note: f['path'] is full file path
+                dir_path = os.path.dirname(f["path"])
+                add_path_recursive(dir_path)
+                
+        # Filter the dirs list
+        # We only keep directories that are in the kept_dirs_paths set
+        final_dirs = []
+        for d in dirs:
+            # d['path'] from scanner should be absolute path
+            if d["path"] in kept_dirs_paths:
+                final_dirs.append(d)
+        
         # Combine
-        final_results = dirs + filtered_files
+        final_results = final_dirs + filtered_files
         
         # Resort by name for display (or keep dirs first?)
         # QML handles sorting, but initial sort helps.
