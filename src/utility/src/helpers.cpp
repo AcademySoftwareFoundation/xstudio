@@ -605,6 +605,14 @@ caf::uri xstudio::utility::posix_path_to_uri(const std::string &path, const bool
     }
 #endif
 
+#ifdef _WIN32
+    // Normalize Windows drive-letter paths (e.g. R:\foo) to valid file URIs
+    std::replace(p.begin(), p.end(), '\\', '/');
+    if (p.size() >= 2 && std::isalpha(static_cast<unsigned char>(p[0])) && p[1] == ':') {
+        p = "/" + p;
+    }
+#endif
+
     // relative
     if (not p.empty() && p[0] != '/')
         return caf::uri_builder().scheme("file").path(p).make();
