@@ -49,6 +49,39 @@
         "USE_SANITIZER": "address"
       }
     },
+    {
+      "name": "windows-ninja-base",
+      "inherits": "default",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "hidden": true,
+      "generator": "Ninja"
+    },
+    {
+      "name": "WinNinjaRelease",
+      "inherits": ["windows-ninja-base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "WinNinjaRelWithDebInfo",
+      "inherits": ["windows-ninja-base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "USE_SANITIZER": "address"
+      }
+    },
+    {
+      "name": "WinNinjaDebug",
+      "inherits": ["windows-ninja-base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
     { 
       "name": "macos-base-arm",
       "condition": {
