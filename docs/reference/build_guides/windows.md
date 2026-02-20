@@ -68,3 +68,22 @@ When this has finished, you can build xSTUDIO with this command. Note the value 
 
 If the build is successful, you should have an exectuable in the 'build' folder called something like 'xSTUDIO-1.0.0-win64.exe'. This can be executed to start the xSTUDIO installer.
 
+### Alternative: Build with Ninja (faster builds)
+
+Ninja is significantly faster than MSBuild as it parallelises at the file level. Both Ninja and cmake are included with Visual Studio's CMake tools, so no separate install is needed.
+
+First, set up the Visual Studio build environment in your Powershell session. This puts the MSVC compiler, cmake and ninja on your PATH:
+
+    Import-Module "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+    Enter-VsDevShell -VsInstallPath "C:\Program Files\Microsoft Visual Studio\2022\Community" -Arch amd64
+
+Run the cmake command to configure for building. Note that this cmake command ***may take several hours to complete***. This is because xSTUDIO's dependencies (particularly ffmpeg) take a long time to download and build from the source code, which is what VCPKG is doing.
+
+    cmake -B build --preset WinNinjaRelease
+
+When this has finished, you can build xSTUDIO with this command. Ninja handles parallelism automatically so there is no need for the `--parallel` flag.
+
+    cmake --build build
+
+If the build is successful, you should have an executable in the 'build' folder called something like 'xSTUDIO-1.0.0-win64.exe'. This can be executed to start the xSTUDIO installer.
+
