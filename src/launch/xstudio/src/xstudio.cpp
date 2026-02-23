@@ -57,6 +57,9 @@ CAF_PUSH_WARNINGS
 #include <QQuickView>
 #include <QQuickWindow>
 #include <QOpenGLWidget>
+#include <QOpenGLContext>
+#include <QOffscreenSurface>
+#include <QOpenGLFunctions>
 CAF_POP_WARNINGS
 
 #include "xstudio/ui/qml/studio_ui.hpp" //NOLINT
@@ -211,10 +214,22 @@ void execute_xstudio_ui(
         qputenv("QT_SCALE_FACTOR", fstr.c_str());
     }
 
-    QSurfaceFormat format;
 #ifdef __OPENGL_4_1__
-    // MacOS is limited to OpenGL 4.1, of course
-    format.setVersion(4, 1);
+    // MacOS is limited to OpenGL 4.1
+    constexpr int required_gl_major = 4;
+    constexpr int required_gl_minor = 1;
+#else
+    // SSBO usage requires OpenGL 4.3
+    constexpr int required_gl_major = 4;
+    constexpr int required_gl_minor = 3;
+#endif
+
+    QSurfaceFormat format;
+    // Explicitly request desktop OpenGL (not OpenGL ES).
+    // On Wayland/EGL this is required, otherwise EGL may default to ES.
+    format.setRenderableType(QSurfaceFormat::OpenGL);
+    format.setVersion(required_gl_major, required_gl_minor);
+#ifdef __OPENGL_4_1__
     format.setProfile(QSurfaceFormat::CoreProfile);
 #endif
     QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
@@ -238,6 +253,52 @@ void execute_xstudio_ui(
     app.setApplicationName("xStudio");
     app.setWindowIcon(QIcon(":images/xstudio_logo_256_v1.svg"));
 
+    // Check OpenGL capabilities before proceeding
+    {
+        QOpenGLContext ctx;
+        if (!ctx.create()) {
+            spdlog::critical("Failed to create OpenGL context. No GPU driver available.");
+            return;
+        }
+        QOffscreenSurface surface;
+        surface.setFormat(ctx.format());
+        surface.create();
+        ctx.makeCurrent(&surface);
+
+        auto *funcs = ctx.functions();
+        const char *vendor   = reinterpret_cast<const char *>(funcs->glGetString(GL_VENDOR));
+        const char *renderer = reinterpret_cast<const char *>(funcs->glGetString(GL_RENDERER));
+        const char *version  = reinterpret_cast<const char *>(funcs->glGetString(GL_VERSION));
+        auto fmt = ctx.format();
+        int major = fmt.majorVersion();
+        int minor = fmt.minorVersion();
+
+        spdlog::info(
+            "OpenGL: {} / {} / {} (context version {}.{})",
+            vendor ? vendor : "unknown",
+            renderer ? renderer : "unknown",
+            version ? version : "unknown",
+            major,
+            minor);
+
+        if (major < required_gl_major ||
+            (major == required_gl_major && minor < required_gl_minor)) {
+            spdlog::critical(
+                "OpenGL {}.{} is below the minimum required {}.{}. "
+                "Please check your GPU driver and hardware "
+                "Vendor: {}, Renderer: {}",
+                major,
+                minor,
+                required_gl_major,
+                required_gl_minor,
+                vendor ? vendor : "unknown",
+                renderer ? renderer : "unknown");
+            ctx.doneCurrent();
+            return;
+        }
+
+        ctx.doneCurrent();
+    }
 
     QQmlApplicationEngine engine;
 
