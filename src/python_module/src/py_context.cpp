@@ -476,4 +476,63 @@ bool py_context::connect_local(caf::actor actor) {
     return static_cast<bool>(actor);
 }
 
+/*xstudio::utility::JsonStore py_context::process_non_specific_message(message &msg) {
+
+    // acquire the GIL!
+    py::gil_scoped_acquire gil;
+
+    // Is this message a request to process
+    if (msg.size() >=3) {
+        if (msg.match_element<xstudio::embedded_python::python_exec_plugin_method_atom>(0) &&
+            msg.match_element<std::string>(1) &&
+            msg.match_element<std::string>(2))
+        {
+            std::string plugin_name = msg.get_as<std::string>(1);
+            std::string plugin_method = msg.get_as<std::string>(2);
+            py::tuple args(msg.size()-3);
+
+            // build our CAF message data into a python tuple
+            for (size_t i = 3; i < msg.size(); ++i) {
+                auto tid = msg.type_at(i);
+                if (auto meta_obj = caf::detail::global_meta_object(tid);
+                    not meta_obj.type_name.empty()) {
+                    auto kvp = portable_bindings().find(std::string(meta_obj.type_name));
+                    if (kvp == portable_bindings().end()) {
+                        std::string err(fmt::format("Unable to extract element from message:
+type {} not known to CAF.", std::string(meta_obj.type_name))); throw
+std::runtime_error(err.c_str());
+                    }
+                    auto obj = kvp->second->to_object(msg, i);
+                    PyTuple_SetItem(args.ptr(), static_cast<int>(i-3), obj.release().ptr());
+                } else {
+                    std::string err(fmt::format("Unable to extract element {} from message:
+could not get portable name of {}", i, to_string(msg), tid)); throw
+std::runtime_error(err.c_str());
+                }
+            }
+
+            try {
+                auto g = py::globals();
+                if (g.contains(py::str("XSTUDIO"))) {
+
+                    py::object xstudio_link = g["XSTUDIO"];
+                    py::object plugin =
+                        xstudio_link.attr("get_named_python_plugin_instance")(plugin_name);
+                    py::object result = plugin.attr(plugin_method.c_str())(*args);
+                    return result.cast<xstudio::utility::JsonStore>();
+                } else {
+                    throw std::runtime_error("Couldn't import XSTUDIO module.");
+                }
+            } catch (py::error_already_set &e) {
+                e.restore();
+                throw;
+            }
+        }
+    } else {
+        std::string err(fmt::format("Unrecognised message: {}", to_string(msg)));
+        throw std::runtime_error(err.c_str());
+    }
+    return xstudio::utility::JsonStore();
+}*/
+
 } // namespace caf::python

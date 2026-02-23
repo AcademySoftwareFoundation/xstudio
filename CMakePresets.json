@@ -11,7 +11,8 @@
         "CMAKE_INSTALL_PREFIX": "xstudio_install",
         "X_VCPKG_APPLOCAL_DEPS_INSTALL": "ON",
         "BUILD_DOCS": "OFF",
-        "USE_VCPKG": "ON"
+        "USE_VCPKG": "ON",
+        "STUDIO_PLUGINS": ""
       }
     },
     { 

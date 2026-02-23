@@ -484,6 +484,13 @@ caf::message_handler ClipActor::message_handler() {
             return mail(atom, Uuid()).delegate(caf::actor_cast<caf::actor>(this));
         },
 
+        [=](utility::event_atom,
+            utility::change_atom,
+            media::rotation_atom,
+            float rotation_degrees) {
+            // rotation change event from MediaActor
+        },
+
         [=](event_atom,
             playlist::reflag_container_atom,
             const Uuid &,

@@ -438,15 +438,6 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
             return caf::actor();
         },
 
-
-        [=](spawn_plugin_ui_atom,
-            const utility::Uuid &uuid) -> result<std::tuple<std::string, std::string>> {
-            if (not manager_.factories().count(uuid))
-                return make_error(xstudio_error::error, "Invalid uuid");
-            return std::make_tuple(
-                manager_.spawn_widget_ui(uuid), manager_.spawn_menu_ui(uuid));
-        },
-
         [=](session::path_atom) -> std::vector<std::string> {
             return std::vector<std::string>(
                 manager_.plugin_paths().begin(), manager_.plugin_paths().end());

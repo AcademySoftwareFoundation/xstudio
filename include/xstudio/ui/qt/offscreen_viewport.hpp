@@ -84,7 +84,8 @@ namespace ui {
                 const viewport::ImageFormat format,
                 const bool sync_fetch_playhead_image,
                 const utility::time_point &tp,
-                const media_reader::ImageBufPtr &image_to_use = media_reader::ImageBufPtr());
+                const media_reader::ImageBufPtr &image_to_use = media_reader::ImageBufPtr(),
+                const bool include_overlays                   = true);
 
             void renderToImageBuffer(
                 const int w,
@@ -93,7 +94,8 @@ namespace ui {
                 const viewport::ImageFormat format,
                 const bool force_sync,
                 const utility::time_point &tp                 = utility::time_point(),
-                const media_reader::ImageBufPtr &image_to_use = media_reader::ImageBufPtr());
+                const media_reader::ImageBufPtr &image_to_use = media_reader::ImageBufPtr(),
+                const bool include_overlays                   = true);
 
             void initGL();
 

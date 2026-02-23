@@ -380,7 +380,7 @@ plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
                 CompositeViewportLayout::PLUGIN_UUID,
                 "CompositeViewportLayout",
                 plugin_manager::PluginFlags::PF_VIEWPORT_RENDERER,
-                true,
+                false,
                 "Ted Waine",
                 "Composite Viewport Layout Plugin")}));
 }

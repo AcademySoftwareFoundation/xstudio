@@ -141,7 +141,7 @@ plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
                 GridViewportLayout::PLUGIN_UUID,
                 "GridViewportLayout",
                 plugin_manager::PluginFlags::PF_VIEWPORT_RENDERER,
-                true,
+                false,
                 "Ted Waine",
                 "Grid Viewport Layout Plugin")}));
 }

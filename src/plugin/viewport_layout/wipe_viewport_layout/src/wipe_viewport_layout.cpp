@@ -229,7 +229,7 @@ plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
                 WipeViewportLayout::PLUGIN_UUID,
                 "WipeViewportLayout",
                 plugin_manager::PluginFlags::PF_VIEWPORT_RENDERER,
-                true,
+                false,
                 "Ted Waine",
                 "Wipe Viewport Layout Plugin")}));
 }

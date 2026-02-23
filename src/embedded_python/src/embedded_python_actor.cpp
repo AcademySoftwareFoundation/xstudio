@@ -922,7 +922,16 @@ void EmbeddedPythonActor::main_loop() {
                         } else {
                             result = plugin.attr(method_name.c_str())(**args_list);
                         }
-                        return result.cast<utility::JsonStore>();
+                        try {
+                            // has the python method returned us a JsonStore?
+                            return result.cast<utility::JsonStore>();
+                        } catch (...) {
+                            // hopefully the python return type can be represented as json data
+                            // (string), which we can then parse into a JsonStore
+                            py::object as_json_str = json_py_module.attr("dumps")(result);
+                            return utility::JsonStore(
+                                nlohmann::json::parse(as_json_str.cast<std::string>()));
+                        }
                     } else {
                         throw std::runtime_error("Couln't import XSTUDIO module.");
                     }

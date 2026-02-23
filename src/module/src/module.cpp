@@ -834,8 +834,8 @@ caf::message_handler Module::message_handler() {
                  hotkey_released(uuid, context, due_to_focus_change);
          },
 
-         [=](callback_atom, const utility::JsonStore &json) {
-             qml_item_callback(utility::Uuid(), json);
+         [=](callback_atom, const utility::JsonStore &json) -> utility::JsonStore {
+             return qml_item_callback(utility::Uuid(), json);
          },
 
          [=](deserialise_atom, const utility::JsonStore &json) { deserialise(json); },
@@ -1803,6 +1803,7 @@ utility::Uuid Module::insert_menu_item(
                 attr->set_role_data(
                     Attribute::MenuPaths, std::vector<std::string>({new_menu_path}));
             }
+
         } else {
             // a menu item that is not linked by to an attribute - it simply
             // has a uuid which, when the user clicks on the menu item, we run
@@ -1950,7 +1951,8 @@ void Module::update_attribute_menu_item_data(Attribute *attr) {
                 }
                 std::string menu_path;
                 for (size_t i = 1; i < (sections.size() - 1); ++i) {
-                    menu_path = sections[i] + (i == (sections.size() - 1) ? "" : "|");
+                    menu_path =
+                        menu_path + sections[i] + (i == (sections.size() - 1) ? "" : "|");
                 }
 
                 anon_mail(

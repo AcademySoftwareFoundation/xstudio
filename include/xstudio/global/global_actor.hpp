@@ -57,6 +57,7 @@ namespace global {
 
         void connect_api(const caf::actor &embedded_python);
         void disconnect_api(const caf::actor &embedded_python, const bool force = false);
+        void honour_requests_for_python_interpreter(const caf::actor &embedded_python);
 
         template <class AudioOutputDev>
         caf::actor spawn_audio_output_actor(const utility::JsonStore &prefs) {
@@ -82,6 +83,7 @@ namespace global {
         int port_maximum_;
         std::string bind_address_;
         bool connected_;
+        bool connection_attempted_ = {false};
 
         std::string remote_api_session_name_;
         utility::RemoteSessionManager rsm_;
@@ -93,6 +95,7 @@ namespace global {
         StatusType status_{StatusType::ST_NONE};
         std::set<caf::actor_addr> busy_;
         utility::JsonStore file_map_regex_;
+        std::vector<caf::typed_response_promise<caf::actor>> pending_python_interp_requests_;
     };
 } // namespace global
 } // namespace xstudio

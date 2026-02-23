@@ -118,6 +118,7 @@ void ViewportLayoutPlugin::init() {
     layouts_manager_ = system().registry().template get<caf::actor>(viewport_layouts_manager);
     gobal_playhead_events_ =
         system().registry().template get<caf::actor>(global_playhead_events_actor);
+
     anon_mail(
         ui::viewport::viewport_layout_atom_v, caf::actor_cast<caf::actor>(this), Module::name())
         .send(layouts_manager_);

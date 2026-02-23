@@ -83,8 +83,6 @@ void StudioUI::init(actor_system &system_) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
 
-    updateDataSources();
-
     // put ourselves in the registry
     system().registry().template put<caf::actor>(studio_ui_registry, as_actor());
 
@@ -375,60 +373,6 @@ QFuture<bool> StudioUI::loadSessionRequestFuture(const QUrl &path) {
         }
         return result;
     });
-}
-
-
-void StudioUI::updateDataSources() {
-
-    try {
-        scoped_actor sys{system()};
-        bool changed = false;
-
-        // connect to plugin manager, acquire enabled datasource plugins
-        // watch for changes..
-        auto pm      = system().registry().template get<caf::actor>(plugin_manager_registry);
-        auto details = request_receive<std::vector<plugin_manager::PluginDetail>>(
-            *sys,
-            pm,
-            utility::detail_atom_v,
-            plugin_manager::PluginType(plugin_manager::PluginFlags::PF_DATA_SOURCE));
-
-        for (const auto &i : details) {
-            try {
-                bool found = false;
-                for (const auto &ii : data_sources_) {
-                    if (QUuidFromUuid(i.uuid_) == dynamic_cast<Plugin *>(ii)->uuid()) {
-                        found = true;
-                        break;
-                    }
-                }
-
-                auto ui_str = request_receive<std::tuple<std::string, std::string>>(
-                    *sys, pm, plugin_manager::spawn_plugin_ui_atom_v, i.uuid_);
-                auto [widget, menu] = ui_str;
-
-                if (i.enabled_ && not found && widget != "") {
-                    changed      = true;
-                    auto backend = request_receive<caf::actor>(
-                        *sys, pm, plugin_manager::get_resident_atom_v, i.uuid_);
-                    auto plugin = new Plugin(this);
-                    plugin->setUuid(QUuidFromUuid(i.uuid_));
-                    plugin->setQmlName(QStringFromStd(i.name_));
-                    plugin->setQmlWidgetString(QStringFromStd(widget));
-                    plugin->setQmlMenuString(QStringFromStd(menu));
-                    plugin->setBackend(backend);
-                    data_sources_.append(plugin);
-                }
-
-            } catch (const std::exception &err) {
-                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, to_string(i.uuid_), err.what());
-            }
-        }
-        if (changed)
-            emit dataSourcesChanged();
-    } catch (const std::exception &err) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-    }
 }
 
 void StudioUI::loadVideoOutputPlugin(const utility::Uuid &plugin_id) {

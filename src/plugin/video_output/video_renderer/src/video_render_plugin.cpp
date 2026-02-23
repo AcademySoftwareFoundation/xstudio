@@ -415,11 +415,12 @@ void VideoRenderPlugin::make_offscreen_viewport(
 }
 
 
-void VideoRenderPlugin::qml_item_callback(
+utility::JsonStore VideoRenderPlugin::qml_item_callback(
     const utility::Uuid &qml_item_id, const utility::JsonStore &callback_data) {
 
     // VideoRendererDialog.qml or VideoRendererJobsQueueDialog.qml trigger this
     // callback when they call the 'xstudio_callback' function
+    utility::JsonStore result;
 
     if (callback_data.is_array() && callback_data.size() == 3) {
 
@@ -443,9 +444,9 @@ void VideoRenderPlugin::qml_item_callback(
 
         } catch (std::exception &e) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-            return;
+            return result;
         }
-        return;
+        return result;
 
     } else if (callback_data.is_array() && callback_data.size() == 2) {
 
@@ -465,15 +466,15 @@ void VideoRenderPlugin::qml_item_callback(
 
         } catch (std::exception &e) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-            return;
+            return result;
         }
-        return;
+        return result;
 
     } else if (callback_data.is_array() && callback_data.size() == 15) {
 
         if (!offscreen_viewport_) {
             make_offscreen_viewport(qml_item_id, callback_data);
-            return;
+            return result;
         }
 
         try {
@@ -526,6 +527,7 @@ void VideoRenderPlugin::qml_item_callback(
             __PRETTY_FUNCTION__,
             callback_data.dump(2));
     }
+    return result;
 }
 
 void VideoRenderPlugin::playback_render_output(

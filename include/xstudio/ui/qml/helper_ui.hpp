@@ -834,6 +834,12 @@ namespace ui {
             Q_INVOKABLE void
             moduleCallback(const QString &module_actor, const QVariant cb_data);
 
+            Q_INVOKABLE QFuture<QVariant>
+            pythonAsyncCallback(const QString pluginName, const QString method, QVariant args);
+
+            Q_INVOKABLE QVariant
+            pluginCallback(const QUuid &plugin_uuid, const QVariant cb_data);
+
             Q_INVOKABLE [[nodiscard]] QObject *contextPanel(QObject *obj) const;
 
             Q_INVOKABLE [[nodiscard]] QString contextPanelAddress(QObject *obj) const {

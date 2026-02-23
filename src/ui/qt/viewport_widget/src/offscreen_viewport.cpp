@@ -336,6 +336,27 @@ OffscreenViewport::OffscreenViewport(const std::string name, bool sync_with_main
                 },
 
                 [=](render_viewport_to_image_atom,
+                    const int w,
+                    const int h,
+                    const media_reader::ImageBufPtr &image_to_use,
+                    const bool render_overlays) -> result<thumbnail::ThumbnailBufferPtr> {
+                    // this message can be used to render an image to a thumbnail.
+                    media_reader::ImageBufPtr destination;
+                    renderToImageBuffer(
+                        w,
+                        h,
+                        destination,
+                        ImageFormat::RGBA_16F,
+                        false,
+                        utility::clock::now(),
+                        image_to_use,
+                        render_overlays);
+                    thumbnail::ThumbnailBufferPtr r = rgb96thumbFromHalfFloatImage(destination);
+                    r->convert_to(thumbnail::TF_RGB24);
+                    return r;
+                },
+
+                [=](render_viewport_to_image_atom,
                     caf::actor media_actor,
                     const timebase::flicks playhead_timepoint,
                     const thumbnail::THUMBNAIL_FORMAT format,
@@ -918,7 +939,8 @@ void OffscreenViewport::render(
     const viewport::ImageFormat format,
     const bool sync_fetch_playhead_image,
     const utility::time_point &tp,
-    const media_reader::ImageBufPtr &image_to_use) {
+    const media_reader::ImageBufPtr &image_to_use,
+    const bool include_overlays) {
 
     // ensure our GLContext is current
     if (!gl_context_->makeCurrent(surface_) || !gl_context_->isValid()) {
@@ -955,7 +977,7 @@ void OffscreenViewport::render(
         1.0f  // pixel scaling (high DPI support)
     );
 
-    if (loadQMLOverlays()) {
+    if (loadQMLOverlays() && include_overlays) {
 
         // If we are rendering a supplied image, store it for when we do
         // the render, or we call 'prepare_render_data' which pre-fetches the image
@@ -1040,7 +1062,7 @@ void OffscreenViewport::render(
         glViewport(0, 0, w, h);
 
         if (image_to_use) {
-            xstudio_viewport_->render(image_to_use);
+            xstudio_viewport_->render(image_to_use, include_overlays);
         } else {
             if (sync_fetch_playhead_image) {
                 xstudio_viewport_->prepare_render_data(utility::clock::now(), true);
@@ -1138,11 +1160,12 @@ void OffscreenViewport::renderToImageBuffer(
     const ImageFormat format,
     const bool sync_fetch_playhead_image,
     const utility::time_point &tp,
-    const media_reader::ImageBufPtr &image_to_use) {
+    const media_reader::ImageBufPtr &image_to_use,
+    const bool include_overlays) {
     auto t0 = utility::clock::now();
 
     // the actual render call
-    render(w, h, format, sync_fetch_playhead_image, tp, image_to_use);
+    render(w, h, format, sync_fetch_playhead_image, tp, image_to_use, include_overlays);
 
     if (!post_draw_hook_)
         post_draw_hook_.reset(new DefaultFrameGrabber());
