@@ -22,12 +22,16 @@ option(BUILD_PYSIDE_WIDGETS "Build xstudio player as PySide widget" OFF)
 option(OPENIMAGEIO_PLUGIN "Include the OpenImageIO PLugin" ON)
 
 if(WIN32)
-  set(USE_VCPKG ON)
-  #include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/vcpkg.cmake)
-  set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od /Oy-")
-  add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
-  # enable UUID System Generator
-  add_definitions(-DUUID_SYSTEM_GENERATOR=ON)
+    set(USE_VCPKG ON)
+    #include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/vcpkg.cmake)
+    set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od /Oy-")
+    # /MP is for MSBuild which parallelizes at project level.
+    # Ninja parallelizes at file level, so /MP would over-subscribe CPUs.
+    if(NOT CMAKE_GENERATOR STREQUAL "Ninja")
+        add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
+    endif()
+    # enable UUID System Generator
+    add_definitions(-DUUID_SYSTEM_GENERATOR=ON)
 endif()
 
 set(STUDIO_PLUGINS "" CACHE STRING "Enable compilation of SITE plugins")
