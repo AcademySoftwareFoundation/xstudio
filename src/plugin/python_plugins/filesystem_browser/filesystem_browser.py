@@ -433,11 +433,17 @@ class FilesystemBrowserPlugin(PluginBase):
 
                 elif action == "force_scan":
                     # User clicked "Scan" button
-                    current = self.current_path_attr.value()
-                    self.start_search(current, force=True)
-                    name = data.get("name")
                     path = data.get("path")
-                    self._add_pin(name, path)
+                    if path:
+                        # Ensure we update the attribute (and thus the QML path field)
+                        self.current_path_attr.set_value(path)
+                        self._add_to_history(path)
+                        # Use deep recursion for manual scan (e.g., 20)
+                        self.start_search(path, force=True, depth=20)
+                    else:
+                        # Fallback for the main Refresh button
+                        current = self.current_path_attr.value()
+                        self.start_search(current, force=True, depth=20)
 
                 elif action == "remove_pin":
                     path = data.get("path")
@@ -464,6 +470,125 @@ class FilesystemBrowserPlugin(PluginBase):
                 current = self.current_path_attr.value()
                 self.start_search(current)
 
+    def start_search(self, start_path, force=False, depth=None):
+        """
+        Start the file search in a separate thread.
+        If force=False and depth <= 4, skip auto-scan and ask user to confirm.
+        """
+        if not start_path:
+            return
+
+        # Check path depth
+        norm_path = os.path.normpath(start_path)
+        parts = norm_path.strip(os.sep).split(os.sep)
+        p_depth = len([p for p in parts if p])
+        
+        threshold = self.config.get("auto_scan_threshold", 4)
+        
+        if not force and p_depth <= threshold:
+            print(f"FilesystemBrowser: Path '{start_path}' (depth {p_depth}) requires manual scan.")
+            self.scan_required_attr.set_value(True)
+            self.searching_attr.set_value(False)
+            self.progress_attr.set_value("0")
+            
+            with self.results_lock:
+                self.current_scan_results = []
+            self.scanned_attr.set_value("0") 
+            self.scanned_dirs_attr.set_value("[]")
+            
+            self.apply_filters()
+            
+            if self.search_thread and self.search_thread.is_alive():
+                self.cancel_search = True
+                if hasattr(self, 'scanner'):
+                    self.scanner.stop()
+                self.search_thread.join()
+            return
+
+        self.scan_required_attr.set_value(False)
+
+        if self.search_thread and self.search_thread.is_alive():
+            self.cancel_search = True
+            if hasattr(self, 'scanner'):
+                self.scanner.stop()
+            self.search_thread.join()
+        
+        self.cancel_search = False
+        self.searching_attr.set_value(True)
+        self.search_thread = threading.Thread(target=self._search_worker, args=(start_path, depth))
+        self.search_thread.daemon = True
+        self.search_thread.start()
+
+    def _search_worker(self, start_path, custom_depth=None):
+        print(f"Starting search in {start_path} (depth={custom_depth if custom_depth is not None else 'default'})")
+        
+        from .scanner import FileScanner
+        
+        self.cached_filter_time = self.filter_time_attr.value()
+        self.cached_filter_version = self.filter_version_attr.value()
+        
+        max_depth = custom_depth if custom_depth is not None else self.depth_limit_attr.value()
+        config = {
+            "extensions": list(self.extensions),
+            "ignore_dirs": list(self.ignore_dirs),
+            "max_depth": max_depth
+        }
+        
+        self.scanner = FileScanner(config)
+        with self.results_lock:
+            self.current_scan_results = []
+        self.pending_scan_results = []
+        self.scanned_dirs_cache = []
+        self.scanned_dirs_attr.set_value("[]")
+        self.last_update = 0
+        
+        def progress_callback(results, info):
+            scanned = info.get("scanned", 0)
+            phase = info.get("phase", "")
+            progress = info.get("progress", 0)
+            new_dirs = info.get("scanned_dirs", [])
+            
+            biased_progress = pow(progress / 100.0, 2.0)*100
+            self.progress_attr.set_value(str(biased_progress))
+            self.scanned_attr.set_value(str(scanned))
+            
+            if new_dirs:
+                self.scanned_dirs_cache.extend(new_dirs)
+                import json
+                self.scanned_dirs_attr.set_value(json.dumps(self.scanned_dirs_cache))
+
+            if results and phase == "scanning":
+                self.pending_scan_results.extend(results)
+                now = time.time()
+                if now - self.last_update > 5:
+                    self.last_update = now
+                    with self.results_lock:
+                        self.current_scan_results.extend(self.pending_scan_results)
+                    self.apply_filters()
+                    self.pending_scan_results = []
+
+            if phase == "complete":
+                self.searching_attr.set_value(False)
+            
+        try:
+            results = self.scanner.scan(start_path, callback=progress_callback)
+            
+            if self.cancel_search:
+                return
+
+            with self.results_lock:
+                self.current_scan_results = results
+            self.apply_filters()
+            
+            print(f"Search finished, found {len(results)} items")
+            
+        except Exception as e:
+            print(f"Search error: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            self.searching_attr.set_value(False)
+
     def compute_completions(self, partial_path):
         """Minimal logic to find subdirectories matching partial path."""
         try:
@@ -473,47 +598,40 @@ class FilesystemBrowserPlugin(PluginBase):
                 return
 
             # Determine directory to scan
+            # Handle absolute paths vs relative correctly
             if partial_path.endswith(os.path.sep):
-                 directory = partial_path
-                 base = ""
+                directory = partial_path
+                base = ""
             else:
-                 directory = os.path.dirname(partial_path)
-                 base = os.path.basename(partial_path)
-            
-            # If directory part is empty, and we are not at root... 
+                directory = os.path.dirname(partial_path)
+                base = os.path.basename(partial_path)
+
+            # If directory part is empty (e.g. user typed "home")
             if not directory:
-                 directory = "/" 
+                directory = "."
 
             if not os.path.exists(directory) or not os.path.isdir(directory):
                 self.completions_attr.set_value("[]")
                 return
-                
+
             candidates = []
             try:
-                for item in os.listdir(directory):
-                    if item in self.ignore_dirs or item.startswith('.'):
-                        continue
-                        
-                    full_p = os.path.join(directory, item)
-                    if os.path.isdir(full_p):
-                        # Filter by base
-                        if item.lower().startswith(base.lower()):
-                            candidates.append(full_p + os.path.sep)
+                with os.scandir(directory) as it:
+                    for entry in it:
+                        if entry.name in self.ignore_dirs or entry.name.startswith('.'):
+                            continue
+
+                        if entry.is_dir():
+                            # Filter by base case-insensitive
+                            if entry.name.lower().startswith(base.lower()):
+                                candidates.append(entry.path + os.path.sep)
             except OSError:
                 pass
-                
+
             # Sort and limit
             candidates.sort()
-            
-        except Exception as e:
-            print(f"Search thread error: {e}")
-            self.searching_attr.set_value(False)
-                
-            # Sort and limit
-            candidates.sort()
-            import json
-            self.completions_attr.set_value(json.dumps(candidates[:10]))
-            
+            self.completions_attr.set_value(json.dumps(candidates[:20]))
+
         except Exception as e:
             print(f"Completion error: {e}")
             self.completions_attr.set_value("[]")
@@ -573,6 +691,9 @@ class FilesystemBrowserPlugin(PluginBase):
                 print(f"FilesystemBrowser: Found {len(dirs)} subdirs in {path}")
         except Exception as e:
             print(f"Error getting subdirs for {path}: {e}")
+        
+        import time
+        result["timestamp"] = time.time()
         
         # Ensure we use JSON dumping
         import json
@@ -764,157 +885,6 @@ class FilesystemBrowserPlugin(PluginBase):
             print(f"Error loading file: {e}")
 
 
-    def start_search(self, start_path, force=False):
-        """
-        Start the file search in a separate thread.
-        If force=False and depth <= 4, skip auto-scan and ask user to confirm.
-        """
-        if not start_path:
-            return
-
-        # Check path depth
-        # Normalize path
-        norm_path = os.path.normpath(start_path)
-        # Split path
-        parts = norm_path.strip(os.sep).split(os.sep)
-        # On Mac/Linux, root is empty string at start if absolute?
-        # len(parts) for "/Users/sam" -> ["Users", "sam"] -> 2
-        # Root "/" -> [""] -> 1 (empty string)
-        # Let's count non-empty parts
-        depth = len([p for p in parts if p])
-        
-        # User requested: top 4 levels don't auto-scan.
-        # e.g. / (0), /Users (1), /Users/sam (2), /Users/sam/Desktop (3) -> Auto scan?
-        # Requirement: "looking at any directory in the top 4 levels ... shouldnt start recursive search"
-        # So depth <= threshold skips scan.
-        threshold = self.config.get("auto_scan_threshold", 4)
-        
-        if not force and depth <= threshold:
-            print(f"FilesystemBrowser: Path '{start_path}' (depth {depth}) requires manual scan.")
-            self.scan_required_attr.set_value(True)
-            self.searching_attr.set_value(False)
-            self.progress_attr.set_value("0")
-            
-            # Clear previous results
-            with self.results_lock:
-                self.current_scan_results = []
-            self.scanned_attr.set_value("0") 
-            self.scanned_dirs_attr.set_value("[]")
-            
-            # Update UI with empty list but correct path
-            self.apply_filters() # Will clear list
-            
-            # Ensure we cancel any running thread
-            if self.search_thread and self.search_thread.is_alive():
-                self.cancel_search = True
-                if hasattr(self, 'scanner'):
-                    self.scanner.stop()
-                self.search_thread.join()
-            
-            return
-
-        # Proceed with scan
-        self.scan_required_attr.set_value(False)
-
-        # Stop existing search if running
-        if self.search_thread and self.search_thread.is_alive():
-            self.cancel_search = True
-            if hasattr(self, 'scanner'):
-                self.scanner.stop()
-            self.search_thread.join()
-        
-        self.cancel_search = False
-        self.searching_attr.set_value(True)
-        self.search_thread = threading.Thread(target=self._search_worker, args=(start_path,))
-        self.search_thread.daemon = True
-        self.search_thread.start()
-
-    def _search_worker(self, start_path):
-        print(f"Starting search in {start_path}")
-        
-        from .scanner import FileScanner
-        
-        # Cache current filter values for this search to avoid threading issues with attribute access
-        self.cached_filter_time = self.filter_time_attr.value()
-        self.cached_filter_version = self.filter_version_attr.value()
-        
-        # Config (could be loaded from prefs)
-        max_depth = self.depth_limit_attr.value()
-        config = {
-            "extensions": list(self.extensions),
-            "ignore_dirs": list(self.ignore_dirs),
-            "max_depth": max_depth
-            # "version_regex": r"_v(\d+)" 
-        }
-        
-        self.scanner = FileScanner(config)
-        with self.results_lock:
-            self.current_scan_results = [] # Cache results for filtering
-        self.pending_scan_results = []
-        self.scanned_dirs_cache = []
-        self.scanned_dirs_attr.set_value("[]")
-        self.last_update = 0
-        
-        def progress_callback(results, info):
-            # Report progress to UI
-            # We send a JSON with status string and scanned count
-            scanned = info.get("scanned", 0)
-            phase = info.get("phase", "")
-            progress = info.get("progress", 0)
-            new_dirs = info.get("scanned_dirs", [])
-            
-            # Update progress attribute
-            # Because of the scanning algorithm, the progress is not linear, so we need to bias it
-            # to make it feel more linear to the user.
-            biased_progress = pow(progress / 100.0, 2.0)*100
-            self.progress_attr.set_value(str(biased_progress))
-            self.scanned_attr.set_value(str(scanned)) # Fixed type to string
-            #self.scanProgress.set_value(str(progress))
-            
-            # Accumulate scanned dirs
-            if new_dirs:
-                self.scanned_dirs_cache.extend(new_dirs)
-                # Cap the list size if needed/desired? No requirement yet.
-                # Update attribute periodically? Or always?
-                # The callback is already throttled to 0.2s in scanner.
-                import json
-                self.scanned_dirs_attr.set_value(json.dumps(self.scanned_dirs_cache))
-
-            # Handle partial results
-            if results and phase == "scanning":
-                self.pending_scan_results.extend(results)
-                now = time.time()
-                if now - self.last_update > 5:
-                    self.last_update = now
-                    with self.results_lock:
-                        self.current_scan_results.extend(self.pending_scan_results)
-                    self.apply_filters()
-                    self.pending_scan_results = []
-
-            if phase == "complete":
-                self.searching_attr.set_value(False)
-            
-        try:
-            results = self.scanner.scan(start_path, callback=progress_callback)
-            
-            if self.cancel_search:
-                return
-
-            with self.results_lock:
-                self.current_scan_results = results
-            self.apply_filters()
-            
-            print(f"Search finished, found {len(results)} items")
-            
-        except Exception as e:
-            print(f"Search error: {e}")
-            import traceback
-            traceback.print_exc()
-        finally:
-            if hasattr(self, 'main_executor'):
-                 self.main_executor.execute(self.searching_attr.set_value, False)
-            else:
-                 self.searching_attr.set_value(False)
 
     def apply_filters(self):
         """Re-run filtering logic on the current results cache."""
@@ -1001,40 +971,11 @@ class FilesystemBrowserPlugin(PluginBase):
                 filtered_files.extend(items)
         
 
-        # 3. Filter directories based on kept files
-        # A directory is kept if it is an ancestor of any kept file.
-        kept_dirs_paths = set()
+        # Combine: Keep all discovered directories to facilitate browsing,
+        # and combine with filtered files.
+        final_results = dirs + filtered_files
         
-        # Helper to add path and all parents
-        def add_path_recursive(path):
-            if not path or path == os.path.sep:
-                return
-            kept_dirs_paths.add(path)
-            parent = os.path.dirname(path)
-            if parent and parent != path:
-                add_path_recursive(parent)
-
-        if filtered_files:
-            for f in filtered_files:
-                # Add the directory containing the file
-                # Note: f['path'] is full file path
-                dir_path = os.path.dirname(f["path"])
-                add_path_recursive(dir_path)
-                
-        # Filter the dirs list
-        # We only keep directories that are in the kept_dirs_paths set
-        final_dirs = []
-        for d in dirs:
-            # d['path'] from scanner should be absolute path
-            if d["path"] in kept_dirs_paths:
-                final_dirs.append(d)
-        
-        # Combine
-        final_results = final_dirs + filtered_files
-        
-        # Resort by name for display (or keep dirs first?)
-        # QML handles sorting, but initial sort helps.
-        # Let's sort all by name.
+        # Resort by name for display
         final_results.sort(key=lambda x: x["name"])
 
         # Serialize
