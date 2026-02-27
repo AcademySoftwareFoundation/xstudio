@@ -301,6 +301,7 @@ Rectangle {
 
     // Local property to hold the parsed JSON file list
     property var fileList: []
+    onFileListChanged: buildTree()
     property var completionList: []
     
     // Sorting State
@@ -374,12 +375,12 @@ Rectangle {
             if (node.isFolder) {
                 // Recursive check for folders
                 var childrenVisible = updateTreeVisibility(node.children);
-                // In Tree/Grouped view, folder is visible if it has visible children
-                // OR if the folder itself matches the text filter? 
-                // Usually for pruning, we only care if content is visible.
-                // But if user searches for "folderName", they might expect to see it.
-                // For now, strict pruning: only show if children are visible.
-                node.visible = childrenVisible; 
+                
+                // NEW Logic: Folder is visible if:
+                // 1. It has visible children (e.g. media or subfolders matching search)
+                // 2. OR if there is NO active text search/filter, we keep it visible to allow navigation.
+                var filterText = filterField.text.trim();
+                node.visible = childrenVisible || (filterText === ""); 
             } else {
                 // File/Sequence
                 node.visible = isVisible(node.data);
@@ -632,8 +633,6 @@ Rectangle {
     property color hintColor: "#aaaaaa"
     property real fontSize: 12
 
-
-
     SplitView {
         anchors.fill: parent
         orientation: Qt.Horizontal
@@ -643,12 +642,12 @@ Rectangle {
             color: SplitHandle.pressed ? "#555555" : (SplitHandle.hovered ? "#444444" : "#222222")
         }
 
-        // Tree Container (Manages Collapsed/Expanded states)
+        // Tree Container
         Item {
             SplitView.preferredWidth: showDirectoryTree ? 250 : 30
             SplitView.minimumWidth: showDirectoryTree ? 150 : 30
             SplitView.maximumWidth: showDirectoryTree ? 400 : 30
-            
+
             // Collapsed State (Sidebar)
             Rectangle {
                 anchors.fill: parent
@@ -681,17 +680,31 @@ Rectangle {
                         ToolTip.text: "Expand Directory Tree"
                     }
                     
-                    Item { Layout.fillHeight: true } // Bottom spacer
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        
+                        Text {
+                            anchors.centerIn: parent
+                            text: "DIRECTORY VIEW"
+                            color: "#444444"
+                            font.pixelSize: 10
+                            font.bold: true
+                            rotation: 90
+                            width: parent.height
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                    }
                 }
             }
 
-            // Expanded State (Tree with Header)
+            // Tree with Header
             ColumnLayout {
                 anchors.fill: parent
                 visible: showDirectoryTree
                 spacing: 0
                 
-                // Header with Pin Button
+                // Header
                 Rectangle {
                     id: treeHeader
                     Layout.fillWidth: true
@@ -711,30 +724,7 @@ Rectangle {
                             font.pixelSize: 12
                             Layout.fillWidth: true
                         }
-                        
-                        Button {
-                            text: dirTree.isPinned ? "Pinned" : "Pin"
-                            Layout.preferredHeight: 20
-                            flat: true
-                            
-                            background: Rectangle {
-                                color: parent.down ? "#444444" : "transparent"
-                                border.color: "#555555"
-                                border.width: 1
-                                radius: 2
-                            }
-                            
-                            contentItem: Text {
-                                text: parent.text
-                                color: dirTree.isPinned ? "#4facfe" : "#aaaaaa"
-                                font.pixelSize: 10
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                            
-                            onClicked: dirTree.isPinned = !dirTree.isPinned
-                        }
-                        
+
                         Button {
                             text: "Hide"
                             Layout.preferredHeight: 20
@@ -774,46 +764,18 @@ Rectangle {
                     
                     onSendCommand: (cmd) => root.sendCommand(cmd)
                     
-                    // Pinning Logic (State)
-                    property bool isPinned: false
-                    property int autoHideThreshold: auto_scan_threshold_attr.value || 4
-                }
-            }
-            
-            // Auto-hide Logic Connection
-            Connections {
-                target: dirTree
-                function onCurrentPathChanged() {
-                    // console.warn("DEBUG: Path changed to " + dirTree.currentPath)
-                    if (!showDirectoryTree) return;
-                    if (dirTree.isPinned) return;
-                    
-                    var p = dirTree.currentPath;
-                    if (!p || p === "/") return;
-                    
-                    var threshold = dirTree.autoHideThreshold;
-                    
-                    // Calculate depth
-                    var parts = p.split("/");
-                    var depth = 0;
-                    for (var i=0; i<parts.length; i++) {
-                        if (parts[i] !== "") depth++;
-                    }
-                    
-                    if (depth > threshold) {
-                        console.warn("Auto-hiding directory tree. Depth " + depth + " > " + threshold);
-                        showDirectoryTree = false;
-                    }
+                    property int autoScanThreshold: auto_scan_threshold_attr.value || 4
                 }
             }
         }
 
+        // Main Content Side
         ColumnLayout {
             SplitView.fillWidth: true
-        anchors.margins: 10
-        spacing: 5
+            anchors.margins: 10
+            spacing: 5
 
-        // Path Input Row
+            // Path Input Row
         RowLayout {
             Layout.fillWidth: true
             Layout.preferredHeight: rowHeight
@@ -829,12 +791,20 @@ Rectangle {
                 id: pathField
                 Layout.fillWidth: true
                 Layout.preferredHeight: rowHeight
-                text: current_path_attr.value ? current_path_attr.value : "/"
-                selectByMouse: true
-                color: "white"
-                font.pixelSize: fontSize
-                verticalAlignment: Text.AlignVCenter
-                leftPadding: 5
+                text: current_path_attr.value || "/"
+                onTextChanged: {
+                    // This ensures that even if user is typing, a programmatic update
+                    // to current_path_attr.value (e.g. from SCAN button) can force a refresh if needed.
+                    // However, standard QML binding `text: ...` usually breaks if user edits.
+                    // We'll add a listener to the attribute to force it back if it changes externally.
+                }
+                
+                Connections {
+                    target: current_path_attr
+                    function onValueChanged() {
+                        pathField.text = current_path_attr.value || "/"
+                    }
+                }
                 
                 background: Rectangle { 
                     color: "#333333" 
@@ -976,6 +946,28 @@ Rectangle {
                 }
             }
             
+            Button {
+                id: refreshBtn
+                Layout.preferredHeight: rowHeight
+                Layout.preferredWidth: rowHeight
+                text: "↻"
+                font.pixelSize: 16
+                flat: true
+                onClicked: sendCommand({"action": "force_scan"})
+                ToolTip.visible: hovered
+                ToolTip.text: "Refresh directory scan"
+                
+                background: Rectangle {
+                    color: parent.down ? "#222222" : (parent.hovered ? "#444444" : "transparent")
+                }
+                contentItem: Text {
+                    text: parent.text
+                    color: "white"
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+
             Button {
                 id: historyBtn
                 Layout.preferredHeight: rowHeight
@@ -1388,6 +1380,15 @@ Rectangle {
                 id: fileListView
                 anchors.fill: parent
                 anchors.rightMargin: 12
+                
+                // Nothing found message
+                Text {
+                    anchors.centerIn: parent
+                    text: "Nothing found"
+                    color: "#666666"
+                    font.pixelSize: 18
+                    visible: fileListView.count === 0 && !searching_attr.value && !scan_required_attr.value
+                }
                 clip: true
                 model: visibleTreeList
                 
@@ -1695,7 +1696,6 @@ Rectangle {
                 Item { Layout.preferredWidth: 5 } // Right margin
             }
         }
-        }
     }
 }
-
+}

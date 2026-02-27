@@ -26,6 +26,17 @@ Rectangle {
     // Auto-expand logic
     property string pendingExpandPath: ""
     property bool isSyncing: false
+    property int autoScanThreshold: 4
+
+    function getPathDepth(p) {
+        if (!p || p === "/") return 0;
+        var parts = p.split("/");
+        var count = 0;
+        for(var i=0; i<parts.length; i++) {
+            if (parts[i]) count++;
+        }
+        return count;
+    }
 
     onCurrentPathChanged: {
         // Start sync process
@@ -74,6 +85,8 @@ Rectangle {
                 isSyncing = false;
                 // Ensure visible
                 treeView.positionViewAtIndex(deepestIndex, ListView.Center);
+                // Also expand to show children as requested
+                if (!node.expanded) expandNode(deepestIndex);
             } else {
                 // We need to go deeper. Expand this node if not expanded.
                 if (!node.expanded) {
@@ -112,7 +125,7 @@ Rectangle {
                 var val = value;
                 if (val && val !== "{}") {
                     var result = JSON.parse(val);
-                    console.log("DirectoryTree: Parsed result for path: " + result.path + ", dirs: " + (result.dirs ? result.dirs.length : "0"));
+                    console.log("DirectoryTree: Parsed result for path: " + result.path + ", dirs: " + (result.dirs ? result.dirs.length : "0") + ", isSyncing: " + isSyncing);
                     handleQueryResult(result);
                 }
             } catch(e) {
@@ -150,10 +163,34 @@ Rectangle {
     
     function expandNode(index) {
         var node = treeModel.get(index);
-        if (node.expanded) return;
+        console.log("DirectoryTree: expandNode called for: " + node.path + ", expanded: " + node.expanded + ", isLoading: " + node.isLoading);
         
-        node.expanded = true;
-        node.isLoading = true;
+        // If already expanded and not loading, we might still need to load if it has no children but should
+        // However, for now let's just allow re-requesting if isLoading is false or if explicitly called when collapsed
+        if (node.expanded && !node.isLoading) {
+             // Check if children already exist
+             var nextIndex = index + 1;
+             if (nextIndex < treeModel.count) {
+                 var next = treeModel.get(nextIndex);
+                 if (next.level > node.level) {
+                     console.log("DirectoryTree: Node already expanded with children.");
+                     return;
+                 }
+             }
+             // No children? Trigger load anyway
+             console.log("DirectoryTree: Node expanded but no children, re-requesting.");
+        } else if (node.expanded) {
+            return;
+        }
+        
+        treeModel.setProperty(index, "expanded", true);
+        
+        if (node.isLoading) {
+            console.log("DirectoryTree: Node is already loading, skipping command.");
+            return;
+        }
+        
+        treeModel.setProperty(index, "isLoading", true);
         
         // Request subdirs
         sendCommand({"action": "get_subdirs", "path": node.path});
@@ -161,9 +198,10 @@ Rectangle {
     
     function collapseNode(index) {
         var node = treeModel.get(index);
-        if (!node.expanded) return;
+        console.log("DirectoryTree: collapseNode called for: " + node.path);
         
-        node.expanded = false;
+        treeModel.setProperty(index, "expanded", false);
+        treeModel.setProperty(index, "isLoading", false); // Important: stop loading if collapsed
         
         // Remove children from model
         // We need to remove all items following this node that have a level > node.level
@@ -206,30 +244,23 @@ Rectangle {
         }
         
         if (foundIndex !== -1) {
-            // Check if we already have children populated (maybe partial update?)
-            // For now, assume if we requested, we want to populate.
-            // But if we already have children, we might duplicate.
-            // Simplified: The collapse logic removes children. 
-            // So if expanded is true, we expect children to be there OR we are inserting them.
+            console.log("DirectoryTree: Found target node at index: " + foundIndex);
             
-            // Check if next item is child
+            // Check if next item is already a child
             var nextIndex = foundIndex + 1;
             var parentLevel = treeModel.get(foundIndex).level;
             
             if (nextIndex < treeModel.count) {
                 var next = treeModel.get(nextIndex);
                 if (next.level > parentLevel) {
-                     // Already populated?
-                     // Maybe we should clear and re-populate?
-                     // For now, let's remove existing children and re-add to be safe/fresh.
+                     console.log("DirectoryTree: Removing existing children before re-populating.");
                      collapseNode(foundIndex); 
-                     treeModel.get(foundIndex).expanded = true; // Re-expand state
+                     treeModel.setProperty(foundIndex, "expanded", true); 
                 }
             }
             
             // Insert children
-            // Prepare items
-            var newItems = [];
+            console.log("DirectoryTree: Inserting " + dirs.length + " children for " + path);
             for(var j=0; j<dirs.length; j++) {
                 var d = dirs[j];
                 treeModel.insert(foundIndex + 1 + j, {
@@ -237,19 +268,33 @@ Rectangle {
                     "path": d.path,
                     "level": parentLevel + 1,
                     "expanded": false,
-                    "hasChildren": true, // Assume folders have children for UI purposes until proven otherwise
+                    "hasChildren": true, 
                     "isLoading": false
                 });
             }
             
-            // If no children, maybe mark as leaf?
+            // If no children, mark as leaf
             if (dirs.length === 0) {
-                 treeModel.get(foundIndex).hasChildren = false;
+                 console.log("DirectoryTree: No children found, marking as leaf.");
+                 treeModel.setProperty(foundIndex, "hasChildren", false);
+            } else {
+                 treeModel.setProperty(foundIndex, "hasChildren", true);
             }
             
+            treeModel.setProperty(foundIndex, "isLoading", false);
+
             // Continue sync if active
             if (isSyncing) {
                 syncToPath();
+            }
+        } else {
+            console.log("DirectoryTree: Target node for result not found or not expanded: " + path);
+            // Search for node to reset isLoading anyway
+            for(var k=0; k<treeModel.count; k++) {
+                if (treeModel.get(k).path === path) {
+                    treeModel.setProperty(k, "isLoading", false);
+                    break;
+                }
             }
         }
     }
@@ -283,7 +328,7 @@ Rectangle {
                 id: rowDelegate
                 width: ListView.view.width
                 height: treeRoot.rowHeight
-                color: (model.path === treeRoot.currentPath) ? treeRoot.selectionColor : (msgMouse.containsMouse ? treeRoot.hoverColor : "transparent")
+                color: (model.path === treeRoot.currentPath) ? treeRoot.selectionColor : ((msgMouse.containsMouse || scanMouse.containsMouse) ? "#2d2d2d" : "transparent")
                 
                 // Row Selection MouseArea (Background)
                 MouseArea {
@@ -353,6 +398,46 @@ Rectangle {
                         verticalAlignment: Text.AlignVCenter
                         elide: Text.ElideRight
                         leftPadding: 5
+                    }
+
+                    // Scan Button Container (Prevents layout jitter by taking space only if scan is possible)
+                    Item {
+                        Layout.preferredWidth: 56
+                        Layout.fillHeight: true
+                        visible: treeRoot.getPathDepth(model.path) <= treeRoot.autoScanThreshold && !model.isLoading
+
+                        Rectangle {
+                            anchors.centerIn: parent
+                            visible: msgMouse.containsMouse || scanMouse.containsMouse
+                            width: 46
+                            height: 18
+                            color: scanMouse.containsMouse ? "#2a2a2a" : "#1a1a1a"
+                            radius: 4
+                            border.color: "#333333"
+                            border.width: 1
+                            
+                            Text {
+                                anchors.centerIn: parent
+                                text: "SCAN"
+                                color: "#666666"
+                                font.pixelSize: 8
+                                font.bold: true
+                            }
+                            
+                            MouseArea {
+                                id: scanMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onClicked: {
+                                    // Set path AND trigger scan in one atomic action
+                                    sendCommand({"action": "force_scan", "path": model.path})
+                                }
+                            }
+                            
+                            ToolTip.visible: scanMouse.containsMouse
+                            ToolTip.text: "Force media scan in this folder"
+                            ToolTip.delay: 500
+                        }
                     }
                     
                     // Loading Indicator
