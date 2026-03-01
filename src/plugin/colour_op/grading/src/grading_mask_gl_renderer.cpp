@@ -107,14 +107,15 @@ void GradingMaskRenderer::render_grading_data_masks(
         }
 
         // here the mask is rendered to a GL texture
-        render_layer(*grade, render_layers_[masked_grade_index], image, true);
+        render_layer(*grade, render_layers_[masked_grade_index], image);
 
         // here we add info on the texture to the colour_op_data since
         // the colour op needs to use the texture
-        colour_op_data->textures_.emplace_back(colour_pipeline::ColourTexture{
-            fmt::format("masks[{}]", grade_index),
-            colour_pipeline::ColourTextureTarget::TEXTURE_2D,
-            render_layers_[masked_grade_index].offscreen_renderer->texture_handle()});
+        colour_op_data->textures_.emplace_back(
+            colour_pipeline::ColourTexture{
+                fmt::format("masks[{}]", grade_index),
+                colour_pipeline::ColourTextureTarget::TEXTURE_2D,
+                render_layers_[masked_grade_index].offscreen_renderer->texture_handle()});
 
         // adding info on the mask texture layers to the cache id will
         // force the viewport to assign new active texture indices to
@@ -143,8 +144,7 @@ void GradingMaskRenderer::render_grading_data_masks(
 void GradingMaskRenderer::render_layer(
     const GradingData &data,
     RenderLayer &layer,
-    const xstudio::media_reader::ImageBufPtr &frame,
-    const bool have_alpha_buffer) {
+    const xstudio::media_reader::ImageBufPtr &frame) {
 
     // Use fixed resolution for better performance
     const Imath::V2i mask_resolution(960, 540);
@@ -172,13 +172,12 @@ void GradingMaskRenderer::render_layer(
 
             canvas_renderer_->render_canvas(
                 data.mask(),
-                HandleState(),
                 to_canvas,
                 Imath::M44f(),
                 2.0f / mask_resolution.x, // See A1
                 1.0,
-                have_alpha_buffer,
-                image_aspect_ratio);
+                image_aspect_ratio,
+                true);
 
         } else {
 

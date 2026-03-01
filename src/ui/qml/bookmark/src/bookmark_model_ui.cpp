@@ -293,36 +293,37 @@ void BookmarkFilterModel::setsortbyCreated(const bool value) {
 BookmarkModel::BookmarkModel(QObject *parent) : super(parent) {
     init(CafSystemObject::get_actor_system());
 
-    setRoleNames(std::vector<std::string>(
-        {"authorRole",
-         "categoryRole",
-         "colourRole",
-         "createdEpochRole",
-         "createdRole",
-         "durationFrameRole",
-         "durationRole",
-         "durationTimecodeRole",
-         "enabledRole",
-         "endFrameRole",
-         "endTimecodeRole",
-         "focusRole",
-         "frameFromTimecodeRole",
-         "frameRole",
-         "hasAnnotationRole",
-         "hasNoteRole",
-         "metadataChangedRole",
-         "noteRole",
-         "objectRole",
-         "ownerRole",
-         "startFrameRole",
-         "startRole",
-         "startTimecodeRole",
-         "subjectRole",
-         "thumbnailRole",
-         "userDataRole",
-         "userTypeRole",
-         "uuidRole",
-         "visibleRole"}));
+    setRoleNames(
+        std::vector<std::string>(
+            {"authorRole",
+             "categoryRole",
+             "colourRole",
+             "createdEpochRole",
+             "createdRole",
+             "durationFrameRole",
+             "durationRole",
+             "durationTimecodeRole",
+             "enabledRole",
+             "endFrameRole",
+             "endTimecodeRole",
+             "focusRole",
+             "frameFromTimecodeRole",
+             "frameRole",
+             "hasAnnotationRole",
+             "hasNoteRole",
+             "metadataChangedRole",
+             "noteRole",
+             "objectRole",
+             "ownerRole",
+             "startFrameRole",
+             "startRole",
+             "startTimecodeRole",
+             "subjectRole",
+             "thumbnailRole",
+             "userDataRole",
+             "userTypeRole",
+             "uuidRole",
+             "visibleRole"}));
 }
 
 // don't optimise yet.
@@ -800,15 +801,17 @@ QVariant BookmarkModel::data(const QModelIndex &index, int role) const {
                 break;
             case createdRole:
                 if (detail.created_) {
-                    result = QVariant::fromValue(QLocale::system().toString(
-                        QDateTime::fromSecsSinceEpoch(
-                            std::chrono::duration_cast<std::chrono::seconds>(
-                                (*(detail.created_)).time_since_epoch())
-                                .count()),
-                        QLocale::ShortFormat));
+                    result = QVariant::fromValue(
+                        QLocale::system().toString(
+                            QDateTime::fromSecsSinceEpoch(
+                                std::chrono::duration_cast<std::chrono::seconds>(
+                                    (*(detail.created_)).time_since_epoch())
+                                    .count()),
+                            QLocale::ShortFormat));
                 } else {
-                    result = QVariant::fromValue(QLocale::system().toString(
-                        QDateTime::currentDateTime(), QLocale::ShortFormat));
+                    result = QVariant::fromValue(
+                        QLocale::system().toString(
+                            QDateTime::currentDateTime(), QLocale::ShortFormat));
                 }
                 break;
             case createdEpochRole:
@@ -1041,9 +1044,10 @@ bool BookmarkModel::setData(const QModelIndex &index, const QVariant &value, int
                             .toJson(QJsonDocument::Compact)
                             .constData());
                 } else {
-                    jval = nlohmann::json::parse(QJsonDocument::fromVariant(value)
-                                                     .toJson(QJsonDocument::Compact)
-                                                     .constData());
+                    jval = nlohmann::json::parse(
+                        QJsonDocument::fromVariant(value)
+                            .toJson(QJsonDocument::Compact)
+                            .constData());
                 }
 
                 if (not detail.user_data_ or (*detail.user_data_) != jval) {
@@ -1132,6 +1136,36 @@ QFuture<QString> BookmarkModel::exportCSVFuture(
                 o.close();
 
                 return QStringFromStd("CSV Exported successfuly.");
+            } catch (const std::exception &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                return QStringFromStd(failed + err.what());
+            }
+        }
+        return QStringFromStd(failed + "No backend");
+    });
+}
+
+QFuture<QString> BookmarkModel::exportAnnotationsFuture(const QUrl &path) {
+    return QtConcurrent::run([=]() {
+        auto failed = std::string("Export failed: ");
+        if (bookmark_actor_) {
+            try {
+                scoped_actor sys{system()};
+
+                auto data = request_receive<std::pair<std::string, std::vector<std::byte>>>(
+                    *sys,
+                    bookmark_actor_,
+                    session::export_atom_v,
+                    session::ExportFormat::EF_DIGEST_WITH_ANNOTATIONS,
+                    UriFromQUrl(path));
+                // write data to path..
+                // this maybe a symlink in which case we should resolve it.
+                std::ofstream o(uri_to_posix_path(UriFromQUrl(path)) + "/digest.txt");
+                o.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+                o << std::get<0>(data);
+                o.close();
+
+                return QStringFromStd("Digest Exported successfuly.");
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                 return QStringFromStd(failed + err.what());

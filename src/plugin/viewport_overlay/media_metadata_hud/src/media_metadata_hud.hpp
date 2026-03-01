@@ -96,8 +96,7 @@ namespace ui {
                 const Imath::M44f &transform_viewport_to_image_space,
                 const float viewport_du_dpixel,
                 const float device_pixel_ratio,
-                const xstudio::media_reader::ImageBufPtr &frame,
-                const bool have_alpha_buffer) override;
+                const xstudio::media_reader::ImageBufPtr &frame) override;
 
             void init_overlay_opengl();
 
@@ -154,6 +153,8 @@ namespace ui {
                 const utility::JsonStore &menu_item_data,
                 const std::string &user_data) override;
 
+            caf::message_handler message_handler_extensions() override;
+
           private:
             void update_configs_data();
             void update_profiles_list();
@@ -166,6 +167,11 @@ namespace ui {
                 const bool force                   = false);
             void update_media_metadata_for_media(
                 const media::AVFrameID frame_id, const bool update_profile_attr = false);
+
+            void update_media_metadata_for_media(
+                utility::UuidActor media_source_actor,
+                caf::actor media_actor,
+                const bool update_profile_attr);
 
             void update_metadata_values_for_profile(const bool force_update = false);
             void trim_cache();
@@ -228,6 +234,7 @@ namespace ui {
             StringPtr field_names_;
 
             std::map<utility::Uuid, JsonStorePtr> media_metadata_;
+            std::map<utility::Uuid, caf::actor_addr> watched_media_;
 
             std::map<std::string, MediaMetadataPtr> render_data_per_image_cache_;
             std::map<size_t, MediaMetadataPtr> render_data_per_metadata_cache_;

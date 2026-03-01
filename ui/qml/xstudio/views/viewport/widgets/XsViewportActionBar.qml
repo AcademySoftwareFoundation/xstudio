@@ -32,16 +32,16 @@ Item{id: actionDiv
         return ""
     }
 
-    XsHotkey {
-        id: popout_viewer_hotkey
-        sequence: "Ctrl+P"
-        name: "Open Pop-Out Viewer"
-        description: "Open the secondary viewport window"
-        componentName: "Viewer"
-        onActivated: {
-            appWindow.toggle_popout_viewer()
-        }
-    }
+    // XsHotkey {
+    //     id: popout_viewer_hotkey
+    //     sequence: "Ctrl+P"
+    //     name: "Open Pop-Out Viewer"
+    //     description: "Open the secondary viewport window"
+    //     componentName: "Viewer"
+    //     onActivated: {
+    //         appWindow.toggle_popout_viewer()
+    //     }
+    // }
 
     /*************************************************************************/
 

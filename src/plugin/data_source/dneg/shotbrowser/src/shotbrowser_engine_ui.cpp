@@ -75,6 +75,12 @@ void ShotBrowserEngine::checkReady() {
     if (not query_engine_.get_lookup(QueryEngine::cache_name("Playlist Type")))
         ready = false;
 
+    if (not query_engine_.get_lookup(QueryEngine::cache_name("Review Status")))
+        ready = false;
+
+    if (not query_engine_.get_lookup(QueryEngine::cache_name("Review Location")))
+        ready = false;
+
     if (not query_engine_.get_lookup(QueryEngine::cache_name("Production Status")))
         ready = false;
 
@@ -371,6 +377,8 @@ void ShotBrowserEngine::init(caf::actor_system &system) {
             // catchall for dealing with results from shotgun
             [=](shotgun_info_atom, const JsonStore &request, const JsonStore &data) {
                 try {
+                    // spdlog::stopwatch sw2;
+
                     if (request.at("type") == "project") {
                         query_engine_.set_cache(query_engine_.cache_name("Project"), data);
                         if (not ready_)
@@ -411,10 +419,10 @@ void ShotBrowserEngine::init(caf::actor_system &system) {
                         updateQueryValueCache("Review Location", data);
                         if (not ready_)
                             checkReady();
-                    } else if (request.at("type") == "reference_tag") {
-                        // qvariant_cast<ShotBrowserListModel *>(
-                        //     term_models_->value("referenceTagModel"))
-                        //     ->setModelData(data.at("data"));
+                    } else if (request.at("type") == "review_status") {
+                        updateQueryValueCache("Review Status", data);
+                        if (not ready_)
+                            checkReady();
                     } else if (request.at("type") == "shot_status") {
                         updateQueryValueCache("Exclude Shot Status", data);
                         updateQueryValueCache("Shot Status", data);
@@ -440,10 +448,7 @@ void ShotBrowserEngine::init(caf::actor_system &system) {
 
                         // if mode exists populate it..
                         if (asset_tree_map_.count(project_id)) {
-                            auto types = QStringList();
-                            asset_tree_map_[request.at("project_id")]->setModelData(
-                                ShotBrowserSequenceModel::flatToAssetTree(data, types));
-                            asset_tree_map_[request.at("project_id")]->setTypes(types);
+                            asset_tree_map_[request.at("project_id")]->flatToAssetTree(data);
                         }
 
                     } else if (request.at("type") == "stage") {
@@ -481,10 +486,7 @@ void ShotBrowserEngine::init(caf::actor_system &system) {
                             "Sequence", data, request.at("project_id").get<int>());
                     } else if (request.at("type") == "tree") {
                         const auto project_id = request.at("project_id").get<int>();
-                        auto types            = QStringList();
-                        sequences_tree_map_[request.at("project_id")]->setModelData(
-                            ShotBrowserSequenceModel::flatToTree(data, types));
-                        sequences_tree_map_[request.at("project_id")]->setTypes(types);
+                        sequences_tree_map_[request.at("project_id")]->flatToTree(data);
                         query_engine_.set_shot_sequence_list_cache(
                             QueryEngine::cache_name("ShotSequenceList", project_id), data);
                     } else if (request.at("type") == "shot") {
@@ -501,6 +503,11 @@ void ShotBrowserEngine::init(caf::actor_system &system) {
                         updateQueryValueCache(
                             "Playlist", data, request.at("project_id").get<int>());
                     }
+
+                    // spdlog::warn("request {} {} {:.3}",
+                    // request.at("type").get<std::string>(),  request.value("project_id", 0),
+                    // sw2);
+
                 } catch (const std::exception &err) {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                 }
@@ -559,6 +566,25 @@ void ShotBrowserEngine::set_backend(caf::actor backend) {
         }
         anon_mail(module::connect_to_ui_atom_v).send(backend_);
         anon_mail(shotgun_authentication_source_atom_v, as_actor()).send(backend_);
+
+        // here we ping the plugin manager to tell it to load the SYNC plugin if
+        // the user has shotgrid login access (i.e. they are a lead/supe who will
+        // need Sync to run reviews)
+        if (query_engine_.is_shotgrid_login_allowed()) {
+
+            spdlog::info(
+                "You have shotgrid login permissions: xSTUDIO SYNC plugin will be enabled.");
+
+            auto plugin_manager =
+                system().registry().template get<caf::actor>(plugin_manager_registry);
+            anon_mail(
+                plugin_manager::spawn_plugin_atom_v,
+                utility::Uuid("0ceb4fdb-cb6e-4148-894c-b8a0fad6bec0"), // sync plugin UUID
+                utility::JsonStore(), // init settings (not needed)
+                true                  // resident
+                )
+                .send(plugin_manager);
+        }
     }
 }
 
@@ -584,10 +610,10 @@ void ShotBrowserEngine::populateCaches() {
     getUsersFuture();
     getPipeStepFuture();
     getDepartmentsFuture();
-    getReferenceTagsFuture();
 
     getSchemaFieldsFuture("location");
     getSchemaFieldsFuture("review_location");
+    getSchemaFieldsFuture("review_status");
     getSchemaFieldsFuture("playlist_type");
     getSchemaFieldsFuture("shot_status");
     getSchemaFieldsFuture("note_type");
@@ -596,12 +622,12 @@ void ShotBrowserEngine::populateCaches() {
     getSchemaFieldsFuture("sequence_status");
 }
 
-
 QFuture<QString> ShotBrowserEngine::requestFileTransferFuture(
     const QVariantList &qitems,
     const QString &project,
     const QString &src_location,
-    const QString &dest_location) {
+    const QString &dest_location,
+    const QString &deps) {
     return QtConcurrent::run([=]() {
         QString program = "dnenv-do";
         QString result;
@@ -618,6 +644,8 @@ QFuture<QString> ShotBrowserEngine::requestFileTransferFuture(
             "-debug",
             "-show",
             project,
+            "-D",
+            deps,
             "-e",
             "production",
             "--watchers",
@@ -648,14 +676,6 @@ QFuture<QString> ShotBrowserEngine::requestFileTransferFuture(
         return result;
     });
 }
-
-
-// void ShotBrowserEngine::updateModel(const QString &qname) {
-//     auto name = StdFromQString(qname);
-
-//     if (name == "referenceTagModel")
-//         getReferenceTagsFuture();
-// }
 
 void ShotBrowserEngine::receivedDataSlot(
     const QPersistentModelIndex &index, const int role, const QString &result) {
@@ -773,10 +793,11 @@ QFuture<QUrl> ShotBrowserEngine::getSequencePathFuture(
                             result = QUrlFromUri(posix_path_to_uri(file.at("path")));
                             break;
                         } else {
-                            failed.emplace_back(fmt::format(
-                                "File not found {} {}",
-                                p_name,
-                                forward_remap_file_path(file.at("path"))));
+                            failed.emplace_back(
+                                fmt::format(
+                                    "File not found {} {}",
+                                    p_name,
+                                    forward_remap_file_path(file.at("path"))));
                         }
                     }
                 }

@@ -542,6 +542,26 @@ Rectangle {
         }
     }
 
+
+    function fitToMedia(indexes) {
+        for(let i=0; i<indexes.length; ++i) {
+            let type = theSessionData.get(indexes[i],"typeRole")
+            if(type == "Clip" && !theSessionData.get(indexes[i], "lockedRole")) {
+                let ts = theSessionData.get(indexes[i],"trimmedStartRole")
+                let td = theSessionData.get(indexes[i],"trimmedDurationRole")
+
+                let as = theSessionData.get(indexes[i],"availableStartRole")
+                let ad = theSessionData.get(indexes[i],"availableDurationRole")
+
+                if(ts != as)
+                    theSessionData.set(indexes[i], as, "activeStartRole")
+
+                if(td != ad)
+                    theSessionData.set(indexes[i], ad, "activeDurationRole")
+            }
+        }
+    }
+
     function duplicateClips(indexes) {
         return theSessionData.duplicateTimelineClips(indexes);
     }
@@ -659,7 +679,7 @@ Rectangle {
 
     XsPreference {
         id: createTracks
-        path: "/core/sequence/create_tracks"
+        path: "/core/sequence/create_tracks_user"
     }
 
     function addCreateTracks(indexes) {
@@ -969,17 +989,11 @@ Rectangle {
                     "",
                 ]
                 let current = theSessionData.get(clipIndex, "flagColourRole")
-                let colour = colours[0]
-                if(current) {
-                    for(let i = 0;i<colours.length; i++) {
-                        if(colours[i] == current)  {
-                            colour = colours[i+1]
-                            break
-                        }
-                    }
-                }
-
-                theSessionData.set(clipIndex, colour, "flagColourRole")
+                let cind = colours.indexOf(current)
+                if(cind == -1 || cind == colours.length-1)
+                    theSessionData.set(clipIndex, colours[0], "flagColourRole")
+                else
+                    theSessionData.set(clipIndex, colours[cind+1], "flagColourRole")
             }
         }
         componentName: "Timeline"

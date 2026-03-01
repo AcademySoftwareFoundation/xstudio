@@ -96,6 +96,15 @@ class CafRequest : public ControllableJob<QMap<int, QString>> {
                 }
                 break;
 
+            case SessionModel::Roles::rotationRole:
+                if (type == "Media") {
+                    auto data = request_receive<float>(
+                        *sys,
+                        actorFromString(system_, json_.at("actor")),
+                        media::rotation_atom_v);
+                    result[role_] = QString("%1").arg(data);
+                }
+                break;
 
             case SessionModel::timecodeAsFramesRole:
             case SessionModel::Roles::pathShakeRole:
@@ -537,11 +546,11 @@ class CafRequest : public ControllableJob<QMap<int, QString>> {
 
             // session tree contains...
 
-            result[JSONTreeModel::Roles::childrenRole] =
-                QStringFromStd(SessionModel::sessionTreeToJson(
-                                   containers, system_, uuidactor_vect_to_map(actors))
-                                   .at("children")
-                                   .dump());
+            result[JSONTreeModel::Roles::childrenRole] = QStringFromStd(
+                SessionModel::sessionTreeToJson(
+                    containers, system_, uuidactor_vect_to_map(actors))
+                    .at("children")
+                    .dump());
 
         } else if (type == "Media List") {
             // spdlog::error(
@@ -609,11 +618,11 @@ class CafRequest : public ControllableJob<QMap<int, QString>> {
                 playlist::get_container_atom_v,
                 true);
 
-            result[JSONTreeModel::Roles::childrenRole] =
-                QStringFromStd(SessionModel::playlistTreeToJson(
-                                   containers, system_, uuidactor_vect_to_map(actors))
-                                   .at("children")
-                                   .dump());
+            result[JSONTreeModel::Roles::childrenRole] = QStringFromStd(
+                SessionModel::playlistTreeToJson(
+                    containers, system_, uuidactor_vect_to_map(actors))
+                    .at("children")
+                    .dump());
 
         } else if (type == "Media") {
             auto target = actorFromString(system_, json_.at("actor"));

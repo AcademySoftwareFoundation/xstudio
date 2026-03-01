@@ -23,8 +23,7 @@ using namespace xstudio::ui::viewport;
     const Imath::M44f &transform_window_to_viewport_space,
     const Imath::M44f &transform_viewport_to_image_space,
     const float viewport_du_dpixel,
-    const xstudio::media_reader::ImageBufPtr &frame,
-    const bool have_alpha_buffer) {
+    const xstudio::media_reader::ImageBufPtr &frame) {
 
     if (frame) {
 

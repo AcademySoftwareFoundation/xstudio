@@ -198,9 +198,15 @@ void execute_xstudio_ui(
     int argc,
     char **argv) {
 
+    QByteArray previous_factor;
+
     // apply global UI scaling preference here by setting the
     // QT_SCALE_FACTOR env var before creating the QApplication
+
+    // this must be unset after engine runs, or we'll pollute and processes we create..
+
     if (ui_scale_factor != 1.0f) {
+        previous_factor  = qgetenv("QT_SCALE_FACTOR");
         std::string fstr = fmt::format("{}", ui_scale_factor);
         qputenv("QT_SCALE_FACTOR", fstr.c_str());
     }
@@ -264,6 +270,11 @@ void execute_xstudio_ui(
     QOpenGLWidget *dummy = new QOpenGLWidget();
     delete dummy;
 #endif
+    if (ui_scale_factor != 1.0f) {
+        qunsetenv("QT_SCALE_FACTOR");
+        if (not previous_factor.isNull())
+            qputenv("QT_SCALE_FACTOR", previous_factor);
+    }
 
     app.exec();
 
@@ -453,14 +464,15 @@ void LoaderActor::send_media(
                 filename_stem = std::string(filename_stem, 0, dotpos);
             }
 
-            added_media.push_back(request_receive<UuidActor>(
-                *self,
-                playlist,
-                playlist::add_media_atom_v,
-                filename_stem,
-                i.first,
-                i.second,
-                Uuid()));
+            added_media.push_back(
+                request_receive<UuidActor>(
+                    *self,
+                    playlist,
+                    playlist::add_media_atom_v,
+                    filename_stem,
+                    i.first,
+                    i.second,
+                    Uuid()));
 
             if (remote)
                 spdlog::info("{} sent to running session.", uri_to_posix_path(i.first));
@@ -609,6 +621,9 @@ struct CLIArguments {
     args::Flag disable_vsync = {
         misc, "disable-vsync", "Disable sync to video refresh", {"disable-vsync"}};
 
+    args::ValueFlagList<std::string> force_enable_plugin = {
+        misc, "UUID", "Force enable a disabled plugin with its UUID", {"enable-plugin"}};
+
     args::CompletionFlag completion = {parser, {"complete"}};
     void parse_args(int argc, char **argv) {
         try {
@@ -658,6 +673,13 @@ struct Launcher {
         actions["disable_vsync"]       = cli_args.disable_vsync.Matched();
         actions["compare"]             = static_cast<std::string>(args::get(cli_args.compare));
         actions["silence_qt_warnings"] = cli_args.silence_qt_warnings.Matched();
+
+        for (const auto ep : args::get(cli_args.force_enable_plugin)) {
+            if (!actions.contains("force_enable_plugins")) {
+                actions["force_enable_plugins"] = nlohmann::json::array();
+            }
+            actions["force_enable_plugins"].push_back(ep);
+        }
 
         // check for xstudio url..
         if (args::get(cli_args.media_paths).size() == 1 and
@@ -811,6 +833,23 @@ struct Launcher {
         auto pm =
             request_receive<caf::actor>(*self, global_actor, global::get_plugin_manager_atom_v);
 
+        if (actions.contains("force_enable_plugins")) {
+            try {
+                for (auto &p : actions["force_enable_plugins"]) {
+                    const auto id = p.get<utility::Uuid>();
+                    anon_mail(
+                        plugin_manager::spawn_plugin_atom_v,
+                        id,                   // plugin UUID
+                        utility::JsonStore(), // init settings (not used)
+                        true                  // resident flag
+                        )
+                        .send(pm);
+                }
+            } catch (std::exception &e) {
+                spdlog::warn("Failed to use --enable-plugin CLI option: {}", e.what());
+            }
+        }
+
         auto media_sent = false;
         for (const auto &p : actions["playlists"].items()) {
             if (p.value().empty())
@@ -923,11 +962,12 @@ struct Launcher {
                 (args::get(cli_args.remote_port)
                      ? args::get(cli_args.remote_port)
                      : preference_value<int>(prefs, "/core/api/port_minimum"));
-            targets.emplace_back(std::make_tuple(
-                std::string("undefined"),
-                args::get(cli_args.remote_host),
-                remote_port_tmp,
-                remote_port_tmp));
+            targets.emplace_back(
+                std::make_tuple(
+                    std::string("undefined"),
+                    args::get(cli_args.remote_host),
+                    remote_port_tmp,
+                    remote_port_tmp));
         } else if (not static_cast<std::string>(actions["session_name"]).empty()) {
             // scan for session port files.
             // if session specified used that otherwise add local
@@ -937,8 +977,9 @@ struct Launcher {
                 throw std::runtime_error(
                     fmt::format("Failed to find session {}", sname).c_str());
             }
-            targets.emplace_back(std::make_tuple(
-                sname, find_session->host(), find_session->port(), find_session->port()));
+            targets.emplace_back(
+                std::make_tuple(
+                    sname, find_session->host(), find_session->port(), find_session->port()));
         } else {
             for (const auto &i : rsm.sessions()) {
                 if (i.host() == "localhost")
@@ -1005,19 +1046,21 @@ struct Launcher {
 
         if (not args::get(cli_args.remote_host).empty()) {
 
-            throw std::runtime_error(fmt::format(
-                                         "Failed to connect to session at {}:{}",
-                                         args::get(cli_args.remote_host),
-                                         args::get(cli_args.remote_port))
-                                         .c_str());
+            throw std::runtime_error(
+                fmt::format(
+                    "Failed to connect to session at {}:{}",
+                    args::get(cli_args.remote_host),
+                    args::get(cli_args.remote_port))
+                    .c_str());
         }
 
         if (not static_cast<std::string>(actions["session_name"]).empty()) {
 
-            throw std::runtime_error(fmt::format(
-                                         "Failed to connect to session  {}",
-                                         static_cast<std::string>(actions["session_name"]))
-                                         .c_str());
+            throw std::runtime_error(
+                fmt::format(
+                    "Failed to connect to session  {}",
+                    static_cast<std::string>(actions["session_name"]))
+                    .c_str());
         }
 
         return caf::actor();

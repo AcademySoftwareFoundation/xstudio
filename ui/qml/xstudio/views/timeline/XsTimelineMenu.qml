@@ -24,6 +24,20 @@ XsPopupMenu {
         }
     }
 
+    function createTracks(items, video=true) {
+        for(let i=0;i<items.length;i++) {
+            if(items[i] instanceof Object) {
+                let t = theTimeline.addTrack(video ? "Video Track" : "Audio Track", true, items[i]["name"])[0]
+                let c = items[i]["colour"]
+                if(c != undefined)
+                    theSessionData.set(t, c, "flagColourRole")
+            } else {
+                theTimeline.addTrack(video ? "Video Track" : "Audio Track", true, items[i])
+            }
+        }
+    }
+
+
     Component.onCompleted: {
         helpers.setMenuPathPosition("Time Mode", "timeline_menu_", 1.9)
         // need to reorder snippet menus..
@@ -103,6 +117,14 @@ XsPopupMenu {
       }
 
     XsMenuModelItem {
+        text: qsTr("User Track Templates")
+        menuPath: ""
+        menuItemPosition: 4
+        menuModelName: timelineMenu.menu_model_name
+        panelContext: timelineMenu.panelContext
+      }
+
+    XsMenuModelItem {
         text: "Snippet"
         menuItemType: "divider"
         menuItemPosition: 80
@@ -149,7 +171,6 @@ XsPopupMenu {
     }
 
     Repeater {
-        id: createTrackRepeater
         model: createTrack.value
         Item {
             XsMenuModelItem {
@@ -159,26 +180,30 @@ XsPopupMenu {
                 menuItemPosition: index
                 menuModelName: timelineMenu.menu_model_name
                 onActivated: {
-                    for(let i=0;i<modelData["video tracks"].length;i++) {
-                        if(modelData["video tracks"][i] instanceof Object) {
-                            let t = theTimeline.addTrack("Video Track", true, modelData["video tracks"][i]["name"])[0]
-                            let c = modelData["video tracks"][i]["colour"]
-                            if(c != undefined)
-                                theSessionData.set(t, c, "flagColourRole")
-                        } else {
-                            theTimeline.addTrack("Video Track", true, modelData["video tracks"][i])
-                        }
-                    }
-                    for(let i=0;i<modelData["audio tracks"].length;i++) {
-                        if(modelData["audio tracks"][i] instanceof Object) {
-                            let t = theTimeline.addTrack("Audio Track", true, modelData["audio tracks"][i]["name"])[0]
-                            let c = modelData["audio tracks"][i]["colour"]
-                            if(c != undefined)
-                                theSessionData.set(t, c, "flagColourRole")
-                        } else {
-                            theTimeline.addTrack("Audio Track", true, modelData["audio tracks"][i])
-                        }
-                    }
+                    createTracks(modelData["video tracks"])
+                    createTracks(modelData["audio tracks"], false)
+                }
+            }
+        }
+    }
+
+    XsPreference {
+        id: createTrackUser
+        path: "/core/sequence/create_tracks_user"
+    }
+
+    Repeater {
+        model: createTrackUser.value
+        Item {
+            XsMenuModelItem {
+                text: modelData["name"]
+                menuItemType: "button"
+                menuPath: "User Track Templates"
+                menuItemPosition: index
+                menuModelName: timelineMenu.menu_model_name
+                onActivated: {
+                    createTracks(modelData["video tracks"])
+                    createTracks(modelData["audio tracks"], false)
                 }
             }
         }

@@ -47,7 +47,9 @@ namespace ui {
                 const QModelIndex &container,
                 const QModelIndex &item,
                 const bool fanOut       = false,
-                const bool removeSource = false) const;
+                const bool removeSource = false,
+                const bool limitResults = false,
+                const bool reuseMedia   = false) const;
 
             Q_INVOKABLE QFuture<QList<QUuid>> conformToSequenceFuture(
                 const QModelIndex &playlistIndex,
@@ -85,6 +87,8 @@ namespace ui {
                 const std::string &item_type,
                 const utility::UuidVector &before,
                 const bool removeSource,
+                const bool limitResults                  = false,
+                const bool reuseMedia                    = false,
                 const QPersistentModelIndex &notifyIndex = QPersistentModelIndex(),
                 const QUuid &notifyUuid                  = QUuid()) const;
 

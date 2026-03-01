@@ -208,7 +208,10 @@ void blocking_loader_other(
                         [=](const bool) mutable {
                             if (auto_gather) {
                                 for (const auto &i : uav) {
-                                    anon_mail(media_hook::gather_media_sources_atom_v, i.actor(), default_rate)
+                                    anon_mail(
+                                        media_hook::gather_media_sources_atom_v,
+                                        i.actor(),
+                                        default_rate)
                                         .send(session);
                                 }
                             }
@@ -641,8 +644,7 @@ caf::message_handler PlaylistActor::message_handler() {
 
             mail(utility::event_atom_v, loading_media_atom_v, true).send(base_.event_group());
 
-            if (path.scheme() == "file" or
-                path.scheme().find("http") == 0) {
+            if (path.scheme() == "file" or path.scheme().find("http") == 0) {
                 spawn(
                     blocking_loader,
                     rp,
@@ -655,7 +657,8 @@ caf::message_handler PlaylistActor::message_handler() {
                     uuid_before);
 
             } else {
-                // Unrecognised URI scheme, so see if one of the plugins can do something with it
+                // Unrecognised URI scheme, so see if one of the plugins can do something with
+                // it
                 auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
                 spawn(
                     blocking_loader_other,
@@ -668,7 +671,7 @@ caf::message_handler PlaylistActor::message_handler() {
                     pm,
                     uuid_before);
             }
-                    
+
             return rp;
         },
 
@@ -1038,8 +1041,9 @@ caf::message_handler PlaylistActor::message_handler() {
                 .request(actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const UuidActor &result) mutable {
-                        rp.deliver(std::make_pair(
-                            UuidActor(base_.uuid(), actor_cast<caf::actor>(this)), result));
+                        rp.deliver(
+                            std::make_pair(
+                                UuidActor(base_.uuid(), actor_cast<caf::actor>(this)), result));
                     },
 
                     [=](error &err) mutable { rp.deliver(std::move(err)); });
@@ -1078,6 +1082,8 @@ caf::message_handler PlaylistActor::message_handler() {
             media::media_display_info_atom,
             const utility::JsonStore &,
             caf::actor_addr &) {},
+
+        [=](utility::event_atom, utility::change_atom, media::rotation_atom, float) {},
 
         [=](utility::event_atom, media::media_display_info_atom, const utility::JsonStore &a) {
             mail(
@@ -1910,50 +1916,68 @@ caf::message_handler PlaylistActor::message_handler() {
 
             try {
                 caf::scoped_actor sys(system());
-                auto global = system().registry().template get<caf::actor>(global_registry);
-                auto epa = request_receive<caf::actor>(*sys, global, global::get_python_atom_v);
-                // spdlog::warn("Load from python");
-                // request otio xml from embedded_python.
-                mail(session::import_atom_v, path)
-                    .request(epa, infinite)
-                    .then(
-                        [=](const std::string &data) mutable {
-                            // got data create timeline and load it..
-                            const auto name = fs::path(uri_to_posix_path(path)).stem().string();
-                            // spdlog::warn("Loaded from python {}", name);
-                            mail(create_timeline_atom_v, name, uuid_before, false, false)
-                                .request(actor_cast<caf::actor>(this), infinite)
-                                .then(
-                                    [=](const utility::UuidUuidActor &uua) mutable {
-                                        // request loading of timeline
-                                        if (not wait) {
-                                            anon_mail(session::import_atom_v, path, data)
-                                                .send(uua.second.actor());
-                                            rp.deliver(uua.second);
-                                        } else {
-                                            mail(session::import_atom_v, path, data)
-                                                .request(uua.second.actor(), infinite)
-                                                .then(
-                                                    [=](const bool) mutable {
-                                                        rp.deliver(uua.second);
-                                                    },
 
-                                                    [=](error &err) mutable {
-                                                        spdlog::warn(
-                                                            "{} {}",
-                                                            __PRETTY_FUNCTION__,
-                                                            to_string(err));
-                                                        rp.deliver(std::move(err));
-                                                    });
-                                        }
-                                    },
-                                    [=](error &err) mutable {
-                                        spdlog::warn(
-                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
-                                        rp.deliver(std::move(err));
-                                    });
-                        },
-                        [=](error &err) mutable { rp.deliver(std::move(err)); });
+                if (path.scheme() != "file") {
+
+                    // Send path URI to data_source plugins to create and populate the timeline.
+                    auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
+                    mail(data_source::use_data_atom_v, path,
+                         caf::actor_cast<caf::actor>(this), base_.media_rate(), uuid_before, wait)
+                        .request(pm, infinite)
+                        .then(
+                            [=](const UuidActor &ua) mutable {
+                                rp.deliver(ua);
+                            },
+                            [=](error &err) mutable { rp.deliver(std::move(err)); });
+
+                } else {
+
+                    auto global = system().registry().template get<caf::actor>(global_registry);
+                    auto epa = request_receive<caf::actor>(*sys, global, global::get_python_atom_v);
+                    // spdlog::warn("Load from python");
+                    // request otio xml from embedded_python.
+                    mail(session::import_atom_v, path)
+                        .request(epa, infinite)
+                        .then(
+                            [=](const std::string &data) mutable {
+                                // got data create timeline and load it..
+                                const auto name = fs::path(uri_to_posix_path(path)).stem().string();
+                                // spdlog::warn("Loaded from python {}", name);
+                                mail(create_timeline_atom_v, name, uuid_before, false, false)
+                                    .request(actor_cast<caf::actor>(this), infinite)
+                                    .then(
+                                        [=](const utility::UuidUuidActor &uua) mutable {
+                                            // request loading of timeline
+                                            if (not wait) {
+                                                anon_mail(session::import_atom_v, path, data)
+                                                    .send(uua.second.actor());
+                                                rp.deliver(uua.second);
+                                            } else {
+                                                mail(session::import_atom_v, path, data)
+                                                    .request(uua.second.actor(), infinite)
+                                                    .then(
+                                                        [=](const bool) mutable {
+                                                            rp.deliver(uua.second);
+                                                        },
+
+                                                        [=](error &err) mutable {
+                                                            spdlog::warn(
+                                                                "{} {}",
+                                                                __PRETTY_FUNCTION__,
+                                                                to_string(err));
+                                                            rp.deliver(std::move(err));
+                                                        });
+                                            }
+                                        },
+                                        [=](error &err) mutable {
+                                            spdlog::warn(
+                                                "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                            rp.deliver(std::move(err));
+                                        });
+                            },
+                            [=](error &err) mutable { rp.deliver(std::move(err)); });
+
+                }
             } catch (const std::exception &err) {
                 rp.deliver(make_error(xstudio_error::error, err.what()));
             }

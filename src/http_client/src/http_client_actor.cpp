@@ -64,7 +64,8 @@ HTTPWorker::HTTPWorker(
     caf::actor_config &cfg,
     time_t connection_timeout,
     time_t read_timeout,
-    time_t write_timeout)
+    time_t write_timeout,
+    bool ssl_verify)
     : caf::event_based_actor(cfg) {
     behavior_.assign(
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
@@ -81,6 +82,7 @@ HTTPWorker::HTTPWorker(
                 cli.set_connection_timeout(connection_timeout, 0);
                 cli.set_read_timeout(read_timeout, 0);
                 cli.set_write_timeout(write_timeout, 0);
+                cli.enable_server_certificate_verification(ssl_verify);
                 auto res = [&]() -> httplib::Result {
                     if (content_type.empty())
                         return cli.Delete(path.c_str(), headers);
@@ -135,6 +137,7 @@ HTTPWorker::HTTPWorker(
                 cli.set_connection_timeout(connection_timeout, 0);
                 cli.set_read_timeout(read_timeout, 0);
                 cli.set_write_timeout(write_timeout, 0);
+                cli.enable_server_certificate_verification(ssl_verify);
 
                 // cli.set_logger([](const auto& req, const auto& res) {
                 //     spdlog::warn("{}", req.);
@@ -200,6 +203,7 @@ HTTPWorker::HTTPWorker(
                 cli.set_connection_timeout(connection_timeout, 0);
                 cli.set_read_timeout(read_timeout, 0);
                 cli.set_write_timeout(write_timeout, 0);
+                cli.enable_server_certificate_verification(ssl_verify);
                 auto res = [&]() -> httplib::Result {
                     if (content_type.empty())
                         return cli.Post(path.c_str(), headers, params);
@@ -257,6 +261,7 @@ HTTPWorker::HTTPWorker(
                 cli.set_connection_timeout(connection_timeout, 0);
                 cli.set_read_timeout(read_timeout, 0);
                 cli.set_write_timeout(write_timeout, 0);
+                cli.enable_server_certificate_verification(ssl_verify);
 
                 auto res = [&]() -> httplib::Result {
                     if (content_type.empty())
@@ -311,11 +316,13 @@ HTTPClientActor::HTTPClientActor(
     caf::actor_config &cfg,
     time_t connection_timeout,
     time_t read_timeout,
-    time_t write_timeout)
+    time_t write_timeout,
+    bool ssl_verify)
     : caf::event_based_actor(cfg),
       connection_timeout_(connection_timeout),
       read_timeout_(read_timeout),
-      write_timeout_(write_timeout) {
+      write_timeout_(write_timeout),
+      ssl_verify_(ssl_verify) {
     init();
 }
 
@@ -339,7 +346,7 @@ void HTTPClientActor::init() {
         worker_count,
         [&] {
             return system().spawn<HTTPWorker>(
-                connection_timeout_, read_timeout_, write_timeout_);
+                connection_timeout_, read_timeout_, write_timeout_, ssl_verify_);
         },
         caf::actor_pool::round_robin());
 

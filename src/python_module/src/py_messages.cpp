@@ -43,6 +43,8 @@ extern void register_jsonstore_class(py::module &m, const std::string &name);
 extern void register_FrameRate_class(py::module &m, const std::string &name);
 extern void register_URI_class(py::module &m, const std::string &name);
 extern void register_FrameRateDuration_class(py::module &m, const std::string &name);
+extern void register_vector3_class(py::module &m, const std::string &name);
+extern void register_matrix44_class(py::module &m, const std::string &name);
 extern void register_colour_triplet_class(py::module &m, const std::string &name);
 extern void register_uuid_actor_class(py::module &m, const std::string &name);
 extern void register_uuid_actor_vector_class(py::module &m, const std::string &name);
@@ -147,6 +149,7 @@ void py_config::add_messages() {
         "JsonStore", "xstudio::utility::JsonStore", &register_jsonstore_class);
     add_message_type<utility::MediaReference>(
         "MediaReference", "xstudio::utility::MediaReference", &register_mediareference_class);
+    add_message_type<Imath::M44f>("M44f", "Imath::M44f", &register_matrix44_class);
 
     add_message_type<bookmark::BookmarkDetail>(
         "BookmarkDetail", "xstudio::bookmark::BookmarkDetail", &register_bookmark_detail_class);

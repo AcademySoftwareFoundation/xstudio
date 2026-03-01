@@ -242,6 +242,8 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::media, media_reference_atom);
     ADD_ATOM(xstudio::media, source_offset_frames_atom);
     ADD_ATOM(xstudio::media, media_display_info_atom);
+    ADD_ATOM(xstudio::media, transform_matrix_atom);
+    ADD_ATOM(xstudio::media, rotation_atom);
 
     ADD_ATOM(xstudio::global_store, autosave_atom);
     ADD_ATOM(xstudio::global_store, read_only_atom);

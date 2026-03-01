@@ -51,8 +51,7 @@ namespace viewport {
         void render_layer(
             const GradingData& data,
             RenderLayer& layer,
-            const xstudio::media_reader::ImageBufPtr &frame,
-            const bool have_alpha_buffer);
+            const xstudio::media_reader::ImageBufPtr &frame);
 
         std::mutex immediate_data_gate_;
         utility::BlindDataObjectPtr immediate_data_;

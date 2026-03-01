@@ -20,6 +20,11 @@ XsPopupMenu {
     // XsMenuModelItem instance.
     property var panelContext: helpers.contextPanel(plusMenu)
 
+    XsPreference {
+        id: chunkSize
+        path: "/ui/qml/contactsheet_chunk_size"
+    }
+
     XsMenuModelItem {
         text: "Add To New Playlist"
         menuItemType: "button"
@@ -81,12 +86,39 @@ XsPopupMenu {
             dialogHelpers.textInputDialog(
                 plusMenu.addContactSheet,
                 "Add Contact Sheet",
-                "Enter a name for the new contact sheet.",
+                "Enter New Contact Sheet Name.",
                 theSessionData.getNextName("Contact Sheet {}"),
                 ["Cancel", "Add"])
         }
         panelContext: plusMenu.panelContext
     }
+
+    XsMenuModelItem {
+        text: "Add To New Contact Sheets..."
+        menuPath: ""
+        menuItemPosition: 3.5
+        menuModelName: plusMenu.menu_model_name
+        panelContext: plusMenu.panelContext
+        onActivated: {
+            dialogHelpers.contactSheetDialog(
+                function(name, count, button) {
+                    if(button == "Add") {
+                        let icount = parseInt(count);
+                        if(chunkSize.value != icount)
+                            chunkSize.value = icount;
+
+                        addToNewContactSheet(name, icount);
+                    }
+                },
+                "Add Contact Sheets",
+                "Enter New Contact Sheets Name",
+                "Contact Sheet {}",
+                chunkSize.value,
+                ["Cancel", "Add"])
+        }
+    }
+
+
 
     XsMenuModelItem {
         menuItemType: "divider"

@@ -28,13 +28,14 @@ const static auto q_quick_load         = QStringFromStd("Quick Load");
 
 ShotBrowserPresetModel::ShotBrowserPresetModel(QueryEngine &query_engine, QObject *parent)
     : query_engine_(query_engine), JSONTreeModel(parent) {
-    setRoleNames(std::vector<std::string>(
-        {"checksumRole",  "checksumSystemRole", "enabledRole",        "entityRole",
-         "favouriteRole", "flagRole",           "groupFavouriteRole", "groupFlagRole",
-         "groupIdRole",   "groupUserDataRole",  "hiddenRole",         "livelinkRole",
-         "nameRole",      "negatedRole",        "parentEnabledRole",  "parentHiddenRole",
-         "termRole",      "typeRole",           "updateRole",         "userDataRole",
-         "valueRole"}));
+    setRoleNames(
+        std::vector<std::string>(
+            {"checksumRole",  "checksumSystemRole", "enabledRole",        "entityRole",
+             "favouriteRole", "flagRole",           "groupFavouriteRole", "groupFlagRole",
+             "groupIdRole",   "groupUserDataRole",  "hiddenRole",         "livelinkRole",
+             "nameRole",      "negatedRole",        "parentEnabledRole",  "parentHiddenRole",
+             "termRole",      "typeRole",           "updateRole",         "userDataRole",
+             "valueRole"}));
 
     term_lists_ = new QQmlPropertyMap(this);
 
@@ -1164,8 +1165,9 @@ QObject *ShotBrowserPresetModel::termModel(
                     if (term == "Playlist" and data.size() > 4000) {
                         std::map<long, std::string> pl_map;
                         for (const auto &i : data)
-                            pl_map.insert(std::make_pair(
-                                i.at("id").get<long>(), i.at("name").get<std::string>()));
+                            pl_map.insert(
+                                std::make_pair(
+                                    i.at("id").get<long>(), i.at("name").get<std::string>()));
                         data.clear();
                         size_t icount = 0;
                         for (auto it = pl_map.rbegin(); it != pl_map.rend() and icount < 4000;
@@ -1211,8 +1213,9 @@ QObject *ShotBrowserPresetModel::termModel(
                     if (term == "Playlist" and data.size() > 4000) {
                         std::map<long, std::string> pl_map;
                         for (const auto &i : data)
-                            pl_map.insert(std::make_pair(
-                                i.at("id").get<long>(), i.at("name").get<std::string>()));
+                            pl_map.insert(
+                                std::make_pair(
+                                    i.at("id").get<long>(), i.at("name").get<std::string>()));
                         data.clear();
                         size_t icount = 0;
                         for (auto it = pl_map.rbegin(); it != pl_map.rend() and icount < 4000;

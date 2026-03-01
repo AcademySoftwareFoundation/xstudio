@@ -89,9 +89,8 @@ QString xstudio::ui::qml::getThumbnailURL(
             auto mp = utility::request_receive<media::AVFrameID>(
                 *sys, actor, media::get_media_pointer_atom_v, media::MT_IMAGE, frame);
 
-            auto mhash =
-                utility::request_receive<media::MediaSourceChecksum>(
-                    *sys, actor, media::checksum_atom_v);
+            auto mhash = utility::request_receive<media::MediaSourceChecksum>(
+                *sys, actor, media::checksum_atom_v);
 
             auto display_transform_hash = utility::request_receive<size_t>(
                 *sys, colour_pipe, colour_pipeline::display_colour_transform_hash_atom_v, mp);
@@ -104,13 +103,14 @@ QString xstudio::ui::qml::getThumbnailURL(
 
         auto actor_str = utility::make_hex_string(std::begin(buf), std::end(buf));
 
-        auto thumbstr = std::string(fmt::format(
-            "image://thumbnail/{}/{}/{}/{}",
-            actor_str,
-            frame,
-            (cache_to_disk ? "1" : "0"),
-            hash));
-        thumburl      = QStringFromStd(thumbstr);
+        auto thumbstr = std::string(
+            fmt::format(
+                "image://thumbnail/{}/{}/{}/{}",
+                actor_str,
+                frame,
+                (cache_to_disk ? "1" : "0"),
+                hash));
+        thumburl = QStringFromStd(thumbstr);
     } catch ([[maybe_unused]] const std::exception &err) {
         // spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
@@ -158,8 +158,9 @@ nlohmann::json xstudio::ui::qml::qvariant_to_json(const QVariant &var) {
         break;
     case QMetaType::QColor: {
         auto c = var.value<QColor>();
-        return nlohmann::json(utility::ColourTriplet(
-            float(c.red()) / 255.0f, float(c.green()) / 255.0f, float(c.blue()) / 255.0f));
+        return nlohmann::json(
+            utility::ColourTriplet(
+                float(c.red()) / 255.0f, float(c.green()) / 255.0f, float(c.blue()) / 255.0f));
     } break;
     case QMetaType::QByteArray:
         return nlohmann::json::parse(var.toByteArray().toStdString());
@@ -516,6 +517,8 @@ QVariant Helpers::python_callback(
             UuidFromQUuid(python_plugin_uuid),
             StdFromQString(method_name),
             packed_args);
+
+        std::cerr << "return_val " << return_val.dump() << "\n";
 
         return json_to_qvariant(return_val);
 

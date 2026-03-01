@@ -88,6 +88,7 @@ namespace ui {
             void setIsQuickViewer(const bool is_quick_viewer);
             void setHasOverlays(const bool has_overlays);
             void visibleChanged(const bool is_visible);
+            void quickViewFromPath(const QString &path_or_uri);
 
           public slots:
 
@@ -118,6 +119,7 @@ namespace ui {
 
             QQuickWindow *m_window;
             ui::viewport::Viewport *xstudio_viewport_ = nullptr;
+            ui::viewport::ScreenInfo screen_info_;
             bool init_done{false};
             QString fps_expression_;
             class QMLViewport *viewport_qml_item_;

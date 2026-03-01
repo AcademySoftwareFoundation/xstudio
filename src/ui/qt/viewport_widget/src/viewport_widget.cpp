@@ -235,7 +235,7 @@ void ViewportGLWidget::wheelEvent(QWheelEvent *event) {
         qtModifierToOurs(event->modifiers()),
         the_viewport_->name(),
         std::make_pair(event->angleDelta().rx(), event->angleDelta().ry()),
-        std::make_pair(event->pixelDelta().rx(), event->pixelDelta().ry()));
+        PointerEvent::WheelDeltaType::Angle);
 
     if (!the_viewport_->process_pointer_event(ev) && the_viewport_->playhead()) {
         // If viewport hasn't acted on the mouse wheel event (because user pref
@@ -260,7 +260,8 @@ void ViewportGLWidget::sendPointerEvent(EventType t, QMouseEvent *event, int for
         height(),
         qtModifierToOurs(event->modifiers()) + force_modifiers,
         the_viewport_->name());
-    p.w_ = utility::clock::now();
+
+    // p.w_ = utility::clock::now();
 
     if (the_viewport_->process_pointer_event(p)) {
         update();
@@ -280,7 +281,8 @@ void ViewportGLWidget::sendPointerEvent(QHoverEvent *event) {
         height(),
         Signature::Modifier::NoModifier,
         the_viewport_->name());
-    p.w_ = utility::clock::now();
+
+    // p.w_ = utility::clock::now();
 
     if (the_viewport_->process_pointer_event(p)) {
         update();

@@ -13,7 +13,8 @@ namespace ui {
           public:
             AnnotationSerialiser() = default;
 
-            static utility::JsonStore serialise(const Annotation *);
+            static utility::JsonStore
+            serialise(const Annotation *, const int maj_ver, const int minor_ver);
             static void deserialise(Annotation *anno, const utility::JsonStore &data);
 
             virtual void _serialise(const Annotation *, nlohmann::json &) const = 0;

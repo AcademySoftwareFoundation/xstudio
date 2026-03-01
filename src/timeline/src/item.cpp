@@ -1157,9 +1157,9 @@ JsonStore Item::insert(Items::iterator position, const Item &value, const JsonSt
     jsn[0]["undo"]["event_id"] = jsn[0]["redo"]["event_id"] = Uuid::generate();
     jsn[0]["undo"]["uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
 
-    jsn[0]["undo"]["action"] = ItemAction::IA_REMOVE;
-    jsn[0]["undo"]["index"]  = index;
-    jsn[0]["undo"]["uuid"]   = value.uuid();
+    jsn[0]["undo"]["action"]    = ItemAction::IA_REMOVE;
+    jsn[0]["undo"]["index"]     = index;
+    jsn[0]["undo"]["item_uuid"] = value.uuid();
 
     jsn[0]["redo"]["action"] = ItemAction::IA_INSERT;
     jsn[0]["redo"]["index"]  = index;
@@ -1183,7 +1183,7 @@ JsonStore Item::erase(Items::iterator position, const JsonStore &blind) {
     auto index = std::distance(begin(), position);
 
     jsn[0]["undo"]["event_id"] = jsn[0]["redo"]["event_id"] = Uuid::generate();
-    jsn[0]["undo"]["item_uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
+    jsn[0]["undo"]["uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
 
     jsn[0]["undo"]["action"] = ItemAction::IA_INSERT;
     jsn[0]["undo"]["index"]  = index;

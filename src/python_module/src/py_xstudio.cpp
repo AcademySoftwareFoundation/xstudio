@@ -62,6 +62,11 @@ py_actor_from_string(const std::string &actor_addr, caf::actor remote = caf::act
     // is not the main xstudio system. In this case, we can use remote which is
     // passed in from the python side and is a reference actor from the xstudio
     // system (usually the 'remote' member of a Python plugin instance)
+
+    std::cerr << "AA " << to_string(utility::ActorSystemSingleton::actor_system_ref()) << " "
+              << to_string(remote) << " " << to_string(remote->home_system()) << " "
+              << actor_addr << "\n";
+
     auto actor = utility::actor_from_string(
         utility::ActorSystemSingleton::actor_system_ref(), actor_addr);
 

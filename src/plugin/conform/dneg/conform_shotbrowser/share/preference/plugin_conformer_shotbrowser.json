@@ -7,11 +7,22 @@
                         "PLUGIN"
                     ],
                     "datatype": "bool",
-                    "default_value": true,
+                    "default_value": false,
                     "description": "Purge additional tracks on import.",
                     "path": "/plugin/conformer/shotbrowser/purge_sequence_on_import",
+                    "value": false,
+                    "category": "Shot Browser"
+                },
+                "reuse_media": {
+                    "context": [
+                        "PLUGIN"
+                    ],
+                    "datatype": "bool",
+                    "default_value": true,
+                    "description": "Reuse media from Ivy, based off DNUuid.",
+                    "path": "/plugin/conformer/shotbrowser/reuse_media",
                     "value": true,
-                    "category": "Pipeline"
+                    "category": "Shot Browser"
                 }
             }
         }

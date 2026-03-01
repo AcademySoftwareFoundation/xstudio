@@ -57,10 +57,12 @@ void LinuxAudioOutputDevice::connect_to_soundcard() {
     // long! But reducing the buffer size always causes distortion and I have
     // not yet worked out why.
 
-    /*pa_buffer_attr buf_attrs;
-    buf_attrs.maxlength = buffer_size_*2*2;
-    buf_attrs.tlength = buffer_size_*2;
-    buf_attrs.prebuf = buffer_size_;*/
+    pa_buffer_attr buf_attrs;
+    buf_attrs.maxlength = buffer_size_ * 4;
+    buf_attrs.tlength   = buffer_size_ * 2;
+    buf_attrs.prebuf    = buffer_size_;
+    buf_attrs.minreq    = 128;
+    buf_attrs.prebuf    = buffer_size_;
 
     /* Create a new playback stream */
     if (!(playback_handle_ = pa_simple_new(
@@ -71,7 +73,7 @@ void LinuxAudioOutputDevice::connect_to_soundcard() {
               "playback",
               &pa_ss,
               nullptr,
-              nullptr, /*&buf_attrs,*/
+              &buf_attrs,
               &error))) {
         std::string err = fmt::format(
             "{}  pa_simple_new() failed: {} ", __PRETTY_FUNCTION__, pa_strerror(error));
@@ -103,7 +105,6 @@ long LinuxAudioOutputDevice::latency_microseconds() {
         spdlog::warn(
             "{}  pa_simple_get_latency() failed: {} ", __PRETTY_FUNCTION__, pa_strerror(error));
     }
-
     return (long)latency;
 }
 
@@ -120,5 +121,6 @@ bool LinuxAudioOutputDevice::push_samples(const void *sample_data, const long nu
         spdlog::warn("{} : {} ", __PRETTY_FUNCTION__, ss.str());
         return false;
     }
+
     return true;
 }

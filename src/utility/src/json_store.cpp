@@ -21,8 +21,9 @@ void JsonStore::set(const nlohmann::json &json, const std::string &path) {
 
 bool JsonStore::remove(const std::string &path) {
     try {
-        *this = patch(json::parse(
-            std::string(R"([{"op": "remove", "path": ")") + path + std::string("\"}]")));
+        *this = patch(
+            json::parse(
+                std::string(R"([{"op": "remove", "path": ")") + path + std::string("\"}]")));
     } catch (...) {
         return false;
     }

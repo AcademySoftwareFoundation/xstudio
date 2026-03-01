@@ -66,23 +66,33 @@ Item{ id: menuDiv
         menuModelName: moreMenu.menu_model_name
     }
     XsMenuModelItem {
-        text: "Copy"
+        text: "Copy Selected Layer"
         enabled: hasActiveGrade()
         menuPath: ""
         menuItemPosition: 5
         menuModelName: moreMenu.menu_model_name
         onActivated: {
-            copyFunction()
+            attrs.grading_action = "Copy Layer"
         }
     }
     XsMenuModelItem {
-        text: "Paste"
-        enabled: copy_buffer.length == (grading_sliders_model.length + grading_wheels_model.length)
+        text: "Copy All Layers"
+        enabled: bookmarkList.count > 0
+        menuPath: ""
+        menuItemPosition: 5.5
+        menuModelName: moreMenu.menu_model_name
+        onActivated: {
+            attrs.grading_action = "Copy All Layer"
+        }
+    }
+    XsMenuModelItem {
+        text: "Paste Layers"
+        enabled: attrs.grade_copying
         menuPath: ""
         menuItemPosition: 6
         menuModelName: moreMenu.menu_model_name
         onActivated: {
-            pasteFunction();
+            attrs.grading_action = "Paste Layer"
         }
     }
     XsMenuModelItem {
@@ -133,34 +143,6 @@ Item{ id: menuDiv
                 [ "CDL files (*.cdl)", "CC files (*.cc)", "CCC files (*.ccc)" ],
                 false,
                 false
-                )
-        }
-    }
-
-    function copyFunction() {
-        var attr_values = []
-        for (var i = 0; i < grading_sliders_model.length; ++i) {
-            attr_values.push(grading_sliders_model.get(grading_sliders_model.index(i,0),"value"))
-        }
-        for (var i = 0; i < grading_wheels_model.length; ++i) {
-            attr_values.push(grading_wheels_model.get(grading_wheels_model.index(i,0),"value"))
-        }
-        copy_buffer = attr_values
-    }
-
-    function pasteFunction() {
-        for (var i = 0; i < grading_sliders_model.length; ++i) {
-            grading_sliders_model.set(
-                grading_sliders_model.index(i,0),
-                copy_buffer[i],
-                "value"
-            )
-        }
-        for (var i = 0; i < grading_wheels_model.length; ++i) {
-            grading_wheels_model.set(
-                grading_wheels_model.index(i,0),
-                copy_buffer[grading_sliders_model.length + i],
-                "value"
             )
         }
     }

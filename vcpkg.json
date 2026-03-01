@@ -1,6 +1,6 @@
 {
-    "name": "xstudio",
-    "version": "1.0.0",
+  "name": "xstudio",
+  "version": "1.0.0",
   "dependencies": [
     "stduuid",
     "reproc",
@@ -15,6 +15,7 @@
     "lcms",
     "caf",
     "opencolorio",
+    "openimageio",
     "openexr",
     "imath",
     {
@@ -50,11 +51,15 @@
       ]
     }
   ],
-    "builtin-baseline": "f9b54c1c539dda8d61c3001bb30eb9f0c5032086",
+  "builtin-baseline": "6d332a018c433fad20822ff4b536e4ccdc3413bd",
   "overrides": [
     {
       "name": "opencolorio",
       "version": "2.2.1#1"
+    },
+    {
+      "name": "openimageio",
+      "version": "2.5.16.0#1"
     },
     {
       "name": "caf",
@@ -62,7 +67,7 @@
     },
     {
       "name": "ffmpeg",
-      "version": "7.1.1#2"
+      "version": "8.0.1#2"
     },
     {
       "name": "freetype",

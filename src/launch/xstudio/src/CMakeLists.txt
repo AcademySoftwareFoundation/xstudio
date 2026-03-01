@@ -7,6 +7,13 @@ find_package(OpenSSL)
 find_package(ZLIB)
 find_package(fmt REQUIRED)
 
+if(NOT ${OTIO_SUBMODULE})
+	find_package(OpenTime REQUIRED)
+	find_package(OpenTimelineIO REQUIRED)
+else()
+	include_directories(${CMAKE_SOURCE_DIR}/extern/otio/OpenTimelineIO/src)
+endif()
+
 if(WIN32)
 set(SOURCES
 	xstudio.cpp

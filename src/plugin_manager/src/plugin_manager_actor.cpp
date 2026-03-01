@@ -30,7 +30,12 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
     // xstudio plugins
     char *plugin_path = std::getenv("XSTUDIO_PLUGIN_PATH");
     if (plugin_path) {
-        for (const auto &p : xstudio::utility::split(plugin_path, ':')) {
+#ifdef _WIN32
+        char path_env_var_sep = ';';
+#else
+        char path_env_var_sep = ':';
+#endif
+        for (const auto &p : xstudio::utility::split(plugin_path, path_env_var_sep)) {
             manager_.emplace_front_path(p);
         }
     }
@@ -90,6 +95,49 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
                                 return rp.deliver(i);
                         }
                         rp.deliver(UuidActorVector());
+                    },
+                    [=](error &err) mutable { rp.deliver(std::move(err)); });
+
+            return rp;
+        },
+
+        // helper for dealing with URI's that create and return a timeline
+        [=](data_source::use_data_atom,
+            const caf::uri &uri,
+            const caf::actor &playlist_actor,
+            const FrameRate &media_rate,
+            const utility::Uuid &uuid_before,
+            const bool wait) -> result<UuidActor> {
+            // send to resident enabled datasource plugins
+            auto actors = std::vector<caf::actor>();
+
+            for (const auto &i : manager_.factories()) {
+                if (i.second.factory()->type() & PluginFlags::PF_DATA_SOURCE and
+                    resident_.count(i.first))
+                    actors.push_back(resident_[i.first]);
+            }
+
+            if (actors.empty())
+                return UuidActor();
+
+            auto rp = make_response_promise<UuidActor>();
+
+            fan_out_request<policy::select_all>(
+                actors,
+                infinite,
+                data_source::use_data_atom_v,
+                uri,
+                playlist_actor,
+                media_rate,
+                uuid_before,
+                wait)
+                .then(
+                    [=](const std::vector<UuidActor> results) mutable {
+                        for (const auto &i : results) {
+                            if (i)
+                                return rp.deliver(i);
+                        }
+                        rp.deliver(UuidActor());
                     },
                     [=](error &err) mutable { rp.deliver(std::move(err)); });
 

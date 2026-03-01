@@ -223,10 +223,127 @@ void ShotBrowser::link_media(
     }
 }
 
-void get_data(
-    caf::typed_response_promise<utility::JsonStore> rp,
-    const std::string &type,
-    const int project_id);
+// void get_data(
+//     caf::typed_response_promise<utility::JsonStore> rp,
+//     const std::string &type,
+//     const int project_id);
+
+void ShotBrowser::refresh_metadata(
+    caf::typed_response_promise<utility::JsonStore> rp, const utility::Uuid &uuid) {
+    try {
+        // get session actor
+        mail(session::session_atom_v)
+            .request(system().registry().template get<caf::actor>(global_registry), infinite)
+            .then(
+                [=](const caf::actor &sa) mutable {
+                    // get media actor
+                    mail(playlist::get_media_atom_v, uuid)
+                        .request(sa, infinite)
+                        .then(
+                            [=](const caf::actor &ma) mutable {
+                                // get current metadata
+                                mail(
+                                    json_store::get_json_atom_v,
+                                    utility::Uuid(),
+                                    "/metadata/shotgun/version/id")
+                                    .request(ma, infinite)
+                                    .then(
+                                        [=](const JsonStore &jsn) mutable {
+                                            try {
+                                                auto id = jsn.get<int>();
+
+                                                mail(
+                                                    shotgun_entity_atom_v,
+                                                    "version",
+                                                    id,
+                                                    VersionFields)
+                                                    .request(
+                                                        caf::actor_cast<caf::actor>(this),
+                                                        infinite)
+                                                    .then(
+                                                        [=](const JsonStore &sjsn) mutable {
+                                                            try {
+                                                                // spdlog::warn("{}",
+                                                                // jsn.dump(2));
+                                                                // spdlog::warn("{}",
+                                                                // sjsn.dump(2));
+
+                                                                mail(
+                                                                    json_store::set_json_atom_v,
+                                                                    utility::Uuid(),
+                                                                    JsonStore(sjsn.at("data")),
+                                                                    "/metadata/shotgun/version")
+                                                                    .request(ma, infinite)
+                                                                    .then(
+                                                                        [=](const bool
+                                                                                &) mutable {
+                                                                            rp.deliver(
+                                                                                JsonStore(
+                                                                                    sjsn.at(
+                                                                                        "dat"
+                                                                                        "a")));
+                                                                        },
+                                                                        [=](error
+                                                                                &err) mutable {
+                                                                            spdlog::error(
+                                                                                "{} {}",
+                                                                                __PRETTY_FUNCTION__,
+                                                                                to_string(err));
+                                                                            rp.deliver(JsonStore(
+                                                                                (R"({})"_json)
+                                                                                    ["error"] =
+                                                                                        to_string(
+                                                                                            err)));
+                                                                        });
+                                                            } catch (
+                                                                const std::exception &err) {
+                                                                spdlog::error(
+                                                                    "{} {}",
+                                                                    __PRETTY_FUNCTION__,
+                                                                    err.what());
+                                                                rp.deliver(JsonStore(
+                                                                    (R"({})"_json)["error"] =
+                                                                        err.what()));
+                                                            }
+                                                        },
+                                                        [=](error &err) mutable {
+                                                            spdlog::error(
+                                                                "{} {}",
+                                                                __PRETTY_FUNCTION__,
+                                                                to_string(err));
+                                                            rp.deliver(JsonStore(
+                                                                (R"({})"_json)["error"] =
+                                                                    to_string(err)));
+                                                        });
+                                            } catch (const std::exception &err) {
+                                                spdlog::error(
+                                                    "{} {}", __PRETTY_FUNCTION__, err.what());
+                                                rp.deliver(JsonStore(
+                                                    (R"({})"_json)["error"] = err.what()));
+                                            }
+                                        },
+                                        [=](error &err) mutable {
+                                            spdlog::error(
+                                                "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                            rp.deliver(JsonStore(
+                                                (R"({})"_json)["error"] = to_string(err)));
+                                        });
+                            },
+                            [=](error &err) mutable {
+                                spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                rp.deliver(JsonStore((R"({})"_json)["error"] = to_string(err)));
+                            });
+                },
+                [=](error &err) mutable {
+                    spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    rp.deliver(JsonStore((R"({})"_json)["error"] = to_string(err)));
+                });
+    } catch (const std::exception &err) {
+        spdlog::error("{} {}", __PRETTY_FUNCTION__, err.what());
+        rp.deliver(JsonStore((R"({})"_json)["error"] = err.what()));
+    }
+}
+
 
 void ShotBrowser::add_shotgrid_media(
     caf::typed_response_promise<utility::JsonStore> rp, const utility::Uuid &uuid) {
@@ -769,10 +886,11 @@ void ShotBrowser::prepare_playlist_notes(
                                     jsn["note_annotation"] = R"([])"_json;
 
                                 if (has_anno) {
-                                    auto title            = std::string(fmt::format(
-                                        "{}_{}.jpg",
-                                        jsn["shot"].get<std::string>(),
-                                        detail.start_timecode_tc().total_frames()));
+                                    auto title = std::string(
+                                        fmt::format(
+                                            "{}_{}.jpg",
+                                            jsn["shot"].get<std::string>(),
+                                            detail.start_timecode_tc().total_frames()));
                                     auto item             = nlohmann::json();
                                     item["title"]         = title;
                                     item["bookmark_uuid"] = j.uuid();
@@ -802,17 +920,19 @@ void ShotBrowser::prepare_playlist_notes(
 
                                 // yeah this is a bit convoluted.
                                 if (not notes_by_type.count(cat)) {
-                                    notes_by_type.insert(std::make_pair(
-                                        cat,
-                                        std::map<int, std::vector<JsonStore>>(
-                                            {{detail.start_frame(), {{jsn}}}})));
+                                    notes_by_type.insert(
+                                        std::make_pair(
+                                            cat,
+                                            std::map<int, std::vector<JsonStore>>(
+                                                {{detail.start_frame(), {{jsn}}}})));
                                 } else {
                                     if (notes_by_type[cat].count(detail.start_frame())) {
                                         notes_by_type[cat][detail.start_frame()].push_back(jsn);
                                     } else {
-                                        notes_by_type[cat].insert(std::make_pair(
-                                            detail.start_frame(),
-                                            std::vector<JsonStore>({jsn})));
+                                        notes_by_type[cat].insert(
+                                            std::make_pair(
+                                                detail.start_frame(),
+                                                std::vector<JsonStore>({jsn})));
                                     }
                                 }
                             } catch (const std::exception &err) {
@@ -986,17 +1106,20 @@ void ShotBrowser::get_data(
         if (cached) {
             rp.deliver(std::move(*cached));
         } else {
+            // spdlog::warn("get_data {} {}", type, project_id);
             // try and tigger request..
             if (type == "department")
                 get_data_department(rp, type);
             else if (type == "project")
                 get_data_project(rp, type, expand_envvars(username_->value()));
             else if (type == "location")
-                get_data_location(rp, type);
+                get_playlist_data_field(rp, type, "sg_location");
             else if (type == "review_location")
-                get_data_review_location(rp, type);
+                get_playlist_data_field(rp, type, "sg_review_location_1");
+            else if (type == "review_status")
+                get_playlist_data_field(rp, type, "sg_review_status", "Review Status");
             else if (type == "playlist_type")
-                get_data_playlist_type(rp, type);
+                get_playlist_data_field(rp, type, "sg_type");
             else if (type == "shot_status")
                 get_data_shot_status(rp, type);
             else if (type == "note_type")
@@ -1009,6 +1132,8 @@ void ShotBrowser::get_data(
                 get_data_pipeline_status(rp, type, "sequence", "Sequence Status");
             else if (type == "user")
                 get_data_user(rp, type, project_id);
+            else if (type == "shotmanifest")
+                get_data_dntag(rp, type, project_id, "dnshotmanifest_tags");
             else if (type == "shot")
                 get_data_shot(rp, type, project_id);
             else if (type == "is_shotgrid_login_allowed") {
@@ -1126,10 +1251,14 @@ void ShotBrowser::get_data_project(
             [=](error &err) mutable { rp.deliver(err); });
 }
 
-void ShotBrowser::get_data_location(
-    caf::typed_response_promise<utility::JsonStore> rp, const std::string &type) {
 
-    mail(shotgun_schema_entity_fields_atom_v, "playlist", "sg_location", -1)
+void ShotBrowser::get_playlist_data_field(
+    caf::typed_response_promise<utility::JsonStore> rp,
+    const std::string &type,
+    const std::string &field,
+    const std::string &lookup_key) {
+
+    mail(shotgun_schema_entity_fields_atom_v, "playlist", field, -1)
         .request(shotgun_, infinite)
         .then(
             [=](const JsonStore &data) mutable {
@@ -1141,59 +1270,8 @@ void ShotBrowser::get_data_location(
                         auto field_data = QueryEngine::data_from_field(data.at("data"));
 
                         engine().set_cache(cache_key, field_data);
-                        // engine().set_lookup(QueryEngine::cache_name("Location"), field_data);
-
-                        rp.deliver(*engine().get_cache(cache_key));
-                    }
-                } catch (const std::exception &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-                    rp.deliver(make_error(xstudio_error::error, err.what()));
-                }
-            },
-            [=](error &err) mutable { rp.deliver(err); });
-}
-
-void ShotBrowser::get_data_review_location(
-    caf::typed_response_promise<utility::JsonStore> rp, const std::string &type) {
-
-    mail(shotgun_schema_entity_fields_atom_v, "playlist", "sg_review_location_1", -1)
-        .request(shotgun_, infinite)
-        .then(
-            [=](const JsonStore &data) mutable {
-                try {
-                    if (not data.count("data"))
-                        rp.deliver(make_error(xstudio_error::error, data.dump(2)));
-                    else {
-                        auto cache_key  = QueryEngine::cache_name(type);
-                        auto field_data = QueryEngine::data_from_field(data.at("data"));
-
-                        engine().set_cache(cache_key, field_data);
-
-                        rp.deliver(*engine().get_cache(cache_key));
-                    }
-                } catch (const std::exception &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-                    rp.deliver(make_error(xstudio_error::error, err.what()));
-                }
-            },
-            [=](error &err) mutable { rp.deliver(err); });
-}
-
-void ShotBrowser::get_data_playlist_type(
-    caf::typed_response_promise<utility::JsonStore> rp, const std::string &type) {
-
-    mail(shotgun_schema_entity_fields_atom_v, "playlist", "sg_type", -1)
-        .request(shotgun_, infinite)
-        .then(
-            [=](const JsonStore &data) mutable {
-                try {
-                    if (not data.count("data"))
-                        rp.deliver(make_error(xstudio_error::error, data.dump(2)));
-                    else {
-                        auto cache_key  = QueryEngine::cache_name(type);
-                        auto field_data = QueryEngine::data_from_field(data.at("data"));
-
-                        engine().set_cache(cache_key, field_data);
+                        if (not lookup_key.empty())
+                            engine().set_lookup(lookup_key, field_data, engine().lookup());
 
                         rp.deliver(*engine().get_cache(cache_key));
                     }
@@ -1646,10 +1724,30 @@ void ShotBrowser::get_version_artist(
             [=](error &err) mutable { rp.deliver(err); });
 }
 
+
 void ShotBrowser::get_data_tree(
     caf::typed_response_promise<utility::JsonStore> rp,
     const std::string &type,
     const int project_id) {
+
+    // stop multi call...
+    static std::map<int, std::vector<caf::typed_response_promise<utility::JsonStore>>> inflight;
+    if (not inflight.count(project_id))
+        inflight[project_id] =
+            std::vector<caf::typed_response_promise<utility::JsonStore>>({rp});
+    else {
+        inflight[project_id].push_back(rp);
+        if (inflight[project_id].size() > 1) {
+            return;
+        }
+    }
+
+    auto set_error = [=](const caf::error &err) mutable {
+        for (auto &i : inflight[project_id])
+            i.deliver(err);
+        inflight[project_id].clear();
+    };
+
 
     auto getEpisodeData          = GetData;
     getEpisodeData["project_id"] = project_id;
@@ -1659,22 +1757,37 @@ void ShotBrowser::get_data_tree(
         .request(caf::actor_cast<caf::actor>(this), infinite)
         .then(
             [=](const JsonStore &episode_data) mutable {
-                auto getSequenceData          = GetData;
-                getSequenceData["project_id"] = project_id;
-                getSequenceData["type"]       = "sequence";
+                auto getShotManifestData          = GetData;
+                getShotManifestData["project_id"] = project_id;
+                getShotManifestData["type"]       = "shotmanifest";
 
-                mail(get_data_atom_v, JsonStore(getSequenceData))
+                mail(get_data_atom_v, JsonStore(getShotManifestData))
                     .request(caf::actor_cast<caf::actor>(this), infinite)
                     .then(
-                        [=](const JsonStore &sequence_data) mutable {
-                            auto data = R"([])"_json;
-                            data.push_back(episode_data);
-                            data.push_back(sequence_data);
-                            rp.deliver(JsonStore(data));
+                        [=](const JsonStore &manifest_data) mutable {
+                            auto getSequenceData          = GetData;
+                            getSequenceData["project_id"] = project_id;
+                            getSequenceData["type"]       = "sequence";
+
+                            mail(get_data_atom_v, JsonStore(getSequenceData))
+                                .request(caf::actor_cast<caf::actor>(this), infinite)
+                                .then(
+                                    [=](const JsonStore &sequence_data) mutable {
+                                        auto data = R"([])"_json;
+                                        data.push_back(episode_data);
+                                        data.push_back(sequence_data);
+                                        // spdlog::warn("{}", manifest_data.dump(2));
+                                        data.push_back(manifest_data);
+
+                                        for (auto &i : inflight[project_id])
+                                            i.deliver(JsonStore(data));
+                                        inflight[project_id].clear();
+                                    },
+                                    [=](error &err) mutable { set_error(err); });
                         },
-                        [=](error &err) mutable { rp.deliver(err); });
+                        [=](error &err) mutable { set_error(err); });
             },
-            [=](error &err) mutable { rp.deliver(err); });
+            [=](error &err) mutable { set_error(err); });
 }
 
 
@@ -1807,6 +1920,36 @@ void ShotBrowser::get_data_sequence(
     const int page,
     const JsonStore &prev_data) {
 
+    // cache inflight request, this call is costly so make sure we don't run concurrent
+    // instances of it
+    static std::map<int, std::vector<caf::typed_response_promise<utility::JsonStore>>> inflight;
+    if (page == 1) {
+        if (not inflight.count(project_id))
+            inflight[project_id] =
+                std::vector<caf::typed_response_promise<utility::JsonStore>>({rp});
+        else {
+            inflight[project_id].push_back(rp);
+            if (inflight[project_id].size() > 1) {
+                // spdlog::warn("get_data_sequence INFLIGHT.. {} {}", project_id,
+                // inflight[project_id].size());
+                return;
+            }
+        }
+    }
+
+    auto set_error = [=](const caf::error &err) mutable {
+        for (auto &i : inflight[project_id])
+            i.deliver(err);
+        inflight[project_id].clear();
+    };
+
+    auto set_exception = [=](const std::exception &err) mutable {
+        for (auto &i : inflight[project_id])
+            i.deliver(make_error(xstudio_error::error, err.what()));
+
+        inflight[project_id].clear();
+    };
+
     auto filter = R"(
     {
         "logical_operator": "and",
@@ -1817,6 +1960,7 @@ void ShotBrowser::get_data_sequence(
     // ["sg_status_list", "not_in", ["na","del"]]
 
     filter["conditions"][0][2]["id"] = project_id;
+    // spdlog::stopwatch sw2;
 
     mail(
         shotgun_entity_search_atom_v,
@@ -1830,9 +1974,11 @@ void ShotBrowser::get_data_sequence(
         .then(
             [=](const JsonStore &data) mutable {
                 try {
-                    if (not data.count("data"))
-                        rp.deliver(make_error(xstudio_error::error, data.dump(2)));
-                    else {
+                    if (not data.count("data")) {
+                        for (auto &i : inflight[project_id])
+                            i.deliver(make_error(xstudio_error::error, data.dump(2)));
+                        inflight[project_id].clear();
+                    } else {
                         auto total = prev_data;
                         total.insert(
                             total.end(), data.at("data").begin(), data.at("data").end());
@@ -1883,29 +2029,107 @@ void ShotBrowser::get_data_sequence(
 
                                             // spdlog::warn("{}", total.dump(2));
 
-                                            auto cache_key =
-                                                QueryEngine::cache_name(type, project_id);
-
                                             engine().set_lookup(
                                                 QueryEngine::cache_name("Sequence", project_id),
                                                 total,
                                                 engine().lookup());
+                                            engine().set_reference_cache(
+                                                QueryEngine::cache_name(
+                                                    "Reference", project_id),
+                                                total,
+                                                engine().cache());
                                             engine().set_shot_sequence_lookup(
                                                 QueryEngine::cache_name(
                                                     "ShotSequence", project_id),
                                                 total,
                                                 engine().lookup());
+
+                                            auto cache_key =
+                                                QueryEngine::cache_name(type, project_id);
                                             engine().set_cache(cache_key, total);
 
-                                            rp.deliver(*engine().get_cache(cache_key));
+                                            // spdlog::warn("{:.3} {}", sw2, project_id);
+
+                                            for (auto &i : inflight[project_id])
+                                                i.deliver(*engine().get_cache(cache_key));
+                                            inflight[project_id].clear();
+
+
+                                            // rp.deliver(*engine().get_cache(cache_key));
                                         } catch (const std::exception &err) {
                                             spdlog::warn(
                                                 "{} {}", __PRETTY_FUNCTION__, err.what());
-                                            rp.deliver(
-                                                make_error(xstudio_error::error, err.what()));
+                                            set_exception(err);
                                         }
                                     },
-                                    [=](error &err) mutable { rp.deliver(err); });
+                                    [=](error &err) mutable { set_error(err); });
+                        }
+                    }
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    set_exception(err);
+                }
+            },
+            [=](error &err) mutable { set_error(err); });
+}
+
+void ShotBrowser::get_data_dntag(
+    caf::typed_response_promise<utility::JsonStore> rp,
+    const std::string &type,
+    const int project_id,
+    const std::string &code,
+    const int page,
+    const utility::JsonStore &prev_data) {
+
+    auto filter = R"(
+    {
+        "logical_operator": "and",
+        "conditions": [
+            ["project", "is", {"type":"Project", "id":0}]
+        ]
+    })"_json;
+    // ["sg_status_list", "not_in", ["na","del"]]
+
+    filter["conditions"][0][2]["id"] = project_id;
+
+    if (not code.empty()) {
+        auto tmp = R"(["code", "is", ""])"_json;
+        tmp[2]   = code;
+        filter["conditions"].push_back(tmp);
+    }
+
+    mail(
+        shotgun_entity_search_atom_v,
+        "CustomEntity29",
+        JsonStore(filter),
+        DnTagFields,
+        std::vector<std::string>({"id"}),
+        page,
+        4999)
+        .request(shotgun_, infinite)
+        .then(
+            [=](const JsonStore &data) mutable {
+                try {
+                    if (not data.count("data"))
+                        rp.deliver(make_error(xstudio_error::error, data.dump(2)));
+                    else {
+                        auto total = prev_data;
+                        total.insert(
+                            total.end(), data.at("data").begin(), data.at("data").end());
+
+                        if (data.at("data").size() == 4999) {
+                            get_data_dntag(rp, type, project_id, code, page + 1, total);
+                        } else {
+
+                            auto cache_key = QueryEngine::cache_name(type, project_id);
+
+                            engine().set_lookup(
+                                QueryEngine::cache_name(title_case(type), project_id),
+                                total,
+                                engine().lookup());
+                            engine().set_cache(cache_key, total);
+
+                            rp.deliver(*engine().get_cache(cache_key));
                         }
                     }
                 } catch (const std::exception &err) {
@@ -1916,12 +2140,45 @@ void ShotBrowser::get_data_sequence(
             [=](error &err) mutable { rp.deliver(err); });
 }
 
+
 void ShotBrowser::get_data_episode(
     caf::typed_response_promise<utility::JsonStore> rp,
     const std::string &type,
     const int project_id,
     const int page,
     const JsonStore &prev_data) {
+
+    // cache inflight request, this call is costly so make sure we don't run concurrent
+    // instances of it
+    static std::map<int, std::vector<caf::typed_response_promise<utility::JsonStore>>> inflight;
+
+    if (page == 1) {
+        if (not inflight.count(project_id))
+            inflight[project_id] =
+                std::vector<caf::typed_response_promise<utility::JsonStore>>({rp});
+        else {
+            inflight[project_id].push_back(rp);
+            if (inflight[project_id].size() > 1) {
+                // spdlog::warn("get_data_episode INFLIGHT.. {} {}", project_id,
+                // inflight[project_id].size());
+                return;
+            }
+        }
+    }
+
+    auto set_error = [=](const caf::error &err) mutable {
+        for (auto &i : inflight[project_id])
+            i.deliver(err);
+        inflight[project_id].clear();
+    };
+
+    auto set_exception = [=](const std::exception &err) mutable {
+        for (auto &i : inflight[project_id])
+            i.deliver(make_error(xstudio_error::error, err.what()));
+
+        inflight[project_id].clear();
+    };
+
 
     auto filter = R"(
     {
@@ -1946,9 +2203,12 @@ void ShotBrowser::get_data_episode(
         .then(
             [=](const JsonStore &data) mutable {
                 try {
-                    if (not data.count("data"))
-                        rp.deliver(make_error(xstudio_error::error, data.dump(2)));
-                    else {
+                    if (not data.count("data")) {
+                        for (auto &i : inflight[project_id])
+                            i.deliver(make_error(xstudio_error::error, data.dump(2)));
+
+                        inflight[project_id].clear();
+                    } else {
                         auto total = prev_data;
                         total.insert(
                             total.end(), data.at("data").begin(), data.at("data").end());
@@ -1965,15 +2225,17 @@ void ShotBrowser::get_data_episode(
                                 engine().lookup());
                             engine().set_cache(cache_key, total);
 
-                            rp.deliver(*engine().get_cache(cache_key));
+                            for (auto &i : inflight[project_id])
+                                i.deliver(*engine().get_cache(cache_key));
+                            inflight[project_id].clear();
                         }
                     }
                 } catch (const std::exception &err) {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-                    rp.deliver(make_error(xstudio_error::error, err.what()));
+                    set_exception(err);
                 }
             },
-            [=](error &err) mutable { rp.deliver(err); });
+            [=](error &err) mutable { set_error(err); });
 }
 
 void ShotBrowser::execute_preset(
@@ -2005,11 +2267,12 @@ void ShotBrowser::execute_preset(
                     group_detail["id"]    = preset.value("id", utility::Uuid());
                     group_detail["flags"] = preset.value("flags", std::vector<std::string>());
                 } else {
-                    auto tmp = engine().user_presets().at(json::json_pointer(i)
-                                                              .parent_pointer()
-                                                              .parent_pointer()
-                                                              .parent_pointer()
-                                                              .parent_pointer());
+                    auto tmp = engine().user_presets().at(
+                        json::json_pointer(i)
+                            .parent_pointer()
+                            .parent_pointer()
+                            .parent_pointer()
+                            .parent_pointer());
 
                     entity                = tmp.at("entity");
                     preset_group          = tmp.at("children").at(0).at("children");
@@ -2144,6 +2407,24 @@ void ShotBrowser::get_precache(
         if (need.count("Pipeline Status")) {
             auto req    = JsonStore(GetData);
             req["type"] = "pipeline_status";
+            mail(get_data_atom_v, req)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](const JsonStore &) mutable {
+                        (*count) = (*count) - 1;
+                        if (not(*count))
+                            rp.deliver(utility::JsonStore());
+                    },
+                    [=](error &err) mutable {
+                        (*count) = (*count) - 1;
+                        if (not(*count))
+                            rp.deliver(err);
+                    });
+        }
+
+        if (need.count("Review Status")) {
+            auto req    = JsonStore(GetData);
+            req["type"] = "review_status";
             mail(get_data_atom_v, req)
                 .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(

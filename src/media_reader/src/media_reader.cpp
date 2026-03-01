@@ -136,6 +136,80 @@ void Buffer::resize(const size_t size) {
     }
 }
 
+template <typename T> void typed_resample(AudioBuffer &in, const size_t out_samples) {
+
+    const T *in_buf = (const T *)(in.buffer());
+
+    auto new_buffer = new Buffer::BufferData(out_samples * in.num_channels() * sizeof(T));
+    T *out_buf      = reinterpret_cast<T *>(new_buffer->data_.get());
+
+    int n               = out_samples - 1;
+    float ff            = 0.0f;
+    const float ff_step = float(in.num_samples()) / float(out_samples);
+    const int chans     = in.num_channels();
+
+    // no doubt some SSE stuff would help here?
+
+    while (n--) {
+
+        const T *isamp0 = in_buf + int(ff) * chans;
+        const T *isamp1 = isamp0 + chans;
+        const float v   = ff - floor(ff);
+
+        int c = chans;
+        while (c--) {
+            *(out_buf++) = T(float(*(isamp0++)) * (1.0 - v) + float(*(isamp1++)) * (v));
+        }
+        ff += ff_step;
+    }
+
+    int c  = chans;
+    in_buf = (const T *)in.buffer() + (in.num_samples() - 1) * chans;
+    while (c--) {
+        *(out_buf++) = *(in_buf++);
+    }
+
+    in.set_buf_data(new_buffer);
+}
+
+void AudioBuffer::set_new_sample_rate(
+    const uint64_t new_sample_rate, const timebase::flicks &exact_duration) {
+    // due to rounding, buffers that form a stream will likely have differing number of samples
+    // depending on their position in the stream. To ensure consistency we calculate the new
+    // number of samples as follows.
+    const int64_t first_sample =
+        (display_timestamp_flicks() * new_sample_rate) / timebase::k_flicks_one_second;
+    const int64_t last_sample =
+        ((display_timestamp_flicks() + exact_duration) * new_sample_rate) /
+        timebase::k_flicks_one_second;
+    const int64_t num_samples = last_sample - first_sample;
+
+    // this very simplistic re-sampling may add some distortion, but it I am
+    // sure it will be tiny/inaudible.
+    // You will have a problem if you have 96kHZ audio, with frequencies content
+    // above 24k say (if we a sampling down to 48kHZ) due to aliasing.
+    // We also introduce a tiny innaccuracy at the boundary samples between
+    // continuous buffers as the last sample of one buffer and the first sample
+    // of the next are not re-sampled at all.
+
+    if (sample_format() == audio::SampleFormat::UINT8) {
+        typed_resample<uint8_t>(*this, num_samples);
+    } else if (sample_format() == audio::SampleFormat::INT16) {
+        typed_resample<int16_t>(*this, num_samples);
+    } else if (sample_format() == audio::SampleFormat::SFINT32) {
+        typed_resample<int32_t>(*this, num_samples);
+    } else if (sample_format() == audio::SampleFormat::FLOAT32) {
+        typed_resample<float>(*this, num_samples);
+    } else if (sample_format() == audio::SampleFormat::INT64) {
+        typed_resample<int64_t>(*this, num_samples);
+    } else if (sample_format() == audio::SampleFormat::DOUBLE64) {
+        typed_resample<double>(*this, num_samples);
+    }
+
+    sample_rate_ = new_sample_rate;
+    num_samples_ = num_samples;
+}
+
 
 xstudio::media_reader::byte *ImageBuffer::allocate(const size_t _size) {
 
@@ -207,6 +281,17 @@ void ImageBufDisplaySet::finalise() {
     as_json_["hero_image_index"]      = hero_sub_playhead_index_;
     as_json_["prev_hero_image_index"] = previous_hero_sub_playhead_index_;
     hash_                             = int64_t(std::hash<std::string>{}(as_json_.dump()));
+
+    auto hash_fun = [=](const uint8_t *d, size_t l) {
+        while (l--) {
+            hash_ = hash_ * 33 + *(d++);
+        }
+    };
+    for (int i = 0; i < num_onscreen_images(); ++i) {
+        const auto &im = onscreen_image(i);
+        const auto t   = onscreen_image(i).layout_transform();
+        hash_fun(reinterpret_cast<const uint8_t *>(t.x), sizeof(t));
+    }
 }
 
 void ImageSetLayoutData::compute_hash() {

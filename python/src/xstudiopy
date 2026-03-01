@@ -35,7 +35,6 @@ while [[ $# > 0 ]]
 do
 key="$1"
 
-
 case $key in
     -s|--session)
     SESSION="$2"

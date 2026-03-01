@@ -9,7 +9,7 @@ from xstudio.api.session import Session, Container
 from xstudio.api.session.playhead import Playhead
 from xstudio.api.module import ModuleBase
 from xstudio.api.auxiliary import ActorConnection
-from xstudio.api.intrinsic import Viewport
+from xstudio.api.intrinsic import Viewport, OffscreenViewport
 
 class App(Container):
     """App access. """
@@ -74,6 +74,15 @@ class App(Container):
                     )[0]
                 )
         return result
+
+    @property
+    def snapshot_viewport(self):
+        """Access the offscreen viewport that can be used to render specific
+        media frames to images, for example
+        
+        Returns:
+            snapshot_viewport(OffscreenViewport): OffscreenViewport module."""
+        return OffscreenViewport(self.connection, 'snapshot_viewport')
 
     @property
     def active_viewport(self):

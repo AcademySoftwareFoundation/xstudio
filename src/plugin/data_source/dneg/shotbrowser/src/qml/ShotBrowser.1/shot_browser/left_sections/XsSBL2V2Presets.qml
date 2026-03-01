@@ -15,9 +15,42 @@ XsGradientRectangle{
     id: presetView
 
     ColumnLayout {
+        visible: linkMode
+        anchors.fill: parent
+
+        XsLabel {
+            Layout.alignment: Qt.AlignVTop | Qt.AlignHCenter
+            Layout.topMargin: btnHeight
+            color: XsStyleSheet.hintColor
+            text: "Link Mode"
+            font.pixelSize: XsStyleSheet.fontSize * 1.5
+        }
+        XsLabel {
+            Layout.topMargin: btnHeight * 4
+            Layout.alignment: Qt.AlignVCenter | Qt.AlignHCenter
+            color: XsStyleSheet.hintColor
+            text: "1.  Select results on right"
+            font.pixelSize: XsStyleSheet.fontSize * 1.5
+        }
+        XsLabel {
+            Layout.topMargin: btnHeight
+            Layout.alignment: Qt.AlignVCenter | Qt.AlignHCenter
+            color: XsStyleSheet.hintColor
+            text: "2.  Click Link button on tree elements"
+            font.pixelSize: XsStyleSheet.fontSize * 1.5
+        }
+        Item {
+            Layout.fillHeight: true
+
+        }
+    }
+    ColumnLayout {
         anchors.fill: parent
         anchors.leftMargin: panelPadding
         spacing: panelPadding
+
+        enabled: !linkMode
+        visible: enabled
 
         Rectangle{
             Layout.fillWidth: true;
@@ -149,7 +182,7 @@ XsGradientRectangle{
     }
 
    XsMenuModelItem {
-        text: qsTr("Only Show Visible")
+        text: qsTr("Hide Selected")
         menuPath: ""
         menuItemType: "toggle"
         menuItemPosition: 0.6
@@ -159,7 +192,7 @@ XsGradientRectangle{
     }
 
    XsMenuModelItem {
-        text: qsTr("Show Visibility Icons")
+        text: qsTr("Show Selection Icons")
         menuPath: ""
         menuItemType: "toggle"
         menuItemPosition: 0.7

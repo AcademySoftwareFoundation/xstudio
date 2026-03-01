@@ -58,8 +58,9 @@ TEST(JsonStoreActorTest, Test) {
             [&](const caf::error &) { EXPECT_TRUE(true) << "Should return exception"; });
 
     c(patch_atom_v,
-      JsonStore(nlohmann::json::parse(
-          R"([{"op": "remove", "path": "/arr"}, {"op": "add", "path": "/hello", "value": "goodbye"}])")));
+      JsonStore(
+          nlohmann::json::parse(
+              R"([{"op": "remove", "path": "/arr"}, {"op": "add", "path": "/hello", "value": "goodbye"}])")));
 
     f.self->request(tmp, caf::infinite, get_json_atom_v, "/arr")
         .receive(
@@ -84,10 +85,12 @@ TEST(JsonStoreActorTest, TestSubscribe) {
     auto act3  = f.self->spawn<JsonStoreActor>();
     auto act3f = make_function_view(act3);
 
-    JsonStore json_data1(nlohmann::json::parse(
-        R"({ "sub1" : {}, "happy": true, "pi": 3.141, "arr": [0, 2, 4] })"));
-    JsonStore json_data2(nlohmann::json::parse(
-        R"({ "happy": false, "sub2" : {}, "pi": 3.141, "arr": [0, 2, 4] })"));
+    JsonStore json_data1(
+        nlohmann::json::parse(
+            R"({ "sub1" : {}, "happy": true, "pi": 3.141, "arr": [0, 2, 4] })"));
+    JsonStore json_data2(
+        nlohmann::json::parse(
+            R"({ "happy": false, "sub2" : {}, "pi": 3.141, "arr": [0, 2, 4] })"));
     JsonStore json_data3(
         nlohmann::json::parse(R"({ "sad": false, "pi": 3.141, "arr": [0, 2, 4] })"));
 

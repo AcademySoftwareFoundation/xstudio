@@ -355,6 +355,15 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
+        text: qsTr("Fit To Media")
+        menuPath: ""
+        menuItemPosition: 5.5
+        menuModelName: timelineMenu.menu_model_name
+        onActivated: theTimeline.fitToMedia(timelineSelection.selectedIndexes)
+        panelContext: timelineMenu.panelContext
+    }
+
+    XsMenuModelItem {
         text: qsTr("Duplicate")
         menuPath: ""
         menuItemPosition: 6

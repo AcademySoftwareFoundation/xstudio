@@ -22,6 +22,8 @@ MediaStream::MediaStream(const JsonStore &jsn)
         detail_.pixel_aspect_ = jsn["pixel_aspect"];
     if (jsn.contains("stream_index"))
         detail_.index_ = jsn["stream_index"];
+    if (jsn.contains("transform"))
+        transform_ = jsn["transform"].get<Imath::M44f>();
 }
 
 MediaStream::MediaStream(const StreamDetail &detail)
@@ -37,6 +39,8 @@ JsonStore MediaStream::serialise() const {
     jsn["resolution"]   = detail_.resolution_;
     jsn["pixel_aspect"] = detail_.pixel_aspect_;
     jsn["stream_index"] = detail_.index_;
+    if (transform_ != Imath::M44f())
+        jsn["transform"] = transform_;
 
     return jsn;
 }

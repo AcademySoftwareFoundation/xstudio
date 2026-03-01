@@ -35,6 +35,13 @@ XsListView {
             XsIntegerPreference {
             }
         }
+
+        DelegateChoice {
+            roleValue: "read only int"
+            XsIntegerPreference {
+            }
+        }
+
         DelegateChoice {
             roleValue: "string"
             XsStringPreference {

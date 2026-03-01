@@ -86,6 +86,13 @@ Item {
         }
     }
 
+    XsToolTip{
+        text: menu_tooltip
+        x: parent.width-5 //#TODO: flex/pointer
+        y: parent.height-5
+        visible: menu_tooltip ? menuMouseArea.containsMouse : false
+    }
+
     MouseArea
     {
 

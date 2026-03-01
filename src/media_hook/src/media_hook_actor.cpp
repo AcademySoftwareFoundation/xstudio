@@ -234,6 +234,25 @@ MediaHookWorkerActor::MediaHookWorkerActor(caf::actor_config &cfg)
             }
 
             return rp;
+        },
+
+        [=](media_hook::get_media_hook_atom,
+            const media::MediaDetail &detail,
+            const caf::uri &uri) -> result<media::MediaDetail> {
+            auto rp = make_response_promise<media::MediaDetail>();
+            if (not hooks_.empty()) {
+                fan_out_request<policy::select_any>(
+                    hooks_, infinite, media_hook::get_media_hook_atom_v, detail, uri)
+                    .then(
+                        [=](const media::MediaDetail &new_detail) mutable {
+                            rp.deliver(new_detail);
+                        },
+                        [=](const error &err) mutable { rp.deliver(err); });
+            } else {
+                rp.deliver(detail);
+            }
+
+            return rp;
         });
 }
 
@@ -455,6 +474,11 @@ GlobalMediaHookActor::GlobalMediaHookActor(caf::actor_config &cfg)
                 jsn);
 
             return rp;
+        },
+        [=](media_hook::get_media_hook_atom,
+            const media::MediaDetail &detail,
+            const caf::uri &uri) {
+            return mail(media_hook::get_media_hook_atom_v, detail, uri).delegate(pool);
         });
 }
 

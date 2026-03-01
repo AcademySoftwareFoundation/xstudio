@@ -215,6 +215,7 @@ namespace playhead {
         module::FloatAttribute *playhead_position_seconds_;
         module::IntegerAttribute *playhead_position_flicks_;
         module::FloatAttribute *playhead_rate_attr_;
+        module::FloatAttribute *playhead_volume_;
         module::IntegerAttribute *playhead_media_logical_frame_;
         module::IntegerAttribute *playhead_media_frame_;
         module::IntegerAttribute *duration_frames_;
@@ -225,6 +226,7 @@ namespace playhead {
         module::IntegerAttribute *current_frame_timecode_as_frame_;
         module::StringAttribute *current_media_uuid_;
         module::StringAttribute *current_media_source_uuid_;
+        module::StringAttribute *current_clip_uuid_;
         module::BooleanAttribute *zoom_to_loop_;
         module::BooleanAttribute *loop_range_enabled_;
         module::BooleanAttribute *user_is_frame_scrubbing_;

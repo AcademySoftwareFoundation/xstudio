@@ -57,8 +57,9 @@ class TestPFC : public PluginFactoryCollection {
   public:
     TestPFC() : PluginFactoryCollection() {
         factories_.emplace_back(std::make_shared<TestPlugin>());
-        factories_.emplace_back(std::make_shared<PluginFactoryTemplate<TestActor>>(
-            Uuid("e4e1d569-2338-4e6e-b127-5a9688df161a"), "template_test"));
+        factories_.emplace_back(
+            std::make_shared<PluginFactoryTemplate<TestActor>>(
+                Uuid("e4e1d569-2338-4e6e-b127-5a9688df161a"), "template_test"));
     }
 };
 

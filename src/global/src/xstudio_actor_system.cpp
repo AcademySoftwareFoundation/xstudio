@@ -56,7 +56,7 @@ struct ExitTimeoutKiller {
                 // stop() wasn't called! Probably failed to exit actor_system,
                 // see main() function. Kill process.
                 spdlog::critical("xSTUDIO has not exited cleanly: killing process now");
-                kill(0, SIGKILL);
+                kill(getpid(), SIGKILL);
             } else {
                 clean_actor_system_exit.unlock();
             }

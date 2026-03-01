@@ -46,6 +46,7 @@ namespace playhead {
             caf::actor viewport;
             caf::actor playhead;
             std::string window_id;
+            Imath::M44f projection_matrix;
         };
         std::map<std::string, ViewportAndPlayhead> viewports_;
         std::map<caf::actor_addr, caf::disposable> monitor_;

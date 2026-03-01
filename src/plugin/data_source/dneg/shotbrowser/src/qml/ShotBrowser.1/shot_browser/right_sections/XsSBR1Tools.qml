@@ -128,12 +128,57 @@ ColumnLayout{
             }
         }
 
+
+        RowLayout{
+            Layout.minimumWidth: btnWidth
+            Layout.preferredWidth: btnWidth*5
+            Layout.maximumWidth: btnWidth*5
+
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+
+            visible: linkMode
+
+            spacing: 4
+
+            XsText{
+                Layout.preferredWidth: 50
+                Layout.fillHeight: true
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                text: "Display"
+                horizontalAlignment: Text.AlignRight
+            }
+
+            XsComboBox{ id: linkCombo
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                model: ["All", "Linked", "Unlinked"]
+
+                onActivated: {
+                    if(currentIndex != -1 ) {
+                        linkFilter = model[currentIndex]
+                    }
+                }
+
+                Connections {
+                    target: panel
+                    function onLinkFilterChanged() {
+                        linkCombo.currentIndex = linkCombo.find(linkFilter)
+                    }
+                }
+            }
+        }
+
         XsComboBoxEditable{ id: filterStep
             Layout.minimumWidth: btnWidth/2
             Layout.preferredWidth: btnWidth*3
             Layout.maximumWidth: btnWidth*3
             Layout.fillWidth: true
             Layout.fillHeight: true
+
+            visible: !linkMode
+
             model: ShotBrowserEngine.ready ? ShotBrowserEngine.presetsModel.termModel("Pipeline Step") : []
             textRole: "nameRole"
             currentIndex: -1
@@ -169,44 +214,45 @@ ColumnLayout{
                 }
             }
         }
-        XsComboBoxEditable{ id: filterOnDisk
-            Layout.fillHeight: true
-            Layout.fillWidth: true
 
-            Layout.minimumWidth: btnWidth/2
-            Layout.preferredWidth: btnWidth*2.2
-            Layout.maximumWidth: btnWidth*2.2
+        // XsComboBoxEditable{ id: filterOnDisk
+        //     Layout.fillHeight: true
+        //     Layout.fillWidth: true
 
-            model: ShotBrowserEngine.ready ? ShotBrowserEngine.presetsModel.termModel("Site") : []
-            currentIndex: -1
-            textRole: "nameRole"
-            placeholderText: "On Disk"
+        //     Layout.minimumWidth: btnWidth/2
+        //     Layout.preferredWidth: btnWidth*2.2
+        //     Layout.maximumWidth: btnWidth*2.2
 
-            onModelChanged: currentIndex = -1
+        //     model: ShotBrowserEngine.ready ? ShotBrowserEngine.presetsModel.termModel("Site") : []
+        //     currentIndex: -1
+        //     textRole: "nameRole"
+        //     placeholderText: "On Disk"
 
-            onCurrentIndexChanged: {
-                if(currentIndex==-1)
-                    onDisk = ""
-            }
+        //     onModelChanged: currentIndex = -1
 
-            onAccepted: {
-                if(currentIndex != -1)
-                    onDisk = model.get(model.index(currentIndex,0), "nameRole")
-                focus = false
-            }
+        //     onCurrentIndexChanged: {
+        //         if(currentIndex==-1)
+        //             onDisk = ""
+        //     }
 
-            onActivated: {
-                if(currentIndex != -1)
-                    onDisk = model.get(model.index(currentIndex,0), "nameRole")
-            }
+        //     onAccepted: {
+        //         if(currentIndex != -1)
+        //             onDisk = model.get(model.index(currentIndex,0), "nameRole")
+        //         focus = false
+        //     }
 
-            Connections {
-                target: panel
-                function onOnDiskChanged() {
-                    filterOnDisk.currentIndex = filterOnDisk.find(onDisk)
-                }
-            }
-        }
+        //     onActivated: {
+        //         if(currentIndex != -1)
+        //             onDisk = model.get(model.index(currentIndex,0), "nameRole")
+        //     }
+
+        //     Connections {
+        //         target: panel
+        //         function onOnDiskChanged() {
+        //             filterOnDisk.currentIndex = filterOnDisk.find(onDisk)
+        //         }
+        //     }
+        // }
 
         XsPrimaryButton{ id: groupBtn
             Layout.leftMargin: 2
@@ -236,20 +282,20 @@ ColumnLayout{
             }
         }
 
-        XsSortButton{ id: sortViaDateBtn
-            Layout.preferredWidth: btnWidth
-            Layout.fillHeight: true
-            text: "Creation Date"
-            isActive: sortByCreationDate
-            sortIconSrc: "qrc:///shotbrowser_icons/calendar_month.svg"
-            isDescendingOrder: sortByCreationDate && !sortInAscending
+        // XsSortButton{ id: sortViaDateBtn
+        //     Layout.preferredWidth: btnWidth
+        //     Layout.fillHeight: true
+        //     text: "Creation Date"
+        //     isActive: sortByCreationDate
+        //     sortIconSrc: "qrc:///shotbrowser_icons/calendar_month.svg"
+        //     isDescendingOrder: sortByCreationDate && !sortInAscending
 
-            onClicked: {
-                if(sortByCreationDate && sortInAscending) sortInAscending = false
-                else sortInAscending = true
-                sortByCreationDate = true
-            }
-        }
+        //     onClicked: {
+        //         if(sortByCreationDate && sortInAscending) sortInAscending = false
+        //         else sortInAscending = true
+        //         sortByCreationDate = true
+        //     }
+        // }
 
         XsSortButton{ id: sortViaShotBtn
             Layout.preferredWidth: btnWidth
@@ -263,6 +309,23 @@ ColumnLayout{
                 if(sortByShotName && sortInAscending) sortInAscending = false
                 else sortInAscending = true
                 sortByShotName = true
+            }
+        }
+
+        XsPrimaryButton{
+            Layout.leftMargin: 2
+            Layout.rightMargin: 2
+            Layout.preferredWidth: btnWidth
+            Layout.fillHeight: true
+
+            imgSrc: "qrc:///shotbrowser_icons/add_link.svg"
+            toolTip: "Link Mode"
+            isActive: linkMode
+            visible: ShotBrowserEngine.shotGridLoginAllowed
+            onClicked: {
+                linkMode = !linkMode
+                pipeStep = ""
+                linkFilter = "All"
             }
         }
     }

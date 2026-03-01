@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#include "xstudio/audio/enums.hpp"
 #include "xstudio/global/enums.hpp"
 #include "xstudio/media/enums.hpp"
 #include "xstudio/media_metadata/enums.hpp"

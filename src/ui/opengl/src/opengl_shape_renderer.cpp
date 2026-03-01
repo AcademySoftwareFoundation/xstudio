@@ -334,8 +334,6 @@ void OpenGLShapeRenderer::upload_shape_data_to_tex(const std::vector<float> &dat
     glBindTexture(GL_TEXTURE_1D, tex_id_);
 
     glActiveTexture(GL_TEXTURE0);
-
-
 }
 
 void OpenGLShapeRenderer::render_shapes(

@@ -176,6 +176,8 @@ template <typename T> void IvyDataSourceActor<T>::update_preferences(const JsonS
             js, "/plugin/data_source/ivy/use_stalk_name_for_audio_sources");
         enable_audio_autoload_ =
             preference_value<bool>(js, "/plugin/data_source/ivy/enable_audio_autoload");
+        default_audio_source_ =
+            preference_value<std::string>(js, "/plugin/data_source/ivy/default_audio_source");
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
@@ -212,8 +214,14 @@ template <typename T> caf::message_handler IvyDataSourceActor<T>::message_handle
             const std::vector<caf::uri> &paths) -> result<JsonStore> {
             auto rp = make_response_promise<JsonStore>();
             std::vector<std::string> ppaths;
-            for (const auto &i : paths)
-                ppaths.emplace_back(uri_to_posix_path(i));
+            for (const auto &i : paths) {
+                // Note: image sequence paths from ivybrowser will cause uri of
+                // some_exr.{:04d}.exr .. This will not return a match in pipequery. We need
+                // format .#. for the frame numbers instead.
+                std::string posix_path = uri_to_posix_path(i);
+                posix_path             = utility::replace_once(posix_path, ".{:04d}.", ".#.");
+                ppaths.emplace_back(posix_path);
+            }
 
             if (not std::regex_match(show.c_str(), VALID_SHOW_REGEX)) {
                 spdlog::warn("{} Invalid show {}", __PRETTY_FUNCTION__, show);
@@ -221,17 +229,18 @@ template <typename T> caf::message_handler IvyDataSourceActor<T>::message_handle
                 return rp;
             }
 
-            auto httpquery = std::string(fmt::format(
-                R"({{
+            auto httpquery = std::string(
+                fmt::format(
+                    R"({{
                     files_by_path(show: "{}", paths: ["{}"]){{
                         id, name, path, timeline_range
                         version{{
-                            id, name, show{{id, name}}, scope {{id, name}}, kind{{id, name}}
+                            id, name, show{{id, name}}, scope {{id, name}}, kind{{id, name}}, status
                         }},
                     }}
                 }})",
-                show,
-                join_as_string(ppaths, "\",\"")));
+                    show,
+                    join_as_string(ppaths, "\",\"")));
 
             mail(
                 http_client::http_post_atom_v,
@@ -290,8 +299,21 @@ template <typename T> caf::message_handler IvyDataSourceActor<T>::message_handle
                             use_data_atom_v, media, uuid_show.second, uuid_show.first, true)
                             .send(pool_);
                         // delegate.. get sources from ivy
-                        ivy_load_version_sources(
-                            rp, uuid_show.second, uuid_show.first, media, media_rate);
+
+                        // this will now run 'ivy_load_version_sources' to find extra source
+                        // (ivy leaves) for the version in 'media_actor'
+                        mail(
+                            data_source::use_data_atom_v,
+                            uuid_show.second,
+                            uuid_show.first,
+                            media,
+                            media_rate)
+                            .request(caf::actor_cast<caf::actor>(this), infinite)
+                            .then(
+                                [=](const UuidActorVector &new_media_sources) mutable {
+                                    order_new_media_sources(rp, new_media_sources);
+                                },
+                                [=](caf::error &err) mutable { rp.deliver(err); });
                     },
                     [=](const error &err) mutable {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -432,14 +454,15 @@ template <typename T> void IvyDataSourceActor<T>::on_exit() {
 }
 
 httplib::Headers IvyDataSource::get_headers() const {
-    return httplib::Headers({// {"Host", host_},
-                             {"Content-Type", "application/graphql"},
-                             {"X-Client-App-Name", to_lower(app_name_)},
-                             {"X-Client-App-Version", app_version_},
-                             {"X-Client-Billing-Code", billing_code_},
-                             {"X-Client-Site", site_},
-                             {"X-Client-User", user_},
-                             {"X-Client-host", host_}});
+    return httplib::Headers(
+        {// {"Host", host_},
+         {"Content-Type", "application/graphql"},
+         {"X-Client-App-Name", to_lower(app_name_)},
+         {"X-Client-App-Version", app_version_},
+         {"X-Client-Billing-Code", billing_code_},
+         {"X-Client-Site", site_},
+         {"X-Client-User", user_},
+         {"X-Client-host", host_}});
 }
 
 
@@ -903,17 +926,18 @@ void IvyDataSourceActor<T>::get_version(
         return rp.deliver(make_error(xstudio_error::error, "Invalid show" + show));
     }
 
-    auto httpquery = std::string(fmt::format(
-        R"({{
+    auto httpquery = std::string(
+        fmt::format(
+            R"({{
             versions_by_id(show: "{}", ids: ["{}"]){{
-                id, name, show{{name}}, number{{major,minor,micro}}, kind{{id,name}},scope{{id,name}}
+                id, name, show{{name}}, number{{major,minor,micro}}, kind{{id,name}},scope{{id,name}}, status
                 files{{
                     id,name,path,timeline_range,type,version{{id,name,kind{{id,name}},scope{{id,name}}}}
                 }},
             }}
         }})",
-        show,
-        to_string(stalk_dnuuid)));
+            show,
+            to_string(stalk_dnuuid)));
 
     mail(
         http_client::http_post_atom_v,
@@ -1051,15 +1075,16 @@ void IvyDataSourceActor<T>::ivy_load_version(
     auto query = uri.query();
     auto ids   = std::string("\"") + join_as_string(split(query["ids"], '|'), "\",\"") + "\"";
     auto show  = query["show"];
-    auto httpquery = std::string(fmt::format(
-        R"({{
+    auto httpquery = std::string(
+        fmt::format(
+            R"({{
             versions_by_id(show: "{}", ids: [{}]){{
-                id, name, show{{name}}, number{{major,minor,micro}}, kind{{id,name}},scope{{id,name}}
+                id, name, show{{name}}, number{{major,minor,micro}}, kind{{id,name}},scope{{id,name}}, status
                 files{{id,name,path,timeline_range,type,version{{id,name,kind{{id,name}},scope{{id,name}}}}}},
             }}
         }})",
-        show,
-        ids));
+            show,
+            ids));
 
     if (not std::regex_match(show.c_str(), VALID_SHOW_REGEX)) {
         spdlog::warn("{} Invalid show {}", __PRETTY_FUNCTION__, show);
@@ -1141,14 +1166,15 @@ void IvyDataSourceActor<T>::ivy_load_file(
     auto query = uri.query();
     auto ids   = std::string("\"") + join_as_string(split(query["ids"], '|'), "\",\"") + "\"";
     auto show  = query["show"];
-    auto httpquery = std::string(fmt::format(
-        R"({{
+    auto httpquery = std::string(
+        fmt::format(
+            R"({{
             files_by_id(show: "{}", ids: [{}]){{
                 id, name, path,timeline_range, type, version{{id,name,kind{{id,name}},scope{{id,name}}}}
             }}
         }})",
-        show,
-        ids));
+            show,
+            ids));
 
     if (not std::regex_match(show.c_str(), VALID_SHOW_REGEX)) {
         spdlog::warn("{} Invalid show {}", __PRETTY_FUNCTION__, show);
@@ -1253,11 +1279,13 @@ void IvyDataSourceActor<T>::handle_drop(
             for (const auto &entry : obj) {
                 try {
                     // name, and path are also available
-                    auto uri = caf::make_uri(std::string(fmt::format(
-                        "ivy://load?show={}&type={}&ids={}",
-                        entry.at("show").get<std::string>(),
-                        entry.at("type").get<std::string>(),
-                        entry.at("id").get<std::string>())));
+                    auto uri = caf::make_uri(
+                        std::string(
+                            fmt::format(
+                                "ivy://load?show={}&type={}&ids={}",
+                                entry.at("show").get<std::string>(),
+                                entry.at("type").get<std::string>(),
+                                entry.at("id").get<std::string>())));
 
                     if (uri)
                         uris.push_back(*uri);
@@ -1338,21 +1366,22 @@ void IvyDataSourceActor<T>::get_show_stalk_uuid(
                 // spdlog::warn("{}", jsn.dump(2));
 
                 try {
-                    return rp.deliver(std::make_pair(
-                        utility::Uuid(jsn.at("metadata")
-                                          .at("shotgun")
-                                          .at("version")
-                                          .at("attributes")
-                                          .at("sg_ivy_dnuuid")
-                                          .get<std::string>()),
-                        jsn.at("metadata")
-                            .at("shotgun")
-                            .at("version")
-                            .at("relationships")
-                            .at("project")
-                            .at("data")
-                            .at("name")
-                            .get<std::string>()));
+                    return rp.deliver(
+                        std::make_pair(
+                            utility::Uuid(jsn.at("metadata")
+                                              .at("shotgun")
+                                              .at("version")
+                                              .at("attributes")
+                                              .at("sg_ivy_dnuuid")
+                                              .get<std::string>()),
+                            jsn.at("metadata")
+                                .at("shotgun")
+                                .at("version")
+                                .at("relationships")
+                                .at("project")
+                                .at("data")
+                                .at("name")
+                                .get<std::string>()));
                 } catch (...) {
                     try {
                         // needs fixing.. purposely broke..
@@ -1367,13 +1396,14 @@ void IvyDataSourceActor<T>::get_show_stalk_uuid(
                         std::cmatch m;
 
                         if (std::regex_match(path.c_str(), m, SHOW_REGEX)) {
-                            return rp.deliver(std::make_pair(
-                                utility::Uuid(jsn.at("metadata")
-                                                  .at("ivy")
-                                                  .at("version")
-                                                  .at("id")
-                                                  .get<std::string>()),
-                                m[1]));
+                            return rp.deliver(
+                                std::make_pair(
+                                    utility::Uuid(jsn.at("metadata")
+                                                      .at("ivy")
+                                                      .at("version")
+                                                      .at("id")
+                                                      .get<std::string>()),
+                                    m[1]));
                         } else
                             throw XStudioError("Show not found in ivy metadata");
                     } catch (...) {
@@ -1420,14 +1450,15 @@ void IvyDataSourceActor<T>::get_show_stalk_uuid(
                                                         if (data.at("data")
                                                                 .at("files_by_path")
                                                                 .size()) {
-                                                            rp.deliver(std::make_pair(
-                                                                data.at("data")
-                                                                    .at("files_by_path")
-                                                                    .at(0)
-                                                                    .at("version")
-                                                                    .at("id")
-                                                                    .get<Uuid>(),
-                                                                show));
+                                                            rp.deliver(
+                                                                std::make_pair(
+                                                                    data.at("data")
+                                                                        .at("files_by_path")
+                                                                        .at(0)
+                                                                        .at("version")
+                                                                        .at("id")
+                                                                        .get<Uuid>(),
+                                                                    show));
                                                         } else {
                                                             rp.delegate(
                                                                 pool_,
@@ -1506,8 +1537,9 @@ void IvyDataSourceActor<T>::ivy_load_audio_sources(
     const utility::FrameRate &media_rate,
     const utility::UuidActorVector &extend) {
 
-    auto httpquery = std::string(fmt::format(
-        R"({{
+    auto httpquery = std::string(
+        fmt::format(
+            R"({{
   latest_versions(
     mode: VERSION_NUMBER
     show: "{}"
@@ -1549,8 +1581,8 @@ void IvyDataSourceActor<T>::ivy_load_audio_sources(
     }}
   }}
         }})",
-        show,
-        to_string(stem_dnuuid)));
+            show,
+            to_string(stem_dnuuid)));
 
     if (not std::regex_match(show.c_str(), VALID_SHOW_REGEX)) {
         spdlog::warn("{} Invalid show {}", __PRETTY_FUNCTION__, show);
@@ -1601,17 +1633,15 @@ void IvyDataSourceActor<T>::ivy_load_audio_sources(
                             }
                         }
 
-                        auto count   = std::make_shared<int>(files.size());
-                        auto results = std::make_shared<UuidActorVector>(extend);
-                        if (not *count)
-                            return rp.deliver(*results);
-
                         // spdlog::warn("{} {}", *count, (*results).size());
+                        auto auto_responder = AutoResponder<UuidActorVector>(files.size(), rp);
+                        auto_responder.result() = extend;
 
                         for (const auto &i : files) {
                             // spdlog::warn("{}", i.dump(2));
                             auto payload    = JsonStore(i);
                             payload["show"] = show;
+
                             mail(
                                 media::add_media_source_atom_v,
                                 payload,
@@ -1620,20 +1650,12 @@ void IvyDataSourceActor<T>::ivy_load_audio_sources(
                                 .request(pool_, infinite)
                                 .then(
                                     [=](const UuidActor &ua) mutable {
-                                        (*count)--;
                                         if (not ua.uuid().is_null())
-                                            results->push_back(ua);
-                                        if (not(*count)) {
-                                            // spdlog::warn("{}", (*results).size());
-                                            rp.deliver(*results);
-                                        }
+                                            auto_responder.result().push_back(ua);
+                                        auto_responder.decrement();
                                     },
                                     [=](error &err) mutable {
-                                        (*count)--;
-                                        if (not(*count)) {
-                                            // spdlog::warn("{}", (*results).size());
-                                            rp.deliver(*results);
-                                        }
+                                        auto_responder.decrement(err);
                                         spdlog::warn(
                                             "{} {}", __PRETTY_FUNCTION__, to_string(err));
                                     });
@@ -1647,6 +1669,64 @@ void IvyDataSourceActor<T>::ivy_load_audio_sources(
             [=](error &err) mutable {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                 rp.deliver(extend);
+            });
+}
+
+template <typename T>
+void IvyDataSourceActor<T>::order_new_media_sources(
+    caf::typed_response_promise<utility::UuidActorVector> rp,
+    const UuidActorVector &new_media_sources) {
+
+    // we are adding one or more (and often many) new media sources to a media item.
+    // The sources are ivy 'leafs', and often the sources are audio files.
+    // In Feat. Anim. there are several audio leafs, usually including 'ax', 'dx'
+    // 'sfxdx', 'mx' etc.
+    //
+    // At this point, new_media_sources ius randomised and depends which of our
+    // ivy pool actors returned fastest when building the media sources.
+    //
+    // We will now order new_media_sources alphabetically according to the name,
+    // but also ensuring that a source with a name that matches
+    // default_audio_source_ is always first.
+    // This means that when these sources are added to the Media item the
+    // default_audio_source_ audio source will always be chosen as the audio
+    // source, as long as there wasn't already an audio source set on the
+    // Media item.
+
+    if (new_media_sources.empty()) {
+        rp.deliver(new_media_sources);
+        return;
+    }
+
+    fan_out_request<policy::select_all>(
+        vector_to_caf_actor_vector(new_media_sources), infinite, utility::detail_atom_v)
+        .then(
+            [=](std::vector<ContainerDetail> details) mutable {
+                // sort alphabetically, except for source with name matching
+                // default_audio_source_ which will be first in the list
+                std::sort(
+                    details.begin(), details.end(), [=](const auto &a, const auto &b) -> bool {
+                        if (a.name_ == default_audio_source_)
+                            return true;
+                        if (b.name_ == default_audio_source_)
+                            return false;
+                        return a.name_ < b.name_;
+                    });
+
+                utility::UuidActorVector reordered;
+                for (const auto &i : details) {
+                    for (const auto &j : new_media_sources) {
+                        if (j.uuid() == i.uuid_) {
+                            reordered.push_back(j);
+                        }
+                    }
+                }
+
+                rp.deliver(reordered);
+            },
+            [=](caf::error &err) mutable {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                rp.deliver(new_media_sources);
             });
 }
 

@@ -60,7 +60,7 @@ Item {
                     visible: select_mode
                     Layout.preferredHeight: rowHeight
                     Layout.preferredWidth: rowHeight
-                    property var checkedOverride: profile_field_paths.includes(path)
+                    property var checkedOverride: profile_field_paths == undefined ? false : profile_field_paths.includes(path)
                     onCheckedOverrideChanged: {
                         // when you click, qml sets checked and kills any 
                         // binding we try to set-up on that attr

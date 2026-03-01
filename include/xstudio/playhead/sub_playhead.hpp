@@ -4,6 +4,7 @@
 #include <caf/all.hpp>
 // #include <chrono>
 
+#include "xstudio/audio/audio_output.hpp"
 #include "xstudio/colour_pipeline/colour_pipeline.hpp"
 #include "xstudio/media/media.hpp"
 #include "xstudio/media_reader/media_reader.hpp"
@@ -66,7 +67,14 @@ namespace playhead {
         void broadcast_audio_samples();
 
         std::vector<timebase::flicks> get_lookahead_frame_pointers(
-            media::AVFrameIDsAndTimePoints &result, const int max_num_frames);
+            media::AVFrameIDsAndTimePoints &result,
+            const int max_num_frames,
+            const bool use_headroom);
+
+        std::vector<timebase::flicks> get_lookahead_frame_pointers(
+            media::AVFrameIDsAndTimePoints &result,
+            const timebase::flicks lookahead,
+            const timebase::flicks headroom);
 
         void request_future_frames();
 
@@ -130,6 +138,7 @@ namespace playhead {
       protected:
         media::FrameTimeMap::iterator current_frame_iterator();
         media::FrameTimeMap::iterator current_frame_iterator(const timebase::flicks t);
+        utility::FrameRate current_frame_rate() const;
 
         inline int logical_frame_from_pts(const timebase::flicks t) const {
             // we use logical_frames_ as a lookup to get the corresponding logical
@@ -160,6 +169,7 @@ namespace playhead {
         utility::FrameRate default_rate_  = utility::FrameRate(timebase::k_flicks_24fps);
         const bool source_is_timeline_;
 
+        audio::ScrubHelper scrub_helper_;
         int pre_cache_read_ahead_frames_                           = {32};
         std::chrono::milliseconds static_cache_delay_milliseconds_ = {
             std::chrono::milliseconds(500)};
@@ -169,7 +179,7 @@ namespace playhead {
         caf::actor parent_;
         caf::actor event_group_;
 
-        utility::Uuid current_source_, current_media_;
+        utility::Uuid current_source_, current_media_, current_clip_;
         utility::time_point last_image_timepoint_;
         bool waiting_for_next_frame_ = {false};
         timebase::flicks loop_in_point_;

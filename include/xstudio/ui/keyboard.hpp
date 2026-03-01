@@ -22,8 +22,8 @@ namespace ui {
     inline static const std::map<int, int> key_to_modifier = {
         {16777248, (int)ShiftModifier},
         {16777249, (int)ControlModifier},
-        {16777251, (int)AltModifier},
-        {16777249, (int)MetaModifier}};
+        {16777250, (int)MetaModifier},
+        {16777251, (int)AltModifier}};
 
     // This is very rough and ready, needs a lot more work!
     class Hotkey {

@@ -237,7 +237,7 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
-        text: qsTr("Create Track Template")
+        text: qsTr("Create User Track Template")
         menuPath: ""
         menuItemPosition: 25.5
         menuModelName: timelineMenu.menu_model_name

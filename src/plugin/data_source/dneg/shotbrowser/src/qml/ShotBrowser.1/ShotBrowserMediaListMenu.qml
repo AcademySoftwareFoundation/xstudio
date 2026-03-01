@@ -90,13 +90,41 @@ Item {
     //     menuModelName: "media_list_menu_"
     //     onActivated: ShotBrowserHelpers.downloadMissingMovies(menuContext.mediaSelection)
     // }
+    XsMenuModelItem {
+        text: "Refresh SG Metadata"
+        menuPath: ""
+        menuItemPosition: 260
+        menuModelName: "media_list_menu_"
+        onActivated: ShotBrowserHelpers.refreshMetadata(menuContext.mediaSelection)
+    }
 
     XsMenuModelItem {
         text: "Download SG Movie"
         menuPath: ""
-        menuItemPosition: 260
+        menuItemPosition: 261
         menuModelName: "media_list_menu_"
         onActivated: ShotBrowserHelpers.downloadMovies(menuContext.mediaSelection)
+    }
+
+    XsMenuModelItem {
+        text: "True"
+        menuItemPosition: 1
+        enabled: ShotBrowserEngine.shotGridLoginAllowed
+        menuPath: "Set Status|Is Hero"+ (enabled ? "" : " (Production Only)")
+        menuModelName: "media_list_menu_"
+        onActivated: ShotBrowserHelpers.markAsHero(menuContext.mediaSelection, true)
+    }
+
+    XsMenuModelItem {
+        text: "False"
+        enabled: ShotBrowserEngine.shotGridLoginAllowed
+        menuItemPosition: 2
+        menuPath: "Set Status|Is Hero"+ (enabled ? "" : " (Production Only)")
+        menuModelName: "media_list_menu_"
+        onActivated: ShotBrowserHelpers.markAsHero(menuContext.mediaSelection, false)
+        Component.onCompleted: {
+            setMenuPathPosition("Set Status|Is Hero"+ (enabled ? "" : " (Production Only)"), 3)
+        }
     }
 
     XsMenuModelItem {

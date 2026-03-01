@@ -110,8 +110,11 @@ Viewport {
         id: image_boundaries
     }
 
+    property var num_images_on_screen: 0
+
     onImageBoundariesInViewportChanged: {
         var n = imageBoundariesInViewport.length
+        num_images_on_screen = n
         for (var i = 0; i < n; ++i) {
             if (i < image_boundaries.count) {
                 image_boundaries.get(i).imageBoundary = imageBoundariesInViewport[i];
@@ -129,12 +132,18 @@ Viewport {
     // in the ViewportHUD qml code so we create a dummy property here 
     property var hud_plugins_display_data
 
+    property var subPlayheadIdx: viewportPlayhead.keySubplayheadIndex != undefined ? viewportPlayhead.keySubplayheadIndex : 0
+
     // this one lays out the HUD graphics coming from HUD plugins and
     // also general overlay graphics like Mask
     Repeater {
         model: image_boundaries
         XsViewportHUD {
-            imageIndex: index
+            // the HUD needs to know which viewport image stream it is attached to. If 
+            // we are in grid mode, it's the index in the model here. If we're not in
+            // a grid layout 'num_images_on_screen' is 1 and we need to use the 
+            // active sub playhead index.
+            imageIndex: num_images_on_screen == 1 ? subPlayheadIdx : index
         }
     }
     

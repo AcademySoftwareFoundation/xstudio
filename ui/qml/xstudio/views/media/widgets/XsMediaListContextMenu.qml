@@ -36,6 +36,12 @@ XsPopupMenu {
         path: "/core/session/session_link_prefix"
     }
 
+    XsPreference {
+        id: chunkSize
+        path: "/ui/qml/contactsheet_chunk_size"
+    }
+
+
     Component.onCompleted: {
         // make sure the 'Add' sub-menu appears in the correct place
         helpers.setMenuPathPosition("Select", "media_list_menu_", 10)
@@ -43,8 +49,10 @@ XsPopupMenu {
 
         helpers.setMenuPathPosition("Copy To Clipboard", "media_list_menu_", 70)
         helpers.setMenuPathPosition("Reveal Source", "media_list_menu_", 60)
-        helpers.setMenuPathPosition("Advanced", "media_list_menu_", 1200)
-        helpers.setMenuPathPosition("Advanced|Print", "media_list_menu_", 90)
+        helpers.setMenuPathPosition("Media Settings", "media_list_menu_", 1100)
+        helpers.setMenuPathPosition("Media Settings|Set Media Rotation", "media_list_menu_", 4)
+        helpers.setMenuPathPosition("Media Actions", "media_list_menu_", 1200)
+        helpers.setMenuPathPosition("Media Actions|Print", "media_list_menu_", 90)
         helpers.setMenuPathPosition("Snippet", "media_list_menu_", 1100)
         //helpers.setMenuPathPosition("Set Media Source", "media_list_menu_", 15.5)
 
@@ -176,6 +184,31 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
+        text: "New Contact Sheets..."
+        menuPath: "Add Media To"
+        menuItemPosition: 3.5
+        menuModelName: btnMenu.menu_model_name
+        panelContext: btnMenu.panelContext
+        onActivated: {
+            dialogHelpers.contactSheetDialog(
+                function(name, count, button) {
+                    if(button == "Add Media") {
+                        let icount = parseInt(count);
+                        if(chunkSize.value != icount)
+                            chunkSize.value = icount;
+
+                        addToNewContactSheet(name, icount);
+                    }
+                },
+                "Add To New Contact Sheets",
+                "Enter New Contact Sheets Name",
+                "Contact Sheet {}",
+                chunkSize.value,
+                ["Cancel", "Add Media"])
+        }
+    }
+
+    XsMenuModelItem {
         text: "New Sequence..."
         menuPath: "Add Media To"
         menuItemPosition: 4
@@ -196,11 +229,11 @@ XsPopupMenu {
     }
 
     XsFlagMenuInserter {
+        menuPath: "Media Settings"
         text: qsTr("Set Media Colour")
         panelContext: btnMenu.panelContext
         menuModelName: btnMenu.menu_model_name
-        menuPath: ""
-        menuPosition: 2
+        menuPosition: 1
         onFlagSet: (flag, flag_text) => {
             let sindexs = mediaSelectionModel.selectedIndexes
             for(let i = 0; i< sindexs.length; i++) {
@@ -212,6 +245,15 @@ XsPopupMenu {
         }
     }
 
+    XsMenuModelItem {
+        text: "Cycle Media Colour"
+        menuPath: ""
+        menuItemPosition: 2.1
+        menuModelName: btnMenu.menu_model_name
+        onActivated: cycleColour(mediaSelectionModel.selectedIndexes)
+        panelContext: btnMenu.panelContext
+        hotkeyUuid: cycle_colour_hotkey.uuid
+    }
     // XsMenuModelItem {
     //     text: "TEST"
     //     menuPath: ""
@@ -247,7 +289,7 @@ XsPopupMenu {
 
     XsMenuModelItem {
         text: "Duplicate"
-        menuPath: ""
+        menuPath: "Media Actions"
         menuItemPosition: 50
         menuModelName: btnMenu.menu_model_name
         onActivated: {
@@ -404,7 +446,7 @@ XsPopupMenu {
 
     XsMenuModelItem {
         text: "Media Metadata"
-        menuPath: "Advanced|Print"
+        menuPath: "Media Actions|Print"
         menuItemPosition: 1
         menuModelName: btnMenu.menu_model_name
         onActivated: {
@@ -415,7 +457,7 @@ XsPopupMenu {
 
     XsMenuModelItem {
         text: "Source Metadata"
-        menuPath: "Advanced|Print"
+        menuPath: "Media Actions|Print"
         menuItemPosition: 1
         menuModelName: btnMenu.menu_model_name
         onActivated: {
@@ -427,7 +469,7 @@ XsPopupMenu {
 
     XsMenuModelItem {
         text: "JSON"
-        menuPath: "Advanced|Print"
+        menuPath: "Media Actions|Print"
         menuItemPosition: 2
         menuModelName: btnMenu.menu_model_name
         onActivated: {
@@ -439,7 +481,7 @@ XsPopupMenu {
 
     XsMenuModelItem {
         text: "Clear Cache All"
-        menuPath: "Advanced"
+        menuPath: "Media Actions"
         menuItemPosition: 10
         menuModelName: btnMenu.menu_model_name
         onActivated: studio.clearImageCache()
@@ -448,8 +490,8 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
-        text: "Clear Cache Selected"
-        menuPath: "Advanced"
+        text: "Clear Cache"
+        menuPath: "Media Actions"
         menuItemPosition: 20
         menuModelName: btnMenu.menu_model_name
         onActivated: Future.promise(theSessionData.clearCacheFuture(mediaSelectionModel.selectedIndexes)).then(function(result){})
@@ -457,9 +499,9 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
-        text: "Set Media Rate..."
-        menuPath: "Advanced"
-        menuItemPosition: 30
+        text: "Set Media FPS ..."
+        menuPath: "Media Settings"
+        menuItemPosition: 2
         menuModelName: btnMenu.menu_model_name
         onActivated: {
             let mi = mediaSelectionModel.selectedIndexes[0]
@@ -486,9 +528,9 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
-        text: "Set Media Pixel Aspect..."
-        menuPath: "Advanced"
-        menuItemPosition: 40
+        text: "Set Media Pixel Aspect ..."
+        menuPath: "Media Settings"
+        menuItemPosition: 3
         menuModelName: btnMenu.menu_model_name
         onActivated: {
             let mi = mediaSelectionModel.selectedIndexes[0]
@@ -514,9 +556,60 @@ XsPopupMenu {
         panelContext: btnMenu.panelContext
     }
 
+    XsModelPropertyMap {
+        id: selectedMediaProperties
+        index: mediaSelectionModel.selectedIndexes.length ? mediaSelectionModel.selectedIndexes[0] : undefined
+    }
+    property var currentMediaRotation: selectedMediaProperties.values.rotationRole
+
+    function setMediaRotation(rotation, button) {
+        if (button == "Cancel") return
+        var rot = typeof rotation === "string" ? parseFloat(rotation) : rotation
+        mediaSelectionModel.selectedIndexes.forEach(
+                (element) => {
+                    element.model.set(element, rot, "rotationRole")
+                }
+            )
+    }
+
+    property var rotations: [0.0, 90.0, 180.0, -90.0]
+    Repeater {
+        model: rotations
+        Item {
+            XsMenuModelItem {
+                text: "" + modelData
+                menuPath: "Media Settings|Set Media Rotation"
+                menuItemPosition: index
+                menuItemType: "toggle"
+                menuModelName: btnMenu.menu_model_name
+                isChecked: modelData == currentMediaRotation
+                onActivated: {
+                    setMediaRotation(modelData)
+                }
+                panelContext: btnMenu.panelContext
+            }
+        }
+    }
+
+    XsMenuModelItem {
+        text: "Custom ..."
+        menuPath: "Media Settings|Set Media Rotation"
+        menuItemPosition: 10.0
+        menuModelName: btnMenu.menu_model_name
+        onActivated: {
+            dialogHelpers.numberInputDialog(
+                setMediaRotation,
+                "Set Custom Rotation",
+                "Enter new pixel rotation (in degrees) to apply to selected media",
+                currentMediaRotation,
+                ["Cancel", "Set Rotation"])
+        }
+        panelContext: btnMenu.panelContext
+    }
+
     XsMenuModelItem {
         text: "Load Additional Sources"
-        menuPath: "Advanced"
+        menuPath: "Media Actions"
         menuItemPosition: 60
         menuModelName: btnMenu.menu_model_name
         onActivated: theSessionData.gatherMediaFor(theSessionData.getPlaylistIndex(mediaSelectionModel.selectedIndexes[0]), mediaSelectionModel.selectedIndexes)
@@ -524,14 +617,15 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
-        text: "Relink Media..."
-        menuPath: "Advanced"
+        text: "Relink Media ..."
+        menuPath: "Media Actions"
         menuItemPosition: 70
         menuModelName: btnMenu.menu_model_name
         onActivated: {
            dialogHelpers.showFolderDialog(
                 function(path, chaserFunc) {
-                    theSessionData.relinkMedia(mediaSelectionModel.selectedIndexes, path)
+                    if(path)
+                        theSessionData.relinkMedia(mediaSelectionModel.selectedIndexes, path)
                 },
                 file_functions.defaultSessionFolder(),
                 "Relink media files")
@@ -540,14 +634,15 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
-        text: "Relink Media (Loose)..."
-        menuPath: "Advanced"
+        text: "Relink Media (Loose) ..."
+        menuPath: "Media Actions"
         menuItemPosition: 71
         menuModelName: btnMenu.menu_model_name
         onActivated: {
            dialogHelpers.showFolderDialog(
                 function(path, chaserFunc) {
-                    theSessionData.relinkMedia(mediaSelectionModel.selectedIndexes, path, true)
+                    if(path)
+                        theSessionData.relinkMedia(mediaSelectionModel.selectedIndexes, path, true)
                 },
                 file_functions.defaultSessionFolder(),
                 "Relink media files")
@@ -557,7 +652,8 @@ XsPopupMenu {
 
     XsMenuModelItem {
         text: "Decompose Media"
-        menuPath: "Advanced"
+        menuToolTip: "If the selected media items are 'compound' (i.e. they have multiple media sources) then each media source within will be duplicated into a separate media item and added to the playlist."
+        menuPath: "Media Actions"
         menuItemPosition: 80
         menuModelName: btnMenu.menu_model_name
         onActivated: theSessionData.decomposeMedia(mediaSelectionModel.selectedIndexes)
@@ -574,7 +670,7 @@ XsPopupMenu {
 
     XsMenuModelItem {
         text: "Reload Selected Media"
-        menuPath: ""
+        menuPath: "Media Actions"
         menuItemPosition: 1010
         menuModelName: btnMenu.menu_model_name
         onActivated: theSessionData.rescanMedia(mediaSelectionModel.selectedIndexes)

@@ -8,8 +8,9 @@ namespace xstudio {
 namespace ui {
 namespace viewport {
 
-    std::vector<GradingInfo> get_active_grades(
-        const xstudio::media_reader::ImageBufPtr &image);
+    bookmark::BookmarkAndAnnotations get_active_grade_bookmarks(const xstudio::media_reader::ImageBufPtr &image);
+
+    std::vector<GradingInfo> get_active_grades(const xstudio::media_reader::ImageBufPtr &image);
 
 } // end namespace viewport
 } // end namespace ui

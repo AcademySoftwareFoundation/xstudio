@@ -260,7 +260,7 @@ GradingColourOperator::update_shader_uniforms(const media_reader::ImageBufPtr &i
 
         std::string grade_str = fmt::format("grades[{}].", grade_count);
 
-        uniforms_dict[grade_str + "grade_active"] = grade_info.isActive;
+        uniforms_dict[grade_str + "grade_active"] = grade_info.grade_active;
 
         // We only support compositing_log as colour space conversion for now.
         // All other values will be treated as being the current colour space.
@@ -486,8 +486,8 @@ GradingColourOperator::setup_ocio_textures(OCIO::ConstGpuShaderDescRcPtr &shader
                                                                 : LUTDescriptor::NEAREST;
         auto xs_lut      = std::make_shared<ColourLUT>(
             is2DTexture
-                     ? LUTDescriptor::Create2DLUT(width, height, xs_dtype, xs_channels, xs_interp)
-                     : LUTDescriptor::Create1DLUT(width, xs_dtype, xs_channels, xs_interp),
+                ? LUTDescriptor::Create2DLUT(width, height, xs_dtype, xs_channels, xs_interp)
+                : LUTDescriptor::Create1DLUT(width, xs_dtype, xs_channels, xs_interp),
             samplerName);
 
         const int channels = channel == OCIO::GpuShaderCreator::TEXTURE_RED_CHANNEL ? 1 : 3;

@@ -89,8 +89,10 @@ uniform int pix_type_g;
 uniform int pix_type_b;
 uniform int pix_type_a;
 uniform int bytes_per_pixel;
-uniform ivec2 image_bounds_min;
-uniform ivec2 image_bounds_max;
+
+//Overall fragment shader provides these ones
+//uniform ivec2 image_bounds_min;
+//uniform ivec2 image_bounds_max;
 
 // we need to forward declare this function, which is defined by the base
 // gl shader class
@@ -451,7 +453,7 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
 MRCertainty
 OpenEXRMediaReader::supported(const caf::uri &, const std::array<uint8_t, 16> &sig) {
     if (sig[0] == 0x76 && sig[1] == 0x2f && sig[2] == 0x31 && sig[3] == 0x01)
-        return MRC_FULLY;
+        return MRC_FORCE;
 
     return MRC_NO;
 }
