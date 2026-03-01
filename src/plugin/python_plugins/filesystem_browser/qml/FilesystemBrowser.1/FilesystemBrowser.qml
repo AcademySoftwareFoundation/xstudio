@@ -21,6 +21,23 @@ Rectangle {
         id: pluginData
         modelDataName: "Filesystem Browser" 
     }
+
+    // State for Preview Mode
+    property bool isPreviewMode: false
+    property string pendingPreviewPath: ""
+
+    Timer {
+        id: previewTimer
+        interval: 200 // Wait for double click
+        repeat: false
+        onTriggered: {
+            if (pendingPreviewPath !== "") {
+                isPreviewMode = true
+                sendCommand({"action": "preview_file", "path": pendingPreviewPath})
+                pendingPreviewPath = ""
+            }
+        }
+    }
     
     // Additional Attributes for History/Pins
     XsAttributeValue {
@@ -256,6 +273,15 @@ Rectangle {
         role: "value"
     }
 
+    // Dedicated attribute for sending batch thumbnail requests to Python.
+    // We write a JSON array of paths; Python queues them all into the ffmpeg worker pool.
+    XsAttributeValue {
+        id: thumbnail_request_attr
+        attributeTitle: "thumbnail_request"
+        model: pluginData
+        role: "value"
+    }
+
     XsAttributeValue {
         id: auto_scan_threshold_attr
         attributeTitle: "auto_scan_threshold"
@@ -331,6 +357,65 @@ Rectangle {
     property var treeRoots: []
     property var visibleTreeList: []
     property var collapsedPaths: ({})
+    // Flat list of *file* items only — used for thumbnail request calculations.
+    property var thumbnailFileList: []
+    // Complete mixed flat model (all groups + files). Not assigned to Repeater directly.
+    property var fullFlatModel: []
+    // Paginated slice of fullFlatModel actually shown in the Repeater.
+    property var flatThumbnailModel: []
+    // How many items from fullFlatModel are currently rendered.
+    property int thumbRenderCount: 0
+    readonly property int thumbPageSize: 150   // initial page
+    readonly property int thumbPageStep: 100   // items added per scroll-load
+    onThumbnailFileListChanged: {
+        if (root.viewMode === 3)
+            Qt.callLater(requestVisibleThumbnails)
+    }
+    // Re-request thumbnails when the rendered page extends
+    onFlatThumbnailModelChanged: {
+        if (root.viewMode === 3)
+            Qt.callLater(requestVisibleThumbnails)
+    }
+
+    // Only request thumbnails for items currently visible in the Flow.
+    // Estimates Y positions mathematically from scroll position, cell size, and Flow width.
+    function requestVisibleThumbnails() {
+        if (root.viewMode !== 3 || flatThumbnailModel.length === 0) return
+
+        var scrollY = thumbFlickable.contentY
+        var viewH   = thumbFlickable.height
+        var cellW   = 160
+        var headerH = 24
+        var cellH   = 160
+        var cols    = Math.max(1, Math.floor(Math.max(1, thumbFlickable.width) / cellW))
+
+        // One cell row above/below as prefetch buffer
+        var topY    = Math.max(0, scrollY - cellH)
+        var bottomY = scrollY + viewH + cellH
+
+        var pending = []
+        var y = 0
+        var col = 0
+
+        for (var i = 0; i < flatThumbnailModel.length; i++) {
+            var item = flatThumbnailModel[i]
+            if (item.type === "header") {
+                if (col > 0) { y += cellH; col = 0 }
+                y += headerH
+            } else {
+                if (col >= cols) { col = 0; y += cellH }
+                if (y + cellH >= topY && y <= bottomY) {
+                    if (!item.thumbnailSource) pending.push(item.path)
+                }
+                col++
+            }
+        }
+
+        if (pending.length > 0) {
+            console.log("QML: requesting " + pending.length + " visible thumbnails")
+            thumbnail_request_attr.value = JSON.stringify(pending)
+        }
+    }
 
     function isVisible(data) {
         if (!data) return true;
@@ -422,6 +507,91 @@ Rectangle {
             treeRoots = roots
             refreshFiltering() // Calculate visibility and flatten
             sortTree()
+            return
+        }
+
+        // THUMBNAIL VIEW: files-only, grouped by compressed folder path
+        if (viewMode === 3) {
+            var thumbList = []
+            for (var i = 0; i < fileList.length; i++) {
+                var file = fileList[i]
+                var isDir = (file.is_folder === true || file.type === "Folder")
+                if (isDir) continue
+                thumbList.push({
+                    "name": file.name,
+                    "path": file.path,
+                    "isFolder": false,
+                    "frames": file.frames || "",
+                    "folderGroup": file.path.replace(/\/[^\/]+$/, ""),  // raw leaf dir
+                    "thumbnailSource": file.thumbnailSource || "",
+                    "data": file
+                })
+            }
+
+            if (thumbList.length > 0) {
+                var rootAbs = current_path_attr.value || ""
+
+                // Fast O(N·depth) group compression using cumulative descendant counts.
+                // For each file dir, walk UP until we find an ancestor with 2+ total
+                // descendant files. That ancestor becomes the group header.
+
+                // 1. Accumulate file counts up the tree
+                var descCount = {}
+                for (var i = 0; i < thumbList.length; i++) {
+                    var cursor = thumbList[i].folderGroup
+                    while (cursor.length > rootAbs.length) {
+                        descCount[cursor] = (descCount[cursor] || 0) + 1
+                        var sl = cursor.lastIndexOf("/")
+                        cursor = sl > 0 ? cursor.substring(0, sl) : rootAbs
+                    }
+                    descCount[rootAbs] = (descCount[rootAbs] || 0) + 1
+                }
+
+                // 2. For each file, walk up from leaf to find lowest ancestor with >= 2 files
+                //    (cache results to avoid redundant walks)
+                var groupCache = {}
+                for (var i = 0; i < thumbList.length; i++) {
+                    var leaf = thumbList[i].folderGroup
+                    if (groupCache[leaf] !== undefined) {
+                        thumbList[i].folderGroup = groupCache[leaf]
+                        continue
+                    }
+                    var d = leaf
+                    while (d.length > rootAbs.length && (descCount[d] || 0) < 2) {
+                        var sl = d.lastIndexOf("/")
+                        d = sl > 0 ? d.substring(0, sl) : rootAbs
+                    }
+                    var grouped = (descCount[d] || 0) >= 2 ? d : rootAbs
+                    groupCache[leaf] = grouped
+                    thumbList[i].folderGroup = grouped
+                }
+            }
+
+            // Sort by group then name
+            thumbList.sort(function(a, b) {
+                if (a.folderGroup < b.folderGroup) return -1
+                if (a.folderGroup > b.folderGroup) return 1
+                return a.name < b.name ? -1 : 1
+            })
+            thumbnailFileList = thumbList
+
+            // Build complete flat mixed model
+            var flat = []
+            var prevGrp = null
+            for (var j = 0; j < thumbList.length; j++) {
+                var t = thumbList[j]
+                if (t.folderGroup !== prevGrp) {
+                    flat.push({ type: "header", path: t.folderGroup })
+                    prevGrp = t.folderGroup
+                }
+                flat.push({ type: "file", name: t.name, path: t.path,
+                            frames: t.frames, thumbnailSource: t.thumbnailSource || "", data: t.data })
+            }
+
+            // Paginate: only render the first page to avoid freezing on large dirs
+            fullFlatModel = flat
+            thumbRenderCount = Math.min(thumbPageSize, flat.length)
+            flatThumbnailModel = flat.slice(0, thumbRenderCount)
             return
         }
 
@@ -1380,6 +1550,45 @@ Rectangle {
                 id: fileListView
                 anchors.fill: parent
                 anchors.rightMargin: 12
+                visible: root.viewMode !== 3
+                focus: visible
+                onVisibleChanged: { if (visible) forceActiveFocus() }
+
+                Keys.onLeftPressed: (event) => {
+                    if (currentIndex > 0) currentIndex--
+                    event.accepted = true
+                }
+                Keys.onRightPressed: (event) => {
+                    if (currentIndex < count - 1) currentIndex++
+                    event.accepted = true
+                }
+                Keys.onReturnPressed: (event) => _handleListReturn(event)
+                Keys.onEnterPressed: (event) => _handleListReturn(event)
+
+                function _handleListReturn(event) {
+                    if (currentIndex >= 0 && currentIndex < count) {
+                        var md = visibleTreeList[currentIndex]
+                        if (md) {
+                            previewTimer.stop()
+                            if (md.isFolder) {
+                                sendCommand({"action": "change_path", "path": md.path})
+                            } else {
+                                isPreviewMode = false
+                                sendCommand({"action": "load_file", "path": md.path})
+                            }
+                        }
+                    }
+                    event.accepted = true
+                }
+
+                onCurrentIndexChanged: {
+                    if (activeFocus && currentItem) {
+                        if (!currentItem.isItemFolder) {
+                            root.pendingPreviewPath = currentItem.itemPath
+                            previewTimer.restart()
+                        }
+                    }
+                }
                 
                 // Nothing found message
                 Text {
@@ -1443,6 +1652,8 @@ Rectangle {
 
                     property bool isSelected: ListView.isCurrentItem
                     property bool isHovered: false
+                    property string itemPath: modelData.path
+                    property bool isItemFolder: modelData.isFolder
 
                     Rectangle {
                         anchors.fill: parent
@@ -1457,16 +1668,26 @@ Rectangle {
                         acceptedButtons: Qt.LeftButton | Qt.RightButton
                         onClicked: (mouse) => {
                             fileListView.currentIndex = index
+                            fileListView.forceActiveFocus()
                             if (mouse.button === Qt.RightButton) {
                                 contextMenu.popup()
+                            } else if (mouse.button === Qt.LeftButton) {
+                                if (!modelData.isFolder) {
+                                    root.pendingPreviewPath = modelData.path
+                                    previewTimer.restart()
+                                }
                             }
                         }
                         onDoubleClicked: (mouse) => {
-                            fileListView.currentIndex = index
-                            if (modelData.isFolder) {
-                                sendCommand({"action": "change_path", "path": modelData.path})
-                            } else {
-                                sendCommand({"action": "load_file", "path": modelData.path})
+                            if (mouse.button === Qt.LeftButton) {
+                                previewTimer.stop()
+                                fileListView.currentIndex = index
+                                if (modelData.isFolder) {
+                                    sendCommand({"action": "change_path", "path": modelData.path})
+                                } else {
+                                    isPreviewMode = false
+                                    sendCommand({"action": "load_file", "path": modelData.path})
+                                }
                             }
                         }
                     }
@@ -1500,7 +1721,7 @@ Rectangle {
                             Layout.fillHeight: true
                             Text {
                                 anchors.centerIn: parent
-                                text: (root.viewMode !== 0 && modelData.isFolder) ? (modelData.expanded ? "▼" : "▶") : ""
+                                text: (root.viewMode !== 0 && root.viewMode !== 3 && modelData.isFolder) ? (modelData.expanded ? "▼" : "▶") : ""
                                 color: "#aaaaaa"
                                 font.pixelSize: 10
                             }
@@ -1561,16 +1782,318 @@ Rectangle {
                     }
                 }
             }
+
+            // Thumbnail view: Flickable + Flow for reliable scrolling with folder headers
+            Flickable {
+                id: thumbFlickable
+                anchors.fill: parent
+                visible: root.viewMode === 3
+                clip: true
+                contentWidth: width
+                contentHeight: thumbFlow.implicitHeight
+                flickableDirection: Flickable.VerticalFlick
+                
+                focus: visible
+                onVisibleChanged: { if (visible) forceActiveFocus() }
+
+                property int thumbCurrentIndex: -1
+
+                Keys.onLeftPressed: (event) => {
+                    var newIdx = thumbCurrentIndex
+                    do {
+                        if (newIdx > 0) newIdx--
+                        else break
+                    } while (flatThumbnailModel[newIdx] && flatThumbnailModel[newIdx].type === "header")
+                    if (newIdx !== thumbCurrentIndex) {
+                        thumbCurrentIndex = newIdx
+                        _handleThumbKeyPreview()
+                    }
+                    event.accepted = true
+                }
+                Keys.onRightPressed: (event) => {
+                    var newIdx = thumbCurrentIndex
+                    var maxIdx = flatThumbnailModel.length - 1
+                    do {
+                        if (newIdx < maxIdx) newIdx++
+                        else break
+                    } while (flatThumbnailModel[newIdx] && flatThumbnailModel[newIdx].type === "header")
+                    if (newIdx !== thumbCurrentIndex) {
+                        thumbCurrentIndex = newIdx
+                        _handleThumbKeyPreview()
+                    }
+                    event.accepted = true
+                }
+                Keys.onUpPressed: (event) => {
+                    var cols = Math.max(1, Math.floor(thumbFlow.width / 160))
+                    var newIdx = thumbCurrentIndex - cols
+                    if (newIdx >= 0) {
+                        while (newIdx > 0 && flatThumbnailModel[newIdx] && flatThumbnailModel[newIdx].type === "header") newIdx--
+                        thumbCurrentIndex = newIdx
+                        _handleThumbKeyPreview()
+                    }
+                    event.accepted = true
+                }
+                Keys.onDownPressed: (event) => {
+                    var cols = Math.max(1, Math.floor(thumbFlow.width / 160))
+                    var maxIdx = flatThumbnailModel.length - 1
+                    var newIdx = thumbCurrentIndex + cols
+                    if (newIdx <= maxIdx) {
+                        while (newIdx < maxIdx && flatThumbnailModel[newIdx] && flatThumbnailModel[newIdx].type === "header") newIdx++
+                        thumbCurrentIndex = newIdx
+                        _handleThumbKeyPreview()
+                    }
+                    event.accepted = true
+                }
+                Keys.onReturnPressed: (event) => _handleThumbReturn(event)
+                Keys.onEnterPressed: (event) => _handleThumbReturn(event)
+
+                function _handleThumbReturn(event) {
+                    if (thumbCurrentIndex >= 0 && thumbCurrentIndex < flatThumbnailModel.length) {
+                        var md = flatThumbnailModel[thumbCurrentIndex]
+                        if (md && md.type === "file") {
+                            previewTimer.stop()
+                            isPreviewMode = false
+                            sendCommand({"action": "load_file", "path": md.path})
+                        }
+                    }
+                    event.accepted = true
+                }
+
+                function _handleThumbKeyPreview() {
+                    if (thumbCurrentIndex >= 0 && thumbCurrentIndex < flatThumbnailModel.length) {
+                        var md = flatThumbnailModel[thumbCurrentIndex]
+                        if (md && md.type === "file") {
+                            root.pendingPreviewPath = md.path
+                            previewTimer.restart()
+                        }
+                    }
+                }
+
+                onContentYChanged: {
+                    // Extend the rendered page when the user scrolls near the bottom
+                    var remaining = contentHeight - contentY - height
+                    if (remaining < 600 && thumbRenderCount < fullFlatModel.length) {
+                        thumbRenderCount = Math.min(thumbRenderCount + thumbPageStep, fullFlatModel.length)
+                        flatThumbnailModel = fullFlatModel.slice(0, thumbRenderCount)
+                    }
+                    Qt.callLater(requestVisibleThumbnails)
+                }
+
+                ScrollBar.vertical: ScrollBar {
+                    policy: ScrollBar.AsNeeded
+                }
+
+                Flow {
+                    id: thumbFlow
+                    width: thumbFlickable.contentWidth
+                    spacing: 0
+
+                    Repeater {
+                        model: flatThumbnailModel
+
+                        delegate: Item {
+                            id: flatDelegate
+                            width:  modelData.type === "header" ? thumbFlow.width : 160
+                            height: modelData.type === "header" ? 24 : 160
+
+                            // ── Folder path header (spans full row) ────────────
+                            Rectangle {
+                                anchors.fill: parent
+                                visible: modelData.type === "header"
+                                color: "#1a1a1a"
+                                Rectangle { width: 3; height: parent.height; color: "#4a9eff" }
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.left: parent.left; anchors.leftMargin: 10
+                                    text: modelData.type === "header" ? modelData.path : ""
+                                    color: "#7aacce"; font.pixelSize: 11; font.bold: true
+                                    elide: Text.ElideLeft
+                                    width: parent.width - 16
+                                }
+                            }
+
+                            // ── Thumbnail cell ──────────────────────────────────
+                            property bool isSelected: (index === thumbFlickable.thumbCurrentIndex)
+                            
+                            Rectangle {
+                                anchors.fill: parent; anchors.margins: 5
+                                visible: modelData.type === "file"
+                                color: (isSelected) ? "#555555" : (cellMouse.containsMouse ? "#333333" : "#2a2a2a")
+                                radius: 4
+                                border.color: (isSelected || cellMouse.containsMouse) ? "#777777" : "transparent"
+                                border.width: isSelected ? 2 : (cellMouse.containsMouse ? 1 : 0)
+                            }
+
+                            ColumnLayout {
+                                anchors.fill: parent; anchors.margins: 10
+                                spacing: 4
+                                visible: modelData.type === "file"
+
+                                Item {
+                                    Layout.fillWidth: true; Layout.fillHeight: true
+                                    BusyIndicator {
+                                        anchors.centerIn: parent; width: 30; height: 30
+                                        running: !modelData.thumbnailSource && modelData.type === "file"
+                                        visible: running
+                                    }
+                                    Image {
+                                        anchors.fill: parent
+                                        source: modelData.thumbnailSource || ""
+                                        fillMode: Image.PreserveAspectFit
+                                        asynchronous: true
+                                        visible: !!modelData.thumbnailSource
+                                    }
+                                }
+
+                                Item {
+                                    Layout.fillWidth: true; height: 32; clip: true
+                                    property string rawName: modelData.name || ""
+                                    property string ext: {
+                                        var d = rawName.lastIndexOf(".")
+                                        return d >= 0 ? rawName.slice(d + 1) : ""
+                                    }
+                                    property string stem: {
+                                        var d = rawName.lastIndexOf(".")
+                                        return d >= 0 ? rawName.slice(0, d) : rawName
+                                    }
+                                    property string baseName: stem.replace(/[#@%]+$/, "").replace(/\.$/, "")
+                                    property string frameRange: modelData.frames || ""
+
+                                    Text {
+                                        anchors.top: parent.top
+                                        anchors.left: parent.left; anchors.right: parent.right
+                                        text: parent.baseName; color: "#e0e0e0"; font.pixelSize: 11
+                                        horizontalAlignment: Text.AlignHCenter; elide: Text.ElideMiddle
+                                    }
+                                    Text {
+                                        anchors.bottom: parent.bottom; anchors.left: parent.left
+                                        text: parent.ext; color: "#888888"; font.pixelSize: 10
+                                        visible: parent.ext !== ""
+                                    }
+                                    Text {
+                                        anchors.bottom: parent.bottom; anchors.right: parent.right
+                                        text: parent.frameRange; color: "#888888"; font.pixelSize: 10
+                                        visible: parent.frameRange !== ""
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                id: cellMouse
+                                anchors.fill: parent; hoverEnabled: true
+                                visible: modelData.type === "file"
+                                onClicked: (mouse) => {
+                                    if (mouse.button === Qt.LeftButton) {
+                                        thumbFlickable.forceActiveFocus()
+                                        thumbFlickable.thumbCurrentIndex = index
+                                        root.pendingPreviewPath = modelData.path
+                                        previewTimer.restart()
+                                    }
+                                }
+                                onDoubleClicked: (mouse) => {
+                                    if (mouse.button === Qt.LeftButton) {
+                                        previewTimer.stop()
+                                        isPreviewMode = false
+                                        sendCommand({"action": "load_file", "path": modelData.path})
+                                    }
+                                }
+                                
+                                ToolTip {
+                                    delay: 500
+                                    visible: cellMouse.containsMouse && modelData.type === "file"
+                                    
+                                    contentItem: Text {
+                                        text: {
+                                            if (modelData.type !== "file") return ""
+                                            // parent directory path only
+                                            var txt = modelData.path
+                                            var sl = txt.lastIndexOf("/")
+                                            if (sl >= 0) txt = txt.substring(0, sl)
+                                            
+                                            txt += "\n" + (modelData.name || "")
+                                            if (modelData.frames) txt += "\nFrames: " + modelData.frames
+                                            if (modelData.data && modelData.data.date) txt += "\nModified: " + formatDate(modelData.data.date)
+                                            if (modelData.data && modelData.data.size_str) txt += "\nSize: " + modelData.data.size_str
+                                            return txt
+                                        }
+                                        color: "#e0e0e0"
+                                        font.pixelSize: 11
+                                    }
+                                    
+                                    background: Rectangle {
+                                        color: "#333333"
+                                        radius: 3
+                                        border.color: "#555555"
+                                    }
+                                }
+                            }
+                        } // delegate
+                    } // Repeater
+                } // Flow
+            } // Flickable
             
+            // Nothing found message
+            Text {
+                anchors.centerIn: parent
+                text: "Nothing found"
+                color: "#666666"
+                font.pixelSize: 18
+                visible: root.viewMode === 3 && flatThumbnailModel.length === 0 && !searching_attr.value && !scan_required_attr.value
+            }
+
+            // Manual Scan Overlay
+            Rectangle {
+                anchors.centerIn: parent
+                width: 200
+                height: 100
+                color: "#333333"
+                visible: root.viewMode === 3 && scan_required_attr.value === true
+                z: 100 // Ensure it's on top
+                
+                ColumnLayout {
+                    anchors.centerIn: parent
+                    spacing: 10
+                    
+                    Text {
+                        text: "Manual Scan Required"
+                        color: "#aaaaaa"
+                        font.pixelSize: 14
+                        Layout.alignment: Qt.AlignHCenter
+                    }
+                    
+                    Button {
+                        text: "Scan Directory"
+                        Layout.alignment: Qt.AlignHCenter
+                        onClicked: sendCommand({"action": "force_scan"})
+                        
+                        background: Rectangle {
+                            color: parent.down ? "#444444" : "#555555"
+                            radius: 3
+                        }
+                        contentItem: Text {
+                            text: parent.text
+                            color: "white"
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            font.pixelSize: 12
+                        }
+                    }
+                }
+            }
+
             ScrollBar {
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
                 active: true
+                // The ScrollView (thumbnail mode) has its own built-in scrollbar
+                visible: root.viewMode !== 3
                 policy: ScrollBar.AsNeeded
                 size: fileListView.visibleArea.heightRatio
                 position: fileListView.visibleArea.yPosition
-                onPositionChanged: if(pressed) fileListView.contentY = position * fileListView.contentHeight
+                onPositionChanged: if(pressed) {
+                    fileListView.contentY = position * fileListView.contentHeight
+                }
             }
         }
         
@@ -1650,6 +2173,22 @@ Rectangle {
                     visible: !scanProgress.visible 
                 }
 
+                // Preview Indicator
+                Rectangle {
+                    Layout.preferredWidth: 60
+                    Layout.preferredHeight: 18
+                    Layout.alignment: Qt.AlignVCenter
+                    color: "transparent"
+                    
+                    Text {
+                        anchors.centerIn: parent
+                        text: "Preview"
+                        color: isPreviewMode ? "#66ff66" : "#444444"
+                        font.pixelSize: 10
+                        font.bold: isPreviewMode
+                    }
+                }
+
                 // Divider (Vertical line)
                 Rectangle {
                     Layout.preferredWidth: 1
@@ -1658,13 +2197,14 @@ Rectangle {
                     Layout.alignment: Qt.AlignVCenter
                 }
 
+
                 // View Mode Selector (Right)
                 RowLayout {
                     spacing: 0
                     Layout.alignment: Qt.AlignVCenter
                     
                     Repeater {
-                        model: ["List", "Tree", "Grouped"]
+                        model: ["List", "Tree", "Grouped", "Thumbnails"]
                         delegate: Rectangle {
                             width: 60
                             height: 18
