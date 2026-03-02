@@ -404,6 +404,7 @@ void StudioUI::loadVideoOutputPlugin(const utility::Uuid &plugin_id) {
                 for (auto p = video_output_plugins_.begin(); p != video_output_plugins_.end();
                      ++p) {
                     if (p->second == addr) {
+                        std::cerr << "Video output plugin " << to_string(p->first) << " has stopped, removing from list of active video outputs." << std::endl;
                         video_output_plugins_.erase(p);
                         break;
                     }

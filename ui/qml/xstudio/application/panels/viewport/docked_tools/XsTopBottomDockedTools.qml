@@ -75,6 +75,8 @@ XsListView {
         }
     }
 
+    property bool has_leftright_dock: false
+
     DelegateModel {
         id: delegate_model
         model: docked_widgets
@@ -84,17 +86,28 @@ XsListView {
             width: row.width
             property var widgetName: widget_name
             property var dynamic_widget
-            onWidgetNameChanged: {
+            function loadWidget(retry=true) {
                 var idx = dockables.searchRecursive(widgetName, "title")
                 var source = dockables.get(idx, "top_bottom_dock_widget_qml_code")
                 if (source != undefined && source != "") {
                     dynamic_widget = Qt.createQmlObject(source, container)
-                } else if (source == undefined) {
+                    widgetNameForMenu = widgetName
+                } else if (retry) {
+                    callbackTimer.setTimeout(function() { return function() {
+                        loadWidget(false)
+                        }}(), 1000);
+                } else {
                     console.log("Unable to make a", widgetName, "top/bottom dockable widget - plugin does not provide the widget")
+                    move_dockable_widget(widgetName, "top")
+                    return
+                }
+                var lr_source = dockables.get(idx, "left_right_dock_widget_qml_code")
+                if (lr_source != undefined && lr_source != "") {
+                    has_leftright_dock = true
                 }
 
-                widgetNameForMenu = widgetName
             }
+            onWidgetNameChanged: loadWidget()
             states: [
                 State {
                     name: "showing"
@@ -158,6 +171,7 @@ XsListView {
         onActivated: {
             move_dockable_widget(widgetNameForMenu, "left")
         }
+        enabled: has_leftright_dock
     }
     XsMenuModelItem {
         text: "Right"
@@ -168,6 +182,7 @@ XsListView {
         onActivated: {
             move_dockable_widget(widgetNameForMenu, "right")
         }
+        enabled: has_leftright_dock
     }
     XsMenuModelItem {
         menuItemType: "divider"

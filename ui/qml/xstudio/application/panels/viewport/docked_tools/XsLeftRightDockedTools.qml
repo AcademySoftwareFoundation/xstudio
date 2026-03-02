@@ -132,6 +132,8 @@ Item {
                             dynamic_widget = Qt.createQmlObject(source, container)
                         } else if (source == undefined) {
                             console.log("Unable to make a", widgetName, "left/right dockable widget - plugin does not provide the widget")
+                            move_dockable_widget(widgetName, "top")
+                            return
                         }
 
                         widgetNameForMenu = widgetName

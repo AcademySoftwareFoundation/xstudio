@@ -119,7 +119,7 @@ Rectangle{
         visible_doc_widgets = v
     }
 
-    function toggle_dockable_widget(widget_name) {
+    function toggle_dockable_widget(widget_name, position_hint_left) {
 
         var u = dock_widgets_model
         for (var i = 0; i < u.length; ++i) {
@@ -130,7 +130,7 @@ Rectangle{
                 return
             }
         }
-        var new_entry = [widget_name, true, "left"]
+        var new_entry = [widget_name, true, position_hint_left ? "left" : "top"]
         u.push(new_entry)
         dock_widgets_model = u
 

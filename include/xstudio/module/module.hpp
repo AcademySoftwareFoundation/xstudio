@@ -340,7 +340,7 @@ namespace module {
         // top/bottom of the viewport
         Attribute *register_viewport_dockable_widget(
             const std::string &widget_name,
-            const std::string &button_icon_qrc_path,
+            const std::string &button_icon_qrc_path_or_custom_button_qml,
             const std::string &button_tooltip,
             const float button_position,
             const bool enabled,

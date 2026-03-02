@@ -2423,7 +2423,7 @@ void Module::register_ui_panel_qml(
 
 Attribute *Module::register_viewport_dockable_widget(
     const std::string &widget_name,
-    const std::string &button_icon_qrc_path,
+    const std::string &button_icon_qrc_path_or_custom_button_qml,
     const std::string &button_tooltip,
     const float button_position,
     const bool enabled,
@@ -2432,7 +2432,14 @@ Attribute *Module::register_viewport_dockable_widget(
     const utility::Uuid toggle_widget_visible_hotkey) {
 
     auto attr = new QmlCodeAttribute(widget_name, left_right_dockable_widget_qml);
-    attr->set_role_data(Attribute::IconPath, button_icon_qrc_path);
+    if (button_icon_qrc_path_or_custom_button_qml.find("qrc:") == 0) {
+        // must be an icon to make a default button
+        attr->set_role_data(Attribute::IconPath, button_icon_qrc_path_or_custom_button_qml);
+        attr->set_role_data(Attribute::QmlCode, "");
+    } else {
+        // looks like a custom qml widget to make the shelf button
+        attr->set_role_data(Attribute::QmlCode, button_icon_qrc_path_or_custom_button_qml);
+    }
     attr->set_role_data(Attribute::ToolbarPosition, button_position);
     attr->set_role_data(Attribute::ToolTip, button_tooltip);
     attr->set_role_data(Attribute::Activated, -1);
