@@ -84,6 +84,7 @@ if (BUILD_TESTING)
 endif (BUILD_TESTING)
 
 macro(default_options_local name)
+
 	if (NOT CAF_FOUND)
 		find_package(CAF COMPONENTS core io)
 	endif (NOT CAF_FOUND)
@@ -91,6 +92,7 @@ macro(default_options_local name)
 	find_package(spdlog CONFIG REQUIRED)
 
 	default_compile_options(${name})
+
 	target_include_directories(${name}
 	    PUBLIC
 	        $<BUILD_INTERFACE:${ROOT_DIR}/include>
@@ -100,19 +102,27 @@ macro(default_options_local name)
 	    SYSTEM PUBLIC
 	    	$<BUILD_INTERFACE:${ROOT_DIR}/extern/include>
 	)
+
 	if (APPLE)
-    set_target_properties(${name}
-        PROPERTIES
-        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Frameworks"
-        INSTALL_RPATH "@executable_path/../Frameworks"
-        INSTALL_RPATH_USE_LINK_PATH TRUE
-    )
-	else()
+		set_target_properties(${name}
+			PROPERTIES
+			LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Frameworks"
+			INSTALL_RPATH "@executable_path/../Frameworks"
+			INSTALL_RPATH_USE_LINK_PATH TRUE
+		)
+	elseif(UNIX)
 		set_target_properties(${name}
 	    	PROPERTIES
 	    	LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/lib"
 		)
+	else()
+		set_target_properties(${name}
+	    	PROPERTIES
+	    	LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+			RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+		)
 	endif()
+
 endmacro()
 
 macro(default_options name)
@@ -203,7 +213,7 @@ macro(default_plugin_options name)
 		add_custom_command(
 				TARGET ${PROJECT_NAME}
 				POST_BUILD
-				COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${PROJECT_NAME}>" "${CMAKE_CURRENT_BINARY_DIR}/plugin"
+				COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${PROJECT_NAME}>" "${CMAKE_BINARY_DIR}/share/xstudio/plugin"
 		)
 	endif()
 
@@ -227,9 +237,15 @@ macro(add_plugin_qml name _dir)
 		foreach(DIR ${DIRS})
 			if(IS_DIRECTORY ${DIR})
 				cmake_path(GET DIR FILENAME dirname)
-				add_custom_command(TARGET ${name}_COPY_QML POST_BUILD
-					COMMAND ${CMAKE_COMMAND} -E
-						copy_directory ${DIR} ${CMAKE_BINARY_DIR}/bin/plugin/qml/${dirname})
+				if (WIN32)
+					add_custom_command(TARGET ${name}_COPY_QML POST_BUILD
+						COMMAND ${CMAKE_COMMAND} -E
+							copy_directory ${DIR} ${CMAKE_BINARY_DIR}/share/xstudio/plugin/qml/${dirname})
+				else()
+					add_custom_command(TARGET ${name}_COPY_QML POST_BUILD
+						COMMAND ${CMAKE_COMMAND} -E
+							copy_directory ${DIR} ${CMAKE_BINARY_DIR}/bin/plugin/qml/${dirname})
+				endif()
 				install(DIRECTORY ${DIR} DESTINATION share/xstudio/plugin/qml)
 			endif()
 		endforeach()
@@ -504,9 +520,15 @@ macro(add_preference name path target)
 
 	else()
 
-    	add_custom_command(TARGET ${target} POST_BUILD
+		if (WIN32)
+    		add_custom_command(TARGET ${target} POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy ${path}/${name}
+                                                    ${CMAKE_BINARY_DIR}/share/xstudio/preference/${name})
+		else()
+    		add_custom_command(TARGET ${target} POST_BUILD
                    COMMAND ${CMAKE_COMMAND} -E copy ${path}/${name}
                                                     ${CMAKE_BINARY_DIR}/bin/preference/${name})
+		endif()
 
 	    if(INSTALL_XSTUDIO)
 			install(FILES

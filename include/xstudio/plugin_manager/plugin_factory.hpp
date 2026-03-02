@@ -15,11 +15,20 @@
 // Use the following macros to declare plugins.
 // See src/plugin/data_source/demo/demo_datasource_plugin/src/demo_plugin.cpp for example useage
 
+#ifdef __APPLE__
+#define XSTUDIO_PLUGIN_DECLARE_BEGIN()                                                         \
+    extern "C" {                                                                               \
+    __attribute__((visibility("default")))                                                     \
+    plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {                 \
+                                                                                               \
+        auto pfc = new plugin_manager::PluginFactoryCollection();
+#else
 #define XSTUDIO_PLUGIN_DECLARE_BEGIN()                                                         \
     extern "C" {                                                                               \
     plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {                 \
                                                                                                \
         auto pfc = new plugin_manager::PluginFactoryCollection();
+#endif
 
 #define XSTUDIO_PLUGIN_DECLARE_END()                                                           \
     return pfc;                                                                                \

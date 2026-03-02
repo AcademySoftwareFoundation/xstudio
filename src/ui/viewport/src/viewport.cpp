@@ -1136,6 +1136,7 @@ caf::message_handler Viewport::message_handler() {
                     const Imath::V2f pan,
                     const std::string &viewport_name,
                     const std::string &window_id) {
+
                     if (viewport_name == name())
                         return;
 

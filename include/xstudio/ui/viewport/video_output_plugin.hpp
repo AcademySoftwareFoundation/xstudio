@@ -166,6 +166,12 @@ namespace ui {
 
             caf::actor offscreen_viewport() const { return offscreen_viewport_; }
 
+            // Access the colour pipeline actor of your viewport. You can send it messages
+            // to request or set attributes that control the OCIO colour management
+            // for media in the video output. See blackmagic_decklink/src/decklink_colour_pipeline.cpp 
+            // for an example of this.
+            caf::actor colour_pipeline() const { return offscreen_colour_pipeline_; }
+
           protected:
             caf::message_handler message_handler_extensions() override {
                 return message_handler_extensions_;
@@ -192,6 +198,7 @@ namespace ui {
             caf::actor audio_output_;
             caf::actor offscreen_viewport_;
             caf::actor main_viewport_;
+            caf::actor offscreen_colour_pipeline_;
             caf::message_handler message_handler_extensions_;
             FitMode previous_fit_mode_ = {FitMode::Best};
             int video_delay_millisecs_ = {0};
