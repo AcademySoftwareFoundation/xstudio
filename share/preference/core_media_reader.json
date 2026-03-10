@@ -30,6 +30,42 @@
 				"datatype": "int",
 				"context": ["APPLICATION"]
 			},
+			"max_worker_count": {
+				"path": "/core/media_reader/max_worker_count",
+				"default_value": 4,
+				"description": "Number of on-demand decode workers used for interactive image requests.",
+				"value": 4,
+				"minimum": 1,
+				"maximum": 16,
+				"datatype": "int",
+				"context": ["APPLICATION"],
+				"category": "Performance",
+				"display_name": "Interactive Workers"
+			},
+			"precache_worker_count": {
+				"path": "/core/media_reader/precache_worker_count",
+				"default_value": 2,
+				"description": "Number of background decode workers used for read-ahead and precache requests.",
+				"value": 2,
+				"minimum": 1,
+				"maximum": 16,
+				"datatype": "int",
+				"context": ["APPLICATION"],
+				"category": "Performance",
+				"display_name": "Precache Workers"
+			},
+			"audio_worker_count": {
+				"path": "/core/media_reader/audio_worker_count",
+				"default_value": 1,
+				"description": "Number of workers used for audio decode requests.",
+				"value": 1,
+				"minimum": 1,
+				"maximum": 8,
+				"datatype": "int",
+				"context": ["APPLICATION"],
+				"category": "Performance",
+				"display_name": "Audio Workers"
+			},
 			"timecode_from_frame": {
 				"path": "/core/media_reader/timecode_from_frame",
 				"default_value": true,

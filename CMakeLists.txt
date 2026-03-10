@@ -20,6 +20,34 @@ option(BUILD_RESKIN "Build xstudio reskin binary" ON)
 option(OTIO_SUBMODULE "Automatically build OpenTimelineIO as a submodule" OFF)
 option(USE_VCPKG "Use Vcpkg for package management" OFF)
 option(BUILD_PYSIDE_WIDGETS "Build xstudio player as PySide widget" OFF)
+option(XSTUDIO_ENABLE_COMPILER_CACHE "Use ccache or sccache when available." ON)
+option(XSTUDIO_ENABLE_PERF_TARGETS "Expose perf baseline helper targets." ON)
+
+set(
+  XSTUDIO_PREFERRED_COMPILER_CACHE
+  ""
+  CACHE STRING
+  "Preferred compiler cache executable to use (for example 'sccache' or 'ccache').")
+
+if(XSTUDIO_ENABLE_COMPILER_CACHE AND
+   NOT CMAKE_C_COMPILER_LAUNCHER AND
+   NOT CMAKE_CXX_COMPILER_LAUNCHER)
+  if(XSTUDIO_PREFERRED_COMPILER_CACHE)
+    find_program(XSTUDIO_COMPILER_CACHE_PROGRAM NAMES ${XSTUDIO_PREFERRED_COMPILER_CACHE})
+  else()
+    find_program(XSTUDIO_COMPILER_CACHE_PROGRAM NAMES sccache ccache)
+  endif()
+
+  if(XSTUDIO_COMPILER_CACHE_PROGRAM)
+    set(
+      CMAKE_C_COMPILER_LAUNCHER "${XSTUDIO_COMPILER_CACHE_PROGRAM}"
+      CACHE STRING "C compiler launcher" FORCE)
+    set(
+      CMAKE_CXX_COMPILER_LAUNCHER "${XSTUDIO_COMPILER_CACHE_PROGRAM}"
+      CACHE STRING "CXX compiler launcher" FORCE)
+    message(STATUS "Using compiler cache launcher: ${XSTUDIO_COMPILER_CACHE_PROGRAM}")
+  endif()
+endif()
 
 if(WIN32)
     set(USE_VCPKG ON)
@@ -239,6 +267,28 @@ if(INSTALL_PYTHON_MODULE)
 endif()
 
 add_subdirectory(src)
+
+if(XSTUDIO_ENABLE_PERF_TARGETS)
+  find_package(Python COMPONENTS Interpreter QUIET)
+  if(Python_Interpreter_FOUND)
+    add_custom_target(
+      perf-baseline
+      COMMAND
+        "${Python_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/scripts/perf/baseline.py"
+        --source-dir
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        --build-dir
+        "${CMAKE_BINARY_DIR}"
+        --output
+        "${CMAKE_BINARY_DIR}/perf-baseline.json"
+        --command
+        "tests:${CMAKE_CTEST_COMMAND} --output-on-failure"
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+      USES_TERMINAL
+      COMMENT "Capture a JSON perf baseline for the current build tree")
+  endif()
+endif()
 
 if(INSTALL_XSTUDIO)
 

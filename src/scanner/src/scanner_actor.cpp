@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <algorithm>
 #include <caf/policy/select_all.hpp>
 #include <caf/actor_registry.hpp>
 #include <filesystem>
@@ -6,11 +7,14 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <thread>
 
 #include "xstudio/atoms.hpp"
+#include "xstudio/global_store/global_store.hpp"
 #include "xstudio/media/media.hpp"
 #include "xstudio/scanner/scanner_actor.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/media_reference.hpp"
 #include "xstudio/utility/sequence.hpp"
@@ -19,6 +23,8 @@ using namespace xstudio;
 using namespace xstudio::utility;
 using namespace xstudio::scanner;
 using namespace caf;
+using namespace xstudio::global_store;
+using namespace xstudio::json_store;
 
 namespace {
 namespace fs = std::filesystem;
@@ -63,7 +69,7 @@ media::MediaStatus check_media_status(const MediaReference &mr) {
 }
 
 
-uintmax_t get_file_size(const std::string &path) {
+uintmax_t get_file_size(const fs::path &path) {
     uintmax_t result = 0;
 
     try {
@@ -73,7 +79,15 @@ uintmax_t get_file_size(const std::string &path) {
     return result;
 }
 
-std::string get_checksum(const std::string &path) {
+fs::file_time_type get_modified_time(const fs::path &path) {
+    try {
+        return fs::last_write_time(path);
+    } catch (...) {
+        return fs::file_time_type::min();
+    }
+}
+
+std::string get_checksum(const fs::path &path) {
     std::array<unsigned char, MD5_DIGEST_LENGTH> hash;
 
     // read first and last 1k..
@@ -99,7 +113,7 @@ std::string get_checksum(const std::string &path) {
         myfile.close();
 
     } catch (const std::exception &err) {
-        spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, path, err.what());
+        spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, path.string(), err.what());
         return std::string();
     }
 
@@ -133,6 +147,25 @@ MediaReference rescan_media_reference(MediaReference mr) {
 
 } // namespace
 
+std::pair<std::string, uintmax_t>
+ScanHelperActor::checksum_for_path(const std::filesystem::path &path) {
+    const auto size = get_file_size(path);
+    if (!size)
+        return std::make_pair(std::string(), 0);
+
+    const auto modified_at = get_modified_time(path);
+    const auto cache_key   = path.string();
+    const auto cached      = cache_.find(cache_key);
+    if (cached != cache_.end() && cached->second.size_ == size &&
+        cached->second.modified_at_ == modified_at) {
+        return std::make_pair(cached->second.checksum_, cached->second.size_);
+    }
+
+    auto checksum = get_checksum(path);
+    cache_[cache_key] = ChecksumCacheEntry{checksum, size, modified_at};
+    return std::make_pair(std::move(checksum), size);
+}
+
 ScanHelperActor::ScanHelperActor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {
     behavior_.assign(
         [=](media::checksum_atom,
@@ -142,26 +175,12 @@ ScanHelperActor::ScanHelperActor(caf::actor_config &cfg) : caf::event_based_acto
             if (not urlpath)
                 return make_error(xstudio_error::error, "Invalid url");
 
-            auto path = uri_to_posix_path(*urlpath);
-
-            auto size     = get_file_size(path);
-            auto checksum = std::string();
-
-            if (size)
-                checksum = get_checksum(path);
-
-            return std::make_pair(checksum, size);
+            return checksum_for_path(uri_to_posix_path(*urlpath));
         },
 
         [=](media::checksum_atom,
             const caf::uri &uri) -> result<std::pair<std::string, uintmax_t>> {
-            auto path     = uri_to_posix_path(uri);
-            auto size     = get_file_size(path);
-            auto checksum = std::string();
-
-            if (size)
-                checksum = get_checksum(path);
-            return std::make_pair(checksum, size);
+            return checksum_for_path(uri_to_posix_path(uri));
         },
 
         [=](media::rescan_atom, const MediaReference &mr) -> result<MediaReference> {
@@ -184,48 +203,34 @@ ScanHelperActor::ScanHelperActor(caf::actor_config &cfg) : caf::event_based_acto
             // cache any checksums we create..
             auto path = uri_to_posix_path(uri);
             auto cpin = std::make_pair(std::get<1>(pin), std::get<2>(pin));
+            const auto iter_options = fs::directory_options::skip_permission_denied;
 
             try {
-                for (const auto &entry : fs::recursive_directory_iterator(path)) {
+                for (const auto &entry : fs::recursive_directory_iterator(path, iter_options)) {
                     try {
                         if (fs::is_regular_file(entry.status())) {
-                        // check we've not alredy got it in cache..
+                            // check we've not alredy got it in cache..
 #ifdef _WIN32
                             const auto puri = posix_path_to_uri(entry.path().string());
 #else
                             const auto puri = posix_path_to_uri(entry.path());
 #endif
 
-                            if (cache_.count(puri)) {
-                                const auto &c = cache_.at(puri);
-                                if (c == cpin)
-                                    return puri;
-                            } else {
-#ifdef _WIN32
-                                auto size = get_file_size(entry.path().string());
-#else
-                                auto size = get_file_size(entry.path());
-#endif
-                                if (size == cpin.second) {
-#ifdef _WIN32
-                                    auto checksum = get_checksum(entry.path().string());
-#else
-                                    auto checksum = get_checksum(entry.path());
-#endif
-                                    cache_[puri] = std::make_pair(checksum, size);
-                                    if (checksum == cpin.first)
-                                        return puri;
-                                }
-                            }
+                            if (get_file_size(entry.path()) != cpin.second)
+                                continue;
+
+                            const auto [checksum, size] = checksum_for_path(entry.path());
+                            if (size == cpin.second && checksum == cpin.first)
+                                return puri;
                         }
                     } catch (...) {
                     }
                 }
                 if (loose_match) {
-                    for (const auto &entry : fs::recursive_directory_iterator(path)) {
+                    for (const auto &entry : fs::recursive_directory_iterator(path, iter_options)) {
                         try {
                             if (fs::is_regular_file(entry.status())) {
-                            // check we've not alredy got it in cache..
+                                // check we've not alredy got it in cache..
 #ifdef _WIN32
                                 const auto puri = posix_path_to_uri(entry.path().string());
 #else
@@ -247,8 +252,22 @@ ScanHelperActor::ScanHelperActor(caf::actor_config &cfg) : caf::event_based_acto
 
 
 ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {
-    auto helper = spawn<ScanHelperActor>();
-    link_to(helper);
+    auto helper_count = std::max<size_t>(1, std::min<size_t>(std::thread::hardware_concurrency(), 4));
+    try {
+        auto prefs = GlobalStoreHelper(system());
+        JsonStore js;
+        prefs.get_group(js);
+        helper_count =
+            std::clamp<size_t>(preference_value<size_t>(js, "/core/scanner/max_worker_count"), 1, 16);
+    } catch (...) {
+    }
+
+    helpers_.reserve(helper_count);
+    for (size_t helper_index = 0; helper_index < helper_count; ++helper_index) {
+        auto helper = spawn<ScanHelperActor>();
+        link_to(helper);
+        helpers_.emplace_back(std::move(helper));
+    }
 
     system().registry().put(scanner_registry, this);
 
@@ -273,6 +292,9 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
         [=](media::checksum_atom atom,
             const caf::actor &media_source,
             const MediaReference &mr) {
+            auto helper = next_helper();
+            if (!helper)
+                return;
             mail(atom, mr)
                 .request(helper, infinite)
                 .then(
@@ -285,10 +307,16 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
         },
 
         [=](media::rescan_atom atom, const MediaReference &mr) {
+            auto helper = next_helper();
+            if (!helper)
+                return make_error(sec::runtime_error, "No scanner workers");
             return mail(atom, mr).delegate(helper);
         },
 
         [=](media::checksum_atom atom, const MediaReference &mr) {
+            auto helper = next_helper();
+            if (!helper)
+                return make_error(sec::runtime_error, "No scanner workers");
             return mail(atom, mr).delegate(helper);
         },
 
@@ -296,6 +324,9 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
             const media::MediaSourceChecksum &pin,
             const caf::uri &path,
             const bool loose_match) {
+            auto helper = next_helper();
+            if (!helper)
+                return make_error(sec::runtime_error, "No scanner workers");
             return mail(atom, pin, path, loose_match).delegate(helper);
         },
 
@@ -320,6 +351,9 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
             const media::MediaSourceChecksum &pin,
             const caf::uri &path,
             const bool loose_match) {
+            auto helper = next_helper();
+            if (!helper)
+                return;
             mail(atom, pin, path, loose_match)
                 .request(helper, infinite)
                 .then(
@@ -352,6 +386,15 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                     });
         });
+}
+
+caf::actor ScannerActor::next_helper() {
+    if (helpers_.empty())
+        return caf::actor{};
+
+    const auto helper_index = next_helper_index_ % helpers_.size();
+    next_helper_index_      = (helper_index + 1) % helpers_.size();
+    return helpers_[helper_index];
 }
 
 void ScannerActor::on_exit() { system().registry().erase(scanner_registry); }

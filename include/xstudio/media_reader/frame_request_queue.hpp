@@ -10,7 +10,9 @@
 #include "xstudio/utility/uuid.hpp"
 
 #include <map>
-#include <vector>
+#include <memory>
+#include <set>
+#include <unordered_map>
 
 namespace xstudio {
 namespace media_reader {
@@ -113,7 +115,35 @@ namespace media_reader {
         void clear_pending_requests(const utility::Uuid &playhead_uuid);
 
       private:
-        std::vector<std::shared_ptr<FrameRequest>> queue_;
+        struct RequestEntry;
+        using RequestHandle    = std::shared_ptr<RequestEntry>;
+        using PlayheadRequests = std::unordered_multimap<utility::Uuid, RequestHandle>;
+
+        struct RequestOrder {
+            bool operator()(const RequestHandle &a, const RequestHandle &b) const;
+        };
+
+        struct RequestEntry {
+            explicit RequestEntry(FrameRequest request) : request_(std::move(request)) {}
+
+            FrameRequest request_;
+            std::multiset<RequestHandle, RequestOrder>::iterator ordered_it_;
+            PlayheadRequests::iterator playhead_it_;
+        };
+
+        using OrderedRequests = std::multiset<RequestHandle, RequestOrder>;
+
+        RequestHandle emplace_request(
+            std::shared_ptr<const media::AVFrameID> frame_info,
+            const utility::time_point &required_by,
+            const utility::Uuid &requesting_playhead_uuid);
+        void erase_request(const RequestHandle &request);
+        void update_required_by(
+            const RequestHandle &request, const utility::time_point &required_by);
+
+        OrderedRequests ordered_requests_;
+        std::unordered_map<media::MediaKey, RequestHandle> requests_by_media_key_;
+        PlayheadRequests requests_by_playhead_;
     };
 
 } // namespace media_reader

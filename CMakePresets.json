@@ -1,149 +1,764 @@
 {
-  "version": 3,
+  "version": 5,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 28,
+    "patch": 0
+  },
   "configurePresets": [
-    { 
-      "name": "default",
+    {
+      "name": "base",
       "hidden": true,
-      "binaryDir": "${sourceDir}/build",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "generator": "Ninja",
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/../vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "Qt6_DIR": "/Users/tedwaine/Qt6/6.5.3/macos/lib/cmake/Qt6",
-        "CMAKE_INSTALL_PREFIX": "xstudio_install",
-        "X_VCPKG_APPLOCAL_DEPS_INSTALL": "ON",
         "BUILD_DOCS": "OFF",
-        "USE_VCPKG": "ON"
+        "BUILD_TESTING": "ON",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/xstudio_install/${presetName}",
+        "ENABLE_CLANG_FORMAT": "OFF",
+        "ENABLE_CLANG_TIDY": "OFF",
+        "OPTIMIZE_FOR_NATIVE": "OFF",
+        "XSTUDIO_ENABLE_COMPILER_CACHE": "ON",
+        "XSTUDIO_ENABLE_PERF_TARGETS": "ON"
       }
     },
-    { 
-      "name": "windows-base",
-      "inherits": "default",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      },
+    {
+      "name": "release-base",
       "hidden": true,
-      "generator": "Visual Studio 17 2022"
-    },
-    {
-      "name": "WinRelease",
-      "inherits": ["windows-base"],
+      "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
     },
     {
-      "name": "WinRelWithDebInfo",
-      "inherits": ["windows-base"],
+      "name": "dev-base",
+      "hidden": true,
+      "inherits": "base",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "USE_SANITIZER": "address"
+        "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {
-      "name": "WinDebug",
-      "hidden":  true,
-      "inherits": ["windows-base"],
+      "name": "ci-base",
+      "hidden": true,
+      "inherits": "base",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "USE_SANITIZER": "address"
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
       }
     },
-    { 
-      "name": "macos-base-arm",
+    {
+      "name": "perf-base",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
+      "name": "vcpkg-base",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "OTIO_SUBMODULE": "ON",
+        "USE_VCPKG": "ON",
+        "X_VCPKG_APPLOCAL_DEPS_INSTALL": "ON"
+      }
+    },
+    {
+      "name": "linux-base",
+      "hidden": true,
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
-        "rhs": "Darwin"
+        "rhs": "Linux"
       },
-      "inherits": "default",
-      "generator": "Unix Makefiles",
+      "inherits": "base",
       "cacheVariables": {
-        "VCPKG_OVERLAY_TRIPLETS" : "${sourceDir}/cmake/vcpkg_triplets",
-        "VCPKG_TARGET_TRIPLET": "arm-osx"
-      }
-    },
-    { 
-      "name": "macos-base-intel",
-      "inherits": "macos-base-arm",
-      "cacheVariables": {
-        "VCPKG_TARGET_TRIPLET": "x64-osx"
+        "Qt6_DIR": "$env{Qt6_DIR}"
       }
     },
     {
-      "name": "MacOSRelease",
-      "inherits": ["macos-base-arm"],
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
-      }
-    },
-    {
-      "name": "MacOSRelWithDebInfo",
-      "inherits": ["macos-base-arm"],
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "USE_SANITIZER": "address"
-      }
-    },
-    {
-      "name": "MacOSDebug",
-      "inherits": ["macos-base-arm"],
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "USE_SANITIZER": "address"
-      }
-    },
-    {
-      "name": "MacOSIntelRelease",
-      "inherits": ["macos-base-intel"],
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
-      }
-    },
-    {
-      "name": "MacOSIntelRelWithDebInfo",
-      "inherits": ["macos-base-intel"],
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "USE_SANITIZER": "address"
-      }
-    },
-    {
-      "name": "MacOSIntelDebug",
-      "inherits": ["macos-base-intel"],
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "USE_SANITIZER": "address"
-      }
-    },
-    { 
-      "name": "linux-base",
-      "inherits": "default",
+      "name": "linux-vcpkg-base",
+      "hidden": true,
+      "inherits": [
+        "linux-base",
+        "vcpkg-base"
+      ],
       "cacheVariables": {
         "VCPKG_TARGET_TRIPLET": "x64-xstudio-linux"
       }
     },
     {
-      "name": "LinuxRelease",
-      "inherits": ["linux-base"],
+      "name": "macos-arm-base",
+      "hidden": true,
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
+      "inherits": "base",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
+        "Qt6_DIR": "$env{Qt6_DIR}"
+      }
+    },
+    {
+      "name": "macos-arm-vcpkg-base",
+      "hidden": true,
+      "inherits": [
+        "macos-arm-base",
+        "vcpkg-base"
+      ],
+      "cacheVariables": {
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/vcpkg_triplets",
+        "VCPKG_TARGET_TRIPLET": "arm-osx"
+      }
+    },
+    {
+      "name": "macos-intel-base",
+      "hidden": true,
+      "inherits": "macos-arm-base"
+    },
+    {
+      "name": "macos-intel-vcpkg-base",
+      "hidden": true,
+      "inherits": [
+        "macos-intel-base",
+        "vcpkg-base"
+      ],
+      "cacheVariables": {
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/vcpkg_triplets",
+        "VCPKG_TARGET_TRIPLET": "x64-osx"
+      }
+    },
+    {
+      "name": "windows-base",
+      "hidden": true,
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "inherits": "base",
+      "generator": "Visual Studio 17 2022"
+    },
+    {
+      "name": "windows-vcpkg-base",
+      "hidden": true,
+      "inherits": [
+        "windows-base",
+        "vcpkg-base"
+      ]
+    },
+    {
+      "name": "LinuxDev",
+      "inherits": [
+        "linux-base",
+        "dev-base"
+      ]
+    },
+    {
+      "name": "LinuxCI",
+      "inherits": [
+        "linux-base",
+        "ci-base"
+      ]
+    },
+    {
+      "name": "LinuxPerf",
+      "inherits": [
+        "linux-base",
+        "perf-base"
+      ]
+    },
+    {
+      "name": "LinuxDevVcpkg",
+      "inherits": [
+        "linux-vcpkg-base",
+        "dev-base"
+      ]
+    },
+    {
+      "name": "LinuxCIVcpkg",
+      "inherits": [
+        "linux-vcpkg-base",
+        "ci-base"
+      ]
+    },
+    {
+      "name": "LinuxPerfVcpkg",
+      "inherits": [
+        "linux-vcpkg-base",
+        "perf-base"
+      ]
+    },
+    {
+      "name": "MacOSArmDev",
+      "inherits": [
+        "macos-arm-base",
+        "dev-base"
+      ]
+    },
+    {
+      "name": "MacOSArmCI",
+      "inherits": [
+        "macos-arm-base",
+        "ci-base"
+      ]
+    },
+    {
+      "name": "MacOSArmPerf",
+      "inherits": [
+        "macos-arm-base",
+        "perf-base"
+      ]
+    },
+    {
+      "name": "MacOSArmDevVcpkg",
+      "inherits": [
+        "macos-arm-vcpkg-base",
+        "dev-base"
+      ]
+    },
+    {
+      "name": "MacOSArmCIVcpkg",
+      "inherits": [
+        "macos-arm-vcpkg-base",
+        "ci-base"
+      ]
+    },
+    {
+      "name": "MacOSArmPerfVcpkg",
+      "inherits": [
+        "macos-arm-vcpkg-base",
+        "perf-base"
+      ]
+    },
+    {
+      "name": "MacOSIntelDev",
+      "inherits": [
+        "macos-intel-base",
+        "dev-base"
+      ]
+    },
+    {
+      "name": "MacOSIntelCI",
+      "inherits": [
+        "macos-intel-base",
+        "ci-base"
+      ]
+    },
+    {
+      "name": "MacOSIntelPerf",
+      "inherits": [
+        "macos-intel-base",
+        "perf-base"
+      ]
+    },
+    {
+      "name": "MacOSIntelDevVcpkg",
+      "inherits": [
+        "macos-intel-vcpkg-base",
+        "dev-base"
+      ]
+    },
+    {
+      "name": "MacOSIntelCIVcpkg",
+      "inherits": [
+        "macos-intel-vcpkg-base",
+        "ci-base"
+      ]
+    },
+    {
+      "name": "MacOSIntelPerfVcpkg",
+      "inherits": [
+        "macos-intel-vcpkg-base",
+        "perf-base"
+      ]
+    },
+    {
+      "name": "WinDevVcpkg",
+      "inherits": [
+        "windows-vcpkg-base",
+        "dev-base"
+      ]
+    },
+    {
+      "name": "WinCIVcpkg",
+      "inherits": [
+        "windows-vcpkg-base",
+        "ci-base"
+      ]
+    },
+    {
+      "name": "WinPerfVcpkg",
+      "inherits": [
+        "windows-vcpkg-base",
+        "perf-base"
+      ]
+    },
+    {
+      "name": "LinuxRelease",
+      "inherits": [
+        "linux-vcpkg-base",
+        "release-base"
+      ]
+    },
+    {
+      "name": "LinuxRelWithDebInfo",
+      "inherits": [
+        "linux-vcpkg-base",
+        "ci-base"
+      ]
+    },
+    {
+      "name": "LinuxDebug",
+      "inherits": [
+        "linux-vcpkg-base",
+        "dev-base"
+      ]
+    },
+    {
+      "name": "MacOSRelease",
+      "inherits": [
+        "macos-arm-vcpkg-base",
+        "release-base"
+      ]
+    },
+    {
+      "name": "MacOSRelWithDebInfo",
+      "inherits": [
+        "macos-arm-vcpkg-base",
+        "ci-base"
+      ]
+    },
+    {
+      "name": "MacOSDebug",
+      "inherits": [
+        "macos-arm-vcpkg-base",
+        "dev-base"
+      ]
+    },
+    {
+      "name": "MacOSIntelRelease",
+      "inherits": [
+        "macos-intel-vcpkg-base",
+        "release-base"
+      ]
+    },
+    {
+      "name": "MacOSIntelRelWithDebInfo",
+      "inherits": [
+        "macos-intel-vcpkg-base",
+        "ci-base"
+      ]
+    },
+    {
+      "name": "MacOSIntelDebug",
+      "inherits": [
+        "macos-intel-vcpkg-base",
+        "dev-base"
+      ]
+    },
+    {
+      "name": "WinRelease",
+      "inherits": [
+        "windows-vcpkg-base",
+        "release-base"
+      ]
+    },
+    {
+      "name": "WinRelWithDebInfo",
+      "inherits": [
+        "windows-vcpkg-base",
+        "ci-base"
+      ]
+    },
+    {
+      "name": "WinDebug",
+      "inherits": [
+        "windows-vcpkg-base",
+        "dev-base"
+      ]
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "LinuxDev",
+      "configurePreset": "LinuxDev"
+    },
+    {
+      "name": "LinuxCI",
+      "configurePreset": "LinuxCI"
+    },
+    {
+      "name": "LinuxPerf",
+      "configurePreset": "LinuxPerf"
+    },
+    {
+      "name": "LinuxDevVcpkg",
+      "configurePreset": "LinuxDevVcpkg"
+    },
+    {
+      "name": "LinuxCIVcpkg",
+      "configurePreset": "LinuxCIVcpkg"
+    },
+    {
+      "name": "LinuxPerfVcpkg",
+      "configurePreset": "LinuxPerfVcpkg"
+    },
+    {
+      "name": "MacOSArmDev",
+      "configurePreset": "MacOSArmDev"
+    },
+    {
+      "name": "MacOSArmCI",
+      "configurePreset": "MacOSArmCI"
+    },
+    {
+      "name": "MacOSArmPerf",
+      "configurePreset": "MacOSArmPerf"
+    },
+    {
+      "name": "MacOSArmDevVcpkg",
+      "configurePreset": "MacOSArmDevVcpkg"
+    },
+    {
+      "name": "MacOSArmCIVcpkg",
+      "configurePreset": "MacOSArmCIVcpkg"
+    },
+    {
+      "name": "MacOSArmPerfVcpkg",
+      "configurePreset": "MacOSArmPerfVcpkg"
+    },
+    {
+      "name": "MacOSIntelDev",
+      "configurePreset": "MacOSIntelDev"
+    },
+    {
+      "name": "MacOSIntelCI",
+      "configurePreset": "MacOSIntelCI"
+    },
+    {
+      "name": "MacOSIntelPerf",
+      "configurePreset": "MacOSIntelPerf"
+    },
+    {
+      "name": "MacOSIntelDevVcpkg",
+      "configurePreset": "MacOSIntelDevVcpkg"
+    },
+    {
+      "name": "MacOSIntelCIVcpkg",
+      "configurePreset": "MacOSIntelCIVcpkg"
+    },
+    {
+      "name": "MacOSIntelPerfVcpkg",
+      "configurePreset": "MacOSIntelPerfVcpkg"
+    },
+    {
+      "name": "WinDevVcpkg",
+      "configurePreset": "WinDevVcpkg",
+      "configuration": "Debug"
+    },
+    {
+      "name": "WinCIVcpkg",
+      "configurePreset": "WinCIVcpkg",
+      "configuration": "RelWithDebInfo"
+    },
+    {
+      "name": "WinPerfVcpkg",
+      "configurePreset": "WinPerfVcpkg",
+      "configuration": "RelWithDebInfo"
+    },
+    {
+      "name": "LinuxRelease",
+      "configurePreset": "LinuxRelease"
+    },
+    {
+      "name": "LinuxRelWithDebInfo",
+      "configurePreset": "LinuxRelWithDebInfo"
+    },
+    {
+      "name": "LinuxDebug",
+      "configurePreset": "LinuxDebug"
+    },
+    {
+      "name": "MacOSRelease",
+      "configurePreset": "MacOSRelease"
+    },
+    {
+      "name": "MacOSRelWithDebInfo",
+      "configurePreset": "MacOSRelWithDebInfo"
+    },
+    {
+      "name": "MacOSDebug",
+      "configurePreset": "MacOSDebug"
+    },
+    {
+      "name": "MacOSIntelRelease",
+      "configurePreset": "MacOSIntelRelease"
+    },
+    {
+      "name": "MacOSIntelRelWithDebInfo",
+      "configurePreset": "MacOSIntelRelWithDebInfo"
+    },
+    {
+      "name": "MacOSIntelDebug",
+      "configurePreset": "MacOSIntelDebug"
+    },
+    {
+      "name": "WinRelease",
+      "configurePreset": "WinRelease",
+      "configuration": "Release"
+    },
+    {
+      "name": "WinRelWithDebInfo",
+      "configurePreset": "WinRelWithDebInfo",
+      "configuration": "RelWithDebInfo"
+    },
+    {
+      "name": "WinDebug",
+      "configurePreset": "WinDebug",
+      "configuration": "Debug"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "LinuxDev",
+      "configurePreset": "LinuxDev",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "LinuxCI",
+      "configurePreset": "LinuxCI",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "LinuxPerf",
+      "configurePreset": "LinuxPerf",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "LinuxDevVcpkg",
+      "configurePreset": "LinuxDevVcpkg",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "LinuxCIVcpkg",
+      "configurePreset": "LinuxCIVcpkg",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "LinuxPerfVcpkg",
+      "configurePreset": "LinuxPerfVcpkg",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "MacOSArmDev",
+      "configurePreset": "MacOSArmDev",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "MacOSArmCI",
+      "configurePreset": "MacOSArmCI",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "MacOSArmPerf",
+      "configurePreset": "MacOSArmPerf",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "MacOSArmDevVcpkg",
+      "configurePreset": "MacOSArmDevVcpkg",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "MacOSArmCIVcpkg",
+      "configurePreset": "MacOSArmCIVcpkg",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "MacOSArmPerfVcpkg",
+      "configurePreset": "MacOSArmPerfVcpkg",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "MacOSIntelDev",
+      "configurePreset": "MacOSIntelDev",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "MacOSIntelCI",
+      "configurePreset": "MacOSIntelCI",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "MacOSIntelPerf",
+      "configurePreset": "MacOSIntelPerf",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "MacOSIntelDevVcpkg",
+      "configurePreset": "MacOSIntelDevVcpkg",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "MacOSIntelCIVcpkg",
+      "configurePreset": "MacOSIntelCIVcpkg",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "MacOSIntelPerfVcpkg",
+      "configurePreset": "MacOSIntelPerfVcpkg",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "WinDevVcpkg",
+      "configurePreset": "WinDevVcpkg",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "WinCIVcpkg",
+      "configurePreset": "WinCIVcpkg",
+      "configuration": "RelWithDebInfo",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "WinPerfVcpkg",
+      "configurePreset": "WinPerfVcpkg",
+      "configuration": "RelWithDebInfo",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "LinuxRelease",
+      "configurePreset": "LinuxRelease",
+      "output": {
+        "outputOnFailure": true
       }
     },
     {
       "name": "LinuxRelWithDebInfo",
-      "inherits": ["linux-base"],
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "USE_SANITIZER": "address"
+      "configurePreset": "LinuxRelWithDebInfo",
+      "output": {
+        "outputOnFailure": true
       }
     },
     {
       "name": "LinuxDebug",
-      "inherits": ["linux-base"],
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "USE_SANITIZER": "address"
+      "configurePreset": "LinuxDebug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "MacOSRelease",
+      "configurePreset": "MacOSRelease",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "MacOSRelWithDebInfo",
+      "configurePreset": "MacOSRelWithDebInfo",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "MacOSDebug",
+      "configurePreset": "MacOSDebug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "MacOSIntelRelease",
+      "configurePreset": "MacOSIntelRelease",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "MacOSIntelRelWithDebInfo",
+      "configurePreset": "MacOSIntelRelWithDebInfo",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "MacOSIntelDebug",
+      "configurePreset": "MacOSIntelDebug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "WinRelease",
+      "configurePreset": "WinRelease",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "WinRelWithDebInfo",
+      "configurePreset": "WinRelWithDebInfo",
+      "configuration": "RelWithDebInfo",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "WinDebug",
+      "configurePreset": "WinDebug",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
       }
     }
   ]
