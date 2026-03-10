@@ -129,6 +129,8 @@ At the same location in the filesystem I also need an **__init__.py** file to ex
 More Complex plugin Examples
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**August 2025** - We are still working on some comprehensive Python Plugin API examples that showcase all the features and what is possible in terms of UI interface development, integration and interaction with xSTUDIO. 
-
-However there are some existing plugins that ship with the xSTUDIO source code that provide some fully developed plugins that do HUD overlay graphics or add a custom Viewport layout (picture-in-picture). These plugins are intended to be useful reference implementations of these features and can be found in the **src/plugin/python_plugins/** folder in the xSTUDIO source code repository.
+The Python plugin examples in this guide are intentionally small, but xSTUDIO
+also ships more complete reference implementations. In particular,
+**src/plugin/python_plugins/** contains developed examples for HUD overlays and
+custom viewport layouts that are useful starting points for UI integration,
+interaction, and playback-driven tooling.

@@ -4,12 +4,19 @@
 xSTUDIO Build Guides
 ####################
 
-At the time of writing these notes (August 2025) xSTUDIO is publically available as *source code* only and as such, to obtain the application, it must be built from the source. 
+xSTUDIO is currently distributed from source in this repository, so building
+from source is the standard way to obtain the application.
 
 Post Production Studios and Other Organisations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Many VFX and Animation studios, especially larger ones, typically have technical teams who have expertise in building software from source code. For such teams with expertise in building and deploying software packages we expect that building xstudio should be straightforward. The build guides below should provide valuable reference. Note that version 1.X of xSTUDIO has been developed against the VFX Reference Platform 2024 standard plus a small set of open source packages/libraries that are easily obtained or built on any platform. A :ref:`list of these build dependencies <dependencies>` is provided for your convenience.
+Many VFX and animation studios, especially larger ones, typically have
+technical teams with experience building software from source. For those teams,
+the guides below should provide a practical reference. xSTUDIO 1.1.x is
+developed against the VFX Reference Platform 2024 plus a small set of open
+source packages and libraries that are easily obtained or built on any
+platform. A :ref:`list of these build dependencies <dependencies>` is provided
+for convenience.
 
 Individual Users
 ^^^^^^^^^^^^^^^^

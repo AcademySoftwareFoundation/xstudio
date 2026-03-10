@@ -11,13 +11,17 @@ v1.1.0
 
 **Overview**
 
-xSTUDIO is a high performance playback and review tool designed by and for Visual Effects, Animation and Post Production professionals. The application can load and play large collections of media files. The efficient playback engine allows you to quickly load and play high resolution image formats with a wide range of file formats and encoding. Intuitive tools allow you to create and organise playlists and media sub-sets within playlists to build interactive review sessions, image and video reference libraries. A multi-track timeline editing interface provides the facility for loading or creating edits from simple to complex. xSTUDIO's python and C++ APIs provide
+xSTUDIO 1.1.0 is a high-performance playback and review tool for VFX,
+animation, and post-production workflows. It can load large collections of
+media, organize them into playlists and subsets, compare shots in the viewport,
+build multi-track sequences, and integrate with pipeline tooling through both
+Python and C++ APIs.
 
 **New in this version (v1.1.x)**
 
 - Render playlists, timelines and contact sheets to output video quickly, easily and with any ffmpeg encoding parameters that you like.
 - Set media FPS via the toolbar, right-click Viewport menu or hotkey shortcut.
-- Numerous API extensions inspired by feedbaqck from the community.
+- Numerous API extensions inspired by feedback from the community.
 - Viewport time slider auto zoom in Timeline 'focus' mode.
 
 **xSTUDIO Highlights**

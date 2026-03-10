@@ -3,8 +3,18 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to xSTUDIO's documentation!
-===================================
+Welcome to xSTUDIO 1.1.0
+========================
+
+xSTUDIO is a playback, review, and pipeline-integration application for VFX,
+animation, and post-production workflows.
+
+This documentation set is split into two parts:
+
+* :ref:`user_docs` for day-to-day playback, review, timeline, and note-taking
+  workflows.
+* :ref:`reference_docs` for build instructions plus the C++ and Python API
+  surfaces exposed by the current source tree.
 
 |
 |
@@ -30,4 +40,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-

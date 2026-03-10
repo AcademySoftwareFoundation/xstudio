@@ -3,11 +3,17 @@
 Python API
 ==========
 
-.. note::
-    August 2025: The Python API documentation is currently WIP. There are plenty of method docstrings filled out but some methods and classes are lacking full desciptions. Please bear with the xSTUDIO developers as we improve these pages.
+The Python package shipped with xSTUDIO supports remote control, embedded
+scripting, session manipulation, playback control, and plugin development.
+
+Use the pages below as the entry point into the current Python surface shipped
+under `python/src/xstudio`.
 
 .. toctree::
     :maxdepth: 2
-    :glob:
-
-    *
+    overview
+    root
+    connection
+    api
+    core
+    demo
