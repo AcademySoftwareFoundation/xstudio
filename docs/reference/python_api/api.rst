@@ -3,163 +3,26 @@
 xstudio.api
 ***********
 
+High-Level Entry Points
+=======================
+
 API
-===
+---
 .. autoclass:: xstudio.api.API
    :members:
-
-
-app
-===
 
 App
 ---
 .. autoclass:: xstudio.api.app.App
    :members:
 
-
-contact_sheet
-=============
-
-ContactSheet
-------------
-.. autoclass:: xstudio.api.session.playlist.ContactSheet
-   :members:
-
-
-container
-=========
-
-PlaylistItem
-------------
-.. autoclass:: xstudio.api.session.container.PlaylistItem
-   :members:
-
-PlaylistTree
-------------
-.. autoclass:: xstudio.api.session.container.PlaylistTree
-   :members:
-
-Container
----------
-.. autoclass:: xstudio.api.session.Container
-   :members:
-
-
-global_store
-============
-
-GlobalStore
------------
-.. autoclass:: xstudio.api.intrinsic.GlobalStore
-   :members:
-
-helpers
-=======
-
-.. automodule:: xstudio.api.auxiliary.helpers
-   :members:
-
-
-json_store
-==========
-
-JsonStore
----------
-.. autoclass:: xstudio.api.auxiliary.json_store.JsonStore
-   :members:
-
-
-media
-=====
-
-Media
------
-.. autoclass:: xstudio.api.session.media.Media
-   :members:
-
-media_source
-============
-
-MediaSource
------------
-.. autoclass:: xstudio.api.session.media.MediaSource
-   :members:
-
-media_stream
-============
-
-MediaStream
------------
-.. autoclass:: xstudio.api.session.media.MediaStream
-   :members:
-
-media_cache
-============
-
-MediaCache
------------
-.. autoclass:: xstudio.api.intrinsic.MediaCache
-   :members:
-
-timeline
-========
-
-Timeline
---------
-.. autoclass:: xstudio.api.session.playlist.Timeline
-   :members:
-
-playhead
-========
-
-Playhead
---------
-.. autoclass:: xstudio.api.session.playhead.Playhead
-   :members:
-
-playhead_selection
-==================
-
-PlayheadSelection
------------------
-.. autoclass:: xstudio.api.session.playhead.playhead_selection.PlayheadSelection
-   :members:
-
-playlist
-========
-
-Playlist
---------
-.. autoclass:: xstudio.api.session.playlist.Playlist
-   :members:
-
-session
-=======
-
-Session
--------
-.. autoclass:: xstudio.api.session.Session
-   :members:
-
-studio
-======
-
 Studio
 ------
 .. autoclass:: xstudio.api.studio.Studio
    :members:
 
-subset
-======
-
-Subset
-------
-.. autoclass:: xstudio.api.session.playlist.Subset
-   :members:
-
-module
-======
+Module System
+=============
 
 ModuleAttribute
 ---------------
@@ -171,8 +34,145 @@ Module
 .. autoclass:: xstudio.api.module.ModuleBase
    :members:
 
-plugin
-======
+Global Services
+===============
+
+GlobalStore
+-----------
+.. autoclass:: xstudio.api.intrinsic.GlobalStore
+   :members:
+
+History
+-------
+.. autoclass:: xstudio.api.intrinsic.History
+   :members:
+
+MediaCache
+----------
+.. autoclass:: xstudio.api.intrinsic.MediaCache
+   :members:
+
+Thumbnail
+---------
+.. autoclass:: xstudio.api.intrinsic.Thumbnail
+   :members:
+
+PluginManager
+-------------
+.. autoclass:: xstudio.api.intrinsic.PluginManager
+   :members:
+
+Scanner
+-------
+.. autoclass:: xstudio.api.intrinsic.Scanner
+   :members:
+
+Viewport
+--------
+.. autoclass:: xstudio.api.intrinsic.Viewport
+   :members:
+
+ColourPipeline
+--------------
+.. autoclass:: xstudio.api.intrinsic.ColourPipeline
+   :members:
+
+Session Graph
+=============
+
+Session
+-------
+.. autoclass:: xstudio.api.session.Session
+   :members:
+
+Container
+---------
+.. autoclass:: xstudio.api.session.Container
+   :members:
+
+PlaylistItem
+------------
+.. autoclass:: xstudio.api.session.container.PlaylistItem
+   :members:
+
+PlaylistTree
+------------
+.. autoclass:: xstudio.api.session.container.PlaylistTree
+   :members:
+
+Playlist
+--------
+.. autoclass:: xstudio.api.session.playlist.Playlist
+   :members:
+
+ContactSheet
+------------
+.. autoclass:: xstudio.api.session.playlist.ContactSheet
+   :members:
+
+Subset
+------
+.. autoclass:: xstudio.api.session.playlist.Subset
+   :members:
+
+Timeline
+--------
+.. autoclass:: xstudio.api.session.playlist.Timeline
+   :members:
+
+Playback And Media
+==================
+
+Playhead
+--------
+.. autoclass:: xstudio.api.session.playhead.Playhead
+   :members:
+
+PlayheadSelection
+-----------------
+.. autoclass:: xstudio.api.session.playhead.PlayheadSelection
+   :members:
+
+Media
+-----
+.. autoclass:: xstudio.api.session.media.Media
+   :members:
+
+MediaSource
+-----------
+.. autoclass:: xstudio.api.session.media.MediaSource
+   :members:
+
+MediaStream
+-----------
+.. autoclass:: xstudio.api.session.media.MediaStream
+   :members:
+
+Bookmarks And Notes
+===================
+
+Bookmarks
+---------
+.. autoclass:: xstudio.api.session.bookmark.Bookmarks
+   :members:
+
+Bookmark
+--------
+.. autoclass:: xstudio.api.session.bookmark.Bookmark
+   :members:
+
+Note
+----
+.. autoclass:: xstudio.api.session.bookmark.Note
+   :members:
+
+Annotation
+----------
+.. autoclass:: xstudio.api.session.bookmark.Annotation
+   :members:
+
+Plugin Authoring Helpers
+========================
 
 Plugin
 ------
@@ -189,5 +189,8 @@ ViewportLayoutPlugin
 .. autoclass:: xstudio.plugin.ViewportLayoutPlugin
    :members:
 
+Helpers
+========
 
-
+.. automodule:: xstudio.api.auxiliary.helpers
+   :members:
