@@ -53,3 +53,25 @@ TEST(StringHelpersTest, split_vector) {
     EXPECT_EQ(split11[0][0], 1);
     EXPECT_EQ(split11[0][9], 10);
 }
+
+TEST(StringHelpersTest, path_list_separator) {
+#ifdef _WIN32
+    EXPECT_EQ(path_list_separator(), ';');
+#else
+    EXPECT_EQ(path_list_separator(), ':');
+#endif
+}
+
+TEST(StringHelpersTest, split_path_list) {
+#ifdef _WIN32
+    const auto paths = split_path_list("C:\\plugins;D:\\plugins");
+    ASSERT_EQ(paths.size(), 2);
+    EXPECT_EQ(paths[0], "C:\\plugins");
+    EXPECT_EQ(paths[1], "D:\\plugins");
+#else
+    const auto paths = split_path_list("/tmp/plugins:/opt/plugins");
+    ASSERT_EQ(paths.size(), 2);
+    EXPECT_EQ(paths[0], "/tmp/plugins");
+    EXPECT_EQ(paths[1], "/opt/plugins");
+#endif
+}
