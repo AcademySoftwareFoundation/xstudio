@@ -121,6 +121,18 @@ namespace utility {
         return elems;
     }
 
+    inline constexpr char path_list_separator() {
+#ifdef _WIN32
+        return ';';
+#else
+        return ':';
+#endif
+    }
+
+    inline std::vector<std::string> split_path_list(const std::string &s) {
+        return split(s, path_list_separator());
+    }
+
     // not optimal..
     inline bool starts_with(const std::string &haystack, const std::string &needle) {
         if (haystack.size() < needle.size())
