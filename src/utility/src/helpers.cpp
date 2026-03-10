@@ -6,6 +6,7 @@
 #include <pwd.h>
 #include <sys/types.h>
 #endif
+#include <algorithm>
 #include <filesystem>
 #include <limits>
 #include <regex>
@@ -573,6 +574,10 @@ caf::uri xstudio::utility::posix_path_to_uri(const std::string &path, const bool
 
     p = reverse_remap_file_path(path);
 
+#ifdef _WIN32
+    // Normalise Windows backslashes to forward slashes for a valid file URI.
+    std::replace(p.begin(), p.end(), '\\', '/');
+#endif
 
     // spdlog::warn("posix_path_to_uri: {} -> {}", path, p);
 
@@ -646,7 +651,7 @@ xstudio::utility::scan_posix_path(const std::string &path, const int depth) {
                         auto more = scan_posix_path(_path, depth - 1);
                         items.insert(items.end(), more.begin(), more.end());
                     } else if (fs::is_regular_file(entry))
-                        files.push_back(std::regex_replace(_path, std::regex("[\]"), "/"));
+                        files.push_back(std::regex_replace(_path, std::regex("\\\\"), "/"));
 #else
                     const std::string _path     = entry.path();
                     const std::string _filename = entry.path().filename();

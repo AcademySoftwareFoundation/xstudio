@@ -337,8 +337,11 @@ std::vector<Sequence> default_collapse_sequences(const std::vector<Entry> &entri
 
 int pad_size(const std::string &frame) {
     // -01 == pad 3
-    // 0 pad means unknown padding
-    return (std::to_string(std::atoi(frame.c_str())).size() == frame.size() ? 0 : frame.size());
+    // If the string representation matches the numeric length, the frame has no
+    // explicit zero-padding.  Return the natural width so the format specifier
+    // can still round-trip (e.g. frame "1000" → pad 4 → %04d → {:04d}).
+    // Returning 0 would produce %00d / {:00d} which is invalid.
+    return static_cast<int>(frame.size());
 }
 
 std::string pad_spec(const int pad) {
