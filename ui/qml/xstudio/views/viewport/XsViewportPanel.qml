@@ -1,10 +1,12 @@
 import QtQuick
 import QtQuick.Layouts
+import QuickFuture 1.0
 
 import xStudio 1.0
 import xstudio.qml.viewport 1.0
 import xstudio.qml.models 1.0
 import xstudio.qml.helpers 1.0
+import xstudio.qml.session 1.0
 
 import "./widgets"
 
@@ -147,6 +149,36 @@ Rectangle{
 
     }
 
+    XsDragDropHandler {
+
+        id: viewportDragDropHandler
+        targetWidget: viewportWidget
+        dragSourceName: "Viewport"
+
+        onDropped: (mousePosition, source, data) => {
+
+            if (source !== "External URIS" && source !== "External JSON")
+                return
+
+            var dropData = (source === "External URIS")
+                ? {"text/uri-list": data}
+                : data
+
+            // Use the current playlist if one exists, otherwise create one
+            var idx = theSessionData.currentMediaContainerIndex
+            if (!idx || !idx.valid) {
+                idx = theSessionData.createPlaylist(theSessionData.getNextName("Playlist {}"))
+            }
+
+            Future.promise(
+                theSessionData.handleDropFuture(
+                    Qt.CopyAction,
+                    dropData,
+                    idx)
+            ).then(function(quuids){})
+        }
+    }
+
     XsLabel {
         text: "Media Not Found"
         color: XsStyleSheet.hintColor
@@ -182,7 +214,7 @@ Rectangle{
                 placement: "top"
             }
 
-            XsViewport { 
+            XsViewport {
                 id: viewport
                 Layout.fillWidth: true
                 Layout.fillHeight: true
