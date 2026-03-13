@@ -51,6 +51,7 @@ CAF_PUSH_WARNINGS
 #include <QGuiApplication>
 #include <QIcon>
 #include <QQmlApplicationEngine>
+#include <QQmlContext>
 #include <QSurfaceFormat>
 #include <QPalette>
 #include <QString>
@@ -195,6 +196,7 @@ void execute_xstudio_ui(
     const bool disble_vsync,
     const float ui_scale_factor,
     const bool silence_qt_warnings,
+    const bool review_mode,
     int argc,
     char **argv) {
 
@@ -237,6 +239,8 @@ void execute_xstudio_ui(
 
     ui::qml::setup_xstudio_qml_emgine(
         static_cast<QQmlEngine *>(&engine), CafActorSystem::system());
+
+    engine.rootContext()->setContextProperty("reviewModeEnabled", review_mode);
 
     const QUrl url(QStringLiteral("qrc:/main.qml"));
 
@@ -557,6 +561,12 @@ struct CLIArguments {
         "Open a quick-view for each supplied media item",
         {'l', "quick-view"}};
 
+    args::Flag review_mode = {
+        parser,
+        "review",
+        "Launch in review mode (viewport only, no playlists or timeline)",
+        {'v', "review"}};
+
     args::Flag silence_qt_warnings = {
         parser,
         "silence-qt-warnings",
@@ -655,6 +665,7 @@ struct Launcher {
         actions["debug"]               = cli_args.debug.Matched();
         actions["user_prefs_off"]      = cli_args.user_prefs_off.Matched();
         actions["quick_view"]          = cli_args.quick_view.Matched();
+        actions["review_mode"]         = cli_args.review_mode.Matched();
         actions["disable_vsync"]       = cli_args.disable_vsync.Matched();
         actions["compare"]             = static_cast<std::string>(args::get(cli_args.compare));
         actions["silence_qt_warnings"] = cli_args.silence_qt_warnings.Matched();
@@ -895,6 +906,7 @@ struct Launcher {
         "headless": false,
         "new_instance": false,
         "quick_view": false,
+        "review_mode": false,
         "session_name": "",
         "open_session": false,
         "debug": false,
@@ -1080,6 +1092,7 @@ int main(int argc, char **argv) {
                 l.actions["disable_vsync"],
                 l.prefs.get("/ui/qml/global_ui_scale_factor").value("value", 1.0f),
                 l.actions["silence_qt_warnings"],
+                l.actions["review_mode"],
                 argc,
                 argv);
 
