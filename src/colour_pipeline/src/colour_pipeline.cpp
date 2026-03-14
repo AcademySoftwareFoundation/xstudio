@@ -355,6 +355,7 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
             auto rp = make_response_promise<bool>();
 
             if (media_source) {
+                current_media_source_actor_ = media_source.actor();
                 mail(get_colour_pipe_params_atom_v)
                     .request(media_source.actor(), infinite)
                     .then(
@@ -393,6 +394,7 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
         [=](utility::event_atom, playhead::media_source_atom, utility::UuidActor media_source) {
             // This message comes from the playhead when the onscreen (key)
             // media source has changed.
+            current_media_source_actor_ = media_source.actor();
             if (media_source) {
                 mail(get_colour_pipe_params_atom_v)
                     .request(media_source.actor(), infinite)

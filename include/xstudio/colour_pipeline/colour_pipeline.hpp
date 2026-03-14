@@ -229,6 +229,12 @@ namespace colour_pipeline {
 
         caf::message_handler message_handler_extensions() override;
 
+        /* Returns the actor for the current on-screen media source, if available.
+           This is set automatically when the playhead reports a media source change. */
+        const caf::actor &current_media_source_actor() const {
+            return current_media_source_actor_;
+        }
+
         utility::Uuid uuid_;
 
       private:
@@ -276,6 +282,8 @@ namespace colour_pipeline {
         std::vector<
             std::pair<std::string, caf::typed_response_promise<plugin::GPUPreDrawHookPtr>>>
             hook_requests_;
+
+        caf::actor current_media_source_actor_;
     };
 
 } // namespace colour_pipeline

@@ -24,15 +24,21 @@ cmake --build build --config Release --target xstudio
 
 ### Portable Deployment (CRITICAL)
 **The user runs xSTUDIO from `portable/bin/`, NOT from `build/bin/Release/`.**
-After every build, you MUST copy updated binaries into the portable directory:
+After every build, you MUST copy updated binaries to the correct portable locations:
 ```bash
-# Copy the main exe
+# Main exe and core DLLs go to portable/bin/
 cp build/bin/Release/xstudio.exe portable/bin/
+cp build/src/colour_pipeline/src/Release/colour_pipeline.dll portable/bin/
+cp build/src/module/src/Release/module.dll portable/bin/
 
-# Copy any updated DLLs (plugin .dll files from build/bin/Release/)
-cp build/bin/Release/*.dll portable/bin/
+# PLUGINS go to portable/share/xstudio/plugin/ (NOT portable/bin/)
+cp build/src/plugin/colour_pipeline/ocio/src/Release/colour_pipeline_ocio.dll portable/share/xstudio/plugin/
+cp build/src/plugin/media_reader/openexr/src/Release/media_reader_openexr.dll portable/share/xstudio/plugin/
+cp build/src/plugin/media_reader/ffmpeg/src/Release/media_reader_ffmpeg.dll portable/share/xstudio/plugin/
+# Other plugins also live in portable/share/xstudio/plugin/
 ```
-Without this step, the user will be running the OLD binary and won't see any changes.
+**WARNING: Plugins are loaded from `portable/share/xstudio/plugin/`, NOT `portable/bin/`.
+Deploying plugin DLLs to the wrong directory means the old plugin runs silently.**
 
 ### Key Build Details
 - Generator: Visual Studio 17 2022

@@ -74,6 +74,10 @@ struct UiText {
     std::string ENABLE_SATURATION_SHORT = "Enbl. Sat.";
     std::string CHANNEL                 = "Channel";
     std::string CHANNEL_SHORT           = "Chan";
+    std::string LAYER                   = "Layer";
+    std::string LAYER_SHORT             = "Lyr";
+    std::string LAYER_TOOLTIP           = "Select the EXR layer/AOV to display.";
+    std::string LAYER_DEFAULT           = "RGBA";
     std::string SOURCE_CS               = "Source Colour Space";
     std::string SOURCE_CS_SHORT         = "Source cs";
     std::string CMS_OFF                 = "Bypass Colour Management";

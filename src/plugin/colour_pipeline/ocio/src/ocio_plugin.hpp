@@ -133,6 +133,8 @@ class OCIOColourPipeline : public ColourPipeline {
 
     void synchronize_attribute(const utility::Uuid &uuid, int role, bool ocio);
 
+    void update_layer_dropdown();
+
     std::string detect_display(
         const std::string &name,
         const std::string &model,
@@ -158,6 +160,7 @@ class OCIOColourPipeline : public ColourPipeline {
     module::StringChoiceAttribute *display_;
     module::StringChoiceAttribute *view_;
     module::StringChoiceAttribute *channel_;
+    module::StringChoiceAttribute *layer_;
     module::FloatAttribute *exposure_;
     module::FloatAttribute *gamma_;
     module::FloatAttribute *saturation_;
