@@ -11,11 +11,12 @@ import "./delegates"
 XsWindow {
     id: dialog
 
-	width: 550
-	minimumWidth: 550
-	height: 250
-	// minimumHeight: 250
-    property var row_widths: [100, 100, 100]
+    width: 700
+    minimumWidth: 600
+    height: 500
+    minimumHeight: 350
+
+    property var row_widths: [180, 140, 100]
     function setRowMinWidth(w, i) {
         if (w > row_widths[i]) {
             var r = row_widths
@@ -24,16 +25,18 @@ XsWindow {
         }
     }
 
-    title: "xSTUDIO Hotkeys"
+    property string searchFilter: ""
+
+    title: "xSTUDIO Hotkey Editor"
 
     ColumnLayout {
 
         anchors.fill: parent
         anchors.margins: 0
-        spacing: 10
+        spacing: 0
 
+        // Tab bar for categories
         TabBar {
-
             id: tabBar
 
             Layout.fillWidth: true
@@ -42,11 +45,9 @@ XsWindow {
             }
 
             Repeater {
-
                 model: hotkeysModel.categories
 
                 TabButton {
-
                     width: implicitWidth
 
                     contentItem: XsText {
@@ -57,40 +58,135 @@ XsWindow {
                     }
 
                     background: Rectangle {
-                        border.color: hovered? palette.highlight : "transparent"
+                        border.color: hovered ? palette.highlight : "transparent"
                         color: tabBar.currentIndex == index ? XsStyleSheet.panelTitleBarColor : Qt.darker(XsStyleSheet.panelTitleBarColor, 1.5)
                     }
                 }
-
             }
 
             onCurrentIndexChanged: {
                 hotkeysModel.currentCategory = hotkeysModel.categories[currentIndex]
             }
-
         }
 
+        // Search bar
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 36
+            color: Qt.darker(palette.base, 1.2)
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 10
+                anchors.rightMargin: 10
+                spacing: 8
+
+                XsText {
+                    text: "Search:"
+                    Layout.alignment: Qt.AlignVCenter
+                }
+
+                TextField {
+                    id: searchField
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 26
+                    placeholderText: "Filter hotkeys..."
+                    color: palette.text
+                    font.pixelSize: XsStyleSheet.fontSize
+                    background: Rectangle {
+                        color: palette.base
+                        border.color: searchField.activeFocus ? palette.highlight : XsStyleSheet.widgetBgNormalColor
+                        radius: 2
+                    }
+                    onTextChanged: {
+                        dialog.searchFilter = text.toLowerCase()
+                    }
+                }
+            }
+        }
+
+        // Column header
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 28
+            color: XsStyleSheet.panelTitleBarColor
+
+            RowLayout {
+                anchors.fill: parent
+                spacing: 0
+
+                XsText {
+                    Layout.preferredWidth: row_widths[0] + 20
+                    Layout.leftMargin: 10
+                    text: "Action"
+                    font.bold: true
+                    horizontalAlignment: Text.AlignLeft
+                }
+
+                Rectangle {
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: 1
+                    color: XsStyleSheet.widgetBgNormalColor
+                }
+
+                XsText {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 10
+                    text: "Shortcut"
+                    font.bold: true
+                    horizontalAlignment: Text.AlignLeft
+                }
+            }
+        }
+
+        // Hotkey list
         XsListView {
+            id: hotkeyListView
 
             Layout.fillWidth: true
             Layout.fillHeight: true
 
             model: hotkeysModel
-            delegate: XsHotkeyDetails {}
+            clip: true
 
+            ScrollBar.vertical: XsScrollBar {
+                policy: ScrollBar.AsNeeded
+            }
+
+            delegate: XsHotkeyEditorDelegate {
+                searchFilter: dialog.searchFilter
+            }
         }
 
-        XsSimpleButton {
+        // Bottom toolbar
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 44
+            color: palette.base
 
-            Layout.alignment: Qt.AlignRight|Qt.AlignVCenter
-            Layout.rightMargin: 10
-            Layout.bottomMargin: 10
-            text: qsTr("Close")
-            width: XsStyleSheet.primaryButtonStdWidth*2
-            onClicked: {
-                dialog.close()
+            RowLayout {
+                anchors.fill: parent
+                anchors.margins: 8
+                spacing: 8
+
+                XsSimpleButton {
+                    text: qsTr("Reset All")
+                    width: XsStyleSheet.primaryButtonStdWidth * 2
+                    onClicked: {
+                        hotkeysModel.resetAllHotkeys()
+                    }
+                }
+
+                Item { Layout.fillWidth: true }
+
+                XsSimpleButton {
+                    text: qsTr("Close")
+                    width: XsStyleSheet.primaryButtonStdWidth * 2
+                    onClicked: {
+                        dialog.close()
+                    }
+                }
             }
         }
     }
-
 }

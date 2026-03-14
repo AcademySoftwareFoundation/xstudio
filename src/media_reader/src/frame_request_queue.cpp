@@ -59,12 +59,15 @@ void FrameRequestQueue::add_frame_requests(
             -> bool { return a->required_by_ < b->required_by_; });
 }
 
-std::optional<FrameRequest>
-FrameRequestQueue::pop_request(const std::map<utility::Uuid, int> &exclude_playheads) {
+std::optional<FrameRequest> FrameRequestQueue::pop_request(
+    const std::map<utility::Uuid, int> &in_flight_counts,
+    const int max_in_flight) {
     std::optional<FrameRequest> rt = {};
 
     for (auto p = queue_.begin(); p != queue_.end(); p++) {
-        if (!exclude_playheads.count((*p)->requesting_playhead_uuid_)) {
+        auto it = in_flight_counts.find((*p)->requesting_playhead_uuid_);
+        // Allow up to max_in_flight concurrent reads per playhead
+        if (it == in_flight_counts.end() || it->second < max_in_flight) {
             rt = *(*p);
             queue_.erase(p);
             break;

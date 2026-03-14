@@ -1,10 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <iostream>
+#include <fstream>
+#include <filesystem>
 #include <caf/actor_registry.hpp>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/ui/qml/hotkey_ui.hpp"
+#include "xstudio/utility/json_store.hpp"
+
+#ifdef _WIN32
+#include <ShlObj.h>
+#endif
 
 using namespace caf;
 using namespace xstudio;
@@ -34,6 +41,14 @@ HotkeysUI::HotkeysUI(QObject *parent) : super(parent) {
             *sys, keyboard_manager, keypress_monitor::register_hotkey_atom_v);
 
         update_hotkeys_model_data(hotkeys);
+
+        // Capture defaults before applying overrides
+        for (const auto &hk : hotkeys_data_) {
+            default_sequences_[hk.hotkey_name()] = hk.hotkey_sequence();
+        }
+        defaults_captured_ = true;
+
+        loadHotkeyOverrides();
 
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -145,14 +160,241 @@ QVariant HotkeysUI::data(const QModelIndex &index, int role) const {
 
 bool HotkeysUI::setData(const QModelIndex &index, const QVariant &value, int role) {
 
-    /*role -= Qt::UserRole+1;
-    emit setAttributeFromFrontEnd(
-        attributes_data_[index.row()][Attribute::UuidRole].toUuid(),
-        role,
-        value
-        );*/
+    if (role == hotkeySequence) {
+        return rebindHotkey(index.row(), value.toString());
+    }
 
     return false;
+}
+
+const Hotkey *HotkeysUI::hotkeyAtRow(int row) const {
+    int ct = 0;
+    const std::string curr_cat(StdFromQString(current_category_));
+    for (const auto &hk : hotkeys_data_) {
+        if (hk.hotkey_origin() == curr_cat) {
+            if (ct == row)
+                return &hk;
+            ct++;
+        }
+    }
+    return nullptr;
+}
+
+Hotkey *HotkeysUI::hotkeyAtRow(int row) {
+    int ct = 0;
+    const std::string curr_cat(StdFromQString(current_category_));
+    for (auto &hk : hotkeys_data_) {
+        if (hk.hotkey_origin() == curr_cat) {
+            if (ct == row)
+                return &hk;
+            ct++;
+        }
+    }
+    return nullptr;
+}
+
+QString HotkeysUI::hotkeyNameAtRow(int model_row) const {
+    const auto *hk = hotkeyAtRow(model_row);
+    return hk ? QStringFromStd(hk->hotkey_name()) : QString();
+}
+
+QString HotkeysUI::hotkeySequenceAtRow(int model_row) const {
+    const auto *hk = hotkeyAtRow(model_row);
+    return hk ? QStringFromStd(hk->hotkey_sequence()) : QString();
+}
+
+QString HotkeysUI::hotkeyDescriptionAtRow(int model_row) const {
+    const auto *hk = hotkeyAtRow(model_row);
+    return hk ? QStringFromStd(hk->hotkey_description()) : QString();
+}
+
+QString HotkeysUI::checkConflict(int model_row, const QString &new_sequence) {
+    int new_key = 0, new_mod = 0;
+    Hotkey::sequence_to_key_and_modifier(StdFromQString(new_sequence), new_key, new_mod);
+    if (new_key == 0)
+        return QString();
+
+    const auto *target = hotkeyAtRow(model_row);
+    if (!target)
+        return QString();
+
+    for (const auto &hk : hotkeys_data_) {
+        if (hk.uuid() == target->uuid())
+            continue;
+        if (hk.modifiers() == new_mod) {
+            // Compare key codes - need to get the key code from the hotkey
+            int hk_key = 0, hk_mod = 0;
+            Hotkey::sequence_to_key_and_modifier(hk.hotkey_sequence(), hk_key, hk_mod);
+            if (hk_key == new_key) {
+                return QStringFromStd(hk.hotkey_name());
+            }
+        }
+    }
+    return QString();
+}
+
+bool HotkeysUI::rebindHotkey(int model_row, const QString &new_sequence) {
+    auto *hk = hotkeyAtRow(model_row);
+    if (!hk)
+        return false;
+
+    int new_key = 0, new_mod = 0;
+    Hotkey::sequence_to_key_and_modifier(StdFromQString(new_sequence), new_key, new_mod);
+    if (new_key == 0)
+        return false;
+
+    // Capture defaults on first rebind
+    if (!defaults_captured_) {
+        for (const auto &h : hotkeys_data_) {
+            default_sequences_[h.hotkey_name()] = h.hotkey_sequence();
+        }
+        defaults_captured_ = true;
+    }
+
+    try {
+        auto keyboard_manager = system().registry().template get<caf::actor>(keyboard_events);
+
+        // Create a new Hotkey with the updated key/modifiers
+        Hotkey new_hk(
+            new_key,
+            new_mod,
+            hk->hotkey_name(),
+            hk->hotkey_origin(),
+            hk->hotkey_description(),
+            "",     // window_name
+            false,  // auto_repeat
+            caf::actor_addr(),  // no watcher - existing watchers preserved by KeypressMonitor
+            hk->uuid());
+
+        // Send to KeypressMonitor which will call update() on existing hotkey
+        anon_mail(keypress_monitor::register_hotkey_atom_v, new_hk)
+            .send(keyboard_manager);
+
+        // Record the override immediately so saveHotkeyOverrides() can see
+        // it - the async broadcast from KeypressMonitor hasn't updated
+        // hotkeys_data_ yet at this point.
+        pending_overrides_[hk->hotkey_name()] = StdFromQString(new_sequence);
+
+        saveHotkeyOverrides();
+
+        return true;
+    } catch (const std::exception &err) {
+        spdlog::warn("rebindHotkey failed: {}", err.what());
+    }
+    return false;
+}
+
+void HotkeysUI::resetHotkey(int model_row) {
+    const auto *hk = hotkeyAtRow(model_row);
+    if (!hk)
+        return;
+
+    auto it = default_sequences_.find(hk->hotkey_name());
+    if (it != default_sequences_.end()) {
+        rebindHotkey(model_row, QStringFromStd(it->second));
+    }
+}
+
+void HotkeysUI::resetAllHotkeys() {
+    for (auto &[name, seq] : default_sequences_) {
+        // Find this hotkey in the current data and rebind
+        int ct = 0;
+        const std::string curr_cat(StdFromQString(current_category_));
+        for (auto &hk : hotkeys_data_) {
+            if (hk.hotkey_origin() == curr_cat) {
+                if (hk.hotkey_name() == name) {
+                    rebindHotkey(ct, QStringFromStd(seq));
+                }
+                ct++;
+            }
+        }
+    }
+}
+
+std::string HotkeysUI::hotkey_overrides_path() {
+    std::string dir;
+#ifdef _WIN32
+    char path[MAX_PATH];
+    if (SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, path))) {
+        dir = std::string(path) + "\\xstudio";
+    } else {
+        dir = ".";
+    }
+#else
+    const char *home = getenv("HOME");
+    dir = home ? std::string(home) + "/.config/xstudio" : ".";
+#endif
+    std::filesystem::create_directories(dir);
+    return dir + "/hotkey_overrides.json";
+}
+
+void HotkeysUI::saveHotkeyOverrides() {
+    try {
+        nlohmann::json overrides = nlohmann::json::object();
+
+        // Build overrides from pending_overrides_ which tracks rebinds
+        // immediately, rather than from hotkeys_data_ which is only updated
+        // asynchronously after the KeypressMonitor broadcast.
+        for (const auto &[name, seq] : pending_overrides_) {
+            auto it = default_sequences_.find(name);
+            if (it != default_sequences_.end() && it->second != seq) {
+                overrides[name] = seq;
+            }
+        }
+
+        std::ofstream ofs(hotkey_overrides_path());
+        if (ofs.is_open()) {
+            ofs << overrides.dump(2);
+            spdlog::info("Saved hotkey overrides to {}", hotkey_overrides_path());
+        }
+    } catch (const std::exception &err) {
+        spdlog::warn("Failed to save hotkey overrides: {}", err.what());
+    }
+}
+
+void HotkeysUI::loadHotkeyOverrides() {
+    try {
+        std::ifstream ifs(hotkey_overrides_path());
+        if (!ifs.is_open())
+            return;
+
+        nlohmann::json overrides;
+        ifs >> overrides;
+
+        auto keyboard_manager = system().registry().template get<caf::actor>(keyboard_events);
+
+        for (auto it = overrides.begin(); it != overrides.end(); ++it) {
+            const std::string &name = it.key();
+            const std::string &seq = it.value().get<std::string>();
+
+            // Find this hotkey
+            for (auto &hk : hotkeys_data_) {
+                if (hk.hotkey_name() == name) {
+                    int new_key = 0, new_mod = 0;
+                    Hotkey::sequence_to_key_and_modifier(seq, new_key, new_mod);
+                    if (new_key != 0) {
+                        Hotkey new_hk(
+                            new_key, new_mod,
+                            hk.hotkey_name(), hk.hotkey_origin(), hk.hotkey_description(),
+                            "", false, caf::actor_addr(), hk.uuid());
+                        anon_mail(keypress_monitor::register_hotkey_atom_v, new_hk)
+                            .send(keyboard_manager);
+                    }
+                    break;
+                }
+            }
+        }
+
+        // Populate pending_overrides_ so subsequent saves include loaded
+        // overrides that haven't been touched this session.
+        for (auto it = overrides.begin(); it != overrides.end(); ++it) {
+            pending_overrides_[it.key()] = it.value().get<std::string>();
+        }
+
+        spdlog::info("Loaded {} hotkey overrides from {}", overrides.size(), hotkey_overrides_path());
+    } catch (const std::exception &err) {
+        spdlog::debug("No hotkey overrides loaded: {}", err.what());
+    }
 }
 
 QString HotkeysUI::hotkey_sequence(const QVariant &hotkey_uuid) {

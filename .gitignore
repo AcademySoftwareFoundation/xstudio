@@ -14,3 +14,7 @@ python/src/xstudio/version.py
 /build/
 xstudio_install/
 **/qml/*_qml_export.h
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db

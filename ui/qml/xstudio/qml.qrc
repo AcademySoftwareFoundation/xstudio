@@ -184,6 +184,7 @@
 	    <file>widgets/controls/attr_controls/XsIntegerAttrControl.qml</file>
 
 	    <file>widgets/dialogs/hotkeys/delegates/XsHotkeyDetails.qml</file>
+	    <file>widgets/dialogs/hotkeys/delegates/XsHotkeyEditorDelegate.qml</file>
 	    <file>widgets/dialogs/hotkeys/XsHotkeysDialog.qml</file>
 	    <file>widgets/dialogs/preferences/delegates/XsColourPreference.qml</file>
 	    <file>widgets/dialogs/preferences/delegates/XsCompareModePref.qml</file>

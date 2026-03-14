@@ -787,25 +787,27 @@ void GlobalMediaReaderActor::on_exit() { system().registry().erase(media_reader_
 
 void GlobalMediaReaderActor::do_precache() {
 
-    // We won't process a new request if there are already precache requests in
-    // flight for a given playhead. The reason is the async nature of CAF ...
-    // we could send 100s of requests to precache frames (sending messages is
-    // fast) before frames can actually be read, decoded and cached (because
-    // reading frames is slow) - we would then be in a situation where the CAF
-    // mailbox is full of requests to precache frames
+    // Allow up to max_in_flight concurrent precache reads per playhead.
+    // Previously this was limited to 1, serializing all reads.
+    // We loop here to dispatch multiple requests up to the limit.
+    static constexpr int max_in_flight = 4;
+
+    // Try to dispatch as many requests as allowed
+    for (int dispatched = 0; dispatched < max_in_flight; ++dispatched) {
+
     std::optional<FrameRequest> fr = playback_precache_request_queue_.pop_request(
-        playheads_with_precache_requests_in_flight_);
+        playheads_with_precache_requests_in_flight_, max_in_flight);
 
     // when putting new images in the cache, images older than this timepoint can
     // be discarded
     bool is_background_cache = false;
     if (not fr) {
         fr = background_precache_request_queue_.pop_request(
-            playheads_with_precache_requests_in_flight_);
+            playheads_with_precache_requests_in_flight_, max_in_flight);
 
 
         if (not fr) {
-            return; // global reader is saying pre-cache queue for this reader is empty
+            return; // no more requests to dispatch
         }
         is_background_cache = true;
     }
@@ -893,19 +895,20 @@ void GlobalMediaReaderActor::do_precache() {
                                     is_background_cache);
                             }
                         }
-                    } catch (std::exception &) {
+                    } catch (std::exception &e) {
                         // we have been unable to create a reader - the file is
                         // unreadable for some reason. We do not want to report an
                         // error because we are currently pre-cacheing. The error
-                        // *will* get reported when we actaully want to show the
-                        // image as an immediate frame request wlil be made as the
+                        // *will* get reported when we actually want to show the
+                        // image as an immediate frame request will be made as the
                         // image isn't in the cache, and at that point error message
                         // propagation will give the user feedback about the frame
-                        // being unreadable
-
-                        // shouldn't it continue... ?
-                        // mark_playhead_received_precache_result(playhead_uuid);
-                        // continue_precacheing();
+                        // being unreadable.
+                        // We MUST release the in-flight marker and continue, otherwise
+                        // the precache pipeline stalls permanently for this playhead.
+                        spdlog::warn("Precache get_reader failed: {}", e.what());
+                        mark_playhead_received_precache_result(playhead_uuid);
+                        continue_precacheing();
                     }
                 }
             },
@@ -914,6 +917,8 @@ void GlobalMediaReaderActor::do_precache() {
                 spdlog::warn(
                     "Failed preserve buffer {} {}", to_string(mptr->key()), to_string(err));
             });
+
+    } // end for (dispatched)
 }
 
 void GlobalMediaReaderActor::keep_cache_hot(

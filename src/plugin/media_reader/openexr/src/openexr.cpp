@@ -2,6 +2,8 @@
 #include <filesystem>
 #include <algorithm>
 #include <cctype>
+#include <mutex>
+#include <thread>
 
 #include <Iex.h>
 #include <IexErrnoExc.h>
@@ -63,17 +65,22 @@ bool crop_data_window(
 
     const Imath::Box2i in_data_window = data_window;
 
-    data_window.min.x =
-        std::max(data_window.min.x, (int)round(-float(width) * overscan_percent / 100.0f));
+    // Compute the allowed overscan in pixels from the display window edges.
+    // At 0% overscan, the data window is clipped exactly to the display window.
+    const int overscan_x = (int)round(float(width) * overscan_percent / 100.0f);
+    const int overscan_y = (int)round(float(height) * overscan_percent / 100.0f);
 
-    data_window.max.x = std::min(
-        data_window.max.x, (int)round(float(width) * (overscan_percent / 100.0f + 1.0f)));
+    data_window.min.x =
+        std::max(data_window.min.x, display_window.min.x - overscan_x);
+
+    data_window.max.x =
+        std::min(data_window.max.x, display_window.max.x + overscan_x);
 
     data_window.min.y =
-        std::max(data_window.min.y, (int)round(-float(height) * overscan_percent / 100.0f));
+        std::max(data_window.min.y, display_window.min.y - overscan_y);
 
-    data_window.max.y = std::min(
-        data_window.max.y, (int)round(float(height) * (overscan_percent / 100.0f + 1.0f)));
+    data_window.max.y =
+        std::min(data_window.max.y, display_window.max.y + overscan_y);
 
     return in_data_window != data_window;
 }
@@ -180,9 +187,9 @@ static ui::viewport::GPUShaderPtr
 
 OpenEXRMediaReader::OpenEXRMediaReader(const utility::JsonStore &prefs)
     : MediaReader("OpenEXR", prefs) {
-    Imf::setGlobalThreadCount(16);
-    max_exr_overscan_percent_ = 5.0f;
+    max_exr_overscan_percent_ = 0.0f;
     readers_per_source_       = 1;
+    exr_thread_count_         = 16;
 
     update_preferences(prefs);
 }
@@ -202,6 +209,18 @@ void OpenEXRMediaReader::update_preferences(const utility::JsonStore &prefs) {
     } catch (const std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
+    try {
+        exr_thread_count_ =
+            preference_value<int>(prefs, "/plugin/media_reader/OpenEXR/exr_thread_count");
+    } catch (const std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+
+    // Apply OpenEXR decompression thread count.
+    // 0 = single-threaded: no internal threading.
+    // Non-zero: use the specified value directly (default=16).
+    Imf::setGlobalThreadCount(exr_thread_count_);
+    spdlog::info("OpenEXR global thread count set to {} (preference: {})", exr_thread_count_, exr_thread_count_);
 }
 
 ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
@@ -678,8 +697,8 @@ xstudio::media::MediaDetail OpenEXRMediaReader::detail(const caf::uri &uri) cons
         PartDetail pd;
         stream_ids_from_exr_part(part_header, pd.stream_ids);
         pd.resolution = {
-            part_header.displayWindow().max.x - part_header.displayWindow().min.x,
-            part_header.displayWindow().max.y - part_header.displayWindow().min.y};
+            part_header.displayWindow().max.x - part_header.displayWindow().min.x + 1,
+            part_header.displayWindow().max.y - part_header.displayWindow().min.y + 1};
         pd.pixel_aspect = part_header.pixelAspectRatio();
         pd.part_number  = prt;
         parts_detail.push_back(pd);

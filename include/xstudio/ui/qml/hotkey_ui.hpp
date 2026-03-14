@@ -91,6 +91,19 @@ namespace ui {
 
             Q_INVOKABLE QString hotkey_sequence_from_hotkey_name(const QString &hotkey_name);
 
+            Q_INVOKABLE bool rebindHotkey(int model_row, const QString &new_sequence);
+
+            Q_INVOKABLE QString checkConflict(int model_row, const QString &new_sequence);
+
+            Q_INVOKABLE void resetHotkey(int model_row);
+
+            Q_INVOKABLE void resetAllHotkeys();
+
+            Q_INVOKABLE QString hotkeyNameAtRow(int model_row) const;
+
+            Q_INVOKABLE QString hotkeySequenceAtRow(int model_row) const;
+
+            Q_INVOKABLE QString hotkeyDescriptionAtRow(int model_row) const;
 
           signals:
 
@@ -103,6 +116,11 @@ namespace ui {
           private:
             void update_hotkeys_model_data(const std::vector<Hotkey> &new_hotkeys_data);
             void checkCategories();
+            const Hotkey *hotkeyAtRow(int row) const;
+            Hotkey *hotkeyAtRow(int row);
+            void saveHotkeyOverrides();
+            void loadHotkeyOverrides();
+            static std::string hotkey_overrides_path();
 
             caf::actor_system &system() { return self()->home_system(); }
             virtual void init(caf::actor_system &system) { super::init(system); }
@@ -110,6 +128,9 @@ namespace ui {
             std::vector<Hotkey> hotkeys_data_;
             QStringList categories_;
             QString current_category_;
+            std::map<std::string, std::string> default_sequences_;
+            std::map<std::string, std::string> pending_overrides_;
+            bool defaults_captured_ = false;
         };
 
         class VIEWPORT_QML_EXPORT HotkeyUI : public QMLActor {

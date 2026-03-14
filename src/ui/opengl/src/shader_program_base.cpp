@@ -532,8 +532,8 @@ vec4 get_bicubic_filter(vec2 pos)
 
 void main(void)
 {
-    if (texPosition.x < image_bounds_min.x || texPosition.x > image_bounds_max.x) FragColor = vec4(1.0,0.0,0.0,1.0);
-    else if (texPosition.y < image_bounds_min.y || texPosition.y > image_bounds_max.y) FragColor = vec4(0.0,.0,1.0,1.0);
+    if (texPosition.x < image_bounds_min.x || texPosition.x > image_bounds_max.x) FragColor = vec4(0.0,0.0,0.0,1.0);
+    else if (texPosition.y < image_bounds_min.y || texPosition.y > image_bounds_max.y) FragColor = vec4(0.0,0.0,0.0,1.0);
     else {
 
         // For now, disabling bilinear filtering as it is too expensive and slowing refresh badly

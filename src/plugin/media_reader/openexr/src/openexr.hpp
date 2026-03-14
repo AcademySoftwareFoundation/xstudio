@@ -53,6 +53,7 @@ namespace media_reader {
 
         float max_exr_overscan_percent_;
         int readers_per_source_;
+        int exr_thread_count_;
     };
 } // namespace media_reader
 } // namespace xstudio
