@@ -1960,6 +1960,23 @@ Rectangle {
                                 }
                             }
                         }
+                        MenuItem {
+                            text: "Compare " + root.selectedFiles.length + " Items"
+                            visible: root.selectedFiles.length >= 2
+                            height: visible ? implicitHeight : 0
+                            onTriggered: {
+                                var paths = []
+                                for (var i = 0; i < root.selectedFiles.length; i++) {
+                                    var item = visibleTreeList[root.selectedFiles[i]]
+                                    if (item && !item.isFolder) {
+                                        paths.push(item.path)
+                                    }
+                                }
+                                if (paths.length >= 2) {
+                                    sendCommand({"action": "compare_items", "paths": paths})
+                                }
+                            }
+                        }
                         MenuSeparator {
                             visible: root.selectedFiles.length > 1
                             height: visible ? implicitHeight : 0

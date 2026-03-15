@@ -1007,6 +1007,15 @@ Rectangle {
         componentName: "Timeline"
     }
 
+    XsHotkey {
+        context: hotkey_area_id
+        sequence: "Shift+Z"
+        name: "Fit All"
+        description: "Zoom timeline to fit all clips"
+        onActivated: fitItems()
+        componentName: "Timeline"
+    }
+
     function jumpToNextMarker() {
         let m = markerModel()
         let current = timelinePlayhead.logicalFrame;
@@ -1615,15 +1624,34 @@ Rectangle {
                         scaleY = Math.max(0.6, scaleY - 0.2)
                     }
                     wheel.accepted = true
-                } else if(wheel.modifiers == Qt.ControlModifier) {
+                } else if(wheel.modifiers == Qt.ControlModifier || wheel.modifiers == Qt.AltModifier) {
+                    let stackItem = list_view.itemAtIndex(0)
+                    if(!stackItem) { wheel.accepted = true; return }
+
+                    // Calculate frame at cursor position before zoom
+                    let cursorScreenX = wheel.x - trackHeaderWidth
+                    let oldScale = scaleX
+                    let scrollOffset = stackItem.currentPosition() * stackItem.myWidth
+                    let frameAtCursor = stackItem.trimmedStartRole + (scrollOffset + cursorScreenX) / oldScale
+
+                    // Apply zoom
                     let tmp = scaleX
-                    if(wheel.angleDelta.y > 1) {
-                        tmp += 0.2
+                    let zoomFactor = wheel.angleDelta.y > 1 ? 1.15 : (1.0 / 1.15)
+                    tmp = tmp * zoomFactor
+                    let minScale = (list_view.width - trackHeaderWidth) / theSessionData.timelineRect([timeline_items.rootIndex]).width
+                    scaleX = Math.max(minScale, tmp)
+
+                    if(wheel.modifiers == Qt.AltModifier) {
+                        // Keep frame at cursor: reposition scroll so frameAtCursor stays at cursorScreenX
+                        let newMyWidth = stackItem.myWidth
+                        let newFramePixel = (frameAtCursor - stackItem.trimmedStartRole) * scaleX
+                        let newScrollOffset = newFramePixel - cursorScreenX
+                        let newPosition = newScrollOffset / newMyWidth
+                        stackItem.jumpToPosition(newPosition)
                     } else {
-                        tmp -= 0.2
+                        // Ctrl+wheel: center on playhead (original behavior)
+                        stackItem.jumpToFrame(timelinePlayhead.logicalFrame, ListView.Center)
                     }
-                    scaleX = Math.max((list_view.width - trackHeaderWidth) / theSessionData.timelineRect([timeline_items.rootIndex]).width, tmp)
-                    list_view.itemAtIndex(0).jumpToFrame(timelinePlayhead.logicalFrame, ListView.Center)
                     wheel.accepted = true
                 } else if(hovered != null && ["Video Track", "Audio Track","Gap","Clip"].includes(hovered.itemTypeRole)) {
                     if(["Video Track", "Audio Track"].includes(hovered.itemTypeRole))
@@ -1989,18 +2017,35 @@ Rectangle {
         property bool dragTarget: false
         property var modelIndex: null
         property bool newVideoTrack: true
+        property string dragSource: ""
+        property var dragUriData: ""
+        property int dragItemCount: 0
 
         onDragEntered: (mousePosition, source, data) => {
-            // console.log(source, data)
             if (source == "MediaList" && typeof data == "object" && data.length) {
+                dragSource = "MediaList"
+                dragItemCount = data.length
                 dragTarget = true
-                processPosition(mousePosition.x, mousePosition.y, data)
+                processPosition(mousePosition.x, mousePosition.y)
+            } else if (source == "External URIS" || source == "External JSON") {
+                dragSource = source
+                dragUriData = data
+                // Count URIs: split by newline, filter empty
+                if (typeof data === "string") {
+                    dragItemCount = data.split("\n").filter(function(s){ return s.trim().length > 0 }).length
+                } else {
+                    dragItemCount = 1
+                }
+                dragTarget = true
+                processPosition(mousePosition.x, mousePosition.y)
             }
         }
 
         onDragExited: {
             if(dragTarget) {
                 dragTarget = false
+                dragSource = ""
+                dragItemCount = 0
                 modelIndex = null
                 dragInsert.visible = false
                 dragPrepend.visible = false
@@ -2011,55 +2056,81 @@ Rectangle {
 
         onDragged: (mousePosition, source, data) => {
             if(dragTarget)
-                processPosition(mousePosition.x, mousePosition.y, data)
+                processPosition(mousePosition.x, mousePosition.y)
         }
 
 		onDropped: (mousePosition, source, data) => {
 			if (dragTarget) {
-                processPosition(mousePosition.x, mousePosition.y, data)
+                processPosition(mousePosition.x, mousePosition.y)
 
                 if(modelIndex) {
-                    // determine what we need to do..
-                    let type = modelIndex.model.get(modelIndex, "typeRole")
-                    let new_indexes = theSessionData.moveRows(
-                        data,
-                        -1, // insertion row: make invalid so always inserts on the end
-                        timeline_items.rootIndex.parent,
-                        true
-                    )
-                    if(dragReplace.visible) {
-                        // replace clip media.
-                        modelIndex.model.set(
-                            modelIndex,
-                            modelIndex.model.get(new_indexes[0],"actorUuidRole"),
-                            "clipMediaUuidRole"
-                        )
-                    } else {
-                        let clipRow = 0;
-                        let clipParent = null
 
-                        if(type == "Video Track" || type == "Audio Track") {
-                            // append
-                            clipParent = modelIndex
-                            clipRow = modelIndex.model.rowCount(modelIndex)
-                        } else if(type == "Stack") {
-                            // new track, but which ? audio or video..
-                            if(newVideoTrack) {
-                                clipParent = addTrack("Video Track")[0]
-                                clipRow = 0
+                    if (dragSource == "External URIS" || dragSource == "External JSON") {
+                        // File URI drop from filesystem browser or external source.
+                        // Use handleDropFuture which creates media + clips automatically.
+                        let dropData = (dragSource == "External URIS")
+                            ? {"text/uri-list": dragUriData}
+                            : dragUriData
+                        let targetIndex = modelIndex
+                        let type = modelIndex.model.get(modelIndex, "typeRole")
+
+                        // If dropping on the Stack, create a new track first
+                        if (type == "Stack") {
+                            if (newVideoTrack) {
+                                targetIndex = addTrack("Video Track")[0]
                             } else {
-                                clipParent = addTrack("Audio Track")[0]
-                                clipRow = 0
+                                targetIndex = addTrack("Audio Track")[0]
                             }
-                        } else {
-                            clipParent = modelIndex.parent
-                            clipRow = modelIndex.row
                         }
 
-        				for (var c = 0; c < new_indexes.length; ++c) {
-                            // must add to container..
-        					theSessionData.insertTimelineClip(c + clipRow, clipParent, new_indexes[c], "")
-        				}
+                        Future.promise(
+                            theSessionData.handleDropFuture(
+                                Qt.CopyAction,
+                                dropData,
+                                targetIndex)
+                        ).then(function(quuids){
+                            // Media created and clips inserted by C++
+                        })
+
+                    } else {
+                        // MediaList drop — existing behaviour
+                        let type = modelIndex.model.get(modelIndex, "typeRole")
+                        let new_indexes = theSessionData.moveRows(
+                            data,
+                            -1,
+                            timeline_items.rootIndex.parent,
+                            true
+                        )
+                        if(dragReplace.visible) {
+                            modelIndex.model.set(
+                                modelIndex,
+                                modelIndex.model.get(new_indexes[0],"actorUuidRole"),
+                                "clipMediaUuidRole"
+                            )
+                        } else {
+                            let clipRow = 0;
+                            let clipParent = null
+
+                            if(type == "Video Track" || type == "Audio Track") {
+                                clipParent = modelIndex
+                                clipRow = modelIndex.model.rowCount(modelIndex)
+                            } else if(type == "Stack") {
+                                if(newVideoTrack) {
+                                    clipParent = addTrack("Video Track")[0]
+                                    clipRow = 0
+                                } else {
+                                    clipParent = addTrack("Audio Track")[0]
+                                    clipRow = 0
+                                }
+                            } else {
+                                clipParent = modelIndex.parent
+                                clipRow = modelIndex.row
+                            }
+
+                            for (var c = 0; c < new_indexes.length; ++c) {
+                                theSessionData.insertTimelineClip(c + clipRow, clipParent, new_indexes[c], "")
+                            }
+                        }
                     }
                     modelIndex = null
                 }
@@ -2072,7 +2143,7 @@ Rectangle {
 			}
         }
 
-        function processPosition(x, y, data) {
+        function processPosition(x, y) {
             let [item, item_type, local_x, local_y] = resolveItem(x, y)
             let handle = 16
             let show_dragPrepend = false
@@ -2113,7 +2184,7 @@ Rectangle {
                             show_dragInsert = true
                             modelIndex = item.modelIndex().model.index(item_row+1,0,item.modelIndex().parent)
                         }
-                    } else if(data.length == 1 && item_type == "Clip"){
+                    } else if(dragItemCount == 1 && item_type == "Clip"){
                         let ppos = mapFromItem(item, 0, 0)
                         dragReplace.x = ppos.x
                         dragReplace.y = ppos.y

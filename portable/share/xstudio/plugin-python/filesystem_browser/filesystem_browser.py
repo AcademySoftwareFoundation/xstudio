@@ -485,6 +485,11 @@ class FilesystemBrowserPlugin(PluginBase):
                     if paths:
                         self._load_multiple_files(paths)
 
+                elif action == "compare_items":
+                    paths = data.get("paths", [])
+                    if len(paths) >= 2:
+                        self._compare_items(paths)
+
                 elif action == "preview_file":
                     file_path = data.get("path")
                     self._preview_file(file_path)
@@ -1277,6 +1282,74 @@ class FilesystemBrowserPlugin(PluginBase):
              print(f"Compare error: {e}")
              import traceback
              traceback.print_exc()
+
+    def _compare_items(self, paths):
+        """Load multiple files and set viewport to compare mode."""
+        try:
+            print(f"Compare items: {len(paths)} files")
+
+            # 1. Find a valid playlist
+            playlist = None
+            try:
+                selection = self.connection.api.session.selected_containers
+                for item in selection:
+                    if hasattr(item, 'add_media') and item.name != "Preview":
+                        playlist = item
+                        break
+            except Exception:
+                pass
+
+            if not playlist:
+                try:
+                    viewed = self.connection.api.session.viewed_container
+                    if hasattr(viewed, 'add_media') and viewed.name != "Preview":
+                        playlist = viewed
+                except Exception:
+                    pass
+
+            if not playlist:
+                try:
+                    for p in self.connection.api.session.playlists:
+                        if p.name != "Preview":
+                            playlist = p
+                            break
+                except Exception:
+                    pass
+
+            if not playlist:
+                print("No playlist found for compare.")
+                return
+
+            self.connection.api.session.set_on_screen_source(playlist)
+
+            # 2. Add all media items to the playlist
+            media_uuids = []
+            for path in paths:
+                media = self._add_media_to_playlist(playlist, path)
+                if media:
+                    media_uuids.append(media.uuid)
+
+            if len(media_uuids) < 2:
+                print("Could not load enough media for compare.")
+                return
+
+            # 3. Select all the loaded media items
+            if hasattr(playlist, 'playhead_selection'):
+                playlist.playhead_selection.set_selection(media_uuids)
+
+            # 4. Set compare mode: A/B for 2 items, Grid for 3+
+            if hasattr(playlist, 'playhead'):
+                if len(media_uuids) == 2:
+                    playlist.playhead.compare_mode = "A/B"
+                else:
+                    playlist.playhead.compare_mode = "Grid"
+
+            print(f"Compare mode set for {len(media_uuids)} items.")
+
+        except Exception as e:
+            print(f"Compare items error: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _add_to_history(self, path):
         try:
