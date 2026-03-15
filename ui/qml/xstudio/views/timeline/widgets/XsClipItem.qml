@@ -42,6 +42,7 @@ XsGradientRectangle {
 	signal tapped(button: int, x: real, y: real, modifiers: int)
 
     opacity: isHovered ? 1.0 : isEnabled ? (isLocked ? 0.6 : 1.0) : 0.3
+    clip: true
 
 	border.width: 1
     border.color: isHovered ? palette.highlight : (isMissingMedia && isEnabled ? "Red" : (isInvalidRange && isEnabled ? "Orange" : Qt.darker(realColor, 0.8)))
@@ -309,9 +310,14 @@ XsGradientRectangle {
             onHoveredChanged: {
             	if(!isDragging && !rightRightDragHandler.active) {
 	            	if(hovered) {
-						dragRightRightIndicator.parent = control.parent.parent.parent.parent
+	            		var ancestor = control.parent.parent.parent.parent
+						dragRightRightIndicator.parent = ancestor
+						dragRightRightIndicator.y = Qt.binding(function() { return control.mapToItem(ancestor, 0, 0).y })
+						dragRightRightIndicator.height = Qt.binding(function() { return control.height })
 	            	} else {
 						dragRightRightIndicator.parent = parent
+						dragRightRightIndicator.y = 0
+						dragRightRightIndicator.height = Qt.binding(function() { return parent.height })
 	            	}
 	            }
             }
@@ -320,8 +326,7 @@ XsGradientRectangle {
 		XsClipDragBoth {
 			id: dragRightRightIndicator
 			visible: (hoveredDragRightRight.hovered && !isDragging) || rightRightDragHandler.active
-			anchors.top: parent.top
-			anchors.bottom: parent.bottom
+			height: parent.height
 			x: control.mapToItem(parent, 0, 0).x +  (control.width - width/2)
 			thickness: 2
 			gap: 4
@@ -340,12 +345,17 @@ XsGradientRectangle {
             onTranslationChanged: dragging("rightright", translation.x, 0)
             onActiveChanged: {
             	if(active) {
-            		dragRightRightIndicator.parent = control.parent.parent.parent.parent
+            		var ancestor = control.parent.parent.parent.parent
+            		dragRightRightIndicator.parent = ancestor
+            		dragRightRightIndicator.y = Qt.binding(function() { return control.mapToItem(ancestor, 0, 0).y })
+            		dragRightRightIndicator.height = Qt.binding(function() { return control.height })
             		parent.anchors.right = undefined
             		draggingStarted("rightright")
             	} else {
             		draggingStopped("rightright")
             		dragRightRightIndicator.parent = parent
+            		dragRightRightIndicator.y = 0
+            		dragRightRightIndicator.height = Qt.binding(function() { return parent.height })
 	            	parent.anchors.right = parent.parent.right
 	            }
             }

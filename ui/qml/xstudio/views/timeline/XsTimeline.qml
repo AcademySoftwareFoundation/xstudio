@@ -1565,8 +1565,8 @@ Rectangle {
                         if(!updateRegionTimer.running)
                             updateRegionTimer.start()
                     } else {
-                        if(editMode == "Move" || editMode == "Roll") {
-                            showHandles(mouse.x, mouse.y)
+                        if(editMode == "Select" || editMode == "Move" || editMode == "Roll") {
+                            showHandles(mouse.x, mouse.y, editMode == "Select")
                         } else if(editMode == "Cut") {
                             // calculate timeline frame posisiton.
                             // from mouse position.
@@ -1636,7 +1636,7 @@ Rectangle {
                 }
             }
 
-            function showHandles(mousex, mousey) {
+            function showHandles(mousex, mousey, selectMode) {
                 let [item, item_type, local_x, local_y] = resolveItem(mousex, mousey)
 
                 if(hovered != item) {
@@ -1645,11 +1645,11 @@ Rectangle {
                     hovered = item
 
                     if(hovered) {
-                        if(["Select"].includes(editMode))
-                            return
-
-                        if("Clip" == item_type)
-                            theSessionData.updateTimelineItemDragFlag([hovered.modelIndex()], editMode == "Roll", rippleMode, overwriteMode)
+                        if("Clip" == item_type) {
+                            // In Select mode, force ripple=true to suppress slip handles (leftleft/rightright)
+                            let effectiveRipple = selectMode ? true : rippleMode
+                            theSessionData.updateTimelineItemDragFlag([hovered.modelIndex()], editMode == "Roll", effectiveRipple, overwriteMode)
+                        }
                     }
                 }
             }

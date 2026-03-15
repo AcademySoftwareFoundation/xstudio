@@ -63,6 +63,24 @@ XsPopupMenu {
         onActivated: hideMarkers = !hideMarkers
     }
 
+    XsMenuModelItem {
+        text: qsTr("Fit Selection")
+        menuPath: ""
+        menuItemPosition: 1.6
+        menuModelName: timelineMenu.menu_model_name
+        onActivated: theTimeline.fitItems(timelineSelection.selectedIndexes)
+        panelContext: timelineMenu.panelContext
+    }
+
+    XsMenuModelItem {
+        text: qsTr("Fit All")
+        menuPath: ""
+        menuItemPosition: 1.7
+        menuModelName: timelineMenu.menu_model_name
+        onActivated: theTimeline.fitItems()
+        panelContext: timelineMenu.panelContext
+    }
+
    XsMenuModelItem {
         text: qsTr("Frame")
         menuPath: "Time Mode"
