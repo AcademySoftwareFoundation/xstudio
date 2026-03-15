@@ -101,6 +101,41 @@ Rectangle {
     property var historyList: []
     property var pinnedList: []
     property var combinedList: []
+    property var selectedFiles: []  // Array of indices selected in file list
+
+    function isFileSelected(index) {
+        return selectedFiles.indexOf(index) !== -1
+    }
+
+    function clearSelection() {
+        selectedFiles = []
+    }
+
+    function toggleFileSelection(index) {
+        var sel = selectedFiles.slice()
+        var pos = sel.indexOf(index)
+        if (pos !== -1) {
+            sel.splice(pos, 1)
+        } else {
+            sel.push(index)
+        }
+        selectedFiles = sel
+    }
+
+    function selectRange(fromIndex, toIndex) {
+        var sel = selectedFiles.slice()
+        var start = Math.min(fromIndex, toIndex)
+        var end = Math.max(fromIndex, toIndex)
+        for (var i = start; i <= end; i++) {
+            var item = visibleTreeList[i]
+            if (item && !item.isFolder) {
+                if (sel.indexOf(i) === -1) {
+                    sel.push(i)
+                }
+            }
+        }
+        selectedFiles = sel
+    }
 
     function updateCombinedList() {
         var combined = []
@@ -169,6 +204,7 @@ Rectangle {
         
         function updateList() {
              var rawVal = value
+             root.clearSelection()
              try {
                 if (typeof(rawVal) === "string" && rawVal !== "") {
                     if (rawVal === "[]") {
@@ -934,9 +970,10 @@ Rectangle {
                     id: dirTree
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    
+
                     pluginData: pluginData
                     currentPath: current_path_attr.value
+                    pinnedList: root.pinnedList
                     
                     onSendCommand: (cmd) => root.sendCommand(cmd)
                     
@@ -1720,7 +1757,7 @@ Rectangle {
                     width: totalContentWidth
                     height: rowHeight
 
-                    property bool isSelected: ListView.isCurrentItem
+                    property bool isSelected: ListView.isCurrentItem || root.isFileSelected(index)
                     property bool isHovered: false
                     property string itemPath: modelData.path
                     property bool isItemFolder: modelData.isFolder
@@ -1778,16 +1815,25 @@ Rectangle {
 
                         onClicked: (mouse) => {
                             if (dragActive) return; // Don't click after drag
-                            fileListView.currentIndex = index
                             fileListView.forceActiveFocus()
                             if (mouse.button === Qt.RightButton) {
+                                fileListView.currentIndex = index
                                 contextMenu.popup()
                             } else if (mouse.button === Qt.LeftButton) {
                                 if (modelData.isFolder) {
+                                    root.clearSelection()
                                     sendCommand({"action": "change_path", "path": modelData.path})
                                 } else {
-                                    root.pendingPreviewPath = modelData.path
-                                    previewTimer.restart()
+                                    if (mouse.modifiers & Qt.ControlModifier) {
+                                        root.toggleFileSelection(index)
+                                    } else if (mouse.modifiers & Qt.ShiftModifier) {
+                                        root.selectRange(fileListView.currentIndex, index)
+                                    } else {
+                                        root.clearSelection()
+                                        fileListView.currentIndex = index
+                                        root.pendingPreviewPath = modelData.path
+                                        previewTimer.restart()
+                                    }
                                 }
                             }
                         }
@@ -1797,6 +1843,19 @@ Rectangle {
                                 fileListView.currentIndex = index
                                 if (modelData.isFolder) {
                                     sendCommand({"action": "change_path", "path": modelData.path})
+                                } else if (root.selectedFiles.length > 1) {
+                                    // Load all selected files
+                                    var paths = []
+                                    for (var i = 0; i < root.selectedFiles.length; i++) {
+                                        var item = visibleTreeList[root.selectedFiles[i]]
+                                        if (item && !item.isFolder) {
+                                            paths.push(item.path)
+                                        }
+                                    }
+                                    if (paths.length > 0) {
+                                        isPreviewMode = false
+                                        sendCommand({"action": "load_files", "paths": paths})
+                                    }
                                 } else {
                                     isPreviewMode = false
                                     sendCommand({"action": "load_file", "path": modelData.path})
@@ -1885,12 +1944,62 @@ Rectangle {
                         }
 
                         MenuItem {
+                            text: "Load " + root.selectedFiles.length + " Selected Files"
+                            visible: root.selectedFiles.length > 1
+                            height: visible ? implicitHeight : 0
+                            onTriggered: {
+                                var paths = []
+                                for (var i = 0; i < root.selectedFiles.length; i++) {
+                                    var item = visibleTreeList[root.selectedFiles[i]]
+                                    if (item && !item.isFolder) {
+                                        paths.push(item.path)
+                                    }
+                                }
+                                if (paths.length > 0) {
+                                    sendCommand({"action": "load_files", "paths": paths})
+                                }
+                            }
+                        }
+                        MenuSeparator {
+                            visible: root.selectedFiles.length > 1
+                            height: visible ? implicitHeight : 0
+                            contentItem: Rectangle { implicitHeight: 1; color: "#555555" }
+                        }
+                        MenuItem {
                             text: "Replace"
+                            visible: !modelData.isFolder
+                            height: visible ? implicitHeight : 0
                             onTriggered: sendCommand({"action": "replace_current_media", "path": modelData.path})
                         }
                         MenuItem {
                             text: "Compare with"
+                            visible: !modelData.isFolder
+                            height: visible ? implicitHeight : 0
                             onTriggered: sendCommand({"action": "compare_with_current_media", "path": modelData.path})
+                        }
+                        MenuSeparator {
+                            visible: !modelData.isFolder
+                            height: visible ? implicitHeight : 0
+                            contentItem: Rectangle { implicitHeight: 1; color: "#555555" }
+                        }
+                        MenuItem {
+                            property bool pathIsPinned: {
+                                if (!modelData || !modelData.path) return false
+                                for (var i = 0; i < pinnedList.length; i++) {
+                                    if (pinnedList[i].path === modelData.path) return true
+                                }
+                                return false
+                            }
+                            visible: modelData.isFolder
+                            height: visible ? implicitHeight : 0
+                            text: pathIsPinned ? "Remove from Favorites" : "Add to Favorites"
+                            onTriggered: {
+                                if (pathIsPinned) {
+                                    sendCommand({"action": "remove_pin", "path": modelData.path})
+                                } else {
+                                    sendCommand({"action": "add_pin", "name": modelData.name, "path": modelData.path})
+                                }
+                            }
                         }
                     }
                 }

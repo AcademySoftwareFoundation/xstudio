@@ -10,6 +10,7 @@ Rectangle {
     // Properties to communicate with parent
     property var pluginData: null
     property var currentPath: "/"
+    property var pinnedList: []
 
     signal sendCommand(var cmd)
 
@@ -404,10 +405,73 @@ Rectangle {
                     id: msgMouse
                     anchors.fill: parent
                     hoverEnabled: true
-                    acceptedButtons: Qt.LeftButton
-                    
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+
                     onClicked: (mouse) => {
-                         sendTreeCommand({"action": "change_path", "path": model.path});
+                        if (mouse.button === Qt.RightButton) {
+                            treeContextMenu.targetPath = model.path
+                            treeContextMenu.targetName = model.name
+                            treeContextMenu.popup()
+                        } else {
+                            sendTreeCommand({"action": "change_path", "path": model.path});
+                        }
+                    }
+                }
+
+                Menu {
+                    id: treeContextMenu
+
+                    property string targetPath: ""
+                    property string targetName: ""
+
+                    background: Rectangle {
+                        implicitWidth: 180
+                        implicitHeight: 40
+                        color: "#333333"
+                        border.color: "#555555"
+                        radius: 3
+                    }
+
+                    delegate: MenuItem {
+                        id: treeMenuItem
+                        contentItem: Text {
+                            text: treeMenuItem.text
+                            color: "#e0e0e0"
+                            font.pixelSize: 12
+                            horizontalAlignment: Text.AlignLeft
+                            verticalAlignment: Text.AlignVCenter
+                            elide: Text.ElideRight
+                            leftPadding: 10
+                        }
+                        background: Rectangle {
+                            implicitWidth: 180
+                            implicitHeight: 25
+                            color: treeMenuItem.highlighted ? "#555555" : "transparent"
+                        }
+                    }
+
+                    MenuItem {
+                        property bool pathIsPinned: {
+                            var p = treeContextMenu.targetPath
+                            if (!p) return false
+                            for (var i = 0; i < treeRoot.pinnedList.length; i++) {
+                                if (treeRoot.pinnedList[i].path === p) return true
+                            }
+                            return false
+                        }
+                        text: pathIsPinned ? "Remove from Favorites" : "Add to Favorites"
+                        onTriggered: {
+                            if (pathIsPinned) {
+                                sendTreeCommand({"action": "remove_pin", "path": treeContextMenu.targetPath})
+                            } else {
+                                sendTreeCommand({"action": "add_pin", "name": treeContextMenu.targetName, "path": treeContextMenu.targetPath})
+                            }
+                        }
+                    }
+
+                    MenuItem {
+                        text: "Scan"
+                        onTriggered: sendTreeCommand({"action": "force_scan", "path": treeContextMenu.targetPath})
                     }
                 }
 

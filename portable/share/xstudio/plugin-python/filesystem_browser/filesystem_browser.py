@@ -480,6 +480,11 @@ class FilesystemBrowserPlugin(PluginBase):
                     file_path = data.get("path")
                     self.load_file(file_path)
 
+                elif action == "load_files":
+                    paths = data.get("paths", [])
+                    if paths:
+                        self._load_multiple_files(paths)
+
                 elif action == "preview_file":
                     file_path = data.get("path")
                     self._preview_file(file_path)
@@ -514,7 +519,12 @@ class FilesystemBrowserPlugin(PluginBase):
 
                 elif action == "add_pin":
                     path = data.get("path")
-                    self._add_pin(path)
+                    name = data.get("name")
+                    if not name and path:
+                        # Derive name from path: use last directory component
+                        stripped = path.rstrip("/\\")
+                        name = stripped.rsplit("/", 1)[-1].rsplit("\\", 1)[-1] or path
+                    self._add_pin(name, path)
 
                 elif action == "remove_pin":
                     path = data.get("path")
@@ -533,10 +543,6 @@ class FilesystemBrowserPlugin(PluginBase):
                         # Fallback for the main Refresh button
                         current = self.current_path_attr.value()
                         self.start_search(current, force=True, depth=20)
-
-                elif action == "remove_pin":
-                    path = data.get("path")
-                    self._remove_pin(path)
 
                 elif action == "get_subdirs":
                     path = data.get("path")
@@ -1026,6 +1032,14 @@ class FilesystemBrowserPlugin(PluginBase):
             import traceback
             traceback.print_exc()
 
+    def _load_multiple_files(self, paths):
+        """Load multiple files into the current playlist."""
+        print(f"FilesystemBrowser: Loading {len(paths)} files")
+        for path in paths:
+            try:
+                self.load_file(path)
+            except Exception as e:
+                print(f"Error loading file {path}: {e}")
 
 
     def apply_filters(self):
