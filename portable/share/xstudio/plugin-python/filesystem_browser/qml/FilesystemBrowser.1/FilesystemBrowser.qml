@@ -1602,7 +1602,20 @@ Rectangle {
             Layout.fillHeight: true
             
             Rectangle { anchors.fill: parent; color: "#222222" }
-            
+
+            // Drag proxy — invisible item that carries mime data during drag
+            Item {
+                id: dragProxy
+                x: 0; y: 0
+                width: 1; height: 1
+                property string filePath: ""
+
+                Drag.mimeData: { "text/uri-list": "file://" + filePath }
+                Drag.supportedActions: Qt.CopyAction
+                Drag.dragType: Drag.Internal
+                Drag.keys: ["text/uri-list"]
+            }
+
             ListView {
                 id: fileListView
                 anchors.fill: parent
@@ -1718,18 +1731,61 @@ Rectangle {
                     }
 
                     MouseArea {
+                        id: fileMouseArea
                         anchors.fill: parent
                         hoverEnabled: true
                         onEntered: isHovered = true
                         onExited: isHovered = false
                         acceptedButtons: Qt.LeftButton | Qt.RightButton
+
+                        // Drag support
+                        property point dragStartPos
+                        property bool dragActive: false
+
+                        drag.target: dragActive ? dragProxy : undefined
+
+                        onPressed: (mouse) => {
+                            if (mouse.button === Qt.LeftButton) {
+                                dragStartPos = Qt.point(mouse.x, mouse.y);
+                                dragActive = false;
+                            }
+                        }
+                        onPositionChanged: (mouse) => {
+                            if (mouse.buttons & Qt.LeftButton) {
+                                var dx = mouse.x - dragStartPos.x;
+                                var dy = mouse.y - dragStartPos.y;
+                                if (!dragActive && Math.sqrt(dx*dx + dy*dy) > 10) {
+                                    dragActive = true;
+                                    if (!modelData.isFolder) {
+                                        // Build file URI for the drag
+                                        var filePath = modelData.path.replace(/\\/g, "/");
+                                        // Ensure proper file:/// URI format
+                                        if (filePath.charAt(0) !== '/') {
+                                            filePath = "/" + filePath; // Windows: C:/foo → /C:/foo
+                                        }
+                                        dragProxy.filePath = filePath;
+                                        dragProxy.Drag.active = true;
+                                    }
+                                }
+                            }
+                        }
+                        onReleased: (mouse) => {
+                            if (dragProxy.Drag.active) {
+                                dragProxy.Drag.drop();
+                            }
+                            dragActive = false;
+                        }
+
                         onClicked: (mouse) => {
+                            if (dragActive) return; // Don't click after drag
                             fileListView.currentIndex = index
                             fileListView.forceActiveFocus()
                             if (mouse.button === Qt.RightButton) {
                                 contextMenu.popup()
                             } else if (mouse.button === Qt.LeftButton) {
-                                if (!modelData.isFolder) {
+                                if (modelData.isFolder) {
+                                    sendCommand({"action": "change_path", "path": modelData.path})
+                                } else {
                                     root.pendingPreviewPath = modelData.path
                                     previewTimer.restart()
                                 }
@@ -2039,19 +2095,57 @@ Rectangle {
                                 id: cellMouse
                                 anchors.fill: parent; hoverEnabled: true
                                 visible: modelData.type === "file"
+
+                                // Drag support
+                                property point dragStartPos
+                                property bool dragActive: false
+
+                                onPressed: (mouse) => {
+                                    if (mouse.button === Qt.LeftButton) {
+                                        dragStartPos = Qt.point(mouse.x, mouse.y);
+                                        dragActive = false;
+                                    }
+                                }
+                                onPositionChanged: (mouse) => {
+                                    if (mouse.buttons & Qt.LeftButton) {
+                                        var dx = mouse.x - dragStartPos.x;
+                                        var dy = mouse.y - dragStartPos.y;
+                                        if (!dragActive && Math.sqrt(dx*dx + dy*dy) > 10) {
+                                            dragActive = true;
+                                            var filePath = modelData.path.replace(/\\/g, "/");
+                                            if (filePath.charAt(0) !== '/') filePath = "/" + filePath;
+                                            dragProxy.filePath = filePath;
+                                            dragProxy.Drag.active = true;
+                                        }
+                                    }
+                                }
+                                onReleased: (mouse) => {
+                                    if (dragProxy.Drag.active) dragProxy.Drag.drop();
+                                    dragActive = false;
+                                }
+
                                 onClicked: (mouse) => {
+                                    if (dragActive) return;
                                     if (mouse.button === Qt.LeftButton) {
                                         thumbFlickable.forceActiveFocus()
                                         thumbFlickable.thumbCurrentIndex = index
-                                        root.pendingPreviewPath = modelData.path
-                                        previewTimer.restart()
+                                        if (modelData.isFolder) {
+                                            sendCommand({"action": "change_path", "path": modelData.path})
+                                        } else {
+                                            root.pendingPreviewPath = modelData.path
+                                            previewTimer.restart()
+                                        }
                                     }
                                 }
                                 onDoubleClicked: (mouse) => {
                                     if (mouse.button === Qt.LeftButton) {
                                         previewTimer.stop()
-                                        isPreviewMode = false
-                                        sendCommand({"action": "load_file", "path": modelData.path})
+                                        if (modelData.isFolder) {
+                                            sendCommand({"action": "change_path", "path": modelData.path})
+                                        } else {
+                                            isPreviewMode = false
+                                            sendCommand({"action": "load_file", "path": modelData.path})
+                                        }
                                     }
                                 }
                                 

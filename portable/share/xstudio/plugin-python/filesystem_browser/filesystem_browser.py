@@ -460,16 +460,21 @@ class FilesystemBrowserPlugin(PluginBase):
                     # Strip trailing slash unless it's a drive root like "X:/"
                     if len(new_path) > 1 and new_path.endswith("/") and not new_path.endswith(":/"):
                         new_path = new_path.rstrip("/")
+                    print(f"FilesystemBrowser: change_path -> '{new_path}'")
                     # Virtual root "/" on Windows — just update the path, no scan
                     if new_path == "/" and sys.platform == "win32":
                         self.current_path_attr.set_value("/")
+                        # Clear file list immediately so QML shows empty state
+                        self.files_attr.set_value("[]")
                         return
                     if os.path.exists(new_path) and os.path.isdir(new_path):
                          self.current_path_attr.set_value(new_path)
+                         # Clear file list immediately so user sees feedback
+                         self.files_attr.set_value("[]")
                          self._add_to_history(new_path)
                          self.start_search(new_path)
                     else:
-                         print(f"Invalid path: {new_path}")
+                         print(f"FilesystemBrowser: Invalid path: {new_path}")
 
                 elif action == "load_file":
                     file_path = data.get("path")

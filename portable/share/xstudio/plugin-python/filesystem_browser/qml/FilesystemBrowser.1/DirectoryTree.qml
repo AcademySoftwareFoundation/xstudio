@@ -82,6 +82,10 @@ Rectangle {
                     treeView.currentIndex = i;
                     treeView.positionViewAtIndex(i, ListView.Center);
                     found = true;
+                    // Expand if not already expanded (so children show)
+                    if (!treeModel.get(i).expanded) {
+                        expandNode(i);
+                    }
                     break;
                 }
             }
@@ -90,9 +94,18 @@ Rectangle {
             if (!found) {
                 pendingExpandPath = target;
                 isSyncing = true;
-                syncToPath();
+                // Delay sync slightly to let the change_path command finish
+                // processing before we send get_subdirs through the same channel
+                syncTimer.start();
             }
         }
+    }
+
+    Timer {
+        id: syncTimer
+        interval: 100
+        repeat: false
+        onTriggered: syncToPath()
     }
 
     function syncToPath() {
