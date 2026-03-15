@@ -1647,7 +1647,7 @@ Rectangle {
                 width: 1; height: 1
                 property string filePath: ""
 
-                Drag.mimeData: { "text/uri-list": "file://" + filePath }
+                Drag.mimeData: { "text/uri-list": "file:///" + filePath }
                 Drag.supportedActions: Qt.CopyAction
                 Drag.dragType: Drag.Internal
                 Drag.keys: ["text/uri-list"]
@@ -1974,6 +1974,29 @@ Rectangle {
                                 }
                                 if (paths.length >= 2) {
                                     sendCommand({"action": "compare_items", "paths": paths})
+                                }
+                            }
+                        }
+                        MenuItem {
+                            text: root.selectedFiles.length > 1
+                                ? "Add " + root.selectedFiles.length + " to Timeline"
+                                : "Add to Timeline"
+                            visible: !modelData.isFolder
+                            height: visible ? implicitHeight : 0
+                            onTriggered: {
+                                var paths = []
+                                if (root.selectedFiles.length > 0) {
+                                    for (var i = 0; i < root.selectedFiles.length; i++) {
+                                        var item = visibleTreeList[root.selectedFiles[i]]
+                                        if (item && !item.isFolder) {
+                                            paths.push(item.path)
+                                        }
+                                    }
+                                } else if (modelData && !modelData.isFolder) {
+                                    paths.push(modelData.path)
+                                }
+                                if (paths.length > 0) {
+                                    sendCommand({"action": "add_to_timeline", "paths": paths})
                                 }
                             }
                         }

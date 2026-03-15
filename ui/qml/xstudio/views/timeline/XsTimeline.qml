@@ -2038,6 +2038,12 @@ Rectangle {
                 }
                 dragTarget = true
                 processPosition(mousePosition.x, mousePosition.y)
+            } else if (source == "External") {
+                // Native Qt drag (e.g. filesystem browser plugin) — accept as drag target
+                // so that onDropped fires when the actual drop arrives with "External URIS"
+                dragSource = "External"
+                dragItemCount = 1
+                dragTarget = true
             }
         }
 
@@ -2061,6 +2067,12 @@ Rectangle {
 
 		onDropped: (mousePosition, source, data) => {
 			if (dragTarget) {
+                // Update source/data for external drops — during drag the source
+                // is "External" but the drop event has the real source and data
+                if (source == "External URIS" || source == "External JSON") {
+                    dragSource = source
+                    dragUriData = data
+                }
                 processPosition(mousePosition.x, mousePosition.y)
 
                 if(modelIndex) {

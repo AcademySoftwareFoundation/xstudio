@@ -3,6 +3,8 @@
 
 from xstudio.plugin import PluginBase
 from xstudio.core import JsonStore, FrameList, add_media_atom, Uuid
+from xstudio.api.session.playlist.playlist import Playlist
+from xstudio.api.session.playlist.timeline import Timeline
 import os
 import sys
 import json
@@ -490,6 +492,11 @@ class FilesystemBrowserPlugin(PluginBase):
                     if len(paths) >= 2:
                         self._compare_items(paths)
 
+                elif action == "add_to_timeline":
+                    paths = data.get("paths", [])
+                    if paths:
+                        self._add_to_timeline(paths)
+
                 elif action == "preview_file":
                     file_path = data.get("path")
                     self._preview_file(file_path)
@@ -817,7 +824,7 @@ class FilesystemBrowserPlugin(PluginBase):
             try:
                 selection = self.connection.api.session.selected_containers
                 for item in selection:
-                    if hasattr(item, 'add_media') and item.name != "Preview":
+                    if isinstance(item, Playlist) and item.name != "Preview":
                         valid_playlist = item
                         self.last_used_playlist_uuid = item.uuid
                         print(f"Targeting Selected Playlist: {item.name}")
@@ -841,7 +848,7 @@ class FilesystemBrowserPlugin(PluginBase):
             if not valid_playlist:
                 try:
                     viewed = self.connection.api.session.viewed_container
-                    if hasattr(viewed, 'add_media') and viewed.name != "Preview":
+                    if isinstance(viewed, Playlist) and viewed.name != "Preview":
                         valid_playlist = viewed
                         self.last_used_playlist_uuid = viewed.uuid
                         print(f"Targeting Viewed Playlist: {viewed.name}")
@@ -877,7 +884,25 @@ class FilesystemBrowserPlugin(PluginBase):
                 self.preview_playlist_uuid = None
 
             playlist = valid_playlist
-            
+
+            # Guard: if resolved container is not a real Playlist (e.g. Timeline,
+            # Subset, ContactSheet), fall back to the first actual Playlist in the
+            # session.  Only Playlist.add_media() accepts string paths.
+            if playlist is not None and not isinstance(playlist, Playlist):
+                print(f"Container '{playlist.name}' is not a Playlist, searching for fallback...")
+                fallback = [p for p in self.connection.api.session.playlists
+                            if isinstance(p, Playlist) and p.name != "Preview"]
+                if fallback:
+                    playlist = fallback[0]
+                    self.last_used_playlist_uuid = playlist.uuid
+                    print(f"Fell back to Playlist: {playlist.name}")
+                else:
+                    self.connection.api.session.create_playlist("Filesystem Import")
+                    playlist = [p for p in self.connection.api.session.playlists
+                                if isinstance(p, Playlist) and p.name != "Preview"][0]
+                    self.last_used_playlist_uuid = playlist.uuid
+                    print(f"Created fallback Playlist: {playlist.name}")
+
             # --- Duplicate Check Logic: Local Cache ---
             if not hasattr(self, 'playlist_path_cache'):
                 self.playlist_path_cache = {} # Dict[uuid_str, set(paths)]
@@ -1284,70 +1309,94 @@ class FilesystemBrowserPlugin(PluginBase):
              traceback.print_exc()
 
     def _compare_items(self, paths):
-        """Load multiple files and set viewport to compare mode."""
+        """Load multiple files into the current playlist for comparison."""
         try:
-            print(f"Compare items: {len(paths)} files")
+            print(f"Compare items: loading {len(paths)} files")
+            for path in paths:
+                try:
+                    self.load_file(path)
+                except Exception as e:
+                    print(f"Error loading {path} for compare: {e}")
+            print(f"Loaded {len(paths)} files. Use the Compare button in the viewport toolbar to switch compare modes.")
+        except Exception as e:
+            print(f"Compare items error: {e}")
+            import traceback
+            traceback.print_exc()
 
-            # 1. Find a valid playlist
-            playlist = None
+    def _add_to_timeline(self, paths):
+        """Add files as clips on a Timeline."""
+        try:
+            # --- Find a real Playlist ---
+            valid_playlist = None
+
             try:
-                selection = self.connection.api.session.selected_containers
-                for item in selection:
-                    if hasattr(item, 'add_media') and item.name != "Preview":
-                        playlist = item
+                for item in self.connection.api.session.selected_containers:
+                    if isinstance(item, Playlist) and item.name != "Preview":
+                        valid_playlist = item
                         break
             except Exception:
                 pass
 
-            if not playlist:
+            if not valid_playlist:
                 try:
                     viewed = self.connection.api.session.viewed_container
-                    if hasattr(viewed, 'add_media') and viewed.name != "Preview":
-                        playlist = viewed
+                    if isinstance(viewed, Playlist) and viewed.name != "Preview":
+                        valid_playlist = viewed
                 except Exception:
                     pass
 
-            if not playlist:
+            if not valid_playlist:
+                playlists = [p for p in self.connection.api.session.playlists if p.name != "Preview"]
+                if playlists:
+                    valid_playlist = playlists[0]
+                else:
+                    self.connection.api.session.create_playlist("Filesystem Import")
+                    valid_playlist = [p for p in self.connection.api.session.playlists if p.name != "Preview"][0]
+
+            # --- Find or create a Timeline ---
+            timeline = None
+
+            try:
+                viewed = self.connection.api.session.viewed_container
+                if isinstance(viewed, Timeline):
+                    timeline = viewed
+            except Exception:
+                pass
+
+            if not timeline:
                 try:
-                    for p in self.connection.api.session.playlists:
-                        if p.name != "Preview":
-                            playlist = p
+                    for container in valid_playlist.containers:
+                        if isinstance(container, Timeline):
+                            timeline = container
                             break
                 except Exception:
                     pass
 
-            if not playlist:
-                print("No playlist found for compare.")
-                return
+            if not timeline:
+                _uuid, timeline = valid_playlist.create_timeline(name="Timeline", with_tracks=True)
 
-            self.connection.api.session.set_on_screen_source(playlist)
+            # --- Get the first video track ---
+            video_tracks = timeline.video_tracks
+            if video_tracks:
+                video_track = video_tracks[0]
+            else:
+                video_track = timeline.insert_video_track()
 
-            # 2. Add all media items to the playlist
-            media_uuids = []
+            # --- Add each file as a clip ---
+            added = 0
             for path in paths:
-                media = self._add_media_to_playlist(playlist, path)
-                if media:
-                    media_uuids.append(media.uuid)
+                try:
+                    media = valid_playlist.add_media(path)
+                    timeline.add_media(media)
+                    video_track.insert_clip(media, index=-1)
+                    added += 1
+                except Exception as e:
+                    print(f"Error adding clip {path}: {e}")
 
-            if len(media_uuids) < 2:
-                print("Could not load enough media for compare.")
-                return
-
-            # 3. Select all the loaded media items
-            if hasattr(playlist, 'playhead_selection'):
-                playlist.playhead_selection.set_selection(media_uuids)
-
-            # 4. Set compare mode: A/B for 2 items, Grid for 3+
-            if hasattr(playlist, 'playhead'):
-                if len(media_uuids) == 2:
-                    playlist.playhead.compare_mode = "A/B"
-                else:
-                    playlist.playhead.compare_mode = "Grid"
-
-            print(f"Compare mode set for {len(media_uuids)} items.")
+            print(f"Added {added}/{len(paths)} clip(s) to timeline.")
 
         except Exception as e:
-            print(f"Compare items error: {e}")
+            print(f"Add to timeline error: {e}")
             import traceback
             traceback.print_exc()
 

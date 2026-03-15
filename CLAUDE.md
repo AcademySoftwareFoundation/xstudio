@@ -40,6 +40,15 @@ cp build/src/plugin/media_reader/ffmpeg/src/Release/media_reader_ffmpeg.dll port
 **WARNING: Plugins are loaded from `portable/share/xstudio/plugin/`, NOT `portable/bin/`.
 Deploying plugin DLLs to the wrong directory means the old plugin runs silently.**
 
+### QML Changes ALWAYS Require Rebuild
+**Even Python plugin QML files** (in `portable/share/xstudio/plugin-python/`) may require a rebuild to take effect due to Qt's QML caching. Always rebuild and redeploy after ANY QML change, whether it's in compiled `ui/qml/` or runtime-loaded plugin QML.
+
+Remember: delete autogen before rebuilding QML changes:
+```bash
+rm -rf build/src/launch/xstudio/src/xstudio_autogen/
+cmake --build build --config Release --target xstudio
+```
+
 ### Key Build Details
 - Generator: Visual Studio 17 2022
 - vcpkg for package management (toolchain at ../vcpkg/)
