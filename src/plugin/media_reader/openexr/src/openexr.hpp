@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#include <memory>
 #include <string>
+#include <unordered_map>
 
 #include "xstudio/media_reader/media_reader.hpp"
 #include "xstudio/thumbnail/thumbnail.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include <ImfChannelList.h>
 #include <ImfHeader.h> // staticInitialize
+#include <ImfMultiPartInputFile.h>
 
 namespace xstudio {
 namespace media_reader {
@@ -54,6 +57,17 @@ namespace media_reader {
         float max_exr_overscan_percent_;
         int readers_per_source_;
         int exr_thread_count_;
+
+        // Cache of JSON headers per EXR part index. Metadata is identical across
+        // all frames in a sequence, so we compute it once and reuse it.
+        std::unordered_map<int, utility::JsonStore> cached_headers_;
+
+        // Cache the last opened MultiPartInputFile to avoid reopening the same
+        // file on consecutive reads (e.g. multiple streams from one file, or
+        // scrubbing back to an already-read frame). Each OpenEXRMediaReader
+        // instance is used by a single worker actor, so no locking is needed.
+        std::string cached_file_path_;
+        std::shared_ptr<Imf::MultiPartInputFile> cached_input_;
     };
 } // namespace media_reader
 } // namespace xstudio

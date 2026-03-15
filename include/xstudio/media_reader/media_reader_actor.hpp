@@ -46,6 +46,12 @@ namespace media_reader {
             const caf::uri &_uri, const caf::actor_addr &_key, const std::string &hint = "");
         void do_precache();
 
+        void dispatch_precache_read(
+            const FrameRequest &fr,
+            caf::actor cache_actor,
+            utility::time_point cache_out_of_date_threshold,
+            bool is_background_cache);
+
         void keep_cache_hot(
             const media::MediaKey &new_entry,
             const utility::time_point &tp,

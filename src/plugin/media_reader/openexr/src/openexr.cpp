@@ -229,15 +229,29 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
 
     // DebugTimer dd(path);
 
-    Imf::MultiPartInputFile input(path.c_str());
-    int parts    = input.parts();
+    // Reuse the cached MultiPartInputFile if the path matches, otherwise open
+    // a new one. This avoids repeated open+header-parse when the same file is
+    // read multiple times (multiple streams, scrub-back, etc.).
+    if (cached_file_path_ != path || !cached_input_) {
+        try {
+            cached_input_ = std::make_shared<Imf::MultiPartInputFile>(path.c_str());
+            cached_file_path_ = path;
+        } catch (...) {
+            // Ensure stale cache is cleared on failure before re-throwing.
+            cached_input_.reset();
+            cached_file_path_.clear();
+            throw;
+        }
+    }
+
+    int parts    = cached_input_->parts();
     int part_idx = -1;
     std::array<Imf::PixelType, 4> pix_type;
     std::vector<std::string> exr_channels_to_load;
 
     for (int prt = 0; prt < parts; ++prt) {
         // skip incomplete parts - maybe better error/handling messaging required?
-        const Imf::Header &part_header = input.header(prt);
+        const Imf::Header &part_header = cached_input_->header(prt);
         std::vector<std::string> stream_ids;
         stream_ids_from_exr_part(part_header, stream_ids);
         for (const auto &stream_id : stream_ids) {
@@ -260,7 +274,7 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
         // It's not reasonable to expect xSTUDIO to be able to predict how to
         // load an EXR sequence where the parts/layers in the files are not
         // consistent
-        const Imf::Header &part_header = input.header(0);
+        const Imf::Header &part_header = cached_input_->header(0);
         std::vector<std::string> stream_ids;
         stream_ids_from_exr_part(part_header, stream_ids);
         if (stream_ids.empty()) {
@@ -281,15 +295,22 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
         throw std::runtime_error(ss.str().c_str());
     }
 
-    Imf::InputPart in(input, part_idx);
+    Imf::InputPart in(*cached_input_, part_idx);
 
-    utility::JsonStore part_metadata;
-    try {
-        const Imf::Header &h = in.header();
-        exr_reader::dump_json_headers(h, part_metadata.ref());
-    } catch (const std::exception &e) {
-        part_metadata["METADATA LOAD ERROR"] = e.what();
+    // Use cached headers: metadata is identical for every frame in a sequence,
+    // so we only call dump_json_headers() once per part index.
+    auto cache_it = cached_headers_.find(part_idx);
+    if (cache_it == cached_headers_.end()) {
+        utility::JsonStore part_meta;
+        try {
+            const Imf::Header &h = in.header();
+            exr_reader::dump_json_headers(h, part_meta.ref());
+        } catch (const std::exception &e) {
+            part_meta["METADATA LOAD ERROR"] = e.what();
+        }
+        cache_it = cached_headers_.emplace(part_idx, std::move(part_meta)).first;
     }
+    const utility::JsonStore &part_metadata = cache_it->second;
 
     Imath::Box2i data_window    = in.header().dataWindow();
     Imath::Box2i display_window = in.header().displayWindow();
@@ -337,7 +358,7 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
 
     auto b = buf->allocate(buf_size);
 
-    if (!input.partComplete(part_idx)) {
+    if (!cached_input_->partComplete(part_idx)) {
         // expecting to read only part of the image, so clear the buffer
         memset(b, 0, buf_size);
     }

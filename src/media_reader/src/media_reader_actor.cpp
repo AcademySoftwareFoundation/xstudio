@@ -4,6 +4,7 @@
 #include <caf/actor_registry.hpp>
 
 #include <limits>
+#include <set>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/global_store/global_store.hpp"
@@ -785,140 +786,221 @@ void GlobalMediaReaderActor::prune_readers() {
 
 void GlobalMediaReaderActor::on_exit() { system().registry().erase(media_reader_registry); }
 
+void GlobalMediaReaderActor::dispatch_precache_read(
+    const FrameRequest &fr,
+    caf::actor cache_actor,
+    utility::time_point cache_out_of_date_threshold,
+    bool is_background_cache) {
+
+    const std::shared_ptr<const media::AVFrameID> mptr = fr.requested_frame_;
+    const utility::Uuid playhead_uuid = fr.requesting_playhead_uuid_;
+
+    try {
+        auto reader =
+            get_reader(mptr->uri(), mptr->media_source_addr(), mptr->reader());
+        if (not reader) {
+            // we need a new reader
+            mail(get_reader_atom_v, mptr->uri(), mptr->reader())
+                .request(pool_, infinite)
+                .then(
+                    [=](caf::actor new_reader) mutable {
+                        auto key =
+                            reader_key(mptr->uri(), mptr->media_source_addr());
+                        new_reader = add_reader(new_reader, key);
+                        if (cache_actor == image_cache_) {
+                            read_and_cache_image(
+                                new_reader,
+                                fr,
+                                cache_out_of_date_threshold,
+                                is_background_cache);
+                        } else {
+                            read_and_cache_audio(
+                                new_reader,
+                                fr,
+                                cache_out_of_date_threshold,
+                                is_background_cache);
+                        }
+                    },
+                    [=](caf::error &err) {
+                        mark_playhead_received_precache_result(playhead_uuid);
+                        continue_precacheing();
+                    });
+        } else {
+            if (cache_actor == image_cache_) {
+                read_and_cache_image(
+                    reader,
+                    fr,
+                    cache_out_of_date_threshold,
+                    is_background_cache);
+            } else {
+                read_and_cache_audio(
+                    reader,
+                    fr,
+                    cache_out_of_date_threshold,
+                    is_background_cache);
+            }
+        }
+    } catch (std::exception &e) {
+        // We have been unable to create a reader - the file is unreadable
+        // for some reason. We do not want to report an error because we are
+        // currently pre-cacheing. The error *will* get reported when we
+        // actually want to show the image as an immediate frame request will
+        // be made as the image isn't in the cache, and at that point error
+        // message propagation will give the user feedback about the frame
+        // being unreadable.
+        // We MUST release the in-flight marker and continue, otherwise
+        // the precache pipeline stalls permanently for this playhead.
+        spdlog::warn("Precache get_reader failed: {}", e.what());
+        mark_playhead_received_precache_result(playhead_uuid);
+        continue_precacheing();
+    }
+}
+
 void GlobalMediaReaderActor::do_precache() {
 
     // Allow up to max_in_flight concurrent precache reads per playhead.
-    // Previously this was limited to 1, serializing all reads.
-    // We loop here to dispatch multiple requests up to the limit.
-    static constexpr int max_in_flight = 4;
+    static constexpr int max_in_flight = 8;
 
-    // Try to dispatch as many requests as allowed
-    for (int dispatched = 0; dispatched < max_in_flight; ++dispatched) {
+    // Phase 1: Pop up to max_in_flight requests from the queue in a tight
+    // loop, collecting them all before any async work. This avoids
+    // interleaving pop -> async_request -> pop which serializes on the
+    // cache actor's message queue.
 
-    std::optional<FrameRequest> fr = playback_precache_request_queue_.pop_request(
-        playheads_with_precache_requests_in_flight_, max_in_flight);
+    struct PoppedRequest {
+        FrameRequest fr;
+        bool is_background;
+        caf::actor cache_actor;
+        utility::time_point cache_out_of_date_threshold;
+    };
 
-    // when putting new images in the cache, images older than this timepoint can
-    // be discarded
-    bool is_background_cache = false;
-    if (not fr) {
-        fr = background_precache_request_queue_.pop_request(
+    std::vector<PoppedRequest> popped;
+    popped.reserve(max_in_flight);
+
+    for (int i = 0; i < max_in_flight; ++i) {
+
+        std::optional<FrameRequest> fr = playback_precache_request_queue_.pop_request(
             playheads_with_precache_requests_in_flight_, max_in_flight);
 
-
+        bool is_background_cache = false;
         if (not fr) {
-            return; // no more requests to dispatch
+            fr = background_precache_request_queue_.pop_request(
+                playheads_with_precache_requests_in_flight_, max_in_flight);
+
+            if (not fr) {
+                break; // no more requests available
+            }
+            is_background_cache = true;
         }
-        is_background_cache = true;
+
+        const auto &mptr = fr->requested_frame_;
+        const auto &playhead_uuid = fr->requesting_playhead_uuid_;
+
+        time_point cache_out_of_date_threshold =
+            utility::clock::now() - std::chrono::milliseconds(10);
+
+        if (background_cached_ref_timepoint_.find(playhead_uuid) !=
+            background_cached_ref_timepoint_.end()) {
+            cache_out_of_date_threshold =
+                background_cached_ref_timepoint_[playhead_uuid] - std::chrono::seconds(1);
+        }
+
+        caf::actor cache_actor =
+            mptr->media_type() == media::MediaType::MT_IMAGE ? image_cache_ : audio_cache_;
+
+        // Mark in-flight before any async work so subsequent pops respect limits
+        mark_playhead_waiting_for_precache_result(playhead_uuid);
+
+        popped.push_back(PoppedRequest{
+            std::move(*fr), is_background_cache, cache_actor, cache_out_of_date_threshold});
     }
 
-    const std::shared_ptr<const media::AVFrameID> mptr = fr->requested_frame_;
-
-    const time_point &predicted_time   = fr->required_by_;
-    const utility::Uuid &playhead_uuid = fr->requesting_playhead_uuid_;
-    time_point cache_out_of_date_threshold =
-        utility::clock::now() - std::chrono::milliseconds(10);
-
-    if (background_cached_ref_timepoint_.find(playhead_uuid) !=
-        background_cached_ref_timepoint_.end()) {
-        cache_out_of_date_threshold =
-            background_cached_ref_timepoint_[playhead_uuid] - std::chrono::seconds(1);
+    if (popped.empty()) {
+        return;
     }
 
-    // mark that the playhead is waiting for something. This prevents queuing multiple requests,
-    // we only want to send a new request when we've received the previous one.
+    // Phase 2: Group requests by (cache_actor, playhead_uuid) so we can
+    // send one batched preserve_atom per group instead of N individual
+    // request/response round-trips to the cache actor.
 
+    struct GroupKey {
+        bool is_image_cache; // true = image_cache_, false = audio_cache_
+        utility::Uuid playhead_uuid;
 
-    // this flag prevents us from making pre-cache read requests while other
-    // requests haven't yet been responded to, without needing to use 'await'
-    // which would otherwise block this crucial actor
+        bool operator<(const GroupKey &o) const {
+            if (is_image_cache != o.is_image_cache) return is_image_cache < o.is_image_cache;
+            return playhead_uuid < o.playhead_uuid;
+        }
+    };
 
-    caf::actor cache_actor =
-        mptr->media_type() == media::MediaType::MT_IMAGE ? image_cache_ : audio_cache_;
-    mark_playhead_waiting_for_precache_result(playhead_uuid);
+    struct GroupData {
+        caf::actor cache_actor;
+        media::AVFrameIDsAndTimePoints batch_keys; // for the batched preserve_atom
+        std::vector<PoppedRequest> requests;       // full request data for dispatch
+    };
 
-    mail(media_cache::preserve_atom_v, mptr->key(), predicted_time, playhead_uuid)
-        .request(cache_actor, std::chrono::milliseconds(500))
-        .then(
+    std::map<GroupKey, GroupData> groups;
 
-            [=](const bool exists) mutable {
-                if (exists) {
-                    // already have in the cache, but might still have work to do
-                    mark_playhead_received_precache_result(playhead_uuid);
-                    // if (is_background_cache) {
-                    // keep_cache_hot(mptr.key(), predicted_time, playhead_uuid);
-                    // }
-                    continue_precacheing();
-                } else {
-                    try {
-                        auto reader =
-                            get_reader(mptr->uri(), mptr->media_source_addr(), mptr->reader());
-                        if (not reader) {
-                            // we need a new reader
-                            mail(get_reader_atom_v, mptr->uri(), mptr->reader())
-                                .request(pool_, infinite)
-                                .then(
-                                    [=](caf::actor new_reader) mutable {
-                                        auto key =
-                                            reader_key(mptr->uri(), mptr->media_source_addr());
-                                        new_reader = add_reader(new_reader, key);
-                                        if (cache_actor == image_cache_) {
-                                            read_and_cache_image(
-                                                new_reader,
-                                                *fr,
-                                                cache_out_of_date_threshold,
-                                                is_background_cache);
-                                        } else {
-                                            read_and_cache_audio(
-                                                new_reader,
-                                                *fr,
-                                                cache_out_of_date_threshold,
-                                                is_background_cache);
-                                        }
-                                    },
-                                    [=](caf::error &err) {
-                                        mark_playhead_received_precache_result(playhead_uuid);
-                                        continue_precacheing();
-                                    });
-                        } else {
-                            if (cache_actor == image_cache_) {
-                                read_and_cache_image(
-                                    reader,
-                                    *fr,
-                                    cache_out_of_date_threshold,
-                                    is_background_cache);
-                            } else {
-                                read_and_cache_audio(
-                                    reader,
-                                    *fr,
-                                    cache_out_of_date_threshold,
-                                    is_background_cache);
-                            }
-                        }
-                    } catch (std::exception &e) {
-                        // we have been unable to create a reader - the file is
-                        // unreadable for some reason. We do not want to report an
-                        // error because we are currently pre-cacheing. The error
-                        // *will* get reported when we actually want to show the
-                        // image as an immediate frame request will be made as the
-                        // image isn't in the cache, and at that point error message
-                        // propagation will give the user feedback about the frame
-                        // being unreadable.
-                        // We MUST release the in-flight marker and continue, otherwise
-                        // the precache pipeline stalls permanently for this playhead.
-                        spdlog::warn("Precache get_reader failed: {}", e.what());
-                        mark_playhead_received_precache_result(playhead_uuid);
-                        continue_precacheing();
+    for (auto &pr : popped) {
+        GroupKey gk{pr.cache_actor == image_cache_, pr.fr.requesting_playhead_uuid_};
+        auto &gd = groups[gk];
+        gd.cache_actor = pr.cache_actor;
+        gd.batch_keys.push_back(
+            std::make_pair(pr.fr.required_by_, pr.fr.requested_frame_));
+        gd.requests.push_back(std::move(pr));
+    }
+
+    // Phase 3: Send one batched preserve_atom per group. The cache actor
+    // preserves entries that exist and returns only the ones that are NOT
+    // cached, so we only dispatch reads for truly uncached frames.
+
+    for (auto &[gk, gd] : groups) {
+        auto batch_keys = std::make_shared<media::AVFrameIDsAndTimePoints>(
+            std::move(gd.batch_keys));
+        auto requests = std::make_shared<std::vector<PoppedRequest>>(
+            std::move(gd.requests));
+        auto cache_actor = gd.cache_actor;
+        auto playhead_uuid = gk.playhead_uuid;
+
+        mail(media_cache::preserve_atom_v, *batch_keys, playhead_uuid)
+            .request(cache_actor, std::chrono::milliseconds(500))
+            .then(
+                [=](const media::AVFrameIDsAndTimePoints &uncached) mutable {
+                    // Build a set of uncached keys for fast lookup
+                    std::set<media::MediaKey> uncached_keys;
+                    for (const auto &p : uncached) {
+                        uncached_keys.insert(p.second->key());
                     }
-                }
-            },
-            [=](const caf::error &err) {
-                mark_playhead_received_precache_result(playhead_uuid);
-                spdlog::warn(
-                    "Failed preserve buffer {} {}", to_string(mptr->key()), to_string(err));
-            });
 
-    } // end for (dispatched)
+                    // Process each request in this group
+                    for (auto &pr : *requests) {
+                        const auto &key = pr.fr.requested_frame_->key();
+                        if (uncached_keys.count(key)) {
+                            // Not in cache - dispatch the actual read
+                            dispatch_precache_read(
+                                pr.fr,
+                                pr.cache_actor,
+                                pr.cache_out_of_date_threshold,
+                                pr.is_background);
+                        } else {
+                            // Already cached - release in-flight marker and continue
+                            mark_playhead_received_precache_result(
+                                pr.fr.requesting_playhead_uuid_);
+                        }
+                    }
+                    continue_precacheing();
+                },
+                [=](const caf::error &err) {
+                    // On error, release all in-flight markers for this group
+                    for (const auto &pr : *requests) {
+                        mark_playhead_received_precache_result(
+                            pr.fr.requesting_playhead_uuid_);
+                    }
+                    spdlog::warn(
+                        "Failed batched preserve for playhead {}: {}",
+                        to_string(playhead_uuid),
+                        to_string(err));
+                });
+    }
 }
 
 void GlobalMediaReaderActor::keep_cache_hot(
