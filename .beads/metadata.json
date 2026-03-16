@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "xstudio",
+  "project_id": "5e1061e6-a211-492b-be86-97480b324076"
+}
