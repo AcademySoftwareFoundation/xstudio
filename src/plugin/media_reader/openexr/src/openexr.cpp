@@ -2,6 +2,8 @@
 #include <filesystem>
 #include <algorithm>
 #include <cctype>
+#include <mutex>
+#include <thread>
 
 #include <Iex.h>
 #include <IexErrnoExc.h>
@@ -63,17 +65,22 @@ bool crop_data_window(
 
     const Imath::Box2i in_data_window = data_window;
 
-    data_window.min.x =
-        std::max(data_window.min.x, (int)round(-float(width) * overscan_percent / 100.0f));
+    // Compute the allowed overscan in pixels from the display window edges.
+    // At 0% overscan, the data window is clipped exactly to the display window.
+    const int overscan_x = (int)round(float(width) * overscan_percent / 100.0f);
+    const int overscan_y = (int)round(float(height) * overscan_percent / 100.0f);
 
-    data_window.max.x = std::min(
-        data_window.max.x, (int)round(float(width) * (overscan_percent / 100.0f + 1.0f)));
+    data_window.min.x =
+        std::max(data_window.min.x, display_window.min.x - overscan_x);
+
+    data_window.max.x =
+        std::min(data_window.max.x, display_window.max.x + overscan_x);
 
     data_window.min.y =
-        std::max(data_window.min.y, (int)round(-float(height) * overscan_percent / 100.0f));
+        std::max(data_window.min.y, display_window.min.y - overscan_y);
 
-    data_window.max.y = std::min(
-        data_window.max.y, (int)round(float(height) * (overscan_percent / 100.0f + 1.0f)));
+    data_window.max.y =
+        std::min(data_window.max.y, display_window.max.y + overscan_y);
 
     return in_data_window != data_window;
 }
@@ -180,9 +187,9 @@ static ui::viewport::GPUShaderPtr
 
 OpenEXRMediaReader::OpenEXRMediaReader(const utility::JsonStore &prefs)
     : MediaReader("OpenEXR", prefs) {
-    Imf::setGlobalThreadCount(16);
-    max_exr_overscan_percent_ = 5.0f;
+    max_exr_overscan_percent_ = 0.0f;
     readers_per_source_       = 1;
+    exr_thread_count_         = 16;
 
     update_preferences(prefs);
 }
@@ -202,6 +209,18 @@ void OpenEXRMediaReader::update_preferences(const utility::JsonStore &prefs) {
     } catch (const std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
+    try {
+        exr_thread_count_ =
+            preference_value<int>(prefs, "/plugin/media_reader/OpenEXR/exr_thread_count");
+    } catch (const std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+
+    // Apply OpenEXR decompression thread count.
+    // 0 = single-threaded: no internal threading.
+    // Non-zero: use the specified value directly (default=16).
+    Imf::setGlobalThreadCount(exr_thread_count_);
+    spdlog::info("OpenEXR global thread count set to {} (preference: {})", exr_thread_count_, exr_thread_count_);
 }
 
 ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
@@ -210,15 +229,29 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
 
     // DebugTimer dd(path);
 
-    Imf::MultiPartInputFile input(path.c_str());
-    int parts    = input.parts();
+    // Reuse the cached MultiPartInputFile if the path matches, otherwise open
+    // a new one. This avoids repeated open+header-parse when the same file is
+    // read multiple times (multiple streams, scrub-back, etc.).
+    if (cached_file_path_ != path || !cached_input_) {
+        try {
+            cached_input_ = std::make_shared<Imf::MultiPartInputFile>(path.c_str());
+            cached_file_path_ = path;
+        } catch (...) {
+            // Ensure stale cache is cleared on failure before re-throwing.
+            cached_input_.reset();
+            cached_file_path_.clear();
+            throw;
+        }
+    }
+
+    int parts    = cached_input_->parts();
     int part_idx = -1;
     std::array<Imf::PixelType, 4> pix_type;
     std::vector<std::string> exr_channels_to_load;
 
     for (int prt = 0; prt < parts; ++prt) {
         // skip incomplete parts - maybe better error/handling messaging required?
-        const Imf::Header &part_header = input.header(prt);
+        const Imf::Header &part_header = cached_input_->header(prt);
         std::vector<std::string> stream_ids;
         stream_ids_from_exr_part(part_header, stream_ids);
         for (const auto &stream_id : stream_ids) {
@@ -241,7 +274,7 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
         // It's not reasonable to expect xSTUDIO to be able to predict how to
         // load an EXR sequence where the parts/layers in the files are not
         // consistent
-        const Imf::Header &part_header = input.header(0);
+        const Imf::Header &part_header = cached_input_->header(0);
         std::vector<std::string> stream_ids;
         stream_ids_from_exr_part(part_header, stream_ids);
         if (stream_ids.empty()) {
@@ -262,15 +295,22 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
         throw std::runtime_error(ss.str().c_str());
     }
 
-    Imf::InputPart in(input, part_idx);
+    Imf::InputPart in(*cached_input_, part_idx);
 
-    utility::JsonStore part_metadata;
-    try {
-        const Imf::Header &h = in.header();
-        exr_reader::dump_json_headers(h, part_metadata.ref());
-    } catch (const std::exception &e) {
-        part_metadata["METADATA LOAD ERROR"] = e.what();
+    // Use cached headers: metadata is identical for every frame in a sequence,
+    // so we only call dump_json_headers() once per part index.
+    auto cache_it = cached_headers_.find(part_idx);
+    if (cache_it == cached_headers_.end()) {
+        utility::JsonStore part_meta;
+        try {
+            const Imf::Header &h = in.header();
+            exr_reader::dump_json_headers(h, part_meta.ref());
+        } catch (const std::exception &e) {
+            part_meta["METADATA LOAD ERROR"] = e.what();
+        }
+        cache_it = cached_headers_.emplace(part_idx, std::move(part_meta)).first;
     }
+    const utility::JsonStore &part_metadata = cache_it->second;
 
     Imath::Box2i data_window    = in.header().dataWindow();
     Imath::Box2i display_window = in.header().displayWindow();
@@ -318,7 +358,7 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
 
     auto b = buf->allocate(buf_size);
 
-    if (!input.partComplete(part_idx)) {
+    if (!cached_input_->partComplete(part_idx)) {
         // expecting to read only part of the image, so clear the buffer
         memset(b, 0, buf_size);
     }
@@ -423,6 +463,8 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
             exr_channels_to_load.begin(),
             exr_channels_to_load.end(),
             [&](const std::string chan_name) {
+                if (ii >= 4)
+                    return; // safety: pix_type array has only 4 elements
                 std::string chan_lower_case = to_lower(chan_name);
                 Imf::PixelType channel_type = pix_type[ii++];
 
@@ -465,10 +507,11 @@ void OpenEXRMediaReader::get_channel_names_by_layer(
     const auto &channels       = header.channels();
     for (Imf::ChannelList::ConstIterator i = channels.begin(); i != channels.end(); ++i) {
         const std::string channel_name = i.name();
-        const size_t dot_pos           = channel_name.find(".");
+        const size_t dot_pos           = channel_name.rfind(".");
         if (dot_pos != std::string::npos && dot_pos) {
-            // channel name has a dot separator - assume prefix is the 'layer' name which
-            // we shall assign as a separate MediaStream
+            // channel name has a dot separator - split on LAST dot so that
+            // hierarchical names like "bg_wall.Combined.R" produce layer
+            // "bg_wall.Combined" with channel "R" (not 30+ channels under "bg_wall")
             std::string layer_name = std::string(channel_name, 0, dot_pos);
             channel_names_by_layer[partname + layer_name].push_back(channel_name);
         } else {
@@ -539,6 +582,11 @@ std::array<Imf::PixelType, 4> OpenEXRMediaReader::pick_exr_channels_from_stream_
     }
 
     exr_channels_to_load = channel_names_by_layer[stream_id];
+
+    // cap at 4 channels - the pix_type array and pixel format only support up to 4
+    if (exr_channels_to_load.size() > 4) {
+        exr_channels_to_load.resize(4);
+    }
 
     if (exr_channels_to_load.empty()) {
         throw std::runtime_error("Unable to match stream ID with exr part/layer names.");
@@ -678,8 +726,8 @@ xstudio::media::MediaDetail OpenEXRMediaReader::detail(const caf::uri &uri) cons
         PartDetail pd;
         stream_ids_from_exr_part(part_header, pd.stream_ids);
         pd.resolution = {
-            part_header.displayWindow().max.x - part_header.displayWindow().min.x,
-            part_header.displayWindow().max.y - part_header.displayWindow().min.y};
+            part_header.displayWindow().max.x - part_header.displayWindow().min.x + 1,
+            part_header.displayWindow().max.y - part_header.displayWindow().min.y + 1};
         pd.pixel_aspect = part_header.pixelAspectRatio();
         pd.part_number  = prt;
         parts_detail.push_back(pd);
