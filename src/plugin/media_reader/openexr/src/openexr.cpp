@@ -463,6 +463,8 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
             exr_channels_to_load.begin(),
             exr_channels_to_load.end(),
             [&](const std::string chan_name) {
+                if (ii >= 4)
+                    return; // safety: pix_type array has only 4 elements
                 std::string chan_lower_case = to_lower(chan_name);
                 Imf::PixelType channel_type = pix_type[ii++];
 
@@ -505,10 +507,11 @@ void OpenEXRMediaReader::get_channel_names_by_layer(
     const auto &channels       = header.channels();
     for (Imf::ChannelList::ConstIterator i = channels.begin(); i != channels.end(); ++i) {
         const std::string channel_name = i.name();
-        const size_t dot_pos           = channel_name.find(".");
+        const size_t dot_pos           = channel_name.rfind(".");
         if (dot_pos != std::string::npos && dot_pos) {
-            // channel name has a dot separator - assume prefix is the 'layer' name which
-            // we shall assign as a separate MediaStream
+            // channel name has a dot separator - split on LAST dot so that
+            // hierarchical names like "bg_wall.Combined.R" produce layer
+            // "bg_wall.Combined" with channel "R" (not 30+ channels under "bg_wall")
             std::string layer_name = std::string(channel_name, 0, dot_pos);
             channel_names_by_layer[partname + layer_name].push_back(channel_name);
         } else {
@@ -579,6 +582,11 @@ std::array<Imf::PixelType, 4> OpenEXRMediaReader::pick_exr_channels_from_stream_
     }
 
     exr_channels_to_load = channel_names_by_layer[stream_id];
+
+    // cap at 4 channels - the pix_type array and pixel format only support up to 4
+    if (exr_channels_to_load.size() > 4) {
+        exr_channels_to_load.resize(4);
+    }
 
     if (exr_channels_to_load.empty()) {
         throw std::runtime_error("Unable to match stream ID with exr part/layer names.");

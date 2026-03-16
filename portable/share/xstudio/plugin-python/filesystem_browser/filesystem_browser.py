@@ -1325,6 +1325,7 @@ class FilesystemBrowserPlugin(PluginBase):
 
     def _add_to_timeline(self, paths):
         """Add files as clips on a Timeline."""
+        print(f"[DEBUG _add_to_timeline] received paths: {paths}")
         try:
             # --- Find a real Playlist ---
             valid_playlist = None
@@ -1386,7 +1387,7 @@ class FilesystemBrowserPlugin(PluginBase):
             added = 0
             for path in paths:
                 try:
-                    media = valid_playlist.add_media(path)
+                    media = self._add_media_to_playlist(valid_playlist, path)
                     timeline.add_media(media)
                     video_track.insert_clip(media, index=-1)
                     added += 1
@@ -1562,25 +1563,34 @@ class FilesystemBrowserPlugin(PluginBase):
         """Helper to add media handling sequences."""
         import os
         try:
+             print(f"[DEBUG _add_media_to_playlist] input path: {path}")
              tgt_path = os.path.normpath(os.path.abspath(path))
-             
+
              # Check for sequence
              if fileseq_available:
                  try:
                     seq = fileseq.FileSequence(path)
-                    if len(seq) > 1:
+                    print(f"[DEBUG _add_media_to_playlist] fileseq parsed: len={len(seq)}, padding='{seq.padding()}', frameSet={seq.frameSet()}")
+                    if len(seq) >= 1 and seq.frameSet() is not None:
                         dirname = seq.dirname()
                         basename = seq.basename()
                         pad_str = seq.padding()
-                        pad_len = len(pad_str) if pad_str else 0
+                        if pad_str == '#':
+                            pad_len = 4
+                        else:
+                            pad_len = len(pad_str) if pad_str else 0
                         brace_padding = f"{{:0{pad_len}d}}" if pad_len > 0 else ""
                         frames = str(seq.frameSet())
                         ext = seq.extension()
                         seq_path = f"{dirname}{basename}{brace_padding}{ext}={frames}"
+                        print(f"[DEBUG _add_media_to_playlist] sequence path for C++: {seq_path}")
                         return playlist.add_media(seq_path)
-                 except:
-                    pass
-             
+                    else:
+                        print(f"[DEBUG _add_media_to_playlist] len<=1, falling through to raw path")
+                 except Exception as e:
+                    print(f"[DEBUG _add_media_to_playlist] fileseq parse error: {e}")
+
+             print(f"[DEBUG _add_media_to_playlist] sending raw path to C++: {path}")
              return playlist.add_media(path)
         except Exception as e:
             print(f"Add media error: {e}")
