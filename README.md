@@ -1,12 +1,46 @@
-# Welcome to xSTUDIO - v1.1.0
+# xSTUDIO (fork)
 
 xSTUDIO is a media playback and review application designed for professionals working in the film and TV post production industries, particularly the Visual Effects and Feature Animation sectors. xSTUDIO is focused on providing an intuitive, easy to use interface with a high performance playback engine at its core and C++ and Python APIs for pipeline integration and customisation for total flexibility.
 
-This codebase will build version 1.0.0 (alpha) of xstudio. There are some known issues that are currently being worked on:
+This is a fork of the [original DNEG xSTUDIO](https://github.com/AcademySoftwareFoundation/xstudio) with significant enhancements for Windows usability, EXR performance, and day-to-day review workflows.
+
+### Known Issues (upstream)
 
 * Moderate audio distortion on playback (Windows only)
-* Ueser Documentation and API Documentation is badly out-of-date.
-* Saved sessions might not restore media correctly (Windows only)
+* User documentation and API documentation is out-of-date
+
+---
+
+## What's New in This Fork
+
+### Filesystem Browser Plugin
+New Python plugin with full Windows support for browsing and loading media directly from disk. Includes hierarchical directory tree, favorites/bookmarks, multi-select, and drag-drop into the timeline.
+
+### Timeline Improvements
+Zoom controls with zoom-to-fit, clip drag handles, and drag-drop from the browser. "Add to Timeline" context menu for quick media placement.
+
+### EXR Layer/AOV Selector
+Toolbar dropdown for selecting EXR layers and AOVs directly in the viewport, including support for multi-level hierarchical channel names (e.g. `crypto.R`, `deep.A`).
+
+### Viewport Controls
+Gamma and Saturation sliders in the viewport toolbar. Review mode flag for presentation workflows. Drag-drop media onto the viewport.
+
+### Hotkey Editor
+Full hotkey customization dialog — rebind any keyboard shortcut from the UI.
+
+### EXR Performance
+4 targeted fixes to the EXR read pipeline: optimized frame request queuing, reader actor improvements, and reduced overhead in the media cache path.
+
+### Session Restore Fix
+Fixed saved sessions not restoring correctly on Windows. Three path handling bugs in URI conversion (wrong variable in path remapping, case-sensitive drive letters, localhost authority in file URIs) plus a timing issue where the timeline panel wouldn't populate because the model tree hadn't finished loading.
+
+### Windows Path Fixes
+Resolved path handling bugs that broke EXR sequence loading on Windows (backslash/forward-slash normalization, drive letter handling).
+
+### Cross-Platform Build Scripts
+`build.bat` (Windows) and `build.sh` (macOS/Linux) for one-command builds with automatic preset detection.
+
+---
 
 ## Building xSTUDIO
 
