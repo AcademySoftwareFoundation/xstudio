@@ -306,6 +306,30 @@ Rectangle {
                     initTimeline()
                     }}(), 50);
 
+        } else if (viewedMediaSetProperties.index.valid && viewedMediaSetProperties.values.typeRole == "Playlist") {
+            // When restoring a session, the viewed container may be a Playlist
+            // rather than a Timeline.  Find the first Timeline child inside the
+            // Playlist's Container List (row 2) and initialise from it.
+            let containerListIndex = theSessionData.index(2, 0, viewedMediaSetProperties.index)
+            let childCount = theSessionData.rowCount(containerListIndex)
+            for (let i = 0; i < childCount; i++) {
+                let childIndex = theSessionData.index(i, 0, containerListIndex)
+                if (theSessionData.get(childIndex, "typeRole") == "Timeline") {
+                    // Switch the viewed container to this Timeline so the
+                    // playhead and viewport are correctly attached.
+                    theSessionData.viewportCurrentMediaContainerIndex = childIndex
+                    return
+                }
+            }
+            // No timeline children found (or not yet loaded).  If the container
+            // list is empty the data may still be arriving asynchronously, so
+            // retry after a short delay.
+            if (childCount == 0 && !timeline_items.rootIndex.valid) {
+                callbackTimer.setTimeout(function() { return function() {
+                        viewedMediaSetChanged()
+                        }}(), 250);
+            }
+
         } else if (!timeline_items.rootIndex.valid) {
             // if the user has selected something that is not a timeline (playlist,
             // subset etc.), we do  not update our index here (unless the timeline

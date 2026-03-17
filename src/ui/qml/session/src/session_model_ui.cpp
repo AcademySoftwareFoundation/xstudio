@@ -627,6 +627,17 @@ void SessionModel::processChildren(const nlohmann::json &rj, const QModelIndex &
         emit dataChanged(parent_index, parent_index, roles);
     }
 
+    // After populating session/playlist children, re-trigger the viewport and
+    // current container lookup.  On session restore the initial lookup fires
+    // before the model tree is fully built (the children arrive asynchronously),
+    // so timelines inside playlists are not yet findable.  Re-checking here
+    // ensures the timeline panel picks up the active container once its node
+    // actually exists in the tree.
+    if (type == "Session" || type == "Container List" || type == "Playlist") {
+        updateCurrentMediaContainerIndexFromBackend();
+        updateViewportCurrentMediaContainerIndexFromBackend();
+    }
+
     emit jsonChanged();
 
     CHECK_SLOW_WATCHER_FAST()
