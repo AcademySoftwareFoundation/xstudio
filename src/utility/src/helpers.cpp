@@ -321,7 +321,7 @@ std::string xstudio::utility::uri_to_posix_path(const caf::uri &uri) {
 #ifdef _WIN32
 
         static const std::regex drive_letter_with_unwanted_leading_fwd_slash(
-            R"(^\/[A-Z]\:)", std::regex::optimize);
+            R"(^\/[A-Za-z]\:)", std::regex::optimize);
         std::cmatch m;
         if (std::regex_search(path.c_str(), m, drive_letter_with_unwanted_leading_fwd_slash)) {
             // Remove the leading /
@@ -571,7 +571,7 @@ caf::uri xstudio::utility::posix_path_to_uri(const std::string &path, const bool
 #endif
     }
 
-    p = reverse_remap_file_path(path);
+    p = reverse_remap_file_path(p);
 
 
     // spdlog::warn("posix_path_to_uri: {} -> {}", path, p);
@@ -583,7 +583,7 @@ caf::uri xstudio::utility::posix_path_to_uri(const std::string &path, const bool
     if (not p.empty() && p[0] != '/')
         return caf::uri_builder().scheme("file").path(p).make();
 
-    auto result = caf::uri_builder().scheme("file").host("localhost").path(p).make();
+    auto result = caf::uri_builder().scheme("file").host("").path(p).make();
 
     return result;
 
