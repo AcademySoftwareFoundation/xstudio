@@ -259,6 +259,14 @@ xstudio::utility::frame_groups_from_sequence_spec(const caf::uri &from_path) {
 
     try {
         std::string path = uri_to_posix_path(from_path);
+
+        // Convert any printf-style format specs (%04d etc.) to fmt format ({:04d})
+        // in case they survive into this path without prior conversion.
+        {
+            const std::regex printf_re("%0(\\d+)d");
+            path = std::regex_replace(path, printf_re, "{:0$1d}");
+        }
+
         const std::regex spec_re("\\{[^}]+\\}");
         const std::regex path_re("^" + std::regex_replace(path, spec_re, "([0-9-]+)") + "$");
 #ifdef _WIN32

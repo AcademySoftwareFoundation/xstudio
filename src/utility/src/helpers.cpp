@@ -484,13 +484,36 @@ caf::uri xstudio::utility::parse_cli_posix_path(
     const std::regex xstudio_prefix_shake(
         R"(^(.+\.)([-0-9x,]+)([#@]+)(\..+)$)", std::regex::optimize);
 
+    // Printf-style pattern: file.%04d.exr
+    const std::regex xstudio_printf(
+        R"(^(.+\.)(%0\d+d)(\..+?)(=([-0-9x,]+))?$)", std::regex::optimize);
+
+    // Prefix + printf pattern: file.1234.%04d.exr
+    const std::regex xstudio_prefix_printf(
+        R"(^(.+\.)([-0-9x,]+)\.(%0\d+d)(\..+)$)", std::regex::optimize);
+
+    // Convert printf format to fmt format: %04d -> {:04d}
+    auto printf_to_fmt = [](const std::string &printf_spec) -> std::string {
+        return "{:" + printf_spec.substr(1, printf_spec.size() - 2) + "d}";
+    };
+
+    // Nuke-style space-separated frame range: "file.%04d.exr 1000-1080"
+    // Convert to equals syntax: "file.%04d.exr=1000-1080"
+    static const std::regex space_range_re(
+        R"(^(.+\.\S+)\s+([-0-9x,]+)$)", std::regex::optimize);
+    std::string normalized_path = path;
+    std::smatch space_m;
+    if (std::regex_match(normalized_path, space_m, space_range_re)) {
+        normalized_path = space_m[1].str() + "=" + space_m[2].str();
+    }
+
 #ifdef _WIN32
-    std::string abspath = path;
+    std::string abspath = normalized_path;
     if (abspath[0] == '\\') {
         abspath.erase(abspath.begin());
     }
 #else
-    const std::string abspath = fs::absolute(path);
+    const std::string abspath = fs::absolute(normalized_path);
 #endif
 
 
@@ -499,6 +522,9 @@ caf::uri xstudio::utility::parse_cli_posix_path(
         uri = *caf::make_uri(path);
     } else if (std::regex_match(abspath.c_str(), m, xstudio_prefix_spec)) {
         uri        = posix_path_to_uri(m[1].str() + m[3].str());
+        frame_list = FrameList(m[2].str());
+    } else if (std::regex_match(abspath.c_str(), m, xstudio_prefix_printf)) {
+        uri = posix_path_to_uri(m[1].str() + printf_to_fmt(m[3].str()) + m[4].str());
         frame_list = FrameList(m[2].str());
     } else if (std::regex_match(abspath.c_str(), m, xstudio_prefix_shake)) {
         size_t pad_c = 0;
@@ -523,6 +549,18 @@ caf::uri xstudio::utility::parse_cli_posix_path(
             throw std::runtime_error("No frames specified.");
         }
 
+    } else if (std::regex_match(abspath.c_str(), m, xstudio_printf)) {
+        uri = posix_path_to_uri(m[1].str() + printf_to_fmt(m[2].str()) + m[3].str());
+
+        if (not m[5].str().empty()) {
+            frame_list = FrameList(m[5].str());
+        } else if (scan) {
+            frame_list = FrameList(uri);
+        }
+
+        if (frame_list.empty()) {
+            throw std::runtime_error("No frames specified.");
+        }
     } else if (std::regex_match(abspath.c_str(), m, xstudio_shake)) {
         size_t pad_c = 0;
         if (m[2].str() == "#") {
