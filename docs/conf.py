@@ -51,7 +51,7 @@ autosummary_generate = False
 
 breathe_default_project = "xStudio"
 breathe_projects = {
-    "xStudio": "/user_data/ted/xstudio/__build2/docs/docs/doxygen/xml"
+    "xStudio": "_build/doxygen/xml"
 }
 
 
