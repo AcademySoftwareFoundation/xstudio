@@ -94,12 +94,15 @@
                 "buffer_size": {
                     "path": "/core/audio/pulse_audio_prefs/buffer_size",
                     "default_value": 1024,
-                    "description": "Souncard audio samples buffer size. The larger this number, the greater the latency in xSTUDIO's audio pipeline but the more robust it will be to underruns that cause audio distortion.",
+                    "description": "Souncard audio samples buffer size. The larger this number, the greater the latency in xSTUDIO's audio pipeline but the more robust it will be to underruns that cause audio distortion. A 'low' recommended value for low-latency audio would be 1024. This means that scrubbing and stepping frames with audio scrubbing on will sound an audio burst very closely synced with the on-screen image. A higher recommended value would be 8192 to eliminate occasional pops or crackles in the audio when xSTUDIO has a high load like playihng very high resolution media. Note that this changing this value will not introduce a delay between audio and video during playback. YOU MUST RE-START XSTUDIO AFTER CHANGING THIS VALUE.",
                     "value": 1024,
                     "minimum": 256,
                     "maximum": 16384,
                     "datatype": "int",
-                    "context": ["APPLICATION"]
+                    "context": ["APPLICATION"],
+                    "category": "Audio",
+                    "display_name": "Audio Buffer Size",
+                    "platform": "linux"
                 },
                 "channels": {
                     "path": "/core/audio/pulse_audio_prefs/channels",

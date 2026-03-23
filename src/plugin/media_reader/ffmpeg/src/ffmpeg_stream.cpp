@@ -38,15 +38,16 @@ void xstudio::media_reader::ffmpeg::AVC_CHECK_THROW(int errorNum, const char *av
 namespace {
 
 static const std::set<int> shader_supported_pix_formats = {
-    AV_PIX_FMT_RGB24,        AV_PIX_FMT_BGR24,       AV_PIX_FMT_RGB48LE,
-    AV_PIX_FMT_RGBA64LE,     AV_PIX_FMT_ARGB,        AV_PIX_FMT_RGBA,
-    AV_PIX_FMT_BGRA,         AV_PIX_FMT_YUV422P,     AV_PIX_FMT_YUVJ422P,
-    AV_PIX_FMT_YUV420P,      AV_PIX_FMT_YUVJ420P,    AV_PIX_FMT_YUV422P10LE,
-    AV_PIX_FMT_YUV420P10LE,  AV_PIX_FMT_YUV444P10LE, AV_PIX_FMT_YUVA444P10LE,
-    AV_PIX_FMT_YUV422P12LE,  AV_PIX_FMT_YUV444P12LE, AV_PIX_FMT_YUVA422P12LE,
-    AV_PIX_FMT_YUVA444P12LE, AV_PIX_FMT_GBRP10LE,    AV_PIX_FMT_GBRP12LE,
-    AV_PIX_FMT_GBRAP10LE,    AV_PIX_FMT_GBRAP12LE,   AV_PIX_FMT_GBRAP16LE,
-    AV_PIX_FMT_GBRAP16LE};
+    AV_PIX_FMT_RGB24,       AV_PIX_FMT_BGR24,        AV_PIX_FMT_RGB48LE,
+    AV_PIX_FMT_RGBA64LE,    AV_PIX_FMT_ARGB,         AV_PIX_FMT_RGBA,
+    AV_PIX_FMT_BGRA,        AV_PIX_FMT_YUV422P,      AV_PIX_FMT_YUVJ422P,
+    AV_PIX_FMT_YUV420P,     AV_PIX_FMT_YUVJ420P,     AV_PIX_FMT_YUV422P10LE,
+    AV_PIX_FMT_YUV420P10LE, AV_PIX_FMT_YUV444P,      AV_PIX_FMT_YUVJ444P,
+    AV_PIX_FMT_YUV444P10LE, AV_PIX_FMT_YUVA444P10LE, AV_PIX_FMT_YUV422P12LE,
+    AV_PIX_FMT_YUV444P12LE, AV_PIX_FMT_YUVA422P12LE, AV_PIX_FMT_YUVA444P12LE,
+    AV_PIX_FMT_GBRP10LE,    AV_PIX_FMT_GBRP12LE,     AV_PIX_FMT_GBRAP10LE,
+    AV_PIX_FMT_GBRAP12LE,   AV_PIX_FMT_GBRAP16LE,    AV_PIX_FMT_GBRAP16LE,
+    AV_PIX_FMT_RGBF32LE};
 
 // Matrix generated with colour science for Python 0.3.15
 
@@ -71,49 +72,52 @@ void set_shader_pix_format_info(
     // Pixel format
     switch (pix_fmt) {
     case AV_PIX_FMT_RGB24:
-        jsn["rgb"] = 1;
+        jsn["pix_fmt"] = 1;
         break;
     case AV_PIX_FMT_BGR24:
-        jsn["rgb"] = 2;
+        jsn["pix_fmt"] = 2;
         break;
     case AV_PIX_FMT_ARGB:
-        jsn["rgb"] = 3;
+        jsn["pix_fmt"] = 3;
         break;
     case AV_PIX_FMT_RGBA:
-        jsn["rgb"] = 4;
+        jsn["pix_fmt"] = 4;
         break;
     case AV_PIX_FMT_ABGR:
-        jsn["rgb"] = 5;
+        jsn["pix_fmt"] = 5;
         break;
     case AV_PIX_FMT_BGRA:
-        jsn["rgb"] = 6;
+        jsn["pix_fmt"] = 6;
         break;
     case AV_PIX_FMT_GBRP10LE:
-        jsn["rgb"] = 7;
+        jsn["pix_fmt"] = 7;
         break;
     case AV_PIX_FMT_GBRP12LE:
-        jsn["rgb"] = 7;
+        jsn["pix_fmt"] = 7;
         break;
     case AV_PIX_FMT_GBRAP10LE:
-        jsn["rgb"] = 7;
+        jsn["pix_fmt"] = 7;
         break;
     case AV_PIX_FMT_GBRAP12LE:
-        jsn["rgb"] = 7;
+        jsn["pix_fmt"] = 7;
         break;
     case AV_PIX_FMT_GBRP16LE:
-        jsn["rgb"] = 7;
+        jsn["pix_fmt"] = 7;
         break;
     case AV_PIX_FMT_GBRAP16LE:
-        jsn["rgb"] = 7;
+        jsn["pix_fmt"] = 7;
         break;
     case AV_PIX_FMT_RGB48LE:
-        jsn["rgb"] = 8;
+        jsn["pix_fmt"] = 8;
         break;
     case AV_PIX_FMT_RGBA64LE:
-        jsn["rgb"] = 9;
+        jsn["pix_fmt"] = 9;
+        break;
+    case AV_PIX_FMT_RGBF32LE:
+        jsn["pix_fmt"] = 10;
         break;
     default:
-        jsn["rgb"] = 0;
+        jsn["pix_fmt"] = 0;
     };
 
     // Chroma subsampling
@@ -278,8 +282,8 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
         }
 
         image_buffer.reset(new ImageBuffer());
-        auto buffer =
-            (uint8_t *)image_buffer->allocate(4 * ffmpeg_frame_->width * ffmpeg_frame_->height);
+        auto buffer = (uint8_t *)image_buffer->allocate(
+            4 * ffmpeg_frame_->width * ffmpeg_frame_->height * 2);
         // not one of the ffmpeg pixel formats that our shader can deal with, so convert to
 
         // something we can
@@ -296,7 +300,22 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
             nullptr,
             nullptr);
 
-        const std::array<int, 1> out_linesize({4 * ffmpeg_frame_->width});
+        if (!sws_context_) {
+            const char *fmt_name = av_get_pix_fmt_name((AVPixelFormat)ffmpeg_pixel_format);
+            if (fmt_name) {
+                throw std::runtime_error(fmt::format(
+                    "Unable to read image with pixel format {} to a playable image format.",
+                    fmt_name));
+            } else {
+                throw std::runtime_error(fmt::format(
+                    "Unable to read image with pixel format ID {} to a playable image format.",
+                    ffmpeg_pixel_format));
+            }
+        }
+
+        const std::array<int, 8> out_linesize({4 * ffmpeg_frame_->width, 0, 0, 0, 0, 0, 0, 0});
+        std::array<uint8_t *, 8> planes(
+            {buffer, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr});
 
         sws_scale(
             sws_context_,
@@ -304,7 +323,7 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
             ffmpeg_frame_->linesize,
             0,
             ffmpeg_frame_->height,
-            &buffer,
+            planes.data(),
             out_linesize.data());
 
         jsn["y_linesize"]           = out_linesize[0];
@@ -413,15 +432,15 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
 
     // determine if image has alpha - if planar, look for 'a_linesize' != 0.
     // Otherwise check for interleaved RGB pix formats that have an alpha
-    int rgb_format_code = jsn.value("rgb", 0);
+    int pix_fmt_code    = jsn.value("pix_fmt", 0);
     int alpha_line_size = jsn.value("a_linesize", 0);
 
-    if (rgb_format_code == 8 || rgb_format_code == 1 || rgb_format_code == 2) {
+    if (pix_fmt_code == 8 || pix_fmt_code == 1 || pix_fmt_code == 2) {
         image_buffer->set_has_alpha(false);
-    } else if (rgb_format_code == 9 || (rgb_format_code > 2 && rgb_format_code < 7)) {
+    } else if (pix_fmt_code == 9 || (pix_fmt_code > 2 && pix_fmt_code < 7)) {
         image_buffer->set_has_alpha(true);
     } else {
-        // rgb == 7 (RGB(A) planar) or rgb == 0 (i.e. YUV(A))
+        // pix_fmt == 7 (RGB(A) planar) or pix_fmt == 0 (i.e. YUV(A))
         image_buffer->set_has_alpha(alpha_line_size != 0);
     }
 
@@ -478,6 +497,10 @@ FFMpegStream::convert_av_frame_to_thumbnail(const size_t size_hint) {
         nullptr,
         nullptr,
         nullptr);
+
+    if (!sws_context_) {
+        return std::shared_ptr<thumbnail::ThumbnailBuffer>();
+    }
 
     const std::array<int, 1> out_linesize({3 * 2 * thumb_width});
 
@@ -895,8 +918,8 @@ size_t FFMpegStream::resample_audio(
             throw media_corrupt_error(errbuf.data());
         }
 
-        src_audio_fmt_            = (AVSampleFormat)ffmpeg_frame_->format;
-        src_audio_sample_rate_    = ffmpeg_frame_->sample_rate;
+        src_audio_fmt_ = (AVSampleFormat)ffmpeg_frame_->format;
+        src_audio_sample_rate_ = ffmpeg_frame_->sample_rate;
         src_audio_channel_layout_ = dec_channel_layout;
     }
 

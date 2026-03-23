@@ -23,17 +23,16 @@ QString capitaliseFirst(QString in) {
 GlobalStoreModel::GlobalStoreModel(QObject *parent) : super(parent) {
     init(CafSystemObject::get_actor_system());
 
-    setRoleNames(
-        std::vector<std::string>(
-            {"nameRole",
-             "pathRole",
-             "datatypeRole",
-             "contextRole",
-             "valueRole",
-             "descriptionRole",
-             "defaultValueRole",
-             "overriddenValueRole",
-             "overriddenPathRole"}));
+    setRoleNames(std::vector<std::string>(
+        {"nameRole",
+         "pathRole",
+         "datatypeRole",
+         "contextRole",
+         "valueRole",
+         "descriptionRole",
+         "defaultValueRole",
+         "overriddenValueRole",
+         "overriddenPathRole"}));
 }
 
 
@@ -340,20 +339,19 @@ bool GlobalStoreModel::setData(const QModelIndex &index, const QVariant &value, 
 PublicPreferencesModel::PublicPreferencesModel(QObject *parent) : super(parent) {
     init(CafSystemObject::get_actor_system());
 
-    setRoleNames(
-        std::vector<std::string>(
-            {"nameRole",
-             "pathRole",
-             "datatypeRole",
-             "contextRole",
-             "valueRole",
-             "descriptionRole",
-             "defaultValueRole",
-             "overriddenValueRole",
-             "overriddenPathRole",
-             "displayNameRole",
-             "categoryRole",
-             "optionsRole"}));
+    setRoleNames(std::vector<std::string>(
+        {"nameRole",
+         "pathRole",
+         "datatypeRole",
+         "contextRole",
+         "valueRole",
+         "descriptionRole",
+         "defaultValueRole",
+         "overriddenValueRole",
+         "overriddenPathRole",
+         "displayNameRole",
+         "categoryRole",
+         "optionsRole"}));
 }
 
 
@@ -540,6 +538,26 @@ void PublicPreferencesModel::buildModel(const utility::JsonStore &entireGlobalSt
     setModelData(tree);
 }
 
+bool platformMatch(const nlohmann::json &v) {
+
+    // if v contains a 'platform' entry, does it match our platform?
+    // if there is no entry we say true. This enables us to HIDE certain preferences
+    // on platforms for which it is not intended. E.g. pulseaudio prefs only
+    // apply to Linux but we want to expose some in the preferences dialog.
+
+    if (!v.count("platform") || !v["platform"].is_string())
+        return true;
+    const std::string platform = v["platform"].get<std::string>();
+#ifdef _WIN32
+    return platform == "mswin";
+#endif
+#ifdef __apple__
+    return platform == "macos";
+#else
+    return platform == "linux";
+#endif
+}
+
 // convert to internal representation.
 void PublicPreferencesModel::storeToTree(const nlohmann::json &src, nlohmann::json &tree) {
 
@@ -561,6 +579,9 @@ void PublicPreferencesModel::storeToTree(const nlohmann::json &src, nlohmann::js
 
     for (const auto &[k, v] : src.items()) {
         if (v.count("category") && v["category"].is_string()) {
+
+            if (!platformMatch(v))
+                continue;
 
             const std::string category     = v["category"].get<std::string>();
             nlohmann::json &category_group = find_or_make_child(tree, category);

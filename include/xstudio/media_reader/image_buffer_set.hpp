@@ -66,7 +66,7 @@ namespace media_reader {
             utility::time_point t = utility::time_point::max();
             for (const auto &p : sub_playhead_sets_) {
                 for (const auto &d : p.second->future_images) {
-                    t = std::min(d.when_to_display_, t);
+                    t = std::min(d.when_to_display(), t);
                 }
             }
             return t;

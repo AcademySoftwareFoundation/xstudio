@@ -13,6 +13,7 @@ set(SOURCES
 	annotation_undo_redo.cpp
 	serialisers/1.0/serialiser_1_pt_0.cpp
 	serialisers/2.0/serialiser_2_pt_0.cpp
+	serialisers/3.0/serialiser_3_pt_0.cpp
 )
 
 qt6_add_resources(SOURCES qml/AnnotationsUI.2/anno_tools.qrc)

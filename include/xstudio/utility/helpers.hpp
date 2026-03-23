@@ -86,15 +86,20 @@ namespace utility {
         void decrement(int ct) {
             count_ -= ct;
             if (count_ <= 0 && rp_.pending()) {
-                rp_.deliver(result_);
+                if (last_error_.empty()) {
+                    rp_.deliver(result_);
+                } else {
+                    rp_.deliver(last_error_);
+                }
             }
         }
 
-        void decrement(const caf::error & /*err*/, int ct) {
+        void decrement(const caf::error &err, int ct) {
             count_ -= ct;
             if (count_ <= 0 && rp_.pending()) {
-                rp_.deliver(result_);
+                rp_.deliver(err);
             }
+            last_error_ = err;
         }
 
         caf::typed_response_promise<T> &response_promise() { return rp_; }
@@ -107,6 +112,7 @@ namespace utility {
         caf::typed_response_promise<T> rp_;
         T result_;
         int count_;
+        caf::error last_error_;
     };
 
     /* This helper class can be used in the situation where you have to execute
@@ -165,12 +171,6 @@ namespace utility {
             return this->get()->response_promise();
         }
     };
-
-
-    const std::array supported_extensions{".AAF",  ".AIFF", ".AVI", ".CIN", ".DPX", ".EXR",
-                                          ".GIF",  ".JPEG", ".JPG", ".MKV", ".MOV", ".MPG",
-                                          ".MPEG", ".MP3",  ".MP4", ".MXF", ".PNG", ".PPM",
-                                          ".TIF",  ".TIFF", ".WAV", ".WEBM"};
 
     const std::array supported_timeline_extensions{".OTIO", ".XML", ".EDL"};
 
@@ -495,15 +495,9 @@ namespace utility {
 #endif
     }
 
-    inline bool is_file_supported(const caf::uri &uri) {
-        const std::string sp = uri_to_posix_path(uri);
-        std::string ext      = to_upper(get_path_extension(fs::path(sp)));
-
-        for (const auto &i : supported_extensions)
-            if (i == ext)
-                return true;
-        return false;
-    }
+    void add_supported_extensions(const std::vector<std::string> &values);
+    std::set<std::string> supported_extensions();
+    bool is_file_supported(const caf::uri &uri);
 
     inline bool is_session(const std::string &path) {
         fs::path p(path);

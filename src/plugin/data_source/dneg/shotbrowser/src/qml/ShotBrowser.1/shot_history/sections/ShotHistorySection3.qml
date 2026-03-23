@@ -23,7 +23,7 @@ Rectangle{
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 text: pipelineStepRole
-                textColor: palette.text
+                textColor: XsStyleSheet.primaryTextColor
                 textDiv.width: width
             }
             ShotHistoryTextRow{ id: statusDiv
@@ -39,7 +39,7 @@ Rectangle{
             Layout.preferredHeight: XsStyleSheet.widgetStdHeight
             Layout.maximumHeight: XsStyleSheet.widgetStdHeight
             text: productionStatusFullRole
-            textColor: palette.text
+            textColor: XsStyleSheet.primaryTextColor
             textDiv.width: width
         }
 
@@ -80,7 +80,7 @@ Rectangle{
                         isUnClickable: true
                         enabled: false
                         text: siteName
-                        textDiv.color: onDisk? palette.text : XsStyleSheet.hintColor
+                        textDiv.color: onDisk? XsStyleSheet.primaryTextColor : XsStyleSheet.hintColor
                         font.pixelSize: textSize/1.4
                         font.weight: Font.Medium
 

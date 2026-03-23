@@ -20,7 +20,8 @@ using namespace xstudio::global_store;
 using namespace xstudio::media_metadata;
 using namespace caf;
 
-MediaMetadataWorkerActor::MediaMetadataWorkerActor(caf::actor_config &cfg)
+MediaMetadataWorkerActor::MediaMetadataWorkerActor(
+    caf::actor_config &cfg, const utility::JsonStore &prefs)
     : caf::event_based_actor(cfg) {
 
     auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
@@ -38,7 +39,7 @@ MediaMetadataWorkerActor::MediaMetadataWorkerActor(caf::actor_config &cfg)
         for (const auto &i : details) {
             if (i.enabled_) {
                 auto actor = request_receive<caf::actor>(
-                    *sys, pm, plugin_manager::spawn_plugin_atom_v, i.uuid_);
+                    *sys, pm, plugin_manager::spawn_plugin_atom_v, i.uuid_, prefs);
                 link_to(actor);
                 plugins_.push_back(actor);
                 name_plugin_[i.name_] = actor;
@@ -145,9 +146,9 @@ GlobalMediaMetadataActor::GlobalMediaMetadataActor(caf::actor_config &cfg)
     spdlog::debug("Created GlobalMediaMetadataActor.");
     print_on_exit(this, "GlobalMediaMetadataActor");
 
+    JsonStore j;
     try {
         auto prefs = GlobalStoreHelper(system());
-        JsonStore j;
         join_broadcast(this, prefs.get_group(j));
         worker_count = preference_value<size_t>(j, "/core/media_metadata/max_worker_count");
     } catch (...) {
@@ -159,7 +160,7 @@ GlobalMediaMetadataActor::GlobalMediaMetadataActor(caf::actor_config &cfg)
     auto pool = caf::actor_pool::make(
         system(),
         worker_count,
-        [&] { return system().spawn<MediaMetadataWorkerActor>(); },
+        [&] { return system().spawn<MediaMetadataWorkerActor>(j); },
         caf::actor_pool::round_robin());
 
 #pragma GCC diagnostic pop
@@ -212,7 +213,7 @@ GlobalMediaMetadataActor::GlobalMediaMetadataActor(caf::actor_config &cfg)
                         count);
                     while (worker_count < count) {
                         anon_mail(
-                            sys_atom_v, put_atom_v, system().spawn<MediaMetadataWorkerActor>())
+                            sys_atom_v, put_atom_v, system().spawn<MediaMetadataWorkerActor>(j))
                             .send(pool);
                         worker_count++;
                     }

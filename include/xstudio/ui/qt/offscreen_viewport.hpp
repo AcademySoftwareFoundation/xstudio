@@ -67,7 +67,12 @@ namespace ui {
                 const int h,
                 const media_reader::ImageBufPtr &image = media_reader::ImageBufPtr());
 
-            media_reader::ImageBufPtr renderToImageBuf(const int width, const int height);
+            media_reader::ImageBufPtr renderToImageBuf(
+                int width,
+                int height,
+                const bool include_image    = true,
+                const bool include_overlays = true,
+                const bool include_drawings = true);
 
             thumbnail::ThumbnailBufferPtr renderToThumbnail(
                 const thumbnail::THUMBNAIL_FORMAT format,
@@ -85,7 +90,8 @@ namespace ui {
                 const bool sync_fetch_playhead_image,
                 const utility::time_point &tp,
                 const media_reader::ImageBufPtr &image_to_use = media_reader::ImageBufPtr(),
-                const bool include_overlays                   = true);
+                const bool include_overlays                   = true,
+                const bool include_drawings                   = true);
 
             void renderToImageBuffer(
                 const int w,
@@ -95,7 +101,8 @@ namespace ui {
                 const bool force_sync,
                 const utility::time_point &tp                 = utility::time_point(),
                 const media_reader::ImageBufPtr &image_to_use = media_reader::ImageBufPtr(),
-                const bool include_overlays                   = true);
+                const bool include_overlays                   = true,
+                const bool include_drawings                   = true);
 
             void initGL();
 
@@ -105,7 +112,10 @@ namespace ui {
                 caf::actor media_actor,
                 const int media_frame,
                 const int width,
-                const int height);
+                const int height,
+                const bool include_image    = true,
+                const bool include_overlays = true,
+                const bool include_drawings = true);
 
             thumbnail::ThumbnailBufferPtr renderMediaFrameToThumbnail(
                 caf::actor media_actor,
@@ -126,7 +136,8 @@ namespace ui {
             void exportToCompressedFormat(
                 const media_reader::ImageBufPtr &buf,
                 const caf::uri path,
-                const std::string &ext);
+                const std::string &ext,
+                const bool has_alpha = false);
 
             bool setupTextureAndFrameBuffer(
                 const int width, const int height, const viewport::ImageFormat format);

@@ -1435,9 +1435,8 @@ void Viewport::set_playhead(caf::actor playhead, const bool wait_for_refresh) {
             }
         }
 
-        set_compare_mode(
-            utility::request_receive<std::string>(
-                *sys, playhead, playhead::compare_mode_atom_v));
+        set_compare_mode(utility::request_receive<std::string>(
+            *sys, playhead, playhead::compare_mode_atom_v));
 
         // tell the playhead events actor that the on-screen playhead has changed
         anon_mail(viewport::viewport_playhead_atom_v, name(), playhead)
@@ -2173,7 +2172,7 @@ void Viewport::render(const utility::time_point &when_going_on_screen) {
     render();
 }
 
-void Viewport::render(const media_reader::ImageBufPtr &image_buf, const bool include_overlays) {
+void Viewport::render(const media_reader::ImageBufPtr &image_buf, const bool with_overlays) {
 
     // rendering in the same thread, rendering a single image
     // - used by offscreen renderer
@@ -2183,7 +2182,7 @@ void Viewport::render(const media_reader::ImageBufPtr &image_buf, const bool inc
     update_onscreen_frame_info(rdata->images);
     rdata->window_to_viewport_matrix = window_to_viewport_matrix();
     rdata->projection_matrix         = projection_matrix();
-    if (include_overlays) {
+    if (with_overlays) {
         rdata->overlay_renderers = viewport_overlay_renderers_;
     }
     rdata->renderer           = active_renderer_;

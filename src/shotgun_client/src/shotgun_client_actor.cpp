@@ -624,12 +624,11 @@ void ShotgunClientActor::request_image(
     mail(
         http_get_atom_v,
         base_.scheme_host_port(),
-        std::string(
-            fmt::format(
-                "/api/v1/entity/{}/{}/image?alt={}",
-                entity,
-                record_id,
-                (thumbnail ? "thumbnail" : "original"))),
+        std::string(fmt::format(
+            "/api/v1/entity/{}/{}/image?alt={}",
+            entity,
+            record_id,
+            (thumbnail ? "thumbnail" : "original"))),
         base_.get_auth_headers())
         .request(http_, infinite)
         .then(
@@ -801,10 +800,9 @@ void ShotgunClientActor::request_entity_filter(
             // should be an array..
             for (const auto &[key, value] : filter.items()) {
                 if (value.is_array())
-                    params.insert(
-                        std::make_pair(
-                            "filter[" + key + "]",
-                            join_as_string(value.get<std::vector<std::string>>(), ",")));
+                    params.insert(std::make_pair(
+                        "filter[" + key + "]",
+                        join_as_string(value.get<std::vector<std::string>>(), ",")));
                 else
                     params.insert(
                         std::make_pair("filter[" + key + "]", value.get<std::string>()));
@@ -1156,6 +1154,7 @@ void ShotgunClientActor::upload_start(
                         rp.deliver(JsonStore(std::move(jsn)));
                     }
                 } catch (const std::exception &err) {
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, err.what(), response.body);
                     rp.deliver(make_error(sce::response_error, err.what()));
                 }
             },
@@ -1167,10 +1166,15 @@ void ShotgunClientActor::upload_start(
 
 
 void ShotgunClientActor::upload_transfer(
-    const std::string &url,
+    const std::string &_url,
     const std::string &content_type,
     const std::vector<std::byte> &data,
     caf::typed_response_promise<utility::JsonStore> rp) {
+
+    // substitute our url for what xstudio suggests,
+    static std::regex re(R"(^.+?/api/)");
+    const auto url = std::regex_replace(_url, re, base_.scheme_host_port() + "/api/");
+
     auto uri = caf::make_uri(url);
     if (uri) {
         auto host_port = to_string(*(uri->authority_only()));
@@ -1194,7 +1198,8 @@ void ShotgunClientActor::upload_transfer(
                         } else
                             rp.deliver(jsn);
                     } catch (const std::exception &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                        spdlog::warn(
+                            "{} {} {}", __PRETTY_FUNCTION__, err.what(), response.body);
                         rp.deliver(make_error(sce::response_error, err.what()));
                     }
                 },
@@ -1227,7 +1232,7 @@ void ShotgunClientActor::upload_finish(
                     jsn["body"] = response.body;
                     rp.deliver(jsn);
                 } catch (const std::exception &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, err.what(), response.body);
                     rp.deliver(make_error(sce::response_error, err.what()));
                 }
             },

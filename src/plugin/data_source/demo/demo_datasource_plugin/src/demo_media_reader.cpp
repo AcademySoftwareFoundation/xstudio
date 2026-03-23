@@ -23,9 +23,7 @@ void srand48(const size_t h) {
     srand((unsigned int)(h));
 }
 
-double drand48() {
-   return (double)rand() / double(RAND_MAX);
-}
+double drand48() { return (double)rand() / double(RAND_MAX); }
 
 #endif
 static Uuid shader_uuid{"241b2d6a-8107-4944-96da-ead12dc26c42"};
@@ -65,7 +63,7 @@ vec4 fetch_rgba_pixel(ivec2 image_coord)
 // coordinate. xSTUDIO takes care of the rest (mainly colour
 // transform and image display transform).
 // This shader doesn't use the image buffer at all, however, and
-// instead procedurally generates a colour at a given image 
+// instead procedurally generates a colour at a given image
 // position. See the other 'real' image readers in xSTUDIO for
 // better examples of how to do this.
 static std::string shader{R"(
@@ -309,7 +307,7 @@ ImageBufPtr ProceduralImageGenReader::image(const media::AVFrameID &mptr) {
     // (the shader code at the top of this file).
 
     // Note that the name of the image source is used to seed the random
-    // number generator and therefore we get consistent colours for a 
+    // number generator and therefore we get consistent colours for a
     // given URL.
     utility::JsonStore shader_params;
     shader_params["iTime"] =
@@ -340,7 +338,7 @@ ImageBufPtr ProceduralImageGenReader::image(const media::AVFrameID &mptr) {
     utility::JsonStore frame_metadata;
     buf->set_metadata(frame_metadata);
 
-    // here we set the shader on the image 
+    // here we set the shader on the image
     buf->set_shader(pixel_unpack_shader);
 
     buf->set_image_dimensions(
@@ -359,7 +357,7 @@ MRCertainty
 ProceduralImageGenReader::supported(const caf::uri &uri, const std::array<uint8_t, 16> &sig) {
     const auto uri_string = to_string(uri);
 
-    // note that 'sig' is the first 16 bytes of the image. Some formats like JPEG and EXR 
+    // note that 'sig' is the first 16 bytes of the image. Some formats like JPEG and EXR
     // have a magic number that we can check against.
 
     // we load when uri ends in '.fake'
@@ -377,7 +375,7 @@ xstudio::media::MediaDetail ProceduralImageGenReader::detail(const caf::uri &uri
     const auto uri_string = to_string(uri);
     utility::Timecode tc("00:00:00:00");
 
-    // For our example we have 'encoded' the frame range for these virtual files 
+    // For our example we have 'encoded' the frame range for these virtual files
     // in their URL, which is of course a hack because there is no real resource
     // to read a frame range from.
     int first_frame = 1001;
@@ -399,10 +397,10 @@ xstudio::media::MediaDetail ProceduralImageGenReader::detail(const caf::uri &uri
 
     std::vector<media::StreamDetail> streams;
 
-    // set the res, depending of 'proxy' is in the URI string 
+    // set the res, depending of 'proxy' is in the URI string
     const bool is_proxy = uri_string.find(".proxy.") != std::string::npos;
-    const int width  = _image_size.x / (is_proxy ? 4 : 1);
-    const int height = _image_size.y / (is_proxy ? 4 : 1);
+    const int width     = _image_size.x / (is_proxy ? 4 : 1);
+    const int height    = _image_size.y / (is_proxy ? 4 : 1);
 
     streams.emplace_back(media::StreamDetail(frd, "RGBA")); // stream name = RGBA
     streams.back().resolution_   = Imath::V2f(width, height);

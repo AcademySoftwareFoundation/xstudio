@@ -60,10 +60,14 @@ void QMLViewportRenderer::set_depth(const float depth) {
     glViewport(0, 0, viewport_coords_.size.width(), viewport_coords_.size.height());
     glEnable(GL_SCISSOR_TEST);
     glScissor(
-        (int)round(viewport_coords_.corners[0].x()),
-        (int)round(bottom),
-        (int)round(viewport_coords_.corners[1].x() - viewport_coords_.corners[0].x()),
-        (int)round(viewport_coords_.corners[2].y() - viewport_coords_.corners[0].y()));
+        (int)round(viewport_coords_.corners[0].x() * viewport_coords_.devicePixelRatio),
+        (int)round(bottom * viewport_coords_.devicePixelRatio),
+        (int)round(
+            (viewport_coords_.corners[1].x() - viewport_coords_.corners[0].x()) *
+            viewport_coords_.devicePixelRatio),
+        (int)round(
+            (viewport_coords_.corners[2].y() - viewport_coords_.corners[0].y()) *
+            viewport_coords_.devicePixelRatio));
 
     // note: in terms of OpenGL depth depth ordering seems to be reversed when
     // it comes to QML scene graph. Remember we draw viewport first and then
@@ -139,7 +143,8 @@ void QMLViewportRenderer::setSceneCoordinates(
     // devicePixelRatio allows us to account for high DPI scaling, giving
     // us the window size in actual device pixels
 
-    if (viewport_coords_.set(topleft, topright, bottomright, bottomleft, sceneSize)) {
+    if (viewport_coords_.set(
+            topleft, topright, bottomright, bottomleft, sceneSize, devicePixelRatio)) {
 
         anon_mail(
             viewport_set_scene_coordinates_atom_v,
@@ -332,17 +337,23 @@ QVariantList QMLViewportRenderer::imageBoundariesInViewport() const {
 }
 
 bool QMLViewportRenderer::ViewportCoords::set(
-    const QPointF &a, const QPointF &b, const QPointF &c, const QPointF &d, const QSize &s) {
+    const QPointF &a,
+    const QPointF &b,
+    const QPointF &c,
+    const QPointF &d,
+    const QSize &s,
+    const float _devicePixelRatio) {
     if (corners[0] == a && corners[1] == b && corners[2] == c && corners[3] == d && size == s) {
         // coordinates are unchanged
         return false;
     }
 
-    corners[0] = a;
-    corners[1] = b;
-    corners[2] = c;
-    corners[3] = d;
-    size       = s;
+    corners[0]       = a;
+    corners[1]       = b;
+    corners[2]       = c;
+    corners[3]       = d;
+    size             = s;
+    devicePixelRatio = _devicePixelRatio;
     return true;
 }
 

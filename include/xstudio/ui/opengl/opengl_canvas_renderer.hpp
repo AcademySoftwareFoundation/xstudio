@@ -47,6 +47,23 @@ namespace ui {
                 const float device_pixel_ratio);
 
           private:
+            std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>>
+            get_strokes(const xstudio::ui::canvas::Canvas &canvas) {
+
+                // this is bad - we copy the whole stroke so we can have a shared ptr.
+                // This happens on every redraw.
+                // Canvas needs a refactor so we can get the strokes as a vector
+                // more efficiently without the copy.
+                std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>> result;
+                for (const auto &item : canvas) {
+                    if (std::holds_alternative<xstudio::ui::canvas::Stroke>(item)) {
+                        result.emplace_back(new xstudio::ui::canvas::Stroke(
+                            std::get<xstudio::ui::canvas::Stroke>(item)));
+                    }
+                }
+                return result;
+            }
+
             template <typename T>
             std::vector<T> all_canvas_items(const xstudio::ui::canvas::Canvas &canvas) {
                 std::vector<T> result;

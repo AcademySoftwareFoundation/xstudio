@@ -23,6 +23,9 @@ MediaReference::MediaReference(caf::uri uri, const bool container, const FrameRa
         std::cmatch m;
         std::string path = uri_to_posix_path(uri);
 
+        // this doesn't make sense...
+        // but I'm scared to change it..
+
         if (std::regex_match(path.c_str(), m, range_spec) and not m[1].str().empty()) {
             path        = std::regex_replace(path, std::regex(m[1].str()), "");
             uri_        = posix_path_to_uri(path);
@@ -113,6 +116,7 @@ void MediaReference::set_frame_list(const FrameList &fl) {
 
 void MediaReference::set_rate(const FrameRate &rate) { duration_.set_rate(rate, true); }
 
+
 caf::uri MediaReference::uri(const FramePadFormat fpf) const {
     auto result = uri_;
 
@@ -123,15 +127,19 @@ caf::uri MediaReference::uri(const FramePadFormat fpf) const {
             {
                 auto str = uri_decode(to_string(uri_));
                 std::cmatch m;
-                if (std::regex_match(str.c_str(), m, std::regex(".*\\{:(\\d+)d\\}.*"))) {
-                    auto repstr = std::string(std::stoi(m[1].str()), '#');
 
-                    result = *caf::make_uri(uri_encode(
-                        std::regex_replace(
+                if (std::regex_match(str.c_str(), m, std::regex(".*\\{:(\\d+)d\\}.*"))) {
+                    auto repstr = std::string(std::min(1, std::stoi(m[1].str())), '#');
+
+                    if (frame_count() == 1) {
+                        result = uris().front().first;
+                    } else {
+                        result = *caf::make_uri(uri_encode(std::regex_replace(
                             str,
                             std::regex("(\\{:\\d+d\\})"),
                             repstr,
                             std::regex_constants::format_first_only)));
+                    }
                 }
             }
             break;
@@ -141,12 +149,11 @@ caf::uri MediaReference::uri(const FramePadFormat fpf) const {
             // file://localhost//tmp/test/test.{:04d}.exr
 
             {
-                result = *caf::make_uri(uri_encode(
-                    std::regex_replace(
-                        uri_decode(to_string(uri_)),
-                        std::regex("\\{:(\\d+d)\\}"),
-                        "%$1",
-                        std::regex_constants::format_first_only)));
+                result = *caf::make_uri(uri_encode(std::regex_replace(
+                    uri_decode(to_string(uri_)),
+                    std::regex("\\{:(\\d+d)\\}"),
+                    "%$1",
+                    std::regex_constants::format_first_only)));
             }
             break;
 
@@ -240,5 +247,50 @@ void MediaReference::fill_partial_sequences() {
         set_frame_list(FrameList(frame_list_.start(), frame_list_.frames().back()));
     }
 }
+
+std::optional<caf::uri> MediaReference::pick_representative_frame(int &file_frame) const {
+
+    // In the case of retrieving media detail or metadata for a frame
+    // based source (i.e. EXRs, jpegs) we want to pick a frame
+    // from the middle of the sequence. The reason is that this
+    // is more likely to have EXR channel/part data that matches
+    // most of the other frames. We frequently see an EXR sequence
+    // where the first frame is a slate frame made by a separate
+    // tool to the rest of the sequence
+
+    const auto frames = frame_list_.frames();
+
+    std::optional<caf::uri> test_frame_uri = uri(0, file_frame);
+
+    if (frames.empty() or not test_frame_uri)
+        return test_frame_uri;
+
+    // Now we search from the middle frame in the frame range (going both backwards
+    // and forwards) until we hit a frame that is on-disk.
+
+    int d = frames.size() / 2;
+
+    while (d >= 0) {
+        test_frame_uri = uri(d, file_frame);
+
+        if ((test_frame_uri &&
+             fs::exists(fs::path(utility::uri_to_posix_path(*test_frame_uri)))) ||
+            d == 0) {
+            break;
+        }
+
+        test_frame_uri = uri(frames.size() - d, file_frame);
+
+        if (test_frame_uri &&
+            fs::exists(fs::path(utility::uri_to_posix_path(*test_frame_uri)))) {
+            break;
+        }
+
+        d--;
+    }
+
+    return test_frame_uri;
+}
+
 
 } // namespace xstudio::utility

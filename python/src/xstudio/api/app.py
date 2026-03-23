@@ -5,6 +5,7 @@ from xstudio.core import viewport_playhead_atom, quickview_media_atom
 from xstudio.core import UuidActorVec, UuidActor, viewport_atom
 from xstudio.core import get_global_playhead_events_atom, set_clipboard_atom
 from xstudio.core import active_viewport_atom, name_atom
+from xstudio.core import URI, open_external_atom
 from xstudio.api.session import Session, Container
 from xstudio.api.session.playhead import Playhead
 from xstudio.api.module import ModuleBase
@@ -23,6 +24,7 @@ class App(Container):
             uuid(Uuid): Uuid of remote actor.
         """
         Container.__init__(self, connection, remote, uuid)
+        self.__offscreen_vp = None
 
     @property
     def session(self):
@@ -51,9 +53,9 @@ class App(Container):
 
     def viewport_names(self):
         """Get a list of the names of viewport instances that exist in the
-        application. The viewport name can be used to access the viewport 
+        application. The viewport name can be used to access the viewport
         via the 'viewport' method on this App object.
-        
+
         Returns:
             list(str): A list of viewport names"""
         gphev = self.connection.request_receive(
@@ -79,15 +81,17 @@ class App(Container):
     def snapshot_viewport(self):
         """Access the offscreen viewport that can be used to render specific
         media frames to images, for example
-        
+
         Returns:
             snapshot_viewport(OffscreenViewport): OffscreenViewport module."""
-        return OffscreenViewport(self.connection, 'snapshot_viewport')
+        if not self.__offscreen_vp:
+            self.__offscreen_vp = OffscreenViewport(self.connection, 'snapshot_viewport')
+        return self.__offscreen_vp
 
     @property
     def active_viewport(self):
         """Access the current (active & visible) viewport in the xSTUDIO UI.
-        
+
         Returns:
             viewport(Viewport): Viewport module."""
         return Viewport(self.connection, active_viewport=True)
@@ -128,6 +132,20 @@ class App(Container):
             self.remote,
             set_clipboard_atom(),
             content
+        )[0]
+
+    def open_external(self, uri):
+        """Open URI in external app
+        Args:
+            content(str): content
+        """
+        if not isinstance(uri, URI):
+            uri = URI(uri)
+
+        self.connection.request_receive(
+            self.remote,
+            open_external_atom(),
+            uri
         )[0]
 
     @property

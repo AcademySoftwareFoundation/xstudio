@@ -21,7 +21,7 @@ Button {
     property bool forcedHover: false
 
     property color imgOverlayColor: "#C1C1C1"
-    property color bgColorPressed: palette.highlight
+    property color bgColorPressed: XsStyleSheet.accentColor
     property color bgColorNormal: "transparent"
     property color forcedBgColorNormal: bgColorNormal
     property color borderColorHovered: bgColorPressed
@@ -45,7 +45,7 @@ Button {
         XsIcon{
             id: imageDiv
             source: ""
-            imgOverlayColor: isColoured ? palette.highlight : widget.imgOverlayColor
+            imgOverlayColor: isColoured ? XsStyleSheet.accentColor : widget.imgOverlayColor
             anchors.centerIn: parent
             width: imageSrcSize
             height: imageSrcSize
@@ -57,7 +57,6 @@ Button {
             visible: imgSrc==""
             text: widget.text
             font: widget.font
-            color: textColorNormal
             elide: Text.ElideRight
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter

@@ -66,8 +66,13 @@ Item{
 
     property bool isPaused: false
 
-    onOnScreenMediaUuidChanged: {if(visible) updateTimer.start()}
+    onOnScreenMediaUuidChanged: { if(visible) updateTimer.start() }
     onOnScreenClipUuidChanged: { if(visible) updateTimer.start() }
+
+    XsPreference {
+        id: pauseOnPlaying
+        path: "/plugin/data_source/shotbrowser/pause_update_on_playing"
+    }
 
     onCurrentPresetIndexChanged: {
         if(currentPresetIndex.valid)
@@ -82,10 +87,15 @@ Item{
     }
 
     onOnScreenLogicalFrameChanged: {
-        if(updateTimer.running)
-            updateTimer.restart()
-        if(!isPaused && (currentCategory == "Menus" && currentPresetIndex.valid) || (currentCategory == "Tree" && sequenceTreeLiveLink)) {
-            isPaused = true
+        if(visible) {
+            if((currentPlayhead.playing || currentPlayhead.scrubbingFrames) && !pauseOnPlaying.value) {
+                // no op
+            } else if(updateTimer.running) {
+                updateTimer.restart()
+                if(!isPaused && (currentCategory == "Menus" && currentPresetIndex.valid) || (currentCategory == "Tree" && sequenceTreeLiveLink)) {
+                    isPaused = true
+                }
+            }
         }
     }
 
@@ -136,6 +146,8 @@ Item{
             let pi = getProjectIndexFromName(projectPref.value)
             if(pi.valid)
                 projectIndex = pi
+            else
+                projectIndex = null
         }
     }
 
@@ -282,12 +294,12 @@ Item{
         property var hideStatus: ["omt", "na", "del", "omtnto", "omtnwd"]
         property var filterProjects: []
         property var filterProjectStatus: []
-        property var filterUnit: {}
-        property var filterType: {}
+        property var filterUnit: (new Map())
+        property var filterType: (new Map())
         property var filterLocation: []
 
-        property var shotTreeHidden: {}
-        property var assetTreeHidden: {}
+        property var shotTreeHidden: (new Map())
+        property var assetTreeHidden: (new Map())
         // property var presetHidden: []
 
         property bool inited: false
@@ -386,12 +398,12 @@ Item{
         function onProjectIndexChanged() {
             let proj = projectIndex && projectIndex.model ? projectIndex.model.get(projectIndex,"nameRole") : ""
 
-            if(proj in prefs.filterUnit)
+            if(prefs.inited && proj in prefs.filterUnit)
                 sequenceFilterModel.unitFilter = prefs.filterUnit[proj]
             else
                 sequenceFilterModel.unitFilter = []
 
-            if(proj in prefs.filterType)
+            if(prefs.inited && proj in prefs.filterType)
                 sequenceFilterModel.typeFilter = prefs.filterType[proj]
             else
                 sequenceFilterModel.typeFilter = []
@@ -562,9 +574,6 @@ Item{
             assetBaseModel = ShotBrowserEngine.assetTreeModel(i)
             projectPref.value = m.get(projectIndex, "nameRole")
             projectId = i
-
-            ShotBrowserHelpers.updateSnapshotFolders(projectPref.value);
-
             favouriteTimer.start()
         }
     }
@@ -763,5 +772,4 @@ Item{
             updateMetaData()
         }
     }
-
 }

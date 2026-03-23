@@ -27,10 +27,9 @@ MouseArea {
     property bool isIconVisible: false
     property bool isMouseHovered: groupOnlyMArea.containsMouse || addBtn.hovered || editBtn.hovered || hiddenBtn.hovered || moreBtn.hovered || favBtn.hovered
 
-    property color itemColorActive: palette.highlight
-    property color itemColorNormal: XsStyleSheet.widgetBgNormalColor //palette.base
+    property color itemColorActive: XsStyleSheet.accentColor
+    property color itemColorNormal: XsStyleSheet.widgetBgNormalColor
 
-//    property bool allowProjectQuery: groupFlagRole.includes("Allow Project Query")
     property bool ignoreTree: groupFlagRole.includes("Ignore Tree Selection")
 
     hoverEnabled: true
@@ -201,7 +200,7 @@ MouseArea {
         property bool isDivSelected: false
         property int slNumber: index+1
 
-        color: isSelected ? Qt.darker(palette.highlight, 2) : Qt.lighter(palette.base, 1.5)
+        color: isSelected ? Qt.darker(XsStyleSheet.accentColor, 2) : Qt.lighter(XsStyleSheet.panelBgColor, 1.5)
 
         // opacity: hiddenRole ? 0.5 : 1.0
 
@@ -412,7 +411,7 @@ MouseArea {
                 Layout.preferredWidth: height
                 Layout.fillHeight: true
                 // height: parent.height
-                // imgOverlayColor: toolTipMArea.containsMouse? palette.highlight : XsStyleSheet.secondaryTextColor
+                // imgOverlayColor: toolTipMArea.containsMouse? XsStyleSheet.accentColor : XsStyleSheet.secondaryTextColor
                 source: "qrc:///icons/person.svg"
                 scale: 0.95
             }

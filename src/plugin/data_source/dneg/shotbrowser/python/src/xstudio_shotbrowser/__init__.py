@@ -2,7 +2,7 @@
 """xStudio pipequery API."""
 
 from xstudio.api.auxiliary import ActorConnection
-from xstudio.core import get_data_atom, JsonStore, shotgun_update_entity_atom, VectorString
+from xstudio.core import get_data_atom, JsonStore, shotgun_update_entity_atom, VectorString, shotgun_entity_atom, shotgun_entity_search_atom
 
 class ShotBrowser(ActorConnection):
     def __init__(self, connection):
@@ -79,4 +79,24 @@ class ShotBrowser(ActorConnection):
             entity,
             record_id,
             JsonStore(body),
-            VectorString(fields))[0]
+            VectorString([] if fields is None else fields))[0]
+
+    def get_entity(self, entity, record_id, fields=None):
+        return self.connection.request_receive(
+            self.remote,
+            shotgun_entity_atom(),
+            entity,
+            record_id,
+            VectorString([] if fields is None else fields))[0]
+
+    def get_entities_search(self, entity, conditions, fields=None, sort=None, page=1, page_size=4999):
+        return self.connection.request_receive(
+            self.remote,
+            shotgun_entity_search_atom(),
+            entity,
+            JsonStore(conditions),
+            VectorString([] if fields is None else fields),
+            VectorString([] if sort is None else sort),
+            page,
+            page_size
+        )[0]

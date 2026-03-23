@@ -32,10 +32,12 @@ namespace media_reader {
         [[nodiscard]] ImageBuffer::PixelPickerFunc pixel_picker_func() const override {
             return &OpenEXRMediaReader::exr_buffer_pixel_picker;
         }
+        std::vector<std::string> supported_extensions() const override;
 
       private:
         static PixelInfo exr_buffer_pixel_picker(
             const ImageBuffer &buf,
+            const utility::JsonStore &pixel_unpack_uniforms,
             const Imath::V2i &pixel_location,
             const std::vector<Imath::V2i> &extra_pixel_locationss);
 
@@ -53,6 +55,8 @@ namespace media_reader {
 
         float max_exr_overscan_percent_;
         int readers_per_source_;
+
+        utility::JsonStore supported_;
     };
 } // namespace media_reader
 } // namespace xstudio

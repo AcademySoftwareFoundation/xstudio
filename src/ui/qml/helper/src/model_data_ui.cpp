@@ -246,10 +246,9 @@ bool UIModelData::setData(const QModelIndex &index, const QVariant &value, int r
                 std::string value_string = StdFromQString(value.toString());
                 j                        = nlohmann::json::parse(value_string);
             } else {
-                j = nlohmann::json::parse(
-                    QJsonDocument::fromVariant(value)
-                        .toJson(QJsonDocument::Compact)
-                        .constData());
+                j = nlohmann::json::parse(QJsonDocument::fromVariant(value)
+                                              .toJson(QJsonDocument::Compact)
+                                              .constData());
             }
 
             anon_mail(
@@ -447,7 +446,8 @@ void UIModelData::nodeActivated(
             xstudio::ui::model_data::menu_node_activated_atom_v,
             model_name_,
             reverse_apply_filter(path),
-            StdFromQString(Helpers::objPtrTostring(context_panel)))
+            StdFromQString(Helpers::objPtrTostring(context_panel)),
+            StdFromQString(data))
             .send(central_models_data_actor_);
 
     } catch (const std::exception &err) {
@@ -520,34 +520,32 @@ QObject *UIModelData::context_object_lookup(const QString &obj_str) {
 
 
 MenusModelData::MenusModelData(QObject *parent) : UIModelData(parent) {
-    setRoleNames(
-        std::vector<std::string>{
-            "uuid",
-            "menu_model",
-            "menu_item_type",
-            "name",
-            "is_checked",
-            "choices",
-            "choices_ids",
-            "current_choice",
-            "combo_box_options_enabled",
-            "hotkey_uuid",
-            "menu_icon",
-            "custom_menu_qml",
-            "menu_tooltip",
-            "user_data",
-            "hotkey_sequence",
-            "menu_item_enabled",
-            "menu_item_context",
-            "watch_visibility"});
+    setRoleNames(std::vector<std::string>{
+        "uuid",
+        "menu_model",
+        "menu_item_type",
+        "name",
+        "is_checked",
+        "choices",
+        "choices_ids",
+        "current_choice",
+        "combo_box_options_enabled",
+        "hotkey_uuid",
+        "menu_icon",
+        "custom_menu_qml",
+        "menu_tooltip",
+        "user_data",
+        "hotkey_sequence",
+        "menu_item_enabled",
+        "menu_item_context",
+        "watch_visibility"});
 }
 
 
 ViewsModelData::ViewsModelData(QObject *parent) : UIModelData(parent) {
 
-    setRoleNames(
-        std::vector<std::string>{
-            "view_name", "position", "view_qml_source", "singleton_qml_source", "module_uuid"});
+    setRoleNames(std::vector<std::string>{
+        "view_name", "position", "view_qml_source", "singleton_qml_source", "module_uuid"});
     setModelDataName("view widgets");
 
     // make the rows in the model order by the 'button_position' role
@@ -590,17 +588,16 @@ QVariant ViewsModelData::view_qml_source(QString view_name) {
 
 PopoutWindowsData::PopoutWindowsData(QObject *parent) : UIModelData(parent) {
 
-    setRoleNames(
-        std::vector<std::string>{
-            "view_name",
-            "view_qml_source",
-            "icon_path",
-            "button_position",
-            "window_is_visible",
-            "user_data",
-            "hotkey_uuid",
-            "qml_widget",
-            "module_uuid"});
+    setRoleNames(std::vector<std::string>{
+        "view_name",
+        "view_qml_source",
+        "icon_path",
+        "button_position",
+        "window_is_visible",
+        "user_data",
+        "hotkey_uuid",
+        "qml_widget",
+        "module_uuid"});
 
     setModelDataName("popout windows");
 
@@ -874,20 +871,19 @@ MediaListColumnsModel::MediaListColumnsModel(QObject *parent)
           parent,
           "media metata exposure model",
           std::string("/ui/qml/media_list_columns_config")) {
-    setRoleNames(
-        std::vector<std::string>{
-            "title",
-            "metadata_path",
-            "data_type",
-            "size",
-            "object",
-            "resizable",
-            "sortable",
-            "position",
-            "uuid",
-            "info_key",
-            "regex_match",
-            "regex_format"});
+    setRoleNames(std::vector<std::string>{
+        "title",
+        "metadata_path",
+        "data_type",
+        "size",
+        "object",
+        "resizable",
+        "sortable",
+        "position",
+        "uuid",
+        "info_key",
+        "regex_match",
+        "regex_format"});
 }
 
 MenuModelItem::MenuModelItem(QObject *parent) : super(parent) {
@@ -920,6 +916,7 @@ void MenuModelItem::init(caf::actor_system &system) {
                 const std::string path,
                 const utility::JsonStore &menu_item_data,
                 const std::string &user_data, // for hotkeys this is the 'context'
+                const std::string &activation_type,
                 const bool fromHotkey) {
                 if (fromHotkey) {
                     emit hotkeyActivated();

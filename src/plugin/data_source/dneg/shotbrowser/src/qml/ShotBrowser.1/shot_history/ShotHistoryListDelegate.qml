@@ -14,8 +14,8 @@ import xstudio.qml.models 1.0
 Rectangle{ id: frame
     // anchors.fill: parent
 
-    color: isSelected ? Qt.darker(palette.highlight, 5) : "transparent"
-    border.color: isHovered? palette.highlight : XsStyleSheet.widgetBgNormalColor
+    color: isSelected ? Qt.darker(XsStyleSheet.accentColor, 5) : "transparent"
+    border.color: isHovered? XsStyleSheet.accentColor : XsStyleSheet.widgetBgNormalColor
     border.width: 1
 
     property bool isActive: false

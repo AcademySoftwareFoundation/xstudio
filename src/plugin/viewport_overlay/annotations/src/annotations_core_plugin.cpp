@@ -32,6 +32,16 @@ AnnotationsCore::AnnotationsCore(
 
     make_behavior();
 
+    // These attributes are a convenient way to track the corresponding preferences
+    // that store the last used note category and colour set by the user so that
+    // when we create a new note we can populate the category and colour with the last used values.
+    note_category_ = add_string_attribute(
+        "note category", "note category", "");
+    note_category_->set_preference_path("/core/bookmark/note_category");
+    note_colour_ = add_string_attribute(
+        "note colour", "note colour", "");
+    note_colour_->set_preference_path("/core/bookmark/note_colour");
+    
     listen_to_playhead_events(true);
 
     // This allows any other component of xSTUDIO to find this plugin instance
@@ -200,13 +210,19 @@ void AnnotationsCore::start_stroke_or_shape(
 
     const auto item_type = payload.value("item_type", "");
     Imath::V2f pos;
+    float size_pressure;
+    float opacity_pressure;
     if (payload.contains("points")) {
         pos = Imath::V2f(
             payload.at("points").at(0).at("x").get<float>(),
             payload.at("points").at(0).at("y").get<float>());
+        size_pressure    = 1.0f;
+        opacity_pressure = 1.0f;
     } else {
         pos =
             Imath::V2f(payload["point"]["x"].get<float>(), payload["point"]["y"].get<float>());
+        size_pressure    = payload["point"]["size_pressure"].get<float>();
+        opacity_pressure = payload["point"]["opacity_pressure"].get<float>();
     }
 
     auto size = payload["paint"]["size"].get<float>();
@@ -244,9 +260,8 @@ void AnnotationsCore::start_stroke_or_shape(
             auto softness            = payload["paint"]["softness"].get<float>();
             auto size_sensitivity    = payload["paint"]["size_sensitivity"].get<float>();
             auto opacity_sensitivity = payload["paint"]["opacity_sensitivity"].get<float>();
-            user_edit_data->live_stroke.reset(
-                Stroke::Brush(
-                    colour, size, softness, opacity, size_sensitivity, opacity_sensitivity));
+            user_edit_data->live_stroke.reset(Stroke::Brush(
+                colour, size, softness, opacity, size_sensitivity, opacity_sensitivity));
             user_edit_data->item_type = Canvas::ItemType::Brush;
 
         } else if (item_type == "Square") {
@@ -307,7 +322,8 @@ void AnnotationsCore::modify_stroke_or_shape(
                 p = transform_pointer_to_image_coord(
                     Imath::V2f(i.at("x").get<float>(), i.at("y").get<float>()), user_edit_data);
 
-            points.emplace_back(p, i.value("pressure", 1.0f));
+            points.emplace_back(
+                p, i.value("size_pressure", 1.0f), i.value("opacity_pressure", 1.0f));
         }
     } else {
         Imath::V2f p;
@@ -324,7 +340,10 @@ void AnnotationsCore::modify_stroke_or_shape(
                     payload.at("point").at("y").get<float>()),
                 user_edit_data);
 
-        points.emplace_back(p, payload.at("point").value("pressure", 1.0f));
+        points.emplace_back(
+            p,
+            payload.at("point").value("size_pressure", 1.0f),
+            payload.at("point").value("opacity_pressure", 1.0f));
     }
 
     Imath::V2f shape_anchor = user_edit_data->start_point;
@@ -496,11 +515,10 @@ void AnnotationsCore::caption_drag(
             user_edit_data->start_point + pointer_position - user_edit_data->drag_start);
     } else if (
         user_edit_data->caption_handle_over_state_ == HandleHoverState::HoveredOnResizeHandle) {
-        user_edit_data->live_caption->set_wrap_width(
-            std::max(
-                0.05f,
-                user_edit_data->start_point.x +
-                    (pointer_position.x - user_edit_data->drag_start.x)));
+        user_edit_data->live_caption->set_wrap_width(std::max(
+            0.05f,
+            user_edit_data->start_point.x +
+                (pointer_position.x - user_edit_data->drag_start.x)));
     }
 }
 
@@ -579,6 +597,7 @@ void AnnotationsCore::schedule_bookmark_update(LiveEditData &user_edit_data) {
 
 void AnnotationsCore::caption_key_press(
     const utility::JsonStore &payload, LiveEditData &user_edit_data) {
+
     if (!user_edit_data->live_caption)
         return;
     const int key                   = payload.value("key", -1);
@@ -870,7 +889,12 @@ void AnnotationsCore::pick_image_to_annotate(
         user_edit_data->annotated_image = img;
     }
 
-    user_edit_data->edited_bookmark_id = utility::Uuid();
+    // see long note in push_live_edit_to_bookmark
+    if (img.frame_id() == user_edit_data->fresh_bookmark_frame_id) {
+        user_edit_data->edited_bookmark_id = user_edit_data->fresh_bookmark_id;
+    } else {
+        user_edit_data->edited_bookmark_id = utility::Uuid();
+    }
 
     AnnotationBasePtr annotation_to_add_to;
 
@@ -897,6 +921,13 @@ void AnnotationsCore::pick_image_to_annotate(
             user_edit_data->edited_bookmark_id =
                 user_edit_data->annotated_image.bookmarks()[0]->detail_.uuid_;
         }
+    }
+
+    if (user_edit_data->edited_bookmark_id != user_edit_data->fresh_bookmark_id) {
+        // we haven't needed to re-use 'fresh_bookmark_id' (we only need this
+        // for rare occasion new bookmark hasn't been synced back to us via
+        // 'images_going_on_screen') so re-set it.
+        user_edit_data->fresh_bookmark_id = utility::Uuid();
     }
 
     // for xSTUDIO Sync plugin, we need to send it the whole of the annotation
@@ -1221,6 +1252,8 @@ void AnnotationsCore::make_bookmark_for_annotations(
     if (note_name.find(".") != std::string::npos) {
         note_name = std::string(note_name, 0, note_name.find("."));
     }
+    detail.category_ = note_category_->value();
+    detail.colour_ = note_colour_->value();
 
     create_bookmark_on_frame(frame_id, note_name, detail, false);
 }
@@ -1335,6 +1368,9 @@ void AnnotationsCore::clear_annotation(LiveEditData &user_edit_data) {
     Annotation *mod_annotation = modifiable_annotation(user_edit_data);
     AnnotationBasePtr anno_ptr(mod_annotation);
 
+    // Make sure we don't try to re-use this deleted annotation/bookmark
+    user_edit_data->fresh_bookmark_id = utility::Uuid();
+
     undoable_action<ClearAnnotation>(
         user_edit_data,
         mod_annotation,
@@ -1403,10 +1439,25 @@ void AnnotationsCore::push_live_edit_to_bookmark(LiveEditData &user_edit_data) {
         user_edit_data->skip_render_caption_id = user_edit_data->live_caption->hash();
     }
 
-    update_bookmark_annotation(
-        user_edit_data->edited_bookmark_id, AnnotationBasePtr(mod_annotation), false);
+    AnnotationBasePtr anno_ptr(mod_annotation);
+    update_bookmark_annotation(user_edit_data->edited_bookmark_id, anno_ptr, false);
 
     // user_edit_data->live_canvas->full_clear();
+    if (concat) {
+        // really awkward! We've just made a new bookmark. This will be 'broadcast'
+        // by the bookmark manager, the change is picked up by the playhead(s) and
+        // they in turn broadcast new images with the new bookmark attached. That
+        // image with the new bookmark will make it to this class pretty quickly
+        // (see 'images_going_on_screen') so that next time we enter
+        // 'pick_image_to_annotate' the NEXT stroke will be added to the correct
+        // bookmark & annotation (the one we just made here). However ... due
+        // to the async nature of this whole set-up, sometimes the bookmark
+        // hasn't made it back to us. So to get around that we make a record of
+        // the fresh bookmark and the image that it is attached to so we can check
+        // it in 'pick_image_to_annotate' on the next stroke.
+        user_edit_data->fresh_bookmark_id       = user_edit_data->edited_bookmark_id;
+        user_edit_data->fresh_bookmark_frame_id = user_edit_data->annotated_image.frame_id();
+    }
 }
 
 void AnnotationsCore::start_cursor_blink() {
@@ -1445,12 +1496,16 @@ void AnnotationsCore::fade_all_laser_strokes() {
 
 void AnnotationsCore::annotation_about_to_be_edited(
     const AnnotationBasePtr &anno, const utility::Uuid &anno_uuid) {
+
     if (anno && anno_uuid != current_edited_annotation_uuid_) {
         current_edited_annotation_uuid_ = anno_uuid;
         mail(utility::event_atom_v, annotation_data_atom_v, anno).send(live_edit_event_group_);
     } else if (anno_uuid != current_edited_annotation_uuid_) {
         current_edited_annotation_uuid_ = anno_uuid;
-        mail(utility::event_atom_v, annotation_data_atom_v, AnnotationBasePtr())
+        mail(
+            utility::event_atom_v,
+            annotation_data_atom_v,
+            anno_uuid.is_null() ? AnnotationBasePtr() : AnnotationBasePtr(new Annotation))
             .send(live_edit_event_group_);
     }
 }

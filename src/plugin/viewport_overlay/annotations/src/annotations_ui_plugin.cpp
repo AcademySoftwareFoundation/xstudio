@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <filesystem>
+#include <algorithm>
+#include <cmath>
 #include <caf/actor_registry.hpp>
 
 #include "xstudio/plugin_manager/plugin_base.hpp"
@@ -46,7 +48,6 @@ AnnotationsUI::AnnotationsUI(caf::actor_config &cfg, const utility::JsonStore &i
     pen_colour_->set_preference_path("/plugin/annotations/pen_colour");
 
     // Brush
-
     brush_softness_ = add_integer_attribute("Brush Softness", "Brush Softness", 0, 0, 100);
     brush_softness_->expose_in_ui_attrs_group("annotations_tool_settings");
     brush_softness_->set_preference_path("/plugin/annotations/brush_softness");
@@ -56,7 +57,7 @@ AnnotationsUI::AnnotationsUI(caf::actor_config &cfg, const utility::JsonStore &i
     brush_size_->set_preference_path("/plugin/annotations/brush_pen_size");
 
     brush_size_sensitivity_ =
-        add_integer_attribute("Brush Size Sensitivity", "Brush Size Sensitivity", 40, 0, 40);
+        add_integer_attribute("Brush Size Sensitivity", "Brush Size Sensitivity", 100, 0, 100);
     brush_size_sensitivity_->expose_in_ui_attrs_group("annotations_tool_settings");
     brush_size_sensitivity_->set_preference_path("/plugin/annotations/size_sensitivity");
 
@@ -65,7 +66,7 @@ AnnotationsUI::AnnotationsUI(caf::actor_config &cfg, const utility::JsonStore &i
     brush_opacity_->set_preference_path("/plugin/annotations/brush_pen_opacity");
 
     brush_opacity_sensitivity_ = add_integer_attribute(
-        "Brush Opacity Sensitivity", "Brush Opacity Sensitivity", 5, 0, 40);
+        "Brush Opacity Sensitivity", "Brush Opacity Sensitivity", 50, 0, 100);
     brush_opacity_sensitivity_->expose_in_ui_attrs_group("annotations_tool_settings");
     brush_opacity_sensitivity_->set_preference_path("/plugin/annotations/opacity_sensitivity");
 
@@ -97,7 +98,6 @@ AnnotationsUI::AnnotationsUI(caf::actor_config &cfg, const utility::JsonStore &i
         "Text Background Opacity", "Text Background Opacity", 100, 0, 100);
     text_bgr_opacity_->expose_in_ui_attrs_group("annotations_tool_settings");
     text_bgr_opacity_->set_preference_path("/plugin/annotations/text_bgr_opacity");
-
     text_bgr_colour_ = add_colour_attribute(
         "Text Background Colour",
         "Text Background Colour",
@@ -332,6 +332,10 @@ void AnnotationsUI::attribute_changed(const utility::Uuid &attribute_uuid, const
             utility::JsonStore payload;
             send_event("ShowDrawings", payload);
         }
+
+    } else if (attribute_uuid == brush_opacity_sensitivity_->uuid()) {
+
+        set_bezier_xsat(get_opacity_sensitivity());
     }
 }
 
@@ -404,7 +408,7 @@ void AnnotationsUI::hotkey_pressed(
     } else if (hotkey_uuid == redo_hotkey_ && current_tool() != None) {
         redo(context);
     } else if (hotkey_uuid == clear_hotkey_ && current_tool() != None) {
-
+        clear_annotation(context);
     } else if (
         hotkey_uuid == colour_picker_hotkey_ && current_tool() != None &&
         current_tool() != Dropper) {
@@ -452,14 +456,18 @@ void AnnotationsUI::send_event(const std::string &event, const utility::JsonStor
 
 void AnnotationsUI::start_item(const ui::PointerEvent &e) {
 
+    current_item_id_ = utility::Uuid::generate();
+
+    float pressure = pressure_source(e);
+
     utility::JsonStore payload;
-    current_item_id_             = utility::Uuid::generate();
-    payload["id"]                = current_item_id_;
-    payload["item_type"]         = active_tool_->value();
-    payload["point"]["x"]        = float(e.x()) / float(e.width());
-    payload["point"]["y"]        = float(e.y()) / float(e.height());
-    payload["point"]["pressure"] = pressure_source(e);
-    payload["viewport"]          = e.context();
+    payload["id"]                        = current_item_id_;
+    payload["item_type"]                 = active_tool_->value();
+    payload["point"]["x"]                = float(e.x()) / float(e.width());
+    payload["point"]["y"]                = float(e.y()) / float(e.height());
+    payload["point"]["size_pressure"]    = map_power_pressure(pressure);
+    payload["point"]["opacity_pressure"] = map_bezier_pressure(pressure);
+    payload["viewport"]                  = e.context();
 
     const auto colour = std::vector<float>(
         {pen_colour_->value().r,
@@ -477,9 +485,8 @@ void AnnotationsUI::start_item(const ui::PointerEvent &e) {
         payload["paint"]["rgba"]     = colour;
         payload["paint"]["size"]     = brush_size_->value() / PEN_STROKE_THICKNESS_SCALE;
         payload["paint"]["softness"] = float(brush_softness_->value()) / 10.0f;
-        payload["paint"]["size_sensitivity"] = float(brush_size_sensitivity_->value()) / 10.0f;
-        payload["paint"]["opacity_sensitivity"] =
-            float(brush_opacity_sensitivity_->value()) / 10.0f;
+        payload["paint"]["size_sensitivity"]    = get_size_sensitivity();
+        payload["paint"]["opacity_sensitivity"] = get_opacity_sensitivity();
     } break;
     case Erase:
         payload["paint"]["size"] = erase_size_->value() / PEN_STROKE_THICKNESS_SCALE;
@@ -512,12 +519,15 @@ void AnnotationsUI::modify_item(const ui::PointerEvent &e) {
     if (current_item_id_.is_null())
         return;
 
+    float pressure = pressure_source(e);
+
     utility::JsonStore payload;
-    payload["id"]                = current_item_id_;
-    payload["point"]["x"]        = float(e.x()) / float(e.width());
-    payload["point"]["y"]        = float(e.y()) / float(e.height());
-    payload["point"]["pressure"] = pressure_source(e);
-    payload["point"]["size"]     = 0.0f;
+    payload["id"]                        = current_item_id_;
+    payload["point"]["x"]                = float(e.x()) / float(e.width());
+    payload["point"]["y"]                = float(e.y()) / float(e.height());
+    payload["point"]["size_pressure"]    = map_power_pressure(pressure);
+    payload["point"]["opacity_pressure"] = map_bezier_pressure(pressure);
+
     send_event("PaintPoint", payload);
 }
 
@@ -634,6 +644,7 @@ bool AnnotationsUI::pointer_event(const ui::PointerEvent &e) {
             send_event("CaptionEndMove", payload);
 
         } else {
+
             end_item();
         }
 
@@ -944,6 +955,11 @@ void AnnotationsUI::update_colour_picker_info(const ui::PointerEvent &e) {
             pen_colour_->set_value(utility::ColourTriplet(0.0f, 0.0f, 0.0f));
         }
         return;
+
+    } else if (image != image_under_pointer_) {
+        image_under_pointer_   = image;
+        pixel_unpack_uniforms_ = image_under_pointer_->shader_params();
+        pixel_unpack_uniforms_.merge(image_under_pointer_.colour_pipe_uniforms());
     }
 
     auto colour_pipeline = get_colour_pipeline_actor(e.context());
@@ -965,7 +981,7 @@ void AnnotationsUI::update_colour_picker_info(const ui::PointerEvent &e) {
 
     // The image buffer will create a PixelInfo struct with the raw RBG values
     // for our patch here
-    auto pixel_info = image->pixel_info(pixel_position, pixels);
+    auto pixel_info = image->pixel_info(pixel_position, pixel_unpack_uniforms_, pixels);
 
     // Triangle verts needed to draw a square
     static const std::vector<Imath::V4f> tri_vtxs = {
@@ -1054,19 +1070,17 @@ void AnnotationsUI::update_colour_picker_info(const ui::PointerEvent &e) {
                     std::max(0.0f, std::min(1.0f, picked_pixel_colour.z));
                 cumulative_picked_colour_.w += 1.0f;
 
-                pen_colour_->set_value(
-                    utility::ColourTriplet(
-                        cumulative_picked_colour_.x / cumulative_picked_colour_.w,
-                        cumulative_picked_colour_.y / cumulative_picked_colour_.w,
-                        cumulative_picked_colour_.z / cumulative_picked_colour_.w));
+                pen_colour_->set_value(utility::ColourTriplet(
+                    cumulative_picked_colour_.x / cumulative_picked_colour_.w,
+                    cumulative_picked_colour_.y / cumulative_picked_colour_.w,
+                    cumulative_picked_colour_.z / cumulative_picked_colour_.w));
 
             } else {
 
-                pen_colour_->set_value(
-                    utility::ColourTriplet(
-                        std::max(0.0f, std::min(1.0f, picked_pixel_colour.x)),
-                        std::max(0.0f, std::min(1.0f, picked_pixel_colour.y)),
-                        std::max(0.0f, std::min(1.0f, picked_pixel_colour.z))));
+                pen_colour_->set_value(utility::ColourTriplet(
+                    std::max(0.0f, std::min(1.0f, picked_pixel_colour.x)),
+                    std::max(0.0f, std::min(1.0f, picked_pixel_colour.y)),
+                    std::max(0.0f, std::min(1.0f, picked_pixel_colour.z))));
             }
         }
 
@@ -1108,4 +1122,66 @@ utility::BlindDataObjectPtr AnnotationsUI::onscreen_render_data(
 
     auto data = new AnnotationExtrasRenderDataSet();
     return utility::BlindDataObjectPtr(data);
+}
+
+
+float AnnotationsUI::get_size_sensitivity() const {
+    return float(brush_size_sensitivity_->value()) / 100.0;
+}
+
+float AnnotationsUI::get_opacity_sensitivity() const {
+    return float(brush_opacity_sensitivity_->value()) / 100.0f;
+}
+
+void AnnotationsUI::set_bezier_xsat(float value) {
+
+    // std::cout << "**** set_bezier_xsat value = " << value << std::endl;
+
+    // Apply 0 value constraint
+    if (value == 0.0f) {
+        bezier_mapping_enabled_ = false;
+    } else {
+        bezier_mapping_enabled_ = true;
+    }
+
+    if (bezier_mapping_enabled_) {
+
+        bezier_curve_.xSat = std::clamp(value, 0.01f, 1.0f);
+
+        // Apply linkP1ToP3 constraint
+        if (link_P1_to_P3_) {
+            bezier_curve_.P1.dx = bezier_curve_.xSat;
+        } else {
+            bezier_curve_.P1.dx =
+                std::clamp(bezier_curve_.P1.dx, 0.0f, bezier_curve_.xSat - 0.001f);
+        }
+
+        // Apply lockP2OffsetX constraint
+        if (lock_P2_offset_x_ >= 0.0) {
+            float target_offset = -lock_P2_offset_x_;
+            if (bezier_curve_.xSat + target_offset >= 0.0) {
+                bezier_curve_.P2.dx = target_offset;
+            } else {
+                bezier_curve_.P2.dx = -bezier_curve_.xSat;
+            }
+        }
+
+        bezier_curve_.P2.dx = std::clamp(bezier_curve_.P2.dx, -bezier_curve_.xSat, -0.001f);
+
+        bezier_lut_.set_curve(bezier_curve_);
+    }
+}
+
+float AnnotationsUI::map_bezier_pressure(float input) const {
+
+    if (bezier_mapping_enabled_) {
+        return bezier_lut_.map(input);
+    }
+
+    return 1.0f;
+}
+
+float AnnotationsUI::map_power_pressure(float input) const {
+    // expected from 0 to 4
+    return std::pow(input, get_size_sensitivity() * 4.0f);
 }

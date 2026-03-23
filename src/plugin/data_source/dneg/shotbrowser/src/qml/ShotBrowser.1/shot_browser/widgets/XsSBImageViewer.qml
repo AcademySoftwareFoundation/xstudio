@@ -85,7 +85,7 @@ MouseArea {
                     XsIcon{
                         anchors.fill: parent
                         source: "qrc:/icons/close.svg"
-                        imgOverlayColor: parent.containsMouse ? palette.highlight : XsStyleSheet.primaryTextColor
+                        imgOverlayColor: parent.containsMouse ? XsStyleSheet.accentColor : XsStyleSheet.primaryTextColor
                     }
                 }
 
@@ -99,7 +99,7 @@ MouseArea {
                         anchors.fill: parent
                         rotation: 180
                         source: "qrc:/icons/chevron_right.svg"
-                        imgOverlayColor: (parent.containsMouse && index ? palette.highlight : XsStyleSheet.primaryTextColor)
+                        imgOverlayColor: (parent.containsMouse && index ? XsStyleSheet.accentColor : XsStyleSheet.primaryTextColor)
                         opacity: index ? 1.0 : 0.5
                     }
                 }
@@ -115,7 +115,7 @@ MouseArea {
                         anchors.fill: parent
                         source: "qrc:/icons/chevron_right.svg"
 
-                        imgOverlayColor: (parent.containsMouse && index != images.length-1 ? palette.highlight : XsStyleSheet.primaryTextColor)
+                        imgOverlayColor: (parent.containsMouse && index != images.length-1 ? XsStyleSheet.accentColor : XsStyleSheet.primaryTextColor)
                         opacity: index != images.length-1 ? 1.0 : 0.5
                     }
                 }

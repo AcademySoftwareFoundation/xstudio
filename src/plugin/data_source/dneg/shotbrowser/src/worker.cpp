@@ -98,6 +98,8 @@ void MediaWorker::add_media_step_3(
                 // dispatch delayed shot data.
                 try {
                     auto shotreq = JsonStore(GetShotFromId);
+                    shotreq["project_id"] =
+                        jsn.at("relationships").at("project").at("data").value("id", 0);
                     shotreq["shot_id"] =
                         jsn.at("relationships").at("entity").at("data").value("id", 0);
 
@@ -106,11 +108,11 @@ void MediaWorker::add_media_step_3(
                         .then(
                             [=](const JsonStore &jsn) mutable {
                                 try {
-                                    if (jsn.count("data"))
+                                    if (not jsn.empty())
                                         anon_mail(
                                             json_store::set_json_atom_v,
                                             utility::Uuid(),
-                                            JsonStore(jsn.at("data")),
+                                            jsn,
                                             ShotgunMetadataPath + "/shot")
                                             .send(media);
                                 } catch (const std::exception &err) {

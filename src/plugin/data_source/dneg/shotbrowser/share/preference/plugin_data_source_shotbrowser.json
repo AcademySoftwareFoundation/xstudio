@@ -117,10 +117,10 @@
                             "PLUGIN"
                         ],
                         "datatype": "int",
-                        "default_value": 5,
+                        "default_value": 1,
                         "description": "Cache size in GBytes.",
                         "path": "/plugin/data_source/shotbrowser/download/size",
-                        "value": 5
+                        "value": 1
                     }
                 },
                 "browser": {

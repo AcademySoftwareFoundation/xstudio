@@ -11,8 +11,9 @@ namespace media_metadata {
 
     class OpenImageIOMediaMetadata : public MediaMetadata {
       public:
-        OpenImageIOMediaMetadata();
+        OpenImageIOMediaMetadata(const utility::JsonStore &prefs = utility::JsonStore());
         ~OpenImageIOMediaMetadata() override = default;
+        void update_preferences(const utility::JsonStore &) override;
 
         MMCertainty
         supported(const caf::uri &uri, const std::array<uint8_t, 16> &signature) override;
@@ -21,6 +22,8 @@ namespace media_metadata {
         nlohmann::json read_metadata(const caf::uri &uri) override;
         std::optional<StandardFields>
         fill_standard_fields(const nlohmann::json &metadata) override;
+
+        utility::JsonStore supported_;
     };
 
 } // namespace media_metadata

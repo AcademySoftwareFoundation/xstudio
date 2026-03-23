@@ -119,6 +119,21 @@ template <> struct adl_serializer<Imath::Vec2<int>> {
     }
 };
 
+template <> struct adl_serializer<Imath::Vec3<int>> {
+    static void to_json(json &j, const Imath::Vec3<int> &p) {
+        j = json{"ivec3", 1, p.x, p.y, p.z};
+    }
+
+    static void from_json(const json &j, Imath::Vec3<int> &p) {
+        auto vv = j.begin();
+        vv++; // skip param type
+        vv++; // skip count
+        p.x = (vv++).value().get<int>();
+        p.y = (vv++).value().get<int>();
+        p.z = (vv++).value().get<int>();
+    }
+};
+
 template <typename T> struct adl_serializer<Imath::Vec2<T>> {
     static void to_json(json &j, const Imath::Vec2<T> &p) { j = json{"vec2", 1, p.x, p.y}; }
 

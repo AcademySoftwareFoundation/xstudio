@@ -92,6 +92,12 @@ OpenGLViewportRenderer::OpenGLViewportRenderer(
     // window need to share texture resources as they display exactly the
     // same image.
 
+    // nasty hack. For some windows, we need to clear with alpha of 1.0 of the
+    // xSTUDIO window has transparency and you can see the desktop behind it.
+    // In other cases (like snapshot viewport) we want to clear alpha with zero
+    // so we can grab annotations with transparency for example.
+    clear_alpha_ = window_id == "snapshot_viewport" ? 0.0f : 1.0f;
+
     use_ssbo_ =
         prefs.get("/ui/viewport/texture_mode").value("value", std::string("")) == "SSBO";
 
@@ -122,7 +128,7 @@ void OpenGLViewportRenderer::upload_image_and_colour_data(
     const media_reader::ImageBufPtr &image) {
 
 
-    colour_pipeline::ColourPipelineDataPtr colour_pipe_data = image.colour_pipe_data_;
+    colour_pipeline::ColourPipelineDataPtr colour_pipe_data = image.colour_pipe_data();
 
     if (!textures().size())
         return;
@@ -150,13 +156,9 @@ void OpenGLViewportRenderer::upload_image_and_colour_data(
         latest_colour_pipe_data_cacheid_ = colour_pipe_data->cache_id();
     }
 
-    if (image && colour_pipe_data &&
-        activate_shader(image->shader(), colour_pipe_data->operations())) {
+    if (!(image && colour_pipe_data &&
+          activate_shader(image->shader(), colour_pipe_data->operations()))) {
 
-        active_shader_program_->set_shader_parameters(image);
-        active_shader_program_->set_shader_parameters(image.colour_pipe_uniforms_);
-
-    } else {
         active_shader_program_ = no_image_shader_program();
     }
 
@@ -228,7 +230,7 @@ void OpenGLViewportRenderer::clear_viewport_area(
         viewport_coords_in_window()[1],
         viewport_coords_in_window()[2],
         viewport_coords_in_window()[3]);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, clear_alpha_);
     glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_SCISSOR_TEST);
 }
@@ -391,6 +393,9 @@ void OpenGLViewportRenderer::__draw_image(
             window_to_viewport_matrix, to_image_matrix, viewport_du_dx, image_to_be_drawn);
     }
 
+    if (image_to_be_drawn.invisible())
+        return;
+
     // if we've received a new image and/or colour pipeline data (LUTs etc) since the last
     // draw, upload the data
     upload_image_and_colour_data(image_to_be_drawn);
@@ -487,6 +492,16 @@ void OpenGLViewportRenderer::draw_image(
         index);
 
     active_shader_program_->set_shader_parameters(shader_params);
+
+    if (image_to_be_drawn) {
+        active_shader_program_->set_shader_parameters(image_to_be_drawn);
+        active_shader_program_->set_shader_parameters(image_to_be_drawn.colour_pipe_uniforms());
+        static utility::JsonStore prev_image_shader_params;
+
+        if (prev_image_shader_params != image_to_be_drawn->shader_params()) {
+            prev_image_shader_params = image_to_be_drawn->shader_params();
+        }
+    }
 
     glDisable(GL_BLEND);
     // the actual draw .. a quad that spans -1.0, 1.0 in x & y.

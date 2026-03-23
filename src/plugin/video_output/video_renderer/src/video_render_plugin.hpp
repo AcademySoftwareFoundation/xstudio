@@ -29,12 +29,31 @@ namespace video_render_plugin_1_0 {
       private:
         void remove_job(const utility::Uuid &job_id);
         void update_ocio_choices(const utility::Uuid &target_render_item_id);
-        void make_offscreen_viewport(
-            const utility::Uuid qml_item_id, const utility::JsonStore callback_data);
-        void playback_render_output(const std::string path_to_render, caf::actor session);
+        void make_offscreen_viewport(caf::typed_response_promise<bool> rp);
+        void playback_render_output(
+            std::string path_to_render, const std::string audio_file, caf::actor session);
 
       protected:
         void attribute_changed(const utility::Uuid &attribute_uuid, const int role) override;
+
+        utility::Uuid create_render_job(
+            const std::string &render_item_name,
+            const utility::Uuid &parent_playlist_item_id,
+            const utility::Uuid &target_render_item_id,
+            const std::string &output_file_path,
+            const std::string &output_audio_path,
+            const Imath::V2i &resolution,
+            const int in_point,
+            const int out_point,
+            const utility::FrameRate &frame_rate,
+            const std::string &video_codec_opts,
+            const std::string &video_render_bit_depth,
+            const std::string &audio_codec_opts,
+            const std::string &video_preset_name,
+            const std::string &ocio_display,
+            const std::string &ocio_view,
+            const bool &auto_check_output,
+            const std::string &timecode);
 
         caf::message_handler message_handler_extensions() override;
         caf::actor offscreen_viewport_, colour_pipeline_, dummy_colour_pipeline_;
@@ -49,6 +68,7 @@ namespace video_render_plugin_1_0 {
         utility::UuidActorVector queued_jobs_;
         utility::UuidActor current_worker_;
         utility::JsonStore ocio_settings_;
+        caf::actor event_group_;
     };
 
     class YUVFrameGrabber : public ui::viewport::ViewportFramePostProcessor {

@@ -19,5 +19,5 @@ Annotation::Annotation(const utility::JsonStore &s) : bookmark::AnnotationBase()
 utility::JsonStore Annotation::serialise(utility::Uuid &plugin_uuid) const {
 
     plugin_uuid = AnnotationsCore::PLUGIN_UUID;
-    return AnnotationSerialiser::serialise((const Annotation *)this, 2, 0);
+    return AnnotationSerialiser::serialise((const Annotation *)this, 3, 0);
 }

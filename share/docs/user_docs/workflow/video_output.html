@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Video Output (Rendering) &mdash; xStudio 1.1.0 documentation</title>
+  <title>Video Output (Rendering) &mdash; xStudio 1.2.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=eafc0fe6" />
@@ -16,13 +16,13 @@
   
         <script src="../../_static/jquery.js?v=5d32c60e"></script>
         <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=fc837d61"></script>
+        <script src="../../_static/documentation_options.js?v=6efca38a"></script>
         <script src="../../_static/doctools.js?v=888ff710"></script>
         <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Hotkeys" href="hotkeys.html" />
+    <link rel="next" title="SDI: Video Output with Blackmagic Designs Decklink" href="sdi_output.html" />
     <link rel="prev" title="QuickView" href="quick_view.html" />
     <link href="../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
 
@@ -40,7 +40,7 @@
             xStudio
           </a>
               <div class="version">
-                1.1.0
+                1.2.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -68,6 +68,7 @@
 <li class="toctree-l4"><a class="reference internal" href="#output-video-and-audio-codec-settings">Output Video and Audio Codec Settings</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="sdi_output.html">SDI: Video Output with Blackmagic Designs Decklink</a></li>
 <li class="toctree-l3"><a class="reference internal" href="hotkeys.html">Hotkeys</a></li>
 </ul>
 </li>
@@ -113,7 +114,7 @@
 <p><span class="caption-text">Use the context menu or File menu to launch the render wizard.</span><a class="headerlink" href="#id2" title="Link to this image"></a></p>
 </figcaption>
 </figure>
-<p>You will then see get the <strong>Render Video</strong> dialog where you can specify the format of your output video.</p>
+<p>You will then get the <strong>Render Video</strong> dialog where you can specify the format of your output video.</p>
 <figure class="align-center" id="id3">
 <a class="reference internal image-reference" href="../../_images/export-to-movie-02.png"><img alt="Render Video dialog" src="../../_images/export-to-movie-02.png" style="width: 568.0px; height: 629.0px;" /></a>
 <figcaption>
@@ -146,8 +147,24 @@
 <section id="render-output-settings">
 <h2>Render Output Settings<a class="headerlink" href="#render-output-settings" title="Link to this heading"></a></h2>
 <aside class="topic">
-<p class="topic-title">Output File</p>
+<p class="topic-title">Output File / Output Frames</p>
 <p>Choose the file path to render to. Note that the extension of the file will influence the type of container that is created and some containers are not compatible with some video formats. For example, a ‘.mp4’ file cannot contain an Apple ProRes encoded video stream.</p>
+<p>You can also choose a frame based output so a sequence of numbered jpeg, tiff or png files are generated. In this mode, you can also choose to output a separate audio file (wav, aiff or ogg) to go alongside the image frames. For this option simply choose an output file with the desired file extension (jpeg, tiff, png). The render dialog will automatically add ‘#’ symbols to the output path as a placeholder for the padded frame number that will be inserted in the output. You can edit the number of hashes to change the length of the padding. For example, frame 1001 of an output /Users/ted/Videos/my_render.#####.jpg will be /Users/ted/Videos/my_render.01001.jpg.</p>
+<p>Note that the video &amp; audio encoding options are diabled as these don’t apply when rendering frames. The audio codec will only depend on the file extension for your audio file - .aiff .wav and .ogg are some file types supported. xSTUDIO will simply use the default FFMPEG audio encoding paramaters for each file type which should be suitable for all use cases.</p>
+</aside>
+<figure class="align-center" id="id4">
+<a class="reference internal image-reference" href="../../_images/export-to-movie-06.png"><img alt="Render Video dialog for frames" src="../../_images/export-to-movie-06.png" style="width: 580.0px; height: 629.0px;" /></a>
+<figcaption>
+<p><span class="caption-text">The Render Video dialog shows slightly different options when rendering to an image sequence rather than a containerised media encoding like .mov or .mp4 etc.</span><a class="headerlink" href="#id4" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<aside class="topic">
+<p class="topic-title">Output Audio File</p>
+<p>This option ONLY appears if you are rendering output frames and not a containerised media file (like mov, mp4, mkv etc.) that otherwise embeds the audio in the same output file. When you select the target output path for your frames an audio file with the same name but with .aiff extensions is automatically filled in. You can then change this to whatever path you like before starting the render.</p>
+</aside>
+<aside class="topic">
+<p class="topic-title">First Frame Number</p>
+<p>This option ONLY appears if you are rendering output frames and not a containerised media file. It simply sets the frame number for the first frame of the output image sequence.</p>
 </aside>
 <aside class="topic">
 <p class="topic-title">Render Range</p>
@@ -191,17 +208,17 @@
 <p>When a render is queued, a complete and exact copy of the Playlist, Subset, Contact Sheet or Sequence is created under-the-hood. This means that if you make changes to the Playlist etc. after it has been queued, or even delete it from the session, the render will not be affected.</p>
 </div>
 <p>On hitting the ‘Render’ button a render status button will appear to the top right of the Playlists panel which looks like this:</p>
-<figure class="align-center" id="id4">
+<figure class="align-center" id="id5">
 <a class="reference internal image-reference" href="../../_images/export-to-movie-03.gif"><img alt="Render Video dialog" src="../../_images/export-to-movie-03.gif" style="width: 512.0px; height: 320.0px;" /></a>
 <figcaption>
-<p><span class="caption-text">The movie button with animated highlight tells us that xSTUDIO is rendering.</span><a class="headerlink" href="#id4" title="Link to this image"></a></p>
+<p><span class="caption-text">The movie button with animated highlight tells us that xSTUDIO is rendering.</span><a class="headerlink" href="#id5" title="Link to this image"></a></p>
 </figcaption>
 </figure>
 <p>Now, you can click on this button to view the render queue. xSTUDIO will render one output at a time and work through the queue in the order that you dispatched them.</p>
-<figure class="align-center" id="id5">
+<figure class="align-center" id="id6">
 <a class="reference internal image-reference" href="../../_images/export-to-movie-04.png"><img alt="Render Queue" src="../../_images/export-to-movie-04.png" style="width: 1280.0px; height: 385.0px;" /></a>
 <figcaption>
-<p><span class="caption-text">The render queue interface. Accessed this by clicking on the movie button that appears to the top right of the Playlists panel.</span><a class="headerlink" href="#id5" title="Link to this image"></a></p>
+<p><span class="caption-text">The render queue interface. Accessed this by clicking on the movie button that appears to the top right of the Playlists panel.</span><a class="headerlink" href="#id6" title="Link to this image"></a></p>
 </figcaption>
 </figure>
 <p>When a job is complete, you can move the mouse over the green tick icon to get a ‘play’ button. Click on this and a <a class="reference internal" href="quick_view.html#quick-view"><span class="std std-ref">Quick View</span></a> window will be opened with the rendered output for you to check immediately. Failed renders are indicated by the red warning icon. The button with the monitor hearbeat icon can be clicked to see the full FFMpeg log both during the render and when it’s complete or, most usefully, if a render fails. Renders can be cancelled before they start or when they are in progress with the trashcan button, which will also clear successfully completed renders from the queue.</p>
@@ -215,10 +232,10 @@
 <section id="configuring-encoding-presets">
 <h3>Configuring Encoding Presets<a class="headerlink" href="#configuring-encoding-presets" title="Link to this heading"></a></h3>
 <p>The Render Video dialog provides a drop-down list of video &amp; audio codec presets. Next to this is a pen icon. Click this to access the video codec presets panel.</p>
-<figure class="align-center" id="id6">
+<figure class="align-center" id="id7">
 <a class="reference internal image-reference" href="../../_images/export-to-movie-05.png"><img alt="Render Queue" src="../../_images/export-to-movie-05.png" style="width: 1095.0px; height: 452.0px;" /></a>
 <figcaption>
-<p><span class="caption-text">The FFMpeg encode presets panel.</span><a class="headerlink" href="#id6" title="Link to this image"></a></p>
+<p><span class="caption-text">The FFMpeg encode presets panel.</span><a class="headerlink" href="#id7" title="Link to this image"></a></p>
 </figcaption>
 </figure>
 <p>This panel allows you to specify the exact FFMpeg output parameters for the video and audio encoding. The existing presets (which are read-only, and therefore greyed out in the list) can serve as useful reference if you wish to add your own new presets. FFMpeg has an almost limitless number of codec options and special filters that you can supply to tune the video encoding and we do not provide any documentation here. Luckily there are loads of question and answers on the web about how to use and optimise FFMpeg to get particular outputs so it’s not too hard to find the settings that you need. Audio encoding options are specified in a separate column and similar principles apply: many encoding settings are possible and it’s crucial to set these correctly for successful video generation. Note that if you do not render audio (by unchecking the ‘Render Audio’ box in the main video render dialog) the audio encode options can be left blank.</p>
@@ -240,7 +257,7 @@
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="quick_view.html" class="btn btn-neutral float-left" title="QuickView" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="hotkeys.html" class="btn btn-neutral float-right" title="Hotkeys" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="sdi_output.html" class="btn btn-neutral float-right" title="SDI: Video Output with Blackmagic Designs Decklink" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

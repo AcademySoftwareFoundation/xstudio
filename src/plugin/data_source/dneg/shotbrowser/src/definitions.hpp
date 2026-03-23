@@ -13,7 +13,7 @@
 const auto GetVersionIvyUuid =
     R"({"operation": "VersionIvyUuid", "job":null, "ivy_uuid": null})"_json;
 
-const auto GetShotFromId = R"({"operation": "GetShotFromId", "shot_id": null})"_json;
+const auto GetShotFromId = R"({"operation": "GetShotFromId", "project_id": 0, "shot_id": 0})"_json;
 
 const auto GetLinkMedia = R"({"operation": "LinkMedia", "playlist_uuid": null})"_json;
 
@@ -306,6 +306,7 @@ const auto ShotFields = std::vector<std::string>(
      "project",
      "sg_comp_range",
      "sg_current_stage",
+     "sg_cut_order",
      "sg_cut_range",
      "sg_dnuuid",
      "sg_shot_type",
@@ -314,6 +315,8 @@ const auto ShotFields = std::vector<std::string>(
      "sg_hero_focal_length",
      "sg_hero_shot",
      "sg_unit",
+     "sg_dnbreakdown_envprop_variants",
+     "sg_dnbreakdown_assemblies",
      "tags"});
 
 const std::string shotbrowser_datasource_registry{"SHOTBROWSER"};

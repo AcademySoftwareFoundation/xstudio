@@ -193,6 +193,13 @@ utility::Uuid OpenEXRMediaReader::plugin_uuid() const { return s_plugin_uuid; }
 
 void OpenEXRMediaReader::update_preferences(const utility::JsonStore &prefs) {
     try {
+        supported_ =
+            preference_value<JsonStore>(prefs, "/plugin/media_reader/OpenEXR/supported");
+    } catch (const std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+
+    try {
         max_exr_overscan_percent_ = preference_value<float>(
             prefs, "/plugin/media_reader/OpenEXR/max_exr_overscan_percent");
     } catch (const std::exception &e) {
@@ -450,12 +457,38 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
     return buf;
 }
 
-MRCertainty
-OpenEXRMediaReader::supported(const caf::uri &, const std::array<uint8_t, 16> &sig) {
-    if (sig[0] == 0x76 && sig[1] == 0x2f && sig[2] == 0x31 && sig[3] == 0x01)
-        return MRC_FORCE;
+std::vector<std::string> OpenEXRMediaReader::supported_extensions() const {
+    auto result = std::vector<std::string>();
 
-    return MRC_NO;
+    for (const auto &i : supported_.items()) {
+        if (from_string(i.value()) != MRC_NO)
+            result.push_back(i.key());
+    }
+
+    return result;
+}
+
+MRCertainty
+OpenEXRMediaReader::supported(const caf::uri &uri, const std::array<uint8_t, 16> &sig) {
+    auto result = MRC_NO;
+
+    if (sig[0] == 0x76 && sig[1] == 0x2f && sig[2] == 0x31 && sig[3] == 0x01) {
+        fs::path p(uri_to_posix_path(uri));
+
+#ifdef _WIN32
+        std::string ext = ltrim_char(to_upper_path(p.extension()), '.');
+#else
+        std::string ext = ltrim_char(to_upper(p.extension().string()), '.');
+#endif
+
+        try {
+            result = from_string(supported_.value(ext, "MRC_NO"));
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+    }
+
+    return result;
 }
 
 void OpenEXRMediaReader::get_channel_names_by_layer(
@@ -751,16 +784,17 @@ OpenEXRMediaReader::thumbnail(const media::AVFrameID &mptr, const size_t thumb_s
  */
 PixelInfo OpenEXRMediaReader::exr_buffer_pixel_picker(
     const ImageBuffer &buf,
+    const utility::JsonStore &pixel_unpack_uniforms,
     const Imath::V2i &pixel_location,
     const std::vector<Imath::V2i> &extra_pixel_locations) {
     int width                         = buf.image_size_in_pixels().x;
     int height                        = buf.image_size_in_pixels().y;
-    int num_channels                  = buf.shader_params().value("num_channels", 0);
-    int bytes_per_pixel               = buf.shader_params().value("bytes_per_pixel", 0);
-    int pix_type_r                    = buf.shader_params().value("pix_type_r", 0);
-    int pix_type_g                    = buf.shader_params().value("pix_type_g", 0);
-    int pix_type_b                    = buf.shader_params().value("pix_type_b", 0);
-    int pix_type_a                    = buf.shader_params().value("pix_type_a", 0);
+    int num_channels                  = pixel_unpack_uniforms.value("num_channels", 0);
+    int bytes_per_pixel               = pixel_unpack_uniforms.value("bytes_per_pixel", 0);
+    int pix_type_r                    = pixel_unpack_uniforms.value("pix_type_r", 0);
+    int pix_type_g                    = pixel_unpack_uniforms.value("pix_type_g", 0);
+    int pix_type_b                    = pixel_unpack_uniforms.value("pix_type_b", 0);
+    int pix_type_a                    = pixel_unpack_uniforms.value("pix_type_a", 0);
     const Imath::V2i image_bounds_min = buf.image_pixels_bounding_box().min;
     const Imath::V2i image_bounds_max = buf.image_pixels_bounding_box().max;
 

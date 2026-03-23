@@ -21,6 +21,10 @@ using namespace xstudio::media_reader;
 
 namespace fs = std::filesystem;
 
+std::mutex ImageBufPtr::mmm;
+int ImageBufPtr::copy_count   = 0;
+int ImageBufPtr::t_copy_count = 0;
+
 /* ImageBufferRecyclerCache
  *
  *  During playback, once the cache is full, old image buffers are deleted by

@@ -266,11 +266,11 @@ namespace module {
                              data_.type() == typeid(float))) {
                     spdlog::warn(
                         "{} Attempt to set AttributeData with type {} with data of type {} "
-                        "and "
-                        "value",
+                        "and value {}",
                         __PRETTY_FUNCTION__,
                         data_.type().name(),
-                        typeid(v).name());
+                        typeid(v).name(),
+                        v);
                 }
                 return false;
             }
@@ -292,11 +292,11 @@ namespace module {
                              data_.type() == typeid(float))) {
                     spdlog::warn(
                         "{} Attempt to set AttributeData with type {} with data of type {} "
-                        "and "
-                        "value",
+                        "and value {}",
                         __PRETTY_FUNCTION__,
                         data_.type().name(),
-                        typeid(v).name());
+                        typeid(v).name(),
+                        v);
                 }
                 return false;
             }

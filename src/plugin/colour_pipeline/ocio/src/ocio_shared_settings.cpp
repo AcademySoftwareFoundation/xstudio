@@ -211,6 +211,16 @@ OCIOGlobalControls::OCIOGlobalControls(
 
     synchronize_attributes();
     connect_to_ui();
+
+    // In order to inject a menu item into the media list context menu, we need to
+    // do this on the QML side. Since there are multiple instances of the
+    // OCIOColourPipeline (one for each viewport), we need to use the
+    // reguster_singleton_qml mechanism to ensure that we only register the menu item once.
+    /*register_singleton_qml(
+        R"(
+            import OCIOPlugin 1.0
+            OCIOMediaListMenuItems {}
+        )");*/
 }
 
 void OCIOGlobalControls::on_exit() {

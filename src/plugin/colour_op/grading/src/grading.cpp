@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <limits>
+#include <filesystem>
 
+#include <caf/actor_registry.hpp>
+
+#include "xstudio/atoms.hpp"
 #include "xstudio/ui/opengl/shader_program_base.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/string_helpers.hpp"
@@ -18,6 +22,7 @@ using namespace xstudio::bookmark;
 using namespace xstudio::colour_pipeline;
 using namespace xstudio::ui::viewport;
 
+namespace fs = std::filesystem;
 
 namespace {
 
@@ -205,7 +210,6 @@ GradingTool::GradingTool(caf::actor_config &cfg, const utility::JsonStore &init_
     register_ui_panel_qml(
         "Grading Tools",
         R"(
-            
             import QtQuick
             import Grading 2.0
 
@@ -407,7 +411,49 @@ void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const i
             std::size_t prefix_length = std::string("Save CDL ").size();
             std::string filepath      = grading_action_->value().substr(
                 prefix_length, grading_action_->value().size() - prefix_length);
-            save_cdl(filepath);
+            save_cdl(filepath, grading_data_);
+
+        } else if (utility::starts_with(grading_action_->value(), "Save Selected CDLs ")) {
+
+            std::size_t prefix_length = std::string("Save Selected CDLs ").size();
+            std::string folder        = grading_action_->value().substr(
+                prefix_length, grading_action_->value().size() - prefix_length);
+
+            for (const auto &media_actor : selected_media_actors()) {
+
+                // Detect the SHOT to use as CDL name, fallback to filename
+                const utility::JsonStore colour_params = media_actor_colour_params(media_actor);
+                std::string clip_name = colour_params.get_or("path", std::string("unknown"));
+                clip_name             = fs::path(clip_name).stem();
+
+                if (colour_params.contains("ocio_context")) {
+                    if (colour_params["ocio_context"].is_object()) {
+                        for (auto &item : colour_params["ocio_context"].items()) {
+                            if (item.key() == "SHOT") {
+                                clip_name = item.value();
+                            }
+                        }
+                    }
+                }
+
+                // Export each layer in turn
+                for (const auto &bookmark_uuid : media_actor_bookmarks(media_actor)) {
+                    auto detail       = get_bookmark_detail(bookmark_uuid);
+                    auto annotation   = get_bookmark_annotation(bookmark_uuid);
+                    auto grading_data = dynamic_cast<const GradingData *>(annotation.get());
+
+                    if (grading_data) {
+                        auto user_data = detail.user_data_.value_or(utility::JsonStore());
+
+                        const std::string layername =
+                            user_data.get_or("layer_name", std::string("layer_unknown"));
+                        const std::string filename = utility::replace_all(
+                            fmt::format("{}_{}.cdl", clip_name, layername), " ", "_");
+                        const fs::path filepath = fs::path(folder) / filename;
+                        save_cdl(filepath, *grading_data);
+                    }
+                }
+            }
 
         } else if (grading_action_->value() == "Add CC") {
 
@@ -930,29 +976,31 @@ void GradingTool::clear_grade() {
     contrast_->set_value(contrast_->get_role_data<float>(module::Attribute::DefaultValue));
 }
 
-void GradingTool::save_cdl(const std::string &filepath) const {
+void GradingTool::save_cdl(const std::string &filepath, const GradingData &grading_data) const {
+
+    auto &grade = grading_data.grade();
 
     OCIO::CDLTransformRcPtr cdl = OCIO::CDLTransform::Create();
 
     std::array<double, 3> slope{
-        slope_->value()[0] * slope_->value()[3] * std::pow(2.f, exposure_->value()),
-        slope_->value()[1] * slope_->value()[3] * std::pow(2.f, exposure_->value()),
-        slope_->value()[2] * slope_->value()[3] * std::pow(2.f, exposure_->value())};
+        grade.slope[0] * grade.slope[3] * std::pow(2.f, grade.exposure),
+        grade.slope[1] * grade.slope[3] * std::pow(2.f, grade.exposure),
+        grade.slope[2] * grade.slope[3] * std::pow(2.f, grade.exposure)};
 
     std::array<double, 3> offset{
-        offset_->value()[0] + offset_->value()[3],
-        offset_->value()[1] + offset_->value()[3],
-        offset_->value()[2] + offset_->value()[3]};
+        grade.offset[0] + grade.offset[3],
+        grade.offset[1] + grade.offset[3],
+        grade.offset[2] + grade.offset[3]};
 
     std::array<double, 3> power{
-        power_->value()[0] * power_->value()[3],
-        power_->value()[1] * power_->value()[3],
-        power_->value()[2] * power_->value()[3]};
+        grade.power[0] * grade.power[3],
+        grade.power[1] * grade.power[3],
+        grade.power[2] * grade.power[3]};
 
     cdl->setSlope(slope.data());
     cdl->setOffset(offset.data());
     cdl->setPower(power.data());
-    cdl->setSat(saturation_->value());
+    cdl->setSat(grade.sat);
 
     OCIO::FormatMetadata &metadata = cdl->getFormatMetadata();
     metadata.setID("0");
@@ -1097,6 +1145,69 @@ void GradingTool::refresh_ui_from_current_grade() {
         mask_selected_shape_->set_value(mask_shapes_.size());
     else
         mask_selected_shape_->set_value(-1);
+}
+
+std::vector<caf::actor> GradingTool::selected_media_actors() const {
+
+    std::vector<caf::actor> result;
+
+    scoped_actor sys{system()};
+
+    try {
+        // get session
+        auto session = utility::request_receive<caf::actor>(
+            *sys,
+            system().registry().template get<caf::actor>(studio_registry),
+            session::session_atom_v);
+
+        // get container that is showing in the MediaList
+        auto playlist_or_subset_or_timeline = utility::request_receive<utility::UuidActor>(
+            *sys, session, session::active_media_container_atom_v);
+
+        // get the actor that manages the selection of media in the container
+        auto playlist_selection_actor = utility::request_receive<caf::actor>(
+            *sys, playlist_or_subset_or_timeline, playlist::selection_actor_atom_v);
+
+        // get the selected media actors
+        result = utility::request_receive<std::vector<caf::actor>>(
+            *sys, playlist_selection_actor, playhead::get_selection_atom_v, true);
+    } catch (const std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+
+    return result;
+}
+
+utility::JsonStore GradingTool::media_actor_colour_params(const caf::actor &media_actor) {
+
+    utility::JsonStore result;
+
+    scoped_actor sys{system()};
+
+    try {
+        result = utility::request_receive<utility::JsonStore>(
+            *sys, media_actor, colour_pipeline::get_colour_pipe_params_atom_v);
+    } catch (const std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+
+    return result;
+}
+
+utility::UuidList GradingTool::media_actor_bookmarks(const caf::actor &media_actor) {
+
+    utility::UuidList result;
+
+    scoped_actor sys{system()};
+
+    try {
+        result = utility::request_receive<utility::UuidList>(
+            *sys, media_actor, bookmark::get_bookmarks_atom_v);
+    } catch (const std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+
+    return result;
 }
 
 utility::Uuid GradingTool::current_bookmark() const {
@@ -1305,7 +1416,7 @@ static std::vector<std::shared_ptr<plugin_manager::PluginFactory>> factories(
          "Remi Achard",
          "Colour operator to apply CDL with optional painted masking in viewport.")});
 
-#define XSTUDIO_PLUGIN_DECLARE_END()                                                                   \
+#define XSTUDIO_PLUGIN_DECLARE_END()                                                           \
     extern "C" {                                                                               \
     plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {                 \
         return new plugin_manager::PluginFactoryCollection(                                    \

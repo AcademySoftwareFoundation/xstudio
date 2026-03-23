@@ -315,6 +315,14 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
                 .delegate(actor_cast<caf::actor>(this));
         },
 
+        [=](spawn_plugin_atom atom, caf::actor plugin_instance, const utility::Uuid &uuid) {
+            // puts the plugin in the 'resident' list but doesn't link to it. That's because
+            // some plugins (like video output) have to be managed in the UI layer but we
+            // still need to access them globvally via the plugin mangager. The UI layer needs
+            // to destroy them to clean-up gl resources etc.
+            resident_[uuid] = plugin_instance;
+        },
+
         [=](spawn_plugin_atom,
             const utility::Uuid &uuid,
             const utility::JsonStore &json,

@@ -1,0 +1,54 @@
+{
+	"plugin":{
+		"media_reader":{
+			"OIIO":{
+				"supported": {
+					"path": "/plugin/media_reader/OIIO/supported",
+					"description": "Control plugin format support",
+					"datatype": "json",
+					"context": ["APPLICATION"],
+
+					"default_value": {
+				        "JPG": "MRC_FULLY",
+				        "JPEG": "MRC_FULLY",
+				        "PNG": "MRC_FULLY",
+				        "TIF": "MRC_FULLY",
+				        "TEX": "MRC_FULLY",
+				        "TIFF": "MRC_FULLY",
+				        "TGA": "MRC_FULLY",
+				        "BMP": "MRC_FULLY",
+				        "PSD": "MRC_FULLY",
+				        "HDR": "MRC_FULLY",
+				        "DPX": "MRC_FULLY",
+				        "ACES": "MRC_FULLY",
+				        "JP2": "MRC_FULLY",
+				        "J2K": "MRC_FULLY",
+				        "WEBP": "MRC_FULLY",
+				        "EXR": "MRC_FULLY",
+						"": "MRC_MAYBE"
+					},
+
+					"value": {
+				        "JPG": "MRC_NO",
+				        "JPEG": "MRC_NO",
+				        "PNG": "MRC_NO",
+				        "TIF": "MRC_NO",
+				        "TEX": "MRC_FULLY",
+				        "TIFF": "MRC_NO",
+				        "TGA": "MRC_NO",
+				        "BMP": "MRC_NO",
+				        "PSD": "MRC_NO",
+				        "HDR": "MRC_NO",
+				        "DPX": "MRC_NO",
+				        "ACES": "MRC_NO",
+				        "JP2": "MRC_FULLY",
+				        "J2K": "MRC_FULLY",
+				        "WEBP": "MRC_NO",
+				        "EXR": "MRC_NO",
+						"": "MRC_NO"
+					}
+				}
+			}
+		}
+	}
+}

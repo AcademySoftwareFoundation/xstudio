@@ -7,6 +7,7 @@
 
 #include "video_render_plugin.hpp"
 #include "video_render_worker.hpp"
+#include "xstudio/media/media_actor.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
 
@@ -23,6 +24,7 @@ const nlohmann::json header = nlohmann::json::parse(R"(
         {
             "uuid" : "",
             "output_file" : "Output File",
+            "output_audio_file" : "Output Audio File",
             "render_item" : "Render Item",
             "resolution" : "Resolution",
             "video_preset" : "Video Preset",
@@ -89,10 +91,13 @@ VideoRenderPlugin::VideoRenderPlugin(
     make_behavior();
     connect_to_ui();
 
-    render_menu_item_ = insert_menu_item(
-        "playlist_context_menu", "Render Selected To Movie ...", "Export", 0.0f);
-    render_menu_item2_ =
-        insert_menu_item("main menu bar", "Render Selected To Movie ...", "File|Export", 0.0f);
+    render_menu_item_ = insert_menu_item("playlist_context_menu", "Render ...", "Export", 0.0f);
+    render_menu_item2_ = insert_menu_item(
+        "main menu bar",
+        "Render ...",
+        "File|Export",
+        1.0f // menu item position
+    );
 
     register_main_menu_bar_widget(
         R"(            
@@ -111,6 +116,9 @@ VideoRenderPlugin::VideoRenderPlugin(
             import VideoRenderer 1.0
             VideoRendererJobsQueueDialogOwner {}
         )");
+
+    event_group_ = spawn<broadcast::BroadcastActor>(this);
+    link_to(event_group_);
 }
 
 void VideoRenderPlugin::on_exit() {
@@ -156,6 +164,69 @@ caf::message_handler VideoRenderPlugin::message_handler_extensions() {
                             overall_status_->set_value("Done");
                     }
                 },
+                [=](utility::get_event_group_atom) -> caf::actor { return event_group_; },
+                [=](offscreen_viewport_atom) -> result<bool> {
+                    auto rp = make_response_promise<bool>();
+                    make_offscreen_viewport(rp);
+                    return rp;
+                },
+                [=](session::render_to_video_atom,
+                    const std::string &render_item_name,
+                    const utility::Uuid &parent_playlist_item_id,
+                    const utility::Uuid &target_render_item_id,
+                    const std::string &output_file_path,
+                    const std::string &output_audio_path,
+                    const int width_pixels,
+                    const int height_pixels,
+                    const int in_point,
+                    const int out_point,
+                    const utility::FrameRate &frame_rate,
+                    const std::string &video_codec_opts,
+                    const std::string &video_render_bit_depth,
+                    const std::string &audio_codec_opts,
+                    const std::string &video_preset_name,
+                    const std::string &ocio_display,
+                    const std::string &ocio_view,
+                    const bool &auto_check_output,
+                    const std::string &timecode) -> result<utility::Uuid> {
+                    auto rp = make_response_promise<utility::Uuid>();
+                    mail(offscreen_viewport_atom_v)
+                        .request(caf::actor_cast<caf::actor>(this), infinite)
+                        .then(
+                            [=](bool) mutable {
+                                try {
+
+                                    const auto result = create_render_job(
+                                        render_item_name,
+                                        parent_playlist_item_id,
+                                        target_render_item_id,
+                                        output_file_path,
+                                        output_audio_path,
+                                        Imath::V2i(width_pixels, height_pixels),
+                                        in_point,
+                                        out_point,
+                                        frame_rate,
+                                        video_codec_opts,
+                                        video_render_bit_depth,
+                                        audio_codec_opts,
+                                        video_preset_name,
+                                        ocio_display,
+                                        ocio_view,
+                                        auto_check_output,
+                                        timecode);
+                                    rp.deliver(result);
+
+                                } catch (std::exception &e) {
+
+                                    rp.deliver(make_error(xstudio_error::error, e.what()));
+                                }
+                            },
+                            [=](caf::error &err) mutable { rp.deliver(err); });
+                    return rp;
+                },
+                [=](broadcast::join_broadcast_atom atom, caf::actor subscriber) {
+                    return mail(atom, subscriber).delegate(event_group_);
+                },
                 [=](utility::event_atom,
                     const utility::JsonStore &status,
                     const std::string &ffmpeg_output) {
@@ -166,6 +237,9 @@ caf::message_handler VideoRenderPlugin::message_handler_extensions() {
                     try {
 
                         utility::Uuid job_id = status.at("job_id");
+
+                        mail(utility::event_atom_v, job_id, status, ffmpeg_output)
+                            .send(event_group_);
 
                         if (status.get_or("status_num", 0) == 2) {
                             // job has failed
@@ -354,9 +428,12 @@ void VideoRenderPlugin::remove_job(const utility::Uuid &job_id) {
         overall_status_->set_value("");
 }
 
-void VideoRenderPlugin::make_offscreen_viewport(
-    const utility::Uuid qml_item_id, const utility::JsonStore callback_data) {
+void VideoRenderPlugin::make_offscreen_viewport(caf::typed_response_promise<bool> rp) {
 
+    if (colour_pipeline_) {
+        rp.deliver(true);
+        return;
+    }
     // Get the 'StudioUI' which lives in the Qt context and therefore is able to
     // create offscreen viewports for us
     auto studio_ui = system().registry().template get<caf::actor>(studio_ui_registry);
@@ -365,7 +442,7 @@ void VideoRenderPlugin::make_offscreen_viewport(
     mail(offscreen_viewport_atom_v, "vid_render_offscreen_viewport", false)
         .request(studio_ui, infinite)
         .then(
-            [=](caf::actor offscreen_vp) {
+            [=](caf::actor offscreen_vp) mutable {
                 // this is the offscreen renderer that we asked for below.
                 offscreen_viewport_ = offscreen_vp;
 
@@ -373,7 +450,7 @@ void VideoRenderPlugin::make_offscreen_viewport(
                 mail(colour_pipeline::colour_pipeline_atom_v)
                     .request(offscreen_viewport_, infinite)
                     .then(
-                        [=](caf::actor colour_pipeline) {
+                        [=](caf::actor colour_pipeline) mutable {
                             colour_pipeline_ = colour_pipeline;
 
                             // Turn off the feature in OCIO plugin where it dynamically picks
@@ -385,15 +462,9 @@ void VideoRenderPlugin::make_offscreen_viewport(
                                 true)
                                 .send(dummy_colour_pipeline_);
 
-                            qml_item_callback(qml_item_id, callback_data);
+                            rp.deliver(true);
                         },
-                        [=](caf::error &err) mutable {
-                            spdlog::critical(
-                                "{} in plugin {} : {}",
-                                __PRETTY_FUNCTION__,
-                                Module::name(),
-                                to_string(err));
-                        });
+                        [=](caf::error &err) mutable { rp.deliver(err); });
 
                 // We COULD create this post-render hook class, this will convert
                 // the RGB 16 bit OpenGL framebuffer to RGB 10-10-10 buffer for
@@ -405,13 +476,7 @@ void VideoRenderPlugin::make_offscreen_viewport(
                 // viewport::ViewportFramePostProcessorPtr frameGrabber(new
                 // RGB10BitFrameGrabber()); anon_mail(frameGrabber).send(offscreen_viewport_);
             },
-            [=](caf::error &err) mutable {
-                spdlog::critical(
-                    "{} in plugin {} : {}",
-                    __PRETTY_FUNCTION__,
-                    Module::name(),
-                    to_string(err));
-            });
+            [=](caf::error &err) mutable { rp.deliver(err); });
 }
 
 
@@ -422,13 +487,14 @@ utility::JsonStore VideoRenderPlugin::qml_item_callback(
     // callback when they call the 'xstudio_callback' function
     utility::JsonStore result;
 
-    if (callback_data.is_array() && callback_data.size() == 3) {
+    if (callback_data.is_array() && callback_data.size() == 4) {
 
         try {
             std::string action;
             std::string path;
+            std::string audio_path;
             bool dummy;
-            unpack_json_array(callback_data, action, path, dummy);
+            unpack_json_array(callback_data, action, path, audio_path, dummy);
 
             if (action == "quickview_output") {
 
@@ -436,7 +502,9 @@ utility::JsonStore VideoRenderPlugin::qml_item_callback(
                     .request(
                         system().registry().template get<caf::actor>(global_registry), infinite)
                     .then(
-                        [=](caf::actor session) { playback_render_output(path, session); },
+                        [=](caf::actor session) {
+                            playback_render_output(path, audio_path, session);
+                        },
                         [=](caf::error &err) {
                             spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                         });
@@ -470,51 +538,89 @@ utility::JsonStore VideoRenderPlugin::qml_item_callback(
         }
         return result;
 
-    } else if (callback_data.is_array() && callback_data.size() == 15) {
+    } else if (callback_data.is_array() && callback_data.size() == 17) {
 
         if (!offscreen_viewport_) {
-            make_offscreen_viewport(qml_item_id, callback_data);
+            // we don't yet have an offscreen viewport ... this needs to be created
+            // asynchronously so we ping ourselves a message with the args of this
+            // function - we then make the viewport
+            mail(offscreen_viewport_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](const bool) {
+                        // now we have the offscreen viewport we can re-run this method to
+                        // continue
+                        qml_item_callback(qml_item_id, callback_data);
+                    },
+                    [=](caf::error &err) {
+                        spdlog::warn(
+                            "{} - an error ocurred setting up the offscreen viewport: {}",
+                            __PRETTY_FUNCTION__,
+                            to_string(err));
+                    });
             return result;
         }
 
         try {
 
-            // make a worker actor that executes the rendering and sends status
-            // updates to the plugin actor (i.e. this class)
-            utility::Uuid job_id = utility::Uuid::generate();
-            auto worker          = spawn<VideoRenderWorker>(
-                job_id,
+            std::string render_item_name;
+            utility::Uuid parent_playlist_item_id;
+            utility::Uuid target_render_item_id;
+            std::string output_file_path;
+            std::string output_audio_path;
+            Imath::V2i resolution;
+            int in_point;
+            int out_point;
+            double fr;
+            std::string video_codec_opts;
+            std::string video_render_bit_depth;
+            std::string audio_codec_opts;
+            std::string video_preset_name;
+            std::string ocio_display;
+            std::string ocio_view;
+            bool auto_check_output;
+            std::string timecode;
+
+            unpack_json_array(
                 callback_data,
-                offscreen_viewport_,
-                colour_pipeline_,
-                caf::actor_cast<caf::actor>(this));
+                render_item_name,
+                parent_playlist_item_id,
+                target_render_item_id,
+                output_file_path,
+                output_audio_path,
+                resolution,
+                in_point,
+                out_point,
+                fr,
+                video_codec_opts,
+                video_render_bit_depth,
+                audio_codec_opts,
+                video_preset_name,
+                ocio_display,
+                ocio_view,
+                auto_check_output,
+                timecode);
 
-            // link to the worker, so if this plugin exists (when xSTUDIO closes)
-            // the worker will be destroyed automatically
-            queued_jobs_.push_back(utility::UuidActor(job_id, worker));
+            utility::FrameRate frame_rate(1.0 / fr);
 
-            // handler for worker exit (worker self exists when its render has
-            // completed or is cancelled)
-            monitor(worker, [this, worker](const error &err) {
-                if (current_worker_ == worker) {
-                    current_worker_ = utility::UuidActor();
-                    anon_mail(utility::user_start_action_atom_v)
-                        .send(caf::actor_cast<caf::actor>(this));
-                }
-                for (auto p = queued_jobs_.begin(); p != queued_jobs_.end(); ++p) {
-                    if (p->actor() == worker) {
-                        queued_jobs_.erase(p);
-                        break;
-                    }
-                }
-            });
-
-            if (!current_worker_) {
-                // send a message to ourselves to start working through the job queue
-                anon_mail(utility::user_start_action_atom_v)
-                    .send(caf::actor_cast<caf::actor>(this));
-            }
-
+            create_render_job(
+                render_item_name,
+                parent_playlist_item_id,
+                target_render_item_id,
+                output_file_path,
+                output_audio_path,
+                resolution,
+                in_point,
+                out_point,
+                frame_rate,
+                video_codec_opts,
+                video_render_bit_depth,
+                audio_codec_opts,
+                video_preset_name,
+                ocio_display,
+                ocio_view,
+                auto_check_output,
+                timecode);
 
         } catch (std::exception &e) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -531,10 +637,43 @@ utility::JsonStore VideoRenderPlugin::qml_item_callback(
 }
 
 void VideoRenderPlugin::playback_render_output(
-    const std::string path_to_render, caf::actor session) {
+    std::string path_to_render, const std::string audio_file, caf::actor session) {
 
     // a bit awkward, because the media might already be loaded into xstudio,
     // if not we *might* need to create a playlist to load it into.
+
+    static const std::regex hashfinder(R"(^.+[^\#](\#+).+$)");
+    std::smatch match;
+    if (std::regex_match(path_to_render, match, hashfinder)) {
+        int n_hash     = match[1].str().size();
+        path_to_render = utility::replace_once(
+            path_to_render, match[1].str(), fmt::format("{{:0{}d}}", n_hash));
+    }
+
+    auto handle_error = [=](caf::error &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+    };
+
+    auto add_audio = [=](caf::actor media) {
+        mail(media::media_reference_atom_v, media::MT_IMAGE)
+            .request(media, infinite)
+            .then(
+                [=](utility::MediaReference &ref) {
+                    // for audio to line-up properly we need to match the image
+                    // source timecode
+                    utility::MediaReference aud_ref(
+                        utility::posix_path_to_uri(audio_file), true, ref.rate());
+                    aud_ref.set_timecode(ref.timecode());
+
+                    auto audio_src = spawn<media::MediaSourceActor>(
+                        "Audio",
+                        "", // reader ... let xSTUDIO decide
+                        aud_ref,
+                        utility::Uuid::generate());
+                    anon_mail(media::add_media_source_atom_v, audio_src).send(media);
+                },
+                handle_error);
+    };
 
     auto do_load = [=](utility::UuidUuidActor playlist) {
         mail(
@@ -545,15 +684,12 @@ void VideoRenderPlugin::playback_render_output(
             .request(playlist.second.actor(), infinite)
             .then(
                 [=](const utility::UuidActorVector &r) {
+                    if (r.size() && !audio_file.empty()) {
+                        add_audio(r[0].actor());
+                    }
                     anon_mail(ui::open_quickview_window_atom_v, r, "Off").send(session);
                 },
-                [=](caf::error &err) {
-
-                });
-    };
-
-    auto handle_error = [=](caf::error &err) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                handle_error);
     };
 
     // get or make a playlist called "Render Outputs" and add the rendered
@@ -568,10 +704,9 @@ void VideoRenderPlugin::playback_render_output(
                             .request(session, infinite)
                             .then(do_load, handle_error);
                     } else {
-                        do_load(
-                            utility::UuidUuidActor(
-                                utility::Uuid(),
-                                utility::UuidActor(utility::Uuid(), check_playlist)));
+                        do_load(utility::UuidUuidActor(
+                            utility::Uuid(),
+                            utility::UuidActor(utility::Uuid(), check_playlist)));
                     }
                 },
                 handle_error);
@@ -591,7 +726,79 @@ void VideoRenderPlugin::playback_render_output(
                     get_target_playlist_and_load(session);
                 }
             },
-            [=](caf::error &err) { spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what()); });
+            handle_error);
+}
+
+utility::Uuid VideoRenderPlugin::create_render_job(
+    const std::string &render_item_name,
+    const utility::Uuid &parent_playlist_item_id,
+    const utility::Uuid &target_render_item_id,
+    const std::string &output_file_path,
+    const std::string &output_audio_path,
+    const Imath::V2i &resolution,
+    const int in_point,
+    const int out_point,
+    const utility::FrameRate &frame_rate,
+    const std::string &video_codec_opts,
+    const std::string &video_render_bit_depth,
+    const std::string &audio_codec_opts,
+    const std::string &video_preset_name,
+    const std::string &ocio_display,
+    const std::string &ocio_view,
+    const bool &auto_check_output,
+    const std::string &timecode) {
+
+    // make a worker actor that executes the rendering and sends status
+    // updates to the plugin actor (i.e. this class)
+    utility::Uuid job_id = utility::Uuid::generate();
+    auto worker          = spawn<VideoRenderWorker>(
+        job_id,
+        render_item_name,
+        parent_playlist_item_id,
+        target_render_item_id,
+        output_file_path,
+        output_audio_path,
+        resolution,
+        in_point,
+        out_point,
+        frame_rate,
+        video_codec_opts,
+        video_render_bit_depth,
+        audio_codec_opts,
+        video_preset_name,
+        ocio_display,
+        ocio_view,
+        auto_check_output,
+        timecode,
+        offscreen_viewport_,
+        colour_pipeline_,
+        caf::actor_cast<caf::actor>(this));
+
+    // link to the worker, so if this plugin exists (when xSTUDIO closes)
+    // the worker will be destroyed automatically
+    queued_jobs_.push_back(utility::UuidActor(job_id, worker));
+
+    // handler for worker exit (worker self exists when its render has
+    // completed or is cancelled)
+    monitor(worker, [this, worker](const error &err) {
+        if (current_worker_ == worker) {
+            current_worker_ = utility::UuidActor();
+            anon_mail(utility::user_start_action_atom_v)
+                .send(caf::actor_cast<caf::actor>(this));
+        }
+        for (auto p = queued_jobs_.begin(); p != queued_jobs_.end(); ++p) {
+            if (p->actor() == worker) {
+                queued_jobs_.erase(p);
+                break;
+            }
+        }
+    });
+
+    if (!current_worker_) {
+        // send a message to ourselves to start working through the job queue
+        anon_mail(utility::user_start_action_atom_v).send(caf::actor_cast<caf::actor>(this));
+    }
+    return job_id;
 }
 
 VideoRenderPlugin::~VideoRenderPlugin() {}

@@ -1004,18 +1004,16 @@ std::string OCIOColourPipeline::detect_display(
     return detected_display;
 }
 
+XSTUDIO_PLUGIN_DECLARE_BEGIN()
 
-extern "C" {
-plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
-    return new plugin_manager::PluginFactoryCollection(
-        std::vector<std::shared_ptr<plugin_manager::PluginFactory>>(
-            {std::make_shared<plugin_manager::PluginFactoryTemplate<OCIOColourPipeline>>(
-                PLUGIN_UUID,
-                "OCIOColourPipeline",
-                plugin_manager::PluginFlags::PF_COLOUR_MANAGEMENT,
-                false,
-                "xStudio",
-                "OCIO (v2) Colour Pipeline",
-                semver::version("1.0.0"))}));
-}
-}
+XSTUDIO_REGISTER_PLUGIN(
+    OCIOColourPipeline,
+    PLUGIN_UUID,
+    OCIOColourPipeline,
+    plugin_manager::PluginFlags::PF_COLOUR_MANAGEMENT,
+    false,
+    Remi Achard & Ted Waine,
+    OCIO (v2) Colour Management Plugin for xStudio,
+    1.0.0)
+
+XSTUDIO_PLUGIN_DECLARE_END()

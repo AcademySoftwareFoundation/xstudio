@@ -33,9 +33,8 @@ QString SessionModel::getNextName(const QString &nameTemplate) const {
 
     scoped_actor sys{system()};
     try {
-        result = QStringFromStd(
-            request_receive<std::string>(
-                *sys, session_actor_, name_atom_v, StdFromQString(nameTemplate), true));
+        result = QStringFromStd(request_receive<std::string>(
+            *sys, session_actor_, name_atom_v, StdFromQString(nameTemplate), true));
 
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -176,19 +175,6 @@ QVariant SessionModel::playlists() const {
 
     return mapFromValue(data);
 }
-
-void SessionModel::setSelectedMedia(const QModelIndexList &indexes) {
-    auto media = UuidActorVector();
-
-    for (const auto &i : indexes) {
-        auto muuid  = UuidFromQUuid(i.data(actorUuidRole).toUuid());
-        auto mactor = actorFromQString(system(), i.data(actorRole).toString());
-        media.emplace_back(UuidActor(muuid, mactor));
-    }
-
-    anon_mail(media::current_media_atom_v, media).send(session_actor_);
-}
-
 
 QModelIndex SessionModel::getPlaylistIndex(const QModelIndex &index) const {
     QModelIndex result = index;
@@ -1035,14 +1021,8 @@ QFuture<QList<QUuid>> SessionModel::handleUriListDropFuture(
                             // hacky...
                             if (is_timeline_supported(*uri)) {
                                 // spdlog::warn("LOAD TIMELINE {}", to_string(*uri));
-                                new_media.push_back(
-                                    request_receive<UuidActor>(
-                                        *sys,
-                                        target,
-                                        session::import_atom_v,
-                                        *uri,
-                                        before,
-                                        true));
+                                new_media.push_back(request_receive<UuidActor>(
+                                    *sys, target, session::import_atom_v, *uri, before, true));
                             } else {
                                 auto new_media_tmp = request_receive<UuidActorVector>(
                                     *sys,

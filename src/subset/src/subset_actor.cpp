@@ -914,9 +914,9 @@ void SubsetActor::add_media(
 void SubsetActor::sort_by_media_display_info(
     const int sort_column_index, const bool ascending) {
 
-    using SourceAndUuid = std::pair<std::string, utility::Uuid>;
+    using SourceAndUuid = std::pair<nlohmann::json, utility::Uuid>;
     auto sort_keys_vs_uuids =
-        std::make_shared<std::vector<std::pair<std::string, utility::Uuid>>>();
+        std::make_shared<std::vector<SourceAndUuid>>();
 
     int idx = 0;
     for (const auto &i : base_.media()) {
@@ -940,11 +940,11 @@ void SubsetActor::sort_by_media_display_info(
 
                     // default sort key keeps current sorting but should always
                     // put it after the last element that did have a sort key
-                    std::string sort_key = fmt::format("ZZZZZZ{}", idx);
+                    auto sort_key = nlohmann::json(fmt::format("ZZZZZZ{}", idx));
 
                     if (media_display_info.is_array() &&
                         sort_column_index < media_display_info.size()) {
-                        sort_key = media_display_info[sort_column_index].dump();
+                        sort_key = media_display_info[sort_column_index];
                     }
 
                     (*sort_keys_vs_uuids)

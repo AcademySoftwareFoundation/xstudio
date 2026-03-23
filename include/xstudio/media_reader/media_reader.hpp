@@ -81,10 +81,14 @@ namespace media_reader {
 
         virtual MRCertainty
         supported(const caf::uri &uri, const std::array<uint8_t, 16> &signature);
+        virtual std::vector<std::string> supported_extensions() const {
+            return std::vector<std::string>();
+        }
 
       private:
         static PixelInfo default_pixel_picker(
             const ImageBuffer &buf,
+            const utility::JsonStore &pixel_unpack_uniforms,
             const Imath::V2i &pixel_location,
             const std::vector<Imath::V2i> &extra_pixel_locationss) {
             return PixelInfo(pixel_location);
@@ -127,6 +131,7 @@ namespace media_reader {
                 utility::JsonStore js;
                 utility::join_broadcast(this, prefs.get_group(js));
                 media_reader_.update_preferences(js);
+                utility::add_supported_extensions(media_reader_.supported_extensions());
             }
 
             behavior_.assign(
@@ -235,6 +240,7 @@ namespace media_reader {
                 [=](json_store::update_atom, const utility::JsonStore &js) {
                     try {
                         media_reader_.update_preferences(js);
+                        utility::add_supported_extensions(media_reader_.supported_extensions());
                     } catch (const std::exception &err) {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                     }

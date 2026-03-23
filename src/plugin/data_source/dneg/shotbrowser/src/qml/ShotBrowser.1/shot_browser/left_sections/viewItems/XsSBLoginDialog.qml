@@ -8,7 +8,7 @@ import xstudio.qml.helpers 1.0
 import xstudio.qml.models 1.0
 
 XsWindow{
-  
+
     title: "ShotGrid Authentication"
     property string message: ""
 
@@ -130,7 +130,7 @@ XsWindow{
             visible: authentication_method == "client_credentials"
             value: client_id ? client_id : null
 
-            onEditingCompleted: {client_id = text}
+            onEditingFinished: {client_id = text}
         }
         XsTextWithInputField{ id: clSecret
             Layout.fillWidth: true
@@ -141,7 +141,7 @@ XsWindow{
             visible: authentication_method == "client_credentials"
             value: client_secret ? client_secret : null
 
-            onEditingCompleted: {client_secret = text}
+            onEditingFinished: {client_secret = text}
         }
 
         XsTextWithInputField{ id: userName
@@ -152,7 +152,7 @@ XsWindow{
             visible: authentication_method == "password"
             value: username ? username : null
 
-            onEditingCompleted: {username = text}
+            onEditingFinished: {username = text}
         }
         XsTextWithInputField{ id: passWord
             Layout.fillWidth: true
@@ -163,7 +163,7 @@ XsWindow{
             visible: authentication_method == "password"
             value: password ? password : null
 
-            onEditingCompleted: {password = text}
+            onEditingFinished: {password = text}
         }
 
         XsTextWithInputField{ id: sessToken
@@ -174,7 +174,7 @@ XsWindow{
             visible: authentication_method == "session_token"
             value: session_token ? session_token : null
 
-            onEditingCompleted: {username = text}
+            onEditingFinished: {username = text}
         }
         Item{ id: sessDummy
             Layout.fillWidth: true
@@ -191,7 +191,7 @@ XsWindow{
                 width: parent.width - itemSpacing*2
                 height: message? itemHeight : 0
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignHCenter
-                color: XsStyleSheet.errorColor
+                color: XsStyleSheet.accentColor
                 wrapMode: Text.Wrap
                 text: message
             }

@@ -20,7 +20,7 @@ namespace xstudio {
 namespace media_metadata {
     class MediaMetadataWorkerActor : public caf::event_based_actor {
       public:
-        MediaMetadataWorkerActor(caf::actor_config &cfg);
+        MediaMetadataWorkerActor(caf::actor_config &cfg, const utility::JsonStore &prefs);
         ~MediaMetadataWorkerActor() override = default;
 
         caf::behavior make_behavior() override { return behavior_; }

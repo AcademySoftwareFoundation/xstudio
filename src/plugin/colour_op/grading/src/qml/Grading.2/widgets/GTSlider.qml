@@ -77,7 +77,7 @@ Item {
         anchors.rightMargin: -5
         width: 10
         height: 2
-        color: palette.base
+        color: XsStyleSheet.panelBgColor
     }
     Rectangle{
         y: slider.height/2 - 3
@@ -85,7 +85,7 @@ Item {
         anchors.leftMargin: -5
         width: 10
         height: 2
-        color: palette.base
+        color: XsStyleSheet.panelBgColor
     }
 
     XsSlider { id: slider
@@ -96,7 +96,7 @@ Item {
         orientation: Qt.Vertical
         focus: true
 
-        fillColor: palette.base
+        fillColor: XsStyleSheet.panelBgColor
 
         onValueChanged: {
             if (pressed) {

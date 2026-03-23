@@ -110,10 +110,6 @@ namespace session {
             return utility::map_value_to_vec(playlists_);
         }
 
-        void check_save_serialise_payload(
-            std::shared_ptr<std::map<std::string, utility::JsonStore>> &payload,
-            caf::typed_response_promise<utility::JsonStore> &rp);
-
         void
         check_media_hook_plugin_version(const utility::JsonStore &jsn, const caf::uri &path);
 
@@ -131,8 +127,6 @@ namespace session {
         // store gui conext information
         utility::UuidActor viewedContainer_;
         utility::UuidActor inspectedContainer_;
-
-        std::vector<utility::UuidActorAddr> selectedMedia_;
 
         utility::UuidActorVector selection_;
 

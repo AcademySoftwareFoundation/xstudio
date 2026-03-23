@@ -35,6 +35,7 @@
 #include "nlohmann/json.hpp"
 #include "xstudio/media_metadata/media_metadata.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/global_store/global_store.hpp"
 
 namespace fs = std::filesystem;
 
@@ -47,15 +48,29 @@ bool dump_json_headers(const Imf::Header &h, nlohmann::json &root);
 
 class OpenEXRMediaMetadata : public MediaMetadata {
   public:
-    OpenEXRMediaMetadata() : MediaMetadata("OpenEXR") {}
+    OpenEXRMediaMetadata(const utility::JsonStore &prefs) : MediaMetadata("OpenEXR", prefs) {
+        update_preferences(prefs);
+    }
     ~OpenEXRMediaMetadata() override = default;
     MMCertainty
     supported(const caf::uri &uri, const std::array<uint8_t, 16> &signature) override;
+    void update_preferences(const utility::JsonStore &) override;
 
   protected:
     nlohmann::json read_metadata(const caf::uri &uri) override;
     std::optional<StandardFields> fill_standard_fields(const nlohmann::json &metadata) override;
+    utility::JsonStore supported_;
 };
+
+void OpenEXRMediaMetadata::update_preferences(const utility::JsonStore &prefs) {
+    try {
+        supported_ = global_store::preference_value<JsonStore>(
+            prefs, "/plugin/media_metadata/OpenEXR/supported");
+    } catch (const std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+}
+
 
 nlohmann::json OpenEXRMediaMetadata::read_metadata(const caf::uri &uri) {
     std::string path(uri_to_posix_path(uri));
@@ -90,16 +105,26 @@ nlohmann::json OpenEXRMediaMetadata::read_metadata(const caf::uri &uri) {
 }
 
 MMCertainty
-OpenEXRMediaMetadata::supported(const caf::uri &uri, const std::array<uint8_t, 16> &) {
-    fs::path path(uri_to_posix_path(uri));
+OpenEXRMediaMetadata::supported(const caf::uri &uri, const std::array<uint8_t, 16> &sig) {
+    auto result = MMC_NO;
 
-    if (path.extension() == ".exr")
-        return MMC_FULLY;
+    if (sig[0] == 0x76 && sig[1] == 0x2f && sig[2] == 0x31 && sig[3] == 0x01) {
+        fs::path p(uri_to_posix_path(uri));
 
-    if (path.extension() == ".sxr")
-        return MMC_FULLY;
+#ifdef _WIN32
+        std::string ext = ltrim_char(to_upper_path(p.extension()), '.');
+#else
+        std::string ext = ltrim_char(to_upper(p.extension().string()), '.');
+#endif
 
-    return MMC_NO;
+        try {
+            result = from_string(supported_.value(ext, "MMC_NO"));
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+    }
+
+    return result;
 }
 
 std::optional<MediaMetadata::StandardFields>

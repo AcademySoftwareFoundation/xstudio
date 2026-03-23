@@ -135,12 +135,14 @@ namespace ui {
             struct ViewportCoords {
                 QPointF corners[4];
                 QSize size;
+                float devicePixelRatio;
                 bool
                 set(const QPointF &,
                     const QPointF &,
                     const QPointF &,
                     const QPointF &,
-                    const QSize &);
+                    const QSize &,
+                    const float);
             } viewport_coords_;
         };
 

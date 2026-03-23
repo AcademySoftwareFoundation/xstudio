@@ -168,6 +168,22 @@ function revealMediaInIvy(indexes=[]) {
 	}
 }
 
+function revealInApp(indexes=[]) {
+	indexes = mapIndexesToResultModel(indexes)
+
+	if(indexes.length) {
+		let m = indexes[0].model
+
+		for(let i = 0; i< indexes.length; i++) {
+			let p = m.get(indexes[i], "frameSequenceRole")
+
+			Future.promise(
+	            helpers.openURLFuture("file://"+p)
+	        ).then(function(result) {})
+		}
+	}
+}
+
 function revealInIvy(indexes=[]) {
 	indexes = mapIndexesToResultModel(indexes)
 	let project = helpers.getEnv("SHOW")
@@ -582,7 +598,13 @@ function delayCallback(delayTime, cb) {
      timer.start();
 }
 
-function selectTimelineCallback(playlist_index, uuids, wait=4) {
+function selectTimelineNoSelectCallback(playlist_index, uuids) {
+	delayCallback(1000, function() {
+     	selectTimelineCallback(playlist_index, uuids, 4, false)
+	});
+}
+
+function selectTimelineCallback(playlist_index, uuids, wait=4, select=true) {
 	playlist_index = theSessionData.getPlaylistIndex(playlist_index)
     if(uuids.length) {
 		// make the playlist expand itself in the playlist panels
@@ -597,16 +619,17 @@ function selectTimelineCallback(playlist_index, uuids, wait=4) {
 
 			// this puts the timeline into timeline panels
 			// give timeline time to prepare or it gets upset.
-			delayCallback(1000, function() {
-				sessionSelectionModel.setCurrentIndex(
-					helpers.makePersistent(tindex),
-					ItemSelectionModel.ClearAndSelect)
-				// viewedMediaSetIndex = helpers.makePersistent(tindex)
-			});
-
+			if(select) {
+				delayCallback(1000, function() {
+					sessionSelectionModel.setCurrentIndex(
+						helpers.makePersistent(tindex),
+						ItemSelectionModel.ClearAndSelect)
+					// viewedMediaSetIndex = helpers.makePersistent(tindex)
+				});
+			}
 		} else if(wait) {
 			delayCallback(1000, function() {
-		     	selectTimelineCallback(playlist_index, uuids, wait-1)
+		     	selectTimelineCallback(playlist_index, uuids, wait-1, select)
 			});
 		} else {
 			console.log("Failed to get timeline index", uuids, playlist_index)
@@ -771,7 +794,11 @@ function addSequencesToNewPlaylist(indexes=[], callback=selectTimelineCallback) 
 
 	for(let i=0; i<indexes.length;i++) {
 		let sequenceRole = indexes[i].model.get(indexes[i],"sequenceRole")
-		addSequencesToPlaylist([indexes[i]], null, sequenceRole ? sequenceRole : "ShotBrowser Sequence", callback)
+
+		if(i != indexes.length-1)
+			addSequencesToPlaylist([indexes[i]], null, sequenceRole ? sequenceRole : "ShotBrowser Sequence", selectTimelineNoSelectCallback)
+		else
+			addSequencesToPlaylist([indexes[i]], null, sequenceRole ? sequenceRole : "ShotBrowser Sequence", callback)
 	}
 }
 
@@ -802,18 +829,21 @@ function addSequencesToPlaylist(indexes, playlist_index=null, playlist_name ="Sh
 				if(!playlist_index || !playlist_index.valid)
 					playlist_index = theSessionData.createPlaylist(playlist_name)
 
-		        Future.promise(theSessionData.importTimelineFuture(playlist_index, path)).then(
-		            function(tindex){
-		            	// inject shotgrid metadata ?
-		            	// all a bit hacky ..
-		            	theSessionData.setJSONObject(tindex, meta, "/metadata/shotgun/version")
+				// wait...
+				delayCallback(1000, function() {
+			        Future.promise(theSessionData.importTimelineFuture(playlist_index, path)).then(
+			            function(tindex){
+			            	// inject shotgrid metadata ?
+			            	// all a bit hacky ..
+			            	theSessionData.setJSONObject(tindex, meta, "/metadata/shotgun/version")
 
-		            	callback(playlist_index, [theSessionData.get(tindex, "actorUuidRole")])
-		            },
-			        function(err) {
-				    	dialogHelpers.errorDialogFunc("Add Sequence", err)
-			        }
-		        )
+			            	callback(playlist_index, [theSessionData.get(tindex, "actorUuidRole")])
+			            },
+				        function(err) {
+					    	dialogHelpers.errorDialogFunc("Add Sequence", err)
+				        }
+			        )
+			    })
 			} else {
 		    	dialogHelpers.errorDialogFunc("Add Sequence", "Timeline not found " + path)
 			}

@@ -67,7 +67,7 @@ When this has finished, you can build xSTUDIO with this command. Note the value 
 
     'C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe' --build build --parallel 16 --target PACKAGE --config Release
 
-If the build is successful, you should have an exectuable in the 'build' folder called something like 'xSTUDIO-1.0.0-win64.exe'. This can be executed to start the xSTUDIO installer.
+If the build is successful, you should have an exectuable in the 'build' folder called something like 'xSTUDIO-1.2.0-win64.exe'. This can be executed to start the xSTUDIO installer.
 
 ### Alternative: Build with Ninja (faster builds)
 
@@ -84,7 +84,9 @@ Run the cmake command to configure for building. Note that this cmake command **
 
 When this has finished, you can build xSTUDIO with this command. Ninja handles parallelism automatically so there is no need for the `--parallel` flag.
 
-    cmake --build build
+    cmake --build build --target PACKAGE
 
-If the build is successful, you should have an executable in the 'build' folder called something like 'xSTUDIO-1.0.0-win64.exe'. This can be executed to start the xSTUDIO installer.
+If the build is successful, you should have an executable in the 'build' folder called something like 'xSTUDIO-1.2.0-win64.exe'. This can be executed to start the xSTUDIO installer.
+
+For additional tips for **developers** follow [this link](developer_tips.md)
 

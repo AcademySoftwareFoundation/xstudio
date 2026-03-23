@@ -52,23 +52,19 @@ class BOOKMARK_QML_EXPORT BookmarkFilterModel : public QSortFilterProxyModel {
 
     Q_PROPERTY(
         QVariantMap mediaOrder READ mediaOrder WRITE setMediaOrder NOTIFY mediaOrderChanged)
-    Q_PROPERTY(
-        QVariant currentMedia READ currentMedia WRITE setCurrentMedia NOTIFY
-            currentMediaChanged)
+    Q_PROPERTY(QVariant currentMedia READ currentMedia WRITE setCurrentMedia NOTIFY
+                   currentMediaChanged)
 
     Q_PROPERTY(int depth READ depth WRITE setDepth NOTIFY depthChanged)
     Q_PROPERTY(bool showHidden READ showHidden WRITE setShowHidden NOTIFY showHiddenChanged)
     Q_PROPERTY(
         QString showUserType READ showUserType WRITE setShowUserType NOTIFY showUserTypeChanged)
-    Q_PROPERTY(
-        QStringList excludedCategories READ excludedCategories WRITE setExcludedCategories
-            NOTIFY excludedCategoriesChanged)
-    Q_PROPERTY(
-        QStringList includedCategories READ includedCategories WRITE setIncludedCategories
-            NOTIFY includedCategoriesChanged)
-    Q_PROPERTY(
-        bool sortbyCreated READ sortbyCreated WRITE setsortbyCreated NOTIFY
-            sortbyCreatedChanged)
+    Q_PROPERTY(QStringList excludedCategories READ excludedCategories WRITE
+                   setExcludedCategories NOTIFY excludedCategoriesChanged)
+    Q_PROPERTY(QStringList includedCategories READ includedCategories WRITE
+                   setIncludedCategories NOTIFY includedCategoriesChanged)
+    Q_PROPERTY(bool sortbyCreated READ sortbyCreated WRITE setsortbyCreated NOTIFY
+                   sortbyCreatedChanged)
     Q_PROPERTY(int length READ length NOTIFY lengthChanged)
 
 
@@ -142,9 +138,8 @@ class BOOKMARK_QML_EXPORT BookmarkFilterModel : public QSortFilterProxyModel {
 class BOOKMARK_QML_EXPORT BookmarkModel : public caf::mixin::actor_object<JSONTreeModel> {
     Q_OBJECT
 
-    Q_PROPERTY(
-        QString bookmarkActorAddr READ bookmarkActorAddr WRITE setBookmarkActorAddr NOTIFY
-            bookmarkActorAddrChanged)
+    Q_PROPERTY(QString bookmarkActorAddr READ bookmarkActorAddr WRITE setBookmarkActorAddr
+                   NOTIFY bookmarkActorAddrChanged)
     Q_PROPERTY(int length READ length NOTIFY lengthChanged)
 
   public:
@@ -206,11 +201,6 @@ class BOOKMARK_QML_EXPORT BookmarkModel : public caf::mixin::actor_object<JSONTr
     Q_INVOKABLE QString exportCSV(
         const QUrl &path, const bool with_annotations = true, const bool with_images = true) {
         return exportCSVFuture(path, with_annotations, with_images).result();
-    }
-
-    Q_INVOKABLE QFuture<QString> exportAnnotationsFuture(const QUrl &path);
-    Q_INVOKABLE QString exportAnnotations(const QUrl &path) {
-        return exportAnnotationsFuture(path).result();
     }
 
     Q_INVOKABLE [[nodiscard]] QString

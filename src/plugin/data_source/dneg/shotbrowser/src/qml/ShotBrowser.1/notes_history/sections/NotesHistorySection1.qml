@@ -84,11 +84,6 @@ Rectangle{
                 fillMode: Image.PreserveAspectFit
                 anchors.centerIn: parent
                 cache: true
-                asynchronous: true
-                sourceSize.height: height
-                sourceSize.width:  width
-                imgOverlayColor: "transparent"
-
                 opacity: 0
                 Behavior on opacity {NumberAnimation {duration: 150}}
 
@@ -109,7 +104,7 @@ Rectangle{
                 anchors.topMargin: 6
                 background: Item{}
                 visible: attachmentsRole && attachmentsRole.length
-                imgOverlayColor: isHovered ? (pressed ? palette.highlight : palette.text) : XsStyleSheet.hintColor
+                imgOverlayColor: isHovered ? (pressed ? XsStyleSheet.accentColor : XsStyleSheet.primaryTextColor) : XsStyleSheet.hintColor
                 onClicked: {
                     let images = []
                     attachmentsRole.forEach(function (item, index) {
@@ -177,7 +172,7 @@ Rectangle{
             Layout.preferredHeight: XsStyleSheet.widgetStdHeight/1.5
             titleText: "Type :"
             valueText: noteTypeRole ? noteTypeRole : ""
-            textColor: palette.text
+            textColor: XsStyleSheet.primaryTextColor
         }
 
         NotesHistoryDetailRow{ id: artistDiv

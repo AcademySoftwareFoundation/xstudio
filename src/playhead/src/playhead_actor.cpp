@@ -801,7 +801,7 @@ void PlayheadActor::init() {
             ImageBufPtr buf,
             const bool is_onscreen_frame) {
             const auto delay = std::chrono::duration_cast<timebase::flicks>(
-                utility::clock::now() - buf.when_to_display_);
+                utility::clock::now() - buf.when_to_display());
 
             /* If the image is more than 2 frames late, we assume that the image reader
             can't keep up so we start slowing the playhead down until frames start arriving on
@@ -1655,7 +1655,6 @@ void PlayheadActor::clear_child_playheads() {
     // stop any read-ahead activity for these playheads
     anon_mail(clear_precache_queue_atom_v, to_uuid_vector(sub_playheads_)).send(pre_reader_);
 
-
     // send a message to delete these things in 2 seconds. We want
     // a delay as they may be fetching images and providing them to
     // the Viewport while we are setting up new sub-playheads (for
@@ -1666,6 +1665,12 @@ void PlayheadActor::clear_child_playheads() {
 
     sub_playheads_.clear();
     hero_sub_playhead_ = utility::UuidActor();
+
+    if (audio_playhead_) {
+        unlink_from(audio_playhead_);
+        send_exit(audio_playhead_, caf::exit_reason::user_shutdown);
+        audio_playhead_ = caf::actor();
+    }
 }
 
 caf::actor PlayheadActor::make_child_playhead(utility::UuidActor source) {
@@ -1714,7 +1719,7 @@ void PlayheadActor::make_audio_child_playhead(const int source_index) {
 
     if (timeline_mode()) {
         // Are we already hooked up to the timeline as the audio source?
-        if (audio_src_ == timeline_actor_)
+        if (audio_src_ == timeline_actor_ && audio_playhead_)
             return;
 
         audio_src_ = timeline_actor_;
@@ -1763,6 +1768,21 @@ void PlayheadActor::make_audio_child_playhead(const int source_index) {
         media::MediaType::MT_AUDIO);
 
     join_event_group(this, audio_playhead_);
+
+    if (audio_output_actor_) {
+        // this will clear the audio buffers still with the audio output
+        // actor
+        anon_mail(
+            sound_audio_atom_v,
+            std::vector<AudioBufPtr>(), // empty buffers
+            utility::Uuid(),
+            audio_path_ == playhead::GLOBAL_AUDIO,
+            uuid(),
+            false,
+            position(),
+            playhead_volume_->value())
+            .send(audio_output_actor_);
+    }
 }
 
 void PlayheadActor::new_source_list(const bool force_build) {
@@ -1968,10 +1988,9 @@ void PlayheadActor::switch_key_playhead(int idx) {
                 // got all the data it needs from its source
                 request_receive<caf::actor>(*sys, ph.actor(), source_atom_v);
 
-                if (to_string(
-                        request_receive<utility::UuidActor>(
-                            *sys, ph.actor(), media_source_atom_v, true)
-                            .uuid()) == current_media_source_uuid_->value()) {
+                if (to_string(request_receive<utility::UuidActor>(
+                                  *sys, ph.actor(), media_source_atom_v, true)
+                                  .uuid()) == current_media_source_uuid_->value()) {
                     idx = i;
                     break;
                 }
@@ -2235,7 +2254,8 @@ void PlayheadActor::update_duration(caf::typed_response_promise<timebase::flicks
         .request(hero_sub_playhead_.actor(), infinite)
         .then(
             [=](const timebase::flicks duration) mutable {
-                if (duration != timebase::k_flicks_zero_seconds) {
+                if (duration != timebase::k_flicks_zero_seconds &&
+                    PlayheadBase::duration() != duration) {
 
                     set_duration(duration);
                     align_audio_playhead();
@@ -2249,10 +2269,11 @@ void PlayheadActor::update_duration(caf::typed_response_promise<timebase::flicks
                         mail(utility::event_atom_v, use_loop_range_atom_v, use_loop_range())
                             .send(event_group_);
                     }
-                } else {
+                    duration_seconds_->set_value(timebase::to_seconds(duration));
+                } else if (PlayheadBase::duration() != duration) {
                     set_duration(duration);
+                    duration_seconds_->set_value(timebase::to_seconds(duration));
                 }
-                duration_seconds_->set_value(timebase::to_seconds(duration));
                 rp.deliver(duration);
             },
             [=](const error &err) mutable {
@@ -2367,7 +2388,9 @@ void PlayheadActor::update_cached_frames_status(
                 // frame is cached - but is it a held frame?
                 if (all_frame_ids_[i]->frame_status() == media::FS_HELD_FRAME)
                     frame_status = 1;
-                else if (all_frame_ids_[i]->frame_status() == media::FS_NOT_ON_DISK)
+                else if (
+                    all_frame_ids_[i]->frame_status() == media::FS_NOT_ON_DISK ||
+                    all_frame_ids_[i]->frame_status() == media::FS_UNKNOWN)
                     frame_status = 2;
                 else
                     frame_status = 0;

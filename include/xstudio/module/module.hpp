@@ -249,10 +249,11 @@ namespace module {
             const std::string &menu_text,
             const std::string &menu_path,
             const float menu_item_position,
-            Attribute *attr              = nullptr,
-            const bool divider           = false,
-            const utility::Uuid &hotkey  = utility::Uuid(),
-            const std::string &user_data = std::string());
+            Attribute *attr                    = nullptr,
+            const bool divider                 = false,
+            const utility::Uuid &hotkey        = utility::Uuid(),
+            const std::string &user_data       = std::string(),
+            const std::string &custom_menu_qml = std::string());
 
         utility::Uuid insert_hotkey_into_menu(
             const std::string &menu_model_name,

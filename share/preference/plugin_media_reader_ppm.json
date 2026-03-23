@@ -1,0 +1,20 @@
+{
+	"plugin":{
+		"media_reader":{
+			"ppm":{
+				"supported": {
+					"path": "/plugin/media_reader/ppm/supported",
+					"description": "Control plugin format support",
+					"datatype": "json",
+					"context": ["APPLICATION"],
+					"default_value": {
+						"PPM":"MRC_FULLY"
+					},
+					"value": {
+						"PPM":"MRC_FULLY"
+					}
+				}
+			}
+		}
+	}
+}

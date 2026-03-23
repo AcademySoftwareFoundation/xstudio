@@ -1,0 +1,22 @@
+{
+	"plugin":{
+		"media_metadata":{
+			"OpenEXR":{
+				"supported": {
+					"path": "/plugin/media_metadata/OpenEXR/supported",
+					"description": "Control plugin format support",
+					"datatype": "json",
+					"context": ["APPLICATION"],
+					"default_value": {
+						"EXR":"MMC_FULLY",
+						"SXR":"MMC_FULLY"
+					},
+					"value": {
+						"EXR":"MMC_FORCE",
+						"SXR":"MMC_FORCE"
+					}
+				}
+			}
+		}
+	}
+}

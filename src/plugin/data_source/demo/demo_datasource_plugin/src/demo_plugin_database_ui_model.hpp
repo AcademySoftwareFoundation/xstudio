@@ -54,9 +54,8 @@ namespace demo_plugin {
             QString pluginActorAddress READ pluginActorAddress NOTIFY pluginActorAddressChanged)
 
         // This property lets us
-        Q_PROPERTY(
-            bool isVersionsList READ isVersionsList WRITE setIsVersionsList NOTIFY
-                isVersionsListChanged)
+        Q_PROPERTY(bool isVersionsList READ isVersionsList WRITE setIsVersionsList NOTIFY
+                       isVersionsListChanged)
 
       public:
         using super = caf::mixin::actor_object<QAbstractItemModel>;

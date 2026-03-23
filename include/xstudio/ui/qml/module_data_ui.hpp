@@ -20,9 +20,8 @@ class HELPER_QML_EXPORT ModulesModelData : public UIModelData {
     Q_OBJECT
 
   public:
-    Q_PROPERTY(
-        QString singleAttributeName READ singleAttributeName WRITE setSingleAttributeName NOTIFY
-            singleAttributeNameChanged)
+    Q_PROPERTY(QString singleAttributeName READ singleAttributeName WRITE setSingleAttributeName
+                   NOTIFY singleAttributeNameChanged)
 
     explicit ModulesModelData(QObject *parent = nullptr);
 

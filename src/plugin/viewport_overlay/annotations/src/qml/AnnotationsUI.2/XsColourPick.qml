@@ -15,7 +15,7 @@ GridLayout {
     id: toolProperties
 
     property var root
-    
+
     columns: horizontal ? -1 : 1
     rows: horizontal ? 1 : -1
     rowSpacing: 1
@@ -62,7 +62,7 @@ GridLayout {
         id: colourDialog
         title: "Please pick a colour"
         property var lastColour
-        
+
         linkColour: tool_colour_value
 
         onCurrentColourChanged: {
@@ -83,9 +83,9 @@ GridLayout {
         }
     }
 
-    property alias colourDialog: colourDialog 
+    property alias colourDialog: colourDialog
 
-    Item{ 
+    Item{
 
         id: colourProp
 
@@ -99,12 +99,12 @@ GridLayout {
 
         XsGradientRectangle {
             anchors.fill: parent
-            border.color: colourProp.isMouseHovered ? palette.highlight: "transparent"
+            border.color: colourProp.isMouseHovered ? XsStyleSheet.accentColor: "transparent"
             border.width: 1
-    
+
             flatColor: topColor
-            topColor: colourProp.isPressed ? palette.highlight : XsStyleSheet.controlColour
-            bottomColor: colourProp.isPressed ? palette.highlight : "#1AFFFFFF"
+            topColor: colourProp.isPressed ? XsStyleSheet.accentColor : XsStyleSheet.controlColour
+            bottomColor: colourProp.isPressed ? XsStyleSheet.accentColor : "#1AFFFFFF"
         }
 
         RowLayout {
@@ -120,7 +120,7 @@ GridLayout {
                 Layout.fillHeight: true
                 color: tool_colour_value ? tool_colour_value : "grey"
                 border.width: 1
-                border.color: "black"                       
+                border.color: "black"
             }
         }
 
@@ -150,11 +150,11 @@ GridLayout {
         Layout.fillHeight: horizontal ? true : false
         spacing: itemSpacing
 
-        XsPrimaryButton{ 
+        XsPrimaryButton{
 
             Layout.fillWidth: true
             Layout.fillHeight: true
-                
+
             imgSrc: "qrc:///icons/search.svg"
             isActive: show_magnifier
             onClicked: show_magnifier = !show_magnifier
@@ -162,11 +162,11 @@ GridLayout {
 
         }
 
-        XsPrimaryButton{ 
-                    
+        XsPrimaryButton{
+
             Layout.fillWidth: true
             Layout.fillHeight: true
-    
+
             imgSrc: "qrc:///icons/visibility.svg"
             isActive: !hide_drawings
             onClicked: hide_drawings = !hide_drawings
@@ -174,11 +174,11 @@ GridLayout {
 
         }
 
-        XsPrimaryButton{ 
+        XsPrimaryButton{
 
             Layout.fillWidth: true
             Layout.fillHeight: true
-                
+
             imgSrc: "qrc:///icons/functions.svg"
             isActive: average_mode
             onClicked: average_mode = !average_mode

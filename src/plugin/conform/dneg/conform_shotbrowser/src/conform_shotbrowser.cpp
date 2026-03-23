@@ -301,10 +301,9 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                     if (reuse_media) {
                         for (const auto &m : crequest.reuse_list_) {
                             try {
-                                reuse_map.insert(
-                                    std::make_pair(
-                                        m.first.second.at(ivy_uuid_jp).get<Uuid>(),
-                                        std::make_pair(m.first.first, m.second)));
+                                reuse_map.insert(std::make_pair(
+                                    m.first.second.at(ivy_uuid_jp).get<Uuid>(),
+                                    std::make_pair(m.first.first, m.second)));
                             } catch (...) {
                             }
                         }
@@ -660,13 +659,19 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
         static const auto SHOW_REGEX =
             std::regex(R"(^(?:/jobs|/hosts/[^/]+/user_data\d*)/([A-Z0-9]+)/.+$)");
 
-        scoped_actor sys{system()};
         try {
-            auto found_project = std::string();
+            scoped_actor sys{system()};
             auto timeline_item =
                 request_receive<timeline::Item>(*sys, timeline.actor(), timeline::item_atom_v);
 
 
+            // check for xstudio metadata..
+            if (timeline_item.prop().contains("xstudio")) {
+                rp.deliver(true);
+                return;
+            }
+
+            auto found_project = std::string();
             auto timeline_path = timeline_item.prop().value("path", std::string());
             if (not timeline_path.empty()) {
                 std::cmatch m;
@@ -833,9 +838,9 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                             if (m.start() == tframe) {
                                 if (m.prop().contains(fcpp) and
                                     m.prop().at(fcpp).is_string() and not m.name().empty()) {
-                                    const static auto cutcompre = std::regex(
-                                        "\\s*(\\d+)\\s*,\\s*(\\d+)\\s*-\\s*(\\d+)"
-                                        "\\s*,\\s*(\\d+)\\s*");
+                                    const static auto cutcompre =
+                                        std::regex("\\s*(\\d+)\\s*,\\s*(\\d+)\\s*-\\s*(\\d+)"
+                                                   "\\s*,\\s*(\\d+)\\s*");
                                     auto comment = m.prop().at(fcpp).get<std::string>();
                                     std::cmatch match;
                                     if (std::regex_match(comment.c_str(), match, cutcompre)) {

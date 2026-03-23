@@ -138,6 +138,7 @@ namespace ui {
             const std::string window_id_;
             bool use_ssbo_ = {false};
             std::array<int, 4> viewport_coords_in_window_;
+            float clear_alpha_ = {1.0f};
         };
     } // namespace opengl
 } // namespace ui

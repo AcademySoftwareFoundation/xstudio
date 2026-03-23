@@ -35,6 +35,25 @@ static const std::set<std::string> ALPHA_CHANNEL_NAMES     = {"a", "alpha"};
 static const std::set<std::string> LUMINANCE_CHANNEL_NAMES = {
     "y", "luminance", "l", "gray", "grey", "mono"};
 
+void parse_stream_name(const std::string &value, int &subimage, int &mipmap) {
+    std::cmatch m;
+    auto parts = split(value, '/');
+
+    subimage = mipmap = 0;
+
+    if (parts.size() == 1 or parts.at(0) != "image") {
+        auto tmp = split(parts.at(0), '-');
+        if (tmp.size() == 2)
+            subimage = std::stoi(tmp.at(1));
+    }
+
+    if (parts.size() == 2) {
+        auto tmp = split(parts.at(1), '-');
+        if (tmp.size() == 2)
+            mipmap = std::stoi(tmp.at(1));
+    }
+}
+
 /**
  * @brief Specifies the type of image based on its channel composition.
  *
@@ -79,7 +98,7 @@ float get_image_data_float32(int byte_address);
 vec4 fetch_rgba_pixel(ivec2 image_coord)
 {
     float R = 0.0f, G = 0.0f, B = 0.0f, A = 1.0f;
-    
+
     int r_coord = (image_coord.x + image_coord.y * width) * bytes_per_channel + channel_r_start;
     int g_coord = (image_coord.x + image_coord.y * width) * bytes_per_channel + channel_g_start;
     int b_coord = (image_coord.x + image_coord.y * width) * bytes_per_channel + channel_b_start;
@@ -126,6 +145,13 @@ OIIOMediaReader::OIIOMediaReader(const utility::JsonStore &prefs) : MediaReader(
 }
 
 void OIIOMediaReader::update_preferences(const utility::JsonStore &prefs) {
+    try {
+        supported_ = global_store::preference_value<JsonStore>(
+            prefs, "/plugin/media_reader/OIIO/supported");
+    } catch (const std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+
     try {
         // Set OIIO threading
         int threads =
@@ -615,31 +641,33 @@ void fill_rendered_image(
     xstudio::media_reader::byte *buffer,
     size_t width,
     size_t height,
-    int bytes_per_channel) {
+    int bytes_per_channel,
+    int subimage,
+    int mipmap) {
     size_t plane_size = width * height * bytes_per_channel;
 
     // RGB or RGBA (3 or 4-channel) images: fill R, G, B
     if (image_type == IMAGE_RGBA || image_type == IMAGE_RGB) {
         // Read R plane
         image->read_image(
-            0,
-            0,
+            subimage,
+            mipmap,
             channel_indices.at('R'),
             channel_indices.at('R') + 1,
             rendered_format,
             &buffer[plane_size * 0]);
         // Read G plane
         image->read_image(
-            0,
-            0,
+            subimage,
+            mipmap,
             channel_indices.at('G'),
             channel_indices.at('G') + 1,
             rendered_format,
             &buffer[plane_size * 1]);
         // Read B plane
         image->read_image(
-            0,
-            0,
+            subimage,
+            mipmap,
             channel_indices.at('B'),
             channel_indices.at('B') + 1,
             rendered_format,
@@ -648,8 +676,8 @@ void fill_rendered_image(
     // Grayscale or Grayscale+Alpha images: fill Y
     else if (image_type == IMAGE_GRAYSCALE || image_type == IMAGE_GRAYSCALE_ALPHA) {
         image->read_image(
-            0,
-            0,
+            subimage,
+            mipmap,
             channel_indices.at('Y'),
             channel_indices.at('Y') + 1,
             rendered_format,
@@ -659,8 +687,8 @@ void fill_rendered_image(
     // If Grayscale+Alpha, images: fill A
     if (image_type == IMAGE_GRAYSCALE_ALPHA) {
         image->read_image(
-            0,
-            0,
+            subimage,
+            mipmap,
             channel_indices.at('A'),
             channel_indices.at('A') + 1,
             rendered_format,
@@ -669,8 +697,8 @@ void fill_rendered_image(
     // If RGBA, images: fill A
     else if (image_type == IMAGE_RGBA) {
         image->read_image(
-            0,
-            0,
+            subimage,
+            mipmap,
             channel_indices.at('A'),
             channel_indices.at('A') + 1,
             rendered_format,
@@ -689,6 +717,15 @@ ImageBufPtr OIIOMediaReader::image(const media::AVFrameID &mptr) {
         auto image = OIIO::ImageInput::open(path);
         if (!image) {
             throw media_corrupt_error("OIIO error: " + OIIO::geterror());
+        }
+
+        auto stream_id = mptr.stream_id();
+        // determine if mip/subimage..
+        int subimage = 0;
+        int mipmap   = 0;
+        if (stream_id != "image") {
+            parse_stream_name(stream_id, subimage, mipmap);
+            image->seek_subimage(subimage, mipmap);
         }
 
         // Step 3: Retrieve the image specification
@@ -751,7 +788,9 @@ ImageBufPtr OIIOMediaReader::image(const media::AVFrameID &mptr) {
             buf->buffer(),
             width,
             height,
-            bytes_per_channel);
+            bytes_per_channel,
+            subimage,
+            mipmap);
 
         // Step 13: Close the image file
         image->close();
@@ -769,7 +808,6 @@ thumbnail::ThumbnailBufferPtr
 OIIOMediaReader::thumbnail(const media::AVFrameID &mpr, const size_t thumb_size) {
 
     try {
-
         // Step 1: Convert uri to POSIX file path.
         std::string path = uri_to_posix_path(mpr.uri());
 
@@ -778,6 +816,14 @@ OIIOMediaReader::thumbnail(const media::AVFrameID &mpr, const size_t thumb_size)
         if (imagebuf.has_error()) {
             throw media_corrupt_error("OIIO error: " + imagebuf.geterror());
         }
+
+        auto stream_id = mpr.stream_id();
+
+        // if(stream_id != "image") {
+        //     int subimage, mipmap;
+        //     parse_stream_name(stream_id, subimage, mipmap);
+        //     imagebuf.seek_subimage(subimage, mipmap);
+        // }
 
         // Step 3: Query image spec and dimensions.
         const OIIO::ImageSpec &spec = imagebuf.spec();
@@ -884,6 +930,52 @@ media::MediaDetail OIIOMediaReader::detail(const caf::uri &uri) const {
         // Step 5: Add the stream details to the MediaDetail object
         detail.streams_.push_back(stream);
 
+        // test for subimage or mipmaps.
+        const auto has_subimage = in->seek_subimage(1, 0);
+        if (has_subimage or in->seek_subimage(0, 1)) {
+
+            auto subimage   = 0;
+            auto mipmap     = 0;
+            auto has_mipmap = in->seek_subimage(subimage, 1);
+
+            if (has_subimage and not has_mipmap)
+                subimage++;
+
+            if (has_mipmap and not has_subimage)
+                mipmap++;
+
+            while (true) {
+                while (in->seek_subimage(subimage, mipmap)) {
+                    const OIIO::ImageSpec &sspec = in->spec();
+
+                    media::StreamDetail stream;
+
+                    if (subimage == 0)
+                        stream.name_ = fmt::format("image/mipmap-{:02d}", mipmap);
+                    else if (mipmap == 0)
+                        stream.name_ = fmt::format("subimage-{:02d}", subimage);
+                    else
+                        stream.name_ =
+                            fmt::format("subimage-{:02d}/mipmap-{:02d}", subimage, mipmap);
+
+                    stream.media_type_   = media::MediaType::MT_IMAGE;
+                    stream.resolution_   = Imath::V2i(sspec.width, sspec.height);
+                    stream.pixel_aspect_ = sspec.get_float_attribute("PixelAspectRatio", 1.0f);
+                    detail.streams_.push_back(stream);
+
+                    mipmap++;
+                }
+
+                // failed with mimap == 0 then no more subimages
+                if (not mipmap)
+                    break;
+                else {
+                    mipmap = 0;
+                    subimage++;
+                }
+            }
+        }
+
         // Step 6: Close the image input
         in->close();
 
@@ -894,27 +986,41 @@ media::MediaDetail OIIOMediaReader::detail(const caf::uri &uri) const {
     return detail;
 }
 
+std::vector<std::string> OIIOMediaReader::supported_extensions() const {
+    auto result = std::vector<std::string>();
+
+    for (const auto &i : supported_.items()) {
+        if (from_string(i.value()) != MRC_NO)
+            result.push_back(i.key());
+    }
+
+    return result;
+}
+
 MRCertainty
 OIIOMediaReader::supported(const caf::uri &uri, const std::array<uint8_t, 16> &signature) {
+    auto result = MRC_NO;
 
     // Step 1: List of supported extensions by OIIO
-    static const std::set<std::string> supported_extensions = {
-        "JPG",
-        "JPEG",
-        "PNG",
-        "TIF",
-        "TIFF",
-        "TGA",
-        "BMP",
-        "PSD",
-        "HDR",
-        "DPX",
-        "ACES",
-        "JP2",
-        "J2K",
-        "WEBP",
-        "EXR",
-    };
+    // Moved to preference file : AL
+    // static const std::set<std::string> supported_extensions = {
+    //     "JPG",
+    //     "JPEG",
+    //     "PNG",
+    //     "TIF",
+    //     "TEX",
+    //     "TIFF",
+    //     "TGA",
+    //     "BMP",
+    //     "PSD",
+    //     "HDR",
+    //     "DPX",
+    //     "ACES",
+    //     "JP2",
+    //     "J2K",
+    //     "WEBP",
+    //     "EXR",
+    // };
 
     // Step 2: Convert the URI to a POSIX path string and fs::path
     std::string path = uri_to_posix_path(uri);
@@ -922,33 +1028,39 @@ OIIOMediaReader::supported(const caf::uri &uri, const std::array<uint8_t, 16> &s
 
     // Step 3: Check if the file exists and is a regular file
     // Return not supported if the file does not exist or is not a regular file
-    if (!fs::exists(p) || !fs::is_regular_file(p)) {
-        return MRC_NO;
-    }
+    if (fs::exists(p) and fs::is_regular_file(p)) {
 
-    // Step 4: Get the upper-case extension (handling platform differences)
+        // Step 4: Get the upper-case extension (handling platform differences)
 #ifdef _WIN32
-    std::string ext = ltrim_char(to_upper_path(p.extension()), '.');
+        std::string ext = ltrim_char(to_upper_path(p.extension()), '.');
 #else
-    std::string ext = ltrim_char(to_upper(p.extension().string()), '.');
+        std::string ext = ltrim_char(to_upper(p.extension().string()), '.');
 #endif
 
-    // Step 5: Check if the extension is in the supported list
-    // Return fully supported if the extension is in the supported list
-    if (supported_extensions.count(ext)) {
-        return MRC_FULLY;
-    }
-
-    // Step 6: Try to detect via OIIO if the extension is supported
-    // Return maybe supported if the extension is supported by OIIO
-    auto in = OIIO::ImageInput::open(path);
-    if (in) {
-        in->close();
-        return MRC_MAYBE;
+        // Step 5: Check if the extension is in the supported list
+        // Return fully supported if the extension is in the supported list
+        try {
+            auto value = supported_.value(ext, "");
+            if (value.empty()) {
+                if (MRCertainty possible = from_string(supported_.value("", "MRC_NO"));
+                    possible != MRC_NO) {
+                    // Step 6: Try to detect via OIIO if the extension is supported
+                    // Return maybe supported if the extension is supported by OIIO
+                    auto in = OIIO::ImageInput::open(path);
+                    if (in) {
+                        in->close();
+                        result = possible;
+                    }
+                }
+            } else
+                result = from_string(value);
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
     }
 
     // Step 7: Return not supported if all checks fail
-    return MRC_NO;
+    return result;
 }
 
 // Plugin entry point

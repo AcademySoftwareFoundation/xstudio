@@ -205,7 +205,7 @@ XsWindow{
 
             XsComboBox {
                 id: modeCB
-                Layout.maximumWidth: itemHeight * 2
+                Layout.maximumWidth: itemHeight * 3
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
@@ -215,7 +215,7 @@ XsWindow{
 
             XsComboBox {
                 id: typeCB
-                Layout.maximumWidth: itemHeight * 4
+                Layout.maximumWidth: itemHeight * 5
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 currentIndex: 2

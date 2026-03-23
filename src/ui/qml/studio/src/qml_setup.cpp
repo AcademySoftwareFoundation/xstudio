@@ -94,7 +94,7 @@ void xstudio::ui::qml::setup_xstudio_qml_emgine(QQmlEngine *engine, caf::actor_s
     // in Qt main loop
     new CafSystemObject(qApp, system);
 
-    const QUrl url(QStringLiteral("qrc:/main.qml"));
+    const QUrl url(QStringLiteral("qrc:/application/main.qml"));
 
     ;
     engine->addImageProvider(QLatin1String("thumbnail"), new ThumbnailProvider);

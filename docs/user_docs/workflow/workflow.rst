@@ -13,4 +13,5 @@ Workflow Tools
    grading
    quick_view
    video_output
+   sdi_output
    hotkeys

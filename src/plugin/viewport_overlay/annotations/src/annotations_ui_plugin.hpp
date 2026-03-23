@@ -3,6 +3,7 @@
 
 #include "xstudio/plugin_manager/plugin_base.hpp"
 #include "pixel_patch.hpp"
+#include "pressure_lut.hpp"
 
 namespace xstudio {
 namespace ui {
@@ -207,6 +208,27 @@ namespace ui {
             std::map<std::string, Imath::M44f> viewport_transforms_;
             std::optional<canvas::Caption> edited_caption_;
             std::size_t focus_caption_id_ = {0};
+
+            float get_size_sensitivity() const;
+            float get_opacity_sensitivity() const;
+
+            // Bezier Curve mapping
+            void set_bezier_xsat(float value);
+            float map_bezier_pressure(float input) const;
+
+            bool bezier_mapping_enabled_ = true;
+            bool link_P1_to_P3_          = true;
+            float lock_P2_offset_x_      = 0.25f;
+
+            PressureLUT bezier_lut_;
+            PressureLUT::Curve bezier_curve_;
+
+            // used for the colour picker magnifier
+            media_reader::ImageBufPtr image_under_pointer_;
+            utility::JsonStore pixel_unpack_uniforms_;
+
+            // Power function curve mapping
+            float map_power_pressure(float input) const;
         };
 
     } // namespace viewport

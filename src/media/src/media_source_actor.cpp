@@ -256,14 +256,7 @@ void MediaSourceActor::acquire_detail(
             // of the sequence than first frame which can be a slate frame made
             // by a different tool.
             int frame;
-            auto _uri =
-                base_.media_reference().uri(base_.media_reference().frame_count() / 2, frame);
-
-            if (!_uri) {
-                // ok, middle frame didn't work lets try the first frame
-                // after all as a fallback
-                _uri = base_.media_reference().uri(0, frame);
-            }
+            auto _uri = base_.media_reference().pick_representative_frame(frame);
 
             if (not _uri)
                 throw std::runtime_error("Invalid frame index");
@@ -1019,23 +1012,18 @@ caf::message_handler MediaSourceActor::message_handler() {
 
                 if (not base_.media_reference().container()) {
 
-                    // In the case of retrieving media metadata for a frame
-                    // based source (i.e. EXRs, jpegs) we want to pick a frame
-                    // from the middle of the sequence. The reason is that this
-                    // is more likely to have EXR channel/part data that matches
-                    // most of the other frames. We frequently see an EXR sequence
-                    // where the first frame is a slate frame made by a separate
-                    // tool to the rest of the sequence
+                    // We may have 100s or 1000s of frames in this source ... we can't read
+                    // metadata from all of them it's too expensive so we pick a frame
+                    // somewhere in the middle.
+                    //
+                    // Note that frame based metadata IS added when frames are read from
+                    // disk for display but this makes its way into xSTUDIO by a different
+                    // route (via the playheads and viewport) rather than through the
+                    // MediaSourceActor
                     int file_frame;
-                    auto test_frame_uri = base_.media_reference().uri(
-                        base_.media_reference().frame_count() / 2, file_frame);
+                    auto test_frame_uri =
+                        base_.media_reference().pick_representative_frame(file_frame);
 
-                    if (!test_frame_uri) {
-                        // ok, middle frame didn't work lets try the first frame
-                        // after all as a fallback
-                        test_frame_uri = base_.media_reference().uri(
-                            base_.media_reference().frame_count() / 2, file_frame);
-                    }
                     // #pragma message "Currently only reading metadata on first frame for image
                     // sequences"
 
@@ -1529,6 +1517,18 @@ void MediaSourceActor::get_media_pointers_for_frames(
 
     int prev_range_last = 0;
 
+    // for container type media, we check here if it is on-disk and apply the
+    // status to all frames. For frame sequence media (jpg, exr etc) we check
+    // if each frame is on disk in 'uri_for_logical_frame'
+    FrameStatus init_frame_status = FS_ON_DISK;
+    const auto &media_ref         = base_.media_reference(base_.current(media_type));
+    if (media_ref.container()) {
+        const auto path = fs::path(utility::uri_to_posix_path(media_ref.uri()));
+        if (to_string(media_ref.uri()).find("file") == 0 && !fs::exists(path)) {
+            init_frame_status = FS_NOT_ON_DISK;
+        }
+    }
+
     for (const auto &i : ranges) {
 
         // We are providing frameIds for a set of logical
@@ -1552,7 +1552,8 @@ void MediaSourceActor::get_media_pointers_for_frames(
                 // and also give us the filesystem modification time for the file which
                 // we use to make the cache key for the image if/when it is loaded/decoded and
                 // cached
-                auto _uri = uri_for_logical_frame(
+                frame_status = init_frame_status;
+                auto _uri    = uri_for_logical_frame(
                     media_type, logical_frame, frame, keyframe, frame_status, mod_time);
 
                 if (base_frame_id.is_nil()) {
@@ -1627,8 +1628,7 @@ caf::uri MediaSourceActor::uri_for_logical_frame(
     auto _uri = media_ref.uri(logical_frame, frame);
     if (not _uri)
         throw std::runtime_error("Time out of range");
-    keyframe     = frame;
-    frame_status = FS_ON_DISK;
+    keyframe = frame;
 
     if (!media_ref.container() && base_.partial_seq_behaviour() == PS_DONT_HOLD_FRAME) {
 
@@ -1771,6 +1771,7 @@ caf::uri MediaSourceActor::uri_for_logical_frame(
             }
         }
     }
+
     return *_uri;
 }
 
@@ -1960,6 +1961,7 @@ void MediaSourceActor::build_media_streams(
     base_.set_reader(md.reader_);
 
     bool media_ref_set = false;
+
     for (auto stream_detail : md.streams_) {
         // HACK!!!
 

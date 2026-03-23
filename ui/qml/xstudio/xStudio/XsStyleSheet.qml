@@ -4,66 +4,67 @@ import QtQuick
 
 QtObject {
 
-    property var darkerFactor: 1.0
-    property var textDarkerFactor: 1.0
+    // dynamic UI brightness
+    property real luminance: 1.0
+    property real textLuminance: 1.0
 
+    property bool useFlatTheme: false
+
+    // fonts
+    readonly property int fontSize: 12
+    readonly property string fontFamily: "Inter"
+
+    readonly property string fixedWidthFontFamily: systemFixedWidthFontFamily // A context property set-up on C++ side
+    readonly property string altFixedWidthFontFamily: "Bitstream Vera Sans Mono"
+
+    // colours
     property color accentColor: "#D17000"
 
-    property color accentColorBlue: "#307bf6"
-    property color accentColorPurple: "#9b56a3"
-    property color accentColorPink: "#e65d9c"
-    property color accentColorRed: "#ed5f5d"
-    property color accentColorOrange: "#e9883a"
-    property color accentColorYellow: "#f3ba4b"
-    property color accentColorGreen: "#77b756"
-    property color accentColorGrey: "#999999"
+    // shades of gray
+    readonly property color gray100: "#333333"
+    readonly property color gray200: "#414141"
+    readonly property color gray300: "#5C5C5C"
+    readonly property color gray400: "#666666"
+    readonly property color gray500: "#858585"
+    readonly property color gray600: "#959595"
+    readonly property color gray700: "#A1A1A1"
+    readonly property color gray800: "#C1C1C1"
+    readonly property color gray900: "#F1F1F1"
 
-    property real fontSize: 12
-    property real playlistPanelFontSize: fontSize + 1
-    property string fontFamily: "Inter" //"Regular" //"Overpass"
-    property string fixedWidthFontFamily: systemFixedWidthFontFamily // A context property set-up on C++ side
-    property string altFixedWidthFontFamily: "Bitstream Vera Sans Mono"
+    readonly property color panelBgColor:           Qt.darker(gray100, luminance)
+    readonly property color baseColor:              Qt.darker(gray200, luminance)
+    readonly property color panelBgGradTopColor:    Qt.darker(gray300, luminance)
+    readonly property color panelTitleBarColor:     Qt.darker(gray400, luminance)
+    readonly property color menuBorderColor:        Qt.darker(gray500, luminance)
+    readonly property color hintColor:              gray600
+    readonly property color scrollbarBaseColor:     Qt.darker(gray700, luminance)
+    readonly property color secondaryTextColor:     Qt.darker(gray800, textLuminance)
+    readonly property color scrollbarActiveColor:   Qt.darker(gray800, luminance)
+    readonly property color primaryTextColor:       Qt.darker(gray900, textLuminance)
 
-    property color primaryTextColor: Qt.darker("#F1F1F1", textDarkerFactor)
-    property color secondaryTextColor: Qt.darker("#C1C1C1", textDarkerFactor)
-    property color hintColor: "#959595"
-    property color errorColor: "#EB3941"
+    // readonly property color widgetBgNormalColor:    Qt.darker(gray300, luminance)
+    // readonly property color gray450: "#7D7D7D"
+    // readonly property color controlColour:          Qt.darker(gray450, luminance)
 
-    property color baseColor: Qt.darker("#414141", darkerFactor)
-    property color panelTitleBarColor: Qt.darker("#666666", darkerFactor)
-    property color panelTabColor: Qt.darker("#1F1F1F", darkerFactor)
-    property color panelBgColor: Qt.darker("#333333", darkerFactor)
-    property color panelBgFlatColor: Qt.darker("#555555", darkerFactor)
-    property color panelBgGradTopColor: Qt.darker("#5C5C5C", darkerFactor)
-    property color panelBgGradBottomColor: menuBarColor
-    property real panelPadding: 4
-    property real dividerSize: 1
+    property color widgetBgNormalColor:             Qt.darker("#1AFFFFFF", luminance)
+    property color controlColour:                   Qt.darker("#33FFFFFF", luminance)
 
-    property color widgetBgNormalColor: Qt.darker("#1AFFFFFF", darkerFactor)
-    property real widgetStdHeight: 24
-    property real widgetBorderWidth: 1
+    // sizes
+    readonly property int panelPadding: 4
+    readonly property int dividerSize: 1
 
-    property real primaryButtonStdWidth: 40
-    property real primaryButtonStdHeight: widgetStdHeight + 4
-    property real secondaryButtonStdWidth: 16
+    readonly property int widgetStdHeight: 24
+    readonly property int widgetBorderWidth: 1
 
-    // control colour = button colour etc?
-    property color controlColour: Qt.darker("#33FFFFFF", darkerFactor)
+    readonly property int primaryButtonStdWidth: 40
+    readonly property int primaryButtonStdHeight: widgetStdHeight + 4
+    readonly property int secondaryButtonStdWidth: 16
 
-    property real menuStdWidth: 140
-    property real menuHeight: widgetStdHeight
-    property color menuBarColor: Qt.darker("#474747", darkerFactor)
-    property color menuLabelColor: primaryTextColor
-    property color menuHotKeyColor: secondaryTextColor
-    property color menuDividerColor: Qt.darker("#858585", darkerFactor)
-    property color menuBorderColor: Qt.darker("#858585", darkerFactor)
-    property real menuDividerHeight: 1
-    property real menuPadding: 4
-    property real menuLabelPaddingLR: 16
-    property real menuIndicatorSize: 16
-    property real menuCheckboxSize: 16
-
-    property color scrollbarBaseColor: Qt.darker("#A1A1A1", darkerFactor)
-    property color scrollbarActiveColor: Qt.darker("#C1C1C1", darkerFactor)
-
+    readonly property int menuStdWidth: 140
+    readonly property int menuHeight: widgetStdHeight
+    readonly property int menuDividerHeight: 1
+    readonly property int menuPadding: 4
+    readonly property int menuLabelPaddingLR: 16
+    readonly property int menuIndicatorSize: 16
+    readonly property int menuCheckboxSize: 16
 }

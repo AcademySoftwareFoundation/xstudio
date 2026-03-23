@@ -981,6 +981,43 @@ void ShotBrowser::attribute_changed(const utility::Uuid &attr_uuid) {
 }
 
 void ShotBrowser::update_preferences(const JsonStore &js) {
+
+
+    try {
+        static bool enabled = false;
+        if (not enabled) {
+            // here we ping the plugin manager to tell it to load the SYNC plugin if
+            // the user has shotgrid login access (i.e. they are a lead/supe who will
+            // need Sync to run reviews)
+
+            // Note: Ted Feb 5th 2025 - not enabling sync as per below until roll-out
+            // plan is agreed with all parties
+            auto whitelist = preference_value<JsonStore>(js, "/core/sync/user_whitelist");
+            auto login     = utility::get_login_name();
+            for (const auto &i : whitelist) {
+                if (i == login) {
+                    spdlog::info(
+                        "You have SYNC permissions: xSTUDIO SYNC plugin will be enabled.");
+
+                    auto plugin_manager =
+                        system().registry().template get<caf::actor>(plugin_manager_registry);
+                    anon_mail(
+                        plugin_manager::spawn_plugin_atom_v,
+                        utility::Uuid(
+                            "0ceb4fdb-cb6e-4148-894c-b8a0fad6bec0"), // sync plugin UUID
+                        utility::JsonStore(), // init settings (not needed)
+                        true                  // resident
+                        )
+                        .send(plugin_manager);
+                    enabled = true;
+                    break;
+                }
+            }
+        }
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
     try {
         auto grant = preference_value<std::string>(
             js, "/plugin/data_source/shotbrowser/authentication/grant_type");
@@ -1161,9 +1198,8 @@ void ShotBrowser::update_preferences(const JsonStore &js) {
             // set server
             anon_mail(
                 shotgun_host_atom_v,
-                std::string(
-                    fmt::format(
-                        "{}://{}{}", protocol, host, (port ? ":" + std::to_string(port) : ""))))
+                std::string(fmt::format(
+                    "{}://{}{}", protocol, host, (port ? ":" + std::to_string(port) : ""))))
                 .send(shotgun_);
 
             auto auth = get_authentication();
@@ -1186,9 +1222,11 @@ void ShotBrowser::refresh_playlist_versions(
     auto notification_uuid = Uuid();
     auto playlist          = caf::actor();
 
-    auto failed = [=](const caf::actor &dest, const Uuid &uuid) mutable {
+    auto failed = [=](const caf::actor &dest,
+                      const Uuid &uuid,
+                      const std::string &message = "Reloading Playlist Failed") mutable {
         if (dest and not uuid.is_null()) {
-            auto notify = Notification::WarnNotification("Reloading Playlist Failed");
+            auto notify = Notification::WarnNotification(message);
             notify.uuid(uuid);
             anon_mail(utility::notification_atom_v, notify).send(dest);
         }
@@ -1222,8 +1260,17 @@ void ShotBrowser::refresh_playlist_versions(
             anon_mail(utility::notification_atom_v, notify).send(playlist);
         }
 
-        auto plsg = request_receive<JsonStore>(
-            *sys, playlist, json_store::get_json_atom_v, ShotgunMetadataPath + "/playlist");
+        auto plsg = JsonStore();
+
+        try {
+            plsg = request_receive<JsonStore>(
+                *sys, playlist, json_store::get_json_atom_v, ShotgunMetadataPath + "/playlist");
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+            failed(playlist, notification_uuid, "Failed To Reload, not a SG Playlist");
+            rp.deliver(make_error(xstudio_error::error, err.what()));
+            return;
+        }
 
         auto pl_id = plsg["id"].template get<int>();
 
@@ -1322,9 +1369,8 @@ void ShotBrowser::refresh_playlist_versions(
                                                             playlist::move_media_atom_v,
                                                             playlist,
                                                             JsonStore(result["data"]))
-                                                            .send(
-                                                                caf::actor_cast<caf::actor>(
-                                                                    this));
+                                                            .send(caf::actor_cast<caf::actor>(
+                                                                this));
                                                 },
                                                 [=](error &err) mutable {
                                                     spdlog::warn(
@@ -1499,22 +1545,21 @@ void ShotBrowser::add_media_to_playlist(
             // can be used to build the media sources for each media
             // item in the playlist
             ordered_uuids->push_back(utility::Uuid::generate());
-            build_playlist_media_tasks_.emplace_back(
-                std::make_shared<BuildPlaylistMediaJob>(
-                    playlist,
-                    ordered_uuids->back(),
-                    i.at("attributes").at("code").get<std::string>(), // name for the media
-                    JsonStore(i),
-                    media_rate,
-                    visual_sources,
-                    audio_sources,
-                    ordered_uuids,
-                    before,
-                    flag_colour,
-                    flag_text,
-                    rp,
-                    result,
-                    result_count));
+            build_playlist_media_tasks_.emplace_back(std::make_shared<BuildPlaylistMediaJob>(
+                playlist,
+                ordered_uuids->back(),
+                i.at("attributes").at("code").get<std::string>(), // name for the media
+                JsonStore(i),
+                media_rate,
+                visual_sources,
+                audio_sources,
+                ordered_uuids,
+                before,
+                flag_colour,
+                flag_text,
+                rp,
+                result,
+                result_count));
         }
 
         // this call starts the work of building the media and consuming
@@ -1662,11 +1707,8 @@ void ShotBrowser::load_playlist(
                         [=](const JsonStore &order) mutable {
                             std::vector<std::string> version_ids;
                             for (const auto &i : order["data"])
-                                version_ids.emplace_back(
-                                    std::to_string(
-                                        i["relationships"]["version"]["data"]
-                                            .at("id")
-                                            .get<int>()));
+                                version_ids.emplace_back(std::to_string(
+                                    i["relationships"]["version"]["data"].at("id").get<int>()));
 
                             if (version_ids.empty())
                                 return rp.deliver(
@@ -2203,9 +2245,8 @@ void ShotBrowser::reorder_playlist(
                     for (const auto &i : version_ids)
                         if (media_id.count(i)) {
                             new_media_order.push_back(media_id.at(i));
-                            unused_media.erase(
-                                std::find(
-                                    unused_media.begin(), unused_media.end(), media_id.at(i)));
+                            unused_media.erase(std::find(
+                                unused_media.begin(), unused_media.end(), media_id.at(i)));
                         }
 
                     new_media_order.insert(

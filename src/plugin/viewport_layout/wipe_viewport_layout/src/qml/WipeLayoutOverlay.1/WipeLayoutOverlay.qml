@@ -92,7 +92,7 @@ Item {
                 }
             }
         }
-    
+
     }
 
     Rectangle {
@@ -102,7 +102,7 @@ Item {
         radius: circle_size/2
         x: parent.width/2-radius
         y: parent.width/2-radius
-        color: hovered ? palette.highlight : "transparent"
+        color: hovered ? XsStyleSheet.accentColor : "transparent"
         border.color: "white"
     }
 
