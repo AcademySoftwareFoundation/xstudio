@@ -72,8 +72,6 @@ endif()
 
 file(GLOB QML_SOURCES RELATIVE ${CMAKE_CURRENT_LIST_DIR} BlackmagicSDI/*.qml)
 
-message("QML_SOURCES ${QML_SOURCES}  ${CMAKE_CURRENT_LIST_DIR}")
-
 qt_add_qml_module(${PROJECT_NAME}
     URI BlackmagicSDI
 	VERSION 1.0
