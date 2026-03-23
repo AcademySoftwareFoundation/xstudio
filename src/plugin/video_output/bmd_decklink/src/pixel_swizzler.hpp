@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 #pragma once
 
 /*Simple helper class to wrap pixel cast/swizzle & bitshift ops.
