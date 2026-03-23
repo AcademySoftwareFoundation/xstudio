@@ -149,6 +149,7 @@ DropArea {
             x: drag_cursor.x + drag_cursor.width
             y: drag_cursor.y + drag_cursor.height - height/2
             color: "#FFF00000"
+            clip: true
             //visible: dragCount > 1 // this doesn't work for some reason
 
             Text {
