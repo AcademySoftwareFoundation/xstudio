@@ -107,9 +107,9 @@ XsWindow{
 
                     background:
                     Rectangle{
-                        color: nameEditDiv.activeFocus? Qt.darker(palette.highlight, 1.5): nameEditDiv.hovered? Qt.lighter(palette.base, 2):Qt.lighter(palette.base, 1.5)
+                        color: nameEditDiv.activeFocus? Qt.darker(XsStyleSheet.accentColor, 1.5): nameEditDiv.hovered? Qt.lighter(XsStyleSheet.panelBgColor, 2):Qt.lighter(XsStyleSheet.panelBgColor, 1.5)
                         border.width: nameEditDiv.hovered || nameEditDiv.active? 1:0
-                        border.color: palette.highlight
+                        border.color: XsStyleSheet.accentColor
                         opacity: enabled? 0.7 : 0.3
                     }
                 }
@@ -187,7 +187,7 @@ XsWindow{
 
             // XsLabel{
             //     visible: isSystemPreset
-            //     color: palette.highlight
+            //     color: XsStyleSheet.accentColor
             //     text: "This is a System Preset, changes will not be preserved."
             //     Layout.fillHeight: true
             // }

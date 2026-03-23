@@ -16,7 +16,7 @@ XsWindow {
     title: "Configure FFMPEG Video Encoding Presets"
     property string attr_name
 
-    minimumWidth: 1080 
+    minimumWidth: 1080
     minimumHeight: 260
 
     // access 'attribute' data exposed by our C++ plugin
@@ -29,7 +29,7 @@ XsWindow {
 
 
     Loader {
-        id: loader        
+        id: loader
     }
 
     Component {
@@ -79,7 +79,7 @@ XsWindow {
                         Repeater {
                             model: video_render_status_attrs
                             JobTextEntry {
-                                id: input                                
+                                id: input
                                 text: value.render_item
                                 Layout.preferredHeight: rowHeight
                                 Layout.fillWidth: true
@@ -109,7 +109,7 @@ XsWindow {
                         }
                         Repeater {
                             model: video_render_status_attrs
-                            
+
                             JobTextEntry {
                                 id: input
                                 text: value.resolution
@@ -138,14 +138,14 @@ XsWindow {
                                         anchors.fill: parent
                                         hoverEnabled: true
                                     }
-                                    
+
                                 }
                                 Rectangle {
                                     height: parent.height
                                     width: {
                                         return parent.width*(value.percent_complete)*0.01
                                     }
-                                    color: palette.highlight
+                                    color: XsStyleSheet.accentColor
                                     opacity: 0.4
                                 }
                             }
@@ -162,12 +162,12 @@ XsWindow {
 
                                 Rectangle {
                                     anchors.fill: parent
-                                    border.color: palette.highlight
-                                    color: ready_to_play && ma.pressed ? palette.highlight : "transparent"
+                                    border.color: XsStyleSheet.accentColor
+                                    color: ready_to_play && ma.pressed ? XsStyleSheet.accentColor : "transparent"
                                     visible: ready_to_play && ma.containsMouse
                                 }
 
-                                XsIcon { 
+                                XsIcon {
                                     anchors.fill: parent
                                     source: value.status_icon ? value.status_icon : ""
                                     imgOverlayColor: icon_color
@@ -175,11 +175,11 @@ XsWindow {
                                 }
                                 MouseArea {
                                     id: ma
-                                    anchors.fill: parent                                    
+                                    anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: ready_to_play ? Qt.PointingHandCursor : undefined
                                     onPressed: {
-                                        xstudio_callback(["quickview_output", value.output_file, true])
+                                        xstudio_callback(["quickview_output", value.output_file, value.output_audio_file, true])
                                     }
                                 }
                             }
@@ -192,8 +192,8 @@ XsWindow {
                                 Layout.preferredHeight: rowHeight
                                 Layout.preferredWidth: rowHeight
                                 Layout.margins: 2
-                                XsPrimaryButton { 
-                            
+                                XsPrimaryButton {
+
                                     anchors.fill: parent
                                     imgSrc: "qrc:/video_renderer_icons/monitor_heart.svg"
                                     visible: value.visible
@@ -207,18 +207,18 @@ XsWindow {
                         }
 
                         Repeater {
-                            
+
                             model: video_render_status_attrs
                             Item {
                                 Layout.preferredHeight: rowHeight
                                 Layout.preferredWidth: rowHeight
                                 Layout.margins: 2
 
-                                XsPrimaryButton { 
-                            
+                                XsPrimaryButton {
+
                                     anchors.fill: parent
                                     visible: value.visible
-                                    imgSrc: "qrc:/icons/delete.svg" 
+                                    imgSrc: "qrc:/icons/delete.svg"
                                     onClicked: {
                                         xstudio_callback(["remove_job", value.job_id])
                                     }
@@ -230,7 +230,7 @@ XsWindow {
                 }
 
                 XsScrollBar {
-                    
+
                     id: verticalScroll
                     width: 8
                     anchors.bottom: parent.bottom
@@ -247,7 +247,7 @@ XsWindow {
                             position = yPos
                         }
                     }
-                    
+
                     property var heightRatio: target.visibleArea.heightRatio
                     onHeightRatioChanged: {
                         verticalScroll.size = heightRatio
@@ -257,12 +257,12 @@ XsWindow {
                         if (pressed) {
                             target.contentY = (position * target.contentHeight) + target.originY
                         }
-                    }                
+                    }
 
-                }    
+                }
 
                 XsScrollBar {
-                    
+
                     height: 8
                     anchors.top: parent.bottom
                     anchors.left: parent.left
@@ -278,7 +278,7 @@ XsWindow {
                             position = xPos
                         }
                     }
-                    
+
                     property var widthRatio: target.visibleArea.widthRatio
                     onWidthRatioChanged: {
                         size = widthRatio
@@ -288,9 +288,9 @@ XsWindow {
                         if (pressed) {
                             target.contentX = (position * target.contentWidth) + target.originX
                         }
-                    }                
+                    }
 
-                }                
+                }
 
             }
         }

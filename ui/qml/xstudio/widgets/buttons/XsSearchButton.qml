@@ -12,8 +12,6 @@ Item {
     property bool isExpandedToLeft: false
     property real expandedWidth: XsStyleSheet.primaryButtonStdWidth * 5
 
-    property bool autoDefocus: false
-
     property alias searchBtn: searchBtn
     property alias imgSrc: searchBtn.imgSrc
     property string hint: ""
@@ -52,19 +50,6 @@ Item {
         }
     }
 
-    Timer {
-        id: defocus
-        interval: 5000
-        running: false
-        repeat: false
-        onTriggered: {
-            if(searchBar.hovered)
-                start()
-            else
-                searchBar.focus = false
-        }
-    }
-
     XsSearchBar{ id: searchBar
 
         Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutQuart }  }
@@ -75,18 +60,6 @@ Item {
 
         placeholderText: isExpanded? hint : "" //activeFocus? "" : hint
         onEditingCompleted: widget.editingCompleted()
-
-        onHoveredChanged: {
-            if(autoDefocus && focus && !hovered) {
-                defocus.restart()
-            }
-        }
-
-        onTextEdited: {
-            if(autoDefocus) {
-                defocus.restart()
-            }
-        }
 
         Component.onCompleted: {
             if(isExpandedToLeft) anchors.right = searchBtn.left

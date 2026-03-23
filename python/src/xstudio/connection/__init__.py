@@ -292,7 +292,7 @@ class Connection(object):
         if session is None:
             s = r.first_api()
         else:
-            s = m.find(session)
+            s = r.find(session)
         self.connect_remote(s.host(), s.port(), authentication_callback)
 
     def connect_remote(self, host, port, authentication_callback=None):
@@ -573,8 +573,7 @@ class Connection(object):
                     )
 
             for extra_path in extra_paths:
-                if os.path.isdir(extra_path):
-                    self.load_plugins_in_path(extra_path)
+                self.load_plugins_in_path(extra_path)
 
         except Exception as e:
             print("Error in load_python_plugins: {}".format(e))
@@ -587,7 +586,7 @@ class Connection(object):
             path (str): Path to a directory on filesystem
         """
 
-        path = path.strip()
+        path = os.path.expandvars(path.strip())
         if not os.path.isdir(path):
             # silently ignore invalid paths, this is accepted behaviour for
             # search path mechanisms

@@ -74,3 +74,29 @@ To enter a text caption, select the 'Text' tool, click in the viewport to place 
     When drawing annotations you can pick a colour from the image for the pen strokes. Use the **default shotcut key 'V'** to activate the colour picker, click on the image and then continue drawing with the new colour. The picker can be set to take the colour of the pixwel under the pointer or to compute the average pixel value as the pointer is dragged around an area (with the mouse button held down).
 
 
+Exporting Annotations
+---------------------
+
+To export your annotation (draw-overs) as a single image or a set of images navigate to the **File -> Export** menu and select the *'Annotations ...'* option to open the annotation export wizard. You also have the option to export your annotations as a Grease Pencil package for import into Blender, Maya, 3DS-Max or other applications that support the format. This will allow you to load your xSTUDIO draw-overs into your 3D application to visualise animation notes in the 3D viewport. 
+
+.. figure:: ../images/annotation-export-01.png
+   :alt: Annotations export wizard
+   :figclass: align-center
+   :align: center
+   :scale: 100 %
+
+   The Annotations export wizard
+
+This wizard provides a few options to make it easy to export your annotations:
+
+* **Scope:** Hover the mouse over the question mark icon for a description of the options here.
+* **Export Mode:** Hover the mouse over the question mark icon for a description of the options here. 
+* **File Type:** Choose the file type for the exported images. The options are PNG, JPG and TIFF.
+* **Output Resolution:** Choose the resolution for the exported images. 
+* **Image(s) name:** Set the name for the exported image or images or the greasepencil package (depending on the export mode).
+* **Output Folder:** Set the filesystem destination for the exported image or images or the greasepencil package (depending on the export mode).
+
+Exporting Notes CSV with Annotations
+------------------------------------
+
+To export your notes as a CSV file navigate to the **File -> Export** menu and select the *'Notes ...'* option. A file dialog will open where you can select the destination and name for the exported CSV file. The exported CSV file contains columns for the note subject, text content, category, in/out frame range (as timecode), the media file path that the note is attached to, a path to a JPEG image that is a screen capture of the media on the corresponding note frame as well as the body text of the notes themselves. A folder is also created as part of the export (using the stem of your .csv file name) - a JPEG image of the corresponding media frame is rendered into this folder for every note (including draw-over annotations).

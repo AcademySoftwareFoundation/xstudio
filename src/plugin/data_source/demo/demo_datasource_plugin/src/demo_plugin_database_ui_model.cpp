@@ -326,7 +326,7 @@ void DemoPluginVersionsModel::init(caf::actor_system &_system) {
     auto pm = _system.registry().template get<caf::actor>(plugin_manager_registry);
     try {
 
-        auto sys            = caf::scoped_actor(_system);
+        auto sys        = caf::scoped_actor(_system);
         backend_plugin_ = utility::request_receive<caf::actor>(
             *sys, pm, plugin_manager::get_resident_atom_v, DemoPlugin::PLUGIN_UUID);
 
@@ -346,30 +346,37 @@ void DemoPluginVersionsModel::init(caf::actor_system &_system) {
                 data_ = data;
                 endResetModel();
             },
-            [=](
-                data_source::put_data_atom,
-                const std::string &version_uuid, 
+            [=](data_source::put_data_atom,
+                const std::string &version_uuid,
                 const std::string &role_name,
                 const utility::JsonStore &role_value) {
                 // database data has changed
                 int row = 0;
                 try {
-                    for (auto & p: data_) {
-                        if (p.contains("uuid") && version_uuid == p["uuid"].get<std::string>()) {
+                    for (auto &p : data_) {
+                        if (p.contains("uuid") &&
+                            version_uuid == p["uuid"].get<std::string>()) {
                             if (p.at(role_name) != role_value) {
                                 p[role_name] = role_value;
                                 for (const auto &x : DemoPlugin::data_model_role_names) {
                                     if (role_name == x.second) {
                                         auto idx = createIndex(row, 0);
-                                        emit dataChanged(idx, idx, QList<int>({static_cast<int>(x.first), Qt::DisplayRole, Qt::EditRole}));
+                                        emit dataChanged(
+                                            idx,
+                                            idx,
+                                            QList<int>(
+                                                {static_cast<int>(x.first),
+                                                 Qt::DisplayRole,
+                                                 Qt::EditRole}));
                                     }
                                 }
                             }
                         }
                         row++;
                     }
-                } catch (std::exception & e) {
-                    spdlog::warn("{} failed to get to backend: {}", __PRETTY_FUNCTION__, e.what());
+                } catch (std::exception &e) {
+                    spdlog::warn(
+                        "{} failed to get to backend: {}", __PRETTY_FUNCTION__, e.what());
                 }
             },
             [=](caf::message &m) {
@@ -425,14 +432,14 @@ void DemoPluginVersionsModel::set(const QModelIndex &index, QVariant value, QStr
         // Here we send a message to the backend plugin to set a key/value in
         // a recrod in the versions table. Using the version uuid to identify it.
         const utility::JsonStore j(xstudio::ui::qml::qvariant_to_json(value));
-        self()->mail(
-            set_database_value_atom_v,
-            utility::Uuid(data(index, "uuid").toString().toStdString()),
-            j,
-            role.toStdString()).send(backend_plugin_);
+        self()
+            ->mail(
+                set_database_value_atom_v,
+                utility::Uuid(data(index, "uuid").toString().toStdString()),
+                j,
+                role.toStdString())
+            .send(backend_plugin_);
     } catch (std::exception &e) {
         spdlog::warn("{}: {}", __PRETTY_FUNCTION__, e.what());
     }
-
 }
-

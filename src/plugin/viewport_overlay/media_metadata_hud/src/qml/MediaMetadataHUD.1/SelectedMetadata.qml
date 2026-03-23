@@ -9,7 +9,7 @@ import Qt.labs.qmlmodels
 import xStudio 1.0
 import xstudio.qml.models 1.0
 
-    
+
 Item {
 
     id: top_level_item
@@ -70,7 +70,7 @@ Item {
                         font.pixelSize: 12
                         font.weight: Font.Medium
                         horizontalAlignment: Text.AlignLeft
-                        verticalAlignment: Text.AlignVCenter    
+                        verticalAlignment: Text.AlignVCenter
                         TextMetrics {
                             font:   pname.font
                             text:   pname.text
@@ -120,7 +120,7 @@ Item {
 
                     XsComboBox {
 
-                        id: screenPos            
+                        id: screenPos
                         model: screenPositions
                         width: 100
                         height: 20
@@ -131,7 +131,7 @@ Item {
                              editedField = profile_data[parentItem.my_index]["metadata_field"]
                              actionAttr = ["CHANGE SCREEN POSITION", editedField, screenPositions[index]]
                         }
-                
+
                     }
 
                     /*MouseArea {
@@ -156,7 +156,7 @@ Item {
                     elide: Text.ElideRight
                     font.weight: Font.Medium
                     horizontalAlignment: Text.AlignLeft
-                    verticalAlignment: Text.AlignVCenter    
+                    verticalAlignment: Text.AlignVCenter
                     MouseArea {
                         id: ma
                         anchors.fill: parent
@@ -182,9 +182,9 @@ Item {
                         anchors.fill: parent
                         visible: valueText.truncated && ma.containsMouse
                         color: "transparent"
-                        border.color: palette.highlight
+                        border.color: XsStyleSheet.accentColor
                     }
-                }        
+                }
             }
         }
 

@@ -46,7 +46,7 @@ Rectangle{
 
         Rectangle{ id: selectedBgDiv
             anchors.fill: parent
-            color: isSelected ? Qt.darker(palette.highlight, 2): "transparent"
+            color: isSelected ? Qt.darker(XsStyleSheet.accentColor, 2): "transparent"
             // opacity: 0.6
         }
 
@@ -89,7 +89,7 @@ Rectangle{
 
                 Rectangle {
                     anchors.fill: parent
-                    color: isSelected ? palette.highlight : XsStyleSheet.widgetBgNormalColor
+                    color: isSelected ? XsStyleSheet.accentColor : XsStyleSheet.widgetBgNormalColor
                 }
             }
 

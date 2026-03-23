@@ -18,7 +18,7 @@ Rectangle {
     width: Math.max(metrics.width+margin*2)
     height: metrics.height+margin
     color: "transparent"
-    border.color: palette.highlight
+    border.color: XsStyleSheet.accentColor
     border.width: hovered ? 1 : 0
     property bool hovered: mouseArea.containsMouse
 
@@ -27,15 +27,15 @@ Rectangle {
         anchors.fill: parent
 
         flatColor: topColor
-        topColor: mouseArea.pressed ? palette.highlight: XsStyleSheet.controlColour
-        bottomColor: mouseArea.pressed ? palette.highlight: XsStyleSheet.widgetBgNormalColor
+        topColor: mouseArea.pressed ? XsStyleSheet.accentColor: XsStyleSheet.controlColour
+        bottomColor: mouseArea.pressed ? XsStyleSheet.accentColor: XsStyleSheet.widgetBgNormalColor
     }
 
     XsText {
         id: textDiv
         text: widget.text
         font.pixelSize: XsStyleSheet.fontSize *1.1
-        color: palette.text
+        color: XsStyleSheet.primaryTextColor
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
         anchors.centerIn: parent

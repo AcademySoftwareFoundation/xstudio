@@ -101,7 +101,7 @@ static std::string the_shader_yuv = {R"(
 #version 410 core
 uniform ivec2 texture_dims;
 uniform int frame_width_pixels;
-uniform int rgb;
+uniform int pix_fmt;
 uniform int y_linesize;
 uniform int u_linesize;
 uniform int v_linesize;
@@ -191,7 +191,7 @@ vec4 fetch_rgba_pixel(ivec2 image_coord)
 static std::string the_shader_rgb = {R"(
 #version 410 core
 uniform ivec2 texture_dims;
-uniform int rgb;
+uniform int pix_fmt;
 uniform int y_linesize;
 uniform int u_linesize;
 uniform int v_linesize;
@@ -216,21 +216,21 @@ int get_image_data_1byte(int byte_address);
 vec4 fetch_rgba_pixel_from_rgb24(ivec2 image_coord, bool bgr)
 {
 	int address = image_coord.x*3 + image_coord.y*y_linesize;
-	uvec3 rgb = bgr ? get_image_data_4bytes(address).zyx : get_image_data_4bytes(address).xyz;
-	return vec4(vec3(rgb) * norm_coeff, 1.0);
+	uvec3 pix_fmt = bgr ? get_image_data_4bytes(address).zyx : get_image_data_4bytes(address).xyz;
+	return vec4(vec3(pix_fmt) * norm_coeff, 1.0);
 }
 
 vec4 fetch_rgba_pixel_from_rgba32(ivec2 image_coord)
 {
 	int address = image_coord.x*4 + image_coord.y*y_linesize;
 	uvec4 rgba = get_image_data_4bytes(address);
-	if (rgb == 3) { // AV_PIX_FMT_ARGB
+	if (pix_fmt == 3) { // AV_PIX_FMT_ARGB
 		rgba.xyzw = rgba.yzwx;
-	} else if (rgb == 4) { // AV_PIX_FMT_RGBA
+	} else if (pix_fmt == 4) { // AV_PIX_FMT_RGBA
         //nope
-	} else if (rgb == 5) { // AV_PIX_FMT_ABGR
+	} else if (pix_fmt == 5) { // AV_PIX_FMT_ABGR
 		rgba.xyzw = rgba.wzyx;
-	} else if (rgb == 6) { // AV_PIX_FMT_BGRA
+	} else if (pix_fmt == 6) { // AV_PIX_FMT_BGRA
 		rgba.xyzw = rgba.zyxw;
 	}
 
@@ -246,6 +246,18 @@ vec4 fetch_rgba_pixel_from_rgb_48(ivec2 image_coord)
     rgba.y = get_image_data_2bytes(address+2);
     rgba.z = get_image_data_2bytes(address+4);
     return vec4(vec3(rgba.xyz) * norm_coeff, 1.0f);
+}
+
+vec4 fetch_rgba_pixel_from_rgbf32(ivec2 image_coord)
+{
+    // 4 bytes per channel, 3 channels per pix
+	int address = image_coord.x*12 + image_coord.y*y_linesize;
+    ivec4 rgba;
+    return vec4(get_image_data_float32(address),
+        get_image_data_float32(address+4),
+        get_image_data_float32(address+8),
+        1.0
+    );
 }
 
 vec4 fetch_rgba_pixel_from_rgba_64(ivec2 image_coord)
@@ -265,7 +277,7 @@ vec4 fetch_rgba_pixel_from_gbr_planar(ivec2 image_coord)
 {
     // 2 bytes per channel, 3 channels per pix
 	int address = image_coord.x*2 + image_coord.y*y_linesize;
-	
+
     ivec4 rgba;
     rgba.x = get_image_data_2bytes(address+v_plane_bytes_offset);
     rgba.y = get_image_data_2bytes(address+y_plane_bytes_offset);
@@ -276,21 +288,23 @@ vec4 fetch_rgba_pixel_from_gbr_planar(ivec2 image_coord)
     } else {
         return vec4(vec3(rgba.xyz) * norm_coeff, 1.0f);
     }
-    
+
 }
 
 vec4 fetch_rgba_pixel(ivec2 image_coord)
 {
-	if (rgb == 9) {
+	if (pix_fmt == 10) {
+        return fetch_rgba_pixel_from_rgbf32(image_coord);
+    } else if (pix_fmt == 9) {
         return fetch_rgba_pixel_from_rgba_64(image_coord);
-     }else if (rgb == 8) {
+     }else if (pix_fmt == 8) {
 		return fetch_rgba_pixel_from_rgb_48(image_coord);
-	} else if (rgb == 7) {
+	} else if (pix_fmt == 7) {
 		return fetch_rgba_pixel_from_gbr_planar(image_coord);
-	} else if (rgb > 2) {
+	} else if (pix_fmt > 2) {
 		return fetch_rgba_pixel_from_rgba32(image_coord);
 	} else {
-		return fetch_rgba_pixel_from_rgb24(image_coord, rgb == 2);
+		return fetch_rgba_pixel_from_rgb24(image_coord, pix_fmt == 2);
 	}
 }
 )"};
@@ -370,6 +384,13 @@ utility::Uuid FFMpegMediaReader::plugin_uuid() const { return s_plugin_uuid; }
 void FFMpegMediaReader::update_preferences(const utility::JsonStore &prefs) {
 
     try {
+        supported_ =
+            preference_value<JsonStore>(prefs, "/plugin/media_reader/FFMPEG/supported");
+    } catch (const std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+
+    try {
 
         readers_per_source_ =
             preference_value<int>(prefs, "/plugin/media_reader/FFMPEG/readers_per_source");
@@ -418,7 +439,7 @@ ImageBufPtr FFMpegMediaReader::image(const media::AVFrameID &mptr) {
         decoder->decode_video_frame(mptr.frame(), rt);
 
         if (rt && !rt->shader_params().is_null()) {
-            if (rt->shader_params().value("rgb", 0) != 0) {
+            if (rt->shader_params().value("pix_fmt", 0) != 0) {
                 rt->set_shader(ffmpeg_shader_rgb);
             } else {
                 rt->set_shader(ffmpeg_shader_yuv);
@@ -491,7 +512,6 @@ xstudio::media::MediaDetail FFMpegMediaReader::detail(const caf::uri &uri) const
     bool have_video_stream = false;
     bool have_audio_stream = false;
 
-
     for (auto &p : t_decoder.streams()) {
         if (p.second->codec_type() == AVMEDIA_TYPE_VIDEO ||
             p.second->codec_type() == AVMEDIA_TYPE_AUDIO) {
@@ -511,20 +531,19 @@ xstudio::media::MediaDetail FFMpegMediaReader::detail(const caf::uri &uri) const
                 frameRate = utility::FrameRate();
             }
 
-            streams.emplace_back(
-                media::StreamDetail(
-                    utility::FrameRateDuration(
-                        static_cast<int>(t_decoder.duration_frames()), frameRate),
-                    fmt::format("stream {}", p.first),
-                    (p.second->codec_type() == AVMEDIA_TYPE_VIDEO ? media::MT_IMAGE
-                                                                  : media::MT_AUDIO),
-                    p.second->codec_type() == AVMEDIA_TYPE_VIDEO
-                        ? "{0}@{1}/{2},{3}"
-                        : "{0}@{1}/{2},{3},{4}", // for audio source, the media rate is made
-                                                 // part of the cache key
-                    p.second->resolution(),
-                    p.second->pixel_aspect(),
-                    p.first));
+            streams.emplace_back(media::StreamDetail(
+                utility::FrameRateDuration(
+                    static_cast<int>(t_decoder.duration_frames()), frameRate),
+                fmt::format("stream {}", p.first),
+                (p.second->codec_type() == AVMEDIA_TYPE_VIDEO ? media::MT_IMAGE
+                                                              : media::MT_AUDIO),
+                p.second->codec_type() == AVMEDIA_TYPE_VIDEO
+                    ? "{0}@{1}/{2},{3}"
+                    : "{0}@{1}/{2},{3},{4}", // for audio source, the media rate is made
+                                             // part of the cache key
+                p.second->resolution(),
+                p.second->pixel_aspect(),
+                p.first));
         }
     }
 
@@ -550,19 +569,43 @@ xstudio::media::MediaDetail FFMpegMediaReader::detail(const caf::uri &uri) const
     return xstudio::media::MediaDetail(name(), streams, t_decoder.first_frame_timecode());
 }
 
+std::vector<std::string> FFMpegMediaReader::supported_extensions() const {
+    auto result = std::vector<std::string>();
+
+    for (const auto &i : supported_.items()) {
+        if (from_string(i.value()) != MRC_NO)
+            result.push_back(i.key());
+    }
+
+    return result;
+}
+
+
 MRCertainty FFMpegMediaReader::supported(const caf::uri &uri, const std::array<uint8_t, 16> &) {
     // we ignore the signature..
     // we cover so MANY...
     // but we're pretty good at movs..
+    auto result = MRC_NO;
+
+    fs::path p(uri_to_posix_path(uri));
+
+#ifdef _WIN32
+    std::string ext = ltrim_char(to_upper_path(p.extension()), '.');
+#else
+    std::string ext = ltrim_char(to_upper(p.extension().string()), '.');
+#endif
+
     try {
-        if (fs::path(uri.path().data()).extension() == ".mov")
-            return MRC_FULLY;
-        if (fs::path(uri.path().data()).extension() == ".exr")
-            return MRC_NO;
-    } catch (...) {
-        return MRC_NO;
+        auto value = supported_.value(ext, "");
+        if (value.empty()) {
+            result = from_string(supported_.value("", "MRC_NO"));
+        } else
+            result = from_string(value);
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
-    return MRC_MAYBE;
+
+    return result;
 }
 
 std::shared_ptr<thumbnail::ThumbnailBuffer>
@@ -597,6 +640,7 @@ FFMpegMediaReader::thumbnail(const media::AVFrameID &mptr, const size_t thumb_si
 
 PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
     const ImageBuffer &buf,
+    const utility::JsonStore &pixel_unpack_uniforms,
     const Imath::V2i &pixel_location,
     const std::vector<Imath::V2i> &extra_pixel_locations) {
 
@@ -606,7 +650,7 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
     try {
 
         PixelInfo r(pixel_location);
-        if (buf.shader_params().is_null())
+        if (pixel_unpack_uniforms.is_null())
             return r;
 
         const int width  = buf.image_size_in_pixels().x;
@@ -617,21 +661,21 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
             return r;
         }
 
-        const int rgb                  = buf.shader_params().value("rgb", 0);
-        const int y_linesize           = buf.shader_params().value("y_linesize", 0);
-        const int u_linesize           = buf.shader_params().value("u_linesize", 0);
-        const int v_linesize           = buf.shader_params().value("v_linesize", 0);
-        const int a_linesize           = buf.shader_params().value("a_linesize", 0);
-        const int y_plane_bytes_offset = buf.shader_params().value("y_plane_bytes_offset", 0);
-        const int u_plane_bytes_offset = buf.shader_params().value("u_plane_bytes_offset", 0);
-        const int v_plane_bytes_offset = buf.shader_params().value("v_plane_bytes_offset", 0);
-        const int a_plane_bytes_offset = buf.shader_params().value("a_plane_bytes_offset", 0);
-        const int half_scale_uvy       = buf.shader_params().value("half_scale_uvy", 0);
-        const int half_scale_uvx       = buf.shader_params().value("half_scale_uvx", 0);
-        const int bits_per_channel     = buf.shader_params().value("bits_per_channel", 0);
-        const Imath::M33f yuv_conv     = buf.shader_params().value("yuv_conv", Imath::M33f());
-        const Imath::V3i yuv_offsets   = buf.shader_params().value("yuv_offsets", Imath::V3i());
-        const float norm_coeff         = buf.shader_params().value("norm_coeff", 1.0f);
+        const int pix_fmt              = pixel_unpack_uniforms.value("pix_fmt", 0);
+        const int y_linesize           = pixel_unpack_uniforms.value("y_linesize", 0);
+        const int u_linesize           = pixel_unpack_uniforms.value("u_linesize", 0);
+        const int v_linesize           = pixel_unpack_uniforms.value("v_linesize", 0);
+        const int a_linesize           = pixel_unpack_uniforms.value("a_linesize", 0);
+        const int y_plane_bytes_offset = pixel_unpack_uniforms.value("y_plane_bytes_offset", 0);
+        const int u_plane_bytes_offset = pixel_unpack_uniforms.value("u_plane_bytes_offset", 0);
+        const int v_plane_bytes_offset = pixel_unpack_uniforms.value("v_plane_bytes_offset", 0);
+        const int a_plane_bytes_offset = pixel_unpack_uniforms.value("a_plane_bytes_offset", 0);
+        const int half_scale_uvy       = pixel_unpack_uniforms.value("half_scale_uvy", 0);
+        const int half_scale_uvx       = pixel_unpack_uniforms.value("half_scale_uvx", 0);
+        const int bits_per_channel     = pixel_unpack_uniforms.value("bits_per_channel", 0);
+        const Imath::M33f yuv_conv     = pixel_unpack_uniforms.value("yuv_conv", Imath::M33f());
+        const Imath::V3i yuv_offsets = pixel_unpack_uniforms.value("yuv_offsets", Imath::V3i());
+        const float norm_coeff       = pixel_unpack_uniforms.value("norm_coeff", 1.0f);
 
         auto get_image_data_4bytes = [&](const int address) -> std::array<uint8_t, 4> {
             if (address < 0 || address >= (int)buf.size())
@@ -681,13 +725,13 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
             int address = image_coord.x * 4 + image_coord.y * y_linesize;
             auto bytes4 = get_image_data_4bytes(address);
             Imath::V4f r;
-            if (rgb == 3) { // AV_PIX_FMT_ARGB
+            if (pix_fmt == 3) { // AV_PIX_FMT_ARGB
                 r = Imath::V4f(bytes4[1], bytes4[2], bytes4[3], bytes4[0]);
-            } else if (rgb == 4) { // AV_PIX_FMT_RGBA
+            } else if (pix_fmt == 4) { // AV_PIX_FMT_RGBA
                 // nope
-            } else if (rgb == 5) { // AV_PIX_FMT_ABGR
+            } else if (pix_fmt == 5) { // AV_PIX_FMT_ABGR
                 r = Imath::V4f(bytes4[3], bytes4[2], bytes4[1], bytes4[0]);
-            } else if (rgb == 6) { // AV_PIX_FMT_BGRA
+            } else if (pix_fmt == 6) { // AV_PIX_FMT_BGRA
                 r = Imath::V4f(bytes4[0], bytes4[1], bytes4[2], bytes4[3]);
             }
 
@@ -812,18 +856,18 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
 
         auto fetch_rgba_pixel = [&](const Imath::V2i pixel_location) -> Imath::V4f {
             Imath::V4f rgba_pix;
-            if (rgb == 0) {
+            if (pix_fmt == 0) {
                 rgba_pix = fetch_rgba_pixel_from_yuv(pixel_location);
-            } else if (rgb == 9) {
+            } else if (pix_fmt == 9) {
                 rgba_pix = fetch_rgba_pixel_from_rgba_64(pixel_location);
-            } else if (rgb == 8) {
+            } else if (pix_fmt == 8) {
                 rgba_pix = fetch_rgba_pixel_from_rgb_48(pixel_location);
-            } else if (rgb == 7) {
+            } else if (pix_fmt == 7) {
                 rgba_pix = fetch_rgba_pixel_from_gbr_planar(pixel_location);
-            } else if (rgb > 2) {
+            } else if (pix_fmt > 2) {
                 rgba_pix = fetch_rgba_pixel_from_rgba32(pixel_location);
             } else {
-                rgba_pix = fetch_rgba_pixel_from_rgb24(pixel_location, rgb == 2);
+                rgba_pix = fetch_rgba_pixel_from_rgb24(pixel_location, pix_fmt == 2);
             }
             return rgba_pix;
         };

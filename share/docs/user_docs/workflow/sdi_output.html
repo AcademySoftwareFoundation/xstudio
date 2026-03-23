@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SDI: Video Output with Blackmagic Designs Decklink &mdash; xStudio 1.2.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=eafc0fe6" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=6efca38a"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Hotkeys" href="hotkeys.html" />
+    <link rel="prev" title="Video Output (Rendering)" href="video_output.html" />
+    <link href="../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            xStudio
+          </a>
+              <div class="version">
+                1.2.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">xSTUDIO User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../overview.html">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/getting_started.html">Getting Started</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../interface/interface.html">The xSTUDIO Interface</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="workflow.html">Workflow Tools</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="playback.html">Video Playback</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compare_modes.html">Compare Modes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notes.html">Notes and Annotations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="grading.html">Grading Tool</a></li>
+<li class="toctree-l3"><a class="reference internal" href="quick_view.html">QuickView</a></li>
+<li class="toctree-l3"><a class="reference internal" href="video_output.html">Video Output (Rendering)</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">SDI: Video Output with Blackmagic Designs Decklink</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#setting-up-the-sdi-output">Setting Up the SDI Output</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#audio-output">Audio Output</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#high-dynamic-range-hdr-output">High-Dynamic-Range (HDR) Output</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="hotkeys.html">Hotkeys</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../appendix/index.html">Appendix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../release_notes/index.html">Release Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">xSTUDIO Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">xStudio</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">xSTUDIO User Guide</a></li>
+          <li class="breadcrumb-item"><a href="workflow.html">Workflow Tools</a></li>
+      <li class="breadcrumb-item active">SDI: Video Output with Blackmagic Designs Decklink</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/user_docs/workflow/sdi_output.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="sdi-video-output-with-blackmagic-designs-decklink">
+<span id="sdi-output"></span><h1>SDI: Video Output with Blackmagic Designs Decklink<a class="headerlink" href="#sdi-video-output-with-blackmagic-designs-decklink" title="Link to this heading"></a></h1>
+<p>xSTUDIO supports output via Blackmagic Designs (BMD) Decklink SDI PCI cards. This allows you to view your media on a reference monitor or professional projector hardware connected to the Decklink device SDI outputs while you are working in xSTUDIO. For this system to work you will naturally need a functioning Decklink SDI device and the necessary drivers installed on your system. Use the BMD utility software to test and ensure that your Decklink device is working correctly before trying to use it with xSTUDIO.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The xSTUDIO Decklink plugin is not available by default in xSTUDIO. If you are building xSTUDIO yourself, simply change the entry in the <strong>CMakePresets.json</strong> file for the BUILD_DECKLINK_PLUGIN variable to ON and rebuild xSTUDIO. Otherwise, request your tech team to provide you with a build of xSTUDIO with the Decklink plugin enabled.</p>
+</div>
+<p>When xSTUDIO starts-up, watch the log output for a message like this to verify that xSTUDIO has been able to find and initialise your Decklink card:</p>
+<blockquote>
+<div><p><code class="docutils literal notranslate"><span class="pre">[2026-03-23</span> <span class="pre">11:43:38.676]</span> <span class="pre">[xstudio]</span> <span class="pre">[info]</span> <span class="pre">Decklink</span> <span class="pre">Card</span> <span class="pre">Initialised</span></code></p>
+</div></blockquote>
+<section id="setting-up-the-sdi-output">
+<h2>Setting Up the SDI Output<a class="headerlink" href="#setting-up-the-sdi-output" title="Link to this heading"></a></h2>
+<p>If you have a Decklink card installed and xSTUDIO has been able to initialise it correctly then you will see an SDI button to the top left of the xSTUDIO viewport (this is part of the ‘Action Bar’ that can be toggled on and off, so ensure that the bar is visible. Click on this button to access the SDI control bar.</p>
+<figure class="align-center" id="id1">
+<a class="reference internal image-reference" href="../../_images/sdi-1.png"><img alt="SDI Output Control Bar" src="../../_images/sdi-1.png" style="width: 1051.8px; height: 165.6px;" /></a>
+<figcaption>
+<p><span class="caption-text">The SDI output control bar. Click the ‘SDI’ button to access this.</span><a class="headerlink" href="#id1" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>Click on the cog icon to access the SDI output settings dialog. This is where you can select the SDI output format, resolution and frame-rate. The options in the drop-down list are dictated by the capabilities of your Decklink card and the drivers that you have installed. Some older or lower spec SDI cards will only offer a limited range of output formats and resolutions. Note that you can only change these options when the SDI output is stopped.</p>
+<p>Start and stop the SDI output by simply toggling the On/Off button in the SDI control bar. The status indicator in the bar is rightmost and you can see here whether the SDI output is active or not and if there was a problem starting the output signal.</p>
+<figure class="align-center" id="id2">
+<a class="reference internal image-reference" href="../../_images/sdi-2.png"><img alt="SDI Output Settings Dialog" src="../../_images/sdi-2.png" style="width: 452.4px; height: 533.4px;" /></a>
+<figcaption>
+<p><span class="caption-text">The SDI output settings dialog. Click the cog icon to access this.</span><a class="headerlink" href="#id2" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>The bit depth of the output video can also be set here. There are options for 8, 10 or 12 bit outputs. You must select the correct bit depth to match the capabilities of your Decklink card and the video hardware that is displaying the signal. Note that there isn’t any particular ‘cost’ in terms of the load on your host machine with the higher bit depth options.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Under-the-hood, xSTUDIO renders the video frames in 16 bit per channel RGB format and then applies a bit depth reduction to 8, 10 or 12 bits as specified in the SDI output settings. This means that the colour resolution in the SDI output is fully respected and all your ‘available’ bits are used in the output signal.</p>
+</div>
+<p>The SDI output has a ‘Display’ option which is where you set the OpenColour IO (OCIO) ‘Display’ device that is used to apply colour transformations to the video signal before it is output via SDI. This setting is independent of the Display option for the main viewport in the xSTUDIO GUI.</p>
+</section>
+<section id="audio-output">
+<h2>Audio Output<a class="headerlink" href="#audio-output" title="Link to this heading"></a></h2>
+<p>The SDI plugin outputs audio via SDI as well. For audio critical review we strongly recommend using the SDI signal pathway to drive your A/V system if possible rather than rely on the PC audio output because the synchronisation between the audio and video will guaranteed with SDI. However it’s important to consider that the SDI card itself buffers around 3 video frames before they hit the screen. If you are using an SDI-&gt;HDMI converter in your set-up this may also introduce a further delay in the video output. As such, the xSTUDIO SDI plugin provides an option to apply a slight delay (in milliseconds) to the audio output so that you can tune synchronisation with the video on the screen. A video sample with a visual cue for a corresponding audio click track is ideal for this task that must be done by ear &amp; sight.</p>
+</section>
+<section id="high-dynamic-range-hdr-output">
+<h2>High-Dynamic-Range (HDR) Output<a class="headerlink" href="#high-dynamic-range-hdr-output" title="Link to this heading"></a></h2>
+<figure class="align-center" id="id3">
+<a class="reference internal image-reference" href="../../_images/sdi-3.png"><img alt="SDI HDR Settings Dialog" src="../../_images/sdi-3.png" style="width: 452.4px; height: 573.0px;" /></a>
+<figcaption>
+<p><span class="caption-text">The SDI HDR settings tab.</span><a class="headerlink" href="#id3" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>Some professional video monitors or high-end comsumer TVs support High-Dynamic-Range (HDR) video. If your Decklink card and the monitor you are using support HDR then you can enable this in the SDI output settings via the HDR settings tab. In the ‘HDR Mode’ drop-down choosing ‘SDR’ will disable HDR and output a standard dynamic range signal. The ‘PQ’ option here refers to the Perceptual Quantizer (PQ) HDR curve which is the most widely used HDR curve in the industry and is supported by most HDR-capable display devices.</p>
+<p>There are numerous lower-level settings that can be configured in this interface and these set the shape of the HDR curve that is applied to the video signal by your monitor, TV or projector. If you aren’t sure what these numbers mean you must seek out technical advice on how to set these parameters correctly for your particular monitor and the type of HDR signal you want to output, as documenting this is beyond the scope of this manual. Some standard presets are provided for these settings, however, which may be all that is required.</p>
+<p>For HDR viewing you will also need an appropriate ‘Display’ device configuration in the OpenColor IO (OCIO) configuration that you are using in xSTUDIO to ensure that the correct colour transformations are applied to the video signal before it is output via SDI. Again, seek out technical advice or refer to OCIO documentation if you aren’t sure how to set this up correctly.</p>
+<section id="troubleshooting">
+<h3>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h3>
+<p>If you are having trouble getting the SDI output working correctly, here are some things to check:
+* Ensure that your Decklink card is properly installed and configured on your system and that you have the latest drivers installed. Use the BMD utility software to test the card and ensure it is working correctly.
+* Check the xSTUDIO log output for any error messages related to the Decklink plugin or SDI output. This can provide clues as to what might be going wrong.
+* Verify that you have selected the correct SDI output format, resolution and frame-rate in the SDI output settings or try varying these settings to see if it resolves the issue. Some monitors or projectors may only support certain formats or resolutions.
+* If you are using an SDI-&gt;HDMI converter, check that it is working correctly and that it supports the output format you have selected.
+* If you are trying to output HDR video, ensure that your monitor supports HDR and that you have configured the HDR settings correctly in the SDI output settings.
+* During testing the xSTUDIO developers have occasionally seen issues with certain models of Decklink card where it appears to be working correctly but the video output is not visible on the monitor after looking into the above checks first. In these cases often simply re-starting xSTUDIO will resolve the issue.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="video_output.html" class="btn btn-neutral float-left" title="Video Output (Rendering)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="hotkeys.html" class="btn btn-neutral float-right" title="Hotkeys" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DNeg.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

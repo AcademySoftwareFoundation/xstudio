@@ -60,9 +60,9 @@ MouseArea {
             }
         }
         Rectangle{ id: nodeDiv
-            color: isSelected ? Qt.darker(palette.highlight, 2) : "transparent"
+            color: isSelected ? Qt.darker(XsStyleSheet.accentColor, 2) : "transparent"
             border.width: 1
-            border.color: isHovered? palette.highlight : "transparent"
+            border.color: isHovered? XsStyleSheet.accentColor : "transparent"
 
             anchors.fill: parent
 
@@ -77,7 +77,7 @@ MouseArea {
 
                     opacity: ["na", "del", "omt", "omtnto", "omtnwd"].includes(statusRole) ? 0.5 : (heroRole ? 1.0 : 0.8)
 
-                    color: "hld" == statusRole ? "red" : palette.text
+                    color: "hld" == statusRole ? "red" : XsStyleSheet.primaryTextColor
 
                     text: nameRole
                     horizontalAlignment: Text.AlignLeft

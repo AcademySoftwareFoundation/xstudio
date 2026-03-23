@@ -21,7 +21,7 @@ GridLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
             color: modelData
-            border.color: ma.containsMouse ? palette.highlight : "transparent"
+            border.color: ma.containsMouse ? XsStyleSheet.accentColor : "transparent"
 
             MouseArea{
 

@@ -3,6 +3,7 @@ from xstudio.core import colour_pipeline_atom
 from xstudio.core import viewport_playhead_atom, quickview_media_atom
 from xstudio.core import UuidActorVec, UuidActor, viewport_atom
 from xstudio.core import get_global_playhead_events_atom, active_viewport_atom
+from xstudio.core import URI, render_viewport_to_image_atom
 from xstudio.api.session.playhead import Playhead
 from xstudio.api.module import ModuleBase
 from xstudio.api.intrinsic.colour_pipeline import ColourPipeline
@@ -112,6 +113,48 @@ class OffscreenViewport(Viewport):
             )
 
         self.__playhead = None
+
+    def render_bookmark_with_transparency(
+        self, 
+        output_path,
+        bookark_id,
+        include_image=True,
+        include_overlays=False,
+        include_drawings=True,
+        width=-1,
+        height=-1):
+        """Render a bookmarked frame to an image file. You can use this method
+        to write annotation draw-overs ONLY to disk with transparency by setting
+        include_image to False and include_drawings to True
+
+        Args:
+            output_path(URI/string): The filesystem path to render to. The extension will
+               determine the format of the image file. (e.g. jpg, tiff, png, exr)
+            bookark_id(xstudio.core.Uuid): The uuid of the bookmark to render.
+            include_image(bool): Include the actual on-screen image in the render
+            include_overlays(bool): Include overlays, like mask and metadata HUD
+            include_drawings(bool): Include the 
+            width(int): The output image with / pixels - do not set to use on-screen image format
+            height(int): The output image height / pixels - do not set to use on-screen image format
+        """
+
+        bookmark = self.connection.api.session.bookmarks.get_bookmark(bookark_id)
+        media = bookmark.media
+        media_logical_frame = round(bookmark.start.total_seconds()/media.media_source().rate.seconds())
+        if not isinstance(output_path, URI):
+            output_path = URI("file:///" + output_path)
+
+        self.connection.request_receive(
+            self.remote,
+            render_viewport_to_image_atom(), 
+            media.remote,
+            media_logical_frame, # media logical frame to render
+            include_image,
+            include_overlays,
+            include_drawings,
+            width, # image width
+            height, # image height
+            output_path)
 
     def render_media_frame(
         self, 

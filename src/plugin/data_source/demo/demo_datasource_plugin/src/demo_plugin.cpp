@@ -527,10 +527,8 @@ caf::message_handler DemoPlugin::message_handler_extensions() {
         [=](set_database_value_atom,
             const utility::Uuid entry_id,
             const utility::JsonStore &value,
-            const std::string &role_name
-        ) {
-
-            // Received from DemoPluginVersionsModel instance when 
+            const std::string &role_name) {
+            // Received from DemoPluginVersionsModel instance when
             // the user wants to set a value in the database.
 
             utility::JsonStore args(utility::JsonStore::parse("[]"));
@@ -541,7 +539,7 @@ caf::message_handler DemoPlugin::message_handler_extensions() {
             mail(
                 embedded_python::python_exec_atom_v,
                 "DemoPluginPython", // plugin name
-                "set_version_data",    // method on plugin
+                "set_version_data", // method on plugin
                 args                // arguments for py method
                 )
                 .request(
@@ -550,7 +548,7 @@ caf::message_handler DemoPlugin::message_handler_extensions() {
                     )
                 .then(
                     [=](const utility::JsonStore &result) {
-                        // success. The plugin sends us a separate event message to 
+                        // success. The plugin sends us a separate event message to
                         // tell us if data has changed.
                     },
                     [=](caf::error &err) {
@@ -559,16 +557,16 @@ caf::message_handler DemoPlugin::message_handler_extensions() {
         },
         [=](utility::event_atom,
             data_source::put_data_atom,
-            const std::string &version_uuid, 
+            const std::string &version_uuid,
             const std::string &role_name,
             const utility::JsonStore &role_value) {
             // this event message comes from the python plugin to tell us that
             // a record in the versions table has changed
             // We simply forward on to any UI models exposing versions data
             for (auto &dmua : version_list_ui_model_actors_) {
-                mail(data_source::put_data_atom_v, version_uuid, role_name, role_value).send(dmua);
+                mail(data_source::put_data_atom_v, version_uuid, role_name, role_value)
+                    .send(dmua);
             }
-
         }
 
     };
@@ -616,7 +614,6 @@ void DemoPlugin::initialise_database() {
             )
         .then(
             [=](caf::actor python_interp) {
-
                 python_interpreter_ = python_interp;
 
                 // Now we can request the python interpreter actor to run a method

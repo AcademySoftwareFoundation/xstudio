@@ -527,10 +527,9 @@ bool JSONTreeModel::setData(const QModelIndex &index, const QVariant &value, int
                         .toJson(QJsonDocument::Compact)
                         .constData());
             } else {
-                jval = nlohmann::json::parse(
-                    QJsonDocument::fromVariant(value)
-                        .toJson(QJsonDocument::Compact)
-                        .constData());
+                jval = nlohmann::json::parse(QJsonDocument::fromVariant(value)
+                                                 .toJson(QJsonDocument::Compact)
+                                                 .constData());
             }
 
             // we now need to update / replace the TreeNode..
@@ -565,10 +564,9 @@ bool JSONTreeModel::setData(const QModelIndex &index, const QVariant &value, int
                         .toJson(QJsonDocument::Compact)
                         .constData());
             } else {
-                jval = nlohmann::json::parse(
-                    QJsonDocument::fromVariant(value)
-                        .toJson(QJsonDocument::Compact)
-                        .constData());
+                jval = nlohmann::json::parse(QJsonDocument::fromVariant(value)
+                                                 .toJson(QJsonDocument::Compact)
+                                                 .constData());
             }
 
             auto old_node = indexToTree(index);

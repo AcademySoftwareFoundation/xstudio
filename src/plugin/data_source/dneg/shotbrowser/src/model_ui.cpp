@@ -162,11 +162,10 @@ void ShotBrowserSequenceModel::flatToAssetTree(const nlohmann::json &src) {
                             asset["children"] = json::array();
 
                             result.emplace_back(asset);
-                            assets.insert(
-                                std::make_pair(
-                                    path,
-                                    nlohmann::json::json_pointer(
-                                        "/" + std::to_string(result.size() - 1))));
+                            assets.insert(std::make_pair(
+                                path,
+                                nlohmann::json::json_pointer(
+                                    "/" + std::to_string(result.size() - 1))));
                             changed = true;
                         } else {
                             // find parent..
@@ -180,15 +179,14 @@ void ShotBrowserSequenceModel::flatToAssetTree(const nlohmann::json &src) {
 
                                 result[assets[parent]]["children"].emplace_back(asset);
 
-                                assets.emplace(
-                                    std::make_pair(
-                                        path,
-                                        assets[parent] /
-                                            nlohmann::json::json_pointer(
-                                                std::string("/children/") +
-                                                std::to_string(
-                                                    result[assets[parent]]["children"].size() -
-                                                    1))));
+                                assets.emplace(std::make_pair(
+                                    path,
+                                    assets[parent] /
+                                        nlohmann::json::json_pointer(
+                                            std::string("/children/") +
+                                            std::to_string(
+                                                result[assets[parent]]["children"].size() -
+                                                1))));
                                 changed = true;
                             }
                         }
@@ -372,12 +370,10 @@ void ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
                                 // and pointer to entry.
                                 result.emplace_back(seq);
 
-                                seqs.emplace(
-                                    std::make_pair(
-                                        id,
-                                        nlohmann::json::json_pointer(
-                                            std::string("/") +
-                                            std::to_string(result.size() - 1))));
+                                seqs.emplace(std::make_pair(
+                                    id,
+                                    nlohmann::json::json_pointer(
+                                        std::string("/") + std::to_string(result.size() - 1))));
 
                                 done = false;
 
@@ -452,15 +448,14 @@ void ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
                                 // spdlog::warn("{}", result[parent_pointer].dump(2));
 
                                 // add path to new entry..
-                                seqs.emplace(
-                                    std::make_pair(
-                                        id,
-                                        parent_pointer /
-                                            nlohmann::json::json_pointer(
-                                                std::string("/children/") +
-                                                std::to_string(
-                                                    result[parent_pointer]["children"].size() -
-                                                    1))));
+                                seqs.emplace(std::make_pair(
+                                    id,
+                                    parent_pointer /
+                                        nlohmann::json::json_pointer(
+                                            std::string("/children/") +
+                                            std::to_string(
+                                                result[parent_pointer]["children"].size() -
+                                                1))));
                                 done = false;
                             }
                         }
@@ -556,11 +551,10 @@ void ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
                         unseq["relationships"].erase("shots");
                         unseq["relationships"].erase("sg_parent");
                         result.emplace_back(unseq);
-                        seqs.emplace(
-                            std::make_pair(
-                                id,
-                                nlohmann::json::json_pointer(
-                                    std::string("/") + std::to_string(result.size() - 1))));
+                        seqs.emplace(std::make_pair(
+                            id,
+                            nlohmann::json::json_pointer(
+                                std::string("/") + std::to_string(result.size() - 1))));
                         count++;
                     }
                 } catch (const std::exception &err) {

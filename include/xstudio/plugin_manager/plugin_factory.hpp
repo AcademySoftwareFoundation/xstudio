@@ -15,23 +15,24 @@
 // Use the following macros to declare plugins.
 // See src/plugin/data_source/demo/demo_datasource_plugin/src/demo_plugin.cpp for example useage
 
-#define XSTUDIO_PLUGIN_DECLARE_BEGIN()                                                                 \
+#define XSTUDIO_PLUGIN_DECLARE_BEGIN()                                                         \
     extern "C" {                                                                               \
     plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {                 \
                                                                                                \
         auto pfc = new plugin_manager::PluginFactoryCollection();
 
-#define XSTUDIO_PLUGIN_DECLARE_END()                                                                   \
+#define XSTUDIO_PLUGIN_DECLARE_END()                                                           \
     return pfc;                                                                                \
     }                                                                                          \
     }
 
-#define XSTUDIO_REGISTER_PLUGIN(                                                                       \
+#define XSTUDIO_REGISTER_PLUGIN(                                                               \
     PLUGIN_CLASS, UUID, NAME, TYPE, RESIDENT, AUTHOR, DESCRIPTION, VERSION)                    \
     pfc->register_plugin<PLUGIN_CLASS>(                                                        \
         UUID, #NAME, TYPE, RESIDENT, #AUTHOR, #DESCRIPTION, semver::version(#VERSION));
 
-#define XSTUDIO_REGISTER_MEDIA_READER_PLUGIN(PLUGIN_CLASS, UUID, NAME, AUTHOR, DESCRIPTION, VERSION)   \
+#define XSTUDIO_REGISTER_MEDIA_READER_PLUGIN(                                                  \
+    PLUGIN_CLASS, UUID, NAME, AUTHOR, DESCRIPTION, VERSION)                                    \
     pfc->register_plugin<media_reader::MediaReaderActor<PLUGIN_CLASS>>(                        \
         UUID,                                                                                  \
         #NAME,                                                                                 \
@@ -174,9 +175,8 @@ namespace plugin_manager {
             std::string author      = "",
             std::string description = "",
             semver::version version = semver::version("0.0.0")) {
-            factories_.push_back(
-                std::make_shared<PluginFactoryTemplate<T>>(
-                    uuid, name, type, resident, author, description, version));
+            factories_.push_back(std::make_shared<PluginFactoryTemplate<T>>(
+                uuid, name, type, resident, author, description, version));
         }
 
         std::vector<std::shared_ptr<PluginFactory>> &factories() { return factories_; }

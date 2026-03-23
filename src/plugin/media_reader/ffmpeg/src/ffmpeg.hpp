@@ -30,6 +30,8 @@ namespace media_reader {
         std::shared_ptr<thumbnail::ThumbnailBuffer>
         thumbnail(const media::AVFrameID &mptr, const size_t thumb_size) override;
 
+        std::vector<std::string> supported_extensions() const override;
+
         [[nodiscard]] utility::Uuid plugin_uuid() const override;
 
         [[nodiscard]] ImageBuffer::PixelPickerFunc pixel_picker_func() const override {
@@ -39,6 +41,7 @@ namespace media_reader {
       private:
         static PixelInfo ffmpeg_buffer_pixel_picker(
             const ImageBuffer &buf,
+            const utility::JsonStore &pixel_unpack_uniforms,
             const Imath::V2i &pixel_location,
             const std::vector<Imath::V2i> &extra_pixel_locationss);
 
@@ -52,6 +55,7 @@ namespace media_reader {
         utility::FrameRate default_rate_ = {utility::FrameRate(timebase::k_flicks_24fps)};
 
         ImageBufPtr last_decoded_image_;
+        utility::JsonStore supported_;
     };
 } // namespace media_reader
 } // namespace xstudio

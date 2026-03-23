@@ -68,7 +68,7 @@ XsWindow{
                 width: parent.width - itemSpacing*2
                 height: itemHeight
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignHCenter
-                color: XsStyleSheet.accentColor //errorColor
+                color: XsStyleSheet.accentColor
                 wrapMode: Text.Wrap
                 text: message
             }
@@ -87,7 +87,7 @@ XsWindow{
                 horizontalAlignment: Text.AlignLeft
                 width: parent.width - itemSpacing*2
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignHCenter
-                color: XsStyleSheet.accentColor //errorColor
+                color: XsStyleSheet.accentColor
                 wrapMode: Text.Wrap
                 text: detail
             }

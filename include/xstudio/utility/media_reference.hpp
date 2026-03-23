@@ -56,6 +56,7 @@ namespace utility {
         [[nodiscard]] std::optional<caf::uri> uri_from_frame(const int sequence_frame) const;
         [[nodiscard]] std::optional<caf::uri>
         uri(const int logical_frame, int &file_frame) const;
+        std::optional<caf::uri> pick_representative_frame(int &file_frame) const;
 
         // extend and/or fill-out the frame list for numbered frames that are
         // not on disk but that are between the first and last numbered frames

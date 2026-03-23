@@ -47,7 +47,23 @@ namespace video_render_plugin_1_0 {
         VideoRenderWorker(
             caf::actor_config &cfg,
             const utility::Uuid &job_id,
-            const utility::JsonStore &render_options,
+            const std::string &render_item_name,
+            const utility::Uuid &parent_playlist_item_id,
+            const utility::Uuid &target_render_item_id,
+            const std::string &output_file_path,
+            const std::string &output_audio_path,
+            const Imath::V2i &resolution,
+            const int in_point,
+            const int out_point,
+            const utility::FrameRate &frame_rate,
+            const std::string &video_codec_opts,
+            const std::string &video_render_bit_depth,
+            const std::string &audio_codec_opts,
+            const std::string &video_preset_name,
+            const std::string &ocio_display,
+            const std::string &ocio_view,
+            const bool &auto_check_output,
+            const std::string &timecode,
             caf::actor offscreen_viewport,
             caf::actor colour_pipeline,
             caf::actor renderer_plugin);
@@ -78,7 +94,8 @@ namespace video_render_plugin_1_0 {
             const utility::Uuid &target_render_item_id);
 
         std::string output_file_path_;
-        utility::FrameRate rate_;
+        std::string output_audio_path_;
+        utility::FrameRate frame_rate_;
         Imath::V2i resolution_;
         int in_point_  = {-1};
         int out_point_ = {-1};
@@ -89,6 +106,7 @@ namespace video_render_plugin_1_0 {
         std::string video_preset_name_;
         std::string ocio_display_;
         std::string ocio_view_;
+        std::string timecode_;
         bool auto_check_output_;
         ui::viewport::ImageFormat render_format_;
 
@@ -116,6 +134,7 @@ namespace video_render_plugin_1_0 {
         int percent_complete_                = {-1};
         int64_t num_audio_samples_delivered_ = {0};
         RenderStatus status_                 = {Queued};
+        int start_frame_                     = {1};
     };
 
 } // namespace video_render_plugin_1_0

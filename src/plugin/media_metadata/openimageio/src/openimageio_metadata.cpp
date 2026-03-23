@@ -6,6 +6,7 @@
 #include <OpenImageIO/imageio.h>
 #include <OpenImageIO/typedesc.h>
 
+#include "xstudio/global_store/global_store.hpp"
 #include "xstudio/utility/helpers.hpp"
 
 namespace fs = std::filesystem;
@@ -14,28 +15,44 @@ using namespace xstudio::media_metadata;
 using namespace xstudio::utility;
 using namespace xstudio;
 
-OpenImageIOMediaMetadata::OpenImageIOMediaMetadata() : MediaMetadata("OpenImageIO") {}
+OpenImageIOMediaMetadata::OpenImageIOMediaMetadata(const utility::JsonStore &prefs)
+    : MediaMetadata("OpenImageIO", prefs) {
+    update_preferences(prefs);
+}
+
+void OpenImageIOMediaMetadata::update_preferences(const utility::JsonStore &prefs) {
+    try {
+        supported_ = global_store::preference_value<JsonStore>(
+            prefs, "/plugin/media_metadata/OIIO/supported");
+    } catch (const std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+}
 
 MMCertainty OpenImageIOMediaMetadata::supported(
     const caf::uri &uri, const std::array<uint8_t, 16> &signature) {
+    auto result = MMC_NO;
+
     // Step 1: List of supported extensions by OIIO
-    static const std::unordered_set<std::string> supported_extensions = {
-        "JPG",
-        "JPEG",
-        "PNG",
-        "TIF",
-        "TIFF",
-        "TGA",
-        "BMP",
-        "PSD",
-        "HDR",
-        "DPX",
-        "ACES",
-        "JP2",
-        "J2K",
-        "WEBP",
-        "EXR",
-    };
+    // Moved to preference file : AL
+    // static const std::set<std::string> supported_extensions = {
+    //     "JPG",
+    //     "JPEG",
+    //     "PNG",
+    //     "TIF",
+    //     "TEX",
+    //     "TIFF",
+    //     "TGA",
+    //     "BMP",
+    //     "PSD",
+    //     "HDR",
+    //     "DPX",
+    //     "ACES",
+    //     "JP2",
+    //     "J2K",
+    //     "WEBP",
+    //     "EXR",
+    // };
 
     // Step 2: Convert the URI to a POSIX path string and fs::path
     std::string path = uri_to_posix_path(uri);
@@ -43,33 +60,39 @@ MMCertainty OpenImageIOMediaMetadata::supported(
 
     // Step 3: Check if the file exists and is a regular file
     // Return not supported if the file does not exist or is not a regular file
-    if (!fs::exists(p) || !fs::is_regular_file(p)) {
-        return MMC_NO;
-    }
+    if (fs::exists(p) and fs::is_regular_file(p)) {
 
-    // Step 4: Get the upper-case extension (handling platform differences)
+        // Step 4: Get the upper-case extension (handling platform differences)
 #ifdef _WIN32
-    std::string ext = ltrim_char(to_upper_path(p.extension()), '.');
+        std::string ext = ltrim_char(to_upper_path(p.extension()), '.');
 #else
-    std::string ext = ltrim_char(to_upper(p.extension().string()), '.');
+        std::string ext = ltrim_char(to_upper(p.extension().string()), '.');
 #endif
 
-    // Step 5: Check if the extension is in the supported list
-    // Return fully supported if the extension is in the supported list
-    if (supported_extensions.count(ext)) {
-        return MMC_FULLY;
-    }
-
-    // Step 6: Try to detect via OIIO if the extension is supported
-    // Return maybe supported if the extension is supported by OIIO
-    auto in = OIIO::ImageInput::open(path);
-    if (in) {
-        in->close();
-        return MMC_MAYBE;
+        // Step 5: Check if the extension is in the supported list
+        // Return fully supported if the extension is in the supported list
+        try {
+            auto value = supported_.value(ext, "");
+            if (value.empty()) {
+                if (MMCertainty possible = from_string(supported_.value("", "MMC_NO"));
+                    possible != MMC_NO) {
+                    // Step 6: Try to detect via OIIO if the extension is supported
+                    // Return maybe supported if the extension is supported by OIIO
+                    auto in = OIIO::ImageInput::open(path);
+                    if (in) {
+                        in->close();
+                        result = possible;
+                    }
+                }
+            } else
+                result = from_string(value);
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
     }
 
     // Step 7: Return not supported if all checks fail
-    return MMC_NO;
+    return result;
 }
 
 nlohmann::json OpenImageIOMediaMetadata::read_metadata(const caf::uri &uri) {

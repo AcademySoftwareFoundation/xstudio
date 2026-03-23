@@ -12,15 +12,13 @@ Rectangle{
 
     color: XsStyleSheet.widgetBgNormalColor
 
-    XsText{ id: textDiv //XsTextInput
+    XsText{ id: textDiv
         text: ""
-        color: palette.text
+        color: XsStyleSheet.primaryTextColor
         font.bold: true
-        width : parent.width - panelPadding*2
+        width : parent.width - panelPadding * 2
         height: parent.height
         anchors.verticalCenter: parent.verticalCenter
-        // enabled: false
-        // readOnly: true
         leftPadding: panelPadding
         horizontalAlignment: Text.AlignLeft
         elide: Text.ElideRight

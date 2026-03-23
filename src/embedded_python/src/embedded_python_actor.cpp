@@ -955,12 +955,12 @@ void EmbeddedPythonActor::main_loop() {
                 try {
                     auto g = py::globals();
                     if (g.contains(py::str("XSTUDIO"))) {
-                        py::object xstudio_link = g["XSTUDIO"];
+                        py::object json_py_module = py::module_::import("json");
+                        py::object xstudio_link   = g["XSTUDIO"];
                         py::object plugin =
                             xstudio_link.attr("get_plugin_instance")(plugin_uuid);
                         py::tuple args;
                         if (packed_args.is_array()) {
-                            py::object json_py_module = py::module_::import("json");
                             py::object args_list =
                                 json_py_module.attr("loads")(packed_args.dump());
                             args  = py::tuple(py::len(args_list));
@@ -970,8 +970,12 @@ void EmbeddedPythonActor::main_loop() {
                                 PyTuple_SetItem(args.ptr(), static_cast<int>(j++), (*i).ptr());
                             }
                         }
-                        py::object result = plugin.attr(method_name.c_str())(*args);
-                        return result.cast<utility::JsonStore>();
+                        py::object result            = plugin.attr(method_name.c_str())(*args);
+                        py::object serialised_result = json_py_module.attr("dumps")(result);
+                        utility::JsonStore r;
+                        r.parse_string(serialised_result.cast<std::string>());
+                        return r;
+
                     } else {
                         throw std::runtime_error("Couln't import XSTUDIO module.");
                     }

@@ -172,7 +172,8 @@ namespace ui {
 
             // Stroke
 
-            void update_stroke(const Imath::V2f &pt, const float pressure = 1.0f);
+            void update_stroke(
+                const Imath::V2f &pt, float size_sens = 1.0f, float opacity_sens = 1.0f);
             // Delete the strokes when reaching 0 opacity.
 
             // Shapes (filled)

@@ -20,7 +20,7 @@ XsPopupMenu {
     property var popupSelectionModel
     property var popupDelegateModel
 
-    menu_model_name: "shothistory_menu_"+rightClickMenu
+    menu_model_name: "shothistory_menu_" + rightClickMenu
 
     Clipboard {
        id: clipboard
@@ -117,20 +117,33 @@ XsPopupMenu {
         menuPath: ""
         menuModelName: rightClickMenu.menu_model_name
     }
+
     XsMenuModelItem {
-        text: "Reveal In ShotGrid..." + (enabled ? "" : " (Production Only)")
+        text: "ShotGrid..." + (enabled ? "" : " (Production Only)")
         enabled: ShotBrowserEngine.shotGridLoginAllowed
-        menuItemPosition: 5
-        menuPath: ""
+        menuItemPosition: 1
+        menuPath: "Reveal In"
         menuModelName: rightClickMenu.menu_model_name
         onActivated: ShotBrowserHelpers.revealInShotgrid(popupSelectionModel.selectedIndexes)
     }
     XsMenuModelItem {
-        text: "Reveal In Ivy..."
-        menuItemPosition: 6
-        menuPath: ""
+        text: "Ivy..."
+        menuItemPosition: 2
+        menuPath: "Reveal In"
         menuModelName: rightClickMenu.menu_model_name
         onActivated: ShotBrowserHelpers.revealInIvy(popupSelectionModel.selectedIndexes)
+    }
+
+    XsMenuModelItem {
+        text: "App..."
+        menuItemPosition: 3
+        menuPath: "Reveal In"
+        menuModelName: rightClickMenu.menu_model_name
+        onActivated: ShotBrowserHelpers.revealInApp(popupSelectionModel.selectedIndexes)
+
+        Component.onCompleted: {
+            setMenuPathPosition("Reveal In", 6)
+        }
     }
 
     // XsMenuModelItem {

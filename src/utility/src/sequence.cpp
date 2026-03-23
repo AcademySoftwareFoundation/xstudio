@@ -56,11 +56,17 @@ uri_from_file_list(const std::vector<std::string> &paths) {
     for (const auto &i : sequences) {
         // convert sequence into uri
         if (i.is_sequence()) {
-            result.emplace_back(
-                std::make_pair(
-                    posix_path_to_uri(
-                        std::regex_replace(i.name_, percent_match, "{:0$1d}"), true),
-                    FrameList(i.frames_)));
+            std::string path_fmt_spec = std::regex_replace(i.name_, percent_match, "{:0$1d}");
+            // If no frame padding is detected, path_fmt_spec will now have {:00d} in it, 
+            // which we want to replace with {:d} as fmtlib will not accept {:00d} as a format specifier.
+            size_t start_pos = path_fmt_spec.find("{:00d}");
+            if (start_pos != std::string::npos) {
+                // no padding, add default.
+                path_fmt_spec = path_fmt_spec.replace(start_pos, 6, "{:d}");
+            }
+            result.emplace_back(std::make_pair(
+                posix_path_to_uri(path_fmt_spec, true),
+                FrameList(i.frames_)));
         } else {
             result.emplace_back(std::make_pair(posix_path_to_uri(i.name_, true), FrameList()));
         }

@@ -1041,9 +1041,8 @@ caf::message_handler PlaylistActor::message_handler() {
                 .request(actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const UuidActor &result) mutable {
-                        rp.deliver(
-                            std::make_pair(
-                                UuidActor(base_.uuid(), actor_cast<caf::actor>(this)), result));
+                        rp.deliver(std::make_pair(
+                            UuidActor(base_.uuid(), actor_cast<caf::actor>(this)), result));
                     },
 
                     [=](error &err) mutable { rp.deliver(std::move(err)); });
@@ -1920,20 +1919,25 @@ caf::message_handler PlaylistActor::message_handler() {
                 if (path.scheme() != "file") {
 
                     // Send path URI to data_source plugins to create and populate the timeline.
-                    auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
-                    mail(data_source::use_data_atom_v, path,
-                         caf::actor_cast<caf::actor>(this), base_.media_rate(), uuid_before, wait)
+                    auto pm =
+                        system().registry().template get<caf::actor>(plugin_manager_registry);
+                    mail(
+                        data_source::use_data_atom_v,
+                        path,
+                        caf::actor_cast<caf::actor>(this),
+                        base_.media_rate(),
+                        uuid_before,
+                        wait)
                         .request(pm, infinite)
                         .then(
-                            [=](const UuidActor &ua) mutable {
-                                rp.deliver(ua);
-                            },
+                            [=](const UuidActor &ua) mutable { rp.deliver(ua); },
                             [=](error &err) mutable { rp.deliver(std::move(err)); });
 
                 } else {
 
                     auto global = system().registry().template get<caf::actor>(global_registry);
-                    auto epa = request_receive<caf::actor>(*sys, global, global::get_python_atom_v);
+                    auto epa =
+                        request_receive<caf::actor>(*sys, global, global::get_python_atom_v);
                     // spdlog::warn("Load from python");
                     // request otio xml from embedded_python.
                     mail(session::import_atom_v, path)
@@ -1941,7 +1945,8 @@ caf::message_handler PlaylistActor::message_handler() {
                         .then(
                             [=](const std::string &data) mutable {
                                 // got data create timeline and load it..
-                                const auto name = fs::path(uri_to_posix_path(path)).stem().string();
+                                const auto name =
+                                    fs::path(uri_to_posix_path(path)).stem().string();
                                 // spdlog::warn("Loaded from python {}", name);
                                 mail(create_timeline_atom_v, name, uuid_before, false, false)
                                     .request(actor_cast<caf::actor>(this), infinite)
@@ -1976,7 +1981,6 @@ caf::message_handler PlaylistActor::message_handler() {
                                         });
                             },
                             [=](error &err) mutable { rp.deliver(std::move(err)); });
-
                 }
             } catch (const std::exception &err) {
                 rp.deliver(make_error(xstudio_error::error, err.what()));
@@ -2577,9 +2581,9 @@ PlaylistActor::get_containers(utility::UuidTree<utility::PlaylistItem> &tree) co
 void PlaylistActor::sort_by_media_display_info(
     const int sort_column_index, const bool ascending) {
 
-    using SourceAndUuid = std::pair<std::string, utility::Uuid>;
+    using SourceAndUuid = std::pair<nlohmann::json, utility::Uuid>;
     auto sort_keys_vs_uuids =
-        std::make_shared<std::vector<std::pair<std::string, utility::Uuid>>>();
+        std::make_shared<std::vector<SourceAndUuid>>();
 
     int idx = 0;
     for (const auto &i : media_) {
@@ -2602,11 +2606,11 @@ void PlaylistActor::sort_by_media_display_info(
 
                     // default sort key keeps current sorting but should always
                     // put it after the last element that did have a sort key
-                    std::string sort_key = fmt::format("ZZZZZZ{}", idx);
+                    auto sort_key = nlohmann::json(fmt::format("ZZZZZZ{}", idx));
 
                     if (media_display_info.is_array() &&
                         sort_column_index < media_display_info.size()) {
-                        sort_key = media_display_info[sort_column_index].dump();
+                        sort_key = media_display_info[sort_column_index];
                     }
 
                     (*sort_keys_vs_uuids)

@@ -123,16 +123,39 @@ ImageBufPtr PPMMediaReader::image(const media::AVFrameID &mptr) {
     return buf;
 }
 
-MRCertainty PPMMediaReader::supported(const caf::uri &, const std::array<uint8_t, 16> &sig) {
+std::vector<std::string> PPMMediaReader::supported_extensions() const {
+    auto result = std::vector<std::string>();
 
+    for (const auto &i : supported_.items()) {
+        if (from_string(i.value()) != MRC_NO)
+            result.push_back(i.key());
+    }
+
+    return result;
+}
+
+MRCertainty PPMMediaReader::supported(const caf::uri &uri, const std::array<uint8_t, 16> &sig) {
+    auto result = MRC_NO;
     // we ignore the signature..
     // we cover so MANY...
     // but we're pretty good at movs..
     if (sig[0] == 'P' and sig[1] == '6' and sig[2] == '\n') {
-        return MRC_FULLY;
+        fs::path p(uri_to_posix_path(uri));
+
+#ifdef _WIN32
+        std::string ext = ltrim_char(to_upper_path(p.extension()), '.');
+#else
+        std::string ext = ltrim_char(to_upper(p.extension().string()), '.');
+#endif
+
+        try {
+            result = from_string(supported_.value(ext, "MRC_NO"));
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
     }
 
-    return MRC_NO;
+    return result;
 }
 
 utility::Uuid PPMMediaReader::plugin_uuid() const { return s_plugin_uuid; }

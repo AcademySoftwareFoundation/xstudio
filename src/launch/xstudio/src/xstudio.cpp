@@ -272,13 +272,13 @@ void execute_xstudio_ui(
         surface.create();
         ctx.makeCurrent(&surface);
 
-        auto *funcs = ctx.functions();
+        auto *funcs          = ctx.functions();
         const char *vendor   = reinterpret_cast<const char *>(funcs->glGetString(GL_VENDOR));
         const char *renderer = reinterpret_cast<const char *>(funcs->glGetString(GL_RENDERER));
         const char *version  = reinterpret_cast<const char *>(funcs->glGetString(GL_VERSION));
-        auto fmt = ctx.format();
-        int major = fmt.majorVersion();
-        int minor = fmt.minorVersion();
+        auto fmt             = ctx.format();
+        int major            = fmt.majorVersion();
+        int minor            = fmt.minorVersion();
 
         spdlog::info(
             "OpenGL: {} / {} / {} (context version {}.{})",
@@ -312,7 +312,7 @@ void execute_xstudio_ui(
     ui::qml::setup_xstudio_qml_emgine(
         static_cast<QQmlEngine *>(&engine), CafActorSystem::system());
 
-    const QUrl url(QStringLiteral("qrc:/main.qml"));
+    const QUrl url(QStringLiteral("qrc:/application/main.qml"));
 
     QObject::connect(
         &engine,
@@ -532,15 +532,14 @@ void LoaderActor::send_media(
                 filename_stem = std::string(filename_stem, 0, dotpos);
             }
 
-            added_media.push_back(
-                request_receive<UuidActor>(
-                    *self,
-                    playlist,
-                    playlist::add_media_atom_v,
-                    filename_stem,
-                    i.first,
-                    i.second,
-                    Uuid()));
+            added_media.push_back(request_receive<UuidActor>(
+                *self,
+                playlist,
+                playlist::add_media_atom_v,
+                filename_stem,
+                i.first,
+                i.second,
+                Uuid()));
 
             if (remote)
                 spdlog::info("{} sent to running session.", uri_to_posix_path(i.first));
@@ -1030,12 +1029,11 @@ struct Launcher {
                 (args::get(cli_args.remote_port)
                      ? args::get(cli_args.remote_port)
                      : preference_value<int>(prefs, "/core/api/port_minimum"));
-            targets.emplace_back(
-                std::make_tuple(
-                    std::string("undefined"),
-                    args::get(cli_args.remote_host),
-                    remote_port_tmp,
-                    remote_port_tmp));
+            targets.emplace_back(std::make_tuple(
+                std::string("undefined"),
+                args::get(cli_args.remote_host),
+                remote_port_tmp,
+                remote_port_tmp));
         } else if (not static_cast<std::string>(actions["session_name"]).empty()) {
             // scan for session port files.
             // if session specified used that otherwise add local
@@ -1045,9 +1043,8 @@ struct Launcher {
                 throw std::runtime_error(
                     fmt::format("Failed to find session {}", sname).c_str());
             }
-            targets.emplace_back(
-                std::make_tuple(
-                    sname, find_session->host(), find_session->port(), find_session->port()));
+            targets.emplace_back(std::make_tuple(
+                sname, find_session->host(), find_session->port(), find_session->port()));
         } else {
             for (const auto &i : rsm.sessions()) {
                 if (i.host() == "localhost")
@@ -1114,21 +1111,19 @@ struct Launcher {
 
         if (not args::get(cli_args.remote_host).empty()) {
 
-            throw std::runtime_error(
-                fmt::format(
-                    "Failed to connect to session at {}:{}",
-                    args::get(cli_args.remote_host),
-                    args::get(cli_args.remote_port))
-                    .c_str());
+            throw std::runtime_error(fmt::format(
+                                         "Failed to connect to session at {}:{}",
+                                         args::get(cli_args.remote_host),
+                                         args::get(cli_args.remote_port))
+                                         .c_str());
         }
 
         if (not static_cast<std::string>(actions["session_name"]).empty()) {
 
-            throw std::runtime_error(
-                fmt::format(
-                    "Failed to connect to session  {}",
-                    static_cast<std::string>(actions["session_name"]))
-                    .c_str());
+            throw std::runtime_error(fmt::format(
+                                         "Failed to connect to session  {}",
+                                         static_cast<std::string>(actions["session_name"]))
+                                         .c_str());
         }
 
         return caf::actor();

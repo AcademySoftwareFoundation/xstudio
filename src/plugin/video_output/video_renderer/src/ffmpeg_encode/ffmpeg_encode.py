@@ -9,6 +9,7 @@ from xstudio.core import HUDElementPosition, ColourTriplet
 from xstudio.api.session.media import Media, MediaSource
 
 import io
+import re
 import os
 import sys
 import subprocess
@@ -45,6 +46,8 @@ class FFMpegEncoderPlugin(PluginBase):
 
     """Plugin instance to manage ffmpeg encode tasks"""
 
+    frame_based_formats = ['jpg', 'jpeg', 'tiff', 'png', 'bmp', 'tif']
+
     def __init__(
             self,
             connection,
@@ -72,6 +75,7 @@ class FFMpegEncoderPlugin(PluginBase):
 
     def start_ffmpeg_encode(self,
         output_file,
+        output_audio_file,
         image_fifo_name,
         width,
         height,
@@ -82,8 +86,32 @@ class FFMpegEncoderPlugin(PluginBase):
         video_output_plugin,
         job_id,
         audio_fifo_name = None,
-        audio_encoder_parameters = None
+        audio_encoder_parameters = None,
+        timecode = None
         ):
+
+        # for frame-based output, we make foo.jpg to x.%04d.jpg
+        # we make foo.0001.jpg to foo.%04d.jpg because this is what FFMPEG needs
+        # to output frames
+        p = Path(output_file)
+        if p.suffix[1:] in self.frame_based_formats:
+            # for frame based output we expect the incoming filename to be 
+            # something like "C:/Users/ted/my_frames.####.jpg", say- for 
+            # ffmpeg we replace the hashes with '%04d'
+            m = re.match("^(.+[^\#])(\#+)(.+)$", output_file)
+            if not m:
+                raise Exception("A frame based output was chosen but '#' characters are missing for padded frame numbers.")
+            output_file = "{}%0{}d{}".format(m.group(1), len(m.group(2)), m.group(3))
+            video_encoder_parameters = ["-map", "0:0", "-start_number", timecode]
+
+            # if we are outputting audio, we rely on ffmpeg to set the encoder
+            # params just based off the output audio filename (e.g. .wav or .aiff etc)
+            if output_audio_file != "":
+                audio_encoder_parameters = ["-map", "1:0", output_audio_file]
+
+        elif timecode:
+
+            video_encoder_parameters += ["-timecode", timecode]
 
         audio_in_args = []
         if audio_fifo_name:
@@ -111,10 +139,13 @@ class FFMpegEncoderPlugin(PluginBase):
             ['-r', str(frame_rate),
             '-y', # force overwrite (xSTUDIO confirms if user wants to overwrite)
             '-vf', 'colorspace=bt709:iall=bt601-6-625:fast=1' # ffmpeg assumes intput is bt601. We want bt709 output.
-            ] + video_encoder_parameters
+            ]
 
         if audio_encoder_parameters:
             cmd += audio_encoder_parameters 
+
+        if video_encoder_parameters:
+            cmd += video_encoder_parameters 
 
         cmd += [output_file]
 

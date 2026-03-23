@@ -10,6 +10,7 @@
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/atoms.hpp"
 #include "xstudio/bookmark/bookmarks_actor.hpp"
+#include "xstudio/media/media_actor.hpp"
 #include "xstudio/playlist/playlist_actor.hpp"
 
 #include <ImfRgbaFile.h>
@@ -83,13 +84,12 @@ HANDLE open_named_pipe(std::string name) {
         NULL);
 
     if (result == INVALID_HANDLE_VALUE) {
-        throw std::runtime_error(
-            fmt::format(
-                "{} failed to open pipe {} with error: {}",
-                __PRETTY_FUNCTION__,
-                name,
-                last_error())
-                .c_str());
+        throw std::runtime_error(fmt::format(
+                                     "{} failed to open pipe {} with error: {}",
+                                     __PRETTY_FUNCTION__,
+                                     name,
+                                     last_error())
+                                     .c_str());
     }
     return result;
 }
@@ -194,6 +194,7 @@ class RenderPipeActor : public caf::event_based_actor {
             unlink(output_file_path_.c_str());
             output_file_desc_ = 0;
         }
+        // the_file.close();
     }
 
     std::ofstream the_file;
@@ -226,10 +227,10 @@ class RenderPipeActor : public caf::event_based_actor {
                     .c_str());
         }
         /*if (!the_file.is_open()) {
-            std::cerr << "Opening file " << output_file_path_ << "\n";
-            the_file.open(output_file_path_.c_str(), std::ios::binary);
+            std::string rr = output_file_path_ + ".foo";
+            the_file.open(rr.c_str(), std::ios::binary);
         }
-        the_file.write(reinterpret_cast<char*>(data), size); // binary output*/
+        the_file.write(reinterpret_cast<char*>(data), size); // binary output */
     }
 
     caf::behavior make_behavior() override {
@@ -272,12 +273,43 @@ class RenderPipeActor : public caf::event_based_actor {
 VideoRenderWorker::VideoRenderWorker(
     caf::actor_config &cfg,
     const utility::Uuid &job_id,
-    const utility::JsonStore &render_options,
+    const std::string &render_item_name,
+    const utility::Uuid &parent_playlist_item_id,
+    const utility::Uuid &target_render_item_id,
+    const std::string &output_file_path,
+    const std::string &output_audio_path,
+    const Imath::V2i &resolution,
+    const int in_point,
+    const int out_point,
+    const utility::FrameRate &frame_rate,
+    const std::string &video_codec_opts,
+    const std::string &video_render_bit_depth,
+    const std::string &audio_codec_opts,
+    const std::string &video_preset_name,
+    const std::string &ocio_display,
+    const std::string &ocio_view,
+    const bool &auto_check_output,
+    const std::string &timecode,
     caf::actor offscreen_viewport,
     caf::actor colour_pipeline,
     caf::actor renderer_plugin)
     : caf::event_based_actor(cfg),
       job_uuid_(job_id),
+      render_item_name_(render_item_name),
+      output_file_path_(output_file_path),
+      output_audio_path_(output_audio_path),
+      resolution_(resolution),
+      in_point_(in_point),
+      out_point_(out_point),
+      frame_rate_(frame_rate),
+      video_codec_opts_(video_codec_opts),
+      video_render_bit_depth_(video_render_bit_depth),
+      audio_codec_opts_(audio_codec_opts),
+      video_preset_name_(video_preset_name),
+      ocio_display_(ocio_display),
+      ocio_view_(ocio_view),
+      auto_check_output_(auto_check_output),
+      timecode_(timecode),
       offscreen_viewport_(offscreen_viewport),
       colour_pipeline_(colour_pipeline),
       renderer_plugin_(renderer_plugin) {
@@ -294,34 +326,6 @@ VideoRenderWorker::VideoRenderWorker(
     // VideoRenderDialog.qml.
     // We match up the types & values to the array that is built.
 
-    utility::Uuid parent_playlist_item_id;
-    utility::Uuid target_render_item_id;
-    double frame_rate;
-
-    try {
-        unpack_json_array(
-            render_options,
-            render_item_name_,
-            parent_playlist_item_id,
-            target_render_item_id,
-            output_file_path_,
-            resolution_,
-            in_point_,
-            out_point_,
-            frame_rate,
-            video_codec_opts_,
-            video_render_bit_depth_,
-            audio_codec_opts_,
-            video_preset_name_,
-            ocio_display_,
-            ocio_view_,
-            auto_check_output_);
-    } catch (std::exception &e) {
-        spdlog::critical("{} {}", __PRETTY_FUNCTION__, e.what());
-        send_exit(caf::actor_cast<caf::actor>(this), caf::exit_reason::user_shutdown);
-        return;
-    }
-
     render_format_ = video_render_bit_depth_.find("16") == 0 ? viewport::ImageFormat::RGBA_16
                                                              : viewport::ImageFormat::RGBA_8;
 
@@ -329,8 +333,10 @@ VideoRenderWorker::VideoRenderWorker(
     if (out_uri) {
         output_file_path_ = utility::uri_to_posix_path(*out_uri);
     }
-
-    rate_ = utility::FrameRate(1.0 / frame_rate);
+    out_uri = caf::make_uri(output_audio_path_);
+    if (out_uri) {
+        output_audio_path_ = utility::uri_to_posix_path(*out_uri);
+    }
 
     try {
         auto prefs = global_store::GlobalStoreHelper(system());
@@ -444,14 +450,15 @@ void VideoRenderWorker::update_status(
     const std::string &status_string, const RenderStatus render_status) {
 
     utility::JsonStore new_status;
-    new_status["job_id"]           = job_uuid_;
-    new_status["output_file"]      = output_file_path_;
-    new_status["render_item"]      = render_item_name_;
-    new_status["resolution"]       = fmt::format("{} x {}", resolution_.x, resolution_.y);
-    new_status["status"]           = status_string;
-    new_status["percent_complete"] = percent_complete_;
-    new_status["video_preset"]     = video_preset_name_;
-    new_status["visible"]          = true;
+    new_status["job_id"]            = job_uuid_;
+    new_status["output_file"]       = output_file_path_;
+    new_status["output_audio_file"] = output_audio_path_;
+    new_status["render_item"]       = render_item_name_;
+    new_status["resolution"]        = fmt::format("{} x {}", resolution_.x, resolution_.y);
+    new_status["status"]            = status_string;
+    new_status["percent_complete"]  = percent_complete_;
+    new_status["video_preset"]      = video_preset_name_;
+    new_status["visible"]           = true;
 
     static const std::map<RenderStatus, std::string> status_icons({
         {Queued, "qrc:/icons/pending.svg"},
@@ -721,13 +728,12 @@ void VideoRenderWorker::start_ffmpeg_process() {
         std::string(*tmpdir),
         to_string(job_uuid_)); // utility::temp_file("test.yuv");
     if (mkfifo(output_yuv_filename_.c_str(), 0666) == -1) {
-        throw std::runtime_error(
-            fmt::format(
-                "{} failed to create fifo with name {}, errno error: {}",
-                __PRETTY_FUNCTION__,
-                output_yuv_filename_,
-                strerror(errno))
-                .c_str());
+        throw std::runtime_error(fmt::format(
+                                     "{} failed to create fifo with name {}, errno error: {}",
+                                     __PRETTY_FUNCTION__,
+                                     output_yuv_filename_,
+                                     strerror(errno))
+                                     .c_str());
     }
     if (!audio_codec_opts_.empty()) {
         output_audio_filename_ = fmt::format(
@@ -749,14 +755,17 @@ void VideoRenderWorker::start_ffmpeg_process() {
     ffmpeg_args["image_fifo_name"]          = output_yuv_filename_;
     ffmpeg_args["width"]                    = resolution_.x;
     ffmpeg_args["height"]                   = resolution_.y;
-    ffmpeg_args["frame_rate"]               = rate_.to_fps();
+    ffmpeg_args["frame_rate"]               = frame_rate_.to_fps();
     ffmpeg_args["audio_sample_rate"]        = 48000;
     ffmpeg_args["is_16_bit"]                = video_render_bit_depth_.find("16") == 0;
     ffmpeg_args["video_encoder_parameters"] = utility::split(video_codec_opts_, ' ');
     ffmpeg_args["video_output_plugin"] =
         utility::actor_to_string(system(), caf::actor_cast<caf::actor>(this));
-    ffmpeg_args["output_file"] = output_file_path_;
-    ffmpeg_args["job_id"]      = job_uuid_;
+    ffmpeg_args["output_file"]       = output_file_path_;
+    ffmpeg_args["output_audio_file"] = audio_codec_opts_.empty() ? "" : output_audio_path_;
+    ffmpeg_args["job_id"]            = job_uuid_;
+    ffmpeg_args["timecode"]          = timecode_;
+
 
     if (!audio_codec_opts_.empty()) {
         ffmpeg_args["audio_fifo_name"]          = output_audio_filename_;
@@ -1015,7 +1024,7 @@ void VideoRenderWorker::render_step() {
                                 // factor into flicks exactly), our reference is
                                 // num_audio_samples_delivered_ which has to keep up with
                                 // playhead_position_ according to soundcard sample rate
-                                auto p_plus = playhead_position_ + rate_;
+                                auto p_plus = playhead_position_ + frame_rate_;
                                 auto microsecs =
                                     std::chrono::duration_cast<std::chrono::microseconds>(
                                         p_plus)
@@ -1047,7 +1056,7 @@ void VideoRenderWorker::render_step() {
                                             waiting_for_buffers_ = false;
 
                                             // advance the playhead position to the next frame
-                                            playhead_position_ += rate_;
+                                            playhead_position_ += frame_rate_;
 
                                             // send the audio to ffmpeg
                                             encode_audio(audio_buf);
@@ -1066,7 +1075,7 @@ void VideoRenderWorker::render_step() {
 
                                 // advance the playhead position to the next frame
                                 waiting_for_buffers_ = false;
-                                playhead_position_ += rate_;
+                                playhead_position_ += frame_rate_;
                                 continue_render_loop();
                             }
                         },
@@ -1101,21 +1110,65 @@ void VideoRenderWorker::add_output_to_session() {
     // the 'Container' which is wrapped by the actor. Why containers and
     // actors need different uuids I don't know.
 
-    auto do_send = [=](utility::UuidUuidActor playlist) {
-        anon_mail(
-            playlist::add_media_atom_v,
-            fmt::format("{} - Render", render_item_name_),
-            utility::posix_path_to_uri(output_file_path_),
-            utility::Uuid())
-            .send(playlist.second.actor());
-        mail(utility::user_start_action_atom_v).send(renderer_plugin_);
-        send_exit(caf::actor_cast<caf::actor>(this), caf::exit_reason::user_shutdown);
-    };
+    // convert the hash padded output name (if it's frame based output)
+    std::string path_to_render = output_file_path_;
+    static const std::regex hashfinder(R"(^.+[^\#](\#+).+$)");
+    std::smatch match;
+    if (std::regex_match(path_to_render, match, hashfinder)) {
+        int n_hash     = match[1].str().size();
+        path_to_render = utility::replace_once(
+            path_to_render, match[1].str(), fmt::format("{{:0{}d}}", n_hash));
+    }
 
     auto handle_error = [=](caf::error &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
         mail(utility::user_start_action_atom_v).send(renderer_plugin_);
         send_exit(caf::actor_cast<caf::actor>(this), caf::exit_reason::user_shutdown);
+    };
+
+    auto add_audio = [=](caf::actor media) {
+        mail(media::media_reference_atom_v, media::MT_IMAGE)
+            .request(media, infinite)
+            .then(
+                [=](utility::MediaReference &ref) {
+                    // for audio to line-up properly we need to match the image
+                    // source timecode
+                    utility::MediaReference aud_ref(
+                        utility::posix_path_to_uri(output_audio_path_), true, ref.rate());
+                    aud_ref.set_timecode(ref.timecode());
+
+                    auto audio_src = spawn<media::MediaSourceActor>(
+                        "Audio",
+                        "", // reader ... let xSTUDIO decide
+                        aud_ref,
+                        utility::Uuid::generate());
+                    anon_mail(media::add_media_source_atom_v, audio_src).send(media);
+                    mail(utility::user_start_action_atom_v).send(renderer_plugin_);
+                    send_exit(
+                        caf::actor_cast<caf::actor>(this), caf::exit_reason::user_shutdown);
+                },
+                handle_error);
+    };
+
+    auto do_send = [=](utility::UuidUuidActor playlist) {
+        mail(
+            playlist::add_media_atom_v,
+            utility::posix_path_to_uri(path_to_render),
+            false,
+            frame_rate_,
+            utility::Uuid())
+            .request(playlist.second.actor(), infinite)
+            .then(
+                [=](const utility::UuidActorVector &r) {
+                    if (r.size() && !output_audio_path_.empty()) {
+                        add_audio(r[0].actor());
+                    } else {
+                        mail(utility::user_start_action_atom_v).send(renderer_plugin_);
+                        send_exit(
+                            caf::actor_cast<caf::actor>(this), caf::exit_reason::user_shutdown);
+                    }
+                },
+                handle_error);
     };
 
     // get or make a playlist called "Render Outputs" and add the rendered
@@ -1129,10 +1182,8 @@ void VideoRenderWorker::add_output_to_session() {
                         .request(session, infinite)
                         .then(do_send, handle_error);
                 } else {
-                    do_send(
-                        utility::UuidUuidActor(
-                            utility::Uuid(),
-                            utility::UuidActor(utility::Uuid(), check_playlist)));
+                    do_send(utility::UuidUuidActor(
+                        utility::Uuid(), utility::UuidActor(utility::Uuid(), check_playlist)));
                 }
             },
             handle_error);

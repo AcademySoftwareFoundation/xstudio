@@ -10,14 +10,14 @@ Button {
     text: ""
     property bool isActive: false
 
-    property color bgColorPressed: palette.highlight
+    property color bgColorPressed: XsStyleSheet.accentColor
     property color bgColorNormal: "transparent"
     property color forcedBgColorNormal: bgColorNormal
     property color borderColorHovered: bgColorPressed
     property color borderColorNormal: "transparent"
     property real borderWidth: 1
 
-    property color textColorNormal: palette.text
+    property color textColorNormal: XsStyleSheet.primaryTextColor
     property var textElide: textDiv.elide
     property alias textDiv: textDiv
     property real textWidth: textMetrics.width
@@ -94,7 +94,7 @@ Button {
             width: widget.width-(7*2) //textWidth+(7*2);
             height: 2
             anchors.horizontalCenter: parent.horizontalCenter
-            color: isActive? palette.highlight : "transparent"
+            color: isActive? XsStyleSheet.accentColor : "transparent"
         }
     }
 

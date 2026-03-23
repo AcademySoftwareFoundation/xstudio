@@ -20,14 +20,13 @@ using namespace xstudio::ui::qml;
 EmbeddedPythonUI::EmbeddedPythonUI(QObject *parent) : super(parent) {
     init(CafSystemObject::get_actor_system());
 
-    setRoleNames(
-        std::vector<std::string>({
-            "nameRole",
-            "menuPathRole",
-            "scriptPathRole",
-            "snippetTypeRole",
-            "typeRole",
-        }));
+    setRoleNames(std::vector<std::string>({
+        "nameRole",
+        "menuPathRole",
+        "scriptPathRole",
+        "snippetTypeRole",
+        "typeRole",
+    }));
 }
 
 
@@ -179,9 +178,8 @@ QVariant EmbeddedPythonUI::pyEval(const QString &str) {
         scoped_actor sys{system()};
         spdlog::warn("pyEval {0}", str.toStdString());
         try {
-            return json_to_qvariant(
-                request_receive<JsonStore>(
-                    *sys, backend_, embedded_python::python_eval_atom_v, str.toStdString()));
+            return json_to_qvariant(request_receive<JsonStore>(
+                *sys, backend_, embedded_python::python_eval_atom_v, str.toStdString()));
         } catch (const std::exception &e) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
         }

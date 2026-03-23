@@ -98,8 +98,12 @@ XsMenuItemNew {
 				loader.sourceComponent = new_snapshot_folder_dlg
 				loader.item.visible = true
 
-			} else if (action_type == "SNAPSHOT_SAVE") {
 
+			} else if (action_type == "SNAPSHOT_SAVE") {
+				file_functions.saveSessionAs(path)
+			} else if (action_type == "SNAPSHOT_SAVE_SELECTED") {
+				file_functions.saveSelectionAs(path)
+			} else if (action_type == "SNAPSHOT_SAVEAS") {
 				dialogHelpers.textInputDialog(
 					saveSnapshot,
 					"Save Snapshot",
@@ -128,7 +132,7 @@ XsMenuItemNew {
 
 			} else if (action_type == "SNAPSHOT_REVEAL") {
 				console.log(helpers.showURIS([helpers.QUrlFromQString(path)]))
-			} else if (action_type == "SNAPSHOT_LOAD") {
+			} else if (action_type == "SNAPSHOT_IMPORT") {
 
 				Future.promise(theSessionData.importFuture(path, null)).then(
 					function(result) {
@@ -139,6 +143,15 @@ XsMenuItemNew {
 						// }
 					})
 
+			} else if (action_type == "SNAPSHOT_LOAD") {
+				file_functions.loadSessionFile(path, file_functions.getFileNameUsingLastIndexOf(path))
+
+		   //      Future.promise(studio.loadSessionFuture(path)).then(function(result) {
+					// 	// 	dialogHelpers.errorDialogFunc("Snapshot Loaded", "Snapshot " + name + " was added to your session.")
+					// 	// } else {
+					// 	// 	dialogHelpers.errorDialogFunc("Snapshot Error", "Snapshot " + name + " was not added to your session, an error occurred. Check your terminal for more info.")
+					// 	// }
+					// })
 			}
 		}
     }

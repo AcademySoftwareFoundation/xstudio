@@ -16,24 +16,23 @@ SnapshotMenuModel::SnapshotMenuModel(QObject *parent) : JSONTreeModel(parent) {
 
     // This model provides the same roles as the MenusModelData class which
     // is the QAbstractItemModel that drives xSTUDIO's dynamic menu creation.
-    setRoleNames(
-        std::vector<std::string>{
-            "uuid",
-            "menu_model",
-            "menu_item_type",
-            "name",
-            "is_checked",
-            "choices",
-            "current_choice",
-            "hotkey_uuid",
-            "menu_icon",
-            "custom_menu_qml",
-            "menu_tooltip",
-            "user_data",
-            "snapshot_filesystem_path",
-            "hotkey_sequence",
-            "menu_item_enabled",
-            "watch_visibility"});
+    setRoleNames(std::vector<std::string>{
+        "uuid",
+        "menu_model",
+        "menu_item_type",
+        "name",
+        "is_checked",
+        "choices",
+        "current_choice",
+        "hotkey_uuid",
+        "menu_icon",
+        "custom_menu_qml",
+        "menu_tooltip",
+        "user_data",
+        "snapshot_filesystem_path",
+        "hotkey_sequence",
+        "menu_item_enabled",
+        "watch_visibility"});
 
     try {
         items_.bind_ignore_entry_func(ignore_not_session);
@@ -95,14 +94,21 @@ utility::JsonStore SnapshotMenuModel::toMenuModelItemData(FileSystemItem *item) 
     const std::string snapshot_filesystem_path(to_string(item->path()));
 
     if (item->type() == utility::FSIT_FILE) {
+        menu_item_data["name"]           = item->name();
+        menu_item_data["menu_item_type"] = "menu";
+        auto items                       = R"([
+            {"name": "Open", "menu_item_type": "button", "menu_item_enabled": true, "watch_visibility": false, "user_data": "SNAPSHOT_LOAD"},
+            {"name": "Import", "menu_item_type": "button", "menu_item_enabled": true, "watch_visibility": false, "user_data": "SNAPSHOT_IMPORT"},
+            {"name": "Save", "menu_item_type": "button", "menu_item_enabled": true, "watch_visibility": false, "user_data": "SNAPSHOT_SAVE"},
+            {"name": "Save Selected", "menu_item_type": "button", "menu_item_enabled": true, "watch_visibility": false, "user_data": "SNAPSHOT_SAVE_SELECTED"}
+        ])"_json;
 
-        menu_item_data["name"]                     = item->name();
-        menu_item_data["menu_item_type"]           = "button";
-        menu_item_data["menu_item_enabled"]        = true;
-        menu_item_data["snapshot_filesystem_path"] = snapshot_filesystem_path;
-        menu_item_data["watch_visibility"]         = false;
-        menu_item_data["user_data"]                = "SNAPSHOT_LOAD";
+        items[0]["snapshot_filesystem_path"] = snapshot_filesystem_path;
+        items[1]["snapshot_filesystem_path"] = snapshot_filesystem_path;
+        items[2]["snapshot_filesystem_path"] = snapshot_filesystem_path;
+        items[3]["snapshot_filesystem_path"] = snapshot_filesystem_path;
 
+        menu_item_data["children"] = items;
 
     } else if (item->type() != utility::FSIT_NONE) {
 
@@ -171,7 +177,7 @@ utility::JsonStore SnapshotMenuModel::toMenuModelItemData(FileSystemItem *item) 
             save_snapshot_item["menu_item_enabled"]        = true;
             save_snapshot_item["snapshot_filesystem_path"] = snapshot_filesystem_path;
             save_snapshot_item["watch_visibility"]         = false;
-            save_snapshot_item["user_data"]                = "SNAPSHOT_SAVE";
+            save_snapshot_item["user_data"]                = "SNAPSHOT_SAVEAS";
             menu_item_data["children"].push_back(save_snapshot_item);
 
             utility::JsonStore save_selected_snapshot_item;

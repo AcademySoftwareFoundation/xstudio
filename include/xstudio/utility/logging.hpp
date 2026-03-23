@@ -36,17 +36,13 @@
 #else
 
 #define START_SLOW_WATCHER()                                                                   \
-    {                                                                                          \
-    }
+    {}
 #define CHECK_SLOW_WATCHER()                                                                   \
-    {                                                                                          \
-    }
+    {}
 #define CHECK_SLOW_WATCHER_FAST()                                                              \
-    {                                                                                          \
-    }
+    {}
 #define CHECK_SLOW_WATCHER_EXACT(a, b, c)                                                      \
-    {                                                                                          \
-    }
+    {}
 
 #endif
 

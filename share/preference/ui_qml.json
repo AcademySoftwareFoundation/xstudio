@@ -33,20 +33,20 @@
 			},
 			"ui_brightness": {
 				"path": "/ui/qml/ui_brightness",
-				"default_value": 60.0,
+				"default_value": 60,
 				"description": "Decrease this value to make the xSTUDIO interface darker.",
-				"value": 60.0,
-				"datatype": "double",
+				"value": 60,
+				"datatype": "int",
 				"context": ["QML_UI"],
 				"category": "Interface",
 				"display_name": "UI Brightness"
 			},
 			"ui_text_brightness": {
 				"path": "/ui/qml/ui_text_brightness",
-				"default_value": 90.0,
+				"default_value": 90,
 				"description": "Decrease this value to make the xSTUDIO text elements darker.",
-				"value": 90.0,
-				"datatype": "double",
+				"value": 90,
+				"datatype": "int",
 				"context": ["QML_UI"],
 				"category": "Interface",
 				"display_name": "UI Text Brightness"

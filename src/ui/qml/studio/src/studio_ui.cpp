@@ -106,6 +106,10 @@ void StudioUI::init(actor_system &system_) {
                 clipboard->setText(QStringFromStd(message));
             },
 
+            [=](ui::open_external_atom, const caf::uri &path) {
+                QDesktopServices::openUrl(QUrlFromUri(path));
+            },
+
             [=](utility::event_atom,
                 ui::open_quickview_window_atom,
                 const utility::UuidActorVector &media_items,
@@ -389,6 +393,10 @@ void StudioUI::loadVideoOutputPlugin(const utility::Uuid &plugin_id) {
         auto video_output_plugin = request_receive<caf::actor>(
             *sys, pm, plugin_manager::spawn_plugin_atom_v, plugin_id);
 
+        // registers it in the 'resident' plugins but doesn't make a link to the plugin
+        // manager
+        anon_mail(plugin_manager::spawn_plugin_atom_v, video_output_plugin, plugin_id).send(pm);
+
         video_output_plugins_[plugin_id] = video_output_plugin;
 
         self()->monitor(
@@ -434,7 +442,6 @@ void StudioUI::loadVideoOutputPlugins() {
             loadVideoOutputPlugin(i.uuid_);
         }
     }
-
 
     // here we tell the studio that we're up and running so it can send us
     // any pending 'quickview' requests. This is only needed if the app itself is

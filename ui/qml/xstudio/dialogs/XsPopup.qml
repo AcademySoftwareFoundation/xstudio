@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: Apache-2.0
+import QtQuick
+import QtQuick.Controls.Basic
+
+
+import xStudio 1.0
+
+Popup {
+    topPadding: XsStyleSheet.menuPadding
+    bottomPadding: XsStyleSheet.menuPadding
+    leftPadding: 0
+    rightPadding: 0
+
+    property bool repositioned: false
+
+    background: XsGradientRectangle {
+        implicitWidth: 100
+        implicitHeight: 200
+        border.width: 1
+        border.color: XsStyleSheet.baseColor
+    }
+
+    onVisibleChanged: {
+        if (visible && !repositioned) {
+            repositionPopupMenu(this, this.parent, x, y, undefined)
+        } else if (!visible) {
+            repositioned = false
+        }
+    }
+
+    onWidthChanged: {
+        if (visible) {
+            repositionPopupMenu(this, this.parent, x, y, undefined)
+        }
+    }
+
+    onHeightChanged: {
+        if (visible) {
+            repositionPopupMenu(this, this.parent, x, y, undefined)
+        }
+    }
+
+    function showMenu(refItem, refX, refY, altRightEdge) {
+        // this function should be defined at the parent Window level
+        repositionPopupMenu(this, refItem, refX, refY, altRightEdge)
+    }
+}
+
+

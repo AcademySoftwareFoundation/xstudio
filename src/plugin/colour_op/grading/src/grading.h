@@ -81,7 +81,12 @@ class GradingTool : public plugin::StandardPlugin {
     void clear_mask();
     void clear_shapes();
     void clear_grade();
-    void save_cdl(const std::string &filepath) const;
+
+    void save_cdl(const std::string &filepath, const ui::viewport::GradingData &grading_data) const;
+
+    std::vector<caf::actor> selected_media_actors() const;
+    utility::JsonStore media_actor_colour_params(const caf::actor &media_actor);
+    utility::UuidList media_actor_bookmarks(const caf::actor &media_actor);
 
     utility::Uuid current_bookmark() const;
     utility::UuidList current_clip_bookmarks();

@@ -71,6 +71,9 @@ namespace ui {
                 HandleHoverState caption_handle_over_state_ = {HandleHoverState::NotHovered};
                 std::size_t skip_render_caption_id          = {0};
                 utility::Uuid user_id;
+
+                utility::Uuid fresh_bookmark_id;
+                media::AVFrameID fresh_bookmark_frame_id;
             };
             typedef std::shared_ptr<LiveEdit> LiveEditData;
 
@@ -205,6 +208,9 @@ namespace ui {
 
             std::map<std::string, Imath::M44f> viewport_transforms_;
             std::map<std::string, media_reader::ImageBufDisplaySetPtr> viewport_current_images_;
+
+            module::StringAttribute * note_category_{nullptr};
+            module::StringAttribute * note_colour_{nullptr};
 
             bool laser_stroke_animation_{false};
             bool cursor_blinking_{false};

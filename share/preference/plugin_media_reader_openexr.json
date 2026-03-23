@@ -2,6 +2,20 @@
 	"plugin":{
 		"media_reader":{
 			"OpenEXR":{
+				"supported": {
+					"path": "/plugin/media_reader/OpenEXR/supported",
+					"description": "Control plugin format support",
+					"datatype": "json",
+					"context": ["APPLICATION"],
+					"default_value": {
+						"EXR":"MRC_FULLY",
+						"SXR":"MRC_FULLY"
+					},
+					"value": {
+						"EXR":"MRC_FORCE",
+						"SXR":"MRC_FORCE"
+					}
+				},
 				"max_exr_overscan_percent": {
 					"path": "/plugin/media_reader/OpenEXR/max_exr_overscan_percent",
 					"default_value": 100.0,

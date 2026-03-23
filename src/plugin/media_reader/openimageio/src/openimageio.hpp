@@ -19,6 +19,7 @@ namespace media_reader {
 
         MRCertainty
         supported(const caf::uri &uri, const std::array<uint8_t, 16> &signature) override;
+        std::vector<std::string> supported_extensions() const override;
 
         thumbnail::ThumbnailBufferPtr
         thumbnail(const media::AVFrameID &mpr, const size_t thumb_size) override;
@@ -26,6 +27,9 @@ namespace media_reader {
         media::MediaDetail detail(const caf::uri &uri) const override;
 
         [[nodiscard]] utility::Uuid plugin_uuid() const override;
+
+      private:
+        utility::JsonStore supported_;
     };
 } // namespace media_reader
 } // namespace xstudio

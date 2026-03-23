@@ -362,8 +362,8 @@ void SubPlayhead::init() {
                 try {
                     pre_cache_read_ahead_frames_ =
                         preference_value<size_t>(full, "/core/playhead/read_ahead");
-                    static_cache_delay_milliseconds_ = std::chrono::milliseconds(
-                        preference_value<size_t>(
+                    static_cache_delay_milliseconds_ =
+                        std::chrono::milliseconds(preference_value<size_t>(
                             full, "/core/playhead/static_cache_delay_milliseconds"));
                 } catch (std::exception &e) {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -871,7 +871,7 @@ void SubPlayhead::init() {
                 .then(
 
                     [=](ImageBufPtr image_buffer) mutable {
-                        image_buffer.when_to_display_ = utility::clock::now();
+                        image_buffer.when_to_display() = utility::clock::now();
                         image_buffer.set_timline_timestamp(timeline_pts);
                         image_buffer.set_frame_id(*(frame.get()));
                         image_buffer.set_playhead_logical_frame(
@@ -891,7 +891,7 @@ void SubPlayhead::init() {
         },
 
         [=](media_reader::push_image_atom,
-            ImageBufPtr image_buffer,
+            ImageBufPtr &image_buffer,
             const media::AVFrameID &mptr,
             const time_point &tp,
             const timebase::flicks timeline_pts) {
@@ -1231,7 +1231,7 @@ void SubPlayhead::broadcast_image_frame(
         .then(
 
             [=](ImageBufPtr image_buffer) mutable {
-                image_buffer.when_to_display_ = when_to_show_frame;
+                image_buffer.when_to_display() = when_to_show_frame;
                 image_buffer.set_timline_timestamp(timeline_pts);
                 image_buffer.set_frame_id(*(frame_media_pointer.get()));
                 image_buffer.set_playhead_logical_frame(logical_frame_from_pts(timeline_pts));
@@ -1565,7 +1565,7 @@ void SubPlayhead::request_future_frames() {
         .request(pre_reader_, std::chrono::milliseconds(5000))
         .then(
 
-            [=](std::vector<ImageBufPtr> image_buffers) mutable {
+            [=](std::vector<ImageBufPtr> &image_buffers) mutable {
                 auto tp   = timeline_pts_vec.begin();
                 auto idsp = future_frames.begin();
 
@@ -1573,7 +1573,7 @@ void SubPlayhead::request_future_frames() {
                     imbuf.set_playhead_logical_frame(logical_frame_from_pts(*(tp)));
                     imbuf.set_playhead_logical_duration(logical_frames_.size());
                     imbuf.set_timline_timestamp(*(tp++));
-                    imbuf.when_to_display_                         = (idsp)->first;
+                    imbuf.when_to_display()                        = (idsp)->first;
                     std::shared_ptr<const media::AVFrameID> av_idx = (idsp++)->second;
 
                     if (av_idx) {
@@ -1662,7 +1662,7 @@ void SubPlayhead::make_prefetch_requests_for_colour_pipeline(
 
 
 void SubPlayhead::receive_image_from_cache(
-    ImageBufPtr image_buffer,
+    ImageBufPtr &image_buffer,
     const media::AVFrameID mptr,
     const time_point tp,
     const timebase::flicks timeline_pts) {
@@ -1674,7 +1674,7 @@ void SubPlayhead::receive_image_from_cache(
         return;
     last_image_timepoint_ = tp;
 
-    image_buffer.when_to_display_ = utility::clock::now();
+    image_buffer.when_to_display() = utility::clock::now();
     image_buffer.set_timline_timestamp(timeline_pts);
     image_buffer.set_playhead_logical_frame(logical_frame_from_pts(timeline_pts));
     image_buffer.set_playhead_logical_duration(logical_frames_.size());
@@ -2326,9 +2326,8 @@ void SubPlayhead::extend_bookmark_frame(
         }
     }
     if (!existing_entry_extended) {
-        bookmark_ranges.emplace_back(
-            std::make_tuple(
-                detail.uuid_, detail.colour(), logical_playhead_frame, logical_playhead_frame));
+        bookmark_ranges.emplace_back(std::make_tuple(
+            detail.uuid_, detail.colour(), logical_playhead_frame, logical_playhead_frame));
     }
 }
 

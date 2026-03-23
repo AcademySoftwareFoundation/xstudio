@@ -26,15 +26,13 @@ namespace ui {
 
             struct Point {
                 Imath::V2f pos;
-                float pressure;
+                float size_pressure;
+                float opacity_pressure;
 
                 bool operator==(const Point &o) const {
-                    return pos == o.pos && pressure == o.pressure;
+                    return pos == o.pos && size_pressure == o.size_pressure &&
+                           opacity_pressure == o.opacity_pressure;
                 }
-
-                // Point(Imath::V2f pos, float pressure) :
-                //     pos(pos), pressure(pressure)
-                //     {}
             };
 
             static Stroke *
@@ -66,7 +64,10 @@ namespace ui {
 
             void make_line(const Imath::V2f &start, const Imath::V2f &end);
 
-            void add_point(const Imath::V2f &pt, float pressure = 1.0f);
+            void add_point(
+                const Imath::V2f &pt,
+                float size_pressure    = 1.0f,
+                float opacity_pressure = 1.0f);
             void add_points(const std::vector<Point> &points);
 
             void set_id(const std::string &id) { _id = id; }
@@ -100,14 +101,12 @@ namespace ui {
             std::string _id;
 
             utility::ColourTriplet _colour;
-            // Type type{Type::Unknown};
             StrokeType _type{StrokeType_Pen};
             std::vector<Point> _points;
         };
 
         void from_json(const nlohmann::json &j, Stroke &s);
         void to_json(nlohmann::json &j, const Stroke &s);
-
 
     } // end namespace canvas
 } // end namespace ui

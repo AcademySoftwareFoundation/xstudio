@@ -513,6 +513,9 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_framework_atoms, FIRST_CUSTOM_ID + (200 * 2))
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::sync, kick_client_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::sync, mute_client_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::sync, session_event_atom)
+    CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::sync, stream_info_atom)
+
+    CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::utility, toggle_atom)
 
 CAF_END_TYPE_ID_BLOCK(xstudio_framework_atoms)
 
@@ -684,6 +687,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_session_atoms, FIRST_CUSTOM_ID + (200 * 4))
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::session, remove_serialise_target_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::session, session_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::session, session_request_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::session, render_to_video_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, active_range_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, available_range_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, duration_atom)
@@ -715,7 +719,6 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_session_atoms, FIRST_CUSTOM_ID + (200 * 4))
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, media_frame_to_timeline_frames_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::playlist, expanded_atom)
 
-    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, current_media_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, item_selection_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, item_type_atom)
 
@@ -898,6 +901,8 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_ui_atoms,  FIRST_CUSTOM_ID + (200 * 6))
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui, set_clipboard_atom)
 
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, annotation_atom)
+
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui, open_external_atom)
 
 
 CAF_END_TYPE_ID_BLOCK(xstudio_ui_atoms)

@@ -71,7 +71,7 @@ GridLayout {
 
     XsIntegerAttrControl{
         id: opacityProp
-        
+
         attr_group_model: annotations_model_data
         attr_title: "Brush Opacity"
 
@@ -89,7 +89,7 @@ GridLayout {
         attr_group_model: annotations_model_data
         attr_title: "Brush Opacity Sensitivity"
         text: "Pressure"
- 
+
         Layout.fillWidth: horizontal ? false : true
         Layout.preferredHeight: visible ?  horizontal ? -1 : XsStyleSheet.primaryButtonStdHeight : 0
         Layout.preferredWidth: visible ? horizontal ? XsStyleSheet.primaryButtonStdHeight*3 : -1 : 0
@@ -108,7 +108,7 @@ GridLayout {
         id: colourDialog
         title: "Please pick a colour"
         property var lastColour
-        
+
         linkColour: tool_colour_value
 
         onCurrentColourChanged: {
@@ -131,7 +131,7 @@ GridLayout {
 
     property alias colourDialog: colourDialog
 
-    Item{ 
+    Item{
 
         id: colourProp
 
@@ -145,12 +145,12 @@ GridLayout {
 
         XsGradientRectangle {
             anchors.fill: parent
-            border.color: colourProp.isMouseHovered ? palette.highlight: "transparent"
+            border.color: colourProp.isMouseHovered ? XsStyleSheet.accentColor: "transparent"
             border.width: 1
-    
+
             flatColor: topColor
-            topColor: colourProp.isPressed ? palette.highlight : XsStyleSheet.controlColour
-            bottomColor: colourProp.isPressed ? palette.highlight : "#1AFFFFFF"
+            topColor: colourProp.isPressed ? XsStyleSheet.accentColor : XsStyleSheet.controlColour
+            bottomColor: colourProp.isPressed ? XsStyleSheet.accentColor : "#1AFFFFFF"
         }
 
         RowLayout {
@@ -167,7 +167,7 @@ GridLayout {
                 Layout.fillHeight: true
                 color: tool_colour_value ? tool_colour_value : "grey"
                 border.width: 1
-                border.color: "black"                       
+                border.color: "black"
             }
         }
 
@@ -189,7 +189,7 @@ GridLayout {
         }
     }
 
-    XsColourPresets{ 
+    XsColourPresets{
         id: row3_colourpresets
 
         Layout.fillWidth: horizontal ? false : true
@@ -197,6 +197,6 @@ GridLayout {
         Layout.preferredWidth: visible ? horizontal ? buttonHeight*4 : -1 : 0
         Layout.fillHeight: horizontal ? true : false
     }
-    
+
 }
 

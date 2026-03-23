@@ -47,12 +47,10 @@ TEST(JsonStoreUI, Test) {
     auto store3_f = make_function_view(store3);
 
 
-    JsonStore json_data1(
-        nlohmann::json::parse(
-            R"({ "happy": true, "sub": {}, "pi": 3.141, "arr": [0, 2, 4] })"));
-    JsonStore json_data2(
-        nlohmann::json::parse(
-            R"({ "happy": false, "sub": {}, "pi": 3.141, "arr": [0, 2, 4] })"));
+    JsonStore json_data1(nlohmann::json::parse(
+        R"({ "happy": true, "sub": {}, "pi": 3.141, "arr": [0, 2, 4] })"));
+    JsonStore json_data2(nlohmann::json::parse(
+        R"({ "happy": false, "sub": {}, "pi": 3.141, "arr": [0, 2, 4] })"));
     JsonStore json_data3(
         nlohmann::json::parse(R"({ "happy": false, "pi": 3.141, "arr": [0, 2, 4] })"));
     store1_f(set_json_atom_v, json_data1);
@@ -67,7 +65,7 @@ TEST(JsonStoreUI, Test) {
     qmlRegisterType<JsonStoreUI>("xstudio.qml.json_store", 1, 0, "JsonStore");
 
     QQmlApplicationEngine engine;
-    const QUrl url(QStringLiteral("qrc:/main.qml"));
+    const QUrl url(QStringLiteral("qrc:/application/main.qml"));
     QObject::connect(
         &engine,
         &QQmlApplicationEngine::objectCreated,

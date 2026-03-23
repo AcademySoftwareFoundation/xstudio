@@ -75,30 +75,6 @@ ColumnLayout{
             placeholderText: "Filter..."
             onTextChanged: {
                 nameFilter = text
-                defocus.restart()
-            }
-
-            onHoveredChanged: {
-                if(focus && !hovered)
-                    defocus.restart()
-            }
-
-            onFocusChanged: {
-                if(focus)
-                    defocus.restart()
-            }
-
-            Timer {
-                id: defocus
-                interval: 5000
-                running: false
-                repeat: false
-                onTriggered: {
-                    if(filterBtn.hovered)
-                        start()
-                    else
-                        filterBtn.focus = false
-                }
             }
 
             Connections {

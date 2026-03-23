@@ -19,26 +19,12 @@ Item{
 
     property color textColorActive: "white"
     property color textColorNormal: "light grey"
-    property color itemColorActive: palette.highlight
+    property color itemColorActive: XsStyleSheet.accentColor
     property string hint: ""
 
     signal indexSelected(index: var)
 
-    Timer {
-        id: defocus
-        interval: 1000
-        running: false
-        repeat: false
-        onTriggered: {
-            if(searchPop.visible || searchField.hovered)
-                start()
-            else
-                searchField.focus = false
-        }
-    }
-
     function selectionMade(index) {
-        defocus.stop()
         indexSelected(index)
         model.setFilterWildcard("")
         searchField.text = ""
@@ -64,16 +50,7 @@ Item{
                 }
             }
 
-            onFocusChanged: {
-                if(focus) {
-                    defocus.interval = 5000
-                    defocus.restart()
-                }
-            }
-
             onTextEdited: {
-                defocus.interval = 1000
-                defocus.restart()
                 searchPop.open()
                 model.filterCaseSensitivity = Qt.CaseInsensitive
                 searchList.currentIndex = 0
@@ -133,7 +110,7 @@ Item{
 
             width: searchList.width-2
             height: btnHeight/1.3
-            color: searchList.currentIndex==index? palette.highlight : Qt.darker(palette.base, 1.5)
+            color: searchList.currentIndex==index? XsStyleSheet.accentColor : Qt.darker(XsStyleSheet.panelBgColor, 1.5)
 
             XsText{
                 text: display
@@ -187,8 +164,8 @@ Item{
 
         background: Rectangle{
             anchors.fill: parent
-            color: Qt.darker(palette.base, 1.5)
-            border.color: Qt.lighter(XsStyleSheet.panelTabColor, 1.3)
+            color: Qt.darker(XsStyleSheet.panelBgColor, 1.5)
+            border.color: XsStyleSheet.panelBgColor
             border.width: 1
         }
     }

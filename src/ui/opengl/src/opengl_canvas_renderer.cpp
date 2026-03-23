@@ -31,10 +31,11 @@ void OpenGLCanvasRenderer::render_canvas(
         return;
 
     if (!hide_strokes) {
-        auto strokes = all_canvas_items<Stroke>(canvas);
-        for (const auto &live_erase_stroke : live_erase_strokes) {
-            strokes.emplace_back(*live_erase_stroke);
-        }
+
+        // WARNING!! 1x copy of each stroke happening here.
+        // Refactor to use stroke instance in Canvas object.
+        std::vector<std::shared_ptr<Stroke>> strokes = get_strokes(canvas);
+        strokes.insert(strokes.end(), live_erase_strokes.begin(), live_erase_strokes.end());
 
         if (!strokes.empty()) {
             stroke_renderer_->render_strokes(

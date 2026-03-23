@@ -346,9 +346,8 @@ void PlayheadSelectionActor::select_media(
                             currently_selected != source_actors_.end()) {
                             // part of current selection..
 
-                            if (auto mit = monitor_.find(
-                                    caf::actor_cast<caf::actor_addr>(
-                                        currently_selected->second));
+                            if (auto mit = monitor_.find(caf::actor_cast<caf::actor_addr>(
+                                    currently_selected->second));
                                 mit != std::end(monitor_)) {
                                 mit->second.dispose();
                                 monitor_.erase(mit);

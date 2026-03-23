@@ -119,12 +119,12 @@ Item{
                     showHidden: prefs.showHidden
                     locationFilter: prefs.filterLocation
                     unitFilter: {
-                        if( projectIndex && projectIndex.model && projectIndex.model.get(projectIndex,"nameRole") in prefs.filterUnit)
+                        if(prefs.inited && projectIndex && projectIndex.model && projectIndex.model.get(projectIndex,"nameRole") in prefs.filterUnit)
                             return prefs.filterUnit[projectIndex.model.get(projectIndex,"nameRole")]
                         return []
                     }
                     typeFilter: {
-                        if( projectIndex && projectIndex.model && projectIndex.model.get(projectIndex,"nameRole") in prefs.filterType)
+                        if(prefs.inited && projectIndex && projectIndex.model && projectIndex.model.get(projectIndex,"nameRole") in prefs.filterType)
                             return prefs.filterType[projectIndex.model.get(projectIndex,"nameRole")]
                         return []
                     }
@@ -191,10 +191,7 @@ Item{
                 imgSrc: "qrc:/icons/link.svg"
 
                 isActive: sequenceTreeLiveLink && !isPaused
-                onClicked: {
-                    // searchBtn.isExpanded = false
-                    sequenceTreeLiveLink  = !sequenceTreeLiveLink
-                }
+                onClicked: sequenceTreeLiveLink  = !sequenceTreeLiveLink
             }
 
             Item{
@@ -232,7 +229,7 @@ Item{
 
         XsPopupMenu {
             id: shotFilterPopup
-            menu_model_name: "shot_filter_popup"
+            menu_model_name: "shot_filter_popup" + shotFilterPopup
             visible: false
 
             closePolicy: filterBtn.hovered ? Popup.CloseOnEscape :  Popup.CloseOnEscape | Popup.CloseOnPressOutside
@@ -414,8 +411,8 @@ Item{
                 model:  DelegateModel {
                     property var notifyUnitModel: ShotBrowserEngine.presetsModel.termModel("Unit", "Version", projectId)
                     onNotifyUnitModelChanged: {
-                        if(sequenceFilterModel && projectIndex) {
-                            if( projectIndex.model.get(projectIndex,"nameRole") in prefs.filterUnit)
+                        if(sequenceFilterModel && projectIndex && projectIndex.valid) {
+                            if( prefs.inited && projectIndex.model.get(projectIndex,"nameRole") in prefs.filterUnit)
                                 sequenceFilterModel.unitFilter = prefs.filterUnit[projectIndex.model.get(projectIndex,"nameRole")]
                             else
                                 sequenceFilterModel.unitFilter = []
@@ -475,8 +472,8 @@ Item{
                 model:  DelegateModel {
                     property var notifyTypeModel: sequenceFilterModel && sequenceFilterModel.sourceModel && sequenceFilterModel.sourceModel.types.length ? sequenceFilterModel.sourceModel.types : []
                     onNotifyTypeModelChanged: {
-                        if(sequenceFilterModel && projectIndex) {
-                            if( projectIndex.model.get(projectIndex,"nameRole") in prefs.filterType)
+                        if(sequenceFilterModel && projectIndex && projectIndex.valid) {
+                            if(prefs.inited && projectIndex.model.get(projectIndex, "nameRole") in prefs.filterType)
                                 sequenceFilterModel.typeFilter = prefs.filterType[projectIndex.model.get(projectIndex,"nameRole")]
                             else
                                 sequenceFilterModel.typeFilter = []

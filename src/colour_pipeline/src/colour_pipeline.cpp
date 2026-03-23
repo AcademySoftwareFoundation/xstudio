@@ -79,13 +79,13 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
                 .then(
                     [=](const ColourPipelineDataPtr ptr) mutable {
                         media_reader::ImageBufPtr result = image;
-                        result.colour_pipe_data_         = ptr;
+                        result.colour_pipe_data()        = ptr;
 
                         mail(colour_operation_uniforms_atom_v, result)
                             .request(self(), infinite)
                             .then(
                                 [=](const utility::JsonStore &colour_pipe_uniforms) mutable {
-                                    result.colour_pipe_uniforms_ = colour_pipe_uniforms;
+                                    result.colour_pipe_uniforms() = colour_pipe_uniforms;
                                     rp.deliver(result);
                                 },
                                 [=](caf::error &err) mutable { rp.deliver(err); });
@@ -269,15 +269,20 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
             const media_reader::ImageBufPtr &image) -> result<utility::JsonStore> {
             auto rp = make_response_promise<utility::JsonStore>();
 
-            if (!image.colour_pipe_data_) {
+            if (!image.colour_pipe_data()) {
                 rp.deliver(utility::JsonStore());
                 return rp;
             }
 
             auto result = std::make_shared<utility::JsonStore>();
-            for (const auto &op : image.colour_pipe_data_->operations()) {
+            for (const auto &op : image.colour_pipe_data()->operations()) {
                 result->merge(update_shader_uniforms(image, op->user_data_));
             }
+
+            if (image.frame_id().params().contains("shader_overrides")) {
+                result->merge(image.frame_id().params()["shader_overrides"]);
+            }
+
             auto rcount = std::make_shared<int>((int)colour_op_plugins_.size());
 
             if (!colour_op_plugins_.size()) {

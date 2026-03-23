@@ -66,7 +66,9 @@ void py_config::add_messages() {
     add_message_type<media::StreamDetail>(
         "StreamDetail", "xstudio::media::StreamDetail", &register_streamdetail_class);
     add_message_type<plugin_manager::PluginDetail>(
-        "PluginDetail", "xstudio::plugin_manager::PluginDetail", &XSTUDIO_REGISTER_PLUGINdetail_class);
+        "PluginDetail",
+        "xstudio::plugin_manager::PluginDetail",
+        &XSTUDIO_REGISTER_PLUGINdetail_class);
     add_message_type<std::vector<plugin_manager::PluginDetail>>(
         "PluginDetailVec", "std::vector<xstudio::plugin_manager::PluginDetail>", nullptr);
     add_message_type<playhead::AssemblyMode>(

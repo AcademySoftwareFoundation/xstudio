@@ -24,12 +24,18 @@ We require 5 packages to be installed to proceed. Run these commands in a termin
 
 Follow [these instructions](downloading_qt.md)
 
+> **NOTE:** Since Xcode version 26.X our specified version of Qt (6.5.3) is not strictly compatible with MacOS and you may see an error when you run the first 'cmake' command below. There are two options to resolve this. You can download Qt version 6.8.3 and use this instead of 6.5.3. Alternatively, open the file 'FindWrapOpenGL.cmake' within the Qt installation (at 6.5.3/macos/lib/cmake) and comment out lines 48 and 49 so that they look like this:
+
+    #target_link_libraries(WrapOpenGL::WrapOpenGL INTERFACE ${__opengl_fw_path})
+    #target_link_libraries(WrapOpenGL::WrapOpenGL INTERFACE ${__opengl_agl_fw_path})
+
 ### Download the VCPKG repo
 
-To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo and run the bootstrap script before we build xstudio.
+To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo, run the bootstrap script and then switch to a specific git commit before we build xstudio. Run these commands in a terminal:
 
     git clone https://github.com/microsoft/vcpkg.git
     ./vcpkg/bootstrap-vcpkg.sh
+    git checkout c2aeddd80357b17592e59ad965d2adf65a19b22f
 
 ### Download the xSTUDIO repo
 

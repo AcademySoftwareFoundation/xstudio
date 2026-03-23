@@ -222,7 +222,7 @@ void ShotBrowser::get_action(
                 action.at("ivy_uuid").get<std::string>(),
                 action.at("job").get<std::string>());
         } else if (operation == "GetShotFromId") {
-            find_shot(rp, action.at("shot_id").get<int>());
+            find_shot(rp, action.at("project_id").get<int>(), action.at("shot_id").get<int>());
         } else if (operation == "GetFields") {
             get_fields(
                 rp,

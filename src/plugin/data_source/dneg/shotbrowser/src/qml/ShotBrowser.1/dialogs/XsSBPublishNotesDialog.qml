@@ -42,11 +42,12 @@ XsWindow{
 
     property int notesCount: (payload_obj ? payload_obj["payload"].length : 0)
 
+    onProjectIdChanged: ShotBrowserEngine.cacheProject(projectId)
 
     onNotesCountChanged:{
         if(notesCount===1) message = "Ready to publish " +notesCount+" note."
         else if(notesCount>1) message = "Ready to publish " +notesCount+" notes."
-        else message = "No notes to publish." + projectId
+        else message = "No notes to publish."
     }
 
     onPayloadChanged: {
@@ -55,8 +56,7 @@ XsWindow{
 
             // find project id..
             if(payload_obj && payload_obj["payload"].length) {
-                let id = payload_obj["payload"][0]["payload"]["project"]["id"]
-                projectDiv.currentIndex = projectDiv.model.search(id, "idRole").row
+                projectId = payload_obj["payload"][0]["payload"]["project"]["id"]
             }
             invalidPublish = false
         } catch(err) {
@@ -70,8 +70,9 @@ XsWindow{
 
     onPlaylistUuidChanged: {
         // update playlist combo, if required.
+        let ustr = helpers.QUuidToQString(playlistUuid)
+
         for(let i = 0; i< theSessionData.playlists.length; i++) {
-            let ustr = helpers.QUuidToQString(playlistUuid)
             if(theSessionData.playlists[i].uuid == ustr) {
                 if(playlistDiv.currentIndex != i)
                     playlistDiv.currentIndex = i
@@ -86,10 +87,8 @@ XsWindow{
     width: 400
     height: 660
     minimumWidth: 400
-    // maximumWidth: width
     minimumHeight: height
     maximumHeight: height
-    // palette.base: XsStyleSheet.panelTitleBarColor
 
     XsSBPublishNotesFeedback {
         id: publish_notes_feedback
@@ -165,7 +164,7 @@ XsWindow{
                         if (json_obj.error.hasOwnProperty("message") && json_obj.error.hasOwnProperty("source")) {
                             message = "" + json_obj.error.source + " : " + json_obj.error.message
                         }
-                        
+
                         message = "Publish notes has failed with the following error...\n\n"+message+"\n\nPlease retry first. Contact xSTUDIO support team with details of the error if it persists."
                         dialogHelpers.errorDialogFunc("Publish Shotgrid Notes Failed", message)
                         return
@@ -326,31 +325,31 @@ XsWindow{
         anchors.leftMargin: 20
         anchors.rightMargin: 20
 
-        XsTextWithComboBoxFullSize{ id: projectDiv
-            Layout.fillWidth: true
-            Layout.preferredHeight: itemHeight*1.5
-            Layout.topMargin: itemHeight/2
+        // XsTextWithComboBoxFullSize{ id: projectDiv
+        //     Layout.fillWidth: true
+        //     Layout.preferredHeight: itemHeight*1.5
+        //     Layout.topMargin: itemHeight/2
 
-            enabled: false
+        //     enabled: false
 
-            text: "Select project :"
-            model: ShotBrowserEngine.ready ? ShotBrowserEngine.presetsModel.termModel("Project") : []
-            valueDiv.textRole: "nameRole"
-            onCurrentIndexChanged: {
-                if(currentIndex != -1) {
-                    let pid = model.get(model.index(currentIndex,0), "idRole")
-                    ShotBrowserEngine.cacheProject(pid)
-                    projectId = pid
-                }
-            }
-        }
+        //     text: "Select project :"
+        //     model: ShotBrowserEngine.ready ? ShotBrowserEngine.presetsModel.termModel("Project") : []
+        //     valueDiv.textRole: "nameRole"
+        //     onCurrentIndexChanged: {
+        //         if(currentIndex != -1) {
+        //             let pid = model.get(model.index(currentIndex,0), "idRole")
+        //             ShotBrowserEngine.cacheProject(pid)
+        //             projectId = pid
+        //         }
+        //     }
+        // }
 
         XsTextWithComboBoxFullSize{ id: playlistDiv
             Layout.fillWidth: true
             Layout.preferredHeight: itemHeight*1.5
             Layout.topMargin: itemHeight/4
 
-            enabled: isPlaylistNotes
+            visible: isPlaylistNotes
 
             text: "Select XSTUDIO playlist :"
             valueDiv.textRole: "text"
@@ -376,7 +375,7 @@ XsWindow{
                 Layout.fillWidth: true
                 Layout.preferredHeight: itemHeight*1.5
 
-                valueDiv.textColorNormal: model[currentIndex] == "Default Profile" ? XsStyleSheet.secondaryTextColor : palette.text
+                valueDiv.textColorNormal: model[currentIndex] == "Default Profile" ? XsStyleSheet.secondaryTextColor : XsStyleSheet.primaryTextColor
 
                 text: "Profiles :"
                 model: prefs.settings
@@ -598,7 +597,7 @@ XsWindow{
                 width: parent.width - itemSpacing*2
                 height: message? itemHeight : 0
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignHCenter
-                color: XsStyleSheet.accentColor //errorColor
+                color: XsStyleSheet.accentColor
                 wrapMode: Text.Wrap
                 text: message
             }

@@ -87,7 +87,7 @@ namespace playhead {
             const media::AVFrameIDsAndTimePoints &lookahead_frames);
 
         void receive_image_from_cache(
-            media_reader::ImageBufPtr image_buffer,
+            media_reader::ImageBufPtr &image_buffer,
             const media::AVFrameID mptr,
             const utility::time_point tp,
             const timebase::flicks timeline_pts);

@@ -210,6 +210,12 @@ void PixelProbeHUD::update_onscreen_info(
             const auto &im = onscreen_image_set->onscreen_image(i);
             if (im) {
 
+                if (im != current_image_) {
+                    current_image_         = im;
+                    pixel_unpack_uniforms_ = im->shader_params();
+                    pixel_unpack_uniforms_.merge(im.colour_pipe_uniforms());
+                }
+
                 // Convert pointer_position to normalised image coordinates
                 // (image width always spans -1.0, 1.0 in x)
                 const float a = 1.0f / image_aspect(im);
@@ -222,8 +228,9 @@ void PixelProbeHUD::update_onscreen_info(
                         int(round((p0.x + 1.0f) * 0.5f * im->image_size_in_pixels().x)),
                         int(round((p0.y / a + 1.0f) * 0.5f * im->image_size_in_pixels().y)));
 
+
                     // here we get the RGB, YUV value at the image coordinate
-                    const auto pixel_info = im->pixel_info(image_coord);
+                    const auto pixel_info = im->pixel_info(image_coord, pixel_unpack_uniforms_);
                     ptr_in_image          = true;
 
                     if (!viewport_name.empty()) {

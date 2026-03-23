@@ -27,7 +27,7 @@ void ShotBrowser::create_playlist_notes(
             font.pixelSize: XsStyle.popupControlFontSize*1.2
             verticalAlignment: Text.AlignVCenter
             font.weight: Font.Bold
-            color: palette.highlight
+            color: XsStyleSheet.accentColor
             text: "SG"
         }
     )");
@@ -166,11 +166,10 @@ void ShotBrowser::create_playlist_notes(
                                 }
                             }
 
-                            jsn["data"]["status"] = std::string(
-                                fmt::format(
-                                    "Successfully published {} / {} notes.",
-                                    *succeed,
-                                    (*failed) + (*succeed)));
+                            jsn["data"]["status"] = std::string(fmt::format(
+                                "Successfully published {} / {} notes.",
+                                *succeed,
+                                (*failed) + (*succeed)));
                             rp.deliver(jsn);
                         }
                     },
@@ -207,11 +206,10 @@ void ShotBrowser::create_playlist_notes(
                                 index++;
                             }
 
-                            jsn["data"]["status"] = std::string(
-                                fmt::format(
-                                    "Successfully published {} / {} notes.",
-                                    *succeed,
-                                    (*failed) + (*succeed)));
+                            jsn["data"]["status"] = std::string(fmt::format(
+                                "Successfully published {} / {} notes.",
+                                *succeed,
+                                (*failed) + (*succeed)));
                             rp.deliver(jsn);
                         }
                     });

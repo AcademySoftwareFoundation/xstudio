@@ -17,8 +17,8 @@ BusyIndicator {
 
         Item {
             id: item
-            x: parent.width / 2 - (size/2)
-            y: parent.height / 2 - (size/2)
+            x: (parent.width - size) / 2
+            y: (parent.height - size) / 2
             width: size
             height: size
             opacity: control.running ? 1 : 0
@@ -36,8 +36,8 @@ BusyIndicator {
                 repeat: true
 
                 onTriggered: {
-                    control.rotation = control.rotation + 60.0
-                    if (control.rotation >= 360.0) control.rotation = 0.0
+                    control.rotation = control.rotation + 60
+                    if (control.rotation >= 360) control.rotation = 0
                 }
             }
 
@@ -46,8 +46,8 @@ BusyIndicator {
                 model: spot_count
 
                 Rectangle {
-                    x: item.width / 2 - width / 2
-                    y: item.height / 2 - height / 2
+                    x: (item.width - width) / 2
+                    y: (item.height - height) / 2
                     width: spot_radius * 2
                     height: spot_radius * 2
                     radius: spot_radius
@@ -56,12 +56,12 @@ BusyIndicator {
                     opacity: index / (repeater.count-1)
                     transform: [
                         Translate {
-                            y: -Math.min(item.width, item.height) * 0.5 + (size/10)
+                            y: -Math.min(item.width, item.height) * 0.5 + (spot_radius)
                         },
                         Rotation {
                             angle: index / repeater.count * 360
-                            origin.x: size/10
-                            origin.y: size/10
+                            origin.x: spot_radius
+                            origin.y: spot_radius
                         }
                     ]
                 }

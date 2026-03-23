@@ -128,7 +128,24 @@ std::optional<message> py_context::py_build_message(const py::args &xs) {
     message_builder mb;
     for (; i != xs.end(); ++i) {
         std::string type_name = PyEval_GetFuncName((*i).ptr());
-        auto kvp              = bindings().find(type_name);
+        if (type_name == "dict") {
+            // special case for dicts - we want to convert them to JsonStore
+            try {
+                py::object json_py_module = py::module_::import("json");
+                py::object as_json_str    = json_py_module.attr("dumps")(*i);
+                const xstudio::utility::JsonStore js(
+                    nlohmann::json::parse(as_json_str.cast<std::string>()));
+                mb.append(js);
+                continue;
+            } catch (const std::exception &err) {
+                set_py_exception(
+                    "Attempt to send a message to xSTUDIO with dict data that is not 'json' "
+                    "compatible: ",
+                    err.what());
+                return {};
+            }
+        }
+        auto kvp = bindings().find(type_name);
         if (kvp == bindings().end()) {
             set_py_exception(
                 R"(Unable to add element of type A ")",
@@ -416,9 +433,8 @@ xstudio::utility::Uuid py_context::py_add_message_callback(const py::args &xs) {
         anon_mail(remote_actor, uuid).send(message_callback_handler_actor_);
 
     } else {
-        throw std::runtime_error(
-            "Set message callback expecting tuple of size 2 "
-            "(remote_event_group_actor, callack_func).");
+        throw std::runtime_error("Set message callback expecting tuple of size 2 "
+                                 "(remote_event_group_actor, callack_func).");
     }
     return uuid;
 }

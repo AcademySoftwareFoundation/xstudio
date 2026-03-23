@@ -70,11 +70,11 @@ void Canvas::redo() {
     changed();
 }
 
-void Canvas::update_stroke(const Imath::V2f &pt, const float pressure) {
+void Canvas::update_stroke(const Imath::V2f &pt, float size_sens, float opacity_sens) {
 
     std::unique_lock l(mutex_);
     if (has_current_item_nolock<Stroke>()) {
-        current_item<Stroke>().add_point(pt, pressure);
+        current_item<Stroke>().add_point(pt, size_sens, opacity_sens);
     }
     changed();
 }

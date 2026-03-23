@@ -5,6 +5,10 @@
 #include <caf/actor_registry.hpp>
 #include <tuple>
 
+#ifndef __apple__
+#include <malloc.h>
+#endif
+
 #include <zstr.hpp>
 
 #include "xstudio/atoms.hpp"
@@ -640,12 +644,11 @@ void SessionActor::init() {
     //     }
     // });
 
-    behavior_.assign(
-        message_handler()
-            .or_else(base_.container_message_handler(this))
-            .or_else(notification_.message_handler(this, base_.event_group()))
-            .or_else(bookmark::BookmarksActor::default_event_handler())
-            .or_else(playlist::PlaylistActor::default_event_handler()));
+    behavior_.assign(message_handler()
+                         .or_else(base_.container_message_handler(this))
+                         .or_else(notification_.message_handler(this, base_.event_group()))
+                         .or_else(bookmark::BookmarksActor::default_event_handler())
+                         .or_else(playlist::PlaylistActor::default_event_handler()));
 
     anon_mail(bookmark::associate_bookmark_atom_v).send(caf::actor_cast<caf::actor>(this));
 
@@ -928,6 +931,18 @@ caf::message_handler SessionActor::message_handler() {
                                 .then(
                                     [=](size_t r) mutable {
                                         rp.deliver(r);
+
+                    // Note: Saving really big sessions baloons memory footprint
+                    // due to nlohman::json objects being duplicated thousands of
+                    // times.
+                    // We do malloc_trim to release memory here to force kernel
+                    // to release memory
+#ifdef _WIN32
+                                        _heapmin();
+#elif defined(__linux__)
+                                        malloc_trim(64);
+#endif
+
                                         if (update_path) {
                                             base_.set_filepath(path);
                                             mail(
@@ -1647,22 +1662,6 @@ caf::message_handler SessionActor::message_handler() {
             return true;
         },
 
-        [=](media::current_media_atom) -> UuidActorVector {
-            auto result = UuidActorVector();
-
-            for (const auto &i : selectedMedia_)
-                result.emplace_back(UuidActor(i.first, i.second));
-
-            return result;
-        },
-
-        [=](media::current_media_atom, const UuidActorVector &media) {
-            selectedMedia_.clear();
-            for (const auto &i : media) {
-                selectedMedia_.push_back(std::make_pair(i.uuid(), i.actor_addr()));
-            }
-        },
-
         [=](session::active_media_container_atom) -> UuidActor { return inspectedContainer_; },
 
         [=](session::viewport_active_media_container_atom) -> UuidActor {
@@ -1772,7 +1771,12 @@ caf::message_handler SessionActor::message_handler() {
                 .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const bool) mutable {
-                        auto stores = std::make_shared<std::map<std::string, JsonStore>>();
+                        auto auto_responder = utility::AutoResponder<JsonStore>(
+                            5, // 5 reponses pending global_store, store, bookmarks,
+                               // media_hook_versions, actors
+                            rp);
+                        auto_responder.result()["_Application_"] = "xStudio";
+                        auto_responder.result()["base"]          = base_.serialise();
 
                         mail(utility::serialise_atom_v, "SESSION")
                             .request(
@@ -1781,41 +1785,41 @@ caf::message_handler SessionActor::message_handler() {
                                 infinite)
                             .then(
                                 [=](const JsonStore &result) mutable {
-                                    (*stores)["global_store"] = result;
-                                    check_save_serialise_payload(stores, rp);
+                                    auto_responder.result()["global_store"] = result;
+                                    auto_responder.decrement();
                                 },
                                 [=](error &err) mutable {
                                     spdlog::warn(
                                         "{} global_store {}",
                                         __PRETTY_FUNCTION__,
                                         to_string(err));
-                                    rp.deliver(std::move(err));
+                                    auto_responder.decrement(err);
                                 });
 
                         mail(json_store::get_json_atom_v)
                             .request(json_store_, infinite)
                             .then(
                                 [=](const JsonStore &result) mutable {
-                                    (*stores)["store"] = result;
-                                    check_save_serialise_payload(stores, rp);
+                                    auto_responder.result()["store"] = result;
+                                    auto_responder.decrement();
                                 },
                                 [=](error &err) mutable {
                                     spdlog::warn(
                                         "{} store {}", __PRETTY_FUNCTION__, to_string(err));
-                                    rp.deliver(std::move(err));
+                                    auto_responder.decrement(err);
                                 });
 
                         mail(utility::serialise_atom_v)
                             .request(bookmarks_, infinite)
                             .then(
                                 [=](const JsonStore &result) mutable {
-                                    (*stores)["bookmarks"] = result;
-                                    check_save_serialise_payload(stores, rp);
+                                    auto_responder.result()["bookmarks"] = result;
+                                    auto_responder.decrement();
                                 },
                                 [=](error &err) mutable {
                                     spdlog::warn(
                                         "{} bookmarks {}", __PRETTY_FUNCTION__, to_string(err));
-                                    rp.deliver(std::move(err));
+                                    auto_responder.decrement(err);
                                 });
 
                         mail(utility::serialise_atom_v)
@@ -1825,37 +1829,39 @@ caf::message_handler SessionActor::message_handler() {
                                 infinite)
                             .then(
                                 [=](const JsonStore &result) mutable {
-                                    (*stores)["media_hook_versions"] = result;
-                                    check_save_serialise_payload(stores, rp);
+                                    auto_responder.result()["media_hook_versions"] = result;
+                                    auto_responder.decrement();
                                 },
                                 [=](error &err) mutable {
                                     spdlog::warn(
                                         "{} media_hook_versions {}",
                                         __PRETTY_FUNCTION__,
                                         to_string(err));
-                                    rp.deliver(std::move(err));
+                                    auto_responder.decrement(err);
                                 });
 
                         if (playlists().empty()) {
-                            (*stores)["actors"] = JsonStore(R"({})"_json);
+                            auto_responder.result()["actors"] = {};
+                            auto_responder.decrement();
                         } else {
                             fan_out_request<policy::select_all>(
                                 playlists(), infinite, serialise_atom_v)
                                 .then(
                                     [=](std::vector<JsonStore> json) mutable {
-                                        (*stores)["actors"] = {};
+                                        auto_responder.result()["actors"] = {};
                                         for (const auto &j : json) {
-                                            (*stores)["actors"][static_cast<std::string>(
-                                                j["base"]["container"]["uuid"])] = j;
+                                            auto_responder
+                                                .result()["actors"][static_cast<std::string>(
+                                                    j["base"]["container"]["uuid"])] = j;
                                         }
-                                        check_save_serialise_payload(stores, rp);
+                                        auto_responder.decrement();
                                     },
                                     [=](error &err) mutable {
                                         spdlog::warn(
                                             "{} actors {}",
                                             __PRETTY_FUNCTION__,
                                             to_string(err));
-                                        rp.deliver(std::move(err));
+                                        auto_responder.decrement(err);
                                     });
                         }
                     },
@@ -2045,34 +2051,6 @@ caf::message_handler SessionActor::message_handler() {
             // event from 'global_playhead_events_actor'
             // the onscreen media for the given viewport has changed
         }};
-}
-
-void SessionActor::check_save_serialise_payload(
-    std::shared_ptr<std::map<std::string, JsonStore>> &payload,
-    caf::typed_response_promise<utility::JsonStore> &rp) {
-
-    // all data must be present
-    if (not payload->count("global_store"))
-        return;
-    if (not payload->count("store"))
-        return;
-    if (not payload->count("bookmarks"))
-        return;
-    if (not payload->count("media_hook_versions"))
-        return;
-    if (not payload->count("actors"))
-        return;
-
-    JsonStore jsn;
-    jsn["_Application_"]       = "xStudio";
-    jsn["base"]                = base_.serialise();
-    jsn["actors"]              = (*payload)["actors"];
-    jsn["global_store"]        = (*payload)["global_store"];
-    jsn["store"]               = (*payload)["store"];
-    jsn["bookmarks"]           = (*payload)["bookmarks"];
-    jsn["media_hook_versions"] = (*payload)["media_hook_versions"];
-
-    rp.deliver(jsn);
 }
 
 

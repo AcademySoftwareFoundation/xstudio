@@ -594,7 +594,7 @@ std::optional<ResolvedItem> Item::resolve_time(
     case IT_TIMELINE:
         // pass to stack
         if (not empty()) {
-            auto t = front().resolve_time(time + trimmed_start(), mt, focus, must_have_focus);
+            auto t = front().resolve_time(time, mt, focus, must_have_focus);
             if (t)
                 return *t;
         }

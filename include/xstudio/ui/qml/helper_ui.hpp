@@ -93,9 +93,8 @@ namespace ui {
             Q_PROPERTY(
                 double frameRate READ frameRate WRITE setFrameRate NOTIFY timeCodeChanged)
             Q_PROPERTY(bool dropFrame READ dropFrame WRITE setDropFrame NOTIFY timeCodeChanged)
-            Q_PROPERTY(
-                unsigned int totalFrames READ totalFrames WRITE setTotalFrames NOTIFY
-                    timeCodeChanged)
+            Q_PROPERTY(unsigned int totalFrames READ totalFrames WRITE setTotalFrames NOTIFY
+                           timeCodeChanged)
             Q_PROPERTY(QString timeCode READ timeCode NOTIFY timeCodeChanged)
 
           public:
@@ -578,24 +577,32 @@ namespace ui {
                 if (name == "")
                     restoreOverrideCursor();
                 else {
-                    if (cursors.count(name))
+                    if (cursors.count(name)) {
                         QGuiApplication::setOverrideCursor(QCursor(cursors.at(name)));
-                    else
+                        custom_cursor_count_++;
+                    } else {
                         QGuiApplication::setOverrideCursor(
                             QCursor(QPixmap(name).scaledToWidth(32, Qt::SmoothTransformation)));
+                        custom_cursor_count_++;
+                    }
                 }
+            }
+
+            Q_INVOKABLE QString stringFromTimeCode(const unsigned int frames, const double frameRate, const bool dropFrame=false) const {
+                return QStringFromStd(to_string(utility::Timecode(frames, frameRate, dropFrame)));
             }
 
             // alternate version taking an ItemGrabResult
             Q_INVOKABLE void setOverrideCursor(QObject *i) {
                 if (i) {
-                    const auto item = qobject_cast<QQuickItemGrabResult*>(i);
+                    const auto item = qobject_cast<QQuickItemGrabResult *>(i);
                     if (item) {
                         const auto qi = item->image();
                         const auto qp = QPixmap::fromImage(qi);
 
                         auto qc = QCursor(qp);
                         QGuiApplication::setOverrideCursor(qc);
+                        custom_cursor_count_++;
                         return;
                     }
                 }
@@ -603,7 +610,10 @@ namespace ui {
             }
 
             Q_INVOKABLE void restoreOverrideCursor() {
-                QGuiApplication::restoreOverrideCursor();
+                while (custom_cursor_count_) {
+                    QGuiApplication::restoreOverrideCursor();
+                    custom_cursor_count_--;
+                }
             }
 
             Q_INVOKABLE [[nodiscard]] QString getUserName() const {
@@ -625,6 +635,10 @@ namespace ui {
 
             Q_INVOKABLE [[nodiscard]] QString encodedFromQUrl(const QUrl &url) const {
                 return url.toEncoded();
+            }
+
+            Q_INVOKABLE [[nodiscard]] QString prettyDecodedFromQURL(const QUrl &url) const {
+                return url.toString(QUrl::FullyDecoded);
             }
 
             Q_INVOKABLE [[nodiscard]] QPersistentModelIndex
@@ -685,11 +699,11 @@ namespace ui {
 
             Q_INVOKABLE [[nodiscard]] QString validMediaExtensions() const {
                 std::string result;
-                for (const auto &i : utility::supported_extensions) {
+                for (const auto &i : utility::supported_extensions()) {
                     if (not result.empty())
                         result += " ";
                     result +=
-                        std::string("*") + i + " " + std::string("*") + utility::to_lower(i);
+                        std::string("*.") + i + " " + std::string("*.") + utility::to_lower(i);
                 }
                 return QStringFromStd(result);
             }
@@ -865,6 +879,7 @@ namespace ui {
 
           private:
             QQmlEngine *engine_;
+            int custom_cursor_count_ = 0;
         };
 
         class HELPER_QML_EXPORT KeyEventsItem : public QQuickItem {
@@ -994,9 +1009,8 @@ namespace ui {
         class HELPER_QML_EXPORT ClipboardProxy : public QObject {
             Q_OBJECT
             Q_PROPERTY(QString text READ dataText WRITE setDataText NOTIFY dataChanged)
-            Q_PROPERTY(
-                QString selectionText READ selectionText WRITE setSelectionText NOTIFY
-                    selectionChanged)
+            Q_PROPERTY(QString selectionText READ selectionText WRITE setSelectionText NOTIFY
+                           selectionChanged)
             Q_PROPERTY(QVariant data READ data WRITE setData NOTIFY dataChanged)
             Q_PROPERTY(QString html READ html WRITE setHtml NOTIFY dataChanged)
           public:
@@ -1146,9 +1160,8 @@ namespace ui {
         class HELPER_QML_EXPORT MarkerModel : public JSONTreeModel {
             Q_OBJECT
 
-            Q_PROPERTY(
-                QVariant markerData READ markerData WRITE setMarkerData NOTIFY
-                    markerDataChanged)
+            Q_PROPERTY(QVariant markerData READ markerData WRITE setMarkerData NOTIFY
+                           markerDataChanged)
 
           public:
             enum Roles {
@@ -1195,9 +1208,8 @@ namespace ui {
 
             Q_PROPERTY(QVariant propertyValue READ propertyValue NOTIFY propertyValueChanged)
             Q_PROPERTY(QObject *target READ target WRITE setTarget NOTIFY targetChanged)
-            Q_PROPERTY(
-                QString propertyName READ propertyName WRITE setPropertyName NOTIFY
-                    propertyNameChanged)
+            Q_PROPERTY(QString propertyName READ propertyName WRITE setPropertyName NOTIFY
+                           propertyNameChanged)
 
           public:
             PropertyFollower(QObject *parent = nullptr) : QObject(parent) {}

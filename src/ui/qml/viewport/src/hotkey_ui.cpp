@@ -213,9 +213,9 @@ void HotkeyUI::init(actor_system &system_) {
                     if (context_.isNull() || context_ == QString("any") ||
                         StdFromQString(context_) == context) {
                         if (hotkey_pressed)
-                            emit activated();
+                            emit activated(QStringFromStd(context));
                         else
-                            emit released();
+                            emit released(QStringFromStd(context));
                     }
                 }
             }

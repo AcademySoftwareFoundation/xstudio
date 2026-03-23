@@ -148,7 +148,7 @@ MRCertainty BlankMediaReader::supported(const caf::uri &uri, const std::array<ui
     // spdlog::warn("{} {}", to_string(uri.scheme()), to_string(uri.authority()));
 
     if (std::string(uri.scheme()) == "xstudio" and to_string(uri.authority()) == "blank") {
-        return MRC_FULLY;
+        return MRC_FORCE;
     }
 
     return MRC_NO;

@@ -68,7 +68,7 @@ Item {
     }
     property alias actionAttr: __action.value
 
-    // when this viewer is shown, we set the 'Action' attribute to the 
+    // when this viewer is shown, we set the 'Action' attribute to the
     // name of the viewport that this metadata viewer was launched from.
     // The backend plugin will then fetch the metadata for the on-screen
     // image and the media that it came from.
@@ -99,7 +99,7 @@ Item {
 
             Layout.fillWidth: true
             background: Rectangle {
-                color: palette.base
+                color: XsStyleSheet.panelBgColor
             }
 
             Repeater {
@@ -117,7 +117,7 @@ Item {
                     }
 
                     background: Rectangle {
-                        border.color: hovered? palette.highlight : "transparent"
+                        border.color: hovered? XsStyleSheet.accentColor : "transparent"
                         color: tabBar.currentIndex == index ? XsStyleSheet.panelTitleBarColor : Qt.darker(XsStyleSheet.panelTitleBarColor, 1.5)
                     }
                 }
@@ -155,7 +155,7 @@ Item {
                         text = backendV
                     }
                 }
-            }        
+            }
 
             Flickable {
                 id: flickable
@@ -163,7 +163,7 @@ Item {
 
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                
+
                 contentWidth: loader.item ? loader.item.width : 0
                 contentHeight: loader.item ? loader.item.height : 0
 
@@ -172,7 +172,7 @@ Item {
                     loader.sourceComponent = undefined
                     loader.sourceComponent = tabBar.currentIndex == 3 ? selected_metadata : metadata_group
                 }
-            
+
                 Component {
                     id: metadata_group
                     MetadataGroup {
@@ -205,5 +205,5 @@ Item {
         }
 
     }
-    
+
 }

@@ -590,6 +590,8 @@ media_reader::AudioBufPtr AudioOutputControl::pick_audio_buffer(
                                        .count()) /
                             1000000.0;
 
+    // std::cerr << "t_mismatch " << t_mismatch << "\n";
+
     // so if we are more than half the duration of the buffer out, return empty ptr
     if (!buf || fabs(t_mismatch) > buf->duration_seconds() / 2) {
         return media_reader::AudioBufPtr();
