@@ -53,7 +53,7 @@ XsWindow {
             height: 1
             Layout.fillWidth: true
             Layout.margins: 8
-            color: XsStyleSheet.menuDividerColor
+            color: XsStyleSheet.menuBorderColor
         }*/
 
         Item {
@@ -111,7 +111,7 @@ XsWindow {
         Rectangle {
             Layout.fillWidth: true
             height: 1
-            color: XsStyleSheet.menuDividerColor
+            color: XsStyleSheet.menuBorderColor
         }
 
         Item {

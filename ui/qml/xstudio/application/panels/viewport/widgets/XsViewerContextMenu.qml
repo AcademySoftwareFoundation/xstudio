@@ -210,13 +210,13 @@ XsPopupMenu {
         panelContext: btnMenu.panelContext
     }
 
-    XsMenuModelItem {
+    /*XsMenuModelItem {
         text: "Pipeline"
         menuPath: ""
         menuItemType: "divider"
         menuItemPosition: 10.26
         menuModelName: btnMenu.menu_model_name
-    }
+    }*/
 
     XsMenuModelItem {
         text: "Snapshot viewer..."

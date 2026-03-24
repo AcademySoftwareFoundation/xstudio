@@ -76,7 +76,7 @@ Item{
 
     property var indent: 50
     property var current_show_index: dataModel.index(0, 0, dataModel.root_index)
-    property var gridLineColour: XsStyleSheet.menuDividerColor
+    property var gridLineColour: XsStyleSheet.menuBorderColor
     property var sequenceIsSelected: false
 
     // This ItemSelectionModel manages selection of the render items in our
@@ -146,7 +146,7 @@ Item{
                     height: parent.height
                     x: parent.width/2-width/2
                     width: 2
-                    color: ma2.pressed ? "white" : ma2.containsMouse ? palette.highlight : XsStyleSheet.menuDividerColor
+                    color: ma2.pressed ? "white" : ma2.containsMouse ? XsStyleSheet.accentColor : XsStyleSheet.menuBorderColor
                 }
                 MouseArea {
                     id: ma2

@@ -49,12 +49,12 @@ Item {
 
             Layout.fillWidth: true
             Layout.preferredHeight: 40
-            border.color: XsStyleSheet.menuDividerColor
+            border.color: XsStyleSheet.menuBorderColor
             border.width: 1
 
             gradient: Gradient {
                 GradientStop { position: 0.0; color: XsStyleSheet.panelBgColor }
-                GradientStop { position: 0.33; color: XsStyleSheet.panelBgFlatColor }
+                GradientStop { position: 0.33; color: XsStyleSheet.panelBgGradTopColor }
                 GradientStop { position: 1.0; color: XsStyleSheet.panelBgColor }
             }
 

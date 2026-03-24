@@ -55,18 +55,15 @@ Item {
                     anchors.fill: parent
                     rotation: expanded ? 90 : 0
                     source: "qrc:/icons/chevron_right.svg"
-                    imgOverlayColor: (parent.containsMouse && index ? palette.highlight : XsStyleSheet.primaryTextColor)
+                    imgOverlayColor: (parent.containsMouse && index ? XsStyleSheet.accentColor : XsStyleSheet.primaryTextColor)
                     opacity: index ? 1.0 : 0.5
                 }
             }
 
-            Text {
+            XsText {
 
                 text: base.text
                 Layout.preferredHeight: 30
-                color: palette.text
-                font.pixelSize: XsStyleSheet.fontSize
-                font.family: XsStyleSheet.fontFamily
                 horizontalAlignment: Text.AlignLeft
                 verticalAlignment: Text.AlignVCenter
                 leftPadding: 4
@@ -85,7 +82,7 @@ Item {
                     anchors.fill: parent
                     opacity: 0.8
                     color: "transparent"
-                    border.color: palette.highlight
+                    border.color: XsStyleSheet.accentColor
                     visible: ma.containsMouse
                     z: 100
                 }
@@ -94,7 +91,7 @@ Item {
                 Rectangle {
                     anchors.fill: parent
                     opacity: 0.4
-                    color: palette.highlight
+                    color: XsStyleSheet.accentColor
                     visible: selected
                 }
 

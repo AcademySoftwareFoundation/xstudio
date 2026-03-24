@@ -103,7 +103,7 @@ Item {
             width: 1
             Layout.fillHeight: true
             Layout.margins: 8
-            color: XsStyleSheet.menuDividerColor
+            color: XsStyleSheet.menuBorderColor
         }
 
         XsSecondaryButton{
@@ -135,7 +135,7 @@ Item {
             width: 1
             Layout.fillHeight: true
             Layout.margins: 8
-            color: XsStyleSheet.menuDividerColor
+            color: XsStyleSheet.menuBorderColor
         }
 
         XsText {
@@ -153,7 +153,7 @@ Item {
             width: 1
             Layout.fillHeight: true
             Layout.margins: 8
-            color: XsStyleSheet.menuDividerColor
+            color: XsStyleSheet.menuBorderColor
         }
 
         Repeater {
@@ -173,7 +173,7 @@ Item {
             width: 1
             Layout.fillHeight: true
             Layout.margins: 8
-            color: XsStyleSheet.menuDividerColor
+            color: XsStyleSheet.menuBorderColor
         }
 
         DecklinkStatusIndicator {

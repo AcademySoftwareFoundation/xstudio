@@ -57,22 +57,19 @@ Item {
                                 y: parent.height-1
                                 height: 1
                                 width: parent.width
-                                color: XsStyleSheet.menuDividerColor
+                                color: XsStyleSheet.menuBorderColor
                             }
                             Rectangle {
                                 height: parent.height
                                 width: 1
-                                color: XsStyleSheet.menuDividerColor
+                                color: XsStyleSheet.menuBorderColor
                             }
-                            Text {
+                            XsText {
                                 anchors.fill: parent
                                 // the 'roleName' value provided by columns_model can be used
                                 // to look up the corresponding dataVale from dataModel
                                 // property var value: assetObject[roleName]
                                 text: versionsModel.data(model_index, roleName)
-                                color: palette.text
-                                font.pixelSize: XsStyleSheet.fontSize
-                                font.family: XsStyleSheet.fontFamily
                                 horizontalAlignment: Text.AlignLeft
                                 verticalAlignment: Text.AlignVCenter
                                 leftPadding: 12
@@ -99,12 +96,12 @@ Item {
                                 y: parent.height-1
                                 height: 1
                                 width: parent.width
-                                color: XsStyleSheet.menuDividerColor
+                                color: XsStyleSheet.menuBorderColor
                             }
                             Rectangle {
                                 height: parent.height
                                 width: 1
-                                color: XsStyleSheet.menuDividerColor
+                                color: XsStyleSheet.menuBorderColor
                             }
                             XsImage {
                                 id: img
@@ -151,7 +148,7 @@ Item {
         Rectangle {
             Layout.preferredHeight: 30
             width: 1
-            color: XsStyleSheet.menuDividerColor
+            color: XsStyleSheet.menuBorderColor
         }
 
     }
@@ -173,7 +170,7 @@ Item {
         anchors.fill: parent
         opacity: 0.8
         color: "transparent"
-        border.color: palette.highlight
+        border.color: XsStyleSheet.accentColor
         visible: ma.containsMouse
         z: 100
     }
@@ -182,7 +179,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         opacity: 0.4
-        color: palette.highlight
+        color: XsStyleSheet.accentColor
         visible: selected
     }
 
