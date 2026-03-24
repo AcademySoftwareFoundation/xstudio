@@ -303,13 +303,16 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
         if (!sws_context_) {
             const char *fmt_name = av_get_pix_fmt_name((AVPixelFormat)ffmpeg_pixel_format);
             if (fmt_name) {
-                throw std::runtime_error(fmt::format(
-                    "Unable to read image with pixel format {} to a playable image format.",
-                    fmt_name));
+                throw std::runtime_error(
+                    fmt::format(
+                        "Unable to read image with pixel format {} to a playable image format.",
+                        fmt_name));
             } else {
-                throw std::runtime_error(fmt::format(
-                    "Unable to read image with pixel format ID {} to a playable image format.",
-                    ffmpeg_pixel_format));
+                throw std::runtime_error(
+                    fmt::format(
+                        "Unable to read image with pixel format ID {} to a playable image "
+                        "format.",
+                        ffmpeg_pixel_format));
             }
         }
 
@@ -918,8 +921,8 @@ size_t FFMpegStream::resample_audio(
             throw media_corrupt_error(errbuf.data());
         }
 
-        src_audio_fmt_ = (AVSampleFormat)ffmpeg_frame_->format;
-        src_audio_sample_rate_ = ffmpeg_frame_->sample_rate;
+        src_audio_fmt_            = (AVSampleFormat)ffmpeg_frame_->format;
+        src_audio_sample_rate_    = ffmpeg_frame_->sample_rate;
         src_audio_channel_layout_ = dec_channel_layout;
     }
 

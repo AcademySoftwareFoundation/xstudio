@@ -195,14 +195,17 @@ class ShotBrowserResultFilterModel : public QSortFilterProxyModel {
     Q_PROPERTY(int count READ length NOTIFY lengthChanged)
 
 
-    Q_PROPERTY(bool sortByNaturalOrder READ sortByNaturalOrder WRITE setSortByNaturalOrder
-                   NOTIFY sortByChanged)
-    Q_PROPERTY(bool sortByCreationDate READ sortByCreationDate WRITE setSortByCreationDate
-                   NOTIFY sortByChanged)
+    Q_PROPERTY(
+        bool sortByNaturalOrder READ sortByNaturalOrder WRITE setSortByNaturalOrder NOTIFY
+            sortByChanged)
+    Q_PROPERTY(
+        bool sortByCreationDate READ sortByCreationDate WRITE setSortByCreationDate NOTIFY
+            sortByChanged)
     Q_PROPERTY(
         bool sortByShotName READ sortByShotName WRITE setSortByShotName NOTIFY sortByChanged)
-    Q_PROPERTY(bool sortInAscending READ sortInAscending WRITE setSortInAscending NOTIFY
-                   sortInAscendingChanged)
+    Q_PROPERTY(
+        bool sortInAscending READ sortInAscending WRITE setSortInAscending NOTIFY
+            sortInAscendingChanged)
 
     Q_PROPERTY(bool filterChn READ filterChn WRITE setFilterChn NOTIFY filterChnChanged)
     Q_PROPERTY(bool filterLon READ filterLon WRITE setFilterLon NOTIFY filterLonChanged)
@@ -211,8 +214,9 @@ class ShotBrowserResultFilterModel : public QSortFilterProxyModel {
     // Q_PROPERTY(bool filterVan READ filterVan WRITE setFilterVan NOTIFY filterVanChanged)
     Q_PROPERTY(bool filterSyd READ filterSyd WRITE setFilterSyd NOTIFY filterSydChanged)
 
-    Q_PROPERTY(QString filterPipeStep READ filterPipeStep WRITE setFilterPipeStep NOTIFY
-                   filterPipeStepChanged)
+    Q_PROPERTY(
+        QString filterPipeStep READ filterPipeStep WRITE setFilterPipeStep NOTIFY
+            filterPipeStepChanged)
     Q_PROPERTY(QString filterName READ filterName WRITE setFilterName NOTIFY filterNameChanged)
     Q_PROPERTY(QString filterLink READ filterLink WRITE setFilterLink NOTIFY filterLinkChanged)
 

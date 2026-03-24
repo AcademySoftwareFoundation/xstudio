@@ -23,16 +23,17 @@ QString capitaliseFirst(QString in) {
 GlobalStoreModel::GlobalStoreModel(QObject *parent) : super(parent) {
     init(CafSystemObject::get_actor_system());
 
-    setRoleNames(std::vector<std::string>(
-        {"nameRole",
-         "pathRole",
-         "datatypeRole",
-         "contextRole",
-         "valueRole",
-         "descriptionRole",
-         "defaultValueRole",
-         "overriddenValueRole",
-         "overriddenPathRole"}));
+    setRoleNames(
+        std::vector<std::string>(
+            {"nameRole",
+             "pathRole",
+             "datatypeRole",
+             "contextRole",
+             "valueRole",
+             "descriptionRole",
+             "defaultValueRole",
+             "overriddenValueRole",
+             "overriddenPathRole"}));
 }
 
 
@@ -339,19 +340,20 @@ bool GlobalStoreModel::setData(const QModelIndex &index, const QVariant &value, 
 PublicPreferencesModel::PublicPreferencesModel(QObject *parent) : super(parent) {
     init(CafSystemObject::get_actor_system());
 
-    setRoleNames(std::vector<std::string>(
-        {"nameRole",
-         "pathRole",
-         "datatypeRole",
-         "contextRole",
-         "valueRole",
-         "descriptionRole",
-         "defaultValueRole",
-         "overriddenValueRole",
-         "overriddenPathRole",
-         "displayNameRole",
-         "categoryRole",
-         "optionsRole"}));
+    setRoleNames(
+        std::vector<std::string>(
+            {"nameRole",
+             "pathRole",
+             "datatypeRole",
+             "contextRole",
+             "valueRole",
+             "descriptionRole",
+             "defaultValueRole",
+             "overriddenValueRole",
+             "overriddenPathRole",
+             "displayNameRole",
+             "categoryRole",
+             "optionsRole"}));
 }
 
 

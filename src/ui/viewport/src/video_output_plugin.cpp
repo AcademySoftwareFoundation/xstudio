@@ -54,27 +54,26 @@ void VideoOutputPlugin::finalise() {
 
                 mail(colour_pipeline::colour_pipeline_atom_v)
                     .request(offscreen_viewport_, infinite)
-                    .then([=](caf::actor colour_pipeline) {
-                        offscreen_colour_pipeline_ = colour_pipeline;
+                    .then(
+                        [=](caf::actor colour_pipeline) {
+                            offscreen_colour_pipeline_ = colour_pipeline;
 
-                        // sending this message forces the new viewport attach to the current
-                        // on screen playhead
-                        anon_mail(viewport_playhead_atom_v, true).send(offscreen_viewport_);
+                            // sending this message forces the new viewport attach to the
+                            // current on screen playhead
+                            anon_mail(viewport_playhead_atom_v, true).send(offscreen_viewport_);
 
-                        // now we have an offscreen viewport to send us frame buffers
-                        // we can initialise the card and start output
-                        initialise();
+                            // now we have an offscreen viewport to send us frame buffers
+                            // we can initialise the card and start output
+                            initialise();
 
-                        spawn_audio_output_actor(init_settings_store_);
-
-                    },
-                    [=](caf::error &err) {
-                        spdlog::warn(
-                            "{} failed to acquire colour pipeline actor from viewport:  {}",
-                            __PRETTY_FUNCTION__,
-                            to_string(err));
-                    });
-
+                            spawn_audio_output_actor(init_settings_store_);
+                        },
+                        [=](caf::error &err) {
+                            spdlog::warn(
+                                "{} failed to acquire colour pipeline actor from viewport:  {}",
+                                __PRETTY_FUNCTION__,
+                                to_string(err));
+                        });
             },
             [=](caf::error &err) mutable {
                 spdlog::critical(

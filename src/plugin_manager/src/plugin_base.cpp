@@ -254,10 +254,11 @@ void StandardPlugin::join_studio_events() {
         utility::request_receive<bool>(
             *sys, grp, broadcast::join_broadcast_atom_v, caf::actor_cast<caf::actor>(this));
 
-        session_changed(utility::request_receive<caf::actor>(
-            *sys,
-            system().registry().template get<caf::actor>(studio_registry),
-            session::session_atom_v));
+        session_changed(
+            utility::request_receive<caf::actor>(
+                *sys,
+                system().registry().template get<caf::actor>(studio_registry),
+                session::session_atom_v));
 
         anon_mail(broadcast::join_broadcast_atom_v, caf::actor_cast<caf::actor>(this))
             .send(playhead_events_actor_);

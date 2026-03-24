@@ -405,7 +405,8 @@ void StudioUI::loadVideoOutputPlugin(const utility::Uuid &plugin_id) {
                      ++p) {
                     if (p->second == addr) {
                         spdlog::debug(
-                            "Video output plugin {} has stopped, removing from list of active video outputs.",
+                            "Video output plugin {} has stopped, removing from list of active "
+                            "video outputs.",
                             to_string(p->first));
                         video_output_plugins_.erase(p);
                         break;

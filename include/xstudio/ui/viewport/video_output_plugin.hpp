@@ -168,8 +168,8 @@ namespace ui {
 
             // Access the colour pipeline actor of your viewport. You can send it messages
             // to request or set attributes that control the OCIO colour management
-            // for media in the video output. See blackmagic_decklink/src/decklink_colour_pipeline.cpp 
-            // for an example of this.
+            // for media in the video output. See
+            // blackmagic_decklink/src/decklink_colour_pipeline.cpp for an example of this.
             caf::actor colour_pipeline() const { return offscreen_colour_pipeline_; }
 
           protected:

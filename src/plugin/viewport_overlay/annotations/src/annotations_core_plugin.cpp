@@ -34,14 +34,13 @@ AnnotationsCore::AnnotationsCore(
 
     // These attributes are a convenient way to track the corresponding preferences
     // that store the last used note category and colour set by the user so that
-    // when we create a new note we can populate the category and colour with the last used values.
-    note_category_ = add_string_attribute(
-        "note category", "note category", "");
+    // when we create a new note we can populate the category and colour with the last used
+    // values.
+    note_category_ = add_string_attribute("note category", "note category", "");
     note_category_->set_preference_path("/core/bookmark/note_category");
-    note_colour_ = add_string_attribute(
-        "note colour", "note colour", "");
+    note_colour_ = add_string_attribute("note colour", "note colour", "");
     note_colour_->set_preference_path("/core/bookmark/note_colour");
-    
+
     listen_to_playhead_events(true);
 
     // This allows any other component of xSTUDIO to find this plugin instance
@@ -260,8 +259,9 @@ void AnnotationsCore::start_stroke_or_shape(
             auto softness            = payload["paint"]["softness"].get<float>();
             auto size_sensitivity    = payload["paint"]["size_sensitivity"].get<float>();
             auto opacity_sensitivity = payload["paint"]["opacity_sensitivity"].get<float>();
-            user_edit_data->live_stroke.reset(Stroke::Brush(
-                colour, size, softness, opacity, size_sensitivity, opacity_sensitivity));
+            user_edit_data->live_stroke.reset(
+                Stroke::Brush(
+                    colour, size, softness, opacity, size_sensitivity, opacity_sensitivity));
             user_edit_data->item_type = Canvas::ItemType::Brush;
 
         } else if (item_type == "Square") {
@@ -515,10 +515,11 @@ void AnnotationsCore::caption_drag(
             user_edit_data->start_point + pointer_position - user_edit_data->drag_start);
     } else if (
         user_edit_data->caption_handle_over_state_ == HandleHoverState::HoveredOnResizeHandle) {
-        user_edit_data->live_caption->set_wrap_width(std::max(
-            0.05f,
-            user_edit_data->start_point.x +
-                (pointer_position.x - user_edit_data->drag_start.x)));
+        user_edit_data->live_caption->set_wrap_width(
+            std::max(
+                0.05f,
+                user_edit_data->start_point.x +
+                    (pointer_position.x - user_edit_data->drag_start.x)));
     }
 }
 
@@ -1253,7 +1254,7 @@ void AnnotationsCore::make_bookmark_for_annotations(
         note_name = std::string(note_name, 0, note_name.find("."));
     }
     detail.category_ = note_category_->value();
-    detail.colour_ = note_colour_->value();
+    detail.colour_   = note_colour_->value();
 
     create_bookmark_on_frame(frame_id, note_name, detail, false);
 }

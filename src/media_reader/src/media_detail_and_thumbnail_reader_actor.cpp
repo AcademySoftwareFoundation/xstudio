@@ -104,8 +104,9 @@ MediaDetailAndThumbnailReaderActor::MediaDetailAndThumbnailReaderActor(
             media_detail_request_queue_.emplace(_uri, key, rp);
             if (start)
                 anon_mail(get_media_detail_atom_v)
-                    .send(caf::actor_cast<caf::actor>(
-                        this)); // starts loop to chew through the request queue
+                    .send(
+                        caf::actor_cast<caf::actor>(
+                            this)); // starts loop to chew through the request queue
             return rp;
         },
 

@@ -18,8 +18,8 @@
 #ifdef __APPLE__
 #define XSTUDIO_PLUGIN_DECLARE_BEGIN()                                                         \
     extern "C" {                                                                               \
-    __attribute__((visibility("default")))                                                     \
-    plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {                 \
+    __attribute__((visibility("default"))) plugin_manager::PluginFactoryCollection *           \
+    plugin_factory_collection_ptr() {                                                          \
                                                                                                \
         auto pfc = new plugin_manager::PluginFactoryCollection();
 #else
@@ -184,8 +184,9 @@ namespace plugin_manager {
             std::string author      = "",
             std::string description = "",
             semver::version version = semver::version("0.0.0")) {
-            factories_.push_back(std::make_shared<PluginFactoryTemplate<T>>(
-                uuid, name, type, resident, author, description, version));
+            factories_.push_back(
+                std::make_shared<PluginFactoryTemplate<T>>(
+                    uuid, name, type, resident, author, description, version));
         }
 
         std::vector<std::shared_ptr<PluginFactory>> &factories() { return factories_; }

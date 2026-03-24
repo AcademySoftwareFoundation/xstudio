@@ -836,8 +836,9 @@ std::shared_ptr<MediaFile> FFProbe::open_file(const std::string &path) {
                         fmt::format("Could not open codec for input stream {}", stream->index));
 
                 if ((t = av_dict_get(opts, "", nullptr, AV_DICT_IGNORE_SUFFIX))) {
-                    throw std::runtime_error(fmt::format(
-                        "Option {} for input stream {} not found", t->key, stream->index));
+                    throw std::runtime_error(
+                        fmt::format(
+                            "Option {} for input stream {} not found", t->key, stream->index));
                 }
             }
         }

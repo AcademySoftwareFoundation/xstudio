@@ -311,7 +311,10 @@ namespace shotbrowser {
             caf::typed_response_promise<utility::JsonStore> rp,
             const std::string &uuid,
             const std::string &job);
-        void find_shot(caf::typed_response_promise<utility::JsonStore> rp, const int project_id, const int shot_id);
+        void find_shot(
+            caf::typed_response_promise<utility::JsonStore> rp,
+            const int project_id,
+            const int shot_id);
 
         void get_fields(
             caf::typed_response_promise<utility::JsonStore> rp,

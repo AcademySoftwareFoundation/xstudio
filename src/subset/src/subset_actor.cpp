@@ -914,9 +914,8 @@ void SubsetActor::add_media(
 void SubsetActor::sort_by_media_display_info(
     const int sort_column_index, const bool ascending) {
 
-    using SourceAndUuid = std::pair<nlohmann::json, utility::Uuid>;
-    auto sort_keys_vs_uuids =
-        std::make_shared<std::vector<SourceAndUuid>>();
+    using SourceAndUuid     = std::pair<nlohmann::json, utility::Uuid>;
+    auto sort_keys_vs_uuids = std::make_shared<std::vector<SourceAndUuid>>();
 
     int idx = 0;
     for (const auto &i : base_.media()) {

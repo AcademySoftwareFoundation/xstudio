@@ -27,8 +27,9 @@ namespace ui {
             // Q_PROPERTY(int length READ length NOTIFY lengthChanged)
             // Q_PROPERTY(int count READ length NOTIFY lengthChanged)
 
-            Q_PROPERTY(QString snippetType READ snippetType WRITE setSnippetType NOTIFY
-                           snippetTypeChanged)
+            Q_PROPERTY(
+                QString snippetType READ snippetType WRITE setSnippetType NOTIFY
+                    snippetTypeChanged)
 
           public:
             using super = QSortFilterProxyModel;
@@ -71,13 +72,16 @@ namespace ui {
             Q_PROPERTY(bool waiting READ waiting NOTIFY waitingChanged)
             Q_PROPERTY(QUuid sessionId READ sessionId NOTIFY sessionIdChanged)
 
-            Q_PROPERTY(QObject *applicationMenuModel READ applicationMenuModel NOTIFY
-                           applicationMenuModelChanged)
-            Q_PROPERTY(QObject *playlistMenuModel READ playlistMenuModel NOTIFY
-                           playlistMenuModelChanged)
+            Q_PROPERTY(
+                QObject *applicationMenuModel READ applicationMenuModel NOTIFY
+                    applicationMenuModelChanged)
+            Q_PROPERTY(
+                QObject *playlistMenuModel READ playlistMenuModel NOTIFY
+                    playlistMenuModelChanged)
             Q_PROPERTY(QObject *mediaMenuModel READ mediaMenuModel NOTIFY mediaMenuModelChanged)
-            Q_PROPERTY(QObject *sequenceMenuModel READ sequenceMenuModel NOTIFY
-                           sequenceMenuModelChanged)
+            Q_PROPERTY(
+                QObject *sequenceMenuModel READ sequenceMenuModel NOTIFY
+                    sequenceMenuModelChanged)
             Q_PROPERTY(QObject *trackMenuModel READ trackMenuModel NOTIFY trackMenuModelChanged)
             Q_PROPERTY(QObject *clipMenuModel READ clipMenuModel NOTIFY clipMenuModelChanged)
 

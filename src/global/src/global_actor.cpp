@@ -379,8 +379,9 @@ void GlobalActor::init(
                                                     b.data(), 1024, "%Y%m%d_%H%M%S", tt);
 
                                                 // add timestamp+ext
-                                                auto session_fullname = std::string(fmt::format(
-                                                    "{}_{}.xsz", session_name, b.data()));
+                                                auto session_fullname = std::string(
+                                                    fmt::format(
+                                                        "{}_{}.xsz", session_name, b.data()));
 
                                                 // build path to autosave store.
                                                 auto fspath = fs::path(uri_to_posix_path(
@@ -430,16 +431,18 @@ void GlobalActor::init(
                                                             }
                                                         },
                                                         [=](const error &err) {
-                                                            auto msg = std::string(fmt::format(
-                                                                "Failed to autosave "
-                                                                "session - "
-                                                                "your "
-                                                                "session is broken "
-                                                                "{}.\nCheck "
-                                                                "{} "
-                                                                "for last valid autosave",
-                                                                to_string(err),
-                                                                fspath.parent_path().string()));
+                                                            auto msg = std::string(
+                                                                fmt::format(
+                                                                    "Failed to autosave "
+                                                                    "session - "
+                                                                    "your "
+                                                                    "session is broken "
+                                                                    "{}.\nCheck "
+                                                                    "{} "
+                                                                    "for last valid autosave",
+                                                                    to_string(err),
+                                                                    fspath.parent_path()
+                                                                        .string()));
                                                             spdlog::critical(msg);
                                                         });
                                             } catch (const std::exception &err) {

@@ -62,22 +62,37 @@ TEST(TrackActorAddTest, Test) {
     {
         auto uuid  = utility::Uuid::generate();
         auto valid = f.self->spawn<StackActor>("Valid Stack", utility::FrameRate(), uuid);
-        EXPECT_NO_THROW(request_receive<JsonStore>(
-            *(f.self), t, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, valid)})));
+        EXPECT_NO_THROW(
+            request_receive<JsonStore>(
+                *(f.self),
+                t,
+                insert_item_atom_v,
+                0,
+                UuidActorVector({UuidActor(uuid, valid)})));
     }
 
     {
         auto uuid  = utility::Uuid::generate();
         auto valid = f.self->spawn<GapActor>("Valid GAP", utility::FrameRateDuration(), uuid);
-        EXPECT_NO_THROW(request_receive<JsonStore>(
-            *(f.self), t, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, valid)})));
+        EXPECT_NO_THROW(
+            request_receive<JsonStore>(
+                *(f.self),
+                t,
+                insert_item_atom_v,
+                0,
+                UuidActorVector({UuidActor(uuid, valid)})));
     }
 
     {
         auto uuid  = utility::Uuid::generate();
         auto valid = f.self->spawn<ClipActor>(UuidActor(), "Valid Clip", uuid);
-        EXPECT_NO_THROW(request_receive<JsonStore>(
-            *(f.self), t, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, valid)})));
+        EXPECT_NO_THROW(
+            request_receive<JsonStore>(
+                *(f.self),
+                t,
+                insert_item_atom_v,
+                0,
+                UuidActorVector({UuidActor(uuid, valid)})));
     }
 
     auto item = request_receive<Item>(*(f.self), t, item_atom_v);
@@ -115,8 +130,13 @@ TEST(TrackActorTest, Test) {
     {
         auto uuid  = utility::Uuid::generate();
         auto valid = f.self->spawn<GapActor>("Valid GAP", utility::FrameRateDuration(), uuid);
-        EXPECT_NO_THROW(request_receive<JsonStore>(
-            *(f.self), t, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, valid)})));
+        EXPECT_NO_THROW(
+            request_receive<JsonStore>(
+                *(f.self),
+                t,
+                insert_item_atom_v,
+                0,
+                UuidActorVector({UuidActor(uuid, valid)})));
     }
 
 

@@ -111,10 +111,11 @@ void GradingMaskRenderer::render_grading_data_masks(
 
         // here we add info on the texture to the colour_op_data since
         // the colour op needs to use the texture
-        colour_op_data->textures_.emplace_back(colour_pipeline::ColourTexture{
-            fmt::format("masks[{}]", grade_index),
-            colour_pipeline::ColourTextureTarget::TEXTURE_2D,
-            render_layers_[masked_grade_index].offscreen_renderer->texture_handle()});
+        colour_op_data->textures_.emplace_back(
+            colour_pipeline::ColourTexture{
+                fmt::format("masks[{}]", grade_index),
+                colour_pipeline::ColourTextureTarget::TEXTURE_2D,
+                render_layers_[masked_grade_index].offscreen_renderer->texture_handle()});
 
         // adding info on the mask texture layers to the cache id will
         // force the viewport to assign new active texture indices to

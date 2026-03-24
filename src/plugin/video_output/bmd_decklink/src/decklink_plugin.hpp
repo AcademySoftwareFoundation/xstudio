@@ -8,14 +8,13 @@ CAF_PUSH_WARNINGS
 CAF_POP_WARNINGS
 
 namespace xstudio {
-    namespace bm_decklink_plugin_1_0 {
+namespace bm_decklink_plugin_1_0 {
 
     class DecklinkOutput;
 
     class BMDecklinkPlugin : public ui::viewport::VideoOutputPlugin {
 
-        public:
-
+      public:
         BMDecklinkPlugin(caf::actor_config &cfg, const utility::JsonStore &init_settings);
         virtual ~BMDecklinkPlugin();
 
@@ -33,40 +32,40 @@ namespace xstudio {
         // this function
         void initialise() override;
 
-        audio::AudioOutputDevice * make_audio_output_device(const utility::JsonStore &prefs) override;
+        audio::AudioOutputDevice *
+        make_audio_output_device(const utility::JsonStore &prefs) override;
 
         // This is used to communicate between the DecklinkOutput, which executes callbacks
         // in a thread managed by the Decklink driver, and the xstudio threads
-        void receive_status_callback(const utility::JsonStore & status_data) override;
+        void receive_status_callback(const utility::JsonStore &status_data) override;
 
-        private:
-
+      private:
       protected:
-
-        void attribute_changed(const utility::Uuid &attribute_uuid, const int /*role*/) override;
+        void
+        attribute_changed(const utility::Uuid &attribute_uuid, const int /*role*/) override;
 
         void set_pc_audio_muting();
 
-        DecklinkOutput * dcl_output_ = nullptr;
+        DecklinkOutput *dcl_output_ = nullptr;
 
-        module::StringChoiceAttribute *pixel_formats_ {nullptr};
-        module::StringChoiceAttribute *resolutions_ {nullptr};
-        module::StringChoiceAttribute *frame_rates_ {nullptr};
-        module::StringAttribute *status_message_ {nullptr};
-        module::BooleanAttribute *is_in_error_ {nullptr};
-        module::BooleanAttribute *sdi_output_is_running_ {nullptr};
-        module::BooleanAttribute *start_stop_ {nullptr};
-        module::BooleanAttribute *track_main_viewport_ {nullptr};
-        module::BooleanAttribute *auto_start_ {nullptr};
-        module::BooleanAttribute *disable_pc_audio_when_running_ {nullptr};
-        module::IntegerAttribute *samples_water_level_ {nullptr};
-        module::IntegerAttribute *audio_sync_delay_milliseconds_ {nullptr};
-        module::IntegerAttribute *video_pipeline_delay_milliseconds_ {nullptr};
+        module::StringChoiceAttribute *pixel_formats_{nullptr};
+        module::StringChoiceAttribute *resolutions_{nullptr};
+        module::StringChoiceAttribute *frame_rates_{nullptr};
+        module::StringAttribute *status_message_{nullptr};
+        module::BooleanAttribute *is_in_error_{nullptr};
+        module::BooleanAttribute *sdi_output_is_running_{nullptr};
+        module::BooleanAttribute *start_stop_{nullptr};
+        module::BooleanAttribute *track_main_viewport_{nullptr};
+        module::BooleanAttribute *auto_start_{nullptr};
+        module::BooleanAttribute *disable_pc_audio_when_running_{nullptr};
+        module::IntegerAttribute *samples_water_level_{nullptr};
+        module::IntegerAttribute *audio_sync_delay_milliseconds_{nullptr};
+        module::IntegerAttribute *video_pipeline_delay_milliseconds_{nullptr};
 
         /* HDR settings */
-        module::StringChoiceAttribute *hdr_mode_ {nullptr};
-        module::StringChoiceAttribute *colourspace_ {nullptr};
-        module::StringChoiceAttribute *hdr_presets_ {nullptr};
+        module::StringChoiceAttribute *hdr_mode_{nullptr};
+        module::StringChoiceAttribute *colourspace_{nullptr};
+        module::StringChoiceAttribute *hdr_presets_{nullptr};
         std::vector<module::FloatAttribute *> hdr_metadata_settings_;
         std::vector<module::FloatAttribute *> hdr_metadata_lightlevel_;
         std::set<utility::Uuid> hdr_metadata_settings_uuids_;
@@ -79,7 +78,6 @@ namespace xstudio {
         void set_hdr_mode_and_metadata();
         void save_hdr_colour_prefs();
         std::string get_ocio_display_name();
-
     };
 
     // We require this boiler-plate to register our custom class as a QML
@@ -90,8 +88,7 @@ namespace xstudio {
         Q_OBJECT
 
         Q_PLUGIN_METADATA(IID "xstudio-project.decklink.ui")
-        void registerTypes(const char *uri) override {
-        }
+        void registerTypes(const char *uri) override {}
     };
     //![plugin]
 

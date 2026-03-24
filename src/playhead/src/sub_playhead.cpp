@@ -362,8 +362,8 @@ void SubPlayhead::init() {
                 try {
                     pre_cache_read_ahead_frames_ =
                         preference_value<size_t>(full, "/core/playhead/read_ahead");
-                    static_cache_delay_milliseconds_ =
-                        std::chrono::milliseconds(preference_value<size_t>(
+                    static_cache_delay_milliseconds_ = std::chrono::milliseconds(
+                        preference_value<size_t>(
                             full, "/core/playhead/static_cache_delay_milliseconds"));
                 } catch (std::exception &e) {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -2326,8 +2326,9 @@ void SubPlayhead::extend_bookmark_frame(
         }
     }
     if (!existing_entry_extended) {
-        bookmark_ranges.emplace_back(std::make_tuple(
-            detail.uuid_, detail.colour(), logical_playhead_frame, logical_playhead_frame));
+        bookmark_ranges.emplace_back(
+            std::make_tuple(
+                detail.uuid_, detail.colour(), logical_playhead_frame, logical_playhead_frame));
     }
 }
 

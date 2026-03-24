@@ -289,8 +289,9 @@ std::vector<Marker> process_markers(
         auto m = Marker(om->name());
 
         if (colors::wpf_named_color_converter::is_named(om->color()))
-            m.set_flag(colors::to_ahex_str<char>(colors::color(
-                colors::value_of(colors::wpf_named_color_converter::value(om->color())))));
+            m.set_flag(
+                colors::to_ahex_str<char>(colors::color(
+                    colors::value_of(colors::wpf_named_color_converter::value(om->color())))));
 
         auto marker_metadata = JsonStore();
         try {
@@ -3506,15 +3507,16 @@ void TimelineActor::export_otio_as_string(caf::typed_response_promise<std::strin
                                     auto extref = new otio::ExternalReference(p);
 
                                     if (citem.available_range()) {
-                                        extref->set_available_range(otio::TimeRange(
-                                            otio::RationalTime::from_frames(
-                                                citem.available_frame_start()->frames() +
-                                                    mr.start_frame_offset(),
-                                                citem.rate().to_fps()),
-                                            otio::RationalTime::from_frames(
-                                                citem.available_frame_duration()->frames() -
-                                                    mr.start_frame_offset(),
-                                                citem.rate().to_fps())));
+                                        extref->set_available_range(
+                                            otio::TimeRange(
+                                                otio::RationalTime::from_frames(
+                                                    citem.available_frame_start()->frames() +
+                                                        mr.start_frame_offset(),
+                                                    citem.rate().to_fps()),
+                                                otio::RationalTime::from_frames(
+                                                    citem.available_frame_duration()->frames() -
+                                                        mr.start_frame_offset(),
+                                                    citem.rate().to_fps())));
                                     }
                                     extref->set_name(name);
                                     clip->set_media_reference(extref);
@@ -3546,13 +3548,15 @@ void TimelineActor::export_otio_as_string(caf::typed_response_promise<std::strin
                                         extref->set_name(name);
 
                                         if (citem.available_range()) {
-                                            extref->set_available_range(otio::TimeRange(
-                                                otio::RationalTime::from_frames(
-                                                    citem.available_frame_start()->frames(),
-                                                    citem.rate().to_fps()),
-                                                otio::RationalTime::from_frames(
-                                                    citem.available_frame_duration()->frames(),
-                                                    citem.rate().to_fps())));
+                                            extref->set_available_range(
+                                                otio::TimeRange(
+                                                    otio::RationalTime::from_frames(
+                                                        citem.available_frame_start()->frames(),
+                                                        citem.rate().to_fps()),
+                                                    otio::RationalTime::from_frames(
+                                                        citem.available_frame_duration()
+                                                            ->frames(),
+                                                        citem.rate().to_fps())));
                                         }
                                         clip->set_media_reference(extref);
                                     }

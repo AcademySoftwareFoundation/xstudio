@@ -624,11 +624,12 @@ void ShotgunClientActor::request_image(
     mail(
         http_get_atom_v,
         base_.scheme_host_port(),
-        std::string(fmt::format(
-            "/api/v1/entity/{}/{}/image?alt={}",
-            entity,
-            record_id,
-            (thumbnail ? "thumbnail" : "original"))),
+        std::string(
+            fmt::format(
+                "/api/v1/entity/{}/{}/image?alt={}",
+                entity,
+                record_id,
+                (thumbnail ? "thumbnail" : "original"))),
         base_.get_auth_headers())
         .request(http_, infinite)
         .then(
@@ -800,9 +801,10 @@ void ShotgunClientActor::request_entity_filter(
             // should be an array..
             for (const auto &[key, value] : filter.items()) {
                 if (value.is_array())
-                    params.insert(std::make_pair(
-                        "filter[" + key + "]",
-                        join_as_string(value.get<std::vector<std::string>>(), ",")));
+                    params.insert(
+                        std::make_pair(
+                            "filter[" + key + "]",
+                            join_as_string(value.get<std::vector<std::string>>(), ",")));
                 else
                     params.insert(
                         std::make_pair("filter[" + key + "]", value.get<std::string>()));

@@ -93,8 +93,9 @@ namespace ui {
             Q_PROPERTY(
                 double frameRate READ frameRate WRITE setFrameRate NOTIFY timeCodeChanged)
             Q_PROPERTY(bool dropFrame READ dropFrame WRITE setDropFrame NOTIFY timeCodeChanged)
-            Q_PROPERTY(unsigned int totalFrames READ totalFrames WRITE setTotalFrames NOTIFY
-                           timeCodeChanged)
+            Q_PROPERTY(
+                unsigned int totalFrames READ totalFrames WRITE setTotalFrames NOTIFY
+                    timeCodeChanged)
             Q_PROPERTY(QString timeCode READ timeCode NOTIFY timeCodeChanged)
 
           public:
@@ -588,8 +589,12 @@ namespace ui {
                 }
             }
 
-            Q_INVOKABLE QString stringFromTimeCode(const unsigned int frames, const double frameRate, const bool dropFrame=false) const {
-                return QStringFromStd(to_string(utility::Timecode(frames, frameRate, dropFrame)));
+            Q_INVOKABLE QString stringFromTimeCode(
+                const unsigned int frames,
+                const double frameRate,
+                const bool dropFrame = false) const {
+                return QStringFromStd(
+                    to_string(utility::Timecode(frames, frameRate, dropFrame)));
             }
 
             // alternate version taking an ItemGrabResult
@@ -1009,8 +1014,9 @@ namespace ui {
         class HELPER_QML_EXPORT ClipboardProxy : public QObject {
             Q_OBJECT
             Q_PROPERTY(QString text READ dataText WRITE setDataText NOTIFY dataChanged)
-            Q_PROPERTY(QString selectionText READ selectionText WRITE setSelectionText NOTIFY
-                           selectionChanged)
+            Q_PROPERTY(
+                QString selectionText READ selectionText WRITE setSelectionText NOTIFY
+                    selectionChanged)
             Q_PROPERTY(QVariant data READ data WRITE setData NOTIFY dataChanged)
             Q_PROPERTY(QString html READ html WRITE setHtml NOTIFY dataChanged)
           public:
@@ -1160,8 +1166,9 @@ namespace ui {
         class HELPER_QML_EXPORT MarkerModel : public JSONTreeModel {
             Q_OBJECT
 
-            Q_PROPERTY(QVariant markerData READ markerData WRITE setMarkerData NOTIFY
-                           markerDataChanged)
+            Q_PROPERTY(
+                QVariant markerData READ markerData WRITE setMarkerData NOTIFY
+                    markerDataChanged)
 
           public:
             enum Roles {
@@ -1208,8 +1215,9 @@ namespace ui {
 
             Q_PROPERTY(QVariant propertyValue READ propertyValue NOTIFY propertyValueChanged)
             Q_PROPERTY(QObject *target READ target WRITE setTarget NOTIFY targetChanged)
-            Q_PROPERTY(QString propertyName READ propertyName WRITE setPropertyName NOTIFY
-                           propertyNameChanged)
+            Q_PROPERTY(
+                QString propertyName READ propertyName WRITE setPropertyName NOTIFY
+                    propertyNameChanged)
 
           public:
             PropertyFollower(QObject *parent = nullptr) : QObject(parent) {}

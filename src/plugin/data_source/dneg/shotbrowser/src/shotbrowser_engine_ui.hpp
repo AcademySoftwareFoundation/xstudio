@@ -43,18 +43,21 @@ namespace ui {
 
             Q_PROPERTY(
                 QString shotGridUserName READ shotGridUserName NOTIFY shotGridUserNameChanged)
-            Q_PROPERTY(bool shotGridLoginAllowed READ shotGridLoginAllowed NOTIFY
-                           shotGridLoginAllowedChanged)
+            Q_PROPERTY(
+                bool shotGridLoginAllowed READ shotGridLoginAllowed NOTIFY
+                    shotGridLoginAllowedChanged)
 
             Q_PROPERTY(QObject *presetsModel READ presetsModel NOTIFY presetsModelChanged)
 
             Q_PROPERTY(
                 QString backendId READ backendId WRITE setBackendId NOTIFY backendIdChanged)
 
-            Q_PROPERTY(QString liveLinkMetadata READ liveLinkMetadata WRITE setLiveLinkMetadata
-                           NOTIFY liveLinkMetadataChanged)
-            Q_PROPERTY(QVariant liveLinkKey READ liveLinkKey WRITE setLiveLinkKey NOTIFY
-                           liveLinkKeyChanged)
+            Q_PROPERTY(
+                QString liveLinkMetadata READ liveLinkMetadata WRITE setLiveLinkMetadata NOTIFY
+                    liveLinkMetadataChanged)
+            Q_PROPERTY(
+                QVariant liveLinkKey READ liveLinkKey WRITE setLiveLinkKey NOTIFY
+                    liveLinkKeyChanged)
 
             QML_NAMED_ELEMENT("ShotBrowserEngine")
             //![0]

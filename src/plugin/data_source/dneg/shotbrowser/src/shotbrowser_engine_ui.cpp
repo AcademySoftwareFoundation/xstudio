@@ -774,10 +774,11 @@ QFuture<QUrl> ShotBrowserEngine::getSequencePathFuture(
                             result = QUrlFromUri(posix_path_to_uri(file.at("path")));
                             break;
                         } else {
-                            failed.emplace_back(fmt::format(
-                                "File not found {} {}",
-                                p_name,
-                                forward_remap_file_path(file.at("path"))));
+                            failed.emplace_back(
+                                fmt::format(
+                                    "File not found {} {}",
+                                    p_name,
+                                    forward_remap_file_path(file.at("path"))));
                         }
                     }
                 }

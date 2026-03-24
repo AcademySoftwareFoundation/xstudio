@@ -283,13 +283,15 @@ class HELPER_QML_EXPORT JSONTreeFilterModel : public QSortFilterProxyModel {
     Q_PROPERTY(int count READ length NOTIFY lengthChanged)
     Q_PROPERTY(bool invert READ invert WRITE setInvert NOTIFY invertChanged)
 
-    Q_PROPERTY(bool sortAscending READ sortAscending WRITE setSortAscending NOTIFY
-                   sortAscendingChanged)
+    Q_PROPERTY(
+        bool sortAscending READ sortAscending WRITE setSortAscending NOTIFY
+            sortAscendingChanged)
     Q_PROPERTY(
         QString sortRoleName READ sortRoleName WRITE setSortRoleName NOTIFY sortRoleNameChanged)
 
-    Q_PROPERTY(QString filterRoleName READ filterRoleName WRITE setFilterRoleName NOTIFY
-                   filterRoleNameChanged)
+    Q_PROPERTY(
+        QString filterRoleName READ filterRoleName WRITE setFilterRoleName NOTIFY
+            filterRoleNameChanged)
 
   public:
     JSONTreeFilterModel(QObject *parent = nullptr) : QSortFilterProxyModel(parent) {

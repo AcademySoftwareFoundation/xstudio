@@ -225,8 +225,9 @@ BasicViewportMasking::BasicViewportMasking(
 
     mask_opacity_ = add_float_attribute("Mask Opacity", "Opac.", 1.0f, 0.0f, 1.0f, 0.1f);
     add_hud_settings_attribute(mask_opacity_);
-    mask_opacity_->set_tool_tip("Sets the opacity of the black masking overlay. Set to zero to "
-                                "hids the mask completely.");
+    mask_opacity_->set_tool_tip(
+        "Sets the opacity of the black masking overlay. Set to zero to "
+        "hids the mask completely.");
 
     safety_percent_ = add_float_attribute("Safety Percent", "Safety", 0.0f, 0.0f, 20.0f, 0.1f);
     add_hud_settings_attribute(safety_percent_);

@@ -64,8 +64,7 @@ void PDFMediaReader::update_preferences(const utility::JsonStore &prefs) {
         supported_ = global_store::preference_value<utility::JsonStore>(
             prefs, "/plugin/media_reader/pdf/supported");
 
-        dpi_ =
-            global_store::preference_value<uint32_t>(prefs, "/plugin/media_reader/pdf/dpi");
+        dpi_ = global_store::preference_value<uint32_t>(prefs, "/plugin/media_reader/pdf/dpi");
 
     } catch (const std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -97,20 +96,21 @@ media::MediaDetail PDFMediaReader::detail(const caf::uri &uri) const {
             cache_[uri] = pdf;
     }
 
-    frame_count = pdf->pageCount();
+    frame_count     = pdf->pageCount();
     auto point_size = pdf->pagePointSize(0);
-    auto width = points_to_pixels(point_size.width());
-    auto height = points_to_pixels(point_size.height());
+    auto width      = points_to_pixels(point_size.width());
+    auto height     = points_to_pixels(point_size.height());
 
-    streams.emplace_back(media::StreamDetail(
-        utility::FrameRateDuration(
-            frame_count, FrameRate(timebase::k_flicks_one_twenty_fourth_of_second)),
-        "Pages",
-        media::MT_IMAGE,
-        "{0}@{1}/{2},{3}",
-        Imath::V2i(width, height),
-        1.0f,
-        0));
+    streams.emplace_back(
+        media::StreamDetail(
+            utility::FrameRateDuration(
+                frame_count, FrameRate(timebase::k_flicks_one_twenty_fourth_of_second)),
+            "Pages",
+            media::MT_IMAGE,
+            "{0}@{1}/{2},{3}",
+            Imath::V2i(width, height),
+            1.0f,
+            0));
 
     return xstudio::media::MediaDetail(name(), streams);
 }
@@ -134,8 +134,8 @@ ImageBufPtr PDFMediaReader::image(const media::AVFrameID &mptr) {
     }
 
     auto point_size = pdf->pagePointSize(mptr.frame());
-    auto width = points_to_pixels(point_size.width());
-    auto height = points_to_pixels(point_size.height());
+    auto width      = points_to_pixels(point_size.width());
+    auto height     = points_to_pixels(point_size.height());
     auto image = pdf->render(mptr.frame(), QSize(width, height), QPdfDocumentRenderOptions());
 
     image.convertTo(QImage::Format_RGB888);
@@ -168,8 +168,8 @@ PDFMediaReader::thumbnail(const media::AVFrameID &mptr, const size_t thumb_size)
         }
 
         auto point_size = pdf->pagePointSize(mptr.frame());
-        auto ratio = point_size.width() / point_size.height();
-        auto height = (static_cast<uint32_t>(thumb_size / ratio) / 32) * 32;
+        auto ratio      = point_size.width() / point_size.height();
+        auto height     = (static_cast<uint32_t>(thumb_size / ratio) / 32) * 32;
 
         auto image =
             pdf->render(mptr.frame(), QSize(thumb_size, height), QPdfDocumentRenderOptions());

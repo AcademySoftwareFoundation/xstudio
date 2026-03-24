@@ -13,9 +13,10 @@ static const struct CircPts {
 
     CircPts(const int n) {
         for (int i = 0; i < n + 1; ++i) {
-            pts_.emplace_back(Imath::V2f(
-                cos(float(i) * M_PI * 2.0f / float(n)),
-                sin(float(i) * M_PI * 2.0f / float(n))));
+            pts_.emplace_back(
+                Imath::V2f(
+                    cos(float(i) * M_PI * 2.0f / float(n)),
+                    sin(float(i) * M_PI * 2.0f / float(n))));
         }
     }
 

@@ -806,8 +806,9 @@ QFuture<QVariant> ShotBrowserEngine::refreshMetadataFuture(const QUuid &media) {
     auto req          = JsonStore(RefreshMetadata);
     req["media_uuid"] = to_string(UuidFromQUuid(media));
 
-    return mapFromValue(request_receive_wait<JsonStore>(
-        *sys, backend_, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req));
+    return mapFromValue(
+        request_receive_wait<JsonStore>(
+            *sys, backend_, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req));
 
     QVARIANT_REQUEST_END()
 }

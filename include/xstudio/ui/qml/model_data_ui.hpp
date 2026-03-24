@@ -21,8 +21,9 @@ class HELPER_QML_EXPORT UIModelData : public caf::mixin::actor_object<JSONTreeMo
 
     Q_OBJECT
 
-    Q_PROPERTY(QString modelDataName READ modelDataName WRITE setModelDataName NOTIFY
-                   modelDataNameChanged)
+    Q_PROPERTY(
+        QString modelDataName READ modelDataName WRITE setModelDataName NOTIFY
+            modelDataNameChanged)
 
   public:
     using super = caf::mixin::actor_object<JSONTreeModel>;
@@ -207,23 +208,28 @@ class HELPER_QML_EXPORT MenuModelItem : public caf::mixin::actor_object<QObject>
     Q_PROPERTY(QString text READ text WRITE setText NOTIFY textChanged)
     Q_PROPERTY(
         QString menuModelName READ menuModelName WRITE setMenuName NOTIFY menuNameChanged)
-    Q_PROPERTY(float menuItemPosition READ menuItemPosition WRITE setMenuItemPosition NOTIFY
-                   menuItemPositionChanged)
+    Q_PROPERTY(
+        float menuItemPosition READ menuItemPosition WRITE setMenuItemPosition NOTIFY
+            menuItemPositionChanged)
     Q_PROPERTY(QStringList choices READ choices WRITE setChoices NOTIFY choicesChanged)
-    Q_PROPERTY(QString currentChoice READ currentChoice WRITE setCurrentChoice NOTIFY
-                   currentChoiceChanged)
+    Q_PROPERTY(
+        QString currentChoice READ currentChoice WRITE setCurrentChoice NOTIFY
+            currentChoiceChanged)
     Q_PROPERTY(bool isChecked READ isChecked WRITE setIsChecked NOTIFY isCheckedChanged)
     Q_PROPERTY(QUuid hotkeyUuid READ hotkeyUuid WRITE setHotkeyUuid NOTIFY hotkeyUuidChanged)
     Q_PROPERTY(
         QString menuItemType READ menuItemType WRITE setMenuItemType NOTIFY menuItemTypeChanged)
-    Q_PROPERTY(QString menuCustomIcon READ menuCustomIcon WRITE setMenuCustomIcon NOTIFY
-                   menuCustomIconChanged)
-    Q_PROPERTY(QString customMenuQml READ customMenuQml WRITE setCustomMenuQml NOTIFY
-                   customMenuQmlChanged)
+    Q_PROPERTY(
+        QString menuCustomIcon READ menuCustomIcon WRITE setMenuCustomIcon NOTIFY
+            menuCustomIconChanged)
+    Q_PROPERTY(
+        QString customMenuQml READ customMenuQml WRITE setCustomMenuQml NOTIFY
+            customMenuQmlChanged)
     Q_PROPERTY(QVariant userData READ userData WRITE setUserData NOTIFY userDataChanged)
     Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
-    Q_PROPERTY(QObject *panelContext READ panelContext WRITE setPanelContext NOTIFY
-                   panelContextChanged)
+    Q_PROPERTY(
+        QObject *panelContext READ panelContext WRITE setPanelContext NOTIFY
+            panelContextChanged)
     Q_PROPERTY(
         QString menuToolTip READ menuToolTip WRITE setMenuToolTip NOTIFY menuToolTipChanged)
 

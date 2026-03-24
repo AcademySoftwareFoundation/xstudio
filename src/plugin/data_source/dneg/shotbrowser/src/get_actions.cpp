@@ -65,34 +65,35 @@ void ShotBrowser::get_fields(
 
 
 void ShotBrowser::find_shot(
-    caf::typed_response_promise<utility::JsonStore> rp, const int project_id, const int shot_id) {
+    caf::typed_response_promise<utility::JsonStore> rp,
+    const int project_id,
+    const int shot_id) {
     // find version from supplied details.
     // check it's not in the cache..
     if (shot_cache_.count(shot_id))
         rp.deliver(shot_cache_.at(shot_id));
-    else if(auto cache = engine().get_cache(QueryEngine::cache_name("shot", project_id)); cache) {
+    else if (auto cache = engine().get_cache(QueryEngine::cache_name("shot", project_id));
+             cache) {
         // find shot in cache
-        for(const auto &i: *cache) {
-            if(i.at("id") == shot_id) {
+        for (const auto &i : *cache) {
+            if (i.at("id") == shot_id) {
                 shot_cache_[shot_id] = i;
                 rp.deliver(i);
                 break;
             }
         }
     } else {
-        if(project_id and not engine().get_cache(QueryEngine::cache_name("shotmanifest", project_id))) {
-            auto req = JsonStore(R"({"operation": "GetData", "type": "shotmanifest", "project_id": 0})"_json);
+        if (project_id and
+            not engine().get_cache(QueryEngine::cache_name("shotmanifest", project_id))) {
+            auto req = JsonStore(
+                R"({"operation": "GetData", "type": "shotmanifest", "project_id": 0})"_json);
             req["project_id"] = project_id;
 
             mail(get_data_atom_v, req)
                 .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
-                    [=](const JsonStore &) mutable {
-                        find_shot(rp, project_id, shot_id);
-                    },
-                    [=](error &err) mutable {
-                        rp.deliver(err);
-                    });
+                    [=](const JsonStore &) mutable { find_shot(rp, project_id, shot_id); },
+                    [=](error &err) mutable { rp.deliver(err); });
         } else {
 
             // check for manifest..
@@ -101,11 +102,12 @@ void ShotBrowser::find_shot(
                 .then(
                     [=](JsonStore jsn) mutable {
                         // Manifest may not be cached ...
-                        if(jsn.contains("data")) {
+                        if (jsn.contains("data")) {
                             jsn = jsn["data"];
                             // check manifest..
-                            auto value = engine().get_cache(QueryEngine::cache_name("ShotManifestTag", shot_id));
-                            if(value)
+                            auto value = engine().get_cache(
+                                QueryEngine::cache_name("ShotManifestTag", shot_id));
+                            if (value)
                                 jsn["attributes"]["sg_custom_entity29"] = *value;
                         } else
                             jsn = JsonStore();
@@ -115,7 +117,7 @@ void ShotBrowser::find_shot(
                     },
                     [=](error &err) mutable {
                         spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                        shot_cache_[shot_id] =  JsonStore();
+                        shot_cache_[shot_id] = JsonStore();
                         rp.deliver(JsonStore());
                     });
         }
@@ -924,10 +926,11 @@ void ShotBrowser::prepare_playlist_notes(
                                     jsn["note_annotation"] = R"([])"_json;
 
                                 if (has_anno) {
-                                    auto title            = std::string(fmt::format(
-                                        "{}_{}.jpg",
-                                        jsn["shot"].get<std::string>(),
-                                        detail.start_timecode_tc().total_frames()));
+                                    auto title = std::string(
+                                        fmt::format(
+                                            "{}_{}.jpg",
+                                            jsn["shot"].get<std::string>(),
+                                            detail.start_timecode_tc().total_frames()));
                                     auto item             = nlohmann::json();
                                     item["title"]         = title;
                                     item["bookmark_uuid"] = j.uuid();
@@ -957,17 +960,19 @@ void ShotBrowser::prepare_playlist_notes(
 
                                 // yeah this is a bit convoluted.
                                 if (not notes_by_type.count(cat)) {
-                                    notes_by_type.insert(std::make_pair(
-                                        cat,
-                                        std::map<int, std::vector<JsonStore>>(
-                                            {{detail.start_frame(), {{jsn}}}})));
+                                    notes_by_type.insert(
+                                        std::make_pair(
+                                            cat,
+                                            std::map<int, std::vector<JsonStore>>(
+                                                {{detail.start_frame(), {{jsn}}}})));
                                 } else {
                                     if (notes_by_type[cat].count(detail.start_frame())) {
                                         notes_by_type[cat][detail.start_frame()].push_back(jsn);
                                     } else {
-                                        notes_by_type[cat].insert(std::make_pair(
-                                            detail.start_frame(),
-                                            std::vector<JsonStore>({jsn})));
+                                        notes_by_type[cat].insert(
+                                            std::make_pair(
+                                                detail.start_frame(),
+                                                std::vector<JsonStore>({jsn})));
                                     }
                                 }
                             } catch (const std::exception &err) {
@@ -1567,8 +1572,9 @@ void ShotBrowser::get_data_shot(
     const int page,
     const JsonStore &prev_data) {
 
-    if(not engine().get_cache(QueryEngine::cache_name("shotmanifest", project_id))) {
-        auto req = JsonStore(R"({"operation": "GetData", "type": "shotmanifest", "project_id": 0})"_json);
+    if (not engine().get_cache(QueryEngine::cache_name("shotmanifest", project_id))) {
+        auto req = JsonStore(
+            R"({"operation": "GetData", "type": "shotmanifest", "project_id": 0})"_json);
         req["project_id"] = project_id;
 
         mail(get_data_atom_v, req)
@@ -1577,9 +1583,7 @@ void ShotBrowser::get_data_shot(
                 [=](const JsonStore &) mutable {
                     get_data_shot(rp, type, project_id, page, prev_data);
                 },
-                [=](error &err) mutable {
-                    rp.deliver(err);
-                });
+                [=](error &err) mutable { rp.deliver(err); });
     }
 
     auto filter = R"(
@@ -1618,11 +1622,13 @@ void ShotBrowser::get_data_shot(
                             auto cache_key = QueryEngine::cache_name(type, project_id);
 
                             // inject metadata for dnshottags..
-                            // auto shot_tag_key = QueryEngine::cache_name("ShotManifestTag", i.at(shot_id_ptr));
-                            // engine().set_cache(shot_tag_key, i.at(value_ptr));
-                            for(auto it = total.begin(); it != total.end(); ++it) {
-                                auto value = engine().get_cache(QueryEngine::cache_name("ShotManifestTag", it->at("id")));
-                                if(value)
+                            // auto shot_tag_key = QueryEngine::cache_name("ShotManifestTag",
+                            // i.at(shot_id_ptr)); engine().set_cache(shot_tag_key,
+                            // i.at(value_ptr));
+                            for (auto it = total.begin(); it != total.end(); ++it) {
+                                auto value = engine().get_cache(
+                                    QueryEngine::cache_name("ShotManifestTag", it->at("id")));
+                                if (value)
                                     (*it)["attributes"]["sg_custom_entity29"] = *value;
                             }
 
@@ -2189,16 +2195,24 @@ void ShotBrowser::get_data_dntag(
                                 engine().lookup());
                             engine().set_cache(cache_key, total);
 
-                            auto shot_id_ptr = nlohmann::json::json_pointer("/relationships/sg_link/data/id");
-                            auto shot_ptr = nlohmann::json::json_pointer("/relationships/sg_link/data");
-                            auto value_ptr = nlohmann::json::json_pointer("/attributes/sg_value");
-                            for(const auto &i: total) {
-                                if(not i.at(shot_ptr).is_null())
+                            auto shot_id_ptr =
+                                nlohmann::json::json_pointer("/relationships/sg_link/data/id");
+                            auto shot_ptr =
+                                nlohmann::json::json_pointer("/relationships/sg_link/data");
+                            auto value_ptr =
+                                nlohmann::json::json_pointer("/attributes/sg_value");
+                            for (const auto &i : total) {
+                                if (not i.at(shot_ptr).is_null())
                                     try {
-                                        auto shot_tag_key = QueryEngine::cache_name("ShotManifestTag", i.at(shot_id_ptr));
+                                        auto shot_tag_key = QueryEngine::cache_name(
+                                            "ShotManifestTag", i.at(shot_id_ptr));
                                         engine().set_cache(shot_tag_key, i.at(value_ptr));
                                     } catch (const std::exception &err) {
-                                        spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, err.what(), i.dump(2));
+                                        spdlog::warn(
+                                            "{} {} {}",
+                                            __PRETTY_FUNCTION__,
+                                            err.what(),
+                                            i.dump(2));
                                     }
                             }
 
@@ -2340,11 +2354,12 @@ void ShotBrowser::execute_preset(
                     group_detail["id"]    = preset.value("id", utility::Uuid());
                     group_detail["flags"] = preset.value("flags", std::vector<std::string>());
                 } else {
-                    auto tmp = engine().user_presets().at(json::json_pointer(i)
-                                                              .parent_pointer()
-                                                              .parent_pointer()
-                                                              .parent_pointer()
-                                                              .parent_pointer());
+                    auto tmp = engine().user_presets().at(
+                        json::json_pointer(i)
+                            .parent_pointer()
+                            .parent_pointer()
+                            .parent_pointer()
+                            .parent_pointer());
 
                     entity                = tmp.at("entity");
                     preset_group          = tmp.at("children").at(0).at("children");

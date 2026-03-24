@@ -13,7 +13,8 @@
 const auto GetVersionIvyUuid =
     R"({"operation": "VersionIvyUuid", "job":null, "ivy_uuid": null})"_json;
 
-const auto GetShotFromId = R"({"operation": "GetShotFromId", "project_id": 0, "shot_id": 0})"_json;
+const auto GetShotFromId =
+    R"({"operation": "GetShotFromId", "project_id": 0, "shot_id": 0})"_json;
 
 const auto GetLinkMedia = R"({"operation": "LinkMedia", "playlist_uuid": null})"_json;
 

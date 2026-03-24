@@ -505,37 +505,44 @@ caf::message_handler MediaActor::message_handler() {
                         [=](const std::string &name) mutable {
                             if (base_.current(gtype) == base_.current(MT_AUDIO) or
                                 not media_sources_.count(base_.current(MT_AUDIO))) {
-                                rp.deliver(std::make_pair(
-                                    UuidActor(base_.uuid(), this), std::make_pair(name, name)));
+                                rp.deliver(
+                                    std::make_pair(
+                                        UuidActor(base_.uuid(), this),
+                                        std::make_pair(name, name)));
                             } else {
                                 mail(name_atom_v)
                                     .request(
                                         media_sources_.at(base_.current(MT_AUDIO)), infinite)
                                     .then(
                                         [=](const std::string &aname) mutable {
-                                            rp.deliver(std::make_pair(
-                                                UuidActor(base_.uuid(), this),
-                                                std::make_pair(name, aname)));
+                                            rp.deliver(
+                                                std::make_pair(
+                                                    UuidActor(base_.uuid(), this),
+                                                    std::make_pair(name, aname)));
                                         },
                                         [=](error &err) mutable {
-                                            rp.deliver(std::make_pair(
-                                                UuidActor(base_.uuid(), this),
-                                                std::make_pair(std::string(), std::string())));
+                                            rp.deliver(
+                                                std::make_pair(
+                                                    UuidActor(base_.uuid(), this),
+                                                    std::make_pair(
+                                                        std::string(), std::string())));
                                             spdlog::warn(
                                                 "{} {}", __PRETTY_FUNCTION__, to_string(err));
                                         });
                             }
                         },
                         [=](error &err) mutable {
-                            rp.deliver(std::make_pair(
-                                UuidActor(base_.uuid(), this),
-                                std::make_pair(std::string(), std::string())));
+                            rp.deliver(
+                                std::make_pair(
+                                    UuidActor(base_.uuid(), this),
+                                    std::make_pair(std::string(), std::string())));
                             spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                         });
             } catch (...) {
-                rp.deliver(std::make_pair(
-                    UuidActor(base_.uuid(), this),
-                    std::make_pair(std::string(), std::string())));
+                rp.deliver(
+                    std::make_pair(
+                        UuidActor(base_.uuid(), this),
+                        std::make_pair(std::string(), std::string())));
             }
 
             return rp;
@@ -1984,10 +1991,11 @@ void MediaActor::display_info_item(
             item_query_info.contains("regex_format")) {
             try {
                 std::regex re(item_query_info.value("regex_match", ""));
-                auto fonk = JsonStore(std::regex_replace(
-                    data.is_string() ? data.get<std::string>() : data.dump(),
-                    re,
-                    item_query_info.value("regex_format", "")));
+                auto fonk = JsonStore(
+                    std::regex_replace(
+                        data.is_string() ? data.get<std::string>() : data.dump(),
+                        re,
+                        item_query_info.value("regex_format", "")));
                 return fonk;
             } catch (const std::regex_error &e) {
                 return JsonStore(e.what());

@@ -134,11 +134,12 @@ caf::uri MediaReference::uri(const FramePadFormat fpf) const {
                     if (frame_count() == 1) {
                         result = uris().front().first;
                     } else {
-                        result = *caf::make_uri(uri_encode(std::regex_replace(
-                            str,
-                            std::regex("(\\{:\\d+d\\})"),
-                            repstr,
-                            std::regex_constants::format_first_only)));
+                        result = *caf::make_uri(uri_encode(
+                            std::regex_replace(
+                                str,
+                                std::regex("(\\{:\\d+d\\})"),
+                                repstr,
+                                std::regex_constants::format_first_only)));
                     }
                 }
             }
@@ -149,11 +150,12 @@ caf::uri MediaReference::uri(const FramePadFormat fpf) const {
             // file://localhost//tmp/test/test.{:04d}.exr
 
             {
-                result = *caf::make_uri(uri_encode(std::regex_replace(
-                    uri_decode(to_string(uri_)),
-                    std::regex("\\{:(\\d+d)\\}"),
-                    "%$1",
-                    std::regex_constants::format_first_only)));
+                result = *caf::make_uri(uri_encode(
+                    std::regex_replace(
+                        uri_decode(to_string(uri_)),
+                        std::regex("\\{:(\\d+d)\\}"),
+                        "%$1",
+                        std::regex_constants::format_first_only)));
             }
             break;
 

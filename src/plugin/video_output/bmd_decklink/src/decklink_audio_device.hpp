@@ -12,16 +12,15 @@ namespace bm_decklink_plugin_1_0 {
 
     /**
      *  @brief DecklinkAudioOutputDevice class. Implements AudioOutputDevice
-     *  base class to receive audio samples from xstudio and execute the 
+     *  base class to receive audio samples from xstudio and execute the
      *  the Decklink API audio schduling calls etc.
      *
      *  @details
-     *   See header for AudioOutputDevice in xstudio 
+     *   See header for AudioOutputDevice in xstudio
      */
     class DecklinkAudioOutputDevice : public audio::AudioOutputDevice {
       public:
-
-        DecklinkAudioOutputDevice(const utility::JsonStore &prefs, DecklinkOutput * bmd_output);
+        DecklinkAudioOutputDevice(const utility::JsonStore &prefs, DecklinkOutput *bmd_output);
 
         ~DecklinkAudioOutputDevice() override;
 
@@ -43,17 +42,19 @@ namespace bm_decklink_plugin_1_0 {
 
         [[nodiscard]] int num_channels() const override { return num_channels_; }
 
-        [[nodiscard]] audio::SampleFormat sample_format() const override { return sample_format_; }
+        [[nodiscard]] audio::SampleFormat sample_format() const override {
+            return sample_format_;
+        }
 
         static std::string name() { return "DecklinkAudioOutputDevice"; }
 
       private:
-        long sample_rate_           = {48000};
-        int num_channels_           = {2};
+        long sample_rate_                  = {48000};
+        int num_channels_                  = {2};
         audio::SampleFormat sample_format_ = {audio::SampleFormat::INT16};
         const utility::JsonStore config_;
         const utility::JsonStore prefs_;
-        DecklinkOutput * bmd_output_;
+        DecklinkOutput *bmd_output_;
     };
 
 

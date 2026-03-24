@@ -1225,8 +1225,9 @@ caf::message_handler MediaMetadataHUD::message_handler_extensions() {
                     }
                 },
                 [=](json_store::update_atom, const utility::JsonStore &) {}})
-        .or_else(media::MediaActor::default_event_handler().or_else(
-            plugin::HUDPluginBase::message_handler_extensions()));
+        .or_else(
+            media::MediaActor::default_event_handler().or_else(
+                plugin::HUDPluginBase::message_handler_extensions()));
 }
 
 extern "C" {

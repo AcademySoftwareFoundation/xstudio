@@ -1070,17 +1070,19 @@ void AnnotationsUI::update_colour_picker_info(const ui::PointerEvent &e) {
                     std::max(0.0f, std::min(1.0f, picked_pixel_colour.z));
                 cumulative_picked_colour_.w += 1.0f;
 
-                pen_colour_->set_value(utility::ColourTriplet(
-                    cumulative_picked_colour_.x / cumulative_picked_colour_.w,
-                    cumulative_picked_colour_.y / cumulative_picked_colour_.w,
-                    cumulative_picked_colour_.z / cumulative_picked_colour_.w));
+                pen_colour_->set_value(
+                    utility::ColourTriplet(
+                        cumulative_picked_colour_.x / cumulative_picked_colour_.w,
+                        cumulative_picked_colour_.y / cumulative_picked_colour_.w,
+                        cumulative_picked_colour_.z / cumulative_picked_colour_.w));
 
             } else {
 
-                pen_colour_->set_value(utility::ColourTriplet(
-                    std::max(0.0f, std::min(1.0f, picked_pixel_colour.x)),
-                    std::max(0.0f, std::min(1.0f, picked_pixel_colour.y)),
-                    std::max(0.0f, std::min(1.0f, picked_pixel_colour.z))));
+                pen_colour_->set_value(
+                    utility::ColourTriplet(
+                        std::max(0.0f, std::min(1.0f, picked_pixel_colour.x)),
+                        std::max(0.0f, std::min(1.0f, picked_pixel_colour.y)),
+                        std::max(0.0f, std::min(1.0f, picked_pixel_colour.z))));
             }
         }
 

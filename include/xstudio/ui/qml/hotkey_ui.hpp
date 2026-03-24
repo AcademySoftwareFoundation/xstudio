@@ -53,8 +53,9 @@ namespace ui {
 
             Q_PROPERTY(int rowCount READ rowCount NOTIFY rowCountChanged)
             Q_PROPERTY(QStringList categories READ categories NOTIFY categoriesChanged)
-            Q_PROPERTY(QString currentCategory READ currentCategory WRITE setCurrentCategory
-                           NOTIFY currentCategoryChanged)
+            Q_PROPERTY(
+                QString currentCategory READ currentCategory WRITE setCurrentCategory NOTIFY
+                    currentCategoryChanged)
 
             HotkeysUI(QObject *parent = nullptr);
             ~HotkeysUI() override = default;
@@ -118,10 +119,12 @@ namespace ui {
 
             Q_PROPERTY(QString sequence READ sequence WRITE setSequence NOTIFY sequenceChanged)
             Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged)
-            Q_PROPERTY(QString componentName READ componentName WRITE setComponentName NOTIFY
-                           componentNameChanged)
-            Q_PROPERTY(QString description READ description WRITE setDescription NOTIFY
-                           descriptionChanged)
+            Q_PROPERTY(
+                QString componentName READ componentName WRITE setComponentName NOTIFY
+                    componentNameChanged)
+            Q_PROPERTY(
+                QString description READ description WRITE setDescription NOTIFY
+                    descriptionChanged)
             Q_PROPERTY(QString errorMessage READ errorMessage NOTIFY errorMessageChanged)
             Q_PROPERTY(QString context READ context WRITE setContext NOTIFY contextChanged)
             Q_PROPERTY(

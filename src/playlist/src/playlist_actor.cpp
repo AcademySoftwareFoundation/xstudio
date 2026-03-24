@@ -1041,8 +1041,9 @@ caf::message_handler PlaylistActor::message_handler() {
                 .request(actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const UuidActor &result) mutable {
-                        rp.deliver(std::make_pair(
-                            UuidActor(base_.uuid(), actor_cast<caf::actor>(this)), result));
+                        rp.deliver(
+                            std::make_pair(
+                                UuidActor(base_.uuid(), actor_cast<caf::actor>(this)), result));
                     },
 
                     [=](error &err) mutable { rp.deliver(std::move(err)); });
@@ -2581,9 +2582,8 @@ PlaylistActor::get_containers(utility::UuidTree<utility::PlaylistItem> &tree) co
 void PlaylistActor::sort_by_media_display_info(
     const int sort_column_index, const bool ascending) {
 
-    using SourceAndUuid = std::pair<nlohmann::json, utility::Uuid>;
-    auto sort_keys_vs_uuids =
-        std::make_shared<std::vector<SourceAndUuid>>();
+    using SourceAndUuid     = std::pair<nlohmann::json, utility::Uuid>;
+    auto sort_keys_vs_uuids = std::make_shared<std::vector<SourceAndUuid>>();
 
     int idx = 0;
     for (const auto &i : media_) {

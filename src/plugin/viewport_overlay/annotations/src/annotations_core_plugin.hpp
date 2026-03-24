@@ -209,8 +209,8 @@ namespace ui {
             std::map<std::string, Imath::M44f> viewport_transforms_;
             std::map<std::string, media_reader::ImageBufDisplaySetPtr> viewport_current_images_;
 
-            module::StringAttribute * note_category_{nullptr};
-            module::StringAttribute * note_colour_{nullptr};
+            module::StringAttribute *note_category_{nullptr};
+            module::StringAttribute *note_colour_{nullptr};
 
             bool laser_stroke_animation_{false};
             bool cursor_blinking_{false};

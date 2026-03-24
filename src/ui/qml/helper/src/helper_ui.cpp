@@ -103,13 +103,14 @@ QString xstudio::ui::qml::getThumbnailURL(
 
         auto actor_str = utility::make_hex_string(std::begin(buf), std::end(buf));
 
-        auto thumbstr = std::string(fmt::format(
-            "image://thumbnail/{}/{}/{}/{}",
-            actor_str,
-            frame,
-            (cache_to_disk ? "1" : "0"),
-            hash));
-        thumburl      = QStringFromStd(thumbstr);
+        auto thumbstr = std::string(
+            fmt::format(
+                "image://thumbnail/{}/{}/{}/{}",
+                actor_str,
+                frame,
+                (cache_to_disk ? "1" : "0"),
+                hash));
+        thumburl = QStringFromStd(thumbstr);
     } catch ([[maybe_unused]] const std::exception &err) {
         // spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
@@ -157,8 +158,9 @@ nlohmann::json xstudio::ui::qml::qvariant_to_json(const QVariant &var) {
         break;
     case QMetaType::QColor: {
         auto c = var.value<QColor>();
-        return nlohmann::json(utility::ColourTriplet(
-            float(c.red()) / 255.0f, float(c.green()) / 255.0f, float(c.blue()) / 255.0f));
+        return nlohmann::json(
+            utility::ColourTriplet(
+                float(c.red()) / 255.0f, float(c.green()) / 255.0f, float(c.blue()) / 255.0f));
     } break;
     case QMetaType::QByteArray:
         return nlohmann::json::parse(var.toByteArray().toStdString());
