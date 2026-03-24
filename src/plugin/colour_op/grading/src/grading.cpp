@@ -424,7 +424,7 @@ void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const i
                 // Detect the SHOT to use as CDL name, fallback to filename
                 const utility::JsonStore colour_params = media_actor_colour_params(media_actor);
                 std::string clip_name = colour_params.get_or("path", std::string("unknown"));
-                clip_name             = fs::path(clip_name).stem();
+                clip_name             = fs::path(clip_name).stem().string();
 
                 if (colour_params.contains("ocio_context")) {
                     if (colour_params["ocio_context"].is_object()) {
@@ -450,7 +450,7 @@ void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const i
                         const std::string filename = utility::replace_all(
                             fmt::format("{}_{}.cdl", clip_name, layername), " ", "_");
                         const fs::path filepath = fs::path(folder) / filename;
-                        save_cdl(filepath, *grading_data);
+                        save_cdl(filepath.string(), *grading_data);
                     }
                 }
             }

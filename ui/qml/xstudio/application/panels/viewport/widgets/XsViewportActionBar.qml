@@ -49,7 +49,6 @@ Item{
 
                 Layout.preferredWidth: 40
                 Layout.preferredHeight: parent.height
-                text: title ? title : ""
                 imgSrc: icon_path ? icon_path : ""
                 isActive: visible_doc_widgets.indexOf(title) != -1
                 //enabled: button_enabled

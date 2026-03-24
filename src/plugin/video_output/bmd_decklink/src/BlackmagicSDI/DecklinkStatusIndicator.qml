@@ -18,7 +18,7 @@ Item {
     }
     property alias inError: __inError.value
     
-    XsImage {
+    XsIcon {
 
         anchors.fill: parent
         source: inError ? "qrc:/bmd_icons/status-error.svg" : "qrc:/bmd_icons/status-ok.svg"

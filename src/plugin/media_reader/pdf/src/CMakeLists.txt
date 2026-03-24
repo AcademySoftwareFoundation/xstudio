@@ -23,6 +23,8 @@ default_plugin_options(${PROJECT_NAME})
 target_link_libraries(${PROJECT_NAME}
 	PUBLIC
 		xstudio::utility
+		xstudio::media_reader
+	PRIVATE
 		Qt6::Pdf
 		Qt6::Core
 		Qt6::Widgets
