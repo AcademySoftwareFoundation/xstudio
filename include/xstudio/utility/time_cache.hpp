@@ -129,8 +129,9 @@ namespace utility {
             const time_point &time    = utility::clock::now(),
             const utility::Uuid &uuid = utility::Uuid());
 
-        void make_entries_hot(const std::vector<std::pair<media::MediaKey, utility::time_point>>
-                                  &keys_and_timepoints);
+        void make_entries_hot(
+            const std::vector<std::pair<media::MediaKey, utility::time_point>>
+                &keys_and_timepoints);
 
         void unpreserve(const utility::Uuid &uuid);
 
@@ -486,10 +487,10 @@ namespace utility {
             // the furthest point in the future that we would need this Value)
             // compare to 'max_offset' ?
             if (timepoints.size()) {
-                long long offset =
-                    std::abs(std::chrono::duration_cast<std::chrono::microseconds>(
-                                 ntp - *(timepoints.rbegin()))
-                                 .count());
+                long long offset = std::abs(
+                    std::chrono::duration_cast<std::chrono::microseconds>(
+                        ntp - *(timepoints.rbegin()))
+                        .count());
                 if (offset >= max_offset) {
                     max_offset = offset;
                     it         = i;

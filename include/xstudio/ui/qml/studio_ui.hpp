@@ -28,9 +28,9 @@ namespace ui {
 
             Q_OBJECT
 
-            Q_PROPERTY(QList<QObject *> dataSources READ dataSources NOTIFY dataSourcesChanged)
-            Q_PROPERTY(QString sessionActorAddr READ sessionActorAddr WRITE setSessionActorAddr
-                           NOTIFY sessionActorAddrChanged)
+            Q_PROPERTY(
+                QString sessionActorAddr READ sessionActorAddr WRITE setSessionActorAddr NOTIFY
+                    sessionActorAddrChanged)
 
           public:
             explicit StudioUI(caf::actor_system &system, QObject *parent = nullptr);
@@ -64,8 +64,6 @@ namespace ui {
             }
             Q_INVOKABLE QFuture<bool> loadSessionRequestFuture(const QUrl &path);
 
-            QList<QObject *> dataSources() { return data_sources_; }
-
             [[nodiscard]] QString sessionActorAddr() const { return session_actor_addr_; };
 
             void setSessionActorAddr(const QString &addr);
@@ -95,13 +93,13 @@ namespace ui {
 
           private:
             void init(caf::actor_system &system) override;
-            void updateDataSources();
             xstudio::ui::qt::OffscreenViewport *offscreen_snapshot_viewport();
+            void loadVideoOutputPlugin(const utility::Uuid &plugin_id);
 
-            QList<QObject *> data_sources_;
+
             xstudio::ui::qt::OffscreenViewport *snapshot_offscreen_viewport_ = nullptr;
             std::vector<xstudio::ui::qt::OffscreenViewport *> offscreen_viewports_;
-            std::vector<caf::actor> video_output_plugins_;
+            std::map<utility::Uuid, caf::actor> video_output_plugins_;
             QString session_actor_addr_;
         };
     } // namespace qml

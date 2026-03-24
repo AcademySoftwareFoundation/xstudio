@@ -20,7 +20,7 @@ Rectangle{
             textDiv.horizontalAlignment: Text.AlignLeft
 
             text: authorRole
-            textColor: palette.text
+            textColor: XsStyleSheet.primaryTextColor
         }
         ShotHistoryTextRow{ id: dateDiv
             Layout.fillWidth: true

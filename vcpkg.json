@@ -15,6 +15,7 @@
     "lcms",
     "caf",
     "opencolorio",
+    "openimageio",
     "openexr",
     "imath",
     {
@@ -50,11 +51,15 @@
       ]
     }
   ],
-    "builtin-baseline": "f9b54c1c539dda8d61c3001bb30eb9f0c5032086",
+    "builtin-baseline": "c2aeddd80357b17592e59ad965d2adf65a19b22f",
   "overrides": [
     {
       "name": "opencolorio",
       "version": "2.2.1#1"
+    },
+    {
+      "name": "openimageio",
+      "version": "2.5.16.0#1"
     },
     {
       "name": "caf",

@@ -212,7 +212,7 @@ void WipeViewportLayout::do_layout(
     layout_data.image_transforms_.resize(image_set->num_onscreen_images());
     layout_data.custom_layout_data_["wipe_pos"] = wipe_position_->value().x;
 
-    layout_data.layout_aspect_           = image_aspect(image_set->onscreen_image(wipeA));
+    layout_data.layout_aspect_ = image_layout_aspect(image_set->onscreen_image(wipeA));
     layout_data.draw_hero_overlays_only_ = false;
 }
 
@@ -229,7 +229,7 @@ plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
                 WipeViewportLayout::PLUGIN_UUID,
                 "WipeViewportLayout",
                 plugin_manager::PluginFlags::PF_VIEWPORT_RENDERER,
-                true,
+                false,
                 "Ted Waine",
                 "Wipe Viewport Layout Plugin")}));
 }

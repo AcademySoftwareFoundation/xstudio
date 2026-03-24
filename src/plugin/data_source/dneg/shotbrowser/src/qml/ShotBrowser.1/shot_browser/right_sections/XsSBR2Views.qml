@@ -39,18 +39,25 @@ XsListView{ id: listDiv
         font.weight: Font.Medium
     }
 
-    XsMinimalViewport {
+    Component {
         id: mediaPlayer
+        XsMinimalViewport {
+            visible: false
+            z: 2
+        }
+    }
+
+    Loader {
         anchors.fill: parent
-        visible: false
-        z: 2
+        id: mediaPlayerLoader
     }
 
     function playMovie(path) {
         if(path != "") {
-            mediaPlayer.loadMedia(path)
-            mediaPlayer.visible = true
-            mediaPlayer.playToggle()
+            mediaPlayerLoader.sourceComponent = mediaPlayer
+            mediaPlayerLoader.item.loadMedia(path)
+            mediaPlayerLoader.item.visible = true
+            mediaPlayerLoader.item.playToggle()
         }
     }
 

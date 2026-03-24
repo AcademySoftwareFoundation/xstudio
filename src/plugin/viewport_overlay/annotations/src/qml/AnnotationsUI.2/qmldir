@@ -1,0 +1,15 @@
+module AnnotationsUI
+
+XsDrawingTools          2.0 XsDrawingTools.qml
+XsToolActions           2.0 XsToolActions.qml
+XsToolDisplay           2.0 XsToolDisplay.qml
+XsToolSelector          2.0 XsToolSelector.qml
+XsColourPresets         2.0 XsColourPresets.qml
+XsTextCategories        2.0 XsTextCategories.qml
+XsPenToolProperties     2.0 XsPenToolProperties.qml
+XsBrushToolProperties   2.0 XsBrushToolProperties.qml
+XsLaserToolProperties   2.0 XsLaserToolProperties.qml
+XsShapesToolProperties  2.0 XsShapesToolProperties.qml
+XsTextToolProperties    2.0 XsTextToolProperties.qml
+XsEraseToolProperties   2.0 XsEraseToolProperties.qml
+XsColourPick            2.0 XsColourPick.qml

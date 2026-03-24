@@ -17,9 +17,13 @@ void ShotBrowserEngine::updateQueryValueCache(
     const std::string &type, const utility::JsonStore &data, const int project_id) {
 
     if (type == "Sequence") {
+        query_engine_.set_reference_cache(
+            QueryEngine::cache_name("Reference", project_id), data);
+
         query_engine_.set_shot_sequence_lookup(
             QueryEngine::cache_name("ShotSequence", project_id), data);
         query_engine_.set_lookup(QueryEngine::cache_name(type, project_id), data);
+
     } else if (type == "Shot Type") {
         query_engine_.set_shot_type_cache(
             QueryEngine::cache_name("Shot Type", project_id), data);

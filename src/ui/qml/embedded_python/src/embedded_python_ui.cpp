@@ -20,13 +20,14 @@ using namespace xstudio::ui::qml;
 EmbeddedPythonUI::EmbeddedPythonUI(QObject *parent) : super(parent) {
     init(CafSystemObject::get_actor_system());
 
-    setRoleNames(std::vector<std::string>({
-        "nameRole",
-        "menuPathRole",
-        "scriptPathRole",
-        "snippetTypeRole",
-        "typeRole",
-    }));
+    setRoleNames(
+        std::vector<std::string>({
+            "nameRole",
+            "menuPathRole",
+            "scriptPathRole",
+            "snippetTypeRole",
+            "typeRole",
+        }));
 }
 
 
@@ -81,23 +82,12 @@ void EmbeddedPythonUI::set_backend(caf::actor backend) {
     emit backendChanged();
 }
 
-QUuid EmbeddedPythonUI::createSession() {
+void EmbeddedPythonUI::createSession() {
     if (backend_) {
-        scoped_actor sys{system()};
-        // spdlog::warn("pyEval {0}", str.toStdString());
-        try {
-            auto uuid = request_receive<Uuid>(
-                *sys, backend_, embedded_python::python_create_session_atom_v, true);
-            event_uuid_ = uuid;
-            emit sessionIdChanged();
-            return QUuidFromUuid(uuid);
-        } catch (const std::exception &e) {
-            spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-        }
+        anon_mail(embedded_python::python_create_session_atom_v, true, as_actor())
+            .send(backend_);
     } else
         spdlog::warn("No python backend");
-
-    return QUuid();
 }
 
 bool EmbeddedPythonUI::sendInput(const QString &str) {
@@ -189,8 +179,9 @@ QVariant EmbeddedPythonUI::pyEval(const QString &str) {
         scoped_actor sys{system()};
         spdlog::warn("pyEval {0}", str.toStdString());
         try {
-            return json_to_qvariant(request_receive<JsonStore>(
-                *sys, backend_, embedded_python::python_eval_atom_v, str.toStdString()));
+            return json_to_qvariant(
+                request_receive<JsonStore>(
+                    *sys, backend_, embedded_python::python_eval_atom_v, str.toStdString()));
         } catch (const std::exception &e) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
         }
@@ -261,6 +252,16 @@ void EmbeddedPythonUI::init(actor_system &system_) {
                     waiting_ = false;
                     emit waitingChanged();
                 }
+            },
+
+            [=](utility::event_atom,
+                embedded_python::python_create_session_atom,
+                const utility::Uuid &session_uuid) {
+                // this message is sent back from the python interpreter when
+                // it has created the InteractiveSession instance - it's
+                // an async response from createSession() method
+                event_uuid_ = session_uuid;
+                emit sessionIdChanged();
             },
 
             [=](caf::actor embedded_python) { set_backend(embedded_python); },

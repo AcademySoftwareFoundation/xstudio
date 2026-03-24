@@ -51,6 +51,40 @@ namespace utility {
 } // namespace utility
 } // namespace xstudio
 
+
+namespace {
+std::set<std::string> supported_extensions_;
+std::mutex supported_extensions_mutex;
+} // namespace
+
+void xstudio::utility::add_supported_extensions(const std::vector<std::string> &values) {
+    std::lock_guard l(supported_extensions_mutex);
+
+    // make sure they are upper..
+    for (const auto &i : values) {
+        if (not i.empty())
+            supported_extensions_.insert(to_upper(i));
+    }
+}
+
+std::set<std::string> xstudio::utility::supported_extensions() {
+    std::lock_guard l(supported_extensions_mutex);
+    return supported_extensions_;
+}
+
+bool xstudio::utility::is_file_supported(const caf::uri &uri) {
+    const std::string ext =
+        to_upper(get_path_extension(fs::path(uri_to_posix_path(uri)))).substr(1);
+
+    std::lock_guard l(supported_extensions_mutex);
+
+    if (supported_extensions_.count(ext))
+        return true;
+
+    return false;
+}
+
+
 void xstudio::utility::setup_filepath_remap_regex(const utility::JsonStore &j) {
     try {
         if (!j.is_object())
@@ -327,6 +361,17 @@ std::string xstudio::utility::uri_to_posix_path(const caf::uri &uri) {
             // Remove the leading /
             path.erase(0, 1);
         }
+
+        // Reconstruct UNC path from URI authority (server name)
+        // file://server/share/path -> \\server\share\path
+        if (!uri.authority().empty()) {
+            std::string host = to_string(uri.authority());
+            if (!host.empty() && host != "localhost") {
+                // Convert forward slashes to backslashes for Windows
+                std::replace(path.begin(), path.end(), '/', '\\');
+                path = R"(\\)" + host + R"(\)" + path;
+            }
+        }
 #endif
         return forward_remap_file_path(path);
     }
@@ -571,13 +616,36 @@ caf::uri xstudio::utility::posix_path_to_uri(const std::string &path, const bool
 #endif
     }
 
-    p = reverse_remap_file_path(path);
+    p = reverse_remap_file_path(p);
 
 
     // spdlog::warn("posix_path_to_uri: {} -> {}", path, p);
 
     // A valid file URI must therefore begin with either file:/path (no hostname), file:///path
     // (empty hostname), or file://hostname/path.
+
+#ifdef _WIN32
+    // Handle Windows UNC paths: \\server\share\path -> file://server/share/path
+    if (p.size() >= 2 && p[0] == '\\' && p[1] == '\\') {
+        // Find the server name (between first \\ and next \)
+        size_t server_end = p.find('\\', 2);
+        if (server_end != std::string::npos) {
+            std::string server     = p.substr(2, server_end - 2);
+            std::string share_path = p.substr(server_end + 1);
+            // Convert backslashes to forward slashes for URI path
+            std::replace(share_path.begin(), share_path.end(), '\\', '/');
+            return caf::uri_builder().scheme("file").host(server).path(share_path).make();
+        }
+    }
+#endif
+
+#ifdef _WIN32
+    // Normalize Windows drive-letter paths (e.g. R:\foo) to valid file URIs
+    std::replace(p.begin(), p.end(), '\\', '/');
+    if (p.size() >= 2 && std::isalpha(static_cast<unsigned char>(p[0])) && p[1] == ':') {
+        p = "/" + p;
+    }
+#endif
 
     // relative
     if (not p.empty() && p[0] != '/')
@@ -877,8 +945,9 @@ std::string xstudio::utility::xstudio_root(const std::string &append_path) {
     DWORD nSize  = _countof(filename);
     DWORD result = GetModuleFileNameA(NULL, filename, nSize);
     if (result == 0) {
-        spdlog::critical("Unable to determine executable path from Windows API, falling back "
-                         "to standard methods");
+        spdlog::critical(
+            "Unable to determine executable path from Windows API, falling back "
+            "to standard methods");
     } else {
         auto exePath = fs::path(filename);
 

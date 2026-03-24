@@ -30,7 +30,7 @@ namespace caf::python {
 
 extern void register_abs_class(py::module &m, const std::string &name);
 extern void register_uuid_class(py::module &m, const std::string &name);
-extern void register_plugindetail_class(py::module &m, const std::string &name);
+extern void XSTUDIO_REGISTER_PLUGINdetail_class(py::module &m, const std::string &name);
 extern void register_playlisttree_class(py::module &m, const std::string &name);
 extern void register_thumbnailbuffer_class(py::module &m, const std::string &name);
 extern void register_streamdetail_class(py::module &m, const std::string &name);
@@ -43,6 +43,8 @@ extern void register_jsonstore_class(py::module &m, const std::string &name);
 extern void register_FrameRate_class(py::module &m, const std::string &name);
 extern void register_URI_class(py::module &m, const std::string &name);
 extern void register_FrameRateDuration_class(py::module &m, const std::string &name);
+extern void register_vector3_class(py::module &m, const std::string &name);
+extern void register_matrix44_class(py::module &m, const std::string &name);
 extern void register_colour_triplet_class(py::module &m, const std::string &name);
 extern void register_uuid_actor_class(py::module &m, const std::string &name);
 extern void register_uuid_actor_vector_class(py::module &m, const std::string &name);
@@ -64,7 +66,9 @@ void py_config::add_messages() {
     add_message_type<media::StreamDetail>(
         "StreamDetail", "xstudio::media::StreamDetail", &register_streamdetail_class);
     add_message_type<plugin_manager::PluginDetail>(
-        "PluginDetail", "xstudio::plugin_manager::PluginDetail", &register_plugindetail_class);
+        "PluginDetail",
+        "xstudio::plugin_manager::PluginDetail",
+        &XSTUDIO_REGISTER_PLUGINdetail_class);
     add_message_type<std::vector<plugin_manager::PluginDetail>>(
         "PluginDetailVec", "std::vector<xstudio::plugin_manager::PluginDetail>", nullptr);
     add_message_type<playhead::AssemblyMode>(
@@ -147,6 +151,7 @@ void py_config::add_messages() {
         "JsonStore", "xstudio::utility::JsonStore", &register_jsonstore_class);
     add_message_type<utility::MediaReference>(
         "MediaReference", "xstudio::utility::MediaReference", &register_mediareference_class);
+    add_message_type<Imath::M44f>("M44f", "Imath::M44f", &register_matrix44_class);
 
     add_message_type<bookmark::BookmarkDetail>(
         "BookmarkDetail", "xstudio::bookmark::BookmarkDetail", &register_bookmark_detail_class);

@@ -23,8 +23,6 @@ Item{ id: listDiv
             model: bookmarkFilterModel
             spacing: itemSpacing
 
-            property bool userSelect: false
-
             ScrollBar.vertical: XsScrollBar {
                 visible: bookmarkList.height < bookmarkList.contentHeight
             }
@@ -90,9 +88,9 @@ Item{ id: listDiv
                             var name = "";
                             if (userDataRole.layer_name) {
                                 name = userDataRole.layer_name
-                                if (startFrameRole == endFrameRole) {
-                                    name += " - Frame " + startFrameRole
-                                }
+                                // if (startFrameRole == endFrameRole) {
+                                //     name += " - Frame " + startFrameRole
+                                // }
                             } else {
                                 name = "Grade Layer " + (index+1)
                             }

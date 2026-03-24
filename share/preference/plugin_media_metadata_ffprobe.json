@@ -1,0 +1,64 @@
+{
+	"plugin":{
+		"media_metadata":{
+			"ffprobe":{
+				"supported": {
+					"path": "/plugin/media_metadata/ffprobe/supported",
+					"description": "Control plugin format support",
+					"datatype": "json",
+					"context": ["APPLICATION"],
+
+					"default_value": {
+						".AAF": "MMC_FULLY",
+						".AIFF": "MMC_FULLY",
+						".AVI": "MMC_FULLY",
+						".BMP": "MMC_FULLY",
+						".CIN": "MMC_FULLY",
+						".DPX": "MMC_FULLY",
+						".GIF": "MMC_FULLY",
+						".JPEG": "MMC_FULLY",
+						".JPG": "MMC_FULLY",
+						".MKV": "MMC_FULLY",
+						".MOV": "MMC_FULLY",
+						".MPG": "MMC_FULLY",
+						".MPEG": "MMC_FULLY",
+						".MP3": "MMC_FULLY",
+						".MP4": "MMC_FULLY",
+						".MXF": "MMC_FULLY",
+						".PNG": "MMC_FULLY",
+						".TIF": "MMC_FULLY",
+						".TIFF": "MMC_FULLY",
+						".WAV": "MMC_FULLY",
+						".WEBM": "MMC_FULLY",
+						"": "MMC_MAYBE"
+					},
+
+					"value": {
+						".AAF": "MMC_FULLY",
+						".AIFF": "MMC_FULLY",
+						".AVI": "MMC_FULLY",
+						".BMP": "MMC_FULLY",
+						".CIN": "MMC_FULLY",
+						".DPX": "MMC_FULLY",
+						".GIF": "MMC_FULLY",
+						".JPEG": "MMC_FULLY",
+						".JPG": "MMC_FULLY",
+						".MKV": "MMC_FULLY",
+						".MOV": "MMC_FULLY",
+						".MPG": "MMC_FULLY",
+						".MPEG": "MMC_FULLY",
+						".MP3": "MMC_FULLY",
+						".MP4": "MMC_FULLY",
+						".MXF": "MMC_FULLY",
+						".PNG": "MMC_FULLY",
+						".TIF": "MMC_FULLY",
+						".TIFF": "MMC_FULLY",
+						".WAV": "MMC_FULLY",
+						".WEBM": "MMC_FULLY",
+						"": "MMC_MAYBE"
+					}
+				}
+			}
+		}
+	}
+}

@@ -79,13 +79,13 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
                 .then(
                     [=](const ColourPipelineDataPtr ptr) mutable {
                         media_reader::ImageBufPtr result = image;
-                        result.colour_pipe_data_         = ptr;
+                        result.colour_pipe_data()        = ptr;
 
                         mail(colour_operation_uniforms_atom_v, result)
                             .request(self(), infinite)
                             .then(
                                 [=](const utility::JsonStore &colour_pipe_uniforms) mutable {
-                                    result.colour_pipe_uniforms_ = colour_pipe_uniforms;
+                                    result.colour_pipe_uniforms() = colour_pipe_uniforms;
                                     rp.deliver(result);
                                 },
                                 [=](caf::error &err) mutable { rp.deliver(err); });
@@ -159,7 +159,7 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
             // colour transform (for example, the id should be based on the
             // media source colourspce and the OCIO View and Display properties
             // of the ColourPipeline.
-            std::string transform_id = std::to_string(fast_display_transform_hash(media_ptr));
+            std::string transform_id = std::to_string(fast_colour_transform_hash(media_ptr));
 
             // check if we have already received a request for this data but are
             // still waiting for workers to finish. Stores the response promise
@@ -242,7 +242,7 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
                     thumbnail_processor_pool_, display_colour_transform_hash_atom_v, media_ptr);
                 return rp;
             }
-            rp.deliver(fast_display_transform_hash(media_ptr));
+            rp.deliver(fast_colour_transform_hash(media_ptr));
             return rp;
         },
         [=](media_reader::process_thumbnail_atom,
@@ -269,15 +269,20 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
             const media_reader::ImageBufPtr &image) -> result<utility::JsonStore> {
             auto rp = make_response_promise<utility::JsonStore>();
 
-            if (!image.colour_pipe_data_) {
+            if (!image.colour_pipe_data()) {
                 rp.deliver(utility::JsonStore());
                 return rp;
             }
 
             auto result = std::make_shared<utility::JsonStore>();
-            for (const auto &op : image.colour_pipe_data_->operations()) {
+            for (const auto &op : image.colour_pipe_data()->operations()) {
                 result->merge(update_shader_uniforms(image, op->user_data_));
             }
+
+            if (image.frame_id().params().contains("shader_overrides")) {
+                result->merge(image.frame_id().params()["shader_overrides"]);
+            }
+
             auto rcount = std::make_shared<int>((int)colour_op_plugins_.size());
 
             if (!colour_op_plugins_.size()) {

@@ -96,16 +96,16 @@ Item {
     // indicates the 'current' (hero) image in multi image layours
     Rectangle {
         visible: viewportPlayhead.numSubPlayheads > 1
-        x: imageBox.x        
+        x: imageBox.x
         y: imageBox.y
         width: imageBox.width
         height: imageBox.height
         color: "transparent"
-        border.color: palette.highlight
+        border.color: XsStyleSheet.accentColor
         border.width: 2
     }
 
-    // If we use a MouseArea in the overlay, it stops the Viewport having 
+    // If we use a MouseArea in the overlay, it stops the Viewport having
     // full control over the pointer (like setting the Cursor shape). It's
     // better to listen to mouse events coming from the Viewport itself.
     Connections {
@@ -113,7 +113,7 @@ Item {
         target: view // the viewport
 
         function onMouseRelease(buttons) {
-            
+
             if (!attrs.polygon_init) attrs.interacting = false
             construction_polygon.item.mouseReleased(buttons)
             for (var i = 0; i < repeater.count; ++i) {
@@ -275,24 +275,24 @@ Item {
                 updateModelValue({"points": []})
                 attrs.interacting = true
             }
-        
+
             function finalizePolygon() {
-        
+
                 if (modelValue.points.length >= 3) {
                     var str_action = "Add Polygon ";
                     var new_pts = modelValue.points
-            
+
                     // Construct action string with list of point coordinates
                     for (var i = 0; i < new_pts.length; i++) {
-            
+
                         str_action += new_pts[i][2] + "," + new_pts[i][3] + ",";
                     }
                     attrs.drawing_action = str_action;
                 }
                 cleanupPolygon();
-        
+
             }
-        
+
             function cleanupPolygon() {
                 updateModelValue({"points": []})
                 attrs.polygon_init = false;
@@ -300,10 +300,10 @@ Item {
                 attrs.interacting = false
 
             }
-        
+
         }
     }
-    
+
     Loader {
 
         id: construction_polygon

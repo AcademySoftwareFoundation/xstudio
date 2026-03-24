@@ -11,7 +11,7 @@ XsWindow {
 
 	id: dialog
 	minimumWidth: 456
-	minimumHeight: 600
+	minimumHeight: 680
     width: 560
     title: "Render Video"
 
@@ -24,6 +24,8 @@ XsWindow {
     property var selectedContainerType: itemToRender ? theSessionData.get(itemToRender, "typeRole") : ""
     property var selectedContainerName: itemToRender ? theSessionData.get(itemToRender, "nameRole") : ""
     property var selectedContainerUuid: itemToRender ? theSessionData.get(itemToRender, "actorUuidRole") : ""
+
+    property var frame_based_formats: ['jpg', 'jpeg', 'tiff', 'png', 'bmp', 'tif']
 
     onItemToRenderChanged: {
         if (itemToRender && itemToRender.valid) {
@@ -40,13 +42,36 @@ XsWindow {
                     fps_best_guess = render_range[3]
                 }
             } else {
+
                 inPoint.text = "--"
-                outPoint.text = "--"                
+                outPoint.text = "--"
+                getSourceFPSAndStartFrame(true)
+
             }
-            
+
         }
     }
 
+    function getSourceFPSAndStartFrame() {
+
+        // get the first media item in the container
+        let media_index = theSessionData.searchRecursive("Media", "typeRole", itemToRender);                
+        if (media_index.valid) {
+            let imageSourceId = theSessionData.get(media_index, "imageActorUuidRole")
+            let image_source_idx = theSessionData.searchRecursive(imageSourceId, "actorUuidRole", media_index);                
+            if (image_source_idx.valid) {
+                let sf = theSessionData.get(image_source_idx, "timecodeAsFramesRole")
+                let fps = theSessionData.get(image_source_idx, "rateFPSRole")
+                if (sf != undefined && fps != undefined) {
+                    start_frame = sf
+                    fps_best_guess = fps
+                }
+            }
+        }
+
+    }
+
+    property int start_frame: 0
     property var render_range
     property bool apply_render_range: selectedContainerType == "Timeline"
 
@@ -70,13 +95,13 @@ XsWindow {
     onSelectedContainerUuidChanged: {
 
         // Here we want to auto-set the frame rate to match the timeline frame
-        // rate or the rate of the media in the playlist (or the firs bit of 
+        // rate or the rate of the media in the playlist (or the firs bit of
         // media in the playlist)
 
         if (itemToRender == undefined || !itemToRender.valid) return;
         if (theSessionData.get(itemToRender, "typeRole") == "Timeline") {
 
-            // use call to getTimelineFullRangeAndLoopRangeAndFPS made above to 
+            // use call to getTimelineFullRangeAndLoopRangeAndFPS made above to
             // retrieve the timeline frame rate.
 
         } else {
@@ -103,9 +128,9 @@ XsWindow {
             }
         }
 
-        // we also want to turn on audio output if any of the media has 
+        // we also want to turn on audio output if any of the media has
         // audio ... actually, this doesn't work
-                
+
         /*var has_audio = false
         for (var i = 0; i < n_media; ++i) {
             var media_item_idx = theSessionData.index(i, 0, media_list_idx)
@@ -194,10 +219,68 @@ XsWindow {
     }
     property alias frame_rates: __frame_rates.value
 
+    property bool isFrameBased: false
+
     property string last_render_folder
+    property string file_extension
+
+    property var of: outputFile.text
+    onOfChanged: {
+        const re = /(.+\.)([^\.]+)$/
+        const ext = of.match(re)        
+        if (ext) {
+            isFrameBased = (frame_based_formats.indexOf(ext[2].toLowerCase()) >= 0)
+            file_extension = ext[2].toUpperCase()
+        }
+    }
+
+    onIsFrameBasedChanged: {
+        if (isFrameBased) {
+            const re3 = /(.+)(\#+)(.*)(\..+)$/
+            const with_hashes = path.match(re3)
+            if (with_hashes) {
+                outputAudioFile.text = with_hashes[1] + with_hashes[3] + ".aiff"
+            }
+        }
+    }
 
     function choose_output(fileUrl, undefined, func) {
-        outputFile.text = fileUrl
+        
+        var path = helpers.pathFromURL(fileUrl)
+        const re = /(.+\.)(.+)$/
+        const ext = path.match(re)
+        if (frame_based_formats.indexOf(ext[2].toLowerCase()) >= 0) {
+            const re2 = /(.+\.)([0-9]+)\.(.+)$/
+            const re3 = /.+\.(\#+).*\.(.+)$/
+            const with_frame_num = path.match(re2)
+            const with_hashes = path.match(re3)
+            if (with_frame_num) {
+                // must be a more elegant way to do this!
+                var hashes = ""
+                for (var i = 0; i < with_frame_num[2].length; ++i) {
+                    hashes = hashes+"#"
+                }
+                path = path.replace(with_frame_num[2], hashes)
+                outputAudioFile.text = with_frame_num[1] + "aiff"
+            } else if (!with_hashes) {
+                path = ext[1] + "####." + ext[2]
+                outputAudioFile.text = ext[1] + "aiff"
+            }
+        }
+        
+        outputFile.text = path
+
+        // Without this, on MacOS, the dialog dissapears behind
+        // the main window when the file browser is closed
+        dialog.hide()
+        dialog.show()
+        dialog.raise()
+        dialog.raise()
+    }
+
+    function choose_audio(fileUrl, undefined, func) {
+
+        outputAudioFile.text = helpers.pathFromURL(fileUrl)
 
         // Without this, on MacOS, the dialog dissapears behind
         // the main window when the file browser is closed
@@ -241,13 +324,13 @@ XsWindow {
             }
 
             XsText {
-                text: "Output File"
+                text: isFrameBased ? "Output Frames" : "Output File"
                 Layout.alignment: Qt.AlignRight
             }
 
             RowLayout {
                 Layout.fillWidth: true
-                XsTextField{ 
+                XsTextField{
 
                     id: outputFile
                     Layout.fillWidth: true
@@ -255,14 +338,14 @@ XsWindow {
                     clip: true
                     placeholderText: "Enter or browse for ouput file"
                     background: Rectangle{
-                        color: outputFile.activeFocus? Qt.darker(palette.highlight, 1.5): outputFile.hovered? Qt.lighter(palette.base, 2):Qt.lighter(palette.base, 1.5)
+                        color: outputFile.activeFocus? Qt.darker(XsStyleSheet.accentColor, 1.5): outputFile.hovered? Qt.lighter(XsStyleSheet.panelBgColor, 2):Qt.lighter(XsStyleSheet.panelBgColor, 1.5)
                         border.width: outputFile.hovered || outputFile.active? 1:0
-                        border.color: palette.highlight
+                        border.color: XsStyleSheet.accentColor
                         opacity: 0.7
                     }
                     //text: "file:///user_data/.tmp/test.mp4"
                 }
-                
+
                 XsPrimaryButton {
                     Layout.preferredHeight: widgetHeight
                     text: "Browse ..."
@@ -282,6 +365,72 @@ XsWindow {
             }
 
             XsText {
+                text: "Output Audio File"
+                Layout.alignment: Qt.AlignRight
+                visible: isFrameBased
+                enabled: render_audio
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                visible: isFrameBased
+                enabled: render_audio
+                XsTextField{
+
+                    id: outputAudioFile
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: widgetHeight
+                    clip: true
+                    placeholderText: "Enter or browse for ouput audio"
+                    background: Rectangle{
+                        color: outputFile.activeFocus? Qt.darker(XsStyleSheet.accentColor, 1.5): outputFile.hovered? Qt.lighter(XsStyleSheet.panelBgColor, 2):Qt.lighter(XsStyleSheet.panelBgColor, 1.5)
+                        border.width: outputFile.hovered || outputFile.active? 1:0
+                        border.color: XsStyleSheet.accentColor
+                        opacity: 0.7
+                    }
+                    //text: "file:///user_data/.tmp/test.mp4"
+                }
+
+                XsPrimaryButton {
+                    Layout.preferredHeight: widgetHeight
+                    text: "Browse ..."
+                    onClicked: {
+                        dialogHelpers.showFileDialog(
+                            choose_audio,
+                            last_render_folder ? last_render_folder : file_functions.defaultSessionFolder(),
+                            "Export Audio",
+                            ".aiff",
+                            ["All Files (*.*)", "Audio Files (*.aiff *.wav *.ogg *.mp3 )"],
+                            false,
+                            false,
+                            undefined
+                        )
+                    }
+                }
+            }
+
+            XsText {
+                text: "First Frame Number"
+                Layout.alignment: Qt.AlignRight
+                visible: isFrameBased
+            }
+
+            RowLayout {
+
+                visible: isFrameBased
+
+                XsTextField{
+                    Layout.preferredWidth: 50
+                    Layout.preferredHeight: widgetHeight
+                    id: firstFrame
+                    validator: IntValidator
+                    property var guess: start_frame
+                    onGuessChanged: text = "" + guess
+                }
+
+            }
+
+            XsText {
                 text: "Render Range"
                 Layout.alignment: Qt.AlignRight
                 enabled: apply_render_range
@@ -289,7 +438,7 @@ XsWindow {
 
             RowLayout {
 
-                XsTextField{ 
+                XsTextField{
                     Layout.preferredWidth: 50
                     Layout.preferredHeight: widgetHeight
                     id: inPoint
@@ -304,7 +453,7 @@ XsWindow {
                     enabled: apply_render_range
                 }
 
-                XsTextField{ 
+                XsTextField{
                     Layout.preferredWidth: 50
                     Layout.preferredHeight: widgetHeight
                     id: outPoint
@@ -356,7 +505,7 @@ XsWindow {
             }
 
             XsCheckBox {
-                
+
                 Layout.alignment: Qt.AlignLeft
                 Layout.preferredHeight: widgetHeight
                 checked: load_on_completion
@@ -364,7 +513,7 @@ XsWindow {
                     load_on_completion = !load_on_completion
                 }
             }
-            
+
             VidRenderDlgDivider {
                 Layout.preferredHeight: widgetHeight
                 Layout.topMargin: 20
@@ -378,8 +527,8 @@ XsWindow {
                 Layout.alignment: Qt.AlignRight
             }
 
-            XsComboBoxEditable{ 
-        
+            XsComboBoxEditable{
+
                 id: output_resolution
                 model: resolution_names
                 Layout.alignment: Qt.AlignLeft
@@ -435,15 +584,17 @@ XsWindow {
             XsText {
                 text: "Frame Rate"
                 Layout.alignment: Qt.AlignRight
+                enabled: !isFrameBased
             }
 
-            XsComboBoxEditable{ 
-        
+            XsComboBoxEditable{
+
                 id: frame_rate
                 model: frame_rates
                 Layout.alignment: Qt.AlignLeft
                 Layout.minimumWidth: 200
                 Layout.preferredHeight: widgetHeight
+                enabled: !isFrameBased
                 function get_rate() {
                     rame_rate_attr = currentText
                     return parseFloat(currentText)
@@ -454,17 +605,65 @@ XsWindow {
             }
 
             XsText {
+                text: "Add Timecode"
+                Layout.alignment: Qt.AlignRight
+                enabled: !isFrameBased
+            }
+
+            RowLayout {
+                
+                XsCheckBox {
+                    id: useTimecode
+                    checked: true
+                    enabled: !isFrameBased
+                }
+
+                XsTextField{
+                    Layout.preferredWidth: 100
+                    Layout.preferredHeight: widgetHeight
+                    id: timecode
+                    text: "00:00:00:00"
+                    enabled: !isFrameBased && useTimecode.checked
+                    font.family: "monospace"
+                    onTextChanged: {
+                        const re = /[0-9]+\:[0-9]+\:[0-9]+\:[0-9]+$/
+                        const m = text.match(re)        
+                        if (!m) {
+                            background.color = "red"
+                        } else {
+                            background.color = "transparent"
+                        }
+                    }
+                }
+
+                XsPrimaryButton {
+                    Layout.preferredHeight: widgetHeight
+                    Layout.leftMargin: 10
+                    Layout.preferredWidth: 30
+                    text: "Set"
+                    onClicked: {
+                        timecode.text = currentPlayhead.timecode
+                    }
+                    toolTip: "Set the timecode from the current on-screen frame."
+                    enabled: !isFrameBased && useTimecode.checked
+                }
+
+            }
+
+            XsText {
                 text: "Video & Audio Encoding Preset"
                 Layout.alignment: Qt.AlignRight
+                enabled: !isFrameBased
             }
 
             CodecOptionsBox {
-                
+
                 Layout.alignment: Qt.AlignLeft
                 Layout.preferredHeight: widgetHeight
                 attr_name: "video_codec_options"
                 default_attr_name: "video_codec_default_options"
                 id: vid_codec_opts
+                enabled: !isFrameBased
             }
 
             XsText {
@@ -473,7 +672,7 @@ XsWindow {
             }
 
             XsCheckBox {
-                
+
                 Layout.alignment: Qt.AlignLeft
                 Layout.preferredHeight: widgetHeight
                 id: ra
@@ -542,7 +741,7 @@ XsWindow {
                     dialogHelpers.errorDialogFunc("Error", "Unable to resolve location of user docs.")
                 } else if (!helpers.openURL(url)) {
                     dialogHelpers.errorDialogFunc("Error", "Failed to launch webbrowser, this is the link, please manually visit this.<BR><BR>"+url+"<BR><BR>")
-                }        
+                }
             }
             XsToolTip {
                 text: "Check for the help page in your open web browser after clicking this button."
@@ -586,8 +785,8 @@ XsWindow {
             width: XsStyleSheet.primaryButtonStdWidth*2
             enabled: outputFile.text != ""
             onClicked: {
-    
-                var parentPlaylistUuiid = theSessionData.get(itemToRender, "actorUuidRole")                
+
+                var parentPlaylistUuiid = theSessionData.get(itemToRender, "actorUuidRole")
                 var renderName = selectedContainerName
                 if (["Subset", "Timeline", "ContactSheet"].includes(selectedContainerType)) {
                     parentPlaylistUuiid = theSessionData.get(itemToRender.parent.parent, "actorUuidRole")
@@ -597,11 +796,19 @@ XsWindow {
 
                 renderName = renderName + " ("+ selectedContainerType + ")"
 
+                let tc = ""
+                if (isFrameBased) {
+                    tc = firstFrame.text
+                } else if (useTimecode.checked) {
+                    tc = timecode.text
+                }
+
                 var cb_args = [
                         renderName,
                         parentPlaylistUuiid,
                         selectedContainerUuid,
                         outputFile.text,
+                        (isFrameBased && render_audio) ? outputAudioFile.text : "",
                         output_resolution.get_resolution(),
                         inPoint.text != "--" ? parseInt(inPoint.text) : -1,
                         outPoint.text != "--" ? parseInt(outPoint.text) : -1,
@@ -609,10 +816,11 @@ XsWindow {
                         vid_codec_opts.get_codec_options()[0],
                         vid_codec_opts.get_bit_depth(),
                         render_audio ? vid_codec_opts.get_codec_options()[1] : "",
-                        vid_codec_opts.get_preset_name(),
+                        isFrameBased ? file_extension : vid_codec_opts.get_preset_name(),
                         ocio_display.currentText,
                         ocio_view.currentText,
-                        load_on_completion
+                        load_on_completion,
+                        tc
                     ]
 
                 render_queue_visible = true

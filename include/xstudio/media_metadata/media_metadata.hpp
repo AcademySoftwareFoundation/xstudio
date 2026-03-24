@@ -9,10 +9,12 @@
 #include <string>
 
 #include "xstudio/atoms.hpp"
+#include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/media_reference.hpp"
 #include "xstudio/plugin_manager/plugin_factory.hpp"
+#include "xstudio/global_store/global_store.hpp"
 
 namespace xstudio {
 namespace media_metadata {
@@ -22,6 +24,9 @@ namespace media_metadata {
     // type should be std::byte... need newer gcc..
     class MediaMetadata {
       public:
+        MediaMetadata(std::string name, const utility::JsonStore &prefs);
+        virtual ~MediaMetadata() = default;
+
         [[nodiscard]] std::string name() const;
 
         nlohmann::json metadata(const caf::uri &uri);
@@ -29,7 +34,8 @@ namespace media_metadata {
         virtual MMCertainty
         supported(const caf::uri &uri, const std::array<uint8_t, 16> &signature) = 0;
 
-        virtual ~MediaMetadata() = default;
+        virtual void update_preferences(const utility::JsonStore &prefs);
+
 
       protected:
         struct StandardFields {
@@ -50,8 +56,6 @@ namespace media_metadata {
         fill_standard_fields(const nlohmann::json &metadata) = 0;
 
         virtual nlohmann::json read_metadata(const caf::uri &uri) = 0;
-
-        MediaMetadata(std::string name);
 
       private:
         const std::string name_;
@@ -80,12 +84,18 @@ namespace media_metadata {
     template <typename T> class MediaMetadataActor : public caf::event_based_actor {
 
       public:
-        MediaMetadataActor(
-            caf::actor_config &cfg, const utility::JsonStore & = utility::JsonStore())
-            : caf::event_based_actor(cfg) {
+        MediaMetadataActor(caf::actor_config &cfg, const utility::JsonStore &jsn)
+            : caf::event_based_actor(cfg), media_metadata_(jsn) {
 
             spdlog::debug("Created MediaMetadataActor");
             // print_on_exit(this, "MediaHookActor");
+
+            {
+                auto prefs = global_store::GlobalStoreHelper(system());
+                utility::JsonStore js;
+                utility::join_broadcast(this, prefs.get_group(js));
+                media_metadata_.update_preferences(js);
+            }
 
             behavior_.assign(
                 [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
@@ -109,6 +119,21 @@ namespace media_metadata {
                     -> std::pair<std::string, MMCertainty> {
                     return std::make_pair(
                         media_metadata_.name(), media_metadata_.supported(_uri, signature));
+                },
+                [=](json_store::update_atom,
+                    const utility::JsonStore & /*change*/,
+                    const std::string & /*path*/,
+                    const utility::JsonStore &full) {
+                    return mail(json_store::update_atom_v, full)
+                        .delegate(actor_cast<caf::actor>(this));
+                },
+
+                [=](json_store::update_atom, const utility::JsonStore &js) {
+                    try {
+                        media_metadata_.update_preferences(js);
+                    } catch (const std::exception &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    }
                 });
         }
 

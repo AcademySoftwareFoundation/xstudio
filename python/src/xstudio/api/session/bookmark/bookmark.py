@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.api.session.container import Container
 from xstudio.core import bookmark_detail_atom, BookmarkDetail
-from xstudio.api.session.media import MediaSource
+from xstudio.api.session.media import Media
 
 
 class Bookmark(Container):
@@ -29,17 +29,17 @@ class Bookmark(Container):
         return self.connection.request_receive(self.remote, bookmark_detail_atom())[0]
 
     @property
-    def media_source(self):
+    def media(self):
         """Get the Media object to which the bookmark is 
         attached.
 
         Returns:
-            result(MediaSource): The bookmark's detail 
+            result(Media): The bookmark's detail 
         """
         result = None
 
         if self.detail.owner and self.detail.owner.actor:            
-            result = MediaSource(self.connection, self.detail.owner.actor, self.detail.owner.uuid)
+            result = Media(self.connection, self.detail.owner.actor, self.detail.owner.uuid)
 
         return result
 

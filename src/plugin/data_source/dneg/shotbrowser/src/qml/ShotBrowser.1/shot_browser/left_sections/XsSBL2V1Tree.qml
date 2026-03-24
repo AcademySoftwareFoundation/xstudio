@@ -17,6 +17,63 @@ Item{
         anchors.fill: parent
     }
 
+    function showOrHideManifestDialog(){
+        if(!manifestDialog.visible){
+            manifestDialog.x = appWindow.x + appWindow.width/3
+            manifestDialog.y = appWindow.y + appWindow.height/4
+        }
+
+        manifestDialog.visible = !manifestDialog.visible
+    }
+
+    XsSBManifestDialog{
+        id: manifestDialog
+        tagModel: assetMode ? (
+            assetBaseModel ? assetBaseModel.shotManifestTags : []) :
+            (sequenceBaseModel ? sequenceBaseModel.shotManifestTags : []
+        )
+        variantModel: assetMode ? (
+            assetBaseModel ? assetBaseModel.assetTags : []) :
+            (sequenceBaseModel ? sequenceBaseModel.assetTags: []
+        )
+
+        property bool setup: false
+
+        onVisibleChanged: {
+            if(visible) {
+                setup = true
+                let filt = assetMode ?  assetFilterModel.manifestFilter : sequenceFilterModel.manifestFilter
+                notTags = filt.NOT == undefined ? [] : filt.NOT
+
+                if((filt.AND == undefined ? [] : filt.AND).length)
+                    andMode = true;
+                else
+                    andMode = false;
+
+                tags = andMode ? (filt.AND == undefined ? [] : filt.AND) : (filt.OR == undefined ? [] : filt.OR)
+
+                setup = false
+            }
+        }
+
+        function updateTags() {
+            if(!setup) {
+                let tmptags = {}
+                if(notTags.length || tags.length )
+                    tmptags = {"NOT": notTags, "AND": andMode ? tags : [], "OR": andMode ? [] : tags , "MODE": tagMode}
+
+                if(assetMode)
+                    assetFilterModel.manifestFilter = tmptags;
+                else
+                    sequenceFilterModel.manifestFilter = tmptags;
+            }
+        }
+
+        onAndModeChanged: updateTags()
+        onTagsChanged: updateTags()
+        onNotTagsChanged: updateTags()
+    }
+
     XsLabel {
         visible: setupMode
         color: XsStyleSheet.hintColor
@@ -58,13 +115,17 @@ Item{
                     id: seqListMode
                     sourceModel: ShotBrowserEngine.presetsModel.termModel("ShotSequenceList", "", projectId)
                     hideStatus: prefs.hideStatus
-                    hideEmpty: prefs.hideEmpty
+                    hideEmpty: prefs.hideEmpty || (assetMode ?  JSON.stringify(assetFilterModel.manifestFilter) != "{}" : JSON.stringify(sequenceFilterModel.manifestFilter) != "{}")
                     showHidden: prefs.showHidden
-                    typeFilter: prefs.filterType
                     locationFilter: prefs.filterLocation
                     unitFilter: {
-                        if( projectIndex && projectIndex.model && projectIndex.model.get(projectIndex,"nameRole") in prefs.filterUnit)
+                        if(prefs.inited && projectIndex && projectIndex.model && projectIndex.model.get(projectIndex,"nameRole") in prefs.filterUnit)
                             return prefs.filterUnit[projectIndex.model.get(projectIndex,"nameRole")]
+                        return []
+                    }
+                    typeFilter: {
+                        if(prefs.inited && projectIndex && projectIndex.model && projectIndex.model.get(projectIndex,"nameRole") in prefs.filterType)
+                            return prefs.filterType[projectIndex.model.get(projectIndex,"nameRole")]
                         return []
                     }
                 }
@@ -130,16 +191,21 @@ Item{
                 imgSrc: "qrc:/icons/link.svg"
 
                 isActive: sequenceTreeLiveLink && !isPaused
-                onClicked: {
-                    // searchBtn.isExpanded = false
-                    sequenceTreeLiveLink  = !sequenceTreeLiveLink
-                }
+                onClicked: sequenceTreeLiveLink  = !sequenceTreeLiveLink
             }
 
             Item{
                 Layout.fillWidth: !searchBtn.isExpanded
                 Layout.preferredWidth: searchBtn.isExpanded? buttonSpacing : buttonSpacing*8
                 Layout.preferredHeight: parent.height
+            }
+
+            XsPrimaryButton{
+                Layout.preferredWidth: btnWidth
+                Layout.preferredHeight: parent.height
+                imgSrc: "qrc:/shotbrowser_icons/sell.svg"
+                isActive: assetMode ? JSON.stringify(assetFilterModel.manifestFilter) != "{}" : JSON.stringify(sequenceFilterModel.manifestFilter) != "{}"
+                onClicked: showOrHideManifestDialog()
             }
 
             XsPrimaryButton{ id: filterBtn
@@ -163,7 +229,7 @@ Item{
 
         XsPopupMenu {
             id: shotFilterPopup
-            menu_model_name: "shot_filter_popup"
+            menu_model_name: "shot_filter_popup" + shotFilterPopup
             visible: false
 
             closePolicy: filterBtn.hovered ? Popup.CloseOnEscape :  Popup.CloseOnEscape | Popup.CloseOnPressOutside
@@ -185,6 +251,15 @@ Item{
                 menuModelName: shotFilterPopup.menu_model_name
                 isChecked: prefs.showUnit
                 onActivated: prefs.showUnit = !prefs.showUnit
+            }
+            XsMenuModelItem {
+                text: "Show DnTags"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 0.15
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: prefs.showManifest
+                onActivated: prefs.showManifest = !prefs.showManifest
             }
 
             XsMenuModelItem {
@@ -208,7 +283,7 @@ Item{
             }
 
             XsMenuModelItem {
-                text: "Show Visibility Icon"
+                text: "Show Selection Icon"
                 menuItemType: "toggle"
                 menuPath: ""
                 menuItemPosition: 0.3
@@ -218,12 +293,22 @@ Item{
             }
 
             XsMenuModelItem {
-                text: "Misc"
-                menuItemType: "divider"
+                text: "Hide Selected"
+                menuItemType: "toggle"
                 menuPath: ""
-                menuItemPosition: 0.5
+                menuItemPosition: 0.35
                 menuModelName: shotFilterPopup.menu_model_name
+                isChecked: !prefs.showHidden
+                onActivated: prefs.showHidden = !prefs.showHidden
             }
+
+            // XsMenuModelItem {
+            //     text: "Misc"
+            //     menuItemType: "divider"
+            //     menuPath: ""
+            //     menuItemPosition: 0.5
+            //     menuModelName: shotFilterPopup.menu_model_name
+            // }
 
             XsMenuModelItem {
                 text: "Hide Empty"
@@ -235,15 +320,6 @@ Item{
                 onActivated: prefs.hideEmpty = !prefs.hideEmpty
             }
 
-            XsMenuModelItem {
-                text: "Only Show Visible"
-                menuItemType: "toggle"
-                menuPath: ""
-                menuItemPosition: 0.95
-                menuModelName: shotFilterPopup.menu_model_name
-                isChecked: !prefs.showHidden
-                onActivated: prefs.showHidden = !prefs.showHidden
-            }
 
             XsMenuModelItem {
                 text: "Hide Location"
@@ -335,8 +411,8 @@ Item{
                 model:  DelegateModel {
                     property var notifyUnitModel: ShotBrowserEngine.presetsModel.termModel("Unit", "Version", projectId)
                     onNotifyUnitModelChanged: {
-                        if(sequenceFilterModel && projectIndex) {
-                            if( projectIndex.model.get(projectIndex,"nameRole") in prefs.filterUnit)
+                        if(sequenceFilterModel && projectIndex && projectIndex.valid) {
+                            if( prefs.inited && projectIndex.model.get(projectIndex,"nameRole") in prefs.filterUnit)
                                 sequenceFilterModel.unitFilter = prefs.filterUnit[projectIndex.model.get(projectIndex,"nameRole")]
                             else
                                 sequenceFilterModel.unitFilter = []
@@ -388,17 +464,20 @@ Item{
                         let tmp = sequenceFilterModel.typeFilter
                         tmp.push("No Type")
                         sequenceFilterModel.typeFilter = tmp
-                        prefs.filterType = sequenceFilterModel.typeFilter
                     }
                 }
             }
 
             Repeater {
                 model:  DelegateModel {
-                    property var notifyTypeModel: sequenceFilterModel && sequenceFilterModel.sourceModel ? sequenceFilterModel.sourceModel.types : []
+                    property var notifyTypeModel: sequenceFilterModel && sequenceFilterModel.sourceModel && sequenceFilterModel.sourceModel.types.length ? sequenceFilterModel.sourceModel.types : []
                     onNotifyTypeModelChanged: {
-                        if(sequenceFilterModel)
-                            sequenceFilterModel.typeFilter = prefs.filterType
+                        if(sequenceFilterModel && projectIndex && projectIndex.valid) {
+                            if(prefs.inited && projectIndex.model.get(projectIndex, "nameRole") in prefs.filterType)
+                                sequenceFilterModel.typeFilter = prefs.filterType[projectIndex.model.get(projectIndex,"nameRole")]
+                            else
+                                sequenceFilterModel.typeFilter = []
+                        }
                     }
                     model: notifyTypeModel
                     delegate :
@@ -413,13 +492,11 @@ Item{
                                 onActivated: {
                                     if(isChecked) {
                                         sequenceFilterModel.typeFilter = Array.from(sequenceFilterModel.typeFilter).filter(r => r !== modelData)
-
                                     } else {
                                         let tmp = sequenceFilterModel.typeFilter
                                         tmp.push(modelData)
                                         sequenceFilterModel.typeFilter = tmp
                                     }
-                                    prefs.filterType = sequenceFilterModel.typeFilter
                                 }
                             }
                         }
@@ -549,6 +626,7 @@ Item{
                             showUnit: prefs.showUnit
                             showCompletion: prefs.showCompletion
                             showStatus: prefs.showStatus
+                            showManifest: prefs.showManifest
                             showType: prefs.showType
                             showVisibility: prefs.showVisibility
                         }

@@ -5,14 +5,18 @@ import QtQuick.Layouts
 import QtQml.Models
 import Qt.labs.qmlmodels
 
+import QuickFuture 1.0
+import QuickPromise 1.0
+
 import xStudio 1.0
 import ShotBrowser 1.0
 import xstudio.qml.helpers 1.0
 
 MouseArea {
+    id: control
     hoverEnabled: true
 
-    property bool isHovered: nodeDivMArea.containsMouse
+    property bool isHovered: nodeDivMArea.containsMouse || linkB.isHovered|| unlinkB.isHovered
     property bool isExpanded: isParent && delegateModel.isExpanded(index)
     property bool isSelected: selectionModel.isSelected(delegateModel.index(index, 0))
 
@@ -35,6 +39,9 @@ MouseArea {
         } else if(mouse.modifiers == Qt.AltModifier) {
             isExpanded = isParent
             ShotBrowserHelpers.altSelectItem(selectionModel, delegateModel.index(index, 0))
+        } else if(mouse.modifiers == Qt.AltModifier|Qt.ShiftModifier) {
+            isExpanded = isParent
+            ShotBrowserHelpers.altSelectItem(selectionModel, delegateModel.index(index, 0), true)
         }
     }
 
@@ -66,9 +73,9 @@ MouseArea {
         }
 
         Rectangle{ id: nodeDiv
-            color: isSelected ? Qt.darker(palette.highlight, 2) : "transparent"
+            color: isSelected ? Qt.darker(XsStyleSheet.accentColor, 2) : "transparent"
             border.width: 1
-            border.color: isHovered? palette.highlight : "transparent"
+            border.color: isHovered? XsStyleSheet.accentColor : "transparent"
             anchors.fill: parent
 
             RowLayout{
@@ -138,7 +145,7 @@ MouseArea {
 
                     opacity: ["na", "del", "omt", "omtnto", "omtnwd"].includes(statusRole) ? 0.5 : 1.0
 
-                    color: "hld" == statusRole ? "red" : palette.text
+                    color: "hld" == statusRole ? "red" : XsStyleSheet.primaryTextColor
 
                     text: nameRole
                     horizontalAlignment: Text.AlignLeft
@@ -174,6 +181,38 @@ MouseArea {
                     elide: Text.ElideRight
                     rightPadding: 8
                 }
+
+                XsText{
+                    Layout.preferredHeight: parent.height
+                    Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                    opacity: 0.5
+                    visible: linkMode && !control.isHovered && tagRole != 0
+
+                    text: "Linked"
+                    horizontalAlignment: Text.AlignRight
+                    verticalAlignment: Text.AlignVCenter
+                    font.pixelSize: XsStyleSheet.fontSize*1.2
+                    elide: Text.ElideRight
+                }
+
+                XsPrimaryButton {
+                    id: linkB
+                    Layout.preferredHeight: parent.height
+                    Layout.preferredWidth: 60
+                    visible: control.isHovered && linkMode && resultsSelectionModel.hasSelection && tagRole == 0
+                    text: "Link"
+                    onClicked: ShotBrowserHelpers.tagResultVersions(typeRole, idRole, resultsSelectionModel.selectedIndexes)
+                }
+
+                XsPrimaryButton {
+                    id: unlinkB
+                    Layout.preferredHeight: parent.height
+                    Layout.preferredWidth: 60
+                    visible: control.isHovered && linkMode && resultsSelectionModel.hasSelection && tagRole != 0
+                    text: "Unlink"
+                    onClicked: ShotBrowserHelpers.untagResultVersions(tagRole, resultsSelectionModel.selectedIndexes)
+                }
+
 
                 XsSecondaryButton{ id: favBtn
                     Layout.topMargin: 1

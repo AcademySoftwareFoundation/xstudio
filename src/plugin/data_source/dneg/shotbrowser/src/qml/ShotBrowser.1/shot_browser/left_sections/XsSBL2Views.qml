@@ -30,10 +30,7 @@ XsSplitView { id: viewDiv
         }
     }
 
-    // spacing: currentCategory == "Tree"? panelPadding : 0
-    // thumbWidth: currentCategory == "Tree"? panelPadding / 2 : 0
     spacing: panelPadding
-    thumbWidth: panelPadding / 2
 
     XsSBL2V1Tree{ id: treeView
         SplitView.minimumWidth: main_split.minimumTreeWidth

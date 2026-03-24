@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.core import get_media_stream_atom, current_media_stream_atom, MediaType, media_reference_atom, rescan_atom, invalidate_cache_atom
 from xstudio.core import media_status_atom
+from xstudio.core import transform_matrix_atom
 
 from xstudio.api.session.container import Container
 from xstudio.api.session.media.media_stream import MediaStream
@@ -178,3 +179,23 @@ class MediaSource(Container, JsonStoreHandler):
             status(MediaStatus): Set status state.
         """
         self.connection.request_receive(self.remote, media_status_atom(), status)
+
+    @property
+    def transform_matrix(self):
+        """Get media source transform matrix. This matrix is used when the image
+        is drawn into the xstudio viewport, and can be changed to apply scaling,
+        rotation, shear and so-on.
+
+        Returns:
+            transform_matrix(Imath::M44f): MediaSource transform matrix.
+        """
+        return self.connection.request_receive(self.remote, transform_matrix_atom())[0]
+
+    @transform_matrix.setter
+    def transform_matrix(self, new_matrix):
+        """Set media source transform matrix.
+
+        Args:
+            new_matrix(M44f): Set media source transform matrix.
+        """
+        self.connection.request_receive(self.remote, transform_matrix_atom(), new_matrix)

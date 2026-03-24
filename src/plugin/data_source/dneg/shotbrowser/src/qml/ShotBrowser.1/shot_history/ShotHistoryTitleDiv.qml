@@ -80,7 +80,6 @@ RowLayout {id: titleDiv
             XsSearchButton{ id: filterBtn
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                autoDefocus: true
                 isExpanded: true
                 hint: "Filter"
                 buttonWidth: scopeTxt.width

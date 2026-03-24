@@ -19,63 +19,23 @@ Item{
 
     property color textColorActive: "white"
     property color textColorNormal: "light grey"
-    property color itemColorActive: palette.highlight
+    property color itemColorActive: XsStyleSheet.accentColor
     property string hint: ""
 
     signal indexSelected(index: var)
 
-    Timer {
-        id: defocus
-        interval: 1000
-        running: false
-        repeat: false
-        onTriggered: {
-            if(searchPop.visible || searchField.hovered)
-                start()
-            else
-                searchField.focus = false
-        }
-    }
-
     function selectionMade(index) {
-        defocus.stop()
         indexSelected(index)
         model.setFilterWildcard("")
         searchField.text = ""
         searchField.focus = false
         searchPop.close()
-        // isExpanded = false
     }
-
-    // onIsExpandedChanged: {
-    //     if(isExpanded) {
-    //         searchField.forceActiveFocus()
-    //         searchPop.open()
-    //     } else {
-    //         searchPop.close()
-    //         searchField.clearSearch()
-    //         searchField.focus = false
-    //     }
-    // }
-
-    // XsPrimaryButton{ id: searchBtn
-    //     width: XsStyleSheet.primaryButtonStdWidth
-    //     height: parent.height
-    //     imgSrc: "qrc:/icons/search.svg"
-    //     text: "Search"
-    //     isActive: isExpanded
-
-    //     onClicked: isExpanded = !isExpanded
-    // }
-
 
     Item{
         id: widget
         visible: isExpanded
         anchors.fill: parent
-        // width: parent.width - searchBtn.width
-        // height: parent.height // + combo.popupOptions.height
-        // anchors.left: searchBtn.right
 
         XsSearchBar { id: searchField
             width: parent.width
@@ -90,16 +50,7 @@ Item{
                 }
             }
 
-            onFocusChanged: {
-                if(focus) {
-                    defocus.interval = 5000
-                    defocus.restart()
-                }
-            }
-
             onTextEdited: {
-                defocus.interval = 1000
-                defocus.restart()
                 searchPop.open()
                 model.filterCaseSensitivity = Qt.CaseInsensitive
                 searchList.currentIndex = 0
@@ -159,10 +110,10 @@ Item{
 
             width: searchList.width-2
             height: btnHeight/1.3
-            color: searchList.currentIndex==index? palette.highlight : Qt.darker(palette.base, 1.5)
+            color: searchList.currentIndex==index? XsStyleSheet.accentColor : Qt.darker(XsStyleSheet.panelBgColor, 1.5)
 
             XsText{
-                text: nameRole
+                text: display
                 color: searchList.currentIndex==index? textColorActive: textColorNormal
                 elide: Text.ElideRight
                 width: parent.width - 2
@@ -190,8 +141,6 @@ Item{
 
         closePolicy: searchBtn.hovered ? Popup.CloseOnEscape :  Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
-        // onClosed: button.isExpanded = false
-
         ListView {
             id: searchList
             clip:true
@@ -215,8 +164,8 @@ Item{
 
         background: Rectangle{
             anchors.fill: parent
-            color: Qt.darker(palette.base, 1.5)
-            border.color: Qt.lighter(XsStyleSheet.panelTabColor, 1.3)
+            color: Qt.darker(XsStyleSheet.panelBgColor, 1.5)
+            border.color: XsStyleSheet.panelBgColor
             border.width: 1
         }
     }

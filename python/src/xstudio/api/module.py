@@ -389,7 +389,7 @@ class ModuleBase(ActorConnection, metaclass=ModuleMeta):
             raise Exception("Actor has no event group.")
 
         return self.connection.link.add_message_callback(
-            event_source.remote, callback_method
+            event_group, callback_method
             )
 
     def unsubscribe_from_event_group(self, uuid):
@@ -398,6 +398,9 @@ class ModuleBase(ActorConnection, metaclass=ModuleMeta):
             uuid(Uuid): The id of the subscription
         """
         self.connection.link.remove_message_callback(uuid)
+
+    def menu_item_shown(self, menu_item_data, user_data):
+        pass
 
     def menu_item_activated(self, menu_item_data, user_data):
         pass
@@ -485,7 +488,8 @@ class ModuleBase(ActorConnection, metaclass=ModuleMeta):
         divider=False,
         hotkey_uuid=Uuid(),
         callback=None,
-        user_data=""
+        user_data="",
+        custom_menu_qml=""
     ):
 
         menu_item_uuid = self.connection.request_receive(
@@ -498,7 +502,8 @@ class ModuleBase(ActorConnection, metaclass=ModuleMeta):
             attr_id,
             divider,
             hotkey_uuid,
-            user_data)[0]
+            user_data,
+            custom_menu_qml)[0]
 
         self.menu_item_ids.append(menu_item_uuid)
 
@@ -628,7 +633,13 @@ class ModuleBase(ActorConnection, metaclass=ModuleMeta):
                     message_content) > 1 else None
                 user_data = str(message_content[2]) if len(
                     message_content) > 2 else ""
-                if "uuid" in menu_item_data:
+                activation_type = str(message_content[3]) if len(
+                    message_content) > 3 else ""
+                if "uuid" in menu_item_data and activation_type == "shown":
+                    uuid = Uuid(menu_item_data["uuid"])
+                    if uuid in self.menu_item_ids:
+                        self.menu_item_shown(menu_item_data, user_data)
+                elif "uuid" in menu_item_data:
                     uuid = Uuid(menu_item_data["uuid"])
                     if uuid in self.menu_item_ids:
                         self.menu_item_activated(menu_item_data, user_data)

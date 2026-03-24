@@ -227,7 +227,7 @@ GlobalImageCacheActor::GlobalImageCacheActor(caf::actor_config &cfg)
 
             for (const auto &p : mptr_and_timepoints) {
                 result.emplace_back(cache_.retrieve(p.second->key(), p.first));
-                result.back().when_to_display_ = p.first;
+                result.back().when_to_display() = p.first;
             }
             return result;
         },
@@ -247,7 +247,7 @@ GlobalImageCacheActor::GlobalImageCacheActor(caf::actor_config &cfg)
 
         [=](size_atom) -> size_t { return cache_.size(); },
 
-        [=](store_atom, const media::MediaKey &key, media_reader::ImageBufPtr buf) -> bool {
+        [=](store_atom, const media::MediaKey &key, media_reader::ImageBufPtr &buf) -> bool {
             last_activity_ = utility::clock::now();
             return cache_.store(key, buf);
         },

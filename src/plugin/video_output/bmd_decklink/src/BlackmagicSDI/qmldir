@@ -1,0 +1,9 @@
+module BlackmajicSDI
+
+DecklinkSettingsButton 1.0 DecklinkSettingsButton.qml
+DecklinkSettingsHorizontalWidget 1.0 DecklinkSettingsHorizontalWidget.qml
+DecklinkSettingsVerticalWidget 1.0 DecklinkSettingsVerticalWidget.qml
+DecklinkMultichoiceSetting 1.0 DecklinkMultichoiceSetting.qml
+DecklinToggleSetting 1.0 DecklinToggleSetting.qml
+DecklinkIntegerSetting 1.0 DecklinkIntegerSetting.qml
+DecklinkStatusIndicator 1.0 DecklinkStatusIndicator.qml

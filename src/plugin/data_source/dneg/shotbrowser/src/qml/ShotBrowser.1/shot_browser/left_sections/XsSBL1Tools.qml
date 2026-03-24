@@ -107,9 +107,13 @@ RowLayout{
         Layout.leftMargin: 4
         textField.font.weight: Font.Black
 
-        onActivated: (index) => projectIndex = model.mapToSource(model.index(index, 0))
+        onActivated: (index) => {
+            projectIndex = model.mapToSource(model.index(index, 0))
+            ShotBrowserHelpers.updateSnapshotFolders(combo.currentText);
+        }
         onAccepted: {
             projectIndex = model.mapToSource(model.index(currentIndex, 0))
+            ShotBrowserHelpers.updateSnapshotFolders(combo.currentText);
             focus = false
         }
 
@@ -155,7 +159,7 @@ RowLayout{
 
     XsPopupMenu {
         id: projectFilterPopup
-        menu_model_name: "project_filter_popup"
+        menu_model_name: "project_filter_popup" + projectFilterPopup
         visible: false
 
         closePolicy: filterBtn.hovered ? Popup.CloseOnEscape :  Popup.CloseOnEscape | Popup.CloseOnPressOutside

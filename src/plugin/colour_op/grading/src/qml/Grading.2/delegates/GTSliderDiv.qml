@@ -68,6 +68,22 @@ Item{
                     value = default_value
                 }
             }
+            XsIcon {
+                source: "qrc:/icons/warning.svg"
+                sourceSize.width: 18
+                sourceSize.height: 18
+                visible: titleText == "Cont." && value != 1.0
+                MouseArea{
+                    id: mm
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    propagateComposedEvents: true
+                }
+                XsToolTip {
+                    text: "Contrast will be ignored for CDL export"
+                    visible: mm.containsMouse
+                }
+            }
             Item{
                 Layout.fillWidth: true
                 Layout.fillHeight: true

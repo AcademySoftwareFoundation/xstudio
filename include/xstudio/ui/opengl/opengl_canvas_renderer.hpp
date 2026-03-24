@@ -21,15 +21,49 @@ namespace ui {
 
             void render_canvas(
                 const xstudio::ui::canvas::Canvas &canvas,
-                const xstudio::ui::canvas::HandleState &handle_state,
                 const Imath::M44f &transform_window_to_viewport_space,
                 const Imath::M44f &transform_viewport_to_image_space,
                 const float viewport_du_dpixel,
                 const float device_pixel_ratio,
-                const bool have_alpha_buffer,
-                const float image_aspectratio);
+                const float image_aspectratio,
+                const bool hide_strokes,
+                const std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>>
+                    &live_erase_stroked =
+                        std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>>(),
+                const std::set<std::size_t> &skip_captions = std::set<std::size_t>());
+
+            void render_single_caption(
+                const xstudio::ui::canvas::Caption &caption,
+                const Imath::M44f &transform_window_to_viewport_space,
+                const Imath::M44f &transform_viewport_to_image_space,
+                const float viewport_du_dx,
+                const float device_pixel_ratio);
+
+            void render_strokes(
+                const std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>> &strokes,
+                const Imath::M44f &transform_window_to_viewport_space,
+                const Imath::M44f &transform_viewport_to_image_space,
+                const float viewport_du_dx,
+                const float device_pixel_ratio);
 
           private:
+            std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>>
+            get_strokes(const xstudio::ui::canvas::Canvas &canvas) {
+
+                // this is bad - we copy the whole stroke so we can have a shared ptr.
+                // This happens on every redraw.
+                // Canvas needs a refactor so we can get the strokes as a vector
+                // more efficiently without the copy.
+                std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>> result;
+                for (const auto &item : canvas) {
+                    if (std::holds_alternative<xstudio::ui::canvas::Stroke>(item)) {
+                        result.emplace_back(new xstudio::ui::canvas::Stroke(
+                            std::get<xstudio::ui::canvas::Stroke>(item)));
+                    }
+                }
+                return result;
+            }
+
             template <typename T>
             std::vector<T> all_canvas_items(const xstudio::ui::canvas::Canvas &canvas) {
                 std::vector<T> result;

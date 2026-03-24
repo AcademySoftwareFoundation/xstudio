@@ -118,6 +118,7 @@ void ViewportLayoutPlugin::init() {
     layouts_manager_ = system().registry().template get<caf::actor>(viewport_layouts_manager);
     gobal_playhead_events_ =
         system().registry().template get<caf::actor>(global_playhead_events_actor);
+
     anon_mail(
         ui::viewport::viewport_layout_atom_v, caf::actor_cast<caf::actor>(this), Module::name())
         .send(layouts_manager_);
@@ -138,13 +139,8 @@ void ViewportLayoutPlugin::do_layout(
     // the image aspect for the hero image
     const media_reader::ImageBufPtr &hero_image =
         image_set->onscreen_image(image_set->hero_sub_playhead_index());
-    if (hero_image) {
-        layout_data.layout_aspect_ = hero_image.frame_id().pixel_aspect() *
-                                     hero_image->image_size_in_pixels().x /
-                                     hero_image->image_size_in_pixels().y;
-    } else {
-        layout_data.layout_aspect_ = 16.0 / 9.0f;
-    }
+
+    layout_data.layout_aspect_ = image_layout_aspect(hero_image);
 
     // this fills image_transform_matrices with unity matrices
     layout_data.image_transforms_.resize(image_set->num_onscreen_images());

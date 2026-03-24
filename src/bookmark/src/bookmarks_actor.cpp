@@ -388,6 +388,27 @@ caf::message_handler BookmarksActor::message_handler() {
         },
 
         // create and assign.
+        [=](add_bookmark_atom,
+            const UuidActor &src,
+            const utility::Uuid &bookmark_uuid) -> result<utility::UuidActor> {
+            auto rp = make_response_promise<utility::UuidActor>();
+            mail(add_bookmark_atom_v, bookmark_uuid)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](const utility::UuidActor &ua) mutable {
+                        // associate..
+                        BookmarkDetail bd;
+                        bd.owner_ = src;
+                        anon_mail(bookmark_detail_atom_v, bd).send(ua.actor());
+                        rp.deliver(ua);
+                    },
+                    [=](const caf::error &err) mutable { rp.deliver(err); });
+
+            return rp;
+        },
+
+
+        // create and assign.
         [=](add_bookmark_atom, const UuidActor &src) -> result<utility::UuidActor> {
             auto rp = make_response_promise<utility::UuidActor>();
             mail(add_bookmark_atom_v)
@@ -412,6 +433,23 @@ caf::message_handler BookmarksActor::message_handler() {
                 bookmark_change_atom_v,
                 UuidActor(uuid, bookmarks_[uuid]))
                 .send(base_.event_group());
+        },
+
+        [=](add_bookmark_atom, const utility::Uuid &uuid) -> utility::UuidActor {
+            if (bookmarks_.find(uuid) != bookmarks_.end())
+                return UuidActor(uuid, bookmarks_[uuid]);
+
+            auto actor = spawn<BookmarkActor>(uuid);
+
+            bookmarks_[uuid] = actor;
+            monitor_bookmark(actor);
+            join_event_group(this, actor);
+
+            base_.send_changed();
+            mail(utility::event_atom_v, add_bookmark_atom_v, UuidActor(uuid, actor))
+                .send(base_.event_group());
+
+            return UuidActor(uuid, actor);
         },
 
         [=](add_bookmark_atom) -> utility::UuidActor {
@@ -611,17 +649,23 @@ caf::message_handler BookmarksActor::message_handler() {
         [=](session::export_atom,
             const session::ExportFormat ef,
             const caf::uri &path) -> result<std::pair<std::string, std::vector<std::byte>>> {
+            auto rp = make_response_promise<std::pair<std::string, std::vector<std::byte>>>();
+
             switch (ef) {
             case session::ExportFormat::EF_CSV:
             case session::ExportFormat::EF_CSV_WITH_ANNOTATIONS:
             case session::ExportFormat::EF_CSV_WITH_IMAGES:
+                csv_export(rp, ef, path);
+                break;
+            case session::ExportFormat::EF_DIGEST_WITH_ANNOTATIONS:
+                rp.deliver(make_error(
+                    xstudio_error::error,
+                    "Annotation export should be done via AnnotationExporter Python plugin."));
                 break;
             default:
-                return make_error(xstudio_error::error, "Unsupported export format.");
+                rp.deliver(make_error(xstudio_error::error, "Unsupported export format."));
                 break;
             }
-            auto rp = make_response_promise<std::pair<std::string, std::vector<std::byte>>>();
-            csv_export(rp, ef, path);
             return rp;
         },
 
@@ -689,17 +733,18 @@ void csv_exporter(
         return (lhs.subject_ ? *(lhs.subject_) : "") < (rhs.subject_ ? *(rhs.subject_) : "");
     });
 
-    data.emplace_back(std::vector<std::string>(
-        {"Subject",
-         "Notes",
-         "Start Frame",
-         "End Frame",
-         "Created",
-         "User Name",
-         "Note Type",
-         "Media Flag",
-         "Annotated",
-         "Image"}));
+    data.emplace_back(
+        std::vector<std::string>(
+            {"Subject",
+             "Notes",
+             "Start Frame",
+             "End Frame",
+             "Created",
+             "User Name",
+             "Note Type",
+             "Media Flag",
+             "Annotated",
+             "Image"}));
 
     scoped_actor sys{self->system()};
     fs::path fp       = uri_to_posix_path(path);
@@ -797,22 +842,22 @@ void csv_exporter(
         }
 
 
-        data.emplace_back(std::vector<std::string>(
-            {i.subject_ ? *(i.subject_) : "",
-             i.note_ ? *(i.note_) : "",
-             i.start_timecode(),
-             i.end_timecode(),
-             i.created(),
-             i.author_ ? *(i.author_) : "",
-             i.category_ ? *(i.category_) : "",
-             i.media_flag_ ? *(i.media_flag_) : "",
-             has_annotation ? "true" : "false",
-             image}));
+        data.emplace_back(
+            std::vector<std::string>(
+                {i.subject_ ? *(i.subject_) : "",
+                 i.note_ ? *(i.note_) : "",
+                 i.start_timecode(),
+                 i.end_timecode(),
+                 i.created(),
+                 i.author_ ? *(i.author_) : "",
+                 i.category_ ? *(i.category_) : "",
+                 i.media_flag_ ? *(i.media_flag_) : "",
+                 has_annotation ? "true" : "false",
+                 image}));
     }
 
     rp.deliver(std::make_pair(utility::to_csv(data), std::vector<std::byte>()));
 }
-
 
 void BookmarksActor::csv_export(
     caf::typed_response_promise<std::pair<std::string, std::vector<std::byte>>> rp,

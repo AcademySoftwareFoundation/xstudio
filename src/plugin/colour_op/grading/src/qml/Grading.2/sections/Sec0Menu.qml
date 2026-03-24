@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import QtQuick.Dialogs
 
 import xStudio 1.0
+import xstudio.qml.bookmarks 1.0
 import xstudio.qml.models 1.0
 import xstudio.qml.clipboard 1.0
 
@@ -66,23 +67,33 @@ Item{ id: menuDiv
         menuModelName: moreMenu.menu_model_name
     }
     XsMenuModelItem {
-        text: "Copy"
+        text: "Copy Selected Layer"
         enabled: hasActiveGrade()
         menuPath: ""
         menuItemPosition: 5
         menuModelName: moreMenu.menu_model_name
         onActivated: {
-            copyFunction()
+            attrs.grading_action = "Copy Layer"
         }
     }
     XsMenuModelItem {
-        text: "Paste"
-        enabled: copy_buffer.length == (grading_sliders_model.length + grading_wheels_model.length)
+        text: "Copy All Layers"
+        enabled: bookmarkList.count > 0
+        menuPath: ""
+        menuItemPosition: 5.5
+        menuModelName: moreMenu.menu_model_name
+        onActivated: {
+            attrs.grading_action = "Copy All Layer"
+        }
+    }
+    XsMenuModelItem {
+        text: "Paste Layers"
+        enabled: attrs.grade_copying
         menuPath: ""
         menuItemPosition: 6
         menuModelName: moreMenu.menu_model_name
         onActivated: {
-            pasteFunction();
+            attrs.grading_action = "Paste Layer"
         }
     }
     XsMenuModelItem {
@@ -102,12 +113,13 @@ Item{ id: menuDiv
         menuModelName: moreMenu.menu_model_name
     }
     XsMenuModelItem {
-        text: "Copy Nuke Node"
+        text: "Export as Nuke Nodes to Clipboard"
+        enabled: hasActiveGrade()
         menuPath: ""
         menuItemPosition: 8
         menuModelName: moreMenu.menu_model_name
         onActivated: {
-            copyNukeNode();
+            copyNukeNodes();
         }
     }
 
@@ -120,7 +132,7 @@ Item{ id: menuDiv
     }
 
     XsMenuModelItem {
-        text: "Save CDL..."
+        text: "Export as CDL file..."
         menuPath: ""
         menuItemPosition: 9
         menuModelName: moreMenu.menu_model_name
@@ -133,42 +145,39 @@ Item{ id: menuDiv
                 [ "CDL files (*.cdl)", "CC files (*.cc)", "CCC files (*.ccc)" ],
                 false,
                 false
-                )
-        }
-    }
-
-    function copyFunction() {
-        var attr_values = []
-        for (var i = 0; i < grading_sliders_model.length; ++i) {
-            attr_values.push(grading_sliders_model.get(grading_sliders_model.index(i,0),"value"))
-        }
-        for (var i = 0; i < grading_wheels_model.length; ++i) {
-            attr_values.push(grading_wheels_model.get(grading_wheels_model.index(i,0),"value"))
-        }
-        copy_buffer = attr_values
-    }
-
-    function pasteFunction() {
-        for (var i = 0; i < grading_sliders_model.length; ++i) {
-            grading_sliders_model.set(
-                grading_sliders_model.index(i,0),
-                copy_buffer[i],
-                "value"
-            )
-        }
-        for (var i = 0; i < grading_wheels_model.length; ++i) {
-            grading_wheels_model.set(
-                grading_wheels_model.index(i,0),
-                copy_buffer[grading_sliders_model.length + i],
-                "value"
             )
         }
     }
 
-    function copyNukeNode() {
+    XsMenuModelItem {
+        menuItemType: "divider"
+        menuPath: ""
+        menuItemPosition: 10
+        menuModelName: moreMenu.menu_model_name
+    }
 
-        // TODO: ColSci
-        // Use Grade node instead of OCIOCDLTransform to handle contrast?
+    function saveSelectedCDLs(folder) {
+        attrs.grading_action = "Save Selected CDLs " + folder
+    }
+
+    XsMenuModelItem {
+        text: "Selected CDLs..."
+        menuPath: "File|Export"
+        menuItemPosition: 1
+        menuModelName: "main menu bar"
+        onActivated: {
+            dialogHelpers.showFolderDialog(
+                menuDiv.saveSelectedCDLs,
+                file_functions.defaultSessionFolder(),
+                "Save Selected Medias CDLs",
+            )
+        }
+        Component.onCompleted: {
+            setMenuPathPosition("File|Export", 7.7)
+        }
+    }
+
+    function copyNukeNodes() {
 
         var offset = attrs.getAttrValue("Offset")
         var power = attrs.getAttrValue("Power")
@@ -177,29 +186,42 @@ Item{ id: menuDiv
         var exp = attrs.getAttrValue("Exposure")
         var cont = attrs.getAttrValue("Contrast")
 
-        var cdl_node = "OCIOCDLTransform {\n"
-        if (attrs.colour_space != "scene_linear") {
-            cdl_node += "  working_space " + attrs.colour_space + "\n"
-        }
-        cdl_node += "  slope { "
-        cdl_node += (slope[0] * slope[3] * Math.pow(2.0, exp)) + " "
-        cdl_node += (slope[1] * slope[3] * Math.pow(2.0, exp)) + " "
-        cdl_node += (slope[2] * slope[3] * Math.pow(2.0, exp)) + " "
-        cdl_node += "}\n"
-        cdl_node += "  offset { "
-        cdl_node += (offset[0] + offset[3]) + " "
-        cdl_node += (offset[1] + offset[3]) + " "
-        cdl_node += (offset[2] + offset[3]) + " "
-        cdl_node += "}\n"
-        cdl_node += "  power { "
-        cdl_node += (power[0] * power[3]) + " "
-        cdl_node += (power[1] * power[3]) + " "
-        cdl_node += (power[2] * power[3]) + " "
-        cdl_node += "}\n"
-        cdl_node += "  saturation " + sat + "\n"
-        cdl_node += "}"
+        var nuke_nodes = "";
 
-        clipboard.text = cdl_node
+        nuke_nodes += "EXPTool {\n"
+        nuke_nodes += "  mode Stops\n"
+        nuke_nodes += "  red " + exp + "\n"
+        nuke_nodes += "  green " + exp + "\n"
+        nuke_nodes += "  blue " + exp + "\n"
+        nuke_nodes += "}\n"
+
+        nuke_nodes += "Contrast {\n"
+        nuke_nodes += "  colorValue " + cont + "\n"
+        nuke_nodes += "}\n"
+
+        nuke_nodes += "OCIOCDLTransform {\n"
+        if (attrs.colour_space != "scene_linear") {
+            nuke_nodes += "  working_space " + attrs.colour_space + "\n"
+        }
+        nuke_nodes += "  slope { "
+        nuke_nodes += (slope[0] * slope[3]) + " "
+        nuke_nodes += (slope[1] * slope[3]) + " "
+        nuke_nodes += (slope[2] * slope[3]) + " "
+        nuke_nodes += "}\n"
+        nuke_nodes += "  offset { "
+        nuke_nodes += (offset[0] + offset[3]) + " "
+        nuke_nodes += (offset[1] + offset[3]) + " "
+        nuke_nodes += (offset[2] + offset[3]) + " "
+        nuke_nodes += "}\n"
+        nuke_nodes += "  power { "
+        nuke_nodes += (power[0] * power[3]) + " "
+        nuke_nodes += (power[1] * power[3]) + " "
+        nuke_nodes += (power[2] * power[3]) + " "
+        nuke_nodes += "}\n"
+        nuke_nodes += "  saturation " + sat + "\n"
+        nuke_nodes += "}"
+
+        clipboard.text = nuke_nodes
     }
 
 

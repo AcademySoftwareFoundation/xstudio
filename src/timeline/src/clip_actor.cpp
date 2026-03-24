@@ -247,6 +247,8 @@ caf::message_handler ClipActor::message_handler() {
             return jsn;
         },
 
+        [=](utility::event_atom, utility::name_atom, const std::string & /*name*/) {},
+
         [=](item_name_atom, const std::string &value) -> JsonStore {
             auto jsn = base_.item().set_name(value);
             if (not jsn.is_null())
@@ -437,8 +439,7 @@ caf::message_handler ClipActor::message_handler() {
 
                                 auto jsn = base_.item().set_available_range(FrameRange(
                                     FrameRate(
-                                        double(tc_start) *
-                                        clip_rate.to_seconds()),      // new start frame
+                                        tc_start * clip_rate.to_flicks()), // new start frame
                                     ref.second.duration().duration(), // new media ref duration
                                     clip_rate) // clip frame rate must stay unchanged (it should
                                                // always match the timeline rate)
@@ -481,6 +482,13 @@ caf::message_handler ClipActor::message_handler() {
 
         [=](media::acquire_media_detail_atom atom) {
             return mail(atom, Uuid()).delegate(caf::actor_cast<caf::actor>(this));
+        },
+
+        [=](utility::event_atom,
+            utility::change_atom,
+            media::rotation_atom,
+            float rotation_degrees) {
+            // rotation change event from MediaActor
         },
 
         [=](event_atom,

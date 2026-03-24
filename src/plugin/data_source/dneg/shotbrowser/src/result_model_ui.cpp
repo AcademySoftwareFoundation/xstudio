@@ -17,63 +17,65 @@ using namespace xstudio;
 
 
 ShotBrowserResultModel::ShotBrowserResultModel(QObject *parent) : JSONTreeModel(parent) {
-    setRoleNames(std::vector<std::string>(
-        {"addressingRole",
-         "artistRole",
-         "assetRole",
-         "attachmentsRole",
-         "authorRole",
-         "clientFilenameRole",
-         "clientNoteRole",
-         "contentRole",
-         "createdByRole",
-         "createdDateRole",
-         "dateSubmittedToClientRole",
-         "departmentRole",
-         "detailRole",
-         "entityRole",
-         "frameRangeRole",
-         "frameSequenceRole",
-         "linkedVersionsRole",
-         "locationRole",
-         "loginRole",
-         "movieRole",
-         "nameRole",
-         "noteCountRole",
-         "noteTypeRole",
-         "onSiteChn",
-         "onSiteLon",
-         "onSiteMtl",
-         "onSiteMum",
-         "onSiteSyd",
-         // "onSiteVan",
-         "pipelineStatusFullRole",
-         "pipelineStatusRole",
-         "pipelineStepRole",
-         "playlistNameRole",
-         "playlistTypeRole",
-         "productionStatusRole",
-         "productionStatusFullRole",
-         "projectIdRole",
-         "projectRole",
-         "resultRowRole",
-         "sequenceRole",
-         "shotRole",
-         "siteRole",
-         "stageRole",
-         "stalkUuidRole",
-         "subjectRole",
-         "submittedToDailiesRole",
-         "tagRole",
-         "textFilterRole",
-         "thumbRole",
-         "twigNameRole",
-         "twigTypeRole",
-         "typeRole",
-         "URLRole",
-         "versionCountRole",
-         "versionNameRole",
-         "versionRole"}));
+    setRoleNames(
+        std::vector<std::string>(
+            {"addressingRole",
+             "artistRole",
+             "assetRole",
+             "attachmentsRole",
+             "authorRole",
+             "clientFilenameRole",
+             "clientNoteRole",
+             "contentRole",
+             "createdByRole",
+             "createdDateRole",
+             "dateSubmittedToClientRole",
+             "departmentRole",
+             "detailRole",
+             "entityRole",
+             "frameRangeRole",
+             "frameSequenceRole",
+             "linkedVersionsRole",
+             "locationRole",
+             "loginRole",
+             "movieRole",
+             "nameRole",
+             "noteCountRole",
+             "noteTypeRole",
+             "onSiteChn",
+             "onSiteLon",
+             "onSiteMtl",
+             "onSiteMum",
+             "onSiteSyd",
+             // "onSiteVan",
+             "pipelineStatusFullRole",
+             "pipelineStatusRole",
+             "pipelineStepRole",
+             "playlistNameRole",
+             "playlistTypeRole",
+             "productionStatusRole",
+             "productionStatusFullRole",
+             "projectIdRole",
+             "projectRole",
+             // "refTagRole",
+             "resultRowRole",
+             "sequenceRole",
+             "shotRole",
+             "siteRole",
+             "stageRole",
+             "stalkUuidRole",
+             "subjectRole",
+             "submittedToDailiesRole",
+             "tagRole",
+             "textFilterRole",
+             "thumbRole",
+             "twigNameRole",
+             "twigTypeRole",
+             "typeRole",
+             "URLRole",
+             "versionCountRole",
+             "versionNameRole",
+             "versionRole"}));
 }
 
 void ShotBrowserResultModel::setEmpty() {
@@ -599,14 +601,20 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
             result = QString::fromStdString(j.at("attributes").value("sg_twig_name", ""));
             break;
 
+            // case Roles::refTagRole: {
+            //     auto tmp = R"([])"_json;
+            //     for (const auto &i : j.at("relationships").at("tags").at("data")) {
+            //         if(i.value("name", "").starts_with("REF.")) {
+            //             auto ii = i;
+            //             ii["name"] = i["name"].get<std::string>()substr(4);
+            //             tmp.push_back(ii);
+            //         }
+            //     }
+            //     result = mapFromValue(tmp);
+            // } break;
+
         case Roles::tagRole: {
-            auto tmp = QStringList();
-            for (const auto &i : j.at("relationships").at("tags").at("data")) {
-                auto name = QStringFromStd(i.at("name").get<std::string>());
-                name.replace(QRegularExpression("\\.REFERENCE$"), "");
-                tmp.append(name);
-            }
-            result = tmp;
+            result = mapFromValue(j.at("relationships").at("tags").at("data"));
         } break;
 
         case Roles::twigTypeRole:
@@ -618,10 +626,12 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
             break;
 
         case Roles::URLRole:
-            result = QStringFromStd(std::string(fmt::format(
-                "http://shotgun/detail/{}/{}",
-                j.at("type").get<std::string>(),
-                j.at("id").get<int>())));
+            result = QStringFromStd(
+                std::string(
+                    fmt::format(
+                        "http://shotgun/detail/{}/{}",
+                        j.at("type").get<std::string>(),
+                        j.at("id").get<int>())));
             break;
 
         case Roles::artistRole: {
@@ -720,31 +730,40 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
         case Roles::thumbRole:
             // result = "qrc:/feather_icons/film.svg";
             if (j.at("type") == "Playlist") {
-                result = QStringFromStd(fmt::format(
-                    "image://shotgrid/thumbnail/{}/{}", j.value("type", ""), j.value("id", 0)));
+                result = QStringFromStd(
+                    fmt::format(
+                        "image://shotgrid/thumbnail/{}/{}",
+                        j.value("type", ""),
+                        j.value("id", 0)));
             } else if (
                 j.at("attributes").count("image") and
                 not j.at("attributes").at("image").is_null())
-                result = QStringFromStd(fmt::format(
-                    "image://shotgrid/thumbnail/{}/{}", j.value("type", ""), j.value("id", 0)));
+                result = QStringFromStd(
+                    fmt::format(
+                        "image://shotgrid/thumbnail/{}/{}",
+                        j.value("type", ""),
+                        j.value("id", 0)));
             else {
                 for (const auto &i : j.at("relationships").at("note_links").at("data")) {
                     if (i.at("type") == "Version") {
-                        result = QStringFromStd(fmt::format(
-                            "image://shotgrid/thumbnail/{}/{}",
-                            i.value("type", ""),
-                            i.value("id", 0)));
+                        result = QStringFromStd(
+                            fmt::format(
+                                "image://shotgrid/thumbnail/{}/{}",
+                                i.value("type", ""),
+                                i.value("id", 0)));
                         break;
                     } else if (i.at("type") == "Shot") {
-                        result = QStringFromStd(fmt::format(
-                            "image://shotgrid/thumbnail/{}/{}",
-                            i.value("type", ""),
-                            i.value("id", 0)));
+                        result = QStringFromStd(
+                            fmt::format(
+                                "image://shotgrid/thumbnail/{}/{}",
+                                i.value("type", ""),
+                                i.value("id", 0)));
                     } else if (result.isNull() and i.at("type") == "Playlist") {
-                        result = QStringFromStd(fmt::format(
-                            "image://shotgrid/thumbnail/{}/{}",
-                            i.value("type", ""),
-                            i.value("id", 0)));
+                        result = QStringFromStd(
+                            fmt::format(
+                                "image://shotgrid/thumbnail/{}/{}",
+                                i.value("type", ""),
+                                i.value("id", 0)));
                     }
                 }
             }
@@ -840,6 +859,14 @@ bool ShotBrowserResultModel::setData(
                 emit dataChanged(index, index, roles);
             }
         } break;
+
+        case Roles::tagRole: {
+            auto data                          = mapFromValue(value);
+            j["relationships"]["tags"]["data"] = data;
+            result                             = true;
+            emit dataChanged(index, index, roles);
+        } break;
+
 
         default:
             result = JSONTreeModel::setData(index, value, role);
@@ -1052,6 +1079,28 @@ void ShotBrowserResultFilterModel::setFilterName(const QString &value) {
     }
 }
 
+void ShotBrowserResultFilterModel::setFilterLink(const QString &value) {
+    auto changed = true;
+
+    if (value == "All" and (filterUnlinked_ or filterLinked_)) {
+        filterUnlinked_ = false;
+        filterLinked_   = false;
+    } else if (value == "Linked" and not filterLinked_) {
+        filterUnlinked_ = false;
+        filterLinked_   = true;
+    } else if (value == "Unlinked" and not filterUnlinked_) {
+        filterUnlinked_ = true;
+        filterLinked_   = false;
+    } else {
+        changed = false;
+    }
+
+    if (changed) {
+        emit filterLinkChanged();
+        invalidateFilter();
+    }
+}
+
 
 bool ShotBrowserResultFilterModel::filterAcceptsRow(
     int source_row, const QModelIndex &source_parent) const {
@@ -1076,10 +1125,6 @@ bool ShotBrowserResultFilterModel::filterAcceptsRow(
                 filterMum_ and
                 not source_index.data(ShotBrowserResultModel::Roles::onSiteMum).toInt())
                 result = false;
-            // else if (
-            //     filterVan_ and
-            //     not source_index.data(ShotBrowserResultModel::Roles::onSiteVan).toInt())
-            //     result = false;
             else if (
                 filterSyd_ and
                 not source_index.data(ShotBrowserResultModel::Roles::onSiteSyd).toInt())
@@ -1089,6 +1134,15 @@ bool ShotBrowserResultFilterModel::filterAcceptsRow(
                 filterPipeStep_ !=
                     source_index.data(ShotBrowserResultModel::Roles::pipelineStepRole)
                         .toString())
+                result = false;
+            else if (
+                filterLinked_ and
+                mapFromValue(source_index.data(ShotBrowserResultModel::Roles::tagRole)).empty())
+                result = false;
+            else if (
+                filterUnlinked_ and
+                not mapFromValue(source_index.data(ShotBrowserResultModel::Roles::tagRole))
+                        .empty())
                 result = false;
         }
         // only apply name filter to parent, not children.

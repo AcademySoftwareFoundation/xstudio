@@ -51,7 +51,7 @@ plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
                 DefaultViewportLayout::PLUGIN_UUID,
                 "DefaultViewportLayout",
                 plugin_manager::PluginFlags::PF_VIEWPORT_RENDERER,
-                true,
+                false,
                 "Ted Waine",
                 "Basic Viewport Layout Plugin")}));
 }

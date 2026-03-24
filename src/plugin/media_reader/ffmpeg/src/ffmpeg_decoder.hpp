@@ -66,6 +66,23 @@ namespace media_reader {
             void empty_mini_caches(const int decoded_frame);
             bool is_single_frame() const;
 
+            struct PartiallyFilledAudioBuf {
+                AudioBufPtr the_buffer_;
+                std::vector<std::pair<int64_t, int64_t>> filled_samples_;
+                bool copy_samples_from_other_buffer(AudioBufPtr &other_buffer);
+            };
+            typedef std::shared_ptr<PartiallyFilledAudioBuf> PartialAudioBufPtr;
+
+            PartialAudioBufPtr &get_output_audio_buffer(
+                const utility::FrameRate &output_frame_rate,
+                const int64_t frame,
+                const int64_t sample_rate);
+
+            void print_ffmpeg_buf_into_output_audio_buf(
+                const utility::FrameRate &output_frame_rate,
+                const int64_t frame,
+                AudioBufPtr &ffmpeg_audio_buf);
+
             std::string movie_file_path_;
             int64_t last_requested_frame_;
             int64_t last_decoded_frame_ = {-1};
@@ -77,6 +94,9 @@ namespace media_reader {
 
             std::map<int, ImageBufPtr> video_frame_mini_cache_;
             std::map<int, AudioBufPtr> audio_frame_mini_cache_;
+
+
+            std::map<int, PartialAudioBufPtr> partially_filled_output_buffers_;
 
             std::map<unsigned int, StreamPtr> streams_;
             bool decoding_backwards_;

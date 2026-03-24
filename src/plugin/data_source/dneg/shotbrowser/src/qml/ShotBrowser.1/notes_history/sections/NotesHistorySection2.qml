@@ -48,6 +48,7 @@ Rectangle{
                 font.pixelSize: XsStyleSheet.fontSize
                 font.family: XsStyleSheet.fontFamily
                 font.hintingPreference: Font.PreferNoHinting
+                color: XsStyleSheet.primaryTextColor
 
                 text: contentRole
                 padding: panelPadding
@@ -61,7 +62,7 @@ Rectangle{
                 anchors.rightMargin: 7
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 2
-                imgOverlayColor: palette.highlight
+                imgOverlayColor: XsStyleSheet.accentColor
                 source: "qrc:///shotbrowser_icons/arrow_right.svg"
                 visible: notesEdit.implicitHeight > notesEdit.height
                 rotation: 90

@@ -155,7 +155,7 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
 
         [=](playhead::show_atom,
             const utility::Uuid &playhead_uuid,
-            media_reader::ImageBufPtr buf,
+            media_reader::ImageBufPtr &buf,
             const utility::FrameRate & /*rate*/,
             const bool is_playing,
             const bool is_onscreen_frame) {
@@ -168,7 +168,7 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
         // these are frame bufs that we expect to draw in the very near future
         [=](playhead::show_atom,
             const utility::Uuid &playhead_uuid,
-            std::vector<media_reader::ImageBufPtr> future_bufs) {
+            std::vector<media_reader::ImageBufPtr> &future_bufs) {
             // now insert the new future frames ready for drawing
             for (auto &buf : future_bufs) {
                 if (buf) {
@@ -266,7 +266,7 @@ xstudio::media_reader::ImageBufPtr ViewportFrameQueueActor::get_least_old_image_
     least_old_buf = r->second;
     r++;
     while (r != frames_queued_for_display.end()) {
-        if (r->second.when_to_display_ > least_old_buf.when_to_display_) {
+        if (r->second.when_to_display() > least_old_buf.when_to_display()) {
             least_old_buf = r->second;
         }
         r++;
@@ -284,7 +284,7 @@ void ViewportFrameQueueActor::drop_old_frames(const utility::time_point out_of_d
             get_least_old_image_in_set(frames_queued_for_display);
         auto r = frames_queued_for_display.begin();
         while (r != frames_queued_for_display.end()) {
-            if (r->second.when_to_display_ < out_of_date_threshold) {
+            if (r->second.when_to_display() < out_of_date_threshold) {
                 r = frames_queued_for_display.erase(r);
             } else {
                 r++;
@@ -475,12 +475,15 @@ void ViewportFrameQueueActor::append_overlays_data(
                     [=](const utility::BlindDataObjectPtrVec &bdata) mutable {
                         // each element of the vector is blind data pointer per
                         // image in the image set.
+                        if (bdata[0]) {
+                            result->add_plugin_blind_data(overlay_plugin_uuid, bdata[0]);
+                        }
                         for (int i = 0;
                              i < std::min(result->num_onscreen_images(), (int)bdata.size());
                              ++i) {
-                            if (bdata[i]) {
+                            if (bdata[i + 1]) {
                                 result->onscreen_image_m(i).add_plugin_blind_data(
-                                    overlay_plugin_uuid, bdata[i]);
+                                    overlay_plugin_uuid, bdata[i + 1]);
                             }
                         }
                         auto_responder.decrement();

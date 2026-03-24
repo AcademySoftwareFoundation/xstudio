@@ -500,6 +500,30 @@ void EmbeddedPythonActor::main_loop() {
                 return make_error(xstudio_error::error, error);
             },
 
+            [=](python_create_session_atom, const bool interactive, caf::actor requester) {
+                if (not base_.enabled())
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, "EmbeddedPython disabled");
+
+                py::gil_scoped_acquire gil;
+
+                std::string error;
+
+                try {
+                    PyStdErrOutStreamRedirect out{};
+                    auto session_uuid = base_.create_session(interactive);
+                    send_output(this, event_group_, out, session_uuid);
+                    anon_mail(utility::event_atom_v, python_create_session_atom_v, session_uuid)
+                        .send(requester);
+                } catch (py::error_already_set &err) {
+                    err.restore();
+                    error = err.what();
+                    py_print(error);
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", err.what());
+                }
+            },
+
             [=](python_create_session_atom, const bool interactive) -> result<utility::Uuid> {
                 if (not base_.enabled())
                     return make_error(xstudio_error::error, "EmbeddedPython disabled");
@@ -868,11 +892,12 @@ void EmbeddedPythonActor::main_loop() {
                             while (p != packed_args.cend()) {
                                 if (p.value().is_string()) {
                                     const std::string v = p.value().get<std::string>();
-                                    // could be an actor as a string. Try to convert to actual actor here. This
-                                    // saves us doing string_to_actor in Python code, which currently fails
-                                    // on MacOS due to reasons not understood. But ... it's pretty ugly as 
-                                    // we are trying EVERY string. Need a way to IDENTIFY actor as string before
-                                    // running actor_from_string.
+                                    // could be an actor as a string. Try to convert to actual
+                                    // actor here. This saves us doing string_to_actor in Python
+                                    // code, which currently fails on MacOS due to reasons not
+                                    // understood. But ... it's pretty ugly as we are trying
+                                    // EVERY string. Need a way to IDENTIFY actor as string
+                                    // before running actor_from_string.
                                     caf::actor actor = utility::actor_from_string(system(), v);
                                     if (actor) {
                                         py::str s(p.key());
@@ -897,7 +922,16 @@ void EmbeddedPythonActor::main_loop() {
                         } else {
                             result = plugin.attr(method_name.c_str())(**args_list);
                         }
-                        return result.cast<utility::JsonStore>();
+                        try {
+                            // has the python method returned us a JsonStore?
+                            return result.cast<utility::JsonStore>();
+                        } catch (...) {
+                            // hopefully the python return type can be represented as json data
+                            // (string), which we can then parse into a JsonStore
+                            py::object as_json_str = json_py_module.attr("dumps")(result);
+                            return utility::JsonStore(
+                                nlohmann::json::parse(as_json_str.cast<std::string>()));
+                        }
                     } else {
                         throw std::runtime_error("Couln't import XSTUDIO module.");
                     }
@@ -921,12 +955,12 @@ void EmbeddedPythonActor::main_loop() {
                 try {
                     auto g = py::globals();
                     if (g.contains(py::str("XSTUDIO"))) {
-                        py::object xstudio_link = g["XSTUDIO"];
+                        py::object json_py_module = py::module_::import("json");
+                        py::object xstudio_link   = g["XSTUDIO"];
                         py::object plugin =
                             xstudio_link.attr("get_plugin_instance")(plugin_uuid);
                         py::tuple args;
                         if (packed_args.is_array()) {
-                            py::object json_py_module = py::module_::import("json");
                             py::object args_list =
                                 json_py_module.attr("loads")(packed_args.dump());
                             args  = py::tuple(py::len(args_list));
@@ -936,8 +970,12 @@ void EmbeddedPythonActor::main_loop() {
                                 PyTuple_SetItem(args.ptr(), static_cast<int>(j++), (*i).ptr());
                             }
                         }
-                        py::object result = plugin.attr(method_name.c_str())(*args);
-                        return result.cast<utility::JsonStore>();
+                        py::object result            = plugin.attr(method_name.c_str())(*args);
+                        py::object serialised_result = json_py_module.attr("dumps")(result);
+                        utility::JsonStore r;
+                        r.parse_string(serialised_result.cast<std::string>());
+                        return r;
+
                     } else {
                         throw std::runtime_error("Couln't import XSTUDIO module.");
                     }
@@ -953,7 +991,7 @@ void EmbeddedPythonActor::main_loop() {
             },
 
             [=](ui::viewport::hud_settings_atom,
-                std::vector<caf::actor> media_actors) -> result<utility::JsonStore> {
+                std::vector<caf::actor> &media_actors) -> result<utility::JsonStore> {
                 // this message handler is used by the offscreen viewport to retrieve
                 // display data for Python HUD overlay plugins. We pass the HUD Plugins
                 // the full set of on-screen media actors. They return Json data for

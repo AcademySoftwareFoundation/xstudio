@@ -96,9 +96,11 @@ Rectangle{
                                 for(let j=0;j<quickResults.rowCount();j++) {
                                     indexes.push(quickResults.index(j,0))
                                 }
-                                if(action == "playlist") {
+                                if(action == "playlist")
                                     ShotBrowserHelpers.addToCurrent(indexes, false, addMode.value)
-                                } else if(action == "sequence") {
+                                else if(action == "new playlist")
+                                    ShotBrowserHelpers.addToNewPlaylist(indexes)
+                                else if(action == "sequence") {
                                     let seq_map = {}
 
                                     for(let j=0;j<indexes.length;j++) {
@@ -123,10 +125,11 @@ Rectangle{
                                 for(let j=0;j<quickResults.rowCount();j++)
                                     indexes.push(quickResults.index(j,0))
 
-                                if(action == "playlist") {
-                                    ShotBrowserHelpers.addToCurrent(indexes, false, addMode.value)
-                                } else if(action == "sequence") {
-
+                                if(action == "playlist")
+                                    ShotBrowserHelpers.addToCurrent(indexes, false, addMode.value);
+                                else if(action == "new playlist")
+                                    ShotBrowserHelpers.addToNewPlaylist(indexes);
+                                else if(action == "sequence") {
                                 }
                             }
                         })
@@ -209,6 +212,20 @@ Rectangle{
                         executeQuery(
                             ShotBrowserEngine.presetsModel.quickLoad[quickCombo.currentIndex],
                              "playlist"
+                        )
+                    }
+                }
+            }
+
+            XsPrimaryButton{
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                text: "Add To New"
+                onClicked: {
+                    if(quickCombo.currentIndex != -1) {
+                        executeQuery(
+                            ShotBrowserEngine.presetsModel.quickLoad[quickCombo.currentIndex],
+                             "new playlist"
                         )
                     }
                 }

@@ -60,10 +60,14 @@ void QMLViewportRenderer::set_depth(const float depth) {
     glViewport(0, 0, viewport_coords_.size.width(), viewport_coords_.size.height());
     glEnable(GL_SCISSOR_TEST);
     glScissor(
-        (int)round(viewport_coords_.corners[0].x()),
-        (int)round(bottom),
-        (int)round(viewport_coords_.corners[1].x() - viewport_coords_.corners[0].x()),
-        (int)round(viewport_coords_.corners[2].y() - viewport_coords_.corners[0].y()));
+        (int)round(viewport_coords_.corners[0].x() * viewport_coords_.devicePixelRatio),
+        (int)round(bottom * viewport_coords_.devicePixelRatio),
+        (int)round(
+            (viewport_coords_.corners[1].x() - viewport_coords_.corners[0].x()) *
+            viewport_coords_.devicePixelRatio),
+        (int)round(
+            (viewport_coords_.corners[2].y() - viewport_coords_.corners[0].y()) *
+            viewport_coords_.devicePixelRatio));
 
     // note: in terms of OpenGL depth depth ordering seems to be reversed when
     // it comes to QML scene graph. Remember we draw viewport first and then
@@ -139,7 +143,8 @@ void QMLViewportRenderer::setSceneCoordinates(
     // devicePixelRatio allows us to account for high DPI scaling, giving
     // us the window size in actual device pixels
 
-    if (viewport_coords_.set(topleft, topright, bottomright, bottomleft, sceneSize)) {
+    if (viewport_coords_.set(
+            topleft, topright, bottomright, bottomleft, sceneSize, devicePixelRatio)) {
 
         anon_mail(
             viewport_set_scene_coordinates_atom_v,
@@ -181,11 +186,11 @@ void QMLViewportRenderer::make_xstudio_viewport() {
     // main (active) playhead but rather is playing something completely different.
     // In this case 'is_quick_viewer_' is true but m_window->objectName() is
     // "xstudio_main_window".
-    
+
     if (is_quick_viewer_ && m_window->objectName() == "xstudio_main_window") {
         static std::atomic<int> ct = 0;
-        int i = ct;
-        jsn["window_id"] = fmt::format("embedded_quickview_window_{}", i);
+        int i                      = ct;
+        jsn["window_id"]           = fmt::format("embedded_quickview_window_{}", i);
         ct++;
     } else if (is_quick_viewer_) {
         jsn["window_id"] = std::string("xstudio_quickview_window");
@@ -206,6 +211,8 @@ void QMLViewportRenderer::make_xstudio_viewport() {
         !is_quick_viewer_); // sync to other viewports flag
 
     xstudio_viewport_->set_visibility(viewport_qml_item_->isVisible());
+
+    xstudio_viewport_->set_screen_infos(screen_info_);
 
     /* Provide a callback so the Viewport can tell this class when some property of the viewport
     has changed and such events can be propagated to other QT components, for example */
@@ -330,17 +337,23 @@ QVariantList QMLViewportRenderer::imageBoundariesInViewport() const {
 }
 
 bool QMLViewportRenderer::ViewportCoords::set(
-    const QPointF &a, const QPointF &b, const QPointF &c, const QPointF &d, const QSize &s) {
+    const QPointF &a,
+    const QPointF &b,
+    const QPointF &c,
+    const QPointF &d,
+    const QSize &s,
+    const float _devicePixelRatio) {
     if (corners[0] == a && corners[1] == b && corners[2] == c && corners[3] == d && size == s) {
         // coordinates are unchanged
         return false;
     }
 
-    corners[0] = a;
-    corners[1] = b;
-    corners[2] = c;
-    corners[3] = d;
-    size       = s;
+    corners[0]       = a;
+    corners[1]       = b;
+    corners[2]       = c;
+    corners[3]       = d;
+    size             = s;
+    devicePixelRatio = _devicePixelRatio;
     return true;
 }
 
@@ -385,13 +398,15 @@ void QMLViewportRenderer::setScreenInfos(
     QString manufacturer,
     QString serialNumber,
     double refresh_rate) {
+
+    screen_info_.name          = name.toStdString();
+    screen_info_.model         = model.toStdString();
+    screen_info_.manufacturer  = manufacturer.toStdString();
+    screen_info_.serial_number = serialNumber.toStdString();
+    screen_info_.refresh_rate  = refresh_rate;
+
     if (xstudio_viewport_)
-        xstudio_viewport_->set_screen_infos(
-            name.toStdString(),
-            model.toStdString(),
-            manufacturer.toStdString(),
-            serialNumber.toStdString(),
-            refresh_rate);
+        xstudio_viewport_->set_screen_infos(screen_info_);
 }
 
 void QMLViewportRenderer::setIsQuickViewer(const bool is_quick_viewer) {
@@ -406,4 +421,15 @@ void QMLViewportRenderer::setHasOverlays(const bool has_overlays) {
 void QMLViewportRenderer::visibleChanged(const bool is_visible) {
     if (xstudio_viewport_)
         xstudio_viewport_->set_visibility(is_visible);
+}
+
+void QMLViewportRenderer::quickViewFromPath(const QString &path_or_uri) {
+    caf::uri _uri;
+    auto uri = caf::make_uri(StdFromQString(path_or_uri));
+    if (uri)
+        _uri = *uri;
+    else
+        _uri = utility::posix_path_to_uri(StdFromQString(path_or_uri));
+
+    xstudio_viewport_->quickview_media(_uri);
 }

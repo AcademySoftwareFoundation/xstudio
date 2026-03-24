@@ -73,8 +73,8 @@ void GradingMaskRenderer::render_grading_data_masks(
     // not (yet) include dynamic texture data such as the mask that the user
     // can paint the grade through.
     colour_pipeline::ColourOperationDataPtr colour_op_data;
-    if (image.colour_pipe_data_) {
-        colour_op_data = image.colour_pipe_data_->get_operation_data(
+    if (image.colour_pipe_data()) {
+        colour_op_data = image.colour_pipe_data()->get_operation_data(
             colour_pipeline::GradingColourOperator::PLUGIN_UUID);
     } else {
         return;
@@ -107,14 +107,15 @@ void GradingMaskRenderer::render_grading_data_masks(
         }
 
         // here the mask is rendered to a GL texture
-        render_layer(*grade, render_layers_[masked_grade_index], image, true);
+        render_layer(*grade, render_layers_[masked_grade_index], image);
 
         // here we add info on the texture to the colour_op_data since
         // the colour op needs to use the texture
-        colour_op_data->textures_.emplace_back(colour_pipeline::ColourTexture{
-            fmt::format("masks[{}]", grade_index),
-            colour_pipeline::ColourTextureTarget::TEXTURE_2D,
-            render_layers_[masked_grade_index].offscreen_renderer->texture_handle()});
+        colour_op_data->textures_.emplace_back(
+            colour_pipeline::ColourTexture{
+                fmt::format("masks[{}]", grade_index),
+                colour_pipeline::ColourTextureTarget::TEXTURE_2D,
+                render_layers_[masked_grade_index].offscreen_renderer->texture_handle()});
 
         // adding info on the mask texture layers to the cache id will
         // force the viewport to assign new active texture indices to
@@ -126,25 +127,24 @@ void GradingMaskRenderer::render_grading_data_masks(
         grade_index++;
     }
 
-    // Again, colour_pipe_data_ is a shared ptr and we don't know who else might
+    // Again, colour_pipe_data() is a shared ptr and we don't know who else might
     // be holding/using this data so we make a deep copy. (This is not
     // expensive as the contents of ColourPipelineData is only a vector
     // to shared ptrs itself, we're not modifying elements of that vector though)
-    image.colour_pipe_data_.reset(
-        new colour_pipeline::ColourPipelineData(*(image.colour_pipe_data_)));
+    image.colour_pipe_data().reset(
+        new colour_pipeline::ColourPipelineData(*(image.colour_pipe_data())));
 
     // here the relevant shared ptr to the colour op data is reset
-    image.colour_pipe_data_->overwrite_operation_data(colour_op_data);
+    image.colour_pipe_data()->overwrite_operation_data(colour_op_data);
 
-    image.colour_pipe_data_->set_cache_id(
-        image.colour_pipe_data_->cache_id() + cache_id_modifier);
+    image.colour_pipe_data()->set_cache_id(
+        image.colour_pipe_data()->cache_id() + cache_id_modifier);
 }
 
 void GradingMaskRenderer::render_layer(
     const GradingData &data,
     RenderLayer &layer,
-    const xstudio::media_reader::ImageBufPtr &frame,
-    const bool have_alpha_buffer) {
+    const xstudio::media_reader::ImageBufPtr &frame) {
 
     // Use fixed resolution for better performance
     const Imath::V2i mask_resolution(960, 540);
@@ -172,13 +172,12 @@ void GradingMaskRenderer::render_layer(
 
             canvas_renderer_->render_canvas(
                 data.mask(),
-                HandleState(),
                 to_canvas,
                 Imath::M44f(),
                 2.0f / mask_resolution.x, // See A1
                 1.0,
-                have_alpha_buffer,
-                image_aspect_ratio);
+                image_aspect_ratio,
+                true);
 
         } else {
 

@@ -107,6 +107,7 @@ namespace ui {
                 const std::string &model_name,
                 const std::string &path,
                 const std::string &user_data,
+                const std::string &activation_type,
                 const bool from_hotkey);
 
             void insert_into_menu_model(

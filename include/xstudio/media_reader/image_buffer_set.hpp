@@ -66,7 +66,7 @@ namespace media_reader {
             utility::time_point t = utility::time_point::max();
             for (const auto &p : sub_playhead_sets_) {
                 for (const auto &d : p.second->future_images) {
-                    t = std::min(d.when_to_display_, t);
+                    t = std::min(d.when_to_display(), t);
                 }
             }
             return t;
@@ -112,6 +112,8 @@ namespace media_reader {
             return hash_ + (layout_data_ ? layout_data_->hash_ : size_t(0));
         }
 
+        const ImageBufPtr &operator[](const size_t idx) const { return onscreen_image(idx); }
+
         void set_layout_data(const ImageSetLayoutDataPtr &layout_data) {
             layout_data_ = layout_data;
         }
@@ -123,6 +125,19 @@ namespace media_reader {
         // this is called after an ImageBufDisplaySet has been built to set
         // up some internal read-only data
         void finalise();
+
+        void add_plugin_blind_data(
+            const utility::Uuid &plugin_uuid, const utility::BlindDataObjectPtr &data) {
+            plugin_blind_data_[plugin_uuid] = data;
+        }
+
+        template <typename T>
+        [[nodiscard]] const T *plugin_blind_data(const utility::Uuid &plugin_uuid) const {
+            auto p = plugin_blind_data_.find(plugin_uuid);
+            if (p != plugin_blind_data_.end())
+                return dynamic_cast<T *>(p->second.get());
+            return nullptr;
+        }
 
       private:
         struct ImageSet {
@@ -169,6 +184,8 @@ namespace media_reader {
         int previous_hero_sub_playhead_index_ = {-1};
 
         std::shared_ptr<ImageSet> null_set_ = {std::shared_ptr<ImageSet>(new ImageSet)};
+
+        std::map<utility::Uuid, utility::BlindDataObjectPtr> plugin_blind_data_;
 
         ImageSetLayoutDataPtr layout_data_;
 

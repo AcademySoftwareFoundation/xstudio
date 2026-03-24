@@ -154,6 +154,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::session, remove_serialise_target_atom);
     ADD_ATOM(xstudio::session, export_atom);
     ADD_ATOM(xstudio::session, import_atom);
+    ADD_ATOM(xstudio::session, render_to_video_atom);
     ADD_ATOM(xstudio::media_reader, clear_precache_queue_atom);
     ADD_ATOM(xstudio::media_reader, get_image_atom);
     ADD_ATOM(xstudio::media_reader, get_thumbnail_atom);
@@ -224,7 +225,6 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::media, acquire_media_detail_atom);
     ADD_ATOM(xstudio::media, add_media_source_atom);
     ADD_ATOM(xstudio::media, add_media_stream_atom);
-    ADD_ATOM(xstudio::media, current_media_atom);
     ADD_ATOM(xstudio::media, current_media_source_atom);
     ADD_ATOM(xstudio::media, current_media_stream_atom);
     ADD_ATOM(xstudio::media, get_edit_list_atom);
@@ -242,6 +242,8 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::media, media_reference_atom);
     ADD_ATOM(xstudio::media, source_offset_frames_atom);
     ADD_ATOM(xstudio::media, media_display_info_atom);
+    ADD_ATOM(xstudio::media, transform_matrix_atom);
+    ADD_ATOM(xstudio::media, rotation_atom);
 
     ADD_ATOM(xstudio::global_store, autosave_atom);
     ADD_ATOM(xstudio::global_store, read_only_atom);
@@ -354,7 +356,6 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::plugin_manager, add_path_atom);
     ADD_ATOM(xstudio::plugin_manager, spawn_plugin_atom);
     ADD_ATOM(xstudio::plugin_manager, spawn_plugin_base_atom);
-    ADD_ATOM(xstudio::plugin_manager, spawn_plugin_ui_atom);
     ADD_ATOM(xstudio::plugin_manager, enable_atom);
     ADD_ATOM(xstudio::plugin_manager, get_resident_atom);
     ADD_ATOM(xstudio::data_source, get_data_atom);
@@ -394,6 +395,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::ui::model_data, insert_rows_atom);
 
     ADD_ATOM(xstudio::ui, set_clipboard_atom);
+    ADD_ATOM(xstudio::ui, open_external_atom);
 
     ADD_ATOM(xstudio::plugin, plugin_events_group_atom);
 }

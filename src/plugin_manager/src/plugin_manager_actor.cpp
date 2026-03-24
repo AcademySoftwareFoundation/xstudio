@@ -30,7 +30,12 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
     // xstudio plugins
     char *plugin_path = std::getenv("XSTUDIO_PLUGIN_PATH");
     if (plugin_path) {
-        for (const auto &p : xstudio::utility::split(plugin_path, ':')) {
+#ifdef _WIN32
+        char path_env_var_sep = ';';
+#else
+        char path_env_var_sep = ':';
+#endif
+        for (const auto &p : xstudio::utility::split(plugin_path, path_env_var_sep)) {
             manager_.emplace_front_path(p);
         }
     }
@@ -90,6 +95,49 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
                                 return rp.deliver(i);
                         }
                         rp.deliver(UuidActorVector());
+                    },
+                    [=](error &err) mutable { rp.deliver(std::move(err)); });
+
+            return rp;
+        },
+
+        // helper for dealing with URI's that create and return a timeline
+        [=](data_source::use_data_atom,
+            const caf::uri &uri,
+            const caf::actor &playlist_actor,
+            const FrameRate &media_rate,
+            const utility::Uuid &uuid_before,
+            const bool wait) -> result<UuidActor> {
+            // send to resident enabled datasource plugins
+            auto actors = std::vector<caf::actor>();
+
+            for (const auto &i : manager_.factories()) {
+                if (i.second.factory()->type() & PluginFlags::PF_DATA_SOURCE and
+                    resident_.count(i.first))
+                    actors.push_back(resident_[i.first]);
+            }
+
+            if (actors.empty())
+                return UuidActor();
+
+            auto rp = make_response_promise<UuidActor>();
+
+            fan_out_request<policy::select_all>(
+                actors,
+                infinite,
+                data_source::use_data_atom_v,
+                uri,
+                playlist_actor,
+                media_rate,
+                uuid_before,
+                wait)
+                .then(
+                    [=](const std::vector<UuidActor> results) mutable {
+                        for (const auto &i : results) {
+                            if (i)
+                                return rp.deliver(i);
+                        }
+                        rp.deliver(UuidActor());
                     },
                     [=](error &err) mutable { rp.deliver(std::move(err)); });
 
@@ -267,6 +315,14 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
                 .delegate(actor_cast<caf::actor>(this));
         },
 
+        [=](spawn_plugin_atom atom, caf::actor plugin_instance, const utility::Uuid &uuid) {
+            // puts the plugin in the 'resident' list but doesn't link to it. That's because
+            // some plugins (like video output) have to be managed in the UI layer but we
+            // still need to access them globvally via the plugin mangager. The UI layer needs
+            // to destroy them to clean-up gl resources etc.
+            resident_[uuid] = plugin_instance;
+        },
+
         [=](spawn_plugin_atom,
             const utility::Uuid &uuid,
             const utility::JsonStore &json,
@@ -390,15 +446,6 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
             return caf::actor();
         },
 
-
-        [=](spawn_plugin_ui_atom,
-            const utility::Uuid &uuid) -> result<std::tuple<std::string, std::string>> {
-            if (not manager_.factories().count(uuid))
-                return make_error(xstudio_error::error, "Invalid uuid");
-            return std::make_tuple(
-                manager_.spawn_widget_ui(uuid), manager_.spawn_menu_ui(uuid));
-        },
-
         [=](session::path_atom) -> std::vector<std::string> {
             return std::vector<std::string>(
                 manager_.plugin_paths().begin(), manager_.plugin_paths().end());
@@ -460,6 +507,7 @@ void PluginManagerActor::enable_resident(
 
 // only change initial enabled state don't acutally action it.
 void PluginManagerActor::update_from_preferences(const utility::JsonStore &json) {
+
     try {
         auto prefs = preference_value<JsonStore>(json, "/core/plugin_manager/enable_plugin");
 

@@ -186,8 +186,9 @@ caf::message_handler GlobalStoreActor::message_handler() {
                 } else {
                     caf::scoped_actor sys(system());
                     // update our copy
-                    base_.preferences_.set(request_receive<JsonStore>(
-                        *sys, jsonactor_, json_store::get_json_atom_v));
+                    base_.preferences_.set(
+                        request_receive<JsonStore>(
+                            *sys, jsonactor_, json_store::get_json_atom_v));
 
                     // get things to store..
                     JsonStore prefs = get_preference_values(

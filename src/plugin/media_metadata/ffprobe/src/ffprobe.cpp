@@ -3,6 +3,7 @@
 
 #include <chrono>
 
+#include "xstudio/global_store/global_store.hpp"
 #include "xstudio/media_metadata/media_metadata.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "ffprobe_lib.hpp"
@@ -17,8 +18,13 @@ using namespace xstudio::ffprobe;
 
 class FFProbeMediaMetadata : public MediaMetadata {
   public:
-    FFProbeMediaMetadata() : MediaMetadata("FFProbe") {}
+    FFProbeMediaMetadata(const utility::JsonStore &prefs) : MediaMetadata("FFProbe", prefs) {
+        update_preferences(prefs);
+    }
     ~FFProbeMediaMetadata() override = default;
+
+    void update_preferences(const utility::JsonStore &) override;
+
     MMCertainty
     supported(const caf::uri &uri, const std::array<uint8_t, 16> &signature) override;
 
@@ -28,7 +34,17 @@ class FFProbeMediaMetadata : public MediaMetadata {
 
   private:
     FFProbe probe_;
+    utility::JsonStore supported_;
 };
+
+void FFProbeMediaMetadata::update_preferences(const utility::JsonStore &prefs) {
+    try {
+        supported_ = global_store::preference_value<JsonStore>(
+            prefs, "/plugin/media_metadata/ffprobe/supported");
+    } catch (const std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+}
 
 nlohmann::json FFProbeMediaMetadata::read_metadata(const caf::uri &uri) {
     return probe_.probe_file(uri);
@@ -36,13 +52,27 @@ nlohmann::json FFProbeMediaMetadata::read_metadata(const caf::uri &uri) {
 
 MMCertainty
 FFProbeMediaMetadata::supported(const caf::uri &uri, const std::array<uint8_t, 16> &) {
-    // we ignore the signature..
-    // we cover so MANY...
-    // but we're pretty good at movs..
-    if (fs::path(uri.path().data()).extension() == ".mov")
-        return MMC_YES;
+    auto result = MMC_NO;
 
-    return MMC_MAYBE;
+    fs::path p(uri_to_posix_path(uri));
+
+#ifdef _WIN32
+    std::string ext = ltrim_char(to_upper_path(p.extension()), '.');
+#else
+    std::string ext = ltrim_char(to_upper(p.extension().string()), '.');
+#endif
+
+    try {
+        auto value = supported_.value(ext, "");
+        if (value.empty()) {
+            result = from_string(supported_.value("", "MMC_NO"));
+        } else
+            result = from_string(value);
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    return result;
 }
 
 std::optional<MediaMetadata::StandardFields>

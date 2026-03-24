@@ -513,8 +513,8 @@ void ShaderBuilder::setupTextures(ColourOperationDataPtr &op_data) const {
                                                                 : LUTDescriptor::NEAREST;
         auto xs_lut      = std::make_shared<ColourLUT>(
             is2DTexture
-                     ? LUTDescriptor::Create2DLUT(width, height, xs_dtype, xs_channels, xs_interp)
-                     : LUTDescriptor::Create1DLUT(width, xs_dtype, xs_channels, xs_interp),
+                ? LUTDescriptor::Create2DLUT(width, height, xs_dtype, xs_channels, xs_interp)
+                : LUTDescriptor::Create1DLUT(width, xs_dtype, xs_channels, xs_interp),
             samplerName);
 
         const int channels = channel == OCIO::GpuShaderCreator::TEXTURE_RED_CHANNEL ? 1 : 3;

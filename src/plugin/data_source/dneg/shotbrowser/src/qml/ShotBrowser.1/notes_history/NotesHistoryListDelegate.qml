@@ -18,12 +18,6 @@ Item{ id: thisItem
 
     property real borderWidth: 1
 
-    // property real textSize: XsStyleSheet.fontSize
-
-    // property color hintColor: XsStyleSheet.hintColor
-    // property color highlightColor: palette.highlight
-    // property color bgColorNormal: XsStyleSheet.widgetBgNormalColor
-
     property var delegateModel: null
     property var popupMenu: null
 
@@ -107,8 +101,8 @@ Item{ id: thisItem
         Rectangle{
             anchors.fill: parent
 
-            color: isSelected? Qt.darker(palette.highlight, 5) : "transparent"
-            border.color: isHovered? palette.highlight : XsStyleSheet.widgetBgNormalColor
+            color: isSelected? Qt.darker(XsStyleSheet.accentColor, 5) : "transparent"
+            border.color: isHovered? XsStyleSheet.accentColor : XsStyleSheet.widgetBgNormalColor
             border.width: borderWidth
 
             // wierd workaround for flickable..

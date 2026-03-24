@@ -164,7 +164,7 @@ void register_notification_class(py::module &m, const std::string &name) {
         ;
 }
 
-void register_plugindetail_class(py::module &m, const std::string &name) {
+void XSTUDIO_REGISTER_PLUGINdetail_class(py::module &m, const std::string &name) {
     py::class_<plugin_manager::PluginDetail>(m, name.c_str())
         .def(py::init<>())
         .def("name", [](const plugin_manager::PluginDetail &x) { return x.name_; })
@@ -257,6 +257,7 @@ void register_timecode_class(py::module &m, const std::string &name) {
     auto str_impl = [](const utility::Timecode &x) { return to_string(x); };
     py::class_<utility::Timecode>(m, name.c_str())
         .def(py::init<>())
+        .def(py::init<const int, const double>())
         .def("__str__", str_impl)
         .def("hours", [](const utility::Timecode &x) { return x.hours(); })
         .def("minutes", [](const utility::Timecode &x) { return x.minutes(); })
@@ -272,6 +273,7 @@ void register_mediareference_class(py::module &m, const std::string &name) {
     py::class_<utility::MediaReference>(m, name.c_str())
         .def(py::init<>())
         .def(py::init<caf::uri, bool, utility::FrameRate>())
+        .def(py::init<caf::uri, utility::FrameList, bool, utility::FrameRate>())
         .def("__str__", str_impl)
         .def("container", &utility::MediaReference::container)
         .def("frame_count", &utility::MediaReference::frame_count)
@@ -281,6 +283,7 @@ void register_mediareference_class(py::module &m, const std::string &name) {
             "Duration in seconds",
             py::arg("override") = utility::FrameRate())
         .def("duration", &utility::MediaReference::duration)
+        .def("set_duration", &utility::MediaReference::set_duration)
         .def("rate", &utility::MediaReference::rate)
         .def("set_rate", &utility::MediaReference::set_rate)
         .def(
@@ -289,13 +292,15 @@ void register_mediareference_class(py::module &m, const std::string &name) {
                 &utility::MediaReference::uri, py::const_),
             "URI of mediareference",
             py::arg("fpf") = utility::MediaReference::FramePadFormat::FPF_XSTUDIO)
-
+        .def("set_frame_list", &utility::MediaReference::set_frame_list)
         .def("uri_from_frame", &utility::MediaReference::uri_from_frame)
         .def("timecode", &utility::MediaReference::timecode)
+        .def("set_timecode", &utility::MediaReference::set_timecode)
         .def("offset", &utility::MediaReference::offset)
         .def("set_offset", &utility::MediaReference::set_offset)
         .def("start_frame_offset", &utility::MediaReference::start_frame_offset)
         .def("set_start_frame_offset", &utility::MediaReference::set_start_frame_offset)
+        .def("set_timecode", &utility::MediaReference::set_timecode)
         .def("frame", [](const utility::MediaReference &x, int i) {
             auto f = x.frame(i);
             if (f)
@@ -315,7 +320,7 @@ void register_bookmark_detail_class(py::module &m, const std::string &name) {
         .def_readwrite("visible", &bookmark::BookmarkDetail::visible_)
         .def_readwrite("start", &bookmark::BookmarkDetail::start_)
         .def_readwrite("duration", &bookmark::BookmarkDetail::duration_)
-        //.def_readwrite("user_data", &bookmark::BookmarkDetail::user_data_)
+        .def_readwrite("user_data", &bookmark::BookmarkDetail::user_data_)
         .def_readwrite("author", &bookmark::BookmarkDetail::author_)
         .def_readwrite("owner", &bookmark::BookmarkDetail::owner_)
         .def_readwrite("note", &bookmark::BookmarkDetail::note_)
@@ -415,6 +420,69 @@ void register_FrameRateDuration_class(py::module &m, const std::string &name) {
             py::arg("rate") = utility::FrameRate())
         .def("set_frames", &utility::FrameRateDuration::set_frames)
         .def("rate", &utility::FrameRateDuration::rate)
+        .def("__str__", str_impl);
+}
+
+void register_matrix44_class(py::module &m, const std::string &name) {
+    auto str_impl = [](const Imath::M44f &x) {
+        std::stringstream s;
+        s << x;
+        return s.str();
+    };
+    py::class_<Imath::M44f>(m, name.c_str())
+        .def(py::init<>())
+        .def(
+            py::init<
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float>())
+        .def(
+            "rotate",
+            [](Imath::M44f &s, float x, float y, float z) { s.rotate(Imath::V3f(x, y, z)); })
+        .def(
+            "scale",
+            [](Imath::M44f &s, float x, float y, float z) { s.scale(Imath::V3f(x, y, z)); })
+        .def(
+            "__getitem__",
+            [](const Imath::M44f &s, size_t i) {
+                if (i >= 4) {
+                    throw py::index_error();
+                }
+                py::list l;
+                l.append(s[i][0]);
+                l.append(s[i][1]);
+                l.append(s[i][2]);
+                l.append(s[i][3]);
+                return l;
+            })
+        .def(
+            "__setitem__",
+            [](Imath::M44f &s, size_t i, py::list &l) {
+                if (i >= 4) {
+                    throw py::index_error();
+                }
+                auto v = l.cast<std::vector<float>>();
+                if (v.size() != 4) {
+                    throw py::value_error();
+                }
+                s[i][0] = v[0];
+                s[i][1] = v[1];
+                s[i][2] = v[2];
+                s[i][3] = v[3];
+            })
         .def("__str__", str_impl);
 }
 
@@ -545,9 +613,10 @@ void register_frame_range_class(py::module &m, const std::string &name) {
     py::class_<utility::FrameRange>(m, name.c_str())
         .def(py::init())
         .def(py::init<xstudio::utility::FrameRateDuration>())
-        .def(py::init<
-             xstudio::utility::FrameRateDuration,
-             xstudio::utility::FrameRateDuration>())
+        .def(
+            py::init<
+                xstudio::utility::FrameRateDuration,
+                xstudio::utility::FrameRateDuration>())
         .def("rate", &utility::FrameRange::rate)
         .def("start", &utility::FrameRange::start)
         .def("duration", &utility::FrameRange::duration)
@@ -569,6 +638,7 @@ void register_frame_list_class(py::module &m, const std::string &name) {
     auto str_impl = [](const utility::FrameList &x) { return to_string(x); };
     py::class_<utility::FrameList>(m, name.c_str())
         .def(py::init<>())
+        .def(py::init<int, int, int>())
         .def(py::init<std::string>())
         .def("__str__", str_impl);
 }

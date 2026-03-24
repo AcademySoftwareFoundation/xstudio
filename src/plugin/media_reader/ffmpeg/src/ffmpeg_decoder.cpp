@@ -393,14 +393,14 @@ void FFMpegDecoder::decode_audio_frame(
         decoding_backwards_ = (last_requested_frame_ - frame_num) == 1 ||
                               (last_requested_frame_ - frame_num) == 2;
 
-        if (have_audio(frame_num) && have_audio(frame_num + 1)) {
+        if (have_audio(frame_num)) {
             // we've already decoded this audio frame but not used it
             audio_buffer          = get_audio_frame_and_release_from_mini_cache(frame_num);
             last_requested_frame_ = frame_num;
             return;
         }
 
-        if (last_requested_frame_ != (frame_num - 1)) {
+        if (last_decoded_frame_ != (frame_num - 1)) {
             do_seek(frame_num);
         }
 
@@ -474,7 +474,7 @@ void FFMpegDecoder::decode_video_frame(
             return;
         }
 
-        if (last_requested_frame_ != (frame_num - 1)) {
+        if (last_decoded_frame_ != (frame_num - 1)) {
             do_seek(frame_num);
         }
 
@@ -635,10 +635,178 @@ void FFMpegDecoder::pull_video_buffer_from_stream(StreamPtr &video_stream) {
     last_decoded_frame_                                  = buf->decoder_frame_number();
 }
 
+FFMpegDecoder::PartialAudioBufPtr &FFMpegDecoder::get_output_audio_buffer(
+    const utility::FrameRate &output_frame_rate,
+    const int64_t frame,
+    const int64_t sample_rate) {
+
+    if (!partially_filled_output_buffers_[frame]) {
+
+        partially_filled_output_buffers_[frame] = std::make_shared<PartiallyFilledAudioBuf>();
+        int64_t p0 =
+            frame * output_frame_rate.to_flicks() * sample_rate / timebase::k_flicks_one_second;
+        int64_t p1 = (frame + 1) * output_frame_rate.to_flicks() * sample_rate /
+                     timebase::k_flicks_one_second;
+
+        partially_filled_output_buffers_[frame]->the_buffer_.reset(new AudioBuffer());
+
+        partially_filled_output_buffers_[frame]->the_buffer_->allocate(
+            sample_rate,               // sample rate
+            2,                         // num channels
+            p1 - p0,                   // num samples
+            audio::SampleFormat::INT16 // format
+        );
+
+        partially_filled_output_buffers_[frame]->the_buffer_->set_display_timestamp_flicks(
+            output_frame_rate.to_flicks() * frame);
+    }
+
+    return partially_filled_output_buffers_[frame];
+}
+
+
+void FFMpegDecoder::print_ffmpeg_buf_into_output_audio_buf(
+    const utility::FrameRate &output_frame_rate,
+    const int64_t frame,
+    AudioBufPtr &ffmpeg_audio_buf) {
+
+    // ffmpeg audio buffers are duration and sample rate determined by ffmpeg and
+    // effectively could be anything.
+    // xSTUDIO audio buffers have to have the same duration as the video frames
+    // (if the source has no video, we provide a default video rate). The sample
+    // rate has to match the soundcard sample rate.
+
+    // This method takes an ffmpeg audio buffer and copies the samples into a
+    // set of xSTUDIO audio buffers, depending on how the ffmpeg buffer duration
+    // overlaps with xSTUDIO audio buffers with their different durations.
+    // For each xSTUDIO audio buffer, we keep track of which samples have been
+    // filled by ffmpeg buffers. When all samples have been filled in a given
+    // xSTUDIO audio buffer it is then 'complete'. At this point we can adjust
+    // he sample rate if necessary and make it available to be returned by the
+    // main 'FFMpeg::audio' method.
+
+    // first, get an output buffer for frame
+    PartialAudioBufPtr &output_buf =
+        get_output_audio_buffer(output_frame_rate, frame, ffmpeg_audio_buf->sample_rate());
+
+    // now we 'print' the samples coming in from FFMPEG into our output buffer.
+    // If this returns true, our output buffer has had all its samples filled
+    // and we can 'publish' it
+    if (output_buf->copy_samples_from_other_buffer(ffmpeg_audio_buf)) {
+
+        if (output_buf->the_buffer_->sample_rate() != soundcard_sample_rate_) {
+
+            // this call will re-sample the audio to match the desired
+            // soundcard rate
+            output_buf->the_buffer_->set_new_sample_rate(
+                soundcard_sample_rate_, output_frame_rate.to_flicks());
+        }
+
+        audio_frame_mini_cache_[frame] = output_buf->the_buffer_;
+        partially_filled_output_buffers_.erase(partially_filled_output_buffers_.find(frame));
+        last_decoded_frame_ = frame;
+    }
+}
+
+bool FFMpegDecoder::PartiallyFilledAudioBuf::copy_samples_from_other_buffer(
+    AudioBufPtr &other_buffer) {
+
+    // N.B. other_buffer sample rate must match 'the_buffer_' sample rate
+
+    int64_t output_buf_first_sample =
+        (the_buffer_->display_timestamp_flicks() * the_buffer_->sample_rate()) /
+        timebase::k_flicks_one_second;
+    int64_t other_buf_first_sample =
+        (other_buffer->display_timestamp_flicks() * other_buffer->sample_rate()) /
+        timebase::k_flicks_one_second;
+
+    int64_t first_samp_to_copy = std::max(output_buf_first_sample, other_buf_first_sample);
+    int64_t last_samp_to_copy  = std::min(
+        output_buf_first_sample + int64_t(the_buffer_->num_samples()),
+        other_buf_first_sample + int64_t(other_buffer->num_samples()));
+
+    if (last_samp_to_copy < first_samp_to_copy)
+        return false;
+
+    // num_channels currently forced to 2 in ffmpeg_stream and throughout audio pipeline
+    int64_t sample_size = the_buffer_->sample_type_size_bytes() * the_buffer_->num_channels();
+
+    // copy the samples in.
+    memcpy(
+        the_buffer_->buffer() + sample_size * (first_samp_to_copy - output_buf_first_sample),
+        other_buffer->buffer() + sample_size * (first_samp_to_copy - other_buf_first_sample),
+        (last_samp_to_copy - first_samp_to_copy) * sample_size);
+
+    int64_t a = first_samp_to_copy - output_buf_first_sample;
+    int64_t b = last_samp_to_copy - output_buf_first_sample;
+    if (a == b)
+        return false;
+
+    // add the in/out samples for the region that we have just written to
+    filled_samples_.push_back(std::make_pair(a, b));
+
+    // merge pairs of sample regions that we've filled ... anyone got a more
+    // elegant way of doing this?!
+    bool overlap = true;
+    while (overlap) {
+        overlap = false;
+        for (size_t j = 0; j < filled_samples_.size(); ++j) {
+            for (size_t i = j + 1; i < filled_samples_.size(); ++i) {
+                if ((filled_samples_[j].second >= filled_samples_[i].first &&
+                     filled_samples_[j].second <= filled_samples_[i].second) ||
+                    (filled_samples_[j].first >= filled_samples_[i].first &&
+                     filled_samples_[j].first <= filled_samples_[i].second)) {
+
+                    filled_samples_[j].second =
+                        std::max(filled_samples_[j].second, filled_samples_[i].second);
+                    filled_samples_[j].first =
+                        std::min(filled_samples_[j].first, filled_samples_[i].first);
+                    filled_samples_.erase(std::next(filled_samples_.begin(), i));
+                    overlap = true;
+                    break;
+                }
+            }
+            if (overlap)
+                break;
+        }
+    }
+
+    return (
+        filled_samples_.size() == 1 && filled_samples_[0].first == 0 &&
+        filled_samples_[0].second == the_buffer_->num_samples());
+}
+
 void FFMpegDecoder::pull_audio_buffer_from_stream(StreamPtr &audio_stream) {
 
-    AudioBufPtr buf = audio_stream->get_ffmpeg_frame_as_xstudio_audio(soundcard_sample_rate_);
+    AudioBufPtr buf = audio_stream->get_ffmpeg_frame_as_xstudio_audio();
     if (buf) {
+
+        // Our big challenge here is that the duration of decoded audio buffers returned by
+        // ffmpeg is determined by ffmpeg and could in theory follow ANY pattern-
+        // They could be smaller than video frames or bigger. They could
+        // vary in size for a given stream. Not a problem for continual streaming
+        // of audio but for xstudio where we need 'random access' to audio buffers
+        // to support live cacheing and playhead scrubbing it makes life rather hard.
+        //
+
+        // To overcome this, we re-organise the audio samples coming from ffmpeg
+        // into audio buffers that exactly match the VIDEO frame rate here.
+
+        // position_in_audio_stream tells us how far into the duration of the
+        // audio track the buffer is, measured in source samples.
+
+        // in which output frame does the first sample of 'buf' land in?
+        int64_t virtual_frame_in =
+            buf->display_timestamp_flicks() / audio_stream->frame_rate().to_flicks();
+
+        // in which output frame does the last sample of 'buf' land in?
+        int64_t virtual_frame_out = (buf->display_timestamp_flicks() + buf->duration_flicks()) /
+                                    audio_stream->frame_rate().to_flicks();
+
+        for (int64_t frame = virtual_frame_in; frame <= virtual_frame_out; frame++) {
+
+            print_ffmpeg_buf_into_output_audio_buf(audio_stream->frame_rate(), frame, buf);
+        }
 
         // using the display timestamp of these audio samples, work out the
         // corresponding 'virtual' frame. Remember, audio might be delivered by
@@ -648,7 +816,7 @@ void FFMpegDecoder::pull_audio_buffer_from_stream(StreamPtr &audio_stream) {
         // to be at 24fps also - we do this by putting the 1024 chunks of samples
         // into the AudioBuffer (coming at 24fps) with the closest timestamp.
 
-        int virtual_frame = int(floor(
+        /*int virtual_frame = int(floor(
             buf->display_timestamp_seconds() / (audio_stream->frame_rate().to_seconds())));
 
         // we are forcing audio frames into a 'virtual frame rate' that probably doesn't match
@@ -680,7 +848,7 @@ void FFMpegDecoder::pull_audio_buffer_from_stream(StreamPtr &audio_stream) {
             }
         }
 
-        last_decoded_frame_ = virtual_frame;
+        last_decoded_frame_ = virtual_frame;*/
     }
 }
 
@@ -696,8 +864,10 @@ void FFMpegDecoder::do_seek(const int seek_frame, bool force) {
     if (decode_stream_)
         decode_stream_->set_current_frame_unknown();
 
-    if (decode_stream_ && (force || seek_frame <= last_requested_frame_ ||
-                           seek_frame > (last_requested_frame_ + MIN_SEEK_FORWARD_FRAMES))) {
+    if (decode_stream_ && (force || seek_frame <= last_decoded_frame_ ||
+                           seek_frame > (last_decoded_frame_ + MIN_SEEK_FORWARD_FRAMES))) {
+
+        // std::cerr << "seek " << seek_frame << " " << last_decoded_frame_ << "\n";
 
         // here, if we are going backwards frame by frames, we are going
         // to jump back by 16 frames

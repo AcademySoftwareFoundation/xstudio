@@ -79,12 +79,26 @@ namespace ui::qml {
         Q_OBJECT
 
         Q_PROPERTY(QStringList types READ types WRITE setTypes NOTIFY typesChanged)
+        Q_PROPERTY(QVariant tags READ tags WRITE setTags NOTIFY tagsChanged)
+
+        Q_PROPERTY(
+            QStringList assetTags READ assetTags WRITE setAssetTags NOTIFY assetTagsChanged)
+
+        Q_PROPERTY(
+            QStringList shotManifestTags READ shotManifestTags WRITE setShotManifestTags NOTIFY
+                shotManifestTagsChanged)
+
 
       public:
-        const static inline std::vector<std::string> RoleNames = {"assetNameRole"};
+        const static inline std::vector<std::string> RoleNames = {
+            "assetNameRole", "heroRole", "manifestRole", "tagRole", "variantRole"};
 
         enum Roles {
             assetNameRole = ShotBrowserListModel::Roles::LASTROLE,
+            heroRole,
+            manifestRole,
+            tagRole,
+            variantRole
         };
 
         ShotBrowserSequenceModel(QObject *parent = nullptr) : ShotBrowserListModel(parent) {
@@ -101,21 +115,74 @@ namespace ui::qml {
             }
         }
 
-        static nlohmann::json flatToTree(const nlohmann::json &src, QStringList &_types);
-        static nlohmann::json flatToAssetTree(const nlohmann::json &src, QStringList &_types);
+        void setAssetTags(const QStringList &value) {
+            if (asset_tags_ != value) {
+                asset_tags_ = value;
+
+                // spdlog::warn("AT {}", asset_tags_.size());
+                // for(const auto &i: asset_tags_)
+                //     spdlog::warn("AT {}", StdFromQString(i));
+
+                emit assetTagsChanged();
+            }
+        }
+
+        void setShotManifestTags(const QStringList &value) {
+            if (shot_manifest_tags_ != value) {
+                shot_manifest_tags_ = value;
+
+                // spdlog::warn("SMY {}", shot_manifest_tags_.size());
+
+                // for(const auto &i: shot_manifest_tags_)
+                //     spdlog::warn("SMY {}", StdFromQString(i));
+
+                emit shotManifestTagsChanged();
+            }
+        }
+
+        void setTags(const QVariant &value);
+
+        void flatToTree(const nlohmann::json &src);
+        void flatToAssetTree(const nlohmann::json &src);
 
         [[nodiscard]] QVariant
         data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 
+        [[nodiscard]] QStringList shotManifestTags() const { return shot_manifest_tags_; }
+        [[nodiscard]] QStringList assetTags() const { return asset_tags_; }
+
         [[nodiscard]] QStringList types() const { return types_; }
+        [[nodiscard]] QVariant tags() const { return tags_; }
+
+        Q_INVOKABLE [[nodiscard]] QString nameFromTag(const QString &tag) const;
 
       signals:
         void typesChanged();
+        void tagsChanged();
+        void shotManifestTagsChanged();
+        void assetTagsChanged();
 
       private:
         static nlohmann::json sortByNameAndType(const nlohmann::json &json);
+        void dataChangedRecursive(const QModelIndex &parent, const QVector<int> &roles);
+
         QStringList types_{};
+        QVariant tags_;
+        QStringList shot_manifest_tags_{};
+        QStringList asset_tags_{};
+
+        std::map<std::string, int> tag_lookup_;
+
+        std::map<std::string, std::string> name_lookup_;
     };
+
+
+    // manifestFilter
+    // {
+    // "OR": [],
+    // "AND": [],
+    // "NOT": []
+    // }
 
     class ShotBrowserSequenceFilterModel : public QSortFilterProxyModel {
         Q_OBJECT
@@ -126,14 +193,22 @@ namespace ui::qml {
         Q_PROPERTY(bool hideEmpty READ hideEmpty WRITE setHideEmpty NOTIFY hideEmptyChanged)
         Q_PROPERTY(bool showHidden READ showHidden WRITE setShowHidden NOTIFY showHiddenChanged)
 
-        Q_PROPERTY(QVariantList unitFilter READ unitFilter WRITE setUnitFilter NOTIFY
-                       unitFilterChanged)
+        Q_PROPERTY(
+            QVariantList unitFilter READ unitFilter WRITE setUnitFilter NOTIFY
+                unitFilterChanged)
 
-        Q_PROPERTY(QVariantList typeFilter READ typeFilter WRITE setTypeFilter NOTIFY
-                       typeFilterChanged)
+        Q_PROPERTY(
+            QVariantList typeFilter READ typeFilter WRITE setTypeFilter NOTIFY
+                typeFilterChanged)
 
-        Q_PROPERTY(QVariantList locationFilter READ locationFilter WRITE setLocationFilter
-                       NOTIFY locationFilterChanged)
+        Q_PROPERTY(
+            QVariantList locationFilter READ locationFilter WRITE setLocationFilter NOTIFY
+                locationFilterChanged)
+
+        Q_PROPERTY(
+            QVariant manifestFilter READ manifestFilter WRITE setManifestFilter NOTIFY
+                manifestFilterChanged)
+
 
         QML_NAMED_ELEMENT("ShotBrowserSequenceFilterModel")
 
@@ -161,6 +236,7 @@ namespace ui::qml {
         [[nodiscard]] QVariantList unitFilter() const { return filter_unit_; }
         [[nodiscard]] QVariantList typeFilter() const { return filter_type_; }
         [[nodiscard]] QVariantList locationFilter() const { return filter_location_; }
+        [[nodiscard]] QVariant manifestFilter() const { return filter_manifest_; }
 
         void setHideStatus(const QStringList &value);
 
@@ -181,6 +257,8 @@ namespace ui::qml {
                 emit filterChanged();
             }
         }
+
+        void setManifestFilter(const QVariant &value);
 
         void setUnitFilter(const QVariantList &filter) {
             if (filter_unit_ != filter) {
@@ -223,7 +301,6 @@ namespace ui::qml {
             }
         }
 
-
       signals:
         void hideStatusChanged();
         void showHiddenChanged();
@@ -232,11 +309,11 @@ namespace ui::qml {
         void locationFilterChanged();
         void hideEmptyChanged();
         void filterChanged();
+        void manifestFilterChanged();
 
       protected:
         [[nodiscard]] bool
         filterAcceptsRow(int source_row, const QModelIndex &source_parent) const override;
-
 
       private:
         std::set<QString> hide_status_;
@@ -248,7 +325,14 @@ namespace ui::qml {
         QVariantList filter_unit_;
         QVariantList filter_type_;
         QVariantList filter_location_;
+        QVariant filter_manifest_ = mapFromValue(R"({})"_json);
 
+        QSet<QString> not_in_;
+        QSet<QString> and_in_;
+        QSet<QString> or_in_;
+
+        bool variant_tag_{false};
+        bool tag_{false};
 
         bool hide_empty_{false};
         bool show_hidden_{true};
@@ -261,14 +345,17 @@ namespace ui::qml {
         Q_PROPERTY(int length READ length NOTIFY lengthChanged)
         Q_PROPERTY(int count READ length NOTIFY lengthChanged)
 
-        Q_PROPERTY(QVariantList divisionFilter READ divisionFilter WRITE setDivisionFilter
-                       NOTIFY divisionFilterChanged)
+        Q_PROPERTY(
+            QVariantList divisionFilter READ divisionFilter WRITE setDivisionFilter NOTIFY
+                divisionFilterChanged)
 
-        Q_PROPERTY(QVariantList projectStatusFilter READ projectStatusFilter WRITE
-                       setProjectStatusFilter NOTIFY projectStatusFilterChanged)
+        Q_PROPERTY(
+            QVariantList projectStatusFilter READ projectStatusFilter WRITE
+                setProjectStatusFilter NOTIFY projectStatusFilterChanged)
 
-        Q_PROPERTY(QItemSelection selectionFilter READ selectionFilter WRITE setSelectionFilter
-                       NOTIFY selectionFilterChanged)
+        Q_PROPERTY(
+            QItemSelection selectionFilter READ selectionFilter WRITE setSelectionFilter NOTIFY
+                selectionFilterChanged)
 
       public:
         ShotBrowserFilterModel(QObject *parent = nullptr) : QSortFilterProxyModel(parent) {

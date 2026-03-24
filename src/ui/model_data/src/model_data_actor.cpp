@@ -69,7 +69,10 @@ utility::JsonTree *find_node_matching_string_field(
 }
 
 bool find_and_delete(
-    utility::JsonTree *data, const std::string &field, const std::string &field_value) {
+    utility::JsonTree *data,
+    const std::string &field,
+    const std::string &field_value,
+    const bool cleanup_empty_nodes = false) {
     if (data->data().contains(field) && data->data()[field].get<std::string>() == field_value) {
 
         data->parent()->erase(std::next(data->parent()->begin(), data->index()));
@@ -77,7 +80,15 @@ bool find_and_delete(
 
     } else {
         for (auto p = data->begin(); p != data->end(); ++p) {
-            if (find_and_delete(&(*p), field, field_value)) {
+            if (find_and_delete(&(*p), field, field_value, cleanup_empty_nodes)) {
+                if (cleanup_empty_nodes && data->empty() && data->parent()) {
+                    // after we've done a deletion, does that leave the node's
+                    // parent empty? For menu models, this will leave an empty
+                    // submenu which will generally not be desirable.
+                    // Therefore, remove the empty parent node here.
+                    data->parent()->erase(std::next(data->parent()->begin(), data->index()));
+                }
+
                 return true;
             }
         }
@@ -331,8 +342,9 @@ GlobalUIModelData::GlobalUIModelData(caf::actor_config &cfg) : caf::event_based_
         [=](menu_node_activated_atom,
             const std::string &model_name,
             const std::string &path,
-            const std::string &user_data) {
-            node_activated(model_name, path, user_data, false);
+            const std::string &user_data,
+            const std::string &activation_type) {
+            node_activated(model_name, path, user_data, activation_type, false);
         },
 
         [=](insert_or_update_menu_node_atom,
@@ -1037,6 +1049,7 @@ void GlobalUIModelData::node_activated(
     const std::string &model_name,
     const std::string &path,
     const std::string &user_data,
+    const std::string &activation_type,
     const bool from_hotkey) {
 
     try {
@@ -1061,6 +1074,7 @@ void GlobalUIModelData::node_activated(
                             path,
                             utility::JsonStore(j),
                             user_data,
+                            activation_type,
                             from_hotkey)
                             .send(watcher);
                     }
@@ -1205,6 +1219,7 @@ void GlobalUIModelData::insert_into_menu_model(
                     // a checkbox menu item has been clicked on. Let's  broadcast
                     // the change to watchers
                     if (!needs_reorering) {
+
                         std::string path = path_from_node(menu_model_data);
                         for (auto it = new_data.begin(); it != new_data.end(); it++) {
                             if (!old_data.contains(it.key()) ||
@@ -1241,7 +1256,7 @@ void GlobalUIModelData::insert_into_menu_model(
         }
 
     } catch (std::exception &e) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+        spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, e.what(), menu_data.dump());
     }
 }
 
@@ -1404,7 +1419,7 @@ void GlobalUIModelData::remove_node(
 
             std::string uuid_string = to_string(model_item_id);
             std::string field("uuid");
-            if (find_and_delete(menu_model_data, field, uuid_string)) {
+            if (find_and_delete(menu_model_data, field, uuid_string, true)) {
                 broadcast_whole_model_data(mmn->name_);
             }
         }
@@ -1511,7 +1526,8 @@ void GlobalUIModelData::hotkey_pressed(
 
                 // run our 'activated' method which will trigger an 'activated'
                 // signal on any XsMenuItem that are hooked to this node
-                node_activated(p.second->name_, path_from_node(menu_model_data), context, true);
+                node_activated(
+                    p.second->name_, path_from_node(menu_model_data), context, "hotkey", true);
 
             } catch (std::exception &e) {
                 spdlog::warn(

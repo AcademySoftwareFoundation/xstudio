@@ -17,8 +17,8 @@ Rectangle {
     // this button is arranged by a RowLayout - we make it match the height
     // and make it square thus:
 
-    color: ma.pressed ? palette.highlight : "transparent"
-    border.color: ma.containsMouse ? palette.highlight : "transparent"
+    color: ma.pressed ? XsStyleSheet.accentColor : "transparent"
+    border.color: ma.containsMouse ? XsStyleSheet.accentColor : "transparent"
 
     // access 'attribute' data exposed by our C++ plugin
     XsModuleData {
@@ -63,7 +63,7 @@ Rectangle {
         height: 2
         visible: overall_status != "Done"
 
-        ShaderEffect { 
+        ShaderEffect {
             id: imgDiv
             PropertyAnimation {
                 target: imgDiv
@@ -80,7 +80,7 @@ Rectangle {
             property real sz: width
             property real line_width: 2.5
             property real fangle: 0.0
-            property color line_colour: palette.highlight
+            property color line_colour: XsStyleSheet.accentColor
         }
     }
 

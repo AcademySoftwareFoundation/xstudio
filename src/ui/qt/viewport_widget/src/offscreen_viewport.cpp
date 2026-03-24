@@ -244,229 +244,278 @@ OffscreenViewport::OffscreenViewport(const std::string name, bool sync_with_main
     // message handler from OpenGLViewportRenderer with our own message handlers for offscreen
     // rendering
     set_message_handler([=](caf::actor_companion * /*self*/) -> caf::message_handler {
-        return xstudio_viewport_->message_handler().or_else(caf::message_handler{
+        return xstudio_viewport_->message_handler().or_else(
+            caf::message_handler{
 
-            // insert additional message handlers here
-            [=](render_viewport_to_image_atom, const int width, const int height)
-                -> result<bool> {
-                try {
-                    // copies a QImage to the Clipboard
-                    renderSnapshot(width, height);
-                    return true;
-                } catch (std::exception &e) {
-                    return caf::make_error(xstudio_error::error, e.what());
-                }
-            },
+                // insert additional message handlers here
+                [=](render_viewport_to_image_atom, const int width, const int height)
+                    -> result<bool> {
+                    try {
+                        // copies a QImage to the Clipboard
+                        renderSnapshot(width, height);
+                        return true;
+                    } catch (std::exception &e) {
+                        return caf::make_error(xstudio_error::error, e.what());
+                    }
+                },
 
-            [=](render_viewport_to_image_atom,
-                const caf::uri path,
-                const int width,
-                const int height) -> result<bool> {
-                try {
-                    renderSnapshot(width, height, path);
-                    return true;
-                } catch (std::exception &e) {
-                    return caf::make_error(xstudio_error::error, e.what());
-                }
-            },
+                [=](render_viewport_to_image_atom,
+                    const caf::uri path,
+                    const int width,
+                    const int height) -> result<bool> {
+                    try {
+                        renderSnapshot(width, height, path);
+                        return true;
+                    } catch (std::exception &e) {
+                        return caf::make_error(xstudio_error::error, e.what());
+                    }
+                },
 
-            [=](render_viewport_to_image_atom,
-                const thumbnail::THUMBNAIL_FORMAT format,
-                const int width,
-                const int height) -> result<thumbnail::ThumbnailBufferPtr> {
-                try {
-                    return renderToThumbnail(format, width, height);
-                } catch (std::exception &e) {
-                    return caf::make_error(xstudio_error::error, e.what());
-                }
-            },
+                [=](render_viewport_to_image_atom,
+                    const thumbnail::THUMBNAIL_FORMAT format,
+                    const int width,
+                    const int height) -> result<thumbnail::ThumbnailBufferPtr> {
+                    try {
+                        return renderToThumbnail(format, width, height);
+                    } catch (std::exception &e) {
+                        return caf::make_error(xstudio_error::error, e.what());
+                    }
+                },
 
-            [=](render_viewport_to_image_atom,
-                caf::actor media_actor,
-                const int media_frame,
-                const thumbnail::THUMBNAIL_FORMAT format,
-                const int width,
-                const bool auto_scale,
-                const bool show_annotations) -> result<thumbnail::ThumbnailBufferPtr> {
-                thumbnail::ThumbnailBufferPtr r;
-                try {
-                    r = renderMediaFrameToThumbnail(
-                        media_actor, media_frame, format, width, auto_scale, show_annotations);
-                } catch (std::exception &e) {
-                    return caf::make_error(xstudio_error::error, e.what());
-                }
-                return r;
-            },
+                [=](render_viewport_to_image_atom,
+                    caf::actor media_actor,
+                    const int media_frame,
+                    const thumbnail::THUMBNAIL_FORMAT format,
+                    const int width,
+                    const bool auto_scale,
+                    const bool show_annotations) -> result<thumbnail::ThumbnailBufferPtr> {
+                    thumbnail::ThumbnailBufferPtr r;
+                    try {
+                        r = renderMediaFrameToThumbnail(
+                            media_actor,
+                            media_frame,
+                            format,
+                            width,
+                            auto_scale,
+                            show_annotations);
+                    } catch (std::exception &e) {
+                        return caf::make_error(xstudio_error::error, e.what());
+                    }
+                    return r;
+                },
 
-            [=](render_viewport_to_image_atom,
-                caf::actor media_actor,
-                const int media_frame,
-                const int width,
-                const int height,
-                const caf::uri path) -> result<bool> {
-                try {
+                [=](render_viewport_to_image_atom,
+                    caf::actor media_actor,
+                    const int media_frame,
+                    const int width,
+                    const int height,
+                    const caf::uri path) -> result<bool> {
+                    try {
 
-                    media_reader::ImageBufPtr image =
-                        renderMediaFrameToImage(media_actor, media_frame, width, height);
-                    auto p          = fs::path(xstudio::utility::uri_to_posix_path(path));
-                    std::string ext = xstudio::utility::ltrim_char(
+                        media_reader::ImageBufPtr image =
+                            renderMediaFrameToImage(media_actor, media_frame, width, height);
+                        auto p = fs::path(xstudio::utility::uri_to_posix_path(path));
+
+                        std::string ext = xstudio::utility::ltrim_char(
 #ifdef _WIN32
-                        xstudio::utility::to_upper_path(p.extension()),
+                            xstudio::utility::to_upper_path(p.extension()),
 #else
-                        xstudio::utility::to_upper(p.extension()),
+                            xstudio::utility::to_upper(p.extension()),
 #endif
-                        '.'); // yuk!
+                            '.'); // yuk!
 
-                    if (ext == "EXR") {
-                        this->exportToEXR(image, path);
-                    } else {
-                        this->exportToCompressedFormat(image, path, ext);
+                        if (ext == "EXR") {
+                            this->exportToEXR(image, path);
+                        } else {
+                            this->exportToCompressedFormat(image, path, ext);
+                        }
+
+                    } catch (std::exception &e) {
+                        // spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+                        return caf::make_error(xstudio_error::error, e.what());
+                    }
+                    return true;
+                },
+
+                [=](render_viewport_to_image_atom,
+                    caf::actor media_actor,
+                    const timebase::flicks playhead_timepoint,
+                    const thumbnail::THUMBNAIL_FORMAT format,
+                    const int width,
+                    const bool auto_scale,
+                    const bool show_annotations) -> result<thumbnail::ThumbnailBufferPtr> {
+                    thumbnail::ThumbnailBufferPtr r;
+                    try {
+                        r = renderMediaFrameToThumbnail(
+                            media_actor,
+                            playhead_timepoint,
+                            format,
+                            width,
+                            auto_scale,
+                            show_annotations);
+                    } catch (std::exception &e) {
+                        return caf::make_error(xstudio_error::error, e.what());
+                    }
+                    return r;
+                },
+
+                [=](video_output_actor_atom,
+                    caf::actor video_output_actor,
+                    int outputWidth,
+                    int outputHeight,
+                    ImageFormat format) {
+                    video_output_actor_ = video_output_actor;
+                    vid_out_width_      = outputWidth;
+                    vid_out_height_     = outputHeight;
+                    vid_out_format_     = format;
+                },
+
+                [=](video_output_actor_atom, caf::actor video_output_actor) {
+                    video_output_actor_ = video_output_actor;
+                },
+
+                [=](render_viewport_to_image_atom,
+                    const int width,
+                    const int height,
+                    ImageFormat format) -> result<media_reader::ImageBufPtr> {
+                    media_reader::ImageBufPtr new_frame;
+                    try {
+
+                        renderToImageBuffer(width, height, new_frame, format, true);
+
+                    } catch (std::exception &e) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
                     }
 
-                } catch (std::exception &e) {
-                    return caf::make_error(xstudio_error::error, e.what());
-                }
-                return true;
-            },
+                    return new_frame;
+                },
 
-            [=](render_viewport_to_image_atom,
-                caf::actor media_actor,
-                const timebase::flicks playhead_timepoint,
-                const thumbnail::THUMBNAIL_FORMAT format,
-                const int width,
-                const bool auto_scale,
-                const bool show_annotations) -> result<thumbnail::ThumbnailBufferPtr> {
-                thumbnail::ThumbnailBufferPtr r;
-                try {
-                    r = renderMediaFrameToThumbnail(
-                        media_actor,
-                        playhead_timepoint,
-                        format,
-                        width,
-                        auto_scale,
-                        show_annotations);
-                } catch (std::exception &e) {
-                    return caf::make_error(xstudio_error::error, e.what());
-                }
-                return r;
-            },
+                [=](render_viewport_to_image_atom,
+                    const utility::time_point &tp,
+                    const bool return_frame,
+                    const bool skip_if_out_of_date) {
+                    // force a redraw
+                    if (video_output_actor_) {
 
-            [=](video_output_actor_atom,
-                caf::actor video_output_actor,
-                int outputWidth,
-                int outputHeight,
-                ImageFormat format) {
-                video_output_actor_ = video_output_actor;
-                vid_out_width_      = outputWidth;
-                vid_out_height_     = outputHeight;
-                vid_out_format_     = format;
-            },
+                        if (return_frame) {
 
-            [=](video_output_actor_atom, caf::actor video_output_actor) {
-                video_output_actor_ = video_output_actor;
-            },
+                            if (last_rendered_frame_ && !xstudio_viewport_->playing()) {
+                                // no need to re-render if Redraw callback hasn't
+                                // arrived since we last rendered
+                                anon_mail(last_rendered_frame_).send(video_output_actor_);
 
-            [=](render_viewport_to_image_atom,
-                const int width,
-                const int height,
-                ImageFormat format) -> result<media_reader::ImageBufPtr> {
-                media_reader::ImageBufPtr new_frame;
-                try {
+                            } else {
 
-                    renderToImageBuffer(width, height, new_frame, format, true);
-
-                } catch (std::exception &e) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-                }
-
-                return new_frame;
-            },
-
-            [=](render_viewport_to_image_atom,
-                const utility::time_point &tp,
-                const bool return_frame,
-                const bool skip_if_out_of_date) {
-                // force a redraw
-                if (video_output_actor_) {
-
-                    if (return_frame) {
-
-                        if (last_rendered_frame_ && !xstudio_viewport_->playing()) {
-                            // no need to re-render if Redraw callback hasn't
-                            // arrived since we last rendered
-                            anon_mail(last_rendered_frame_).send(video_output_actor_);
+                                media_reader::ImageBufPtr new_frame;
+                                try {
+                                    renderToImageBuffer(
+                                        vid_out_width_,
+                                        vid_out_height_,
+                                        new_frame,
+                                        vid_out_format_,
+                                        false,
+                                        tp);
+                                } catch (std::exception &e) {
+                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+                                }
+                                anon_mail(new_frame).send(video_output_actor_);
+                                last_rendered_frame_ = new_frame;
+                            }
 
                         } else {
 
-                            media_reader::ImageBufPtr new_frame;
                             try {
-                                renderToImageBuffer(
-                                    vid_out_width_,
-                                    vid_out_height_,
-                                    new_frame,
-                                    vid_out_format_,
-                                    false,
-                                    tp);
+
+                                auto msec_lag =
+                                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                                        tp - utility::clock::now())
+                                        .count();
+                                if (skip_if_out_of_date && msec_lag < -100) {
+                                    // we've requested to render a frame IN THE PAST ... this
+                                    // means we are unable to render fast enough to keep up with
+                                    // render requests so we will skip the render
+                                } else {
+                                    render(
+                                        vid_out_width_,
+                                        vid_out_height_,
+                                        vid_out_format_,
+                                        false,
+                                        tp);
+                                }
+
+                                // we still return an empty frame to the video output plugin
+                                // so it can
+                                anon_mail(media_reader::ImageBufPtr())
+                                    .send(video_output_actor_);
+
                             } catch (std::exception &e) {
+
                                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
                             }
-                            anon_mail(new_frame).send(video_output_actor_);
-                            last_rendered_frame_ = new_frame;
-                        }
-
-                    } else {
-
-                        try {
-
-                            auto msec_lag =
-                                std::chrono::duration_cast<std::chrono::milliseconds>(
-                                    tp - utility::clock::now())
-                                    .count();
-                            if (skip_if_out_of_date && msec_lag < -100) {
-                                // we've requested to render a frame IN THE PAST ... this means
-                                // we are unable to render fast enough to keep up with render
-                                // requests so we will skip the render
-                            } else {
-                                render(
-                                    vid_out_width_,
-                                    vid_out_height_,
-                                    vid_out_format_,
-                                    false,
-                                    tp);
-                            }
-
-                            // we still return an empty frame to the video output plugin
-                            // so it can
-                            anon_mail(media_reader::ImageBufPtr()).send(video_output_actor_);
-
-                        } catch (std::exception &e) {
-
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
                         }
                     }
+                },
+
+                [=](render_viewport_to_image_atom,
+                    caf::actor media_actor,
+                    const int media_frame,
+                    const bool include_image,
+                    const bool include_overlays,
+                    const bool include_drawings,
+                    const int width,
+                    const int height,
+                    const caf::uri &output) -> result<bool> {
+                    try {
+
+                        media_reader::ImageBufPtr image = renderMediaFrameToImage(
+                            media_actor,
+                            media_frame,
+                            width,
+                            height,
+                            include_image,
+                            include_overlays,
+                            include_drawings);
+                        auto p          = fs::path(xstudio::utility::uri_to_posix_path(output));
+                        std::string ext = xstudio::utility::ltrim_char(
+#ifdef _WIN32
+                            xstudio::utility::to_upper_path(p.extension()),
+#else
+                            xstudio::utility::to_upper(p.extension()),
+#endif
+                            '.'); // yuk!
+
+                        if (ext == "EXR") {
+                            this->exportToEXR(image, output);
+                        } else {
+                            this->exportToCompressedFormat(image, output, ext, !include_image);
+                        }
+
+                    } catch (std::exception &e) {
+                        return caf::make_error(xstudio_error::error, e.what());
+                    }
+                    return true;
+                },
+
+                // event coming from session actor
+                [=](utility::event_atom, session::session_atom, caf::actor session) {
+                    session_actor_addr_ = actorToQString(system(), session);
+                },
+
+                // event coming from session actor (ignore)
+                [=](utility::event_atom,
+                    session::session_request_atom,
+                    const std::string &path,
+                    const utility::JsonStore &js) {},
+
+                // sets a custom frame grabber that takes over the GPU routine that
+                // takes the viewport framebuffer and returns an ImageBufPtr - used
+                // by video output plugins
+                [=](ViewportFramePostProcessorPtr custom_post_draw_hook) -> bool {
+                    post_draw_hook_ = custom_post_draw_hook;
+                    return true;
                 }
-            },
 
-            // event coming from session actor
-            [=](utility::event_atom, session::session_atom, caf::actor session) {
-                session_actor_addr_ = actorToQString(system(), session);
-            },
-
-            // event coming from session actor (ignore)
-            [=](utility::event_atom,
-                session::session_request_atom,
-                const std::string &path,
-                const utility::JsonStore &js) {},
-
-            // sets a custom frame grabber that takes over the GPU routine that
-            // takes the viewport framebuffer and returns an ImageBufPtr - used
-            // by video output plugins
-            [=](ViewportFramePostProcessorPtr custom_post_draw_hook) -> bool {
-                post_draw_hook_ = custom_post_draw_hook;
-                return true;
-            }
-
-        });
+            });
     });
 
     initGL();
@@ -524,8 +573,9 @@ void OffscreenViewport::initGL() {
         if (!gl_context_)
             throw std::runtime_error("OffscreeninitGL - could not create QOpenGLContext.");
         if (!gl_context_->create()) {
-            throw std::runtime_error("OffscreeninitGL - failed to creat GL Context "
-                                     "for offscreen rendering.");
+            throw std::runtime_error(
+                "OffscreeninitGL - failed to creat GL Context "
+                "for offscreen rendering.");
         }
 
         // This offscreen viewport runs in its own thread
@@ -694,44 +744,73 @@ void OffscreenViewport::exportToEXR(const media_reader::ImageBufPtr &buf, const 
 }
 
 void OffscreenViewport::exportToCompressedFormat(
-    const media_reader::ImageBufPtr &buf, const caf::uri path, const std::string &ext) {
+    const media_reader::ImageBufPtr &buf,
+    const caf::uri path,
+    const std::string &ext,
+    const bool has_alpha) {
 
-    thumbnail::ThumbnailBufferPtr r = rgb96thumbFromHalfFloatImage(buf);
-    r->convert_to(thumbnail::TF_RGB24);
+    if (has_alpha) {
 
-    // N.B. We can't pass our thumnail buffer directly to QImage constructor as
-    // it requires 32 bit alignment on scanlines and our Thumbnail buffer is
-    // not designed as such.
+        QImage im(
+            buf->image_size_in_pixels().x,
+            buf->image_size_in_pixels().y,
+            QImage::Format_RGBA16FPx4);
+        const size_t scanline_width = buf->image_size_in_pixels().x * 4;
+        const half *src             = reinterpret_cast<const half *>(buf->buffer());
+        src += (buf->image_size_in_pixels().y - 1) * buf->image_size_in_pixels().x *
+               4; // jump to last scanline
 
-    const int width  = r->width();
-    const int height = r->height();
+        for (int y = 0; y < buf->image_size_in_pixels().y; y++) {
 
-    const auto *in_px = (const uint8_t *)r->data().data();
-    QImage im(width, height, QImage::Format_RGB888);
-
-    // In fact QImage is a bit funky and won't let us write whole scanlines so
-    // have to do it pixel by pixel
-    for (int line = 0; line < height; line++) {
-        for (int x = 0; x < width; x++) {
-            im.setPixelColor(x, line, QColor((int)in_px[0], (int)in_px[1], (int)in_px[2]));
-            in_px += 3;
+            memcpy(im.scanLine(y), src, scanline_width * sizeof(half));
+            src -= scanline_width;
         }
-    }
 
-    /*int compLevel =
-        ext == "TIF" || ext == "TIFF" ? std::max(compression, 1) : (10 - compression) * 10;*/
-    // TODO : check m_filePath for extension, if not, add to it. Do it on QML side after merging
-    // with new UI branch
+        QImageWriter writer(xstudio::utility::uri_to_posix_path(path).c_str());
+        if (!writer.write(im)) {
+            throw std::runtime_error(writer.errorString().toStdString().c_str());
+        }
 
-    if (path.empty()) {
-        QApplication::clipboard()->setImage(im, QClipboard::Clipboard);
-        return;
-    }
+    } else {
 
-    QImageWriter writer(xstudio::utility::uri_to_posix_path(path).c_str());
-    // writer.setCompression(compLevel);
-    if (!writer.write(im)) {
-        throw std::runtime_error(writer.errorString().toStdString().c_str());
+        thumbnail::ThumbnailBufferPtr r = rgb96thumbFromHalfFloatImage(buf);
+        r->convert_to(thumbnail::TF_RGB24);
+
+        // N.B. We can't pass our thumnail buffer directly to QImage constructor as
+        // it requires 32 bit alignment on scanlines and our Thumbnail buffer is
+        // not designed as such.
+
+        const int width  = r->width();
+        const int height = r->height();
+
+        const auto *in_px = (const uint8_t *)r->data().data();
+        QImage im(width, height, QImage::Format_RGB888);
+
+        // In fact QImage is a bit funky and won't let us write whole scanlines so
+        // have to do it pixel by pixel
+        for (int line = 0; line < height; line++) {
+            for (int x = 0; x < width; x++) {
+                im.setPixelColor(x, line, QColor((int)in_px[0], (int)in_px[1], (int)in_px[2]));
+                in_px += 3;
+            }
+        }
+
+        /*int compLevel =
+            ext == "TIF" || ext == "TIFF" ? std::max(compression, 1) : (10 - compression) *
+           10;*/
+        // TODO : check m_filePath for extension, if not, add to it. Do it on QML side after
+        // merging with new UI branch
+
+        if (path.empty()) {
+            QApplication::clipboard()->setImage(im, QClipboard::Clipboard);
+            return;
+        }
+
+        QImageWriter writer(xstudio::utility::uri_to_posix_path(path).c_str());
+        // writer.setCompression(compLevel);
+        if (!writer.write(im)) {
+            throw std::runtime_error(writer.errorString().toStdString().c_str());
+        }
     }
 }
 
@@ -860,8 +939,8 @@ bool OffscreenViewport::loadQMLOverlays() {
 
     overlays_loaded_ = true;
 
-    qml_component_ =
-        new QQmlComponent(qml_engine_, "qrc:/views/viewport/XsOffscreenViewportOverlays.qml");
+    qml_component_ = new QQmlComponent(
+        qml_engine_, "qrc:/application/panels/viewport/XsOffscreenViewportOverlays.qml");
     qml_component_->moveToThread(thread_);
 
     if (qml_component_->isError()) {
@@ -910,15 +989,20 @@ void OffscreenViewport::render(
     const viewport::ImageFormat format,
     const bool sync_fetch_playhead_image,
     const utility::time_point &tp,
-    const media_reader::ImageBufPtr &image_to_use) {
+    const media_reader::ImageBufPtr &image_to_use,
+    const bool include_overlays,
+    const bool include_drawings) {
 
     // ensure our GLContext is current
     if (!gl_context_->makeCurrent(surface_) || !gl_context_->isValid()) {
         throw std::runtime_error("OffscreenrenderToImageBuffer - GL Context is not valid.");
     }
 
-    // No QML .. much simpler. Just set-up and render our xstudio viewport
+    // glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION, GL_DEBUG_TYPE_MARKER, 0,
+    //                      GL_DEBUG_SEVERITY_NOTIFICATION, -1, "OffscreenViewport::render
+    //                      START");
 
+    // No QML .. much simpler. Just set-up and render our xstudio viewport
     glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
 
     // intialises shaders and textures where necessary
@@ -943,7 +1027,7 @@ void OffscreenViewport::render(
         1.0f  // pixel scaling (high DPI support)
     );
 
-    if (loadQMLOverlays()) {
+    if (include_overlays && loadQMLOverlays()) {
 
         // If we are rendering a supplied image, store it for when we do
         // the render, or we call 'prepare_render_data' which pre-fetches the image
@@ -1028,7 +1112,7 @@ void OffscreenViewport::render(
         glViewport(0, 0, w, h);
 
         if (image_to_use) {
-            xstudio_viewport_->render(image_to_use);
+            xstudio_viewport_->render(image_to_use, include_drawings);
         } else {
             if (sync_fetch_playhead_image) {
                 xstudio_viewport_->prepare_render_data(utility::clock::now(), true);
@@ -1065,6 +1149,10 @@ void OffscreenViewport::render(
 
     // unbind
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION, GL_DEBUG_TYPE_MARKER, 0,
+    //                      GL_DEBUG_SEVERITY_NOTIFICATION, -1, "OffscreenViewport::render
+    //                      END");
 }
 
 void OffscreenViewport::sync_python_hud_data() {
@@ -1109,7 +1197,6 @@ void OffscreenViewport::sync_python_hud_data() {
         root_qml_overlays_item_->setProperty(
             "hud_plugins_display_data", QVariantFromJson(hud_data));
 
-
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
@@ -1122,11 +1209,21 @@ void OffscreenViewport::renderToImageBuffer(
     const ImageFormat format,
     const bool sync_fetch_playhead_image,
     const utility::time_point &tp,
-    const media_reader::ImageBufPtr &image_to_use) {
+    const media_reader::ImageBufPtr &image_to_use,
+    const bool include_overlays,
+    const bool include_drawings) {
     auto t0 = utility::clock::now();
 
     // the actual render call
-    render(w, h, format, sync_fetch_playhead_image, tp, image_to_use);
+    render(
+        w,
+        h,
+        format,
+        sync_fetch_playhead_image,
+        tp,
+        image_to_use,
+        include_overlays,
+        include_drawings);
 
     if (!post_draw_hook_)
         post_draw_hook_.reset(new DefaultFrameGrabber());
@@ -1167,13 +1264,15 @@ OffscreenViewport::rgb96thumbFromHalfFloatImage(const media_reader::ImageBufPtr 
     size_t expected_size = image_size.x * image_size.y * sizeof(half) * 4;
     if (expected_size > image->size()) {
 
-        std::string err(fmt::format(
-            "{} Image buffer size of {} does not agree with image pixels size of {} ({}x{}).",
-            __PRETTY_FUNCTION__,
-            image->size(),
-            expected_size,
-            image_size.x,
-            image_size.y));
+        std::string err(
+            fmt::format(
+                "{} Image buffer size of {} does not agree with image pixels size of {} "
+                "({}x{}).",
+                __PRETTY_FUNCTION__,
+                image->size(),
+                expected_size,
+                image_size.x,
+                image_size.y));
         throw std::runtime_error(err.c_str());
     }
 
@@ -1212,8 +1311,9 @@ thumbnail::ThumbnailBufferPtr OffscreenViewport::renderToThumbnail(
     media_reader::ImageBufPtr image = xstudio_viewport_->get_onscreen_image();
 
     if (!image) {
-        std::string err(fmt::format(
-            "{} Failed to pull images to offscreen renderer.", __PRETTY_FUNCTION__));
+        std::string err(
+            fmt::format(
+                "{} Failed to pull images to offscreen renderer.", __PRETTY_FUNCTION__));
         throw std::runtime_error(err.c_str());
     }
 
@@ -1238,29 +1338,60 @@ thumbnail::ThumbnailBufferPtr OffscreenViewport::renderToThumbnail(
 thumbnail::ThumbnailBufferPtr OffscreenViewport::renderToThumbnail(
     const thumbnail::THUMBNAIL_FORMAT format, const int width, const int height) {
 
-    media_reader::ImageBufPtr image = renderToImageBuf(width, height);
+    media_reader::ImageBufPtr image = renderToImageBuf(width, height, true, false, true);
     thumbnail::ThumbnailBufferPtr r = rgb96thumbFromHalfFloatImage(image);
     r->convert_to(format);
     return r;
 }
 
-media_reader::ImageBufPtr
-OffscreenViewport::renderToImageBuf(const int width, const int height) {
+media_reader::ImageBufPtr OffscreenViewport::renderToImageBuf(
+    int width,
+    int height,
+    const bool include_image,
+    const bool include_overlays,
+    const bool include_drawings) {
 
     media_reader::ImageBufPtr image2 = xstudio_viewport_->get_onscreen_image();
     if (!image2) {
-        std::string err(fmt::format(
-            "{} Failed to pull images to offscreen renderer.", __PRETTY_FUNCTION__));
+        std::string err(
+            fmt::format(
+                "{} Failed to pull images to offscreen renderer.", __PRETTY_FUNCTION__));
         throw std::runtime_error(err.c_str());
     }
     media_reader::ImageBufPtr image(new media_reader::ImageBuffer());
+
+    if (width <= 0 || height <= 0) {
+        // match output image size to the on-screen image (media image) size
+        width  = image2->image_size_in_pixels().x;
+        height = image2->image_size_in_pixels().y;
+    }
+
+    if (!include_image) {
+        // make the image to be rendered actually transparent
+        image2.set_invisible(true);
+    }
+
     renderToImageBuffer(
-        width, height, image, ImageFormat::RGBA_16F, true, utility::clock::now(), image2);
+        width,
+        height,
+        image,
+        ImageFormat::RGBA_16F,
+        true,
+        utility::clock::now(),
+        image2,
+        include_overlays,
+        include_drawings);
     return image;
 }
 
 media_reader::ImageBufPtr OffscreenViewport::renderMediaFrameToImage(
-    caf::actor media_actor, const int media_frame, const int width, const int height) {
+    caf::actor media_actor,
+    const int media_frame,
+    const int width,
+    const int height,
+    const bool include_image,
+    const bool include_overlays,
+    const bool include_drawings) {
 
     if (!local_playhead_) {
         auto a = caf::actor_cast<caf::event_based_actor *>(as_actor());
@@ -1281,7 +1412,7 @@ media_reader::ImageBufPtr OffscreenViewport::renderMediaFrameToImage(
     // now move the playhead to requested frame
     utility::request_receive<bool>(*sys, local_playhead_, playhead::jump_atom_v, media_frame);
 
-    return renderToImageBuf(width, height);
+    return renderToImageBuf(width, height, include_image, include_overlays, include_drawings);
 }
 
 thumbnail::ThumbnailBufferPtr OffscreenViewport::renderMediaFrameToThumbnail(
@@ -1361,7 +1492,7 @@ void DefaultFrameGrabber::viewport_capture_gl_framebuffer(
     destination_image = get_video_output_frame();
     destination_image->allocate(pix_buf_size);
     destination_image->set_image_dimensions(Imath::V2i(fb_width, fb_height));
-    destination_image.when_to_display_          = utility::clock::now();
+    destination_image.when_to_display()         = utility::clock::now();
     destination_image->params()["pixel_format"] = (int)format;
 
     if (!pixel_buffer_object_) {

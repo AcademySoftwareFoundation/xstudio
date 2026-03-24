@@ -142,12 +142,14 @@ namespace utility {
 
         // [[nodiscard]] std::chrono::nanoseconds::rep count() const { return count(); }
         [[nodiscard]] double to_seconds() const { return timebase::to_seconds(*this); }
+
         [[nodiscard]] double to_fps() const {
             double fps = 0.0;
             if (count())
                 fps = 1.0 / timebase::to_seconds(*this);
             return fps;
         }
+
         [[nodiscard]] timebase::flicks to_flicks() const {
             return timebase::flicks(this->count());
         }
@@ -162,7 +164,12 @@ namespace utility {
         }
     };
 
-    inline std::string to_string(const FrameRate &v) { return std::to_string(v.to_fps()); }
+    inline std::string to_string(const FrameRate &v) {
+        for (const auto &i : FrameRate::rate_string_to_flicks)
+            if (i.second == v)
+                return i.first;
+        return std::to_string(v.to_fps());
+    }
     inline void from_json(const nlohmann::json &j, FrameRate &r) { r = timebase::flicks(j); }
     inline void to_json(nlohmann::json &j, const FrameRate &r) { j = r.count(); }
 } // namespace utility

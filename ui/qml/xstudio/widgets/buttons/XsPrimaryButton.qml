@@ -29,11 +29,11 @@ Button {
     property real rotationAnimDuration: 150
 
     property alias imgOverlayColor: imageDiv.imgOverlayColor
-    property color textColor: palette.text
+    property color textColor: XsStyleSheet.primaryTextColor
 
     property color normalColor: XsStyleSheet.controlColour
 
-    property color bgColorPressed: palette.highlight
+    property color bgColorPressed: XsStyleSheet.accentColor
     property color bgColorNormal: XsStyleSheet.widgetBgNormalColor
     property color forcedBgColorNormal: bgColorNormal
     property color borderColorHovered: bgColorPressed

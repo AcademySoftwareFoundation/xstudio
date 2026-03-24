@@ -53,6 +53,7 @@ void xstudio::ui::qml::setup_xstudio_qml_emgine(QQmlEngine *engine, caf::actor_s
         "xstudio.qml.global_store_model", 1, 0, "XsPreferencesModel");
     qmlRegisterType<ModelProperty>("xstudio.qml.helpers", 1, 0, "XsModelProperty");
     qmlRegisterType<JSONTreeFilterModel>("xstudio.qml.helpers", 1, 0, "XsFilterModel");
+    qmlRegisterType<JSONTreeModel>("xstudio.qml.helpers", 1, 0, "XsJsonTreeModel");
     qmlRegisterType<TimeCode>("xstudio.qml.helpers", 1, 0, "XsTimeCode");
     qmlRegisterType<ModelRowCount>("xstudio.qml.helpers", 1, 0, "XsModelRowCount");
     qmlRegisterType<ModelPropertyMap>("xstudio.qml.helpers", 1, 0, "XsModelPropertyMap");
@@ -93,7 +94,7 @@ void xstudio::ui::qml::setup_xstudio_qml_emgine(QQmlEngine *engine, caf::actor_s
     // in Qt main loop
     new CafSystemObject(qApp, system);
 
-    const QUrl url(QStringLiteral("qrc:/main.qml"));
+    const QUrl url(QStringLiteral("qrc:/application/main.qml"));
 
     ;
     engine->addImageProvider(QLatin1String("thumbnail"), new ThumbnailProvider);
@@ -130,7 +131,12 @@ void xstudio::ui::qml::setup_xstudio_qml_emgine(QQmlEngine *engine, caf::actor_s
     // with plugins
     char *plugin_path = std::getenv("XSTUDIO_PLUGIN_PATH");
     if (plugin_path) {
-        for (const auto &p : xstudio::utility::split(plugin_path, ':')) {
+#ifdef _WIN32
+        char path_env_var_sep = ';';
+#else
+        char path_env_var_sep = ':';
+#endif
+        for (const auto &p : xstudio::utility::split(plugin_path, path_env_var_sep)) {
 
             // note - some xSTUDIO plugins have the backend plugin component
             // and a Qt/QML plugin component built into the same binary.

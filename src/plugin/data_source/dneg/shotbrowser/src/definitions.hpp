@@ -13,7 +13,8 @@
 const auto GetVersionIvyUuid =
     R"({"operation": "VersionIvyUuid", "job":null, "ivy_uuid": null})"_json;
 
-const auto GetShotFromId = R"({"operation": "GetShotFromId", "shot_id": null})"_json;
+const auto GetShotFromId =
+    R"({"operation": "GetShotFromId", "project_id": 0, "shot_id": 0})"_json;
 
 const auto GetLinkMedia = R"({"operation": "LinkMedia", "playlist_uuid": null})"_json;
 
@@ -38,7 +39,10 @@ const auto GetExecutePreset = R"({
 
 const auto GetValidMediaCount = R"({"operation": "MediaCount", "playlist_uuid": null})"_json;
 
+const auto RefreshMetadata = R"({"operation": "RefreshMetadata", "media_uuid": null})"_json;
+
 const auto GetShotgridMedia = R"({"operation": "AddShotgridMedia", "media_uuid": null})"_json;
+
 const auto GetDownloadMedia = R"({
     "operation": "DownloadShotgridMedia",
     "entity": "version",
@@ -97,6 +101,9 @@ const auto PostCreateTag = R"({"operation": "CreateTag", "value": null})"_json;
 
 const auto PostTagEntity =
     R"({"operation": "TagEntity", "entity": null, "entity_id": null, "tag_id": null})"_json;
+
+const auto PostTagEntityFromName =
+    R"({"operation": "TagEntityFromName", "entity": null, "entity_id": null, "tag_name": null})"_json;
 
 const auto PostUnTagEntity =
     R"({"operation": "UnTagEntity", "entity": null, "entity_id": null, "tag_id": null})"_json;
@@ -223,7 +230,14 @@ const auto ProjectFields = std::vector<std::string>(
      "sg_status"});
 
 const auto EpisodeFields = std::vector<std::string>(
-    {"id", "project", "code", "sg_status_list", "sg_versions", "sg_sequences", "sg_shots"});
+    {"id",
+     "project",
+     "code",
+     "sg_status_list",
+     "sg_versions",
+     "sg_sequences",
+     "sg_shots",
+     "tags"});
 
 const auto NoteFields = std::vector<std::string>(
     {"id",
@@ -261,7 +275,10 @@ const auto SequenceFields = std::vector<std::string>(
      "sg_sequence_type",
      "sg_status_list",
      "shots",
+     "tags",
      "type"});
+
+const auto DnTagFields = std::vector<std::string>({"code", "sg_value", "sg_link"});
 
 const auto AssetFields = std::vector<std::string>(
     {"code", "id", "sg_asset_name", "sg_asset_folder", "sg_status_list"});
@@ -277,7 +294,11 @@ const auto SequenceShotFields = std::vector<std::string>(
      "sg_asset_type",
      "sg_status_list",
      "sg_unit",
-     "sg_primary_shot_location"});
+     "sg_hero_shot",
+     "sg_primary_shot_location",
+     "sg_dnbreakdown_envprop_variants",
+     "sg_dnbreakdown_assemblies",
+     "tags"});
 
 const auto ShotFields = std::vector<std::string>(
     {"code",
@@ -286,13 +307,18 @@ const auto ShotFields = std::vector<std::string>(
      "project",
      "sg_comp_range",
      "sg_current_stage",
+     "sg_cut_order",
      "sg_cut_range",
      "sg_dnuuid",
      "sg_shot_type",
      "sg_asset_type",
      "sg_status_list",
      "sg_hero_focal_length",
-     "sg_unit"});
+     "sg_hero_shot",
+     "sg_unit",
+     "sg_dnbreakdown_envprop_variants",
+     "sg_dnbreakdown_assemblies",
+     "tags"});
 
 const std::string shotbrowser_datasource_registry{"SHOTBROWSER"};
 

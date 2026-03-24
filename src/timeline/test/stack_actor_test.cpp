@@ -33,24 +33,29 @@ TEST(StackActorMoveTest, Test) {
 
     auto uuid1 = utility::Uuid::generate();
     valid      = f.self->spawn<GapActor>("Gap1", utility::FrameRateDuration(), uuid1);
-    EXPECT_NO_THROW(request_receive<JsonStore>(
-        *(f.self), t, insert_item_atom_v, -1, UuidActorVector({UuidActor(uuid1, valid)})));
+    EXPECT_NO_THROW(
+        request_receive<JsonStore>(
+            *(f.self), t, insert_item_atom_v, -1, UuidActorVector({UuidActor(uuid1, valid)})));
     auto uuid2 = utility::Uuid::generate();
     valid      = f.self->spawn<GapActor>("Gap2", utility::FrameRateDuration(), uuid2);
-    EXPECT_NO_THROW(request_receive<JsonStore>(
-        *(f.self), t, insert_item_atom_v, -1, UuidActorVector({UuidActor(uuid2, valid)})));
+    EXPECT_NO_THROW(
+        request_receive<JsonStore>(
+            *(f.self), t, insert_item_atom_v, -1, UuidActorVector({UuidActor(uuid2, valid)})));
     auto uuid3 = utility::Uuid::generate();
     valid      = f.self->spawn<GapActor>("Gap3", utility::FrameRateDuration(), uuid3);
-    EXPECT_NO_THROW(request_receive<JsonStore>(
-        *(f.self), t, insert_item_atom_v, -1, UuidActorVector({UuidActor(uuid3, valid)})));
+    EXPECT_NO_THROW(
+        request_receive<JsonStore>(
+            *(f.self), t, insert_item_atom_v, -1, UuidActorVector({UuidActor(uuid3, valid)})));
     auto uuid4 = utility::Uuid::generate();
     valid      = f.self->spawn<GapActor>("Gap4", utility::FrameRateDuration(), uuid4);
-    EXPECT_NO_THROW(request_receive<JsonStore>(
-        *(f.self), t, insert_item_atom_v, -1, UuidActorVector({UuidActor(uuid4, valid)})));
+    EXPECT_NO_THROW(
+        request_receive<JsonStore>(
+            *(f.self), t, insert_item_atom_v, -1, UuidActorVector({UuidActor(uuid4, valid)})));
     auto uuid5 = utility::Uuid::generate();
     valid      = f.self->spawn<GapActor>("Gap5", utility::FrameRateDuration(), uuid5);
-    EXPECT_NO_THROW(request_receive<JsonStore>(
-        *(f.self), t, insert_item_atom_v, -1, UuidActorVector({UuidActor(uuid5, valid)})));
+    EXPECT_NO_THROW(
+        request_receive<JsonStore>(
+            *(f.self), t, insert_item_atom_v, -1, UuidActorVector({UuidActor(uuid5, valid)})));
 
 
     auto item = request_receive<Item>(*(f.self), t, item_atom_v);
@@ -275,36 +280,61 @@ TEST(StackActorAddTest, Test) {
         auto uuid  = utility::Uuid::generate();
         auto valid = f.self->spawn<TrackActor>(
             "Valid Track", utility::FrameRate(), media::MediaType::MT_IMAGE, uuid);
-        EXPECT_NO_THROW(request_receive<JsonStore>(
-            *(f.self), t, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, valid)})));
+        EXPECT_NO_THROW(
+            request_receive<JsonStore>(
+                *(f.self),
+                t,
+                insert_item_atom_v,
+                0,
+                UuidActorVector({UuidActor(uuid, valid)})));
     }
 
     {
         auto uuid  = utility::Uuid::generate();
         auto valid = f.self->spawn<StackActor>("Valid Stack", utility::FrameRate(), uuid);
-        EXPECT_NO_THROW(request_receive<JsonStore>(
-            *(f.self), t, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, valid)})));
+        EXPECT_NO_THROW(
+            request_receive<JsonStore>(
+                *(f.self),
+                t,
+                insert_item_atom_v,
+                0,
+                UuidActorVector({UuidActor(uuid, valid)})));
     }
 
     {
         auto uuid  = utility::Uuid::generate();
         auto valid = f.self->spawn<ClipActor>(UuidActor(), "Valid Clip", uuid);
-        EXPECT_NO_THROW(request_receive<JsonStore>(
-            *(f.self), t, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, valid)})));
+        EXPECT_NO_THROW(
+            request_receive<JsonStore>(
+                *(f.self),
+                t,
+                insert_item_atom_v,
+                0,
+                UuidActorVector({UuidActor(uuid, valid)})));
     }
 
     {
         auto uuid  = utility::Uuid::generate();
         auto valid = f.self->spawn<ClipActor>(UuidActor(), "Valid Clip", uuid);
-        EXPECT_NO_THROW(request_receive<JsonStore>(
-            *(f.self), t, insert_item_atom_v, -1, UuidActorVector({UuidActor(uuid, valid)})));
+        EXPECT_NO_THROW(
+            request_receive<JsonStore>(
+                *(f.self),
+                t,
+                insert_item_atom_v,
+                -1,
+                UuidActorVector({UuidActor(uuid, valid)})));
     }
 
     {
         auto uuid  = utility::Uuid::generate();
         auto valid = f.self->spawn<GapActor>("Valid Gap", utility::FrameRateDuration(), uuid);
-        EXPECT_NO_THROW(request_receive<JsonStore>(
-            *(f.self), t, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, valid)})));
+        EXPECT_NO_THROW(
+            request_receive<JsonStore>(
+                *(f.self),
+                t,
+                insert_item_atom_v,
+                0,
+                UuidActorVector({UuidActor(uuid, valid)})));
     }
 
     f.self->send_exit(t, caf::exit_reason::user_shutdown);
@@ -320,29 +350,49 @@ TEST(StackActorMoveTest2, Test) {
         auto uuid  = utility::Uuid::generate();
         auto valid = f.self->spawn<TrackActor>(
             "Track 4", utility::FrameRate(), media::MediaType::MT_IMAGE, uuid);
-        EXPECT_NO_THROW(request_receive<JsonStore>(
-            *(f.self), t, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, valid)})));
+        EXPECT_NO_THROW(
+            request_receive<JsonStore>(
+                *(f.self),
+                t,
+                insert_item_atom_v,
+                0,
+                UuidActorVector({UuidActor(uuid, valid)})));
     }
     {
         auto uuid  = utility::Uuid::generate();
         auto valid = f.self->spawn<TrackActor>(
             "Track 3", utility::FrameRate(), media::MediaType::MT_IMAGE, uuid);
-        EXPECT_NO_THROW(request_receive<JsonStore>(
-            *(f.self), t, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, valid)})));
+        EXPECT_NO_THROW(
+            request_receive<JsonStore>(
+                *(f.self),
+                t,
+                insert_item_atom_v,
+                0,
+                UuidActorVector({UuidActor(uuid, valid)})));
     }
     {
         auto uuid  = utility::Uuid::generate();
         auto valid = f.self->spawn<TrackActor>(
             "Track 2", utility::FrameRate(), media::MediaType::MT_IMAGE, uuid);
-        EXPECT_NO_THROW(request_receive<JsonStore>(
-            *(f.self), t, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, valid)})));
+        EXPECT_NO_THROW(
+            request_receive<JsonStore>(
+                *(f.self),
+                t,
+                insert_item_atom_v,
+                0,
+                UuidActorVector({UuidActor(uuid, valid)})));
     }
     {
         auto uuid  = utility::Uuid::generate();
         auto valid = f.self->spawn<TrackActor>(
             "Track 1", utility::FrameRate(), media::MediaType::MT_IMAGE, uuid);
-        EXPECT_NO_THROW(request_receive<JsonStore>(
-            *(f.self), t, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, valid)})));
+        EXPECT_NO_THROW(
+            request_receive<JsonStore>(
+                *(f.self),
+                t,
+                insert_item_atom_v,
+                0,
+                UuidActorVector({UuidActor(uuid, valid)})));
     }
 
     EXPECT_EQ(request_receive<Item>(*(f.self), t, item_atom_v, 0).name(), "Track 1");

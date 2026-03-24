@@ -96,6 +96,7 @@ void PlayheadBase::add_attributes() {
     duration_seconds_     = add_float_attribute("Duration Seconds", "Duration Seconds", 0.0);
     cached_frames_        = add_json_attribute("Cached Frames");
     bookmarked_frames_    = add_int_vec_attribute("Bookmarked Frames");
+    playhead_volume_      = add_float_attribute("Volume", "Volume", 100.0);
 
     media_transition_frames_ = add_int_vec_attribute("Media Transition Frames");
 
@@ -109,6 +110,8 @@ void PlayheadBase::add_attributes() {
     current_media_uuid_ = add_string_attribute("Current Media Uuid", "Current Media Uuid", "");
     current_media_source_uuid_ =
         add_string_attribute("Current Media Source Uuid", "Current Media Source Uuid", "");
+
+    current_clip_uuid_ = add_string_attribute("Current Clip Uuid", "Current Clip Uuid", "");
 
     loop_range_enabled_ =
         add_boolean_attribute("Enable Loop Range", "Enable Loop Range", false);
@@ -197,9 +200,10 @@ void PlayheadBase::deserialise(const JsonStore &jsn) {
 PlayheadBase::OptionalTimePoint PlayheadBase::play_step() {
 
     const auto now = utility::clock::now();
-    const timebase::flicks delta(timebase::flicks::rep(
-        throttle_ * velocity_->value() * velocity_multiplier_->value() *
-        float(std::chrono::duration_cast<timebase::flicks>(now - last_step_).count())));
+    const timebase::flicks delta(
+        timebase::flicks::rep(
+            throttle_ * velocity_->value() * velocity_multiplier_->value() *
+            float(std::chrono::duration_cast<timebase::flicks>(now - last_step_).count())));
     last_step_ = now;
 
     if (forward()) {
@@ -536,9 +540,10 @@ void PlayheadBase::set_playing(const bool play) {
 
 timebase::flicks PlayheadBase::effective_frame_period() const {
 
-    return throttle_ == 1.0f ? playhead_rate_.to_flicks()
-                             : timebase::to_flicks(static_cast<double>(
-                                   playhead_rate_.to_seconds() * (1.0f / throttle_)));
+    return throttle_ == 1.0f
+               ? playhead_rate_.to_flicks()
+               : timebase::to_flicks(
+                     static_cast<double>(playhead_rate_.to_seconds() * (1.0f / throttle_)));
 }
 
 timebase::flicks PlayheadBase::clamp_timepoint_to_loop_range(const timebase::flicks pos) const {

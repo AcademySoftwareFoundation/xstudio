@@ -77,6 +77,13 @@ Item {
     }
     property alias mask_tool_active: __mask_tool_active.value
 
+    XsAttributeValue {
+        id: __grade_copying
+        attributeTitle: "grade_copying"
+        model: grading_tool_attrs_data
+    }
+    property alias grade_copying: __grade_copying.value
+
     ///////////////////////////////////////////////////////////////////////
     // Get access to all 'role' data items of the actual grading attributes
     // The 'values' object has properties that map to the names of attribute

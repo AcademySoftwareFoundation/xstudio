@@ -189,6 +189,9 @@ void ShotBrowser::post_action(
         } else if (operation == "TagEntity") {
             add_entity_tag(
                 rp, action.at("entity"), action.at("entity_id"), action.at("tag_id"));
+        } else if (operation == "TagEntityFromName") {
+            add_entity_tag_from_name(
+                rp, action.at("entity"), action.at("entity_id"), action.at("tag_name"));
         } else if (operation == "UnTagEntity") {
             remove_entity_tag(
                 rp, action.at("entity"), action.at("entity_id"), action.at("tag_id"));
@@ -219,7 +222,7 @@ void ShotBrowser::get_action(
                 action.at("ivy_uuid").get<std::string>(),
                 action.at("job").get<std::string>());
         } else if (operation == "GetShotFromId") {
-            find_shot(rp, action.at("shot_id").get<int>());
+            find_shot(rp, action.at("project_id").get<int>(), action.at("shot_id").get<int>());
         } else if (operation == "GetFields") {
             get_fields(
                 rp,
@@ -261,6 +264,8 @@ void ShotBrowser::get_action(
             link_media(rp, utility::Uuid(action.at("playlist_uuid")));
         } else if (operation == "AddShotgridMedia") {
             add_shotgrid_media(rp, utility::Uuid(action.at("media_uuid")));
+        } else if (operation == "RefreshMetadata") {
+            refresh_metadata(rp, utility::Uuid(action.at("media_uuid")));
         } else if (operation == "DownloadShotgridMedia") {
             download_shotgrid_media(
                 rp,

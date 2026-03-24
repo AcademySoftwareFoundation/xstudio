@@ -249,10 +249,11 @@ namespace module {
             const std::string &menu_text,
             const std::string &menu_path,
             const float menu_item_position,
-            Attribute *attr              = nullptr,
-            const bool divider           = false,
-            const utility::Uuid &hotkey  = utility::Uuid(),
-            const std::string &user_data = std::string());
+            Attribute *attr                    = nullptr,
+            const bool divider                 = false,
+            const utility::Uuid &hotkey        = utility::Uuid(),
+            const std::string &user_data       = std::string(),
+            const std::string &custom_menu_qml = std::string());
 
         utility::Uuid insert_hotkey_into_menu(
             const std::string &menu_model_name,
@@ -339,7 +340,7 @@ namespace module {
         // top/bottom of the viewport
         Attribute *register_viewport_dockable_widget(
             const std::string &widget_name,
-            const std::string &button_icon_qrc_path,
+            const std::string &button_icon_qrc_path_or_custom_button_qml,
             const std::string &button_tooltip,
             const float button_position,
             const bool enabled,
@@ -378,8 +379,10 @@ namespace module {
 
         // Override this function to receive callbacks from QML from items
         // created by 'create_qml_item'
-        virtual void qml_item_callback(
-            const utility::Uuid &qml_item_id, const utility::JsonStore &callback_data) {}
+        virtual utility::JsonStore qml_item_callback(
+            const utility::Uuid &qml_item_id, const utility::JsonStore &callback_data) {
+            return utility::JsonStore();
+        }
 
         // This method can be overriden to receive a callback when the number of viewports
         // connected to the module changes. This is used by the Playhead class, for example

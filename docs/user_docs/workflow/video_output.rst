@@ -13,7 +13,7 @@ xSTUDIO allows you to render Playlists, Subsets, Contact Sheets and Timelines to
 
     Use the context menu or File menu to launch the render wizard.
 
-You will then see get the **Render Video** dialog where you can specify the format of your output video.
+You will then get the **Render Video** dialog where you can specify the format of your output video.
 
 .. figure:: ../images/export-to-movie-02.png
     :alt: Render Video dialog
@@ -46,9 +46,29 @@ What gets rendered depends on the type of item that you have selected according 
 Render Output Settings
 ----------------------
 
-.. topic:: Output File
+.. topic:: Output File / Output Frames
 
     Choose the file path to render to. Note that the extension of the file will influence the type of container that is created and some containers are not compatible with some video formats. For example, a '.mp4' file cannot contain an Apple ProRes encoded video stream.
+
+    You can also choose a frame based output so a sequence of numbered jpeg, tiff or png files are generated. In this mode, you can also choose to output a separate audio file (wav, aiff or ogg) to go alongside the image frames. For this option simply choose an output file with the desired file extension (jpeg, tiff, png). The render dialog will automatically add '#' symbols to the output path as a placeholder for the padded frame number that will be inserted in the output. You can edit the number of hashes to change the length of the padding. For example, frame 1001 of an output /Users/ted/Videos/my_render.#####.jpg will be /Users/ted/Videos/my_render.01001.jpg.
+
+    Note that the video & audio encoding options are diabled as these don't apply when rendering frames. The audio codec will only depend on the file extension for your audio file - .aiff .wav and .ogg are some file types supported. xSTUDIO will simply use the default FFMPEG audio encoding paramaters for each file type which should be suitable for all use cases.
+
+.. figure:: ../images/export-to-movie-06.png
+    :alt: Render Video dialog for frames
+    :figclass: align-center
+    :align: center
+    :scale: 100%
+
+    The Render Video dialog shows slightly different options when rendering to an image sequence rather than a containerised media encoding like .mov or .mp4 etc.
+
+.. topic:: Output Audio File
+
+    This option ONLY appears if you are rendering output frames and not a containerised media file (like mov, mp4, mkv etc.) that otherwise embeds the audio in the same output file. When you select the target output path for your frames an audio file with the same name but with .aiff extensions is automatically filled in. You can then change this to whatever path you like before starting the render.
+
+.. topic:: First Frame Number
+
+    This option ONLY appears if you are rendering output frames and not a containerised media file. It simply sets the frame number for the first frame of the output image sequence.
 
 .. topic:: Render Range
 

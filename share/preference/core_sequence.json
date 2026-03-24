@@ -6,9 +6,19 @@
 				"default_value": [
 					{"name": "ABC", "video tracks": ["A","B","C"], "audio tracks": ["A", "B","C"]}
 				],
-				"description": "Create default tracks quickly",
+				"description": "Create tracks quickly",
 				"value": [
 					{"name": "ABC", "video tracks": [{"name":"A", "colour":"#ffff0000"},"B","C"], "audio tracks": ["A", "B","C"]}
+				],
+				"datatype": "json",
+				"context": ["APPLICATION"]
+			},
+			"create_tracks_user": {
+				"path": "/core/sequence/create_tracks_user",
+				"default_value": [
+				],
+				"description": "Create tracks quickly",
+				"value": [
 				],
 				"datatype": "json",
 				"context": ["APPLICATION"],

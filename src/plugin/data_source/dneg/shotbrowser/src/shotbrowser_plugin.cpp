@@ -718,10 +718,10 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
 
          [=](utility::clear_atom, const int project_id) {
              const auto types = std::vector<std::string>(
-                 {"user", "shot",     "sequence_shot", "sequence", "episode",  "playlist",
-                  "tree", "unit",     "asset",         "group",    "stage",    "User",
-                  "Shot", "Sequence", "ShotSequence",  "Episode",  "Playlist", "Tree",
-                  "Unit", "Asset",    "Group",         "Stage"});
+                 {"user", "shot",     "sequence_shot", "sequence", "episode",   "playlist",
+                  "tree", "unit",     "asset",         "group",    "stage",     "User",
+                  "Shot", "Sequence", "ShotSequence",  "Episode",  "Playlist",  "Tree",
+                  "Unit", "Asset",    "Group",         "Stage",    "Reference", "reference"});
 
              for (const auto &i : types)
                  engine().cache().erase(QueryEngine::cache_name(i, project_id));
@@ -981,6 +981,43 @@ void ShotBrowser::attribute_changed(const utility::Uuid &attr_uuid) {
 }
 
 void ShotBrowser::update_preferences(const JsonStore &js) {
+
+
+    try {
+        static bool enabled = false;
+        if (not enabled) {
+            // here we ping the plugin manager to tell it to load the SYNC plugin if
+            // the user has shotgrid login access (i.e. they are a lead/supe who will
+            // need Sync to run reviews)
+
+            // Note: Ted Feb 5th 2025 - not enabling sync as per below until roll-out
+            // plan is agreed with all parties
+            auto whitelist = preference_value<JsonStore>(js, "/core/sync/user_whitelist");
+            auto login     = utility::get_login_name();
+            for (const auto &i : whitelist) {
+                if (i == login) {
+                    spdlog::info(
+                        "You have SYNC permissions: xSTUDIO SYNC plugin will be enabled.");
+
+                    auto plugin_manager =
+                        system().registry().template get<caf::actor>(plugin_manager_registry);
+                    anon_mail(
+                        plugin_manager::spawn_plugin_atom_v,
+                        utility::Uuid(
+                            "0ceb4fdb-cb6e-4148-894c-b8a0fad6bec0"), // sync plugin UUID
+                        utility::JsonStore(), // init settings (not needed)
+                        true                  // resident
+                        )
+                        .send(plugin_manager);
+                    enabled = true;
+                    break;
+                }
+            }
+        }
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
     try {
         auto grant = preference_value<std::string>(
             js, "/plugin/data_source/shotbrowser/authentication/grant_type");
@@ -1161,8 +1198,9 @@ void ShotBrowser::update_preferences(const JsonStore &js) {
             // set server
             anon_mail(
                 shotgun_host_atom_v,
-                std::string(fmt::format(
-                    "{}://{}{}", protocol, host, (port ? ":" + std::to_string(port) : ""))))
+                std::string(
+                    fmt::format(
+                        "{}://{}{}", protocol, host, (port ? ":" + std::to_string(port) : ""))))
                 .send(shotgun_);
 
             auto auth = get_authentication();
@@ -1185,9 +1223,11 @@ void ShotBrowser::refresh_playlist_versions(
     auto notification_uuid = Uuid();
     auto playlist          = caf::actor();
 
-    auto failed = [=](const caf::actor &dest, const Uuid &uuid) mutable {
+    auto failed = [=](const caf::actor &dest,
+                      const Uuid &uuid,
+                      const std::string &message = "Reloading Playlist Failed") mutable {
         if (dest and not uuid.is_null()) {
-            auto notify = Notification::WarnNotification("Reloading Playlist Failed");
+            auto notify = Notification::WarnNotification(message);
             notify.uuid(uuid);
             anon_mail(utility::notification_atom_v, notify).send(dest);
         }
@@ -1221,8 +1261,17 @@ void ShotBrowser::refresh_playlist_versions(
             anon_mail(utility::notification_atom_v, notify).send(playlist);
         }
 
-        auto plsg = request_receive<JsonStore>(
-            *sys, playlist, json_store::get_json_atom_v, ShotgunMetadataPath + "/playlist");
+        auto plsg = JsonStore();
+
+        try {
+            plsg = request_receive<JsonStore>(
+                *sys, playlist, json_store::get_json_atom_v, ShotgunMetadataPath + "/playlist");
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+            failed(playlist, notification_uuid, "Failed To Reload, not a SG Playlist");
+            rp.deliver(make_error(xstudio_error::error, err.what()));
+            return;
+        }
 
         auto pl_id = plsg["id"].template get<int>();
 
@@ -1321,8 +1370,9 @@ void ShotBrowser::refresh_playlist_versions(
                                                             playlist::move_media_atom_v,
                                                             playlist,
                                                             JsonStore(result["data"]))
-                                                            .send(caf::actor_cast<caf::actor>(
-                                                                this));
+                                                            .send(
+                                                                caf::actor_cast<caf::actor>(
+                                                                    this));
                                                 },
                                                 [=](error &err) mutable {
                                                     spdlog::warn(
@@ -1497,21 +1547,22 @@ void ShotBrowser::add_media_to_playlist(
             // can be used to build the media sources for each media
             // item in the playlist
             ordered_uuids->push_back(utility::Uuid::generate());
-            build_playlist_media_tasks_.emplace_back(std::make_shared<BuildPlaylistMediaJob>(
-                playlist,
-                ordered_uuids->back(),
-                i.at("attributes").at("code").get<std::string>(), // name for the media
-                JsonStore(i),
-                media_rate,
-                visual_sources,
-                audio_sources,
-                ordered_uuids,
-                before,
-                flag_colour,
-                flag_text,
-                rp,
-                result,
-                result_count));
+            build_playlist_media_tasks_.emplace_back(
+                std::make_shared<BuildPlaylistMediaJob>(
+                    playlist,
+                    ordered_uuids->back(),
+                    i.at("attributes").at("code").get<std::string>(), // name for the media
+                    JsonStore(i),
+                    media_rate,
+                    visual_sources,
+                    audio_sources,
+                    ordered_uuids,
+                    before,
+                    flag_colour,
+                    flag_text,
+                    rp,
+                    result,
+                    result_count));
         }
 
         // this call starts the work of building the media and consuming
@@ -1527,6 +1578,68 @@ void ShotBrowser::add_media_to_playlist(
         rp.deliver(make_error(xstudio_error::error, err.what()));
     }
 }
+
+utility::JsonStore ShotBrowser::special_sauce_ipg(utility::JsonStore jsn) const {
+    static const auto sg_path1     = json::json_pointer("/attributes/sg_path_to_frames");
+    static const auto sg_path2     = json::json_pointer("/attributes/sg_path_to_movie");
+    static const auto dnuuid_regex = std::regex(R"(^.+dnuuid=\"([^\"]+)\".+$)");
+
+    std::string path;
+
+    if (jsn.at(sg_path1).is_string())
+        path = jsn.at(sg_path1).get<std::string>();
+    else if (jsn.at(sg_path2).is_string())
+        path = jsn.at(sg_path2).get<std::string>();
+
+    if (not path.empty()) {
+        try {
+            std::ifstream xml;
+            xml.open(path);
+            if (xml.is_open()) {
+
+                std::string data;
+                auto build = false;
+                while (getline(xml, data)) {
+                    trim_inplace(data);
+                    if (data == "<build>")
+                        build = true;
+                    else if (build) {
+                        if (data == "</build>")
+                            break;
+                        else {
+                            std::cmatch m;
+                            // leave on first match..
+                            if (std::regex_match(data.c_str(), m, dnuuid_regex)) {
+                                jsn["attributes"]["sg_ivy_dnuuid"] = m[1];
+                                break;
+                            }
+                        }
+                    }
+                }
+                xml.close();
+            }
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+    }
+
+    return jsn;
+}
+
+
+utility::JsonStore ShotBrowser::special_sauce(utility::JsonStore jsn) const {
+    static const auto twigtype = json::json_pointer("/attributes/sg_twig_type_code");
+
+    try {
+        if (jsn.value(twigtype, "") == "ipg")
+            jsn = special_sauce_ipg(jsn);
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    return jsn;
+}
+
 
 void ShotBrowser::load_playlist(
     caf::typed_response_promise<UuidActor> rp,
@@ -1597,8 +1710,11 @@ void ShotBrowser::load_playlist(
                         [=](const JsonStore &order) mutable {
                             std::vector<std::string> version_ids;
                             for (const auto &i : order["data"])
-                                version_ids.emplace_back(std::to_string(
-                                    i["relationships"]["version"]["data"].at("id").get<int>()));
+                                version_ids.emplace_back(
+                                    std::to_string(
+                                        i["relationships"]["version"]["data"]
+                                            .at("id")
+                                            .get<int>()));
 
                             if (version_ids.empty())
                                 return rp.deliver(
@@ -1733,69 +1849,111 @@ void ShotBrowser::do_add_media_sources_from_shotgun(
         // }
     };
 
-    // now we get our worker pool to build media sources and add them to the
-    // parent MediaActor using the shotgun query data
-    mail(
-        playlist::add_media_atom_v,
-        build_media_task_data->media_actor_,
-        build_media_task_data->sg_data_,
-        build_media_task_data->media_rate_)
-        .request(pool_, caf::infinite)
-        .then(
+    auto add_media = [=]() {
+        // now we get our worker pool to build media sources and add them to the
+        // parent MediaActor using the shotgun query data
+        mail(
+            playlist::add_media_atom_v,
+            build_media_task_data->media_actor_,
+            build_media_task_data->sg_data_,
+            build_media_task_data->media_rate_)
+            .request(pool_, caf::infinite)
+            .then(
 
-            [=](bool) {
-                // media sources were constructed successfully - now we can add to
-                // the playlist, we pass in the overall ordered list of uuids that
-                // we are building so the playlist can ensure everything is added
-                // in order, even if they aren't created in the correct order
-                if (build_media_task_data->playlist_actor_) {
-                    mail(
-                        playlist::add_media_atom_v,
-                        ua,
-                        *(build_media_task_data->ordererd_uuids_),
-                        build_media_task_data->before_)
-                        .request(build_media_task_data->playlist_actor_, caf::infinite)
-                        .then(
+                [=](bool) {
+                    // media sources were constructed successfully - now we can add to
+                    // the playlist, we pass in the overall ordered list of uuids that
+                    // we are building so the playlist can ensure everything is added
+                    // in order, even if they aren't created in the correct order
+                    if (build_media_task_data->playlist_actor_) {
+                        mail(
+                            playlist::add_media_atom_v,
+                            ua,
+                            *(build_media_task_data->ordererd_uuids_),
+                            build_media_task_data->before_)
+                            .request(build_media_task_data->playlist_actor_, caf::infinite)
+                            .then(
 
-                            [=](const UuidActor &) {
-                                if (!build_media_task_data->flag_colour_.empty()) {
-                                    anon_mail(
-                                        playlist::reflag_container_atom_v,
-                                        std::make_tuple(
-                                            std::optional<std::string>(
-                                                build_media_task_data->flag_colour_),
-                                            std::optional<std::string>(
-                                                build_media_task_data->flag_text_)))
-                                        .send(build_media_task_data->media_actor_);
-                                }
+                                [=](const UuidActor &) {
+                                    if (!build_media_task_data->flag_colour_.empty()) {
+                                        anon_mail(
+                                            playlist::reflag_container_atom_v,
+                                            std::make_tuple(
+                                                std::optional<std::string>(
+                                                    build_media_task_data->flag_colour_),
+                                                std::optional<std::string>(
+                                                    build_media_task_data->flag_text_)))
+                                            .send(build_media_task_data->media_actor_);
+                                    }
 
-                                extend_media_with_ivy_tasks_.emplace_back(
-                                    build_media_task_data);
-                                continue_processing_job_queue();
-                            },
-                            [=](const caf::error &err) mutable {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                                continue_processing_job_queue();
-                            });
-                } else {
-                    // not adding to playlist..
-                    if (!build_media_task_data->flag_colour_.empty()) {
-                        anon_mail(
-                            playlist::reflag_container_atom_v,
-                            std::make_tuple(
-                                std::optional<std::string>(build_media_task_data->flag_colour_),
-                                std::optional<std::string>(build_media_task_data->flag_text_)))
-                            .send(build_media_task_data->media_actor_);
+                                    extend_media_with_ivy_tasks_.emplace_back(
+                                        build_media_task_data);
+                                    continue_processing_job_queue();
+                                },
+                                [=](const caf::error &err) mutable {
+                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    continue_processing_job_queue();
+                                });
+                    } else {
+                        // not adding to playlist..
+                        if (!build_media_task_data->flag_colour_.empty()) {
+                            anon_mail(
+                                playlist::reflag_container_atom_v,
+                                std::make_tuple(
+                                    std::optional<std::string>(
+                                        build_media_task_data->flag_colour_),
+                                    std::optional<std::string>(
+                                        build_media_task_data->flag_text_)))
+                                .send(build_media_task_data->media_actor_);
+                        }
+
+                        extend_media_with_ivy_tasks_.emplace_back(build_media_task_data);
+                        continue_processing_job_queue();
                     }
-
-                    extend_media_with_ivy_tasks_.emplace_back(build_media_task_data);
+                },
+                [=](const caf::error &err) mutable {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                     continue_processing_job_queue();
-                }
-            },
-            [=](const caf::error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                });
+    };
+
+    // special processing substitue shotgrid entity..
+    auto sg_data_sub = special_sauce(build_media_task_data->sg_data_);
+    if (sg_data_sub != build_media_task_data->sg_data_) {
+        try {
+            // we need to retrieve the real shotgrid metadata..
+            if (build_media_task_data->sg_data_["attributes"]["sg_ivy_dnuuid"] !=
+                sg_data_sub["attributes"]["sg_ivy_dnuuid"]) {
+
+                auto jsre        = JsonStore(GetVersionIvyUuid);
+                jsre["ivy_uuid"] = sg_data_sub["attributes"]["sg_ivy_dnuuid"];
+                jsre["job"]      = sg_data_sub["attributes"]["sg_project_name"];
+
+                mail(get_data_atom_v, jsre)
+                    .request(caf::actor_cast<caf::actor>(this), infinite)
+                    .then(
+                        [=](const JsonStore &ver) mutable {
+                            // spdlog::warn("{} {}", ver.dump(2), sg_data_sub.dump(2));
+                            build_media_task_data->sg_data_ = ver["payload"];
+                            add_media();
+                        },
+                        [=](const caf::error &err) mutable {
+                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            add_media();
+                        });
                 continue_processing_job_queue();
-            });
+            } else {
+                build_media_task_data->sg_data_ = sg_data_sub;
+                add_media();
+            }
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+            build_media_task_data->sg_data_ = sg_data_sub;
+            add_media();
+        }
+    } else {
+        add_media();
+    }
 }
 
 void ShotBrowser::do_add_media_sources_from_ivy(
@@ -2093,8 +2251,9 @@ void ShotBrowser::reorder_playlist(
                     for (const auto &i : version_ids)
                         if (media_id.count(i)) {
                             new_media_order.push_back(media_id.at(i));
-                            unused_media.erase(std::find(
-                                unused_media.begin(), unused_media.end(), media_id.at(i)));
+                            unused_media.erase(
+                                std::find(
+                                    unused_media.begin(), unused_media.end(), media_id.at(i)));
                         }
 
                     new_media_order.insert(

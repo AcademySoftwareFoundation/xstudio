@@ -12,4 +12,5 @@ setup(
             'xstudio-inject=xstudio.cli.inject:inject_main',
         ],
     },
+
 )

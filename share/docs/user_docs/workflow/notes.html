@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Notes and Annotations &mdash; xStudio 1.1.0 documentation</title>
+  <title>Notes and Annotations &mdash; xStudio 1.2.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=eafc0fe6" />
@@ -16,7 +16,7 @@
   
         <script src="../../_static/jquery.js?v=5d32c60e"></script>
         <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=fc837d61"></script>
+        <script src="../../_static/documentation_options.js?v=6efca38a"></script>
         <script src="../../_static/doctools.js?v=888ff710"></script>
         <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
@@ -40,7 +40,7 @@
             xStudio
           </a>
               <div class="version">
-                1.1.0
+                1.2.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -63,11 +63,14 @@
 <li class="toctree-l4"><a class="reference internal" href="#modifying-a-note">Modifying a Note</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#navigating-notes">Navigating Notes</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#drawing-annotations">Drawing Annotations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#exporting-annotations">Exporting Annotations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#exporting-notes-csv-with-annotations">Exporting Notes CSV with Annotations</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="grading.html">Grading Tool</a></li>
 <li class="toctree-l3"><a class="reference internal" href="quick_view.html">QuickView</a></li>
 <li class="toctree-l3"><a class="reference internal" href="video_output.html">Video Output (Rendering)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="sdi_output.html">SDI: Video Output with Blackmagic Designs Decklink</a></li>
 <li class="toctree-l3"><a class="reference internal" href="hotkeys.html">Hotkeys</a></li>
 </ul>
 </li>
@@ -163,6 +166,29 @@ Click the ‘Loop’ button on a note in the Notes Pane to set the playhead loop
 <p class="admonition-title">Note</p>
 <p>When drawing annotations you can pick a colour from the image for the pen strokes. Use the <strong>default shotcut key ‘V’</strong> to activate the colour picker, click on the image and then continue drawing with the new colour. The picker can be set to take the colour of the pixwel under the pointer or to compute the average pixel value as the pointer is dragged around an area (with the mouse button held down).</p>
 </div>
+</section>
+<section id="exporting-annotations">
+<h2>Exporting Annotations<a class="headerlink" href="#exporting-annotations" title="Link to this heading"></a></h2>
+<p>To export your annotation (draw-overs) as a single image or a set of images navigate to the <strong>File -&gt; Export</strong> menu and select the <em>‘Annotations …’</em> option to open the annotation export wizard. You also have the option to export your annotations as a Grease Pencil package for import into Blender, Maya, 3DS-Max or other applications that support the format. This will allow you to load your xSTUDIO draw-overs into your 3D application to visualise animation notes in the 3D viewport.</p>
+<figure class="align-center" id="id3">
+<a class="reference internal image-reference" href="../../_images/annotation-export-01.png"><img alt="Annotations export wizard" src="../../_images/annotation-export-01.png" style="width: 565.0px; height: 417.0px;" /></a>
+<figcaption>
+<p><span class="caption-text">The Annotations export wizard</span><a class="headerlink" href="#id3" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>This wizard provides a few options to make it easy to export your annotations:</p>
+<ul class="simple">
+<li><p><strong>Scope:</strong> Hover the mouse over the question mark icon for a description of the options here.</p></li>
+<li><p><strong>Export Mode:</strong> Hover the mouse over the question mark icon for a description of the options here.</p></li>
+<li><p><strong>File Type:</strong> Choose the file type for the exported images. The options are PNG, JPG and TIFF.</p></li>
+<li><p><strong>Output Resolution:</strong> Choose the resolution for the exported images.</p></li>
+<li><p><strong>Image(s) name:</strong> Set the name for the exported image or images or the greasepencil package (depending on the export mode).</p></li>
+<li><p><strong>Output Folder:</strong> Set the filesystem destination for the exported image or images or the greasepencil package (depending on the export mode).</p></li>
+</ul>
+</section>
+<section id="exporting-notes-csv-with-annotations">
+<h2>Exporting Notes CSV with Annotations<a class="headerlink" href="#exporting-notes-csv-with-annotations" title="Link to this heading"></a></h2>
+<p>To export your notes as a CSV file navigate to the <strong>File -&gt; Export</strong> menu and select the <em>‘Notes …’</em> option. A file dialog will open where you can select the destination and name for the exported CSV file. The exported CSV file contains columns for the note subject, text content, category, in/out frame range (as timecode), the media file path that the note is attached to, a path to a JPEG image that is a screen capture of the media on the corresponding note frame as well as the body text of the notes themselves. A folder is also created as part of the export (using the stem of your .csv file name) - a JPEG image of the corresponding media frame is rendered into this folder for every note (including draw-over annotations).</p>
 </section>
 </section>
 

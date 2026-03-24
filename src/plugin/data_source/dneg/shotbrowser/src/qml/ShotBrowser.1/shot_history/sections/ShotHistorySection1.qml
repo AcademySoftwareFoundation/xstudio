@@ -24,6 +24,29 @@ Rectangle{
                 y: spacing
                 anchors.fill: parent
                 spacing: itemSpacing
+                visible: linkMode
+
+                XsPrimaryButton{
+                    property bool hasTags: tagRole && tagRole.length ? true : false
+                    text: "L"
+                    width: 20
+                    height: parent.height
+                    font.pixelSize: textSize*1.2
+                    font.weight: hasTags? Font.Bold:Font.Medium
+                    isUnClickable: true
+                    isActiveViaIndicator: false
+                    textDiv.color: hasTags? XsStyleSheet.primaryTextColor : XsStyleSheet.hintColor
+                    enabled: false
+                    bgDiv.opacity: enabled? 1.0 : 0.5
+                    isActive: hasTags
+                }
+            }
+
+            Column{
+                y: spacing
+                anchors.fill: parent
+                spacing: itemSpacing
+                visible: !linkMode
 
                 XsPrimaryButton{ id: notesIndicatorDisplay
                     property bool hasNotes: noteCountRole <= 0 ? false : true
@@ -34,7 +57,7 @@ Rectangle{
                     font.weight: hasNotes? Font.Bold:Font.Medium
                     isUnClickable: true
                     isActiveViaIndicator: false
-                    textDiv.color: hasNotes? palette.text : XsStyleSheet.hintColor
+                    textDiv.color: hasNotes? XsStyleSheet.primaryTextColor : XsStyleSheet.hintColor
                     enabled: false
                     bgDiv.opacity: enabled? 1.0 : 0.5
                     isActive: hasNotes
@@ -48,7 +71,7 @@ Rectangle{
                     font.weight: hasDailies? Font.Bold:Font.Medium
                     isUnClickable: true
                     isActiveViaIndicator: false
-                    textDiv.color: hasDailies? palette.text : XsStyleSheet.hintColor
+                    textDiv.color: hasDailies? XsStyleSheet.primaryTextColor : XsStyleSheet.hintColor
                     enabled: false
                     bgDiv.opacity: enabled? 1.0 : 0.5
                     isActive: hasDailies
@@ -62,7 +85,7 @@ Rectangle{
                     font.weight: hasClient? Font.Bold:Font.Medium
                     isUnClickable: true
                     isActiveViaIndicator: false
-                    textDiv.color: hasClient? palette.text : XsStyleSheet.hintColor
+                    textDiv.color: hasClient? XsStyleSheet.primaryTextColor : XsStyleSheet.hintColor
                     enabled: false
                     bgDiv.opacity: enabled? 1.0 : 0.5
                     isActive: hasClient
@@ -100,15 +123,12 @@ Rectangle{
                 visible: !parent.failed
                 width: parent.width
                 height: Math.min(width / (16/9), thumbImage.height)
-                sourceSize.height: height
-                sourceSize.width:  width
                 source: parent.failed || thumbRole==undefined? "": thumbRole
                 fillMode: Image.PreserveAspectFit
                 anchors.verticalCenter: parent.verticalCenter
+
                 clip: true
                 cache: true
-                asynchronous: true
-                imgOverlayColor: "transparent"
 
                 opacity: 0
                 Behavior on opacity {NumberAnimation {duration: 150}}
@@ -175,7 +195,7 @@ Rectangle{
                         id: icon
                         anchors.fill: parent
                         source: "qrc:/icons/play_circle.svg"
-                        imgOverlayColor: playerMA.movieFailed ? "red" : (playerMA.containsMouse ? palette.text : palette.highlight)
+                        imgOverlayColor: playerMA.movieFailed ? "red" : (playerMA.containsMouse ? XsStyleSheet.primaryTextColor : XsStyleSheet.accentColor)
                     }
                 }
             }

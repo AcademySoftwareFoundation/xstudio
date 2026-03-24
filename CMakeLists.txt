@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.28 FATAL_ERROR)
 cmake_policy(VERSION 3.28)
 
-set(XSTUDIO_GLOBAL_VERSION "1.1.0" CACHE STRING "Version string")
+set(XSTUDIO_GLOBAL_VERSION "1.2.0" CACHE STRING "Version string")
 set(XSTUDIO_GLOBAL_NAME xStudio)
 
 # set(CMAKE_OSX_DEPLOYMENT_TARGET "14.5" CACHE STRING "Minimum OS X deployment version" FORCE)
@@ -16,16 +16,21 @@ option(ENABLE_CLANG_TIDY "Enable clang-tidy, ninja clang-tidy." OFF)
 option(ENABLE_CLANG_FORMAT "Enable clang format, ninja clangformat." OFF)
 option(FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang only)." TRUE)
 option(OPTIMIZE_FOR_NATIVE "Build with -march=native" OFF)
-option(BUILD_RESKIN "Build xstudio reskin binary" ON)
 option(OTIO_SUBMODULE "Automatically build OpenTimelineIO as a submodule" OFF)
 option(USE_VCPKG "Use Vcpkg for package management" OFF)
 option(BUILD_PYSIDE_WIDGETS "Build xstudio player as PySide widget" OFF)
+option(OPENIMAGEIO_PLUGIN "Include the OpenImageIO PLugin" ON)
+option(BMD_DECKLINK_PLUGIN "Include the Blackmagic DeckLink SDI Card Video Output Plugin" ON)
 
 if(WIN32)
     set(USE_VCPKG ON)
     #include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/vcpkg.cmake)
     set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od /Oy-")
-    add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
+    # /MP is for MSBuild which parallelizes at project level.
+    # Ninja parallelizes at file level, so /MP would over-subscribe CPUs.
+    if(NOT CMAKE_GENERATOR STREQUAL "Ninja")
+        add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
+    endif()
     # enable UUID System Generator
     add_definitions(-DUUID_SYSTEM_GENERATOR=ON)
 endif()
@@ -33,7 +38,7 @@ endif()
 set(STUDIO_PLUGINS "" CACHE STRING "Enable compilation of SITE plugins")
 
 if (("${CMAKE_GENERATOR}" MATCHES "Makefiles" OR ("${CMAKE_GENERATOR}" MATCHES "Ninja" AND NOT WIN32)) AND NOT __CHECKED_CXX_FLAGS)
-    set(__CHECKED_CXX_FLAGS TRUE CACHE INTERNAL "Whether we checked the CXX flags already")
+  set(__CHECKED_CXX_FLAGS TRUE CACHE INTERNAL "Whether we checked the CXX flags already")
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${COMMON_GCC}" CACHE STRING "" FORCE)
 	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${COMMON_GCC}" CACHE STRING "" FORCE)
 	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${COMMON_GCC}" CACHE STRING "" FORCE)
@@ -103,8 +108,8 @@ if (USE_SANITIZER STREQUAL "Address")
     if(MSVC)
         target_compile_options(<target> PUBLIC /fsanitize=address)
     else()
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
         set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -fsanitize=address")
     endif()
@@ -295,7 +300,7 @@ if(INSTALL_XSTUDIO)
 
 endif ()
 
-if(USE_VCPKG)
+if (USE_VCPKG)
   # To provide reliable ordering, we need to make this install script happen in a subdirectory.
   # Otherwise, Qt deploy will happen before we have the rest of the application deployed.
   add_subdirectory("scripts/qt_install")
@@ -305,8 +310,8 @@ if (WIN32)
 
   include(InstallRequiredSystemLibraries)
 
-  set(CPACK_PACKAGE_VERSION "1.1.0")
-  set(CPACK_PACKAGE_VERSION_MAJOR "1")
+  set(CPACK_PACKAGE_VERSION "1.2.0")
+  set(CPACK_PACKAGE_VERSION_MAJOR "2")
   set(CPACK_PACKAGE_VERSION_MINOR "1")
   set(CPACK_PACKAGE_VERSION_PATCH "0")
   set(CPACK_PACKAGE_VENDOR "DNEG / Academy Software Foundation")
@@ -343,11 +348,11 @@ if (WIN32)
       WriteRegStr HKCR 'XStudioSession\\\\DefaultIcon' \\\\
                         '' '$INSTDIR\\\\bin\\\\xstudio.exe,0'
       WriteRegStr HKCR 'XStudioSession\\\\shell\\\\open\\\\command' \\\\
-                        '' '$INSTDIR\\\\bin\\\\xstudio.exe \\"%1\\"'
+                        '' '$INSTDIR\\\\bin\\\\xstudio.exe \\\"%1\\\"'
       WriteRegStr HKCR 'XStudioSession\\\\shell\\\\edit' \\\\
                         '' 'Edit xSTUDIO Session File'
       WriteRegStr HKCR 'XStudioSession\\\\shell\\\\edit\\\\command' \\\\
-                        '' '$INSTDIR\\\\bin\\\\xstudio.exe \\"%1\\"'
+                        '' '$INSTDIR\\\\bin\\\\xstudio.exe \\\"%1\\\"'
       System::Call \\\\
         'Shell32::SHChangeNotify(i 0x8000000, i 0, i 0, i 0)'
       ")

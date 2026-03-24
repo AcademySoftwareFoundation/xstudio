@@ -87,6 +87,11 @@ class ConformWorkerActor : public caf::event_based_actor {
         const std::string &conform_task,
         ConformRequest &conform_request);
 
+    void conform_step_get_reuse_map(
+        caf::typed_response_promise<ConformReply> rp,
+        const std::string &conform_task,
+        ConformRequest &conform_request);
+
     void conform_chain(
         caf::typed_response_promise<ConformReply> rp, ConformRequest &conform_request);
 

@@ -31,8 +31,8 @@ StudioUI::StudioUI(caf::actor_system &system, QObject *parent) : QMLActor(parent
 
 StudioUI::~StudioUI() {
     caf::scoped_actor sys(system());
-    for (auto output_plugin : video_output_plugins_) {
-        sys->send_exit(output_plugin, caf::exit_reason::user_shutdown);
+    for (const auto &output_plugin : video_output_plugins_) {
+        sys->send_exit(output_plugin.second, caf::exit_reason::user_shutdown);
     }
     video_output_plugins_.clear();
     // Ofscreen viewports are unparented as they are running
@@ -83,8 +83,6 @@ void StudioUI::init(actor_system &system_) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
 
-    updateDataSources();
-
     // put ourselves in the registry
     system().registry().template put<caf::actor>(studio_ui_registry, as_actor());
 
@@ -106,6 +104,10 @@ void StudioUI::init(actor_system &system_) {
             [=](ui::set_clipboard_atom, const std::string &message) {
                 QClipboard *clipboard = QGuiApplication::clipboard();
                 clipboard->setText(QStringFromStd(message));
+            },
+
+            [=](ui::open_external_atom, const caf::uri &path) {
+                QDesktopServices::openUrl(QUrlFromUri(path));
             },
 
             [=](utility::event_atom,
@@ -162,6 +164,15 @@ void StudioUI::init(actor_system &system_) {
                 anon_mail(
                     ui::offscreen_viewport_atom_v, offscreen_viewports_.back()->as_actor())
                     .send(requester);
+            },
+
+            [=](plugin_manager::spawn_plugin_atom, const utility::Uuid plugin_uuid) {
+                // This message handler allows us to selectively enable a
+                // video output plugin that is disabled by default. For example
+                // the xSTYDUI Sync plugin requires the NVidiaVideoStream video
+                // output plugin. It uses this message to switch it on.
+
+                loadVideoOutputPlugin(plugin_uuid);
             }
 
         };
@@ -368,98 +379,72 @@ QFuture<bool> StudioUI::loadSessionRequestFuture(const QUrl &path) {
     });
 }
 
+void StudioUI::loadVideoOutputPlugin(const utility::Uuid &plugin_id) {
 
-void StudioUI::updateDataSources() {
+    if (video_output_plugins_.find(plugin_id) != video_output_plugins_.end())
+        return;
 
     try {
+
         scoped_actor sys{system()};
-        bool changed = false;
 
-        // connect to plugin manager, acquire enabled datasource plugins
-        // watch for changes..
-        auto pm      = system().registry().template get<caf::actor>(plugin_manager_registry);
-        auto details = request_receive<std::vector<plugin_manager::PluginDetail>>(
-            *sys,
-            pm,
-            utility::detail_atom_v,
-            plugin_manager::PluginType(plugin_manager::PluginFlags::PF_DATA_SOURCE));
+        auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
 
-        for (const auto &i : details) {
-            try {
-                bool found = false;
-                for (const auto &ii : data_sources_) {
-                    if (QUuidFromUuid(i.uuid_) == dynamic_cast<Plugin *>(ii)->uuid()) {
-                        found = true;
+        auto video_output_plugin = request_receive<caf::actor>(
+            *sys, pm, plugin_manager::spawn_plugin_atom_v, plugin_id);
+
+        // registers it in the 'resident' plugins but doesn't make a link to the plugin
+        // manager
+        anon_mail(plugin_manager::spawn_plugin_atom_v, video_output_plugin, plugin_id).send(pm);
+
+        video_output_plugins_[plugin_id] = video_output_plugin;
+
+        self()->monitor(
+            video_output_plugin, [this, addr = video_output_plugin.address()](const error &) {
+                for (auto p = video_output_plugins_.begin(); p != video_output_plugins_.end();
+                     ++p) {
+                    if (p->second == addr) {
+                        spdlog::debug(
+                            "Video output plugin {} has stopped, removing from list of active "
+                            "video outputs.",
+                            to_string(p->first));
+                        video_output_plugins_.erase(p);
                         break;
                     }
                 }
+            });
 
-                auto ui_str = request_receive<std::tuple<std::string, std::string>>(
-                    *sys, pm, plugin_manager::spawn_plugin_ui_atom_v, i.uuid_);
-                auto [widget, menu] = ui_str;
-
-                if (i.enabled_ && not found && widget != "") {
-                    changed      = true;
-                    auto backend = request_receive<caf::actor>(
-                        *sys, pm, plugin_manager::get_resident_atom_v, i.uuid_);
-                    auto plugin = new Plugin(this);
-                    plugin->setUuid(QUuidFromUuid(i.uuid_));
-                    plugin->setQmlName(QStringFromStd(i.name_));
-                    plugin->setQmlWidgetString(QStringFromStd(widget));
-                    plugin->setQmlMenuString(QStringFromStd(menu));
-                    plugin->setBackend(backend);
-                    data_sources_.append(plugin);
-                }
-
-            } catch (const std::exception &err) {
-                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, to_string(i.uuid_), err.what());
-            }
-        }
-        if (changed)
-            emit dataSourcesChanged();
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
 }
 
+
 void StudioUI::loadVideoOutputPlugins() {
 
+    std::vector<plugin_manager::PluginDetail> plugin_details;
     try {
+
         scoped_actor sys{system()};
-        bool changed = false;
+        auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
 
         // connect to plugin manager, acquire enabled datasource plugins
         // watch for changes..
-        auto pm      = system().registry().template get<caf::actor>(plugin_manager_registry);
-        auto details = request_receive<std::vector<plugin_manager::PluginDetail>>(
+        plugin_details = request_receive<std::vector<plugin_manager::PluginDetail>>(
             *sys,
             pm,
             utility::detail_atom_v,
             plugin_manager::PluginType(plugin_manager::PluginFlags::PF_VIDEO_OUTPUT));
 
-        for (const auto &i : details) {
-
-            auto video_output_plugin = request_receive<caf::actor>(
-                *sys, pm, plugin_manager::spawn_plugin_atom_v, i.uuid_);
-
-            self()->monitor(
-                video_output_plugin,
-                [this, addr = video_output_plugin.address()](const error &) {
-                    for (auto p = video_output_plugins_.begin();
-                         p != video_output_plugins_.end();
-                         ++p) {
-                        if (*p == addr) {
-                            video_output_plugins_.erase(p);
-                            break;
-                        }
-                    }
-                });
-
-            video_output_plugins_.push_back(video_output_plugin);
-        }
-
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    for (const auto &i : plugin_details) {
+
+        if (i.enabled_) {
+            loadVideoOutputPlugin(i.uuid_);
+        }
     }
 
     // here we tell the studio that we're up and running so it can send us
@@ -484,7 +469,7 @@ xstudio::ui::qt::OffscreenViewport *StudioUI::offscreen_snapshot_viewport() {
     if (!snapshot_offscreen_viewport_) {
         snapshot_offscreen_viewport_ = new xstudio::ui::qt::OffscreenViewport(
             "snapshot_viewport",
-            true // this flag means we do sync to the other (main UI) viewports
+            false // this flag means we do sync to the other (main UI) viewports
         );
         system().registry().put(
             offscreen_viewport_registry, snapshot_offscreen_viewport_->as_actor());

@@ -56,7 +56,9 @@ SessionModel::SessionModel(QObject *parent) : super(parent) {
          {"placeHolderRole"},
          {"propertyRole"},
          {"rateFPSRole"},
+         {"rateFPSStringRole"},
          {"resolutionRole"},
+         {"rotationRole"},
          {"selectionRole"},
          {"thumbnailImageRole"},
          {"thumbnailURLRole"},
@@ -417,6 +419,36 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                 }
             } break;
 
+            case Roles::rateFPSStringRole:
+                if (j.count("placeholder")) {
+                    result = QVariant::fromValue(QStringFromStd("0.0"));
+                } else if (j.count("rate")) {
+                    if (j.at("rate").is_null()) {
+                        requestData(
+                            QVariant::fromValue(QUuidFromUuid(j.at("id"))),
+                            idRole,
+                            index,
+                            index,
+                            role);
+                    } else {
+                        result = QVariant::fromValue(
+                            QStringFromStd(to_string(j.at("rate").get<FrameRate>())));
+                    }
+                } else if (j.count("active_range") or j.count("available_range")) {
+                    // timeline..
+                    if (j.count("active_range") and j.at("active_range").is_object()) {
+                        auto fr = j.value("active_range", FrameRange());
+                        result  = QVariant::fromValue(QStringFromStd(to_string(fr.rate())));
+                    } else if (
+                        j.count("available_range") and j.at("available_range").is_object()) {
+                        auto fr = j.value("available_range", FrameRange());
+                        result  = QVariant::fromValue(QStringFromStd(to_string(fr.rate())));
+                    } else if (j.count("available_range") or j.count("active_range")) {
+                        result = QVariant::fromValue(QStringFromStd("0.0"));
+                    }
+                }
+                break;
+
             case Roles::rateFPSRole:
                 if (j.count("placeholder")) {
                     result = QVariant::fromValue(0.0);
@@ -530,6 +562,21 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                 }
                 break;
 
+            case Roles::rotationRole:
+                if (j.count("rotation")) {
+                    if (j.at("rotation").is_null()) {
+                        requestData(
+                            QVariant::fromValue(QUuidFromUuid(j.at("actor_uuid"))),
+                            actorUuidRole,
+                            getPlaylistIndex(index),
+                            index,
+                            role);
+                    } else {
+                        result = QVariant::fromValue(j.at("rotation").get<double>());
+                    }
+                }
+                break;
+
             case Roles::formatRole:
                 if (j.count("format")) {
                     if (j.at("format").is_null()) {
@@ -547,10 +594,11 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
 
             case Roles::mtimeRole:
                 if (j.count("mtime") and not j.at("mtime").is_null()) {
-                    result = QVariant::fromValue(QDateTime::fromMSecsSinceEpoch(
-                        std::chrono::duration_cast<std::chrono::milliseconds>(
-                            j.at("mtime").get<fs::file_time_type>().time_since_epoch())
-                            .count()));
+                    result = QVariant::fromValue(
+                        QDateTime::fromMSecsSinceEpoch(
+                            std::chrono::duration_cast<std::chrono::milliseconds>(
+                                j.at("mtime").get<fs::file_time_type>().time_since_epoch())
+                                .count()));
                 }
                 break;
 
@@ -1317,6 +1365,20 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                 if (image_source_actor) {
                     anon_mail(media::pixel_aspect_atom_v, value.get<double>())
                         .send(image_source_actor);
+                }
+            }
+
+            case rotationRole: {
+                if (type == "Media") {
+                    if (index.isValid()) {
+                        nlohmann::json &j = indexToData(index);
+                        auto actor        = j.count("actor") and not j.at("actor").is_null()
+                                                ? actorFromString(system(), j.at("actor"))
+                                                : caf::actor();
+                        if (actor) {
+                            anon_mail(media::rotation_atom_v, value.get<float>()).send(actor);
+                        }
+                    }
                 }
             }
 

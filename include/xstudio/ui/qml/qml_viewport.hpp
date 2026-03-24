@@ -15,6 +15,7 @@ CAF_PUSH_WARNINGS
 #include <QVector3D>
 #include <QtQml>
 #include <QScreen>
+#include <QEventPoint>
 
 CAF_POP_WARNINGS
 
@@ -35,17 +36,21 @@ namespace ui {
             Q_OBJECT
 
             Q_PROPERTY(QPointF mousePosition READ mousePosition NOTIFY mousePositionChanged)
-            Q_PROPERTY(QVariantList imageBoundariesInViewport READ imageBoundariesInViewport
-                           NOTIFY imageBoundariesInViewportChanged)
-            Q_PROPERTY(QVariantList imageResolutions READ imageResolutions NOTIFY
-                           imageResolutionsChanged)
+            Q_PROPERTY(
+                QVariantList imageBoundariesInViewport READ imageBoundariesInViewport NOTIFY
+                    imageBoundariesInViewportChanged)
+            Q_PROPERTY(
+                QVariantList imageResolutions READ imageResolutions NOTIFY
+                    imageResolutionsChanged)
             Q_PROPERTY(QString name READ name NOTIFY nameChanged)
             Q_PROPERTY(QUuid playheadUuid READ playheadUuid NOTIFY playheadUuidChanged)
             Q_PROPERTY(bool hasPlayhead READ hasPlayhead NOTIFY playheadUuidChanged)
-            Q_PROPERTY(bool isQuickview READ isQuickview WRITE setIsQuickview NOTIFY
-                           isQuickviewChanged)
-            Q_PROPERTY(bool hasOverlays READ hasOverlays WRITE setHasOverlays NOTIFY
-                           hasOverlaysChanged)
+            Q_PROPERTY(
+                bool isQuickview READ isQuickview WRITE setIsQuickview NOTIFY
+                    isQuickviewChanged)
+            Q_PROPERTY(
+                bool hasOverlays READ hasOverlays WRITE setHasOverlays NOTIFY
+                    hasOverlaysChanged)
 
           public:
             QMLViewport(QQuickItem *parent = nullptr);
@@ -83,6 +88,9 @@ namespace ui {
             bool event(QEvent *event) override;
             void keyPressEvent(QKeyEvent *event) override;
             void keyReleaseEvent(QKeyEvent *event) override;
+
+          private:
+            bool isSynthFromTabletEvent(QMouseEvent *event);
 
           public slots:
 

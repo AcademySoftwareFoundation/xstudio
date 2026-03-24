@@ -56,13 +56,13 @@ void GridViewportLayout::do_layout(
 
     const auto hero_image = image_set->hero_image();
 
-    float hero_aspect = image_aspect(hero_image);
+    float hero_aspect = image_layout_aspect(hero_image);
     if (aspect_mode_->value() == "Auto") {
         std::map<float, int> aspects;
         for (int i = 0; i < num_images; ++i) {
             const auto &im = image_set->onscreen_image(i);
             if (im) {
-                float a = image_aspect(im);
+                float a = image_layout_aspect(im);
                 if (aspects.count(a)) {
                     aspects[a]++;
                 } else {
@@ -108,8 +108,8 @@ void GridViewportLayout::do_layout(
         const auto &im = image_set->onscreen_image(i);
         float xs       = 1.0f;
         if (im) {
-            if (image_aspect(im) < hero_aspect) {
-                xs = image_aspect(im) / hero_aspect;
+            if (image_layout_aspect(im) < hero_aspect) {
+                xs = image_layout_aspect(im) / hero_aspect;
             }
         }
         int row        = i / num_cols;
@@ -141,7 +141,7 @@ plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
                 GridViewportLayout::PLUGIN_UUID,
                 "GridViewportLayout",
                 plugin_manager::PluginFlags::PF_VIEWPORT_RENDERER,
-                true,
+                false,
                 "Ted Waine",
                 "Grid Viewport Layout Plugin")}));
 }

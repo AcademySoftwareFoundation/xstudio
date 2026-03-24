@@ -92,6 +92,12 @@ OpenGLViewportRenderer::OpenGLViewportRenderer(
     // window need to share texture resources as they display exactly the
     // same image.
 
+    // nasty hack. For some windows, we need to clear with alpha of 1.0 of the
+    // xSTUDIO window has transparency and you can see the desktop behind it.
+    // In other cases (like snapshot viewport) we want to clear alpha with zero
+    // so we can grab annotations with transparency for example.
+    clear_alpha_ = window_id == "snapshot_viewport" ? 0.0f : 1.0f;
+
     use_ssbo_ =
         prefs.get("/ui/viewport/texture_mode").value("value", std::string("")) == "SSBO";
 
@@ -122,7 +128,7 @@ void OpenGLViewportRenderer::upload_image_and_colour_data(
     const media_reader::ImageBufPtr &image) {
 
 
-    colour_pipeline::ColourPipelineDataPtr colour_pipe_data = image.colour_pipe_data_;
+    colour_pipeline::ColourPipelineDataPtr colour_pipe_data = image.colour_pipe_data();
 
     if (!textures().size())
         return;
@@ -150,13 +156,9 @@ void OpenGLViewportRenderer::upload_image_and_colour_data(
         latest_colour_pipe_data_cacheid_ = colour_pipe_data->cache_id();
     }
 
-    if (image && colour_pipe_data &&
-        activate_shader(image->shader(), colour_pipe_data->operations())) {
+    if (!(image && colour_pipe_data &&
+          activate_shader(image->shader(), colour_pipe_data->operations()))) {
 
-        active_shader_program_->set_shader_parameters(image);
-        active_shader_program_->set_shader_parameters(image.colour_pipe_uniforms_);
-
-    } else {
         active_shader_program_ = no_image_shader_program();
     }
 
@@ -228,7 +230,7 @@ void OpenGLViewportRenderer::clear_viewport_area(
         viewport_coords_in_window()[1],
         viewport_coords_in_window()[2],
         viewport_coords_in_window()[3]);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, clear_alpha_);
     glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_SCISSOR_TEST);
 }
@@ -239,14 +241,16 @@ void OpenGLViewportRenderer::render(
     const Imath::M44f &viewport_to_image_space,
     const Imath::V2i &window_size,
     const float device_pixel_ratio,
-    const std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr> &overlay_renderers) {
+    const std::vector<plugin::ViewportOverlayRendererPtr> &overlay_renderers) {
 
 
     int skip_rows, skip_pixels, row_length, alignment;
+    float depth_clear;
     glGetIntegerv(GL_UNPACK_ROW_LENGTH, &row_length);
     glGetIntegerv(GL_UNPACK_SKIP_PIXELS, &skip_pixels);
     glGetIntegerv(GL_UNPACK_SKIP_ROWS, &skip_rows);
     glGetIntegerv(GL_UNPACK_ALIGNMENT, &alignment);
+    glGetFloatv(GL_DEPTH_CLEAR_VALUE, &depth_clear);
 
     init();
 
@@ -274,7 +278,6 @@ void OpenGLViewportRenderer::render(
     clear_viewport_area(window_to_viewport_matrix, window_size);
 
     glUseProgram(0);
-
 
     if (images && images->layout_data()) {
 
@@ -329,15 +332,13 @@ void OpenGLViewportRenderer::render(
     // Some plugins want to draw on the whole viewport canvas (not over a particular
     // image)
     for (auto orf : overlay_renderers) {
-        if (orf.second->preferred_render_pass() ==
-            plugin::ViewportOverlayRenderer::BeforeImage) {
-            orf.second->render_viewport_overlay(
-                window_to_viewport_matrix,
-                viewport_to_image_space,
-                abs(viewport_du_dx),
-                device_pixel_ratio,
-                false);
-        }
+
+        orf->render_viewport_overlay(
+            window_to_viewport_matrix,
+            viewport_to_image_space,
+            images,
+            abs(viewport_du_dx),
+            device_pixel_ratio);
     }
     glDisable(GL_SCISSOR_TEST);
 
@@ -348,6 +349,10 @@ void OpenGLViewportRenderer::render(
     // Note: GL_UNPACK_ALIGNMENT defaults to a value of 4. If we modify it in our
     // render code abive and don't restore it here it results in drawing glitches in QML.
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+
+    // restore depth
+    glClearDepth(depth_clear);
+    glClear(GL_DEPTH_BUFFER_BIT);
 
     // The use of this is questionable - I'm not sure how it plays with the QML
     // rendering engine. The idea is that we are guaranteeing the image has
@@ -388,6 +393,9 @@ void OpenGLViewportRenderer::__draw_image(
             window_to_viewport_matrix, to_image_matrix, viewport_du_dx, image_to_be_drawn);
     }
 
+    if (image_to_be_drawn.invisible())
+        return;
+
     // if we've received a new image and/or colour pipeline data (LUTs etc) since the last
     // draw, upload the data
     upload_image_and_colour_data(image_to_be_drawn);
@@ -413,7 +421,7 @@ void OpenGLViewportRenderer::__draw_per_image_overlays(
     const Imath::M44f &viewport_to_image_space,
     const float viewport_du_dx,
     const float device_pixel_ratio,
-    const std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr> &overlay_renderers) {
+    const std::vector<plugin::ViewportOverlayRendererPtr> &overlay_renderers) {
 
 
     if (!images || images->empty()) {
@@ -429,15 +437,13 @@ void OpenGLViewportRenderer::__draw_per_image_overlays(
     before the image but we have no alpha channel, we still call its render function here */
     if (target_image) {
 
-
-        for (auto orf : overlay_renderers) {
-            orf.second->render_image_overlay(
+        for (auto &orf : overlay_renderers) {
+            orf->render_image_overlay(
                 window_to_viewport_matrix,
                 to_image_matrix,
                 abs(viewport_du_dx),
                 device_pixel_ratio,
-                target_image,
-                false);
+                target_image);
         }
 
         // display err message attached to image if there is one
@@ -486,6 +492,16 @@ void OpenGLViewportRenderer::draw_image(
         index);
 
     active_shader_program_->set_shader_parameters(shader_params);
+
+    if (image_to_be_drawn) {
+        active_shader_program_->set_shader_parameters(image_to_be_drawn);
+        active_shader_program_->set_shader_parameters(image_to_be_drawn.colour_pipe_uniforms());
+        static utility::JsonStore prev_image_shader_params;
+
+        if (prev_image_shader_params != image_to_be_drawn->shader_params()) {
+            prev_image_shader_params = image_to_be_drawn->shader_params();
+        }
+    }
 
     glDisable(GL_BLEND);
     // the actual draw .. a quad that spans -1.0, 1.0 in x & y.
@@ -583,6 +599,7 @@ void OpenGLViewportRenderer::SharedResources::init() {
     glewInit();
 #endif
 
+// TODO:
 // #define OPENGL_DEBUG_CB
 #ifdef OPENGL_DEBUG_CB
     glEnable(GL_DEBUG_OUTPUT);

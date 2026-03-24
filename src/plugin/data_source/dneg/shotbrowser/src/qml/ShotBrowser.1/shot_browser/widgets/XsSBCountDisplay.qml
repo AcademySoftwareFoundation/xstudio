@@ -7,11 +7,11 @@ import xStudio 1.0
 
 Rectangle { id: widget
 
-    property var filteredCount: "-"  //resultsModel.count
-    property var totalCount: "-" //resultsModel.sourceModel.count + (resultsModel.sourceModel.truncated ? "+":"")
+    property var filteredCount: "-"
+    property var totalCount: "-"
 
     property color bgColor: XsStyleSheet.panelBgColor
-    property color borderColor: XsStyleSheet.menuDividerColor //"transparent"
+    property color borderColor: XsStyleSheet.menuBorderColor
 
     implicitWidth: 100
     implicitHeight: 28

@@ -47,7 +47,7 @@ XsWindow {
     function rebuild() {
 
         codec_presets.clear()
-        
+
         if (user_codec_options) {
             for (var i = 1; i < user_codec_options.length; ++i) {
                 codec_presets.append(
@@ -67,7 +67,7 @@ XsWindow {
                     {
                         "preset_name": default_codec_options[i][0],
                         "preset_ffmpeg_opts": default_codec_options[i][1],
-                        "preset_ffmpeg_audio_opts": default_codec_options[i][2],                    
+                        "preset_ffmpeg_audio_opts": default_codec_options[i][2],
                         "preset_bit_depth": default_codec_options[i][3],
                         "preset_editable": false
                     })
@@ -121,7 +121,7 @@ XsWindow {
                         position = yPos
                     }
                 }
-                
+
                 property var heightRatio: target.visibleArea.heightRatio
                 onHeightRatioChanged: {
                     verticalScroll.size = heightRatio
@@ -131,12 +131,12 @@ XsWindow {
                     if (pressed) {
                         target.contentY = (position * target.contentHeight) + target.originY
                     }
-                }                
+                }
 
-            }    
+            }
 
-            XsPrimaryButton{ 
-                    
+            XsPrimaryButton{
+
                 imgSrc: "qrc:///icons/add.svg"
                 anchors.topMargin: 5
                 anchors.top: flickable.bottom
@@ -170,7 +170,7 @@ XsWindow {
 
                     XsText {
                         text: "Preset Name"
-                        font.weight: Font.Bold                        
+                        font.weight: Font.Bold
                     }
 
                     Repeater {
@@ -188,9 +188,9 @@ XsWindow {
                                 user_codec_options = mod_opts
                             }
                             background: Rectangle{
-                                color: input.activeFocus? Qt.darker(palette.highlight, 1.5): input.hovered? Qt.lighter(palette.base, 2):Qt.lighter(palette.base, 1.5)
+                                color: input.activeFocus? Qt.darker(XsStyleSheet.accentColor, 1.5): input.hovered? Qt.lighter(XsStyleSheet.panelBgColor, 2):Qt.lighter(XsStyleSheet.panelBgColor, 1.5)
                                 border.width: input.hovered || input.active? 1:0
-                                border.color: palette.highlight
+                                border.color: XsStyleSheet.accentColor
                                 opacity: enabled? 0.7 : 0.3
                             }
                         }
@@ -217,9 +217,9 @@ XsWindow {
                                 user_codec_options = mod_opts
                             }
                             background: Rectangle{
-                                color: input2.activeFocus? Qt.darker(palette.highlight, 1.5): input2.hovered? Qt.lighter(palette.base, 2):Qt.lighter(palette.base, 1.5)
+                                color: input2.activeFocus? Qt.darker(XsStyleSheet.accentColor, 1.5): input2.hovered? Qt.lighter(XsStyleSheet.panelBgColor, 2):Qt.lighter(XsStyleSheet.panelBgColor, 1.5)
                                 border.width: input2.hovered || input2.active? 1:0
-                                border.color: palette.highlight
+                                border.color: XsStyleSheet.accentColor
                                 opacity: enabled? 0.7 : 0.3
                             }
                         }
@@ -246,9 +246,9 @@ XsWindow {
                                 user_codec_options = mod_opts
                             }
                             background: Rectangle{
-                                color: input2.activeFocus? Qt.darker(palette.highlight, 1.5): input2.hovered? Qt.lighter(palette.base, 2):Qt.lighter(palette.base, 1.5)
+                                color: input2.activeFocus? Qt.darker(XsStyleSheet.accentColor, 1.5): input2.hovered? Qt.lighter(XsStyleSheet.panelBgColor, 2):Qt.lighter(XsStyleSheet.panelBgColor, 1.5)
                                 border.width: input2.hovered || input2.active? 1:0
-                                border.color: palette.highlight
+                                border.color: XsStyleSheet.accentColor
                                 opacity: enabled? 0.7 : 0.3
                             }
                         }
@@ -261,8 +261,8 @@ XsWindow {
 
                     Repeater {
                         model: codec_presets
-                        XsComboBox{ 
-                    
+                        XsComboBox{
+
                             model: ["8 bits", "16 bits"]
                             Layout.preferredHeight: 24
                             Layout.margins: 2
@@ -271,7 +271,7 @@ XsWindow {
 
                             onActivated: (uindex) => {
                                 // adjust the backend dictionary that carries the
-                                // codec settings data to reflect user selected 
+                                // codec settings data to reflect user selected
                                 // intermediate bit depth
                                 var mod_opts = user_codec_options
                                 mod_opts[index+1][3] = model[uindex]
@@ -285,8 +285,8 @@ XsWindow {
 
                     Repeater {
                         model: codec_presets
-                        XsSecondaryButton{ 
-                    
+                        XsSecondaryButton{
+
                             imgSrc: "qrc:///icons/delete.svg"
                             Layout.preferredWidth: 24
                             Layout.preferredHeight: 24

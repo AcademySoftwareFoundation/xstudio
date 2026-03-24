@@ -834,8 +834,8 @@ caf::message_handler Module::message_handler() {
                  hotkey_released(uuid, context, due_to_focus_change);
          },
 
-         [=](callback_atom, const utility::JsonStore &json) {
-             qml_item_callback(utility::Uuid(), json);
+         [=](callback_atom, const utility::JsonStore &json) -> utility::JsonStore {
+             return qml_item_callback(utility::Uuid(), json);
          },
 
          [=](deserialise_atom, const utility::JsonStore &json) { deserialise(json); },
@@ -948,6 +948,15 @@ caf::message_handler Module::message_handler() {
              // this event message happens when a new viewport is created
          },
          [=](utility::event_atom,
+             ui::viewport::viewport_atom,
+             media::transform_matrix_atom,
+             const std::string viewport_name,
+             const Imath::M44f &proj_matrix) {
+             // this event message happens when a viewport's projection matrix
+             // changes (e.g. when user zooms/pans etc.)
+         },
+
+         [=](utility::event_atom,
              xstudio::ui::model_data::set_node_data_atom,
              const std::string &model_name,
              const std::string &path,
@@ -994,6 +1003,7 @@ caf::message_handler Module::message_handler() {
              const std::string path,
              const utility::JsonStore &menu_item_data,
              const std::string &user_data,
+             const std::string &activation_type,
              const bool from_hotkey) {
              if (from_hotkey) {
                  // N.B. hotkeys can trigger menu events. This is useful in
@@ -1033,7 +1043,10 @@ caf::message_handler Module::message_handler() {
                      // their own response to a menu item action
                      menu_item_activated(menu_item_data, user_data);
                      anon_mail(
-                         ui::model_data::menu_node_activated_atom_v, menu_item_data, user_data)
+                         ui::model_data::menu_node_activated_atom_v,
+                         menu_item_data,
+                         user_data,
+                         activation_type)
                          .send(attribute_events_group_);
                  }
              } catch (std::exception &e) {
@@ -1101,6 +1114,31 @@ caf::message_handler Module::message_handler() {
                      divider,
                      hotkey,
                      user_data);
+             } catch (std::exception &e) {
+                 return caf::make_error(xstudio_error::error, e.what());
+             }
+         },
+         [=](module_add_menu_item_atom,
+             const std::string &menu_model_name,
+             const std::string &menu_text,
+             const std::string &menu_path,
+             const float menu_item_position,
+             const utility::Uuid &attr_id,
+             const bool divider,
+             const utility::Uuid &hotkey,
+             const std::string &user_data,
+             const std::string &custom_menu_qml) -> result<utility::Uuid> {
+             try {
+                 return insert_menu_item(
+                     menu_model_name,
+                     menu_text,
+                     menu_path,
+                     menu_item_position,
+                     attr_id.is_null() ? nullptr : get_attribute(attr_id),
+                     divider,
+                     hotkey,
+                     user_data,
+                     custom_menu_qml);
              } catch (std::exception &e) {
                  return caf::make_error(xstudio_error::error, e.what());
              }
@@ -1750,6 +1788,13 @@ utility::JsonStore Module::attribute_menu_item_data(Attribute *attr) {
     } else {
         throw std::runtime_error("Attribute type not suitable for menu control.");
     }
+
+    if (attr->has_role_data(Attribute::QmlCode)) {
+        menu_item_data["menu_item_type"] = "custom";
+        menu_item_data["custom_menu_qml"] =
+            attr->get_role_data<std::string>(Attribute::QmlCode);
+    }
+
     menu_item_data["uuid"]              = attr->uuid();
     menu_item_data["menu_item_enabled"] = attr->has_role_data(Attribute::Enabled)
                                               ? attr->get_role_data<bool>(Attribute::Enabled)
@@ -1765,7 +1810,8 @@ utility::Uuid Module::insert_menu_item(
     Attribute *attr,
     const bool divider,
     const utility::Uuid &hotkey,
-    const std::string &user_data) {
+    const std::string &user_data,
+    const std::string &custom_menu_qml) {
     try {
         auto central_models_data_actor =
             self()->home_system().registry().template get<caf::actor>(
@@ -1773,6 +1819,9 @@ utility::Uuid Module::insert_menu_item(
 
         utility::JsonStore menu_item_data;
         if (attr) {
+            if (!custom_menu_qml.empty()) {
+                attr->set_role_data(Attribute::QmlCode, custom_menu_qml);
+            }
             menu_item_data = attribute_menu_item_data(attr);
             // For now using this 'RESKIN' dummy token to stop menus from 'old' skin
             // messing things up for the reskin. Alternatively (hack alert) if we
@@ -1794,6 +1843,13 @@ utility::Uuid Module::insert_menu_item(
                 attr->set_role_data(
                     Attribute::MenuPaths, std::vector<std::string>({new_menu_path}));
             }
+
+        } else if (!custom_menu_qml.empty()) {
+
+            menu_item_data["menu_item_type"]  = "custom";
+            menu_item_data["custom_menu_qml"] = custom_menu_qml;
+            menu_item_data["uuid"]            = utility::Uuid::generate();
+
         } else {
             // a menu item that is not linked by to an attribute - it simply
             // has a uuid which, when the user clicks on the menu item, we run
@@ -1941,7 +1997,8 @@ void Module::update_attribute_menu_item_data(Attribute *attr) {
                 }
                 std::string menu_path;
                 for (size_t i = 1; i < (sections.size() - 1); ++i) {
-                    menu_path = sections[i] + (i == (sections.size() - 1) ? "" : "|");
+                    menu_path =
+                        menu_path + sections[i] + (i == (sections.size() - 1) ? "" : "|");
                 }
 
                 anon_mail(
@@ -2366,7 +2423,7 @@ void Module::register_ui_panel_qml(
 
 Attribute *Module::register_viewport_dockable_widget(
     const std::string &widget_name,
-    const std::string &button_icon_qrc_path,
+    const std::string &button_icon_qrc_path_or_custom_button_qml,
     const std::string &button_tooltip,
     const float button_position,
     const bool enabled,
@@ -2375,7 +2432,14 @@ Attribute *Module::register_viewport_dockable_widget(
     const utility::Uuid toggle_widget_visible_hotkey) {
 
     auto attr = new QmlCodeAttribute(widget_name, left_right_dockable_widget_qml);
-    attr->set_role_data(Attribute::IconPath, button_icon_qrc_path);
+    if (button_icon_qrc_path_or_custom_button_qml.find("qrc:") == 0) {
+        // must be an icon to make a default button
+        attr->set_role_data(Attribute::IconPath, button_icon_qrc_path_or_custom_button_qml);
+        attr->set_role_data(Attribute::QmlCode, "");
+    } else {
+        // looks like a custom qml widget to make the shelf button
+        attr->set_role_data(Attribute::QmlCode, button_icon_qrc_path_or_custom_button_qml);
+    }
     attr->set_role_data(Attribute::ToolbarPosition, button_position);
     attr->set_role_data(Attribute::ToolTip, button_tooltip);
     attr->set_role_data(Attribute::Activated, -1);

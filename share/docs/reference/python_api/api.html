@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>xstudio.api &mdash; xStudio 1.1.0 documentation</title>
+  <title>xstudio.api &mdash; xStudio 1.2.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=eafc0fe6" />
@@ -16,7 +16,7 @@
   
         <script src="../../_static/jquery.js?v=5d32c60e"></script>
         <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=fc837d61"></script>
+        <script src="../../_static/documentation_options.js?v=6efca38a"></script>
         <script src="../../_static/doctools.js?v=888ff710"></script>
         <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
@@ -40,7 +40,7 @@
             xStudio
           </a>
               <div class="version">
-                1.1.0
+                1.2.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -391,6 +391,16 @@ about playead state (such as current frame, current media etc.)</p>
 </dl>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="xstudio.api.app.App.open_external">
+<span class="sig-name descname"><span class="pre">open_external</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uri</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/api/app.html#App.open_external"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.api.app.App.open_external" title="Link to this definition"></a></dt>
+<dd><p>Open URI in external app
+Args:</p>
+<blockquote>
+<div><p>content(str): content</p>
+</div></blockquote>
+</dd></dl>
+
 <dl class="py property">
 <dt class="sig sig-object py" id="xstudio.api.app.App.session">
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">session</span></span><a class="headerlink" href="#xstudio.api.app.App.session" title="Link to this definition"></a></dt>
@@ -434,6 +444,17 @@ playhead(Playhead): The playhead to drive the viewport</p>
 </div></blockquote>
 </dd></dl>
 
+<dl class="py property">
+<dt class="sig sig-object py" id="xstudio.api.app.App.snapshot_viewport">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">snapshot_viewport</span></span><a class="headerlink" href="#xstudio.api.app.App.snapshot_viewport" title="Link to this definition"></a></dt>
+<dd><p>Access the offscreen viewport that can be used to render specific
+media frames to images, for example</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>snapshot_viewport(OffscreenViewport): OffscreenViewport module.</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="xstudio.api.app.App.viewport">
 <span class="sig-name descname"><span class="pre">viewport</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/api/app.html#App.viewport"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.api.app.App.viewport" title="Link to this definition"></a></dt>
@@ -452,7 +473,7 @@ Args:</p>
 <dt class="sig sig-object py" id="xstudio.api.app.App.viewport_names">
 <span class="sig-name descname"><span class="pre">viewport_names</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/api/app.html#App.viewport_names"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.api.app.App.viewport_names" title="Link to this definition"></a></dt>
 <dd><p>Get a list of the names of viewport instances that exist in the
-application. The viewport name can be used to access the viewport 
+application. The viewport name can be used to access the viewport
 via the ‘viewport’ method on this App object.</p>
 <dl class="simple">
 <dt>Returns:</dt><dd><p>list(str): A list of viewport names</p>
@@ -1261,6 +1282,18 @@ path(str): JSON Pointer</p>
 </dl>
 </dd></dl>
 
+<dl class="py property">
+<dt class="sig sig-object py" id="xstudio.api.session.media.Media.transform_matrix">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">transform_matrix</span></span><a class="headerlink" href="#xstudio.api.session.media.Media.transform_matrix" title="Link to this definition"></a></dt>
+<dd><p>Get media item transform matrix. This matrix is used when the image
+is drawn into the xstudio viewport, and can be changed to apply scaling,
+rotation, shear and so-on.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>transform_matrix(Imath::M44f): Media transform matrix.</p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 </section>
@@ -1375,6 +1408,18 @@ path(str): JSON Pointer</p>
 </dl>
 </dd></dl>
 
+<dl class="py property">
+<dt class="sig sig-object py" id="xstudio.api.session.media.MediaSource.transform_matrix">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">transform_matrix</span></span><a class="headerlink" href="#xstudio.api.session.media.MediaSource.transform_matrix" title="Link to this definition"></a></dt>
+<dd><p>Get media source transform matrix. This matrix is used when the image
+is drawn into the xstudio viewport, and can be changed to apply scaling,
+rotation, shear and so-on.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>transform_matrix(Imath::M44f): MediaSource transform matrix.</p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 </section>
@@ -1403,6 +1448,18 @@ path(str): JSON Pointer</p>
 <dd><p>Get mediatype.</p>
 <dl class="simple">
 <dt>Returns:</dt><dd><p>media_type(MediaType): Type of media stream.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="xstudio.api.session.media.MediaStream.rotation">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">rotation</span></span><a class="headerlink" href="#xstudio.api.session.media.MediaStream.rotation" title="Link to this definition"></a></dt>
+<dd><p>Get media stream rotation value. This is supplementary to the Media
+and MediaSource transform_matrix property which is applied on-top of the
+rotation.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>rotation(float): Media item rotation / degrees</p>
 </dd>
 </dl>
 </dd></dl>
@@ -2596,6 +2653,68 @@ container(Container/Uuid): Item to rename.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="xstudio.api.session.Session.render_container">
+<span class="sig-name descname"><span class="pre">render_container</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">container</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_file_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_audio_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1920</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">height</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1080</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">in_frame</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_frame</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">video_codec_opts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'-c:v</span> <span class="pre">libx264</span> <span class="pre">-pix_fmt</span> <span class="pre">yuv420p</span> <span class="pre">-preset</span> <span class="pre">medium</span> <span class="pre">-tune</span> <span class="pre">film'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">audio_codec_opts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'-c:a</span> <span class="pre">aac</span> <span class="pre">-ac</span> <span class="pre">2</span> <span class="pre">-ar</span> <span class="pre">44100'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">auto_check_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ocio_display</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'sRGB'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ocio_view</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Raw'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timecode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">status_callback</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/api/session/session.html#Session.render_container"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.api.session.Session.render_container" title="Link to this definition"></a></dt>
+<dd><p>Render a playlist, timeline, subset or contact sheet to a quicktime 
+or image sequence (jpg, tiff, png etc)
+Args:</p>
+<blockquote>
+<div><p>container(Playlist/Timeline/Subset/ContactSheet): The item to render
+output_file_path(str): Filesystem path to the output video file. For</p>
+<blockquote>
+<div><p>frame based image sequences use # characters for frame number and 
+padding to zeros. E.g. /Users/ted/Video/my_render.####.jpg for 4 
+digit padded frame numbers</p>
+</div></blockquote>
+<dl class="simple">
+<dt>output_audio_path(str): Filesystem path to the output audio file. This</dt><dd><p>option ONLY applies if you are outputting frame based image sequences.
+Leave empty if you do not want audio in this case. A common audio
+encoding file extension is necessary such as .wav .aiff .ogg etc.</p>
+</dd>
+</dl>
+<p>width(int): Output image format width in pixels
+height(int): Output image format height in pixels
+in_frame(int): Only valid for timelines. Start frame for output render.</p>
+<blockquote>
+<div><p>Defaults to first frame</p>
+</div></blockquote>
+<dl class="simple">
+<dt>out_frame(int): Only valid for timelines. End frame for output render.</dt><dd><p>Defaults to timeline duration.</p>
+</dd>
+<dt>frame_rate(FrameRate): Output video frame rate - defaults to the</dt><dd><p>frame rate of the first media item in the playlist etc.</p>
+</dd>
+<dt>video_codec_opts(str): FFMpeg video codec options. For example use</dt><dd><p>“-c:v libx264 -pix_fmt yuv420p -preset medium -tune film” for an
+H264 encoding.</p>
+</dd>
+<dt>audio_codec_opts(str): FFMpeg audio codec options. For example use</dt><dd><p>“–c:a aac -ac 2 -ar 44100” for AAC 44.1kHz encoding.</p>
+</dd>
+<dt>auto_check_output(bool): Use True to immediately launch a quickview</dt><dd><p>window with the render result when it has completed.</p>
+</dd>
+<dt>ocio_display(str): The OCIO display profile to apply when generating</dt><dd><p>the output</p>
+</dd>
+</dl>
+<p>ocio_view(str): The OCIO view to apply when generating the output
+timecode(str/int): For containerised media a timecode string like</p>
+<blockquote>
+<div><p>“00:00:41:17” will inject timecode data into the output file. For
+frame based media a frame number here will set the start frame
+numbering for the output image file sequence.</p>
+</div></blockquote>
+<dl class="simple">
+<dt>status_callback(function(Uuid, dict)): An optional callback function. This </dt><dd><p>callback will be executed when the status of the render job has
+changed. The status is provided as a dictionary including a 
+‘status’ field which is set to ‘Complete’ when the job is
+finished successfully.</p>
+</dd>
+</dl>
+</div></blockquote>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>job_id(Uuid): the uuid of the render job. Tjhis</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="xstudio.api.session.Session.save">
 <span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/api/session/session.html#Session.save"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.api.session.Session.save" title="Link to this definition"></a></dt>
 <dd><p>Save session</p>
@@ -3002,7 +3121,7 @@ Args:</p>
 <dd><p>Base class for python plugins</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="xstudio.plugin.PluginBase.add_attribute">
-<span class="sig-name descname"><span class="pre">add_attribute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attribute_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attribute_value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attribute_role_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">register_as_preference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/plugin/plugin_base.html#PluginBase.add_attribute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.plugin.PluginBase.add_attribute" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">add_attribute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attribute_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attribute_value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attribute_role_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">register_as_preference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">preference_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/plugin/plugin_base.html#PluginBase.add_attribute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.plugin.PluginBase.add_attribute" title="Link to this definition"></a></dt>
 <dd><p>Add an attribute to your plugin class. Attributes provide a flexible
 way to store data and/or pass data between your plugin and the xStudio
 UI. An attribute can have multiple ‘role’ values - each role value can
@@ -3016,39 +3135,25 @@ attribute_value(int,float,bool,str, list(str)): The value of the</p>
 <p>attribute_role_data(dict): Other role data of the attribute
 register_as_preference(bool): If true the attribute value will be</p>
 <blockquote>
-<div><p>recorded in the users preferences data when xstudio closes and 
+<div><p>recorded in the users preferences data when xstudio closes and
 the value restored next time xstudio starts up.</p>
 </div></blockquote>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="xstudio.plugin.PluginBase.attribute_changed">
-<span class="sig-name descname"><span class="pre">attribute_changed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attribute</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">role</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/plugin/plugin_base.html#PluginBase.attribute_changed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.plugin.PluginBase.attribute_changed" title="Link to this definition"></a></dt>
-<dd><p>Override this method to get callbacks when an attribute’s role
-data has changed</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>attr(ModuleAttribute): The attribute that has changed
-role(int): The index for the role data that has changed</p>
+<p>preference_path(str): Override prefeerence path.</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="xstudio.plugin.PluginBase.create_qml_item">
-<span class="sig-name descname"><span class="pre">create_qml_item</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">qml_item</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">callback_fn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/plugin/plugin_base.html#PluginBase.create_qml_item"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.plugin.PluginBase.create_qml_item" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">create_qml_item</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">qml_item</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/plugin/plugin_base.html#PluginBase.create_qml_item"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.plugin.PluginBase.create_qml_item" title="Link to this definition"></a></dt>
 <dd><p>Create and show a qml item (typically a pop-up window, dialog etc.).
 Args:</p>
 <blockquote>
-<div><p>qml_item(str): The class name for the item to be created
-callback_fn(method): Callback function that receives data from the
-qml item (e.g. text entered by the user). On the qml side the 
-item can trigger the callback by calling xstudio_callback(JSON)
-function somewhere in the qml signal handlers etc.</p>
+<div><p>qml_item(str): QML snippet to instanciate your QML item (e.g. a
+popup window, dialog or similar)</p>
 </div></blockquote>
 <dl class="simple">
-<dt>Returns:</dt><dd><p>item_id(uuid): The id of the attribute that injects the item into 
+<dt>Returns:</dt><dd><p>item_id(uuid): The id of the attribute that injects the item into
 the UI. Use this with ‘delete_qml_item’ to destroy the item.</p>
 </dd>
 </dl>
@@ -3067,7 +3172,7 @@ Args:</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="xstudio.plugin.PluginBase.get_plugin">
 <span class="sig-name descname"><span class="pre">get_plugin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plugin_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/plugin/plugin_base.html#PluginBase.get_plugin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.plugin.PluginBase.get_plugin" title="Link to this definition"></a></dt>
-<dd><p>Get an/the instance of the named xSTUDIO plugin. If the plugin is 
+<dd><p>Get an/the instance of the named xSTUDIO plugin. If the plugin is
 ‘resident’ then the singleton instance of the plugin will be returned,
 otherwise a new spawning of the plugin will be returned.</p>
 <p>This can be useful to get to another plugin (e.g. “AnnotationsPlugin”)

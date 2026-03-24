@@ -11,6 +11,62 @@
 					"maximum": 10,
 					"datatype": "int",
 					"context": ["APPLICATION"]
+				},
+				"supported": {
+					"path": "/plugin/media_reader/FFMPEG/supported",
+					"description": "Control plugin format support",
+					"datatype": "json",
+					"context": ["APPLICATION"],
+
+					"default_value": {
+						"AAF": "MRC_FULLY",
+						"AIFF": "MRC_FULLY",
+						"AVI": "MRC_FULLY",
+						"BMP": "MRC_FULLY",
+						"CIN": "MRC_FULLY",
+						"DPX": "MRC_FULLY",
+						"GIF": "MRC_FULLY",
+						"JPEG": "MRC_FULLY",
+						"JPG": "MRC_FULLY",
+						"MKV": "MRC_FULLY",
+						"MOV": "MRC_FULLY",
+						"MPG": "MRC_FULLY",
+						"MPEG": "MRC_FULLY",
+						"MP3": "MRC_FULLY",
+						"MP4": "MRC_FULLY",
+						"MXF": "MRC_FULLY",
+						"PNG": "MRC_FULLY",
+						"TIF": "MRC_FULLY",
+						"TIFF": "MRC_FULLY",
+						"WAV": "MRC_FULLY",
+						"WEBM": "MRC_FULLY",
+						"": "MRC_MAYBE"
+					},
+
+					"value": {
+						"AAF": "MRC_FULLY",
+						"AIFF": "MRC_FULLY",
+						"AVI": "MRC_FULLY",
+						"BMP": "MRC_FULLY",
+						"CIN": "MRC_FULLY",
+						"DPX": "MRC_FULLY",
+						"GIF": "MRC_FULLY",
+						"JPEG": "MRC_FULLY",
+						"JPG": "MRC_FULLY",
+						"MKV": "MRC_FULLY",
+						"MOV": "MRC_FULLY",
+						"MPG": "MRC_FULLY",
+						"MPEG": "MRC_FULLY",
+						"MP3": "MRC_FULLY",
+						"MP4": "MRC_FULLY",
+						"MXF": "MRC_FULLY",
+						"PNG": "MRC_FULLY",
+						"TIF": "MRC_FULLY",
+						"TIFF": "MRC_FULLY",
+						"WAV": "MRC_FULLY",
+						"WEBM": "MRC_FULLY",
+						"": "MRC_MAYBE"
+					}
 				}
 			}
 		}

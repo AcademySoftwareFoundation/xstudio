@@ -12,7 +12,7 @@ Rectangle {
     property var delegateModel: null
 
     property int itemSpacing: 1
-    property color itemColorActive: palette.highlight
+    property color itemColorActive: XsStyleSheet.accentColor
     property color itemColorNormal: "transparent"
 
     property var popupMenu: null
@@ -136,9 +136,9 @@ Rectangle {
                 text: "N"
                 font.weight: hasNotes? Font.Bold:Font.Normal
                 font.pixelSize: XsStyleSheet.fontSize*1.2
-                // bgColorPressed: Qt.darker(palette.highlight, 2)
-                forcedBgColorNormal: hasNotes? palette.highlight : bgColorNormal
-                textDiv.color: hasNotes? palette.text : XsStyleSheet.hintColor
+                // bgColorPressed: Qt.darker(XsStyleSheet.accentColor, 2)
+                forcedBgColorNormal: hasNotes? XsStyleSheet.accentColor : bgColorNormal
+                textDiv.color: hasNotes? XsStyleSheet.primaryTextColor : XsStyleSheet.hintColor
                 enabled: false //hasNotes
                 bgDiv.opacity: enabled? 1.0 : 0.5
                 isActive: hasNotes

@@ -14,7 +14,7 @@ Item { id: widget
     property bool isPressed: false
 
     property color bgColorNormal: XsStyleSheet.widgetBgNormalColor
-    property color bgColorPressed: palette.highlight
+    property color bgColorPressed: XsStyleSheet.accentColor
     property color indicatorColor: "transparent"
     property real borderWidth: 1
     property color borderColorHovered: bgColorPressed
@@ -55,12 +55,11 @@ Item { id: widget
         text: valueText
         font.bold: true
 
-        bgColorNormal: "transparent"
-        borderColor: bgColorNormal
+        borderColor: "transparent"
         // validator: DoubleValidator {  //to fix support for GTSliderItem & GTWheelItem
         //     bottom: float_scrub_min[index]
         // }
-        onEditingCompleted: {
+        onEditingFinished: {
             edited()
         }
     }

@@ -285,6 +285,12 @@ Control { id: wheel
                 cDrag.y = mouse.y
                 update_backend_from_cursor()
             }
+
+            onPositionChanged: (mouse)=> {
+                cDrag.x = mouse.x
+                cDrag.y = mouse.y
+                update_backend_from_cursor()
+            }
         }
 
         // Cursor

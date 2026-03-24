@@ -89,9 +89,8 @@ QString xstudio::ui::qml::getThumbnailURL(
             auto mp = utility::request_receive<media::AVFrameID>(
                 *sys, actor, media::get_media_pointer_atom_v, media::MT_IMAGE, frame);
 
-            auto mhash =
-                utility::request_receive<media::MediaSourceChecksum>(
-                    *sys, actor, media::checksum_atom_v);
+            auto mhash = utility::request_receive<media::MediaSourceChecksum>(
+                *sys, actor, media::checksum_atom_v);
 
             auto display_transform_hash = utility::request_receive<size_t>(
                 *sys, colour_pipe, colour_pipeline::display_colour_transform_hash_atom_v, mp);
@@ -104,13 +103,14 @@ QString xstudio::ui::qml::getThumbnailURL(
 
         auto actor_str = utility::make_hex_string(std::begin(buf), std::end(buf));
 
-        auto thumbstr = std::string(fmt::format(
-            "image://thumbnail/{}/{}/{}/{}",
-            actor_str,
-            frame,
-            (cache_to_disk ? "1" : "0"),
-            hash));
-        thumburl      = QStringFromStd(thumbstr);
+        auto thumbstr = std::string(
+            fmt::format(
+                "image://thumbnail/{}/{}/{}/{}",
+                actor_str,
+                frame,
+                (cache_to_disk ? "1" : "0"),
+                hash));
+        thumburl = QStringFromStd(thumbstr);
     } catch ([[maybe_unused]] const std::exception &err) {
         // spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
@@ -158,8 +158,9 @@ nlohmann::json xstudio::ui::qml::qvariant_to_json(const QVariant &var) {
         break;
     case QMetaType::QColor: {
         auto c = var.value<QColor>();
-        return nlohmann::json(utility::ColourTriplet(
-            float(c.red()) / 255.0f, float(c.green()) / 255.0f, float(c.blue()) / 255.0f));
+        return nlohmann::json(
+            utility::ColourTriplet(
+                float(c.red()) / 255.0f, float(c.green()) / 255.0f, float(c.blue()) / 255.0f));
     } break;
     case QMetaType::QByteArray:
         return nlohmann::json::parse(var.toByteArray().toStdString());
@@ -184,8 +185,10 @@ nlohmann::json xstudio::ui::qml::qvariant_to_json(const QVariant &var) {
         // No QMetaType for QJSValue
         // watchout there is a bug in toVariant when the QJSValue is an object..
         if (var.canConvert<QJSValue>()) {
-            const auto m = var.value<QJSValue>();
-            return xstudio::ui::qml::qvariant_to_json(m.toVariant());
+            const auto m     = var.value<QJSValue>();
+            const QVariant v = m.toVariant();
+            auto r           = xstudio::ui::qml::qvariant_to_json(v);
+            return r;
         }
         QString err;
         QDebug errStream(&err);
@@ -193,6 +196,7 @@ nlohmann::json xstudio::ui::qml::qvariant_to_json(const QVariant &var) {
         throw std::runtime_error(err.toStdString().c_str());
     } break;
     }
+    return nlohmann::json();
 }
 
 QVariant xstudio::ui::qml::json_to_qvariant(const nlohmann::json &json) {
@@ -379,10 +383,25 @@ QString ClipboardProxy::html() const {
 
 QVariant ClipboardProxy::data() const {
     auto md = QGuiApplication::clipboard()->mimeData();
-    if (md)
-        return QVariant::fromValue(md->data("QVariant"));
+    if (not md)
+        return QVariant();
 
-    return QVariant();
+    QVariantMap results;
+    for (const auto &fmt : md->formats()) {
+        if (fmt == "text/plain") {
+            results.insert(fmt, md->text());
+        } else if (fmt == "text/uri-list") {
+            QVariantList url_list;
+            for (const auto url : md->urls())
+                url_list.append(url);
+            results.insert(fmt, url_list);
+        } else {
+            // assume all other data is UTF8 encoded strings
+            results.insert(fmt, QString::fromUtf8(md->data(fmt)));
+        }
+    }
+
+    return results;
 }
 
 void ClipboardProxy::setData(const QVariant &data) {
@@ -520,7 +539,10 @@ QVariant Helpers::python_callback(
         return json_to_qvariant(return_val);
 
     } catch (std::exception &e) {
-        spdlog::critical("{} {}", __PRETTY_FUNCTION__, e.what());
+
+        std::vector<char> b;
+        caf::detail::print_unescaped(b, std::string(e.what()));
+        return QVariant(QString::fromLatin1(b.data()));
     }
 
     return QVariant();
@@ -544,6 +566,69 @@ QString Helpers::readFile(const QUrl &url) const {
     }
 
     return "";
+}
+
+QFuture<QVariant> Helpers::pythonAsyncCallback(
+    const QString pluginName, const QString methodName, QVariant args) {
+
+    // It looks like if we have a QJSValue and we try and access from another thread we can get
+    // a crash! So we 'bake' it here to QVariant
+    if (args.canConvert<QJSValue>()) {
+        const auto m = args.value<QJSValue>();
+        args         = m.toVariant();
+    }
+
+    return QtConcurrent::run([=]() -> QVariant {
+        try {
+
+            utility::JsonStore packed_args(xstudio::ui::qml::qvariant_to_json(args));
+
+            auto python_interp_actor =
+                CafSystemObject::get_actor_system().registry().template get<caf::actor>(
+                    embedded_python_registry);
+
+            scoped_actor sys{CafSystemObject::get_actor_system()};
+            auto return_val = utility::request_receive<utility::JsonStore>(
+                *sys,
+                python_interp_actor,
+                embedded_python::python_exec_atom_v,
+                StdFromQString(pluginName),
+                StdFromQString(methodName),
+                packed_args);
+
+            return json_to_qvariant(return_val);
+
+        } catch (std::exception &e) {
+            spdlog::critical("{} {}", __PRETTY_FUNCTION__, e.what());
+        }
+        return QVariant();
+    });
+}
+
+
+QVariant Helpers::pluginCallback(const QUuid &plugin_uuid, const QVariant cb_data) {
+
+    try {
+
+        utility::JsonStore args(xstudio::ui::qml::qvariant_to_json(cb_data));
+
+        scoped_actor sys{CafSystemObject::get_actor_system()};
+        auto pm = CafSystemObject::get_actor_system().registry().template get<caf::actor>(
+            plugin_manager_registry);
+
+        auto plugin = request_receive<caf::actor>(
+            *sys, pm, plugin_manager::get_resident_atom_v, UuidFromQUuid(plugin_uuid));
+
+        const auto result =
+            request_receive<utility::JsonStore>(*sys, plugin, module::callback_atom_v, args);
+
+        return json_to_qvariant(result);
+
+    } catch (std::exception &e) {
+        spdlog::critical("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+
+    return QVariant();
 }
 
 void Helpers::moduleCallback(const QString &module_actor, const QVariant cb_data) {

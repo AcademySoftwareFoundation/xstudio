@@ -24,8 +24,8 @@ XsPrimaryButton{ id: thisItem
     property bool itemDragging: isDragging && isSelected
     property int itemDraggingOffset: itemDragging ? draggingOffset : 0
 
-    normalColor:  Qt.darker("#33FFFFFF", XsStyleSheet.darkerFactor)
-    bgColorNormal:  Qt.darker("#1AFFFFFF", XsStyleSheet.darkerFactor)
+    normalColor:  Qt.darker("#33FFFFFF", XsStyleSheet.luminance)
+    bgColorNormal:  Qt.darker("#1AFFFFFF", XsStyleSheet.luminance)
 
     property int oldY: 0
     property var oldParent: null
@@ -211,7 +211,7 @@ XsPrimaryButton{ id: thisItem
 
     Rectangle{ id: selectedBgDiv
         anchors.fill: parent
-        color: isSelected ? Qt.darker(palette.highlight, 2): "transparent"
+        color: isSelected ? Qt.darker(XsStyleSheet.accentColor, 2): "transparent"
         // opacity: 0.6
     }
 
@@ -296,7 +296,7 @@ XsPrimaryButton{ id: thisItem
             Layout.preferredWidth: height
             Layout.fillHeight: true
             // height: parent.height
-            // imgOverlayColor: toolTipMArea.containsMouse? palette.highlight : XsStyleSheet.secondaryTextColor
+            // imgOverlayColor: toolTipMArea.containsMouse? XsStyleSheet.accentColor : XsStyleSheet.secondaryTextColor
             source: "qrc:///icons/person.svg"
             scale: 0.95
         }

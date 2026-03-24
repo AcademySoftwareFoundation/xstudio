@@ -29,10 +29,11 @@ Start a Windows Powershell to continue these instructions, where you must run a 
     mkdir dev
     cd dev
 
-To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo and run the bootstrap script before we build xstudio. Run these commands in the Powershell:
+To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo, run the bootstrap script and then switch to a specific git commit before we build xstudio. Run these commands in the Powershell:
 
     git clone https://github.com/microsoft/vcpkg.git
     ./vcpkg/bootstrap-vcpkg.bat
+    git checkout c2aeddd80357b17592e59ad965d2adf65a19b22f
 
 ### Download the xSTUDIO repo
 
@@ -66,5 +67,26 @@ When this has finished, you can build xSTUDIO with this command. Note the value 
 
     'C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe' --build build --parallel 16 --target PACKAGE --config Release
 
-If the build is successful, you should have an exectuable in the 'build' folder called something like 'xSTUDIO-1.0.0-win64.exe'. This can be executed to start the xSTUDIO installer.
+If the build is successful, you should have an exectuable in the 'build' folder called something like 'xSTUDIO-1.2.0-win64.exe'. This can be executed to start the xSTUDIO installer.
+
+### Alternative: Build with Ninja (faster builds)
+
+Ninja is significantly faster than MSBuild as it parallelises at the file level. Both Ninja and cmake are included with Visual Studio's CMake tools, so no separate install is needed.
+
+First, set up the Visual Studio build environment in your Powershell session. This puts the MSVC compiler, cmake and ninja on your PATH:
+
+    Import-Module "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+    Enter-VsDevShell -VsInstallPath "C:\Program Files\Microsoft Visual Studio\2022\Community" -Arch amd64
+
+Run the cmake command to configure for building. Note that this cmake command ***may take several hours to complete***. This is because xSTUDIO's dependencies (particularly ffmpeg) take a long time to download and build from the source code, which is what VCPKG is doing.
+
+    cmake -B build --preset WinNinjaRelease
+
+When this has finished, you can build xSTUDIO with this command. Ninja handles parallelism automatically so there is no need for the `--parallel` flag.
+
+    cmake --build build --target PACKAGE
+
+If the build is successful, you should have an executable in the 'build' folder called something like 'xSTUDIO-1.2.0-win64.exe'. This can be executed to start the xSTUDIO installer.
+
+For additional tips for **developers** follow [this link](developer_tips.md)
 

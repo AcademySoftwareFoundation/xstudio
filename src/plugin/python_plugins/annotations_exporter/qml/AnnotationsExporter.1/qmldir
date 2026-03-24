@@ -1,0 +1,3 @@
+module OnScreenVersionName
+
+OnScreenVersionNameOverlay 1.0 OnScreenVersionNameOverlay.qml

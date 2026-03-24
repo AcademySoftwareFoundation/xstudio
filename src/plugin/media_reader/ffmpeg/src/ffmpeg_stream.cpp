@@ -38,15 +38,16 @@ void xstudio::media_reader::ffmpeg::AVC_CHECK_THROW(int errorNum, const char *av
 namespace {
 
 static const std::set<int> shader_supported_pix_formats = {
-    AV_PIX_FMT_RGB24,        AV_PIX_FMT_BGR24,       AV_PIX_FMT_RGB48LE,
-    AV_PIX_FMT_RGBA64LE,     AV_PIX_FMT_ARGB,        AV_PIX_FMT_RGBA,
-    AV_PIX_FMT_BGRA,         AV_PIX_FMT_YUV422P,     AV_PIX_FMT_YUVJ422P,
-    AV_PIX_FMT_YUV420P,      AV_PIX_FMT_YUVJ420P,    AV_PIX_FMT_YUV422P10LE,
-    AV_PIX_FMT_YUV420P10LE,  AV_PIX_FMT_YUV444P10LE, AV_PIX_FMT_YUVA444P10LE,
-    AV_PIX_FMT_YUV422P12LE,  AV_PIX_FMT_YUV444P12LE, AV_PIX_FMT_YUVA422P12LE,
-    AV_PIX_FMT_YUVA444P12LE, AV_PIX_FMT_GBRP10LE,    AV_PIX_FMT_GBRP12LE,
-    AV_PIX_FMT_GBRAP10LE,    AV_PIX_FMT_GBRAP12LE,   AV_PIX_FMT_GBRAP16LE,
-    AV_PIX_FMT_GBRAP16LE};
+    AV_PIX_FMT_RGB24,       AV_PIX_FMT_BGR24,        AV_PIX_FMT_RGB48LE,
+    AV_PIX_FMT_RGBA64LE,    AV_PIX_FMT_ARGB,         AV_PIX_FMT_RGBA,
+    AV_PIX_FMT_BGRA,        AV_PIX_FMT_YUV422P,      AV_PIX_FMT_YUVJ422P,
+    AV_PIX_FMT_YUV420P,     AV_PIX_FMT_YUVJ420P,     AV_PIX_FMT_YUV422P10LE,
+    AV_PIX_FMT_YUV420P10LE, AV_PIX_FMT_YUV444P,      AV_PIX_FMT_YUVJ444P,
+    AV_PIX_FMT_YUV444P10LE, AV_PIX_FMT_YUVA444P10LE, AV_PIX_FMT_YUV422P12LE,
+    AV_PIX_FMT_YUV444P12LE, AV_PIX_FMT_YUVA422P12LE, AV_PIX_FMT_YUVA444P12LE,
+    AV_PIX_FMT_GBRP10LE,    AV_PIX_FMT_GBRP12LE,     AV_PIX_FMT_GBRAP10LE,
+    AV_PIX_FMT_GBRAP12LE,   AV_PIX_FMT_GBRAP16LE,    AV_PIX_FMT_GBRAP16LE,
+    AV_PIX_FMT_RGBF32LE};
 
 // Matrix generated with colour science for Python 0.3.15
 
@@ -71,49 +72,52 @@ void set_shader_pix_format_info(
     // Pixel format
     switch (pix_fmt) {
     case AV_PIX_FMT_RGB24:
-        jsn["rgb"] = 1;
+        jsn["pix_fmt"] = 1;
         break;
     case AV_PIX_FMT_BGR24:
-        jsn["rgb"] = 2;
+        jsn["pix_fmt"] = 2;
         break;
     case AV_PIX_FMT_ARGB:
-        jsn["rgb"] = 3;
+        jsn["pix_fmt"] = 3;
         break;
     case AV_PIX_FMT_RGBA:
-        jsn["rgb"] = 4;
+        jsn["pix_fmt"] = 4;
         break;
     case AV_PIX_FMT_ABGR:
-        jsn["rgb"] = 5;
+        jsn["pix_fmt"] = 5;
         break;
     case AV_PIX_FMT_BGRA:
-        jsn["rgb"] = 6;
+        jsn["pix_fmt"] = 6;
         break;
     case AV_PIX_FMT_GBRP10LE:
-        jsn["rgb"] = 7;
+        jsn["pix_fmt"] = 7;
         break;
     case AV_PIX_FMT_GBRP12LE:
-        jsn["rgb"] = 7;
+        jsn["pix_fmt"] = 7;
         break;
     case AV_PIX_FMT_GBRAP10LE:
-        jsn["rgb"] = 7;
+        jsn["pix_fmt"] = 7;
         break;
     case AV_PIX_FMT_GBRAP12LE:
-        jsn["rgb"] = 7;
+        jsn["pix_fmt"] = 7;
         break;
     case AV_PIX_FMT_GBRP16LE:
-        jsn["rgb"] = 7;
+        jsn["pix_fmt"] = 7;
         break;
     case AV_PIX_FMT_GBRAP16LE:
-        jsn["rgb"] = 7;
+        jsn["pix_fmt"] = 7;
         break;
     case AV_PIX_FMT_RGB48LE:
-        jsn["rgb"] = 8;
+        jsn["pix_fmt"] = 8;
         break;
     case AV_PIX_FMT_RGBA64LE:
-        jsn["rgb"] = 9;
+        jsn["pix_fmt"] = 9;
+        break;
+    case AV_PIX_FMT_RGBF32LE:
+        jsn["pix_fmt"] = 10;
         break;
     default:
-        jsn["rgb"] = 0;
+        jsn["pix_fmt"] = 0;
     };
 
     // Chroma subsampling
@@ -198,7 +202,7 @@ void image_buf_ptr_deleter(void *, uint8_t *data) {
     }
 }
 
-static int setup_video_buffer(AVCodecContext *ctx, AVFrame *frame, int /*flags*/) {
+static int setup_video_buffer(AVCodecContext *ctx, AVFrame *ffmpeg_frame_, int /*flags*/) {
     // Code adapted from tools/target_dec_fuzzer.c
 
     std::array<ptrdiff_t, 4> linesizes;
@@ -207,16 +211,17 @@ static int setup_video_buffer(AVCodecContext *ctx, AVFrame *frame, int /*flags*/
     size_t total_size = 0;
     int i             = 0;
     int ret           = 0;
-    int w             = frame->width;
-    int h             = frame->height;
+    int w             = ffmpeg_frame_->width;
+    int h             = ffmpeg_frame_->height;
 
     avcodec_align_dimensions2(ctx, &w, &h, linesizes_align.data());
-    ret = av_image_fill_linesizes(frame->linesize, ctx->pix_fmt, w);
+    ret = av_image_fill_linesizes(ffmpeg_frame_->linesize, ctx->pix_fmt, w);
     if (ret < 0)
         return ret;
 
-    for (i = 0; i < 4 && frame->linesize[i]; i++)
-        linesizes[i] = frame->linesize[i] = FFALIGN(frame->linesize[i], linesizes_align[i]);
+    for (i = 0; i < 4 && ffmpeg_frame_->linesize[i]; i++)
+        linesizes[i] = ffmpeg_frame_->linesize[i] =
+            FFALIGN(ffmpeg_frame_->linesize[i], linesizes_align[i]);
     for (; i < 4; i++)
         linesizes[i] = 0;
 
@@ -231,19 +236,19 @@ static int setup_video_buffer(AVCodecContext *ctx, AVFrame *frame, int /*flags*/
     ImageBufPtr buf_ptr(new ImageBuffer());
     auto *buffer = (uint8_t *)buf_ptr->allocate(total_size + 4096);
 
-    frame->extended_data = frame->data;
+    ffmpeg_frame_->extended_data = ffmpeg_frame_->data;
     for (i = 0; i < 4 && planesizes[i]; i++) {
         // Create an AVBuffer from our existing data
-        auto *buf_object_ptr = new ImageBufPtr(buf_ptr);
-        frame->buf[i]        = av_buffer_create(
+        auto *buf_object_ptr  = new ImageBufPtr(buf_ptr);
+        ffmpeg_frame_->buf[i] = av_buffer_create(
             (uint8_t *)buf_object_ptr, planesizes[i], image_buf_ptr_deleter, nullptr, 0);
 
-        frame->data[i] = buffer;
+        ffmpeg_frame_->data[i] = buffer;
         buffer += planesizes[i];
     }
     for (; i < AV_NUM_DATA_POINTERS; i++) {
-        frame->data[i]     = nullptr;
-        frame->linesize[i] = 0;
+        ffmpeg_frame_->data[i]     = nullptr;
+        ffmpeg_frame_->linesize[i] = 0;
     }
 
     return 0;
@@ -277,32 +282,51 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
         }
 
         image_buffer.reset(new ImageBuffer());
-        auto buffer = (uint8_t *)image_buffer->allocate(4 * frame->width * frame->height);
+        auto buffer = (uint8_t *)image_buffer->allocate(
+            4 * ffmpeg_frame_->width * ffmpeg_frame_->height * 2);
         // not one of the ffmpeg pixel formats that our shader can deal with, so convert to
 
         // something we can
         sws_context_ = sws_getCachedContext(
             sws_context_,
-            frame->width,
-            frame->height,
+            ffmpeg_frame_->width,
+            ffmpeg_frame_->height,
             (AVPixelFormat)ffmpeg_pixel_format,
-            frame->width,
-            frame->height,
+            ffmpeg_frame_->width,
+            ffmpeg_frame_->height,
             AV_PIX_FMT_RGBA,
             0,
             nullptr,
             nullptr,
             nullptr);
 
-        const std::array<int, 1> out_linesize({4 * frame->width});
+        if (!sws_context_) {
+            const char *fmt_name = av_get_pix_fmt_name((AVPixelFormat)ffmpeg_pixel_format);
+            if (fmt_name) {
+                throw std::runtime_error(
+                    fmt::format(
+                        "Unable to read image with pixel format {} to a playable image format.",
+                        fmt_name));
+            } else {
+                throw std::runtime_error(
+                    fmt::format(
+                        "Unable to read image with pixel format ID {} to a playable image "
+                        "format.",
+                        ffmpeg_pixel_format));
+            }
+        }
+
+        const std::array<int, 8> out_linesize({4 * ffmpeg_frame_->width, 0, 0, 0, 0, 0, 0, 0});
+        std::array<uint8_t *, 8> planes(
+            {buffer, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr});
 
         sws_scale(
             sws_context_,
-            frame->data,
-            frame->linesize,
+            ffmpeg_frame_->data,
+            ffmpeg_frame_->linesize,
             0,
-            frame->height,
-            &buffer,
+            ffmpeg_frame_->height,
+            planes.data(),
             out_linesize.data());
 
         jsn["y_linesize"]           = out_linesize[0];
@@ -325,25 +349,30 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
 
         // av_image_fill_plane_sizes wants pdtrdiff_t array, AVFrame gives int array.
         for (int i = 0; i < 4; i++)
-            linesizes[i] = frame->linesize[i];
+            linesizes[i] = ffmpeg_frame_->linesize[i];
 
         int ret = av_image_fill_plane_sizes(
-            planesizes.data(), (AVPixelFormat)frame->format, frame->height, linesizes.data());
+            planesizes.data(),
+            (AVPixelFormat)ffmpeg_frame_->format,
+            ffmpeg_frame_->height,
+            linesizes.data());
         if (ret < 0) {
-            spdlog::error("Error detecting decoded frame plane sizes");
+            spdlog::error("Error detecting decoded ffmpeg_frame_ plane sizes");
         }
 
         // Decoder supports custom allocators (AV_CODEC_CAP_DR1)
-        if (using_own_frame_allocation && frame->buf[0] && frame->buf[0]->data) {
+        if (using_own_frame_allocation && ffmpeg_frame_->buf[0] &&
+            ffmpeg_frame_->buf[0]->data) {
 
             // Copy the shared ptr to our image buffer (see setup_video_buffer)
-            image_buffer = *((ImageBufPtr *)frame->buf[0]->data);
+            image_buffer = *((ImageBufPtr *)ffmpeg_frame_->buf[0]->data);
 
             // Compute the offsets determined in setup_video_buffer using
             // avcodec_align_dimensions2().
             for (int i = 0; i < 4; ++i) {
-                if (frame->data[i]) {
-                    offsets[i] = (size_t)frame->data[i] - (size_t)frame->data[0];
+                if (ffmpeg_frame_->data[i]) {
+                    offsets[i] =
+                        (size_t)ffmpeg_frame_->data[i] - (size_t)ffmpeg_frame_->data[0];
                 }
             }
 
@@ -361,56 +390,60 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
             auto buffer = (uint8_t *)image_buffer->allocate(total_size);
 
             for (int i = 0; i < 4; ++i) {
-                if (frame->data[i]) {
-                    std::memcpy(buffer + offsets[i], frame->data[i], planesizes[i]);
+                if (ffmpeg_frame_->data[i]) {
+                    std::memcpy(buffer + offsets[i], ffmpeg_frame_->data[i], planesizes[i]);
                 }
             }
         }
 
-        jsn["y_linesize"]           = frame->linesize[0];
-        jsn["u_linesize"]           = frame->linesize[1];
-        jsn["v_linesize"]           = frame->linesize[2];
-        jsn["a_linesize"]           = frame->linesize[3];
+        jsn["y_linesize"]           = ffmpeg_frame_->linesize[0];
+        jsn["u_linesize"]           = ffmpeg_frame_->linesize[1];
+        jsn["v_linesize"]           = ffmpeg_frame_->linesize[2];
+        jsn["a_linesize"]           = ffmpeg_frame_->linesize[3];
         jsn["y_plane_bytes_offset"] = offsets[0];
         jsn["u_plane_bytes_offset"] = offsets[1];
         jsn["v_plane_bytes_offset"] = offsets[2];
         jsn["a_plane_bytes_offset"] = offsets[3];
     }
 
-    jsn["frame_width_pixels"] = frame->width;
+    jsn["frame_width_pixels"] = ffmpeg_frame_->width;
 
-    image_buffer->set_image_dimensions(Imath::V2i(frame->width, frame->height));
+    image_buffer->set_image_dimensions(Imath::V2i(ffmpeg_frame_->width, ffmpeg_frame_->height));
 
     // TODO: ColSci
     // Remove DNxHD Video range override
     // Shows created after March 2022 do not need this override
     // See http://stash/projects/RND/repos/showsetup_data/pull-requests/794/overview
     const bool is_dneg_mov   = utility::ends_with(format_context_->url, ".dneg.mov");
-    AVColorRange color_range = frame->color_range;
+    AVColorRange color_range = ffmpeg_frame_->color_range;
     if (is_dneg_mov && codec_->id == AV_CODEC_ID_DNXHD) {
         color_range = AVCOL_RANGE_MPEG;
     }
 
     set_shader_pix_format_info(
-        jsn, codec_->id, (AVPixelFormat)ffmpeg_pixel_format, color_range, frame->colorspace);
+        jsn,
+        codec_->id,
+        (AVPixelFormat)ffmpeg_pixel_format,
+        color_range,
+        ffmpeg_frame_->colorspace);
 
     image_buffer->set_shader_params(jsn);
 
     image_buffer->set_display_timestamp_seconds(
-        double(frame->pts) * double(avc_stream_->time_base.num) /
+        double(ffmpeg_frame_->pts) * double(avc_stream_->time_base.num) /
         double(avc_stream_->time_base.den));
 
     // determine if image has alpha - if planar, look for 'a_linesize' != 0.
     // Otherwise check for interleaved RGB pix formats that have an alpha
-    int rgb_format_code = jsn.value("rgb", 0);
+    int pix_fmt_code    = jsn.value("pix_fmt", 0);
     int alpha_line_size = jsn.value("a_linesize", 0);
 
-    if (rgb_format_code == 8 || rgb_format_code == 1 || rgb_format_code == 2) {
+    if (pix_fmt_code == 8 || pix_fmt_code == 1 || pix_fmt_code == 2) {
         image_buffer->set_has_alpha(false);
-    } else if (rgb_format_code == 9 || (rgb_format_code > 2 && rgb_format_code < 7)) {
+    } else if (pix_fmt_code == 9 || (pix_fmt_code > 2 && pix_fmt_code < 7)) {
         image_buffer->set_has_alpha(true);
     } else {
-        // rgb == 7 (RGB(A) planar) or rgb == 0 (i.e. YUV(A))
+        // pix_fmt == 7 (RGB(A) planar) or pix_fmt == 0 (i.e. YUV(A))
         image_buffer->set_has_alpha(alpha_line_size != 0);
     }
 
@@ -426,7 +459,7 @@ FFMpegStream::convert_av_frame_to_thumbnail(const size_t size_hint) {
     // int RGB buffer, which we convert to floating point. xstudio then uses the colour pipeline
     // to process the image into a display space as appropriate
 
-    if (!frame->height || !frame->width)
+    if (!ffmpeg_frame_->height || !ffmpeg_frame_->width)
         return std::shared_ptr<thumbnail::ThumbnailBuffer>();
 
     int ffmpeg_pixel_format = codec_context_->pix_fmt;
@@ -440,10 +473,12 @@ FFMpegStream::convert_av_frame_to_thumbnail(const size_t size_hint) {
         ffmpeg_pixel_format = AV_PIX_FMT_YUV444P;
     }
 
-    int thumb_width =
-        frame->width > frame->height ? size_hint : (size_hint * frame->width) / frame->height;
-    int thumb_height =
-        frame->height > frame->width ? size_hint : (size_hint * frame->height) / frame->width;
+    int thumb_width  = ffmpeg_frame_->width > ffmpeg_frame_->height
+                           ? size_hint
+                           : (size_hint * ffmpeg_frame_->width) / ffmpeg_frame_->height;
+    int thumb_height = ffmpeg_frame_->height > ffmpeg_frame_->width
+                           ? size_hint
+                           : (size_hint * ffmpeg_frame_->height) / ffmpeg_frame_->width;
 
     auto thumb = std::make_shared<thumbnail::ThumbnailBuffer>(
         thumb_width, thumb_height, thumbnail::TF_RGBF96);
@@ -455,8 +490,8 @@ FFMpegStream::convert_av_frame_to_thumbnail(const size_t size_hint) {
 
     sws_context_ = sws_getCachedContext(
         sws_context_,
-        frame->width,
-        frame->height,
+        ffmpeg_frame_->width,
+        ffmpeg_frame_->height,
         (AVPixelFormat)ffmpeg_pixel_format,
         thumb_width,
         thumb_height,
@@ -466,14 +501,18 @@ FFMpegStream::convert_av_frame_to_thumbnail(const size_t size_hint) {
         nullptr,
         nullptr);
 
+    if (!sws_context_) {
+        return std::shared_ptr<thumbnail::ThumbnailBuffer>();
+    }
+
     const std::array<int, 1> out_linesize({3 * 2 * thumb_width});
 
     sws_scale(
         sws_context_,
-        frame->data,
-        frame->linesize,
+        ffmpeg_frame_->data,
+        ffmpeg_frame_->linesize,
         0,
-        frame->height,
+        ffmpeg_frame_->height,
         buffer,
         out_linesize.data());
 
@@ -489,14 +528,14 @@ FFMpegStream::convert_av_frame_to_thumbnail(const size_t size_hint) {
     return thumb;
 }
 
-AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio(const int soundcard_sample_rate) {
+AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio() {
 
     AudioBufPtr audio_buffer(new AudioBuffer());
     audio_buffer->allocate(
-        soundcard_sample_rate,     // sample rate
-        2,                         // num channels
-        0,                         // num samples ... don't know yet
-        audio::SampleFormat::INT16 // format
+        ffmpeg_frame_->sample_rate, // sample rate
+        2,                          // num channels
+        0,                          // num samples ... don't know yet
+        audio::SampleFormat::INT16  // format
     );
 
     // N.B. We aren't supporting 'planar' audio data in xstudio (yet) - if a source codec_
@@ -523,14 +562,62 @@ AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio(const int soundcard_
     default:
         throw media_corrupt_error("Audio buffer format is not set.");
     }
-    target_sample_rate_    = audio_buffer->sample_rate();
+
     target_audio_channels_ = audio_buffer->num_channels();
 
-    audio_buffer->set_display_timestamp_seconds(
-        double(frame->pts) * double(avc_stream_->time_base.num) /
-        double(avc_stream_->time_base.den));
+    // the call below only ensures that we have 2 channels, interleaved.
+    // No sample rate change is applied here anymore. The reason is that
+    // sws_convert resampling is intended for resampling *streamed* audio -
+    // its black-box nature means I can't predict the exact PTS for a given
+    // resampled buffer that it returns without starting at ffmpeg_frame_ zero and
+    // decoding and resampling the entire stream from start to finsih. This does
+    // not fit the efficient 'random access' decoding that xSTUDIO does.
+    // I need the EXACT PTS so that I can glue the ffmpeg buffers together
+    // into buffers that exactly match video frames correctly before they hit
+    // the xSTUDIO audio cache. Instead, audio resampling is done through the
+    // AudioBufPtr class.
+    resample_audio(ffmpeg_frame_, audio_buffer, -1, ffmpeg_frame_->sample_rate);
 
-    resample_audio(frame, audio_buffer, -1);
+    if (avc_stream_->time_base.den >= ffmpeg_frame_->sample_rate) {
+
+        // if the numerator of the timebase is greater than the sample rate, then
+        // the frame pts should be accurate to withing one sample. This means
+        // that we can rely on the pts to exactly tell us where this frame of
+        // audio lies relative to the start of the audio stream
+        audio_buffer->set_display_timestamp_flicks(
+            (timebase::k_flicks_one_second * ffmpeg_frame_->pts * avc_stream_->time_base.num) /
+            avc_stream_->time_base.den);
+
+    } else {
+        // uh-oh ... timebase is NOT accurate enough for us to know exactly the timestamp
+        // for this audio frame. Seem like orbis can do this - the timebase gives
+        // us millisecond accuracy but sample rate is 48kHz.
+        if (current_audio_sample_ == -1) {
+
+            // current_audio_sample_ is -1 if we've done a seek or otherwise
+            // this is the first frame decoded
+
+            // best guess for the position of the first sample of this frame
+            // within the overall stream
+            current_audio_sample_ =
+                (ffmpeg_frame_->pts * ffmpeg_frame_->sample_rate * avc_stream_->time_base.num) /
+                avc_stream_->time_base.den;
+
+            // subsequent decoded frames will at least have accurate timestamp
+            // vs. this frame because we increment current_audio_sample_ by the
+            // number of samples in the frame.
+            // This should be good enough to assemble and re-sample the audio
+            // in ffmpeg_decoder.cpp where ffmpeg audio frames are lined up to
+            // a virtual video frame rate and re-sampled to match the soundcard
+            // sample rate.
+        }
+
+        audio_buffer->set_display_timestamp_flicks(
+            (timebase::k_flicks_one_second * current_audio_sample_) /
+            ffmpeg_frame_->sample_rate);
+
+        current_audio_sample_ += ffmpeg_frame_->nb_samples;
+    }
 
     return audio_buffer;
 }
@@ -542,14 +629,16 @@ FFMpegStream::FFMpegStream(
       format_context_(fmt_ctx),
       avc_stream_(stream),
       codec_(nullptr),
-      frame(nullptr),
+      ffmpeg_frame_(nullptr),
       source_path(std::move(path)) {
 
-    codec_type_ = avc_stream_->codecpar->codec_type;
-    frame       = av_frame_alloc();
-    codec_      = avcodec_find_decoder(avc_stream_->codecpar->codec_id);
+    codec_type_   = avc_stream_->codecpar->codec_type;
+    ffmpeg_frame_ = av_frame_alloc();
+    codec_        = avcodec_find_decoder(avc_stream_->codecpar->codec_id);
 
     codec_context_ = avcodec_alloc_context3(codec_);
+
+    bool is_mjpeg = false;
 
     if (codec_type_ == AVMEDIA_TYPE_DATA) {
 
@@ -562,7 +651,7 @@ FFMpegStream::FFMpegStream(
             is_drop_frame_timecode_ = false;
 
 #if LIBAVFORMAT_VERSION_MAJOR > 59
-            // TODO: Work out how to get timecode drop frame out of avcodec!!
+            // TODO: Work out how to get timecode drop ffmpeg_frame_ out of avcodec!!
             // for current version of ffmpeg. Nothing in ffmpeg 'documentation'
             // as far as I can tell.
 #else
@@ -593,9 +682,9 @@ FFMpegStream::FFMpegStream(
             "avcodec_parameters_to_context");
         AVC_CHECK_THROW(avcodec_open2(codec_context_, codec_, nullptr), "avcodec_open2");
 
-        frame->width  = avc_stream_->codecpar->width;
-        frame->height = avc_stream_->codecpar->height;
-        frame->format = codec_context_->pix_fmt;
+        ffmpeg_frame_->width  = avc_stream_->codecpar->width;
+        ffmpeg_frame_->height = avc_stream_->codecpar->height;
+        ffmpeg_frame_->format = codec_context_->pix_fmt;
 
         // store resolution and pixel aspect
         resolution_ = Imath::V2f(avc_stream_->codecpar->width, avc_stream_->codecpar->height);
@@ -605,17 +694,19 @@ FFMpegStream::FFMpegStream(
         }
 
         // Note - gif decoder has AV_CODEC_CAP_DR1 flag, but it doesn't appear to work, i.e.
-        // if xstudio takes over frame buffer mem allocation decoding doesn't work correctly
-        // and we get repeated frames in the stream decode
+        // if xstudio takes over ffmpeg_frame_ buffer mem allocation decoding doesn't work
+        // correctly and we get repeated frames in the stream decode
         if (strcmp(codec_->name, "gif") && (codec_->capabilities & AV_CODEC_CAP_DR1)) {
 
             // See Note 1 below
             // codec_ allows us to allocated AVFrame buffers
             codec_context_->get_buffer2 = setup_video_buffer;
             using_own_frame_allocation  = true;
+            if (!strcmp(codec_->name, "mjpeg")) {
+                is_mjpeg = true;
+            }
         }
         codec_context_->opaque = this;
-
 
     } else if (codec_type_ == AVMEDIA_TYPE_AUDIO && codec_) {
         stream_type_ = AUDIO_STREAM;
@@ -632,7 +723,7 @@ FFMpegStream::FFMpegStream(
     if ((avc_stream_->disposition & AV_DISPOSITION_ATTACHED_PIC) ==
         AV_DISPOSITION_ATTACHED_PIC) {
 
-        // for attached pic stream, we override frame rate to 24pfs
+        // for attached pic stream, we override ffmpeg_frame_ rate to 24pfs
         frame_rate_      = xstudio::utility::FrameRate(timebase::k_flicks_24fps);
         is_attached_pic_ = true;
         decode_attached_pic();
@@ -640,7 +731,20 @@ FFMpegStream::FFMpegStream(
     } else {
 
         // Set the fps if it has been set correctly in the stream
-        if (avc_stream_->avg_frame_rate.num != 0 && avc_stream_->avg_frame_rate.den != 0) {
+
+        // Note that neither r_frame_rate or avg_frame_rate seem to be completely reliable! And
+        // the best one to use also seems codec dependent. We've seen 48fps mjpeg encodings
+        // where r_frame_rate is correct and avg_frame_rate is not. We've seen other encodings
+        // where the reverse is true. Hence the ordering below:
+
+        if (is_mjpeg && avc_stream_->r_frame_rate.num != 0 &&
+            avc_stream_->r_frame_rate.den != 0) {
+            fpsNum_     = avc_stream_->r_frame_rate.num;
+            fpsDen_     = avc_stream_->r_frame_rate.den;
+            frame_rate_ = xstudio::utility::FrameRate(
+                static_cast<double>(fpsDen_) / static_cast<double>(fpsNum_));
+        } else if (
+            avc_stream_->avg_frame_rate.num != 0 && avc_stream_->avg_frame_rate.den != 0) {
             fpsNum_     = avc_stream_->avg_frame_rate.num;
             fpsDen_     = avc_stream_->avg_frame_rate.den;
             frame_rate_ = xstudio::utility::FrameRate(
@@ -662,9 +766,9 @@ FFMpegStream::~FFMpegStream() {
 
     if (audio_resampler_ctx_)
         swr_free(&audio_resampler_ctx_);
-    if (frame) {
-        av_frame_unref(frame);
-        av_frame_free(&frame);
+    if (ffmpeg_frame_) {
+        av_frame_unref(ffmpeg_frame_);
+        av_frame_free(&ffmpeg_frame_);
     }
     if (codec_context_) {
         avcodec_free_context(&codec_context_);
@@ -677,7 +781,7 @@ void FFMpegStream::set_virtual_frame_rate(const utility::FrameRate &vfr) { frame
 
 int64_t FFMpegStream::current_frame() {
 
-    // no frame!
+    // no ffmpeg_frame_!
     if (nothing_decoded_yet_)
         return -1;
 
@@ -686,32 +790,38 @@ int64_t FFMpegStream::current_frame() {
 
     current_frame_ = 0;
     if (fpsNum_) {
-        current_frame_ = int(floor(
-            double((frame->best_effort_timestamp) * avc_stream_->time_base.num * fpsNum_) /
+        current_frame_ = int(round(
+            double(
+                (ffmpeg_frame_->best_effort_timestamp) * avc_stream_->time_base.num * fpsNum_) /
             double(avc_stream_->time_base.den * fpsDen_)));
     } else {
-        current_frame_ = ((frame->best_effort_timestamp) * avc_stream_->time_base.num) /
+        current_frame_ = ((ffmpeg_frame_->best_effort_timestamp) * avc_stream_->time_base.num) /
                          (avc_stream_->time_base.den);
     }
 
     return current_frame_;
 }
 
-int64_t FFMpegStream::frame_to_pts(int frame) const {
+int64_t FFMpegStream::frame_to_pts(int ffmpeg_frame_) const {
 
-    return seconds_to_pts(double(frame) * frame_rate().to_seconds());
+    return seconds_to_pts(double(ffmpeg_frame_) * frame_rate().to_seconds());
 }
 
 size_t FFMpegStream::resample_audio(
-    AVFrame *frame, AudioBufPtr &audio_buffer, int offset_into_output_buffer) {
+    AVFrame *ffmpeg_frame_,
+    AudioBufPtr &audio_buffer,
+    int offset_into_output_buffer,
+    int target_sample_rate) {
 
     // N.B. this method is based loosely on the audio resampling in ffplay.c in ffmpeg source
 #if LIBAVFORMAT_VERSION_MAJOR > 59
 
-    const int wanted_nb_samples = frame->nb_samples * target_sample_rate_ / frame->sample_rate;
+    const int wanted_nb_samples =
+        ffmpeg_frame_->nb_samples * target_sample_rate / ffmpeg_frame_->sample_rate;
 
-    if (!audio_resampler_ctx_ || frame->format != src_audio_fmt_ ||
-        frame->sample_rate != src_audio_sample_rate_ || frame->ch_layout.nb_channels != 2) {
+    if (!audio_resampler_ctx_ || ffmpeg_frame_->format != src_audio_fmt_ ||
+        ffmpeg_frame_->sample_rate != src_audio_sample_rate_ ||
+        ffmpeg_frame_->ch_layout.nb_channels != src_audio_chans_) {
 
         swr_free(&audio_resampler_ctx_);
         audio_resampler_ctx_ = NULL;
@@ -719,15 +829,15 @@ size_t FFMpegStream::resample_audio(
         auto dest_layout = AVChannelLayout(AV_CHANNEL_LAYOUT_STEREO);
 
         int ret = swr_alloc_set_opts2(
-            &audio_resampler_ctx_,         // we're allocating a new context
-            &dest_layout,                  // out_ch_layout
-            target_sample_format_,         // out_sample_fmt
-            target_sample_rate_,           // out_sample_rate
-            &(frame->ch_layout),           // in_ch_layout
-            (AVSampleFormat)frame->format, // in_sample_fmt
-            frame->sample_rate,            // in_sample_rate
-            0,                             // log_offset
-            NULL);                         // log_ctx
+            &audio_resampler_ctx_,                 // we're allocating a new context
+            &dest_layout,                          // out_ch_layout
+            target_sample_format_,                 // out_sample_fmt
+            target_sample_rate,                    // out_sample_rate
+            &(ffmpeg_frame_->ch_layout),           // in_ch_layout
+            (AVSampleFormat)ffmpeg_frame_->format, // in_sample_fmt
+            ffmpeg_frame_->sample_rate,            // in_sample_rate
+            0,                                     // log_offset
+            NULL);                                 // log_ctx
 
         if (!audio_resampler_ctx_ || swr_init(audio_resampler_ctx_) < 0) {
             std::array<char, 4096> errbuf;
@@ -740,35 +850,43 @@ size_t FFMpegStream::resample_audio(
                 errbuf.size(),
                 "Cannot create sample rate converter for conversion of %d"
                 " Hz %s %d channels to %d Hz %s %d channels!\n",
-                frame->sample_rate,
-                av_get_sample_fmt_name((AVSampleFormat)frame->format),
-                frame->ch_layout.nb_channels,
-                target_sample_rate_,
+                ffmpeg_frame_->sample_rate,
+                av_get_sample_fmt_name((AVSampleFormat)ffmpeg_frame_->format),
+                ffmpeg_frame_->ch_layout.nb_channels,
+                target_sample_rate,
                 av_get_sample_fmt_name(target_sample_format_),
                 target_audio_channels_);
             throw media_corrupt_error(errbuf.data());
         }
 
-        src_audio_fmt_         = (AVSampleFormat)frame->format;
-        src_audio_sample_rate_ = frame->sample_rate;
+        src_audio_fmt_         = (AVSampleFormat)ffmpeg_frame_->format;
+        src_audio_sample_rate_ = ffmpeg_frame_->sample_rate;
+        src_audio_chans_       = ffmpeg_frame_->ch_layout.nb_channels;
     }
 #else
 
     const int64_t target_channel_layout = av_get_default_channel_layout(2);
 
     av_samples_get_buffer_size(
-        nullptr, frame->channels, frame->nb_samples, (AVSampleFormat)frame->format, 1);
+        nullptr,
+        ffmpeg_frame_->channels,
+        ffmpeg_frame_->nb_samples,
+        (AVSampleFormat)ffmpeg_frame_->format,
+        1);
 
     const int64_t dec_channel_layout =
-        (frame->channel_layout &&
-         frame->channels == av_get_channel_layout_nb_channels(frame->channel_layout))
-            ? frame->channel_layout
-            : av_get_default_channel_layout(frame->channels);
+        (ffmpeg_frame_->channel_layout &&
+         ffmpeg_frame_->channels ==
+             av_get_channel_layout_nb_channels(ffmpeg_frame_->channel_layout))
+            ? ffmpeg_frame_->channel_layout
+            : av_get_default_channel_layout(ffmpeg_frame_->channels);
 
-    const int wanted_nb_samples = frame->nb_samples * target_sample_rate_ / frame->sample_rate;
+    const int wanted_nb_samples =
+        ffmpeg_frame_->nb_samples * target_sample_rate / ffmpeg_frame_->sample_rate;
 
-    if (!audio_resampler_ctx_ || frame->format != src_audio_fmt_ ||
-        frame->sample_rate != src_audio_sample_rate_ ||
+
+    if (!audio_resampler_ctx_ || ffmpeg_frame_->format != src_audio_fmt_ ||
+        ffmpeg_frame_->sample_rate != src_audio_sample_rate_ ||
         dec_channel_layout != src_audio_channel_layout_) {
 
         swr_free(&audio_resampler_ctx_);
@@ -776,10 +894,10 @@ size_t FFMpegStream::resample_audio(
             nullptr,
             target_channel_layout,
             target_sample_format_,
-            target_sample_rate_,
+            target_sample_rate,
             dec_channel_layout,
-            (AVSampleFormat)frame->format,
-            frame->sample_rate,
+            (AVSampleFormat)ffmpeg_frame_->format,
+            ffmpeg_frame_->sample_rate,
             0,
             nullptr);
 
@@ -794,23 +912,23 @@ size_t FFMpegStream::resample_audio(
                 errbuf.size(),
                 "Cannot create sample rate converter for conversion of %d"
                 " Hz %s %d channels to %d Hz %s %d channels!\n",
-                frame->sample_rate,
-                av_get_sample_fmt_name((AVSampleFormat)frame->format),
-                frame->channels,
-                target_sample_rate_,
+                ffmpeg_frame_->sample_rate,
+                av_get_sample_fmt_name((AVSampleFormat)ffmpeg_frame_->format),
+                ffmpeg_frame_->channels,
+                target_sample_rate,
                 av_get_sample_fmt_name(target_sample_format_),
                 target_audio_channels_);
             throw media_corrupt_error(errbuf.data());
         }
 
-        src_audio_fmt_ = (AVSampleFormat)frame->format;
-        src_audio_sample_rate_ = frame->sample_rate;
+        src_audio_fmt_            = (AVSampleFormat)ffmpeg_frame_->format;
+        src_audio_sample_rate_    = ffmpeg_frame_->sample_rate;
         src_audio_channel_layout_ = dec_channel_layout;
     }
 
 #endif
 
-    const auto in       = (const uint8_t **)frame->extended_data;
+    const auto in       = (const uint8_t **)ffmpeg_frame_->extended_data;
     int out_count       = wanted_nb_samples + 256;
     int target_out_size = av_samples_get_buffer_size(
         nullptr, target_audio_channels_, out_count, target_sample_format_, 0);
@@ -863,7 +981,7 @@ size_t FFMpegStream::resample_audio(
     }
 
     int converted_n_samps =
-        swr_convert(audio_resampler_ctx_, &out, out_count, in, frame->nb_samples);
+        swr_convert(audio_resampler_ctx_, &out, out_count, in, ffmpeg_frame_->nb_samples);
 
     if (offset_into_output_buffer == -1) {
         audio_buffer->set_num_samples(audio_buffer->num_samples() + converted_n_samps);
@@ -879,18 +997,20 @@ size_t FFMpegStream::resample_audio(
 
 int64_t FFMpegStream::receive_frame() {
 
-    // for single frame video source, check if the frame has already been
+    // for single ffmpeg_frame_ video source, check if the ffmpeg_frame_ has already been
     // decoded
     if (duration_frames() == 1 && !nothing_decoded_yet_) {
         return AVERROR_EOF;
     }
 
-    av_frame_unref(frame);
+    av_frame_unref(ffmpeg_frame_);
 
-    int rt = avcodec_receive_frame(codec_context_, frame);
+    int rt = avcodec_receive_frame(codec_context_, ffmpeg_frame_);
 
-    // we have decoded a frame, increment the frame counter
-    // if our frame counter is set.
+    // std::cerr << source_path << " WAS " << ffmpeg_frame_->pts << "\n";
+
+    // we have decoded a ffmpeg_frame_, increment the ffmpeg_frame_ counter
+    // if our ffmpeg_frame_ counter is set.
     if (!rt && current_frame_ != CURRENT_FRAME_UNKNOWN)
         current_frame_++;
 
@@ -901,7 +1021,7 @@ int64_t FFMpegStream::receive_frame() {
     if (!rt && nothing_decoded_yet_)
         nothing_decoded_yet_ = false;
 
-    // no error, but might need more packet data to receive aother frame or we've
+    // no error, but might need more packet data to receive aother ffmpeg_frame_ or we've
     // hit the end of the file
 
     return rt;
@@ -935,22 +1055,22 @@ double FFMpegStream::duration_seconds() const {
             // of the AVStream. Undocumented behaviour in ffmpeg, of course.
             return double(format_context_->duration) * 0.000001;
         } else if (avc_stream_->nb_frames > 0 && avc_stream_->avg_frame_rate.num) {
-            // maybe we know the number of frames and frame rate
+            // maybe we know the number of frames and ffmpeg_frame_ rate
             return double(avc_stream_->nb_frames * avc_stream_->avg_frame_rate.den) /
                    double(avc_stream_->avg_frame_rate.num);
         } else if (avc_stream_->time_base.num) {
-            // single frame source
+            // single ffmpeg_frame_ source
             return double(avc_stream_->time_base.num) / double(avc_stream_->time_base.den);
         }
     }
-    // fallback, assume single frame source
+    // fallback, assume single ffmpeg_frame_ source
     return frame_rate().to_seconds();
 }
 
 int FFMpegStream::duration_frames() const {
 
     if (stream_type_ == VIDEO_STREAM && !fpsDen_) {
-        // no average frame rate defined, assume it's a single pic
+        // no average ffmpeg_frame_ rate defined, assume it's a single pic
         return 1;
     }
     return (int)round(duration_seconds() / frame_rate().to_seconds());
@@ -960,8 +1080,8 @@ int FFMpegStream::duration_frames() const {
 void FFMpegStream::decode_attached_pic() {
 
     int rx = send_packet(&(avc_stream_->attached_pic));
-    av_frame_unref(frame);
-    int rt = avcodec_receive_frame(codec_context_, frame);
+    av_frame_unref(ffmpeg_frame_);
+    int rt = avcodec_receive_frame(codec_context_, ffmpeg_frame_);
     if (rt == 0) {
         attached_pic_ = get_ffmpeg_frame_as_xstudio_image();
     } else {

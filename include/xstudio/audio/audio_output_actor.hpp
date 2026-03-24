@@ -250,7 +250,10 @@ class GlobalAudioOutputActor : public caf::event_based_actor, module::Module {
     module::BooleanAttribute *audio_scrubbing_;
     module::FloatAttribute *volume_;
     module::BooleanAttribute *muted_;
+    module::StringAttribute *scrub_behaviour_;
+    module::IntegerAttribute *scrub_window_millisecs_;
     utility::Uuid mute_hotkey_;
+    utility::Uuid audio_scrubbing_hotkey_;
     std::map<utility::Uuid, caf::actor> independent_outputs_;
 };
 

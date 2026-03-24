@@ -147,14 +147,14 @@ CachingMediaReaderActor::CachingMediaReaderActor(
             mail(media_cache::retrieve_atom_v, mptr.key())
                 .request(image_cache_, infinite)
                 .then(
-                    [=](media_reader::ImageBufPtr buf) mutable {
+                    [=](media_reader::ImageBufPtr &buf) mutable {
                         if (buf) {
                             rp.deliver(buf);
                         } else {
                             mail(get_image_atom_v, mptr)
                                 .request(urgent_worker_, infinite)
                                 .then(
-                                    [=](media_reader::ImageBufPtr buf) mutable {
+                                    [=](media_reader::ImageBufPtr &buf) mutable {
                                         rp.deliver(buf);
                                         // store the image in our cache
                                         anon_mail(
@@ -247,7 +247,7 @@ CachingMediaReaderActor::CachingMediaReaderActor(
             mail(get_image_atom_v, mptr)
                 .request(precache_worker_, infinite)
                 .then(
-                    [=](media_reader::ImageBufPtr buf) mutable { rp.deliver(buf); },
+                    [=](media_reader::ImageBufPtr &buf) mutable { rp.deliver(buf); },
                     [=](const caf::error &err) mutable {
                         rp.deliver(make_error_buffer(err, mptr));
                     });
@@ -286,7 +286,7 @@ void CachingMediaReaderActor::do_urgent_get_image() {
     mail(get_image_atom_v, mptr)
         .request(urgent_worker_, infinite)
         .then(
-            [=](media_reader::ImageBufPtr buf) mutable {
+            [=](media_reader::ImageBufPtr &buf) mutable {
                 // send the image back to the playhead that requested it
                 rp.deliver(buf);
 
@@ -333,7 +333,7 @@ caf::typed_response_promise<ImageBufPtr> CachingMediaReaderActor::receive_image_
     mail(media_cache::retrieve_atom_v, mptr.key())
         .request(image_cache_, infinite)
         .then(
-            [=](media_reader::ImageBufPtr buf) mutable {
+            [=](media_reader::ImageBufPtr &buf) mutable {
                 if (buf) {
                     // send the image back to the playhead that requested it
                     rt.deliver(buf);

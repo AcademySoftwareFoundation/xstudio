@@ -52,12 +52,10 @@ namespace data_source {
       public:
         DataSourcePlugin(
             utility::Uuid uuid,
-            std::string name             = "",
-            std::string author           = "",
-            std::string description      = "",
-            semver::version version      = semver::version("0.0.0"),
-            std::string widget_ui_string = "",
-            std::string menu_ui_string   = "")
+            std::string name        = "",
+            std::string author      = "",
+            std::string description = "",
+            semver::version version = semver::version("0.0.0"))
             : plugin_manager::PluginFactoryTemplate<T>(
                   uuid,
                   name,
@@ -65,9 +63,7 @@ namespace data_source {
                   true,
                   author,
                   description,
-                  version,
-                  widget_ui_string,
-                  menu_ui_string) {}
+                  version) {}
         ~DataSourcePlugin() override = default;
     };
 

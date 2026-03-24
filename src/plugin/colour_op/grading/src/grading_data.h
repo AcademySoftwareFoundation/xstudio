@@ -107,7 +107,7 @@ namespace viewport {
     // with other metadatas living in the bookmark user_data field.
     struct GradingInfo {
         const GradingData* data;
-        bool isActive;
+        bool grade_active;
     };
 
 } // end namespace viewport

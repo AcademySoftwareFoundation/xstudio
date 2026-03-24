@@ -172,6 +172,7 @@ GlobalMetadataManager::GlobalMetadataManager(caf::actor_config &cfg)
             const std::string path,
             const utility::JsonStore &menu_item_data,
             const std::string &user_data,
+            const std::string &activation_type,
             const bool from_hotkey) {
             // ignore, menu data events not relevant
         },

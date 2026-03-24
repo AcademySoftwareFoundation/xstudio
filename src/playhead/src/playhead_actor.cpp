@@ -776,7 +776,8 @@ void PlayheadActor::init() {
                     audio_path_ == playhead::GLOBAL_AUDIO,
                     uuid(),
                     scrubbing,
-                    position())
+                    position(),
+                    playhead_volume_->value())
                     .send(audio_output_actor_);
             }
         },
@@ -800,7 +801,7 @@ void PlayheadActor::init() {
             ImageBufPtr buf,
             const bool is_onscreen_frame) {
             const auto delay = std::chrono::duration_cast<timebase::flicks>(
-                utility::clock::now() - buf.when_to_display_);
+                utility::clock::now() - buf.when_to_display());
 
             /* If the image is more than 2 frames late, we assume that the image reader
             can't keep up so we start slowing the playhead down until frames start arriving on
@@ -921,6 +922,15 @@ void PlayheadActor::init() {
         [=](logical_frame_to_flicks_atom, const int frame) {
             return mail(logical_frame_to_flicks_atom_v, int64_t(frame))
                 .delegate(hero_sub_playhead_.actor());
+        },
+
+        [=](playhead::use_loop_range_atom, const bool enabled, const int in, const int out)
+            -> bool {
+            loop_start_frame_->set_value(in);
+            loop_end_frame_->set_value(out);
+            loop_range_enabled_->set_value(enabled);
+
+            return true;
         },
 
         [=](simple_loop_end_atom) {
@@ -1082,7 +1092,7 @@ void PlayheadActor::init() {
                 anon_mail(precache_atom_v).send(hero_sub_playhead_.actor());
                 if (audio_playhead_)
                     anon_mail(precache_atom_v).send(audio_playhead_);
-                anon_mail(precache_atom_v).delay(std::chrono::milliseconds(1000)).send(this);
+                anon_mail(precache_atom_v).delay(std::chrono::milliseconds(500)).send(this);
             } else if (sub_playheads_.size()) {
                 sub_playhead_precache_idx_ =
                     (sub_playhead_precache_idx_ + 1) % sub_playheads_.size();
@@ -1094,7 +1104,7 @@ void PlayheadActor::init() {
                 }
                 if (playing()) {
                     anon_mail(precache_atom_v)
-                        .delay(std::chrono::milliseconds(1000 / sub_playheads_.size()))
+                        .delay(std::chrono::milliseconds(500 / sub_playheads_.size()))
                         .send(this);
                 }
             }
@@ -1118,7 +1128,7 @@ void PlayheadActor::init() {
                     .then(
                         [=](caf::actor media_actor) {
                             if (media_actor)
-                                current_media_changed(media_actor);
+                                current_media_changed(media_actor, true);
                         },
                         [=](const error &err) {
                             spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -1152,6 +1162,7 @@ void PlayheadActor::init() {
             media_source_atom,
             utility::UuidActor media,
             utility::UuidActor media_source,
+            utility::Uuid clip_uuid,
             const int sub_playhead_index,
             const bool check_rate) {
             // message from one of our sub-playheads ... the media source and/or
@@ -1159,8 +1170,10 @@ void PlayheadActor::init() {
             if (sub_playhead_index == key_playhead_index_->value()) {
 
                 if (to_string(media.uuid()) != current_media_uuid_->value() or
-                    to_string(media_source.uuid()) != current_media_source_uuid_->value()) {
+                    to_string(media_source.uuid()) != current_media_source_uuid_->value() or
+                    to_string(clip_uuid) != current_clip_uuid_->value()) {
 
+                    current_clip_uuid_->set_value(to_string(clip_uuid));
                     current_media_uuid_->set_value(to_string(media.uuid()));
                     current_media_source_uuid_->set_value(to_string(media_source.uuid()));
                     current_media_changed(media.actor(), true);
@@ -1642,7 +1655,6 @@ void PlayheadActor::clear_child_playheads() {
     // stop any read-ahead activity for these playheads
     anon_mail(clear_precache_queue_atom_v, to_uuid_vector(sub_playheads_)).send(pre_reader_);
 
-
     // send a message to delete these things in 2 seconds. We want
     // a delay as they may be fetching images and providing them to
     // the Viewport while we are setting up new sub-playheads (for
@@ -1653,6 +1665,12 @@ void PlayheadActor::clear_child_playheads() {
 
     sub_playheads_.clear();
     hero_sub_playhead_ = utility::UuidActor();
+
+    if (audio_playhead_) {
+        unlink_from(audio_playhead_);
+        send_exit(audio_playhead_, caf::exit_reason::user_shutdown);
+        audio_playhead_ = caf::actor();
+    }
 }
 
 caf::actor PlayheadActor::make_child_playhead(utility::UuidActor source) {
@@ -1701,7 +1719,7 @@ void PlayheadActor::make_audio_child_playhead(const int source_index) {
 
     if (timeline_mode()) {
         // Are we already hooked up to the timeline as the audio source?
-        if (audio_src_ == timeline_actor_)
+        if (audio_src_ == timeline_actor_ && audio_playhead_)
             return;
 
         audio_src_ = timeline_actor_;
@@ -1750,6 +1768,21 @@ void PlayheadActor::make_audio_child_playhead(const int source_index) {
         media::MediaType::MT_AUDIO);
 
     join_event_group(this, audio_playhead_);
+
+    if (audio_output_actor_) {
+        // this will clear the audio buffers still with the audio output
+        // actor
+        anon_mail(
+            sound_audio_atom_v,
+            std::vector<AudioBufPtr>(), // empty buffers
+            utility::Uuid(),
+            audio_path_ == playhead::GLOBAL_AUDIO,
+            uuid(),
+            false,
+            position(),
+            playhead_volume_->value())
+            .send(audio_output_actor_);
+    }
 }
 
 void PlayheadActor::new_source_list(const bool force_build) {
@@ -1955,9 +1988,10 @@ void PlayheadActor::switch_key_playhead(int idx) {
                 // got all the data it needs from its source
                 request_receive<caf::actor>(*sys, ph.actor(), source_atom_v);
 
-                if (to_string(request_receive<utility::UuidActor>(
-                                  *sys, ph.actor(), media_source_atom_v, true)
-                                  .uuid()) == current_media_source_uuid_->value()) {
+                if (to_string(
+                        request_receive<utility::UuidActor>(
+                            *sys, ph.actor(), media_source_atom_v, true)
+                            .uuid()) == current_media_source_uuid_->value()) {
                     idx = i;
                     break;
                 }
@@ -2092,6 +2126,8 @@ void PlayheadActor::update_child_playhead_positions(const bool force_broadcast) 
         anon_mail(
             position_atom_v,
             adjusted_position(),
+            loop_start(),
+            loop_end(),
             forward(),
             velocity(),
             playing(),
@@ -2219,9 +2255,11 @@ void PlayheadActor::update_duration(caf::typed_response_promise<timebase::flicks
         .request(hero_sub_playhead_.actor(), infinite)
         .then(
             [=](const timebase::flicks duration) mutable {
-                if (duration != timebase::k_flicks_zero_seconds) {
+                if (duration != timebase::k_flicks_zero_seconds &&
+                    PlayheadBase::duration() != duration) {
 
                     set_duration(duration);
+                    align_audio_playhead();
 
                     // check that the loop range is valid, i.e. the loop start is
                     // within the (new) source duration
@@ -2232,10 +2270,11 @@ void PlayheadActor::update_duration(caf::typed_response_promise<timebase::flicks
                         mail(utility::event_atom_v, use_loop_range_atom_v, use_loop_range())
                             .send(event_group_);
                     }
-                } else {
+                    duration_seconds_->set_value(timebase::to_seconds(duration));
+                } else if (PlayheadBase::duration() != duration) {
                     set_duration(duration);
+                    duration_seconds_->set_value(timebase::to_seconds(duration));
                 }
-                duration_seconds_->set_value(timebase::to_seconds(duration));
                 rp.deliver(duration);
             },
             [=](const error &err) mutable {
@@ -2350,7 +2389,9 @@ void PlayheadActor::update_cached_frames_status(
                 // frame is cached - but is it a held frame?
                 if (all_frame_ids_[i]->frame_status() == media::FS_HELD_FRAME)
                     frame_status = 1;
-                else if (all_frame_ids_[i]->frame_status() == media::FS_NOT_ON_DISK)
+                else if (
+                    all_frame_ids_[i]->frame_status() == media::FS_NOT_ON_DISK ||
+                    all_frame_ids_[i]->frame_status() == media::FS_UNKNOWN)
                     frame_status = 2;
                 else
                     frame_status = 0;
@@ -2922,11 +2963,11 @@ void PlayheadActor::attribute_changed(const utility::Uuid &attr_uuid, const int 
 void PlayheadActor::hotkey_pressed(
     const utility::Uuid &hotkey_uuid, const std::string &context, const std::string &window) {
 
-    // If the context starts with 'viewport' the hotkey was hit while a viewport
+    // If the context contains 'viewport' the hotkey was hit while a viewport
     // had mouse focus. If that viewport is NOT attached to this playhead we
     // ignore the hotkey
     if (active_viewports_.empty() ||
-        (context.find("viewport") == 0 &&
+        (context.find("viewport") != std::string::npos &&
          active_viewports_.find(context) == active_viewports_.end())) {
         return;
     }

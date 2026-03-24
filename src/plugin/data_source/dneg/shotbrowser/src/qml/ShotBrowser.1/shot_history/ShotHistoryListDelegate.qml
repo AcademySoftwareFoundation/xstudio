@@ -14,8 +14,8 @@ import xstudio.qml.models 1.0
 Rectangle{ id: frame
     // anchors.fill: parent
 
-    color: isSelected ? Qt.darker(palette.highlight, 5) : "transparent"
-    border.color: isHovered? palette.highlight : XsStyleSheet.widgetBgNormalColor
+    color: isSelected ? Qt.darker(XsStyleSheet.accentColor, 5) : "transparent"
+    border.color: isHovered? XsStyleSheet.accentColor : XsStyleSheet.widgetBgNormalColor
     border.width: 1
 
     property bool isActive: false
@@ -42,6 +42,7 @@ Rectangle{ id: frame
     required property int idRole
     required property string entityRole
     required property string productionStatusFullRole
+    required property var tagRole
 
     required property int onSiteChn
     required property int onSiteLon
@@ -111,6 +112,7 @@ Rectangle{ id: frame
                     let ppos = mapToItem(popupMenu.parent, mouseX, mouseY)
                     popupMenu.x = ppos.x
                     popupMenu.y = ppos.y
+                    popupMenu.rebuildTagMenu()
                     popupMenu.visible = true
                 }
             }

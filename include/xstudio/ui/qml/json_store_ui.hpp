@@ -18,8 +18,9 @@ namespace ui {
         class JsonStoreUI : public QMLActor {
 
             Q_OBJECT
-            Q_PROPERTY(QString json_string READ json_string WRITE set_json_string NOTIFY
-                           json_string_changed)
+            Q_PROPERTY(
+                QString json_string READ json_string WRITE set_json_string NOTIFY
+                    json_string_changed)
 
           public:
             explicit JsonStoreUI(QObject *parent = nullptr);

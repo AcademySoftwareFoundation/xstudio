@@ -1,7 +1,7 @@
 from xstudio.plugin.plugin_base import PluginBase
 from xstudio.core import viewport_layout_atom
 from xstudio.core import AssemblyMode, AutoAlignMode
-from xstudio.core import JsonStore
+from xstudio.core import JsonStore, get_event_group_atom
 import json
 
 class ViewportLayoutPlugin(PluginBase):
@@ -29,9 +29,13 @@ class ViewportLayoutPlugin(PluginBase):
 
         # subscribe to the event group of the remote actor (which is a 
         # ViewportLayoutPlugin). 
-        self.subscribe_to_event_group(
-            self,
-            self.layout_callback)
+        self.connection.request_receive(
+            self.remote,
+            get_event_group_atom())[0]
+
+        return self.connection.link.add_message_callback(
+            self.remote, self.layout_callback
+            )
 
     def add_layout_mode(self, name, menu_position, playhead_assembly_mode, auto_align_mode=AutoAlignMode.AAM_ALIGN_OFF):
         """Add a viewport layout mode 

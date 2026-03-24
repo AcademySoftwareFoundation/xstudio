@@ -190,10 +190,10 @@ void GlobalActor::init(
     auto audio           = spawn<audio::GlobalAudioOutputActor>();
     auto pm              = spawn<plugin_manager::PluginManagerActor>();
     auto colour          = spawn<colour_pipeline::GlobalColourPipelineActor>();
-    auto gmma            = spawn<media_metadata::GlobalMediaMetadataActor>();
     auto gica            = spawn<media_cache::GlobalImageCacheActor>();
     auto gaca            = spawn<media_cache::GlobalAudioCacheActor>();
     auto gmra            = spawn<media_reader::GlobalMediaReaderActor>();
+    auto gmma            = spawn<media_metadata::GlobalMediaMetadataActor>();
     auto gcca            = spawn<colour_pipeline::GlobalColourCacheActor>();
     auto gmha            = spawn<media_hook::GlobalMediaHookActor>();
     auto thumbnail       = spawn<thumbnail::ThumbnailManagerActor>();
@@ -372,11 +372,16 @@ void GlobalActor::init(
                                                 if (session_name.empty())
                                                     session_name = "Unsaved";
 
+                                                const std::time_t t0 = std::time(nullptr);
+                                                std::tm *tt          = std::localtime(&t0);
+                                                std::array<char, 1024> b;
+                                                std::strftime(
+                                                    b.data(), 1024, "%Y%m%d_%H%M%S", tt);
+
                                                 // add timestamp+ext
-                                                auto session_fullname = std::string(fmt::format(
-                                                    "{}_{:%Y%m%d_%H%M%S}.xsz",
-                                                    session_name,
-                                                    fmt::localtime(std::time(nullptr))));
+                                                auto session_fullname = std::string(
+                                                    fmt::format(
+                                                        "{}_{}.xsz", session_name, b.data()));
 
                                                 // build path to autosave store.
                                                 auto fspath = fs::path(uri_to_posix_path(
@@ -426,14 +431,18 @@ void GlobalActor::init(
                                                             }
                                                         },
                                                         [=](const error &err) {
-                                                            auto msg = std::string(fmt::format(
-                                                                "Failed to autosave session - "
-                                                                "your "
-                                                                "session is broken {}.\nCheck "
-                                                                "{} "
-                                                                "for last valid autosave",
-                                                                to_string(err),
-                                                                fspath.parent_path().string()));
+                                                            auto msg = std::string(
+                                                                fmt::format(
+                                                                    "Failed to autosave "
+                                                                    "session - "
+                                                                    "your "
+                                                                    "session is broken "
+                                                                    "{}.\nCheck "
+                                                                    "{} "
+                                                                    "for last valid autosave",
+                                                                    to_string(err),
+                                                                    fspath.parent_path()
+                                                                        .string()));
                                                             spdlog::critical(msg);
                                                         });
                                             } catch (const std::exception &err) {
@@ -486,7 +495,16 @@ void GlobalActor::init(
 
         [=](get_global_thumbnail_atom) -> caf::actor { return thumbnail; },
 
-        [=](get_python_atom) -> caf::actor { return pa; },
+        [=](get_python_atom) -> result<caf::actor> {
+            auto rp = make_response_promise<caf::actor>();
+            if (connection_attempted_) {
+                rp.deliver(pa);
+            } else {
+                pending_python_interp_requests_.push_back(rp);
+            }
+            return rp;
+        },
+
         [=](get_scanner_atom) -> caf::actor { return scanner; },
 
         [&](get_studio_atom) -> caf::actor { return studio_; },
@@ -613,6 +631,13 @@ void GlobalActor::on_exit() {
     system().registry().erase(pc_audio_output_registry);
 }
 
+void GlobalActor::honour_requests_for_python_interpreter(const caf::actor &embedded_python) {
+    for (auto &rp : pending_python_interp_requests_) {
+        rp.deliver(embedded_python);
+    }
+    pending_python_interp_requests_.clear();
+}
+
 void GlobalActor::connect_api(const caf::actor &embedded_python) {
     if (not connected_ and api_enabled_) {
         port_ = publish_port(port_minimum_, port_maximum_, bind_address_, apia_);
@@ -637,10 +662,18 @@ void GlobalActor::connect_api(const caf::actor &embedded_python) {
                                 spdlog::debug("Connected {}", result);
                             else
                                 spdlog::warn("Connected failed {}", result);
+
+                            honour_requests_for_python_interpreter(embedded_python);
+                            connection_attempted_ = true;
                         },
                         [=](const error &err) {
                             spdlog::warn("Connected failed {}.", to_string(err));
+                            honour_requests_for_python_interpreter(embedded_python);
+                            connection_attempted_ = true;
                         });
+            } else {
+                honour_requests_for_python_interpreter(embedded_python);
+                connection_attempted_ = true;
             }
         } else {
             spdlog::warn(
@@ -648,6 +681,8 @@ void GlobalActor::connect_api(const caf::actor &embedded_python) {
                 bind_address_,
                 port_minimum_,
                 port_maximum_);
+            honour_requests_for_python_interpreter(embedded_python);
+            connection_attempted_ = true;
         }
     }
 }

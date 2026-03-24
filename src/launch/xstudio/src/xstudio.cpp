@@ -1,5 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#ifdef _WIN32
+extern "C" {
+__declspec(dllexport) unsigned long NvOptimusEnablement        = 0x00000001; // NVIDIA
+__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;          // AMD
+}
+#endif
+
 #include <args/args.hxx>
 #include <chrono>
 #include <csignal>
@@ -57,6 +64,9 @@ CAF_PUSH_WARNINGS
 #include <QQuickView>
 #include <QQuickWindow>
 #include <QOpenGLWidget>
+#include <QOpenGLContext>
+#include <QOffscreenSurface>
+#include <QOpenGLFunctions>
 CAF_POP_WARNINGS
 
 #include "xstudio/ui/qml/studio_ui.hpp" //NOLINT
@@ -191,24 +201,42 @@ void xstudioQtMessageHandler(
     }
 }
 
-void execute_xstudio_ui(
+int execute_xstudio_ui(
     const bool disble_vsync,
     const float ui_scale_factor,
     const bool silence_qt_warnings,
     int argc,
     char **argv) {
 
+    QByteArray previous_factor;
+
     // apply global UI scaling preference here by setting the
     // QT_SCALE_FACTOR env var before creating the QApplication
+
+    // this must be unset after engine runs, or we'll pollute and processes we create..
+
     if (ui_scale_factor != 1.0f) {
+        previous_factor  = qgetenv("QT_SCALE_FACTOR");
         std::string fstr = fmt::format("{}", ui_scale_factor);
         qputenv("QT_SCALE_FACTOR", fstr.c_str());
     }
 
-    QSurfaceFormat format;
 #ifdef __OPENGL_4_1__
-    // MacOS is limited to OpenGL 4.1, of course
-    format.setVersion(4, 1);
+    // MacOS is limited to OpenGL 4.1
+    constexpr int required_gl_major = 4;
+    constexpr int required_gl_minor = 1;
+#else
+    // SSBO usage requires OpenGL 4.3
+    constexpr int required_gl_major = 4;
+    constexpr int required_gl_minor = 3;
+#endif
+
+    QSurfaceFormat format;
+    // Explicitly request desktop OpenGL (not OpenGL ES).
+    // On Wayland/EGL this is required, otherwise EGL may default to ES.
+    format.setRenderableType(QSurfaceFormat::OpenGL);
+    format.setVersion(required_gl_major, required_gl_minor);
+#ifdef __OPENGL_4_1__
     format.setProfile(QSurfaceFormat::CoreProfile);
 #endif
     QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
@@ -232,13 +260,59 @@ void execute_xstudio_ui(
     app.setApplicationName("xStudio");
     app.setWindowIcon(QIcon(":images/xstudio_logo_256_v1.svg"));
 
+    // Check OpenGL capabilities before proceeding
+    {
+        QOpenGLContext ctx;
+        if (!ctx.create()) {
+            spdlog::critical("Failed to create OpenGL context. No GPU driver available.");
+            return EXIT_FAILURE;
+        }
+        QOffscreenSurface surface;
+        surface.setFormat(ctx.format());
+        surface.create();
+        ctx.makeCurrent(&surface);
+
+        auto *funcs          = ctx.functions();
+        const char *vendor   = reinterpret_cast<const char *>(funcs->glGetString(GL_VENDOR));
+        const char *renderer = reinterpret_cast<const char *>(funcs->glGetString(GL_RENDERER));
+        const char *version  = reinterpret_cast<const char *>(funcs->glGetString(GL_VERSION));
+        auto fmt             = ctx.format();
+        int major            = fmt.majorVersion();
+        int minor            = fmt.minorVersion();
+
+        spdlog::info(
+            "OpenGL: {} / {} / {} (context version {}.{})",
+            vendor ? vendor : "unknown",
+            renderer ? renderer : "unknown",
+            version ? version : "unknown",
+            major,
+            minor);
+
+        if (major < required_gl_major ||
+            (major == required_gl_major && minor < required_gl_minor)) {
+            spdlog::critical(
+                "OpenGL {}.{} is below the minimum required {}.{}. "
+                "Please check your GPU driver and hardware "
+                "Vendor: {}, Renderer: {}",
+                major,
+                minor,
+                required_gl_major,
+                required_gl_minor,
+                vendor ? vendor : "unknown",
+                renderer ? renderer : "unknown");
+            ctx.doneCurrent();
+            return EXIT_FAILURE;
+        }
+
+        ctx.doneCurrent();
+    }
 
     QQmlApplicationEngine engine;
 
     ui::qml::setup_xstudio_qml_emgine(
         static_cast<QQmlEngine *>(&engine), CafActorSystem::system());
 
-    const QUrl url(QStringLiteral("qrc:/main.qml"));
+    const QUrl url(QStringLiteral("qrc:/application/main.qml"));
 
     QObject::connect(
         &engine,
@@ -264,10 +338,16 @@ void execute_xstudio_ui(
     QOpenGLWidget *dummy = new QOpenGLWidget();
     delete dummy;
 #endif
+    if (ui_scale_factor != 1.0f) {
+        qunsetenv("QT_SCALE_FACTOR");
+        if (not previous_factor.isNull())
+            qputenv("QT_SCALE_FACTOR", previous_factor);
+    }
 
-    app.exec();
+    const int app_exit_code = app.exec();
 
     spdlog::get("xstudio")->sinks().pop_back();
+    return app_exit_code;
 }
 
 // CAF actor class that enacts loading media from command line asynchronously.
@@ -453,14 +533,15 @@ void LoaderActor::send_media(
                 filename_stem = std::string(filename_stem, 0, dotpos);
             }
 
-            added_media.push_back(request_receive<UuidActor>(
-                *self,
-                playlist,
-                playlist::add_media_atom_v,
-                filename_stem,
-                i.first,
-                i.second,
-                Uuid()));
+            added_media.push_back(
+                request_receive<UuidActor>(
+                    *self,
+                    playlist,
+                    playlist::add_media_atom_v,
+                    filename_stem,
+                    i.first,
+                    i.second,
+                    Uuid()));
 
             if (remote)
                 spdlog::info("{} sent to running session.", uri_to_posix_path(i.first));
@@ -609,6 +690,9 @@ struct CLIArguments {
     args::Flag disable_vsync = {
         misc, "disable-vsync", "Disable sync to video refresh", {"disable-vsync"}};
 
+    args::ValueFlagList<std::string> force_enable_plugin = {
+        misc, "UUID", "Force enable a disabled plugin with its UUID", {"enable-plugin"}};
+
     args::CompletionFlag completion = {parser, {"complete"}};
     void parse_args(int argc, char **argv) {
         try {
@@ -658,6 +742,13 @@ struct Launcher {
         actions["disable_vsync"]       = cli_args.disable_vsync.Matched();
         actions["compare"]             = static_cast<std::string>(args::get(cli_args.compare));
         actions["silence_qt_warnings"] = cli_args.silence_qt_warnings.Matched();
+
+        for (const auto ep : args::get(cli_args.force_enable_plugin)) {
+            if (!actions.contains("force_enable_plugins")) {
+                actions["force_enable_plugins"] = nlohmann::json::array();
+            }
+            actions["force_enable_plugins"].push_back(ep);
+        }
 
         // check for xstudio url..
         if (args::get(cli_args.media_paths).size() == 1 and
@@ -811,6 +902,23 @@ struct Launcher {
         auto pm =
             request_receive<caf::actor>(*self, global_actor, global::get_plugin_manager_atom_v);
 
+        if (actions.contains("force_enable_plugins")) {
+            try {
+                for (auto &p : actions["force_enable_plugins"]) {
+                    const auto id = p.get<utility::Uuid>();
+                    anon_mail(
+                        plugin_manager::spawn_plugin_atom_v,
+                        id,                   // plugin UUID
+                        utility::JsonStore(), // init settings (not used)
+                        true                  // resident flag
+                        )
+                        .send(pm);
+                }
+            } catch (std::exception &e) {
+                spdlog::warn("Failed to use --enable-plugin CLI option: {}", e.what());
+            }
+        }
+
         auto media_sent = false;
         for (const auto &p : actions["playlists"].items()) {
             if (p.value().empty())
@@ -923,11 +1031,12 @@ struct Launcher {
                 (args::get(cli_args.remote_port)
                      ? args::get(cli_args.remote_port)
                      : preference_value<int>(prefs, "/core/api/port_minimum"));
-            targets.emplace_back(std::make_tuple(
-                std::string("undefined"),
-                args::get(cli_args.remote_host),
-                remote_port_tmp,
-                remote_port_tmp));
+            targets.emplace_back(
+                std::make_tuple(
+                    std::string("undefined"),
+                    args::get(cli_args.remote_host),
+                    remote_port_tmp,
+                    remote_port_tmp));
         } else if (not static_cast<std::string>(actions["session_name"]).empty()) {
             // scan for session port files.
             // if session specified used that otherwise add local
@@ -937,8 +1046,9 @@ struct Launcher {
                 throw std::runtime_error(
                     fmt::format("Failed to find session {}", sname).c_str());
             }
-            targets.emplace_back(std::make_tuple(
-                sname, find_session->host(), find_session->port(), find_session->port()));
+            targets.emplace_back(
+                std::make_tuple(
+                    sname, find_session->host(), find_session->port(), find_session->port()));
         } else {
             for (const auto &i : rsm.sessions()) {
                 if (i.host() == "localhost")
@@ -1005,19 +1115,21 @@ struct Launcher {
 
         if (not args::get(cli_args.remote_host).empty()) {
 
-            throw std::runtime_error(fmt::format(
-                                         "Failed to connect to session at {}:{}",
-                                         args::get(cli_args.remote_host),
-                                         args::get(cli_args.remote_port))
-                                         .c_str());
+            throw std::runtime_error(
+                fmt::format(
+                    "Failed to connect to session at {}:{}",
+                    args::get(cli_args.remote_host),
+                    args::get(cli_args.remote_port))
+                    .c_str());
         }
 
         if (not static_cast<std::string>(actions["session_name"]).empty()) {
 
-            throw std::runtime_error(fmt::format(
-                                         "Failed to connect to session  {}",
-                                         static_cast<std::string>(actions["session_name"]))
-                                         .c_str());
+            throw std::runtime_error(
+                fmt::format(
+                    "Failed to connect to session  {}",
+                    static_cast<std::string>(actions["session_name"]))
+                    .c_str());
         }
 
         return caf::actor();
@@ -1076,12 +1188,17 @@ int main(int argc, char **argv) {
         } else {
 
             // Run the QApplication and launch UI
-            execute_xstudio_ui(
+            const int ui_exit_code = execute_xstudio_ui(
                 l.actions["disable_vsync"],
                 l.prefs.get("/ui/qml/global_ui_scale_factor").value("value", 1.0f),
                 l.actions["silence_qt_warnings"],
                 argc,
                 argv);
+
+            if (ui_exit_code != 0) {
+                throw std::runtime_error(
+                    fmt::format("UI exited during startup with code {}", ui_exit_code));
+            }
 
             // save state.. BUT NOT WHEN user_prefs_off
             if (not l.actions.value("user_prefs_off", false)) {

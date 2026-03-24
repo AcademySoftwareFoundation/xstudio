@@ -32,7 +32,9 @@ namespace conform {
         "new_track_name": "",
         "remove_failed_clip": false,
         "replace_clip": false,
-        "only_one_clip_match": false
+        "only_one_clip_match": false,
+        "limit_to_one_result": false,
+        "reuse_media": false
     })"_json;
 
 
@@ -122,6 +124,11 @@ namespace conform {
         std::map<utility::Uuid, utility::JsonStore> metadata_;
         std::vector<timeline::Item> template_tracks_;
 
+        std::vector<std::pair<
+            std::pair<utility::UuidActor, utility::JsonStore>,
+            std::pair<std::string, std::string>>>
+            reuse_list_;
+
 
         template <class Inspector> friend bool inspect(Inspector &f, ConformRequest &x) {
             return f.object(x).fields(
@@ -132,6 +139,7 @@ namespace conform {
                 f.field("cm", x.metadata_),
                 f.field("it", x.item_type_),
                 f.field("t", x.template_tracks_),
+                f.field("r", x.reuse_list_),
                 f.field("items", x.items_));
         }
 

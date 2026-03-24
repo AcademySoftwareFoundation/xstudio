@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MacOS (Intel/ARM) &mdash; xStudio 1.1.0 documentation</title>
+  <title>MacOS (Intel/ARM) &mdash; xStudio 1.2.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=eafc0fe6" />
@@ -16,7 +16,7 @@
   
         <script src="../../_static/jquery.js?v=5d32c60e"></script>
         <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=fc837d61"></script>
+        <script src="../../_static/documentation_options.js?v=6efca38a"></script>
         <script src="../../_static/doctools.js?v=888ff710"></script>
         <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
@@ -40,7 +40,7 @@
             xStudio
           </a>
               <div class="version">
-                1.1.0
+                1.2.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -124,12 +124,20 @@ brew install autoconf-archive
 <section id="download-and-install-qt-6-5-3-sdk">
 <h2>Download and install Qt 6.5.3 SDK<a class="headerlink" href="#download-and-install-qt-6-5-3-sdk" title="Link to this heading"></a></h2>
 <p>Follow <a class="reference internal" href="downloading_qt.html"><span class="std std-doc">these instructions</span></a></p>
+<blockquote>
+<div><p><strong>NOTE:</strong> Since Xcode version 26.X our specified version of Qt (6.5.3) is not strictly compatible with MacOS and you may see an error when you run the first ‘cmake’ command below. There are two options to resolve this. You can download Qt version 6.8.3 and use this instead of 6.5.3. Alternatively, open the file ‘FindWrapOpenGL.cmake’ within the Qt installation (at 6.5.3/macos/lib/cmake) and comment out lines 48 and 49 so that they look like this:</p>
+</div></blockquote>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>#target_link_libraries(WrapOpenGL::WrapOpenGL INTERFACE ${__opengl_fw_path})
+#target_link_libraries(WrapOpenGL::WrapOpenGL INTERFACE ${__opengl_agl_fw_path})
+</pre></div>
+</div>
 </section>
 <section id="download-the-vcpkg-repo">
 <h2>Download the VCPKG repo<a class="headerlink" href="#download-the-vcpkg-repo" title="Link to this heading"></a></h2>
-<p>To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo and run the bootstrap script before we build xstudio.</p>
+<p>To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo, run the bootstrap script and then switch to a specific git commit before we build xstudio. Run these commands in a terminal:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/microsoft/vcpkg.git
 ./vcpkg/bootstrap-vcpkg.sh
+git checkout c2aeddd80357b17592e59ad965d2adf65a19b22f
 </pre></div>
 </div>
 </section>

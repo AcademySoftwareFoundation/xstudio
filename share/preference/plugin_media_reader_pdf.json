@@ -1,0 +1,28 @@
+{
+	"plugin":{
+		"media_reader":{
+			"pdf":{
+				"dpi": {
+					"path": "/plugin/media_reader/pdf/dpi",
+					"description": "Image resolution in pixels per innch",
+					"datatype": "int",
+					"context": ["APPLICATION"],
+					"default_value": 150,
+					"value": 150
+				},
+				"supported": {
+					"path": "/plugin/media_reader/pdf/supported",
+					"description": "Control plugin format support",
+					"datatype": "json",
+					"context": ["APPLICATION"],
+					"default_value": {
+						"PDF":"MRC_FULLY"
+					},
+					"value": {
+						"PDF":"MRC_FORCE"
+					}
+				}
+			}
+		}
+	}
+}

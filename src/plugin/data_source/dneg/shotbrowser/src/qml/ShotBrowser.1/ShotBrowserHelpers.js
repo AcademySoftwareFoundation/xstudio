@@ -168,6 +168,22 @@ function revealMediaInIvy(indexes=[]) {
 	}
 }
 
+function revealInApp(indexes=[]) {
+	indexes = mapIndexesToResultModel(indexes)
+
+	if(indexes.length) {
+		let m = indexes[0].model
+
+		for(let i = 0; i< indexes.length; i++) {
+			let p = m.get(indexes[i], "frameSequenceRole")
+
+			Future.promise(
+	            helpers.openURLFuture("file://"+p)
+	        ).then(function(result) {})
+		}
+	}
+}
+
 function revealInIvy(indexes=[]) {
 	indexes = mapIndexesToResultModel(indexes)
 	let project = helpers.getEnv("SHOW")
@@ -215,6 +231,50 @@ function getDNUuid(indexes=[]) {
 	return jsn
 }
 
+function orderByRole(indexes, role) {
+	let unordered = mapIndexesToResultModel(indexes)
+	if(unordered.length) {
+		let m = unordered[0].model;
+		unordered.sort((a,b) =>  {
+			let aa = m.get(a, role)
+			let bb = m.get(b, role)
+		  if (aa > bb) {
+		    return 1;
+		  }
+		  if (aa < bb) {
+		    return -1;
+		  }
+		  return 0;
+		})
+	}
+
+	return unordered
+}
+
+function orderByNoteShot(indexes) {
+	let unordered = mapIndexesToResultModel(indexes)
+	if(unordered.length) {
+		let m = unordered[0].model;
+		unordered.sort((a,b) =>  {
+			let aa = m.get(a, "versionNameRole")
+			let bb = m.get(b, "versionNameRole")
+
+			aa = aa ? aa.replace(/^[^_]+_/, "") : ""
+			bb = bb ? bb.replace(/^[^_]+_/, "") : ""
+
+			if (aa > bb) {
+				return 1;
+			}
+			if (aa < bb) {
+				return -1;
+			}
+			return 0;
+		})
+	}
+
+	return unordered
+}
+
 function getNote(indexes=[]) {
 	let txt = ""
 	if(indexes.length) {
@@ -251,17 +311,23 @@ function downloadMissingMovies(indexes=[]) {
 	if(indexes.length) {
 		for(let i = 0; i< indexes.length; i++) {
 			let m = indexes[i].model
-            // let cindex = model.index(0, 0, indexes[i])
-            // let ccount = model.rowCount(cindex)
-            // for(let i =0; i< ccount; ++i) {
-            //     // is online.
-            //     let mindex = model.index(i,0,cindex)
 
             if(m.get(indexes[i], "mediaStatusRole") != "Online")
                 downloadMovies([indexes[i]])
-            // }
         }
     }
+}
+
+function refreshMetadata(indexes=[]) {
+	if(indexes.length) {
+		let m = indexes[0].model
+		for(let i = 0; i< indexes.length; i++) {
+		    Future.promise(ShotBrowserEngine.refreshMetadataFuture(m.get(indexes[i], "actorUuidRole"))).then(
+		        function(result) {},
+		        function() {}
+		    )
+		}
+	}
 }
 
 function downloadMovies(indexes=[]) {
@@ -283,6 +349,17 @@ function downloadMovies(indexes=[]) {
 	}
 }
 
+function mapIndexToSourceModel(index) {
+	let result = index
+
+	if(index.model instanceof QTreeModelToTableModel) {
+		result = mapIndexToSourceModel(index.model.mapToModel(index))
+	} else if(index.model instanceof ShotBrowserSequenceFilterModel) {
+		result = mapIndexToSourceModel(index.model.mapToSource(index))
+	}
+
+	return result
+}
 function mapIndexToResultModel(index) {
 	let result = index
 
@@ -521,7 +598,13 @@ function delayCallback(delayTime, cb) {
      timer.start();
 }
 
-function selectTimelineCallback(playlist_index, uuids, wait=4) {
+function selectTimelineNoSelectCallback(playlist_index, uuids) {
+	delayCallback(1000, function() {
+     	selectTimelineCallback(playlist_index, uuids, 4, false)
+	});
+}
+
+function selectTimelineCallback(playlist_index, uuids, wait=4, select=true) {
 	playlist_index = theSessionData.getPlaylistIndex(playlist_index)
     if(uuids.length) {
 		// make the playlist expand itself in the playlist panels
@@ -536,16 +619,17 @@ function selectTimelineCallback(playlist_index, uuids, wait=4) {
 
 			// this puts the timeline into timeline panels
 			// give timeline time to prepare or it gets upset.
-			delayCallback(1000, function() {
-				sessionSelectionModel.setCurrentIndex(
-					helpers.makePersistent(tindex),
-					ItemSelectionModel.ClearAndSelect)
-				// viewedMediaSetIndex = helpers.makePersistent(tindex)
-			});
-
+			if(select) {
+				delayCallback(1000, function() {
+					sessionSelectionModel.setCurrentIndex(
+						helpers.makePersistent(tindex),
+						ItemSelectionModel.ClearAndSelect)
+					// viewedMediaSetIndex = helpers.makePersistent(tindex)
+				});
+			}
 		} else if(wait) {
 			delayCallback(1000, function() {
-		     	selectTimelineCallback(playlist_index, uuids, wait-1)
+		     	selectTimelineCallback(playlist_index, uuids, wait-1, select)
 			});
 		} else {
 			console.log("Failed to get timeline index", uuids, playlist_index)
@@ -710,7 +794,11 @@ function addSequencesToNewPlaylist(indexes=[], callback=selectTimelineCallback) 
 
 	for(let i=0; i<indexes.length;i++) {
 		let sequenceRole = indexes[i].model.get(indexes[i],"sequenceRole")
-		addSequencesToPlaylist([indexes[i]], null, sequenceRole ? sequenceRole : "ShotBrowser Sequence", callback)
+
+		if(i != indexes.length-1)
+			addSequencesToPlaylist([indexes[i]], null, sequenceRole ? sequenceRole : "ShotBrowser Sequence", selectTimelineNoSelectCallback)
+		else
+			addSequencesToPlaylist([indexes[i]], null, sequenceRole ? sequenceRole : "ShotBrowser Sequence", callback)
 	}
 }
 
@@ -741,18 +829,21 @@ function addSequencesToPlaylist(indexes, playlist_index=null, playlist_name ="Sh
 				if(!playlist_index || !playlist_index.valid)
 					playlist_index = theSessionData.createPlaylist(playlist_name)
 
-		        Future.promise(theSessionData.importTimelineFuture(playlist_index, path)).then(
-		            function(tindex){
-		            	// inject shotgrid metadata ?
-		            	// all a bit hacky ..
-		            	theSessionData.setJSONObject(tindex, meta, "/metadata/shotgun/version")
+				// wait...
+				delayCallback(1000, function() {
+			        Future.promise(theSessionData.importTimelineFuture(playlist_index, path)).then(
+			            function(tindex){
+			            	// inject shotgrid metadata ?
+			            	// all a bit hacky ..
+			            	theSessionData.setJSONObject(tindex, meta, "/metadata/shotgun/version")
 
-		            	callback(playlist_index, [theSessionData.get(tindex, "actorUuidRole")])
-		            },
-			        function(err) {
-				    	dialogHelpers.errorDialogFunc("Add Sequence", err)
-			        }
-		        )
+			            	callback(playlist_index, [theSessionData.get(tindex, "actorUuidRole")])
+			            },
+				        function(err) {
+					    	dialogHelpers.errorDialogFunc("Add Sequence", err)
+				        }
+			        )
+			    })
 			} else {
 		    	dialogHelpers.errorDialogFunc("Add Sequence", "Timeline not found " + path)
 			}
@@ -848,16 +939,31 @@ function ctrlSelectItem(selectionModel, index) {
 		selectionModel.select(index, ItemSelectionModel.Toggle)
 }
 
-function altSelectItem(selectionModel, index) {
+function altSelectItem(selectionModel, index, onlyShots=false) {
 	// expand and select children..
 	selectionModel.model.expandRecursively(index.row, -1)
 	// select all leafs.
 	let depth = selectionModel.model.depthAtRow(index.row)
 	let selection = []
-	for(let i = index.row+1; selectionModel.model.depthAtRow(i) > depth ;i++)
-		selection.push(selectionModel.model.index(i, 0, index.parent))
+	for(let i = index.row+1; selectionModel.model.depthAtRow(i) > depth ;i++) {
+		if(onlyShots) {
+			let clickIndex = mapIndexToSourceModel(selectionModel.model.index(i, 0, index.parent))
+			if(clickIndex.model.get(clickIndex,"typeRole") == "Shot")
+				selection.push(selectionModel.model.index(i, 0, index.parent))
+		}
+		else
+			selection.push(selectionModel.model.index(i, 0, index.parent))
+	}
 
-	selectionModel.select(index, ItemSelectionModel.Toggle)
+	if(onlyShots) {
+		let clickIndex = mapIndexToSourceModel(index)
+		if(clickIndex.model.get(clickIndex,"typeRole") == "Shot")
+			selectionModel.select(index, ItemSelectionModel.Toggle)
+		else
+			selectionModel.select(index, ItemSelectionModel.Deselect)
+	} else {
+		selectionModel.select(index, ItemSelectionModel.Toggle)
+	}
 	selectionModel.select(helpers.createItemSelection(selection), ItemSelectionModel.Toggle)
 }
 
@@ -884,20 +990,26 @@ function shiftSelectItem(selectionModel, index) {
 	}
 }
 
-function updateMetadata(enabled, mediaUuid) {
-    if(enabled && ShotBrowserEngine.liveLinkKey != mediaUuid) {
-        ShotBrowserEngine.liveLinkKey = mediaUuid
+function updateMetadata(enabled, mediaUuid, clipUuid) {
 
-        let mindex = theSessionData.searchRecursive(mediaUuid, "actorUuidRole", theSessionData.index(0, 0))
-        if(mindex.valid) {
+	if(enabled && ShotBrowserEngine.liveLinkKey != mediaUuid + clipUuid) {
+        ShotBrowserEngine.liveLinkKey = mediaUuid + clipUuid
+		let mindex = null
+		let cindex = null
+
+        if(mediaUuid != "{00000000-0000-0000-0000-000000000000}")
+			mindex = theSessionData.searchRecursive(mediaUuid, "actorUuidRole", theSessionData.index(0, 0))
+
+        if(clipUuid != "{00000000-0000-0000-0000-000000000000}")
+			cindex = theSessionData.searchRecursive(clipUuid, "idRole", theSessionData.index(0, 0))
+
+        if(mindex && mindex.valid) {
             Future.promise(
                 mindex.model.getJSONFuture(mindex, "", true)
             ).then(function(json_string) {
-                ShotBrowserEngine.liveLinkKey = mediaUuid
+                // ShotBrowserEngine.liveLinkKey = mediaUuid
                 // inject current sources.
-
                 let jsn = JSON.parse(json_string)
-
                 try {
 	                let image_actor_idx = mindex.model.searchRecursive(mindex.model.get(mindex, "imageActorUuidRole"), "actorUuidRole", mindex)
 	                let audio_actor_idx = mindex.model.searchRecursive(mindex.model.get(mindex, "audioActorUuidRole"), "actorUuidRole", mindex)
@@ -913,6 +1025,10 @@ function updateMetadata(enabled, mediaUuid) {
 		                jsn["metadata"]["audio_source"] = ["movie_dneg"]
 	                }
 	            }catch(err){}
+
+	            if(cindex && cindex.valid)
+	            	jsn["metadata"]["clip"] = cindex.model.get(cindex,"propertyRole")
+
                 ShotBrowserEngine.liveLinkMetadata = JSON.stringify(jsn)
             })
             return true
@@ -925,6 +1041,8 @@ function updateMetadata(enabled, mediaUuid) {
 
 function transfer(destination, indexes, leafs=[]) {
     let project = null
+    let deps = "0"
+
 	indexes = mapIndexesToResultModel(indexes)
 
 	console.log(indexes, leafs)
@@ -942,6 +1060,10 @@ function transfer(destination, indexes, leafs=[]) {
 
  		    	let location = model.get(indexes[i],"locationRole")
 		        let dnuuid = model.get(indexes[i],"stalkUuidRole")
+
+		        let ttype = model.get(indexes[i],"twigTypeRole")
+		        if(ttype == "package/asset")
+		    		deps = "1";
 
 		        if(leafs.length) {
 		        	// need to get ivy entry for this uuid..
@@ -975,7 +1097,7 @@ function transfer(destination, indexes, leafs=[]) {
 
 	    if(project && destination && sources.size) {
 			sources.forEach((value, key) => {
-			    var fa = ShotBrowserEngine.requestFileTransferFuture(value, project, key, destination)
+			    var fa = ShotBrowserEngine.requestFileTransferFuture(value, project, key, destination, deps)
 
 			    Future.promise(fa).then(
 			        function(result) {}
@@ -987,6 +1109,7 @@ function transfer(destination, indexes, leafs=[]) {
 
 function transferMedia(destination, indexes, leafs=[]) {
     let project = null
+    let deps = "0"
 
     if(indexes.length) {
     	let model = indexes[0].model
@@ -999,6 +1122,9 @@ function transferMedia(destination, indexes, leafs=[]) {
 		        if(project == null)
 		            project = JSON.parse(theSessionData.getJSON(indexes[i], "/metadata/shotgun/version/relationships/project/data/name"))
 		    	let source = JSON.parse(theSessionData.getJSON(indexes[i], "/metadata/shotgun/version/attributes/sg_location"))
+		    	let type = JSON.parse(theSessionData.getJSON(indexes[i], "/metadata/shotgun/version/attributes/sg_twig_type_code"))
+		    	if(type == "apkg")
+		    		deps = "1";
 
 		    	if(leafs.length) {
 		    		// search through ivy metadata for leaf dnuuids
@@ -1043,7 +1169,7 @@ function transferMedia(destination, indexes, leafs=[]) {
 
 	    if(project && destination && sources.size) {
 			sources.forEach(function (value, key, map) {
-			    var fa = ShotBrowserEngine.requestFileTransferFuture(value, project, key, destination)
+			    var fa = ShotBrowserEngine.requestFileTransferFuture(value, project, key, destination, deps)
 
 			    Future.promise(fa).then(
 			        function(result) {}
@@ -1102,3 +1228,138 @@ function getValidMediaCount(playlistUuid, callback=console.log) {
         })
     })
 }
+
+function refreshTags(selected) {
+        // build list of REF tag entries and pass to sequence tree..
+    let tags = []
+    let indexs =  mapIndexesToResultModel(selected)
+    indexs.forEach(function (item, index) {
+        item.model.get(item, "tagRole").forEach(function (tag, tindex) {
+            if(tag.name.startsWith("REF-"))
+                tags.push(tag)
+        })
+    })
+    assetBaseModel.tags = tags
+    sequenceBaseModel.tags = tags
+}
+
+function tagResultVersions(type, id, results, prerun=true) {
+	let reftag = ShotBrowserEngine.refTagNameFromEntity(type, id)
+	let indexes = mapIndexesToResultModel(results)
+
+	if(prerun) {
+		Future.promise(
+		        ShotBrowserEngine.tagEntityFromNameFuture(
+		        	indexes[0].model.get(indexes[0], "typeRole"),
+		        	indexes[0].model.get(indexes[0], "idRole"),
+		        	reftag
+		        )
+		    ).then(
+			    function(json_string) {
+			    	try {
+			    		let obj = JSON.parse(json_string)
+			    		indexes[0].model.set(indexes[0], obj.data.relationships.tags.data, "tagRole")
+		                refreshTags(results)
+
+			    	} catch(err) {
+			    		console.log(err)
+			    	}
+					tagResultVersions(type, id, results, false)
+			    },
+			    function(err) {
+			    	console.log("ERROR: tagResultVersions", type, id, indexes[0], err)
+			    	tagResultVersions(type, id, results, false)
+			    }
+		    )
+	} else {
+		indexes.splice(0, 1)
+		indexes.forEach(function (item, index) {
+			Future.promise(
+			        ShotBrowserEngine.tagEntityFromNameFuture(
+			        	item.model.get(item, "typeRole"),
+			        	item.model.get(item, "idRole"),
+			        	reftag
+			        )
+			    ).then(
+				    function(json_string) {
+				    	try {
+				    		let obj = JSON.parse(json_string)
+				    		item.model.set(item, obj.data.relationships.tags.data, "tagRole")
+			                refreshTags(results)
+				    	} catch(err) {
+				    		console.log(err)
+				    	}
+				    },
+				    function(err) {
+				    	console.log("ERROR: tagResultVersions", type, id, item, err)
+				    }
+			    )
+		})
+	}
+}
+
+function untagResultVersions(tagid, results) {
+	let indexes = mapIndexesToResultModel(results)
+
+	indexes.forEach(function (item, index) {
+		// console.log("unlink", item.model.get(item, "typeRole"), item.model.get(item, "idRole"), tagid)
+		Future.promise(
+		        ShotBrowserEngine.untagEntityFuture(
+		        	item.model.get(item, "typeRole"),
+		        	item.model.get(item, "idRole"),
+		        	tagid
+		        )
+		    ).then(
+			    function(json_string) {
+			    	try {
+			    		let obj = JSON.parse(json_string);
+			    		item.model.set(item, obj.data.relationships.tags.data, "tagRole");
+		                refreshTags(results);
+			    	} catch(err) {
+			    		console.log(err)
+			    	}
+			    },
+			    function(err) {
+			    	console.log("ERROR: untagResultVersions", type, id, item, err)
+			    }
+		    )
+	})
+}
+
+
+function updateSnapshotFolders(project) {
+	let found = false;
+
+	if(project) {
+		snapshot_paths.forEach(function (item, index) {
+			if(item.name == project)
+				found = true;
+		})
+
+		if(!found && helpers.urlExists("file:///jobs/"+project+"/REF/xstudio/snapshots")) {
+            let v = JSON.parse(JSON.stringify(snapshot_paths))
+            v.push({'path': "file:///jobs/"+project+"/REF/xstudio/snapshots", "name": project})
+            snapshot_paths = v
+		}
+	}
+}
+
+
+function markAsHero(mediaSelection, state) {
+	//get version metadata..
+
+	mediaSelection.forEach(function (item, index) {
+	        Future.promise(
+	            item.model.getJSONFuture(item, "/metadata/shotgun/version/id")
+	        ).then(function(json_string) {
+	            json_string = json_string.replace(/^"|"$/g, '')
+
+		        Future.promise(
+		            ShotBrowserEngine.updateEntityFuture("Version", parseInt(json_string), JSON.stringify({"sg_is_hero": state}), ["id","sg_is_hero"])
+			    ).then(function(result) {
+			    	// console.log(result)
+			    })
+	        })
+	})
+}
+
