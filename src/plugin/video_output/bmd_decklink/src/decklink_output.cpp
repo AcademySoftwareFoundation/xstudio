@@ -113,7 +113,7 @@ DecklinkOutput::DecklinkOutput(BMDecklinkPlugin *decklink_xstudio_plugin)
       decklink_output_interface_(NULL),
       decklink_xstudio_plugin_(decklink_xstudio_plugin) {
 
-    init_decklink();
+    is_available_ = init_decklink();
 }
 
 DecklinkOutput::~DecklinkOutput() {
@@ -436,6 +436,10 @@ bool DecklinkOutput::start_sdi_output() {
 
     try {
 
+        if (!decklink_output_interface_) {
+            throw std::runtime_error("No DeckLink device is available.");
+        }
+
         bool mode_matched = false;
         // Get first avaliable video mode for Output
         if (decklink_output_interface_->GetDisplayModeIterator(&display_mode_iterator) ==
@@ -532,9 +536,11 @@ bool DecklinkOutput::stop_sdi_output(const std::string &error_message) {
 
     spdlog::info("Stopping Decklink output loop. {}", error_message);
 
-    decklink_output_interface_->StopScheduledPlayback(0, NULL, 0);
-    decklink_output_interface_->DisableVideoOutput();
-    decklink_output_interface_->DisableAudioOutput();
+    if (decklink_output_interface_) {
+        decklink_output_interface_->StopScheduledPlayback(0, NULL, 0);
+        decklink_output_interface_->DisableVideoOutput();
+        decklink_output_interface_->DisableAudioOutput();
+    }
 
     mutex_.lock();
 
@@ -908,6 +914,9 @@ long DecklinkOutput::num_samples_in_buffer() {
     // note this method is called by the xstudio audio output thread
     // Have to assume that GetBufferedAudioSampleFrameCount is not thread safe. BMD SDK
     // does not tell us otherwise
+    if (!decklink_output_interface_) {
+        return 0;
+    }
     std::unique_lock lk0(bmd_mutex_);
     uint32_t prerollAudioSampleCount;
     if (decklink_output_interface_->GetBufferedAudioSampleFrameCount(
@@ -919,6 +928,12 @@ long DecklinkOutput::num_samples_in_buffer() {
 
 // Note, I have not yet understood the significance of the preroll flag
 void DecklinkOutput::copy_audio_samples_to_decklink_buffer(const bool /*preroll*/) {
+
+    if (!decklink_output_interface_) {
+        fetch_more_samples_from_xstudio_ = true;
+        audio_samples_cv_.notify_one();
+        return;
+    }
 
     std::unique_lock lk0(bmd_mutex_);
 

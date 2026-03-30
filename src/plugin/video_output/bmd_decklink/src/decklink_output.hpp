@@ -142,6 +142,8 @@ namespace bm_decklink_plugin_1_0 {
             hdr_metadata_mutex_.unlock();
         }
 
+        [[nodiscard]] bool is_available() const { return is_available_; }
+
       private:
         AVOutputCallback *output_callback_;
         std::mutex mutex_;
@@ -195,6 +197,7 @@ namespace bm_decklink_plugin_1_0 {
 
         HDRMetadata hdr_metadata_;
         std::mutex hdr_metadata_mutex_;
+        bool is_available_ = {false};
     };
 
     class AVOutputCallback : public IDeckLinkVideoOutputCallback,
