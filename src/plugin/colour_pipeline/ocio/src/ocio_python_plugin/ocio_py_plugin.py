@@ -255,6 +255,8 @@ class OCIOPluginPython(PluginBase):
         metadata = media.media_source().get_metadata(
             "/colour_pipeline"
         )
+        if not metadata:
+            metadata = {}
         return metadata.get("ocio_py_plugin", {})
 
     def _set_plugin_metadata(self, media, plugin_metadata):
