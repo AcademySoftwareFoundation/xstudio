@@ -284,6 +284,9 @@ void BMDecklinkPlugin::attribute_changed(const utility::Uuid &attribute_uuid, co
 
 audio::AudioOutputDevice *
 BMDecklinkPlugin::make_audio_output_device(const utility::JsonStore &prefs) {
+    if (!dcl_output_ || !dcl_output_->is_available()) {
+        return nullptr;
+    }
     return static_cast<audio::AudioOutputDevice *>(
         new DecklinkAudioOutputDevice(prefs, dcl_output_));
 }
@@ -294,6 +297,13 @@ void BMDecklinkPlugin::initialise() {
 
         dcl_output_ = new DecklinkOutput(this);
         set_hdr_mode_and_metadata();
+
+        if (!dcl_output_->is_available()) {
+            status_message_->set_value("No DeckLink device detected.");
+            is_in_error_->set_value(true);
+            spdlog::warn("Decklink drivers found, but no DeckLink device is available.");
+            return;
+        }
 
         resolutions_->set_role_data(
             module::Attribute::StringChoices, dcl_output_->output_resolution_names());
