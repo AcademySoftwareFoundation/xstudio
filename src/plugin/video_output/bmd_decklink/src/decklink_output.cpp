@@ -1154,7 +1154,7 @@ void DecklinkOutput::copy_audio_samples_to_decklink_buffer(const bool /*preroll*
 ////////////////////////////////////////////
 AVOutputCallback::AVOutputCallback(DecklinkOutput *pOwner) { owner_ = pOwner; }
 
-HRESULT AVOutputCallback::QueryInterface(REFIID /*iid*/, LPVOID *ppv) {
+HRESULT AVOutputCallback::QueryInterface(REFIID iid, LPVOID *ppv) {
     if (!ppv) {
         return E_INVALIDARG;
     }
