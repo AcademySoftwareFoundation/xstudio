@@ -5,7 +5,9 @@ import xStudio 1.0
 
 Rectangle {
     id: treeRoot
-    color: "#222222"
+    color: XsFileSystemStyle.backgroundColor
+
+
     
     // Properties to communicate with parent
     property var pluginData: null
@@ -15,13 +17,13 @@ Rectangle {
     onSendCommand: (cmd) => console.log("DirectoryTree: Sending command: " + JSON.stringify(cmd))
     
     // Style constants to match FilesystemBrowser
-    property real rowHeight: 30
-    property color textColor: "#e0e0e0"
-    property color hintColor: "#aaaaaa"
-    property real fontSize: 12
-    property color selectionColor: "#555555"
-    property color hoverColor: "#333333"
-    property color backgroundColor: "#222222"
+    property real rowHeight: XsFileSystemStyle.rowHeight
+    property color textColor: XsFileSystemStyle.textColor
+    property color hintColor: XsFileSystemStyle.hintColor
+    property real fontSize: XsFileSystemStyle.fontSize
+    property color selectionColor: XsFileSystemStyle.selectionColor
+    property color hoverColor: XsFileSystemStyle.hoverColor
+    property color backgroundColor: XsFileSystemStyle.backgroundColor
     
     // Auto-expand logic
     property string pendingExpandPath: ""
@@ -306,13 +308,13 @@ Rectangle {
         // Header
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 30
-            color: "#333333"
+            Layout.preferredHeight: XsFileSystemStyle.headerHeight
+            color: XsFileSystemStyle.headerBgColor
             
             Text {
                 anchors.centerIn: parent
                 text: "Directories"
-                color: "#cccccc"
+                color: XsFileSystemStyle.secondaryTextColor
                 font.bold: true
             }
         }
@@ -328,7 +330,7 @@ Rectangle {
                 id: rowDelegate
                 width: ListView.view.width
                 height: treeRoot.rowHeight
-                color: (model.path === treeRoot.currentPath) ? treeRoot.selectionColor : ((msgMouse.containsMouse || scanMouse.containsMouse) ? "#2d2d2d" : "transparent")
+                color: (model.path === treeRoot.currentPath) ? treeRoot.selectionColor : ((msgMouse.containsMouse || scanMouse.containsMouse) ? XsFileSystemStyle.hoverColor : "transparent")
                 
                 // Row Selection MouseArea (Background)
                 MouseArea {
@@ -411,15 +413,15 @@ Rectangle {
                             visible: msgMouse.containsMouse || scanMouse.containsMouse
                             width: 46
                             height: 18
-                            color: scanMouse.containsMouse ? "#2a2a2a" : "#1a1a1a"
+                            color: scanMouse.containsMouse ? XsFileSystemStyle.pressedColor : XsFileSystemStyle.panelBgColor
                             radius: 4
-                            border.color: "#333333"
+                            border.color: XsFileSystemStyle.borderColor
                             border.width: 1
                             
                             Text {
                                 anchors.centerIn: parent
                                 text: "SCAN"
-                                color: "#666666"
+                                color: XsFileSystemStyle.textColor
                                 font.pixelSize: 8
                                 font.bold: true
                             }
@@ -456,12 +458,12 @@ Rectangle {
                 active: true
                 policy: ScrollBar.AsNeeded
                 width: 10
-                background: Rectangle { color: "#222222" }
+                background: Rectangle { color: XsFileSystemStyle.backgroundColor }
                 contentItem: Rectangle {
                     implicitWidth: 6
                     implicitHeight: 100
                     radius: 3
-                    color: treeView.active ? "#555555" : "#333333"
+                    color: treeView.active ? XsFileSystemStyle.hintColor : XsFileSystemStyle.secondaryTextColor
                 }
             }
         }

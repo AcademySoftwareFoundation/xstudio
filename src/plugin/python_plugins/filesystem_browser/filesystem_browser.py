@@ -214,10 +214,10 @@ class FilesystemBrowserPlugin(PluginBase):
         self.depth_limit_attr = self.add_attribute(
             "recursion_limit",
             self.config.get("max_recursion_depth", 6),
-            {"title": "Recursion Limit"},
+            {"title": "Recursion Limit", "category": "Filesystem Browser"},
             register_as_preference=True
         )
-        self.depth_limit_attr.expose_in_ui_attrs_group("Filesystem Browser")
+        self.depth_limit_attr.expose_in_ui_attrs_group("Filesystem Browser Settings")
 
         # New: Scan Required flag (for manual scan mode)
         self.scan_required_attr = self.add_attribute(
@@ -228,14 +228,13 @@ class FilesystemBrowserPlugin(PluginBase):
         )
         self.scan_required_attr.expose_in_ui_attrs_group("Filesystem Browser")
 
-        # Auto-scan threshold (read-only for UI logic)
         self.auto_scan_threshold_attr = self.add_attribute(
             "auto_scan_threshold",
             self.config.get("auto_scan_threshold", 4),
-            {"title": "auto_scan_threshold"},
-            register_as_preference=False
+            {"title": "auto_scan_threshold", "category": "Filesystem Browser"},
+            register_as_preference=True
         )
-        self.auto_scan_threshold_attr.expose_in_ui_attrs_group("Filesystem Browser")
+        self.auto_scan_threshold_attr.expose_in_ui_attrs_group("Filesystem Browser Settings")
         
         # New: Filter attributes
         self.filter_time_attr = self.add_attribute(
@@ -343,11 +342,30 @@ class FilesystemBrowserPlugin(PluginBase):
         # Note: We need to register callbacks properly.
         # attribute_changed method handles all.
         
-        # Internal state
-        # Load extensions and ignore dirs from config
-        self.extensions = set(self.config.get("extensions", []))
-        self.ignore_dirs = set(self.config.get("ignore_dirs", []))
-        self.root_ignore_dirs = set(self.config.get("root_ignore_dirs", []))
+        # Configuration preferences with fallbacks from config.json
+        self.extensions_attr = self.add_attribute(
+            "Media Extensions",
+            ", ".join(self.config.get("extensions", [])),
+            {"title": "Media Extensions", "category": "Filesystem Browser"},
+            register_as_preference=True
+        )
+        self.extensions_attr.expose_in_ui_attrs_group("Filesystem Browser Settings")
+
+        self.ignore_dirs_attr = self.add_attribute(
+            "Ignore Directories",
+            ", ".join(self.config.get("ignore_dirs", [])),
+            {"title": "Ignore Directories", "category": "Filesystem Browser"},
+            register_as_preference=True
+        )
+        self.ignore_dirs_attr.expose_in_ui_attrs_group("Filesystem Browser Settings")
+
+        self.root_ignore_dirs_attr = self.add_attribute(
+            "Root Ignore Directories",
+            ", ".join(self.config.get("root_ignore_dirs", [])),
+            {"title": "Root Ignore Directories", "category": "Filesystem Browser"},
+            register_as_preference=True
+        )
+        self.root_ignore_dirs_attr.expose_in_ui_attrs_group("Filesystem Browser Settings")
         self.search_thread = None
         self.cancel_search = False
         self.results_lock = threading.Lock()  # Protects current_scan_results
@@ -385,6 +403,24 @@ class FilesystemBrowserPlugin(PluginBase):
 
         # Initial search
         self.start_search(self.current_path_attr.value())
+
+    @property
+    def extensions(self):
+        val = self.extensions_attr.value()
+        if not val: return []
+        return [item.strip() for item in val.split(',') if item.strip()]
+
+    @property
+    def ignore_dirs(self):
+        val = self.ignore_dirs_attr.value()
+        if not val: return set()
+        return set(item.strip() for item in val.split(',') if item.strip())
+
+    @property
+    def root_ignore_dirs(self):
+        val = self.root_ignore_dirs_attr.value()
+        if not val: return set()
+        return set(item.strip() for item in val.split(',') if item.strip())
         
     def toggle_browser_from_menu(self, menu_item=None, user_data=None):
         # Wrapper for menu callback

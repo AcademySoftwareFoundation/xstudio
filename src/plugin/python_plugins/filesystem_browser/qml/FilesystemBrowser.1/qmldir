@@ -1,2 +1,3 @@
 module FilesystemBrowser
 FilesystemBrowser 1.0 FilesystemBrowser.qml
+singleton XsFileSystemStyle 1.0 XsFileSystemStyle.qml

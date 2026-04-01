@@ -7,11 +7,14 @@ import QtQuick.Shapes 1.15    // Added for vector icon
 import xStudio 1.0
 import xstudio.qml.models 1.0
 import xStudio 1.0
+import xstudio.qml.models 1.0
 
 Rectangle {
     id: root
-    color: "#222222"
+    color: XsFileSystemStyle.backgroundColor
     anchors.fill: parent // Ensure it fills the panel
+
+
 
     // Access the attributes exposed by the plugin
     property string currentFilterTime: "Any"
@@ -798,18 +801,18 @@ Rectangle {
     }
 
     // Layout Constants - Hardcoded for reliability
-    property real rowHeight: 30
-    property color textColor: "#e0e0e0"
-    property color hintColor: "#aaaaaa"
-    property real fontSize: 12
+    property real rowHeight: XsFileSystemStyle.rowHeight
+    property color textColor: XsFileSystemStyle.textColor
+    property color hintColor: XsFileSystemStyle.hintColor
+    property real fontSize: XsFileSystemStyle.fontSize
 
     SplitView {
         anchors.fill: parent
         orientation: Qt.Horizontal
         
         handle: Rectangle {
-            implicitWidth: 4
-            color: SplitHandle.pressed ? "#555555" : (SplitHandle.hovered ? "#444444" : "#222222")
+            implicitWidth: 2
+            color: SplitHandle.pressed ? XsFileSystemStyle.accentColor : (SplitHandle.hovered ? XsFileSystemStyle.hintColor : XsFileSystemStyle.dividerColor)
         }
 
         // Tree Container
@@ -821,7 +824,7 @@ Rectangle {
             // Collapsed State (Sidebar)
             Rectangle {
                 anchors.fill: parent
-                color: "#1a1a1a"
+                color: XsFileSystemStyle.pressedColor
                 visible: !showDirectoryTree
                 
                 ColumnLayout {
@@ -839,7 +842,7 @@ Rectangle {
                         }
                         contentItem: Text {
                             text: parent.text
-                            color: "#aaaaaa"
+                            color: XsFileSystemStyle.hintColor
                             font.pixelSize: 14
                             horizontalAlignment: Text.AlignHCenter
                         }
@@ -857,7 +860,7 @@ Rectangle {
                         Text {
                             anchors.centerIn: parent
                             text: "DIRECTORY VIEW"
-                            color: "#444444"
+                            color: XsFileSystemStyle.pressedColor === "#1a1a1a" ? "#444444" : XsFileSystemStyle.secondaryTextColor
                             font.pixelSize: 10
                             font.bold: true
                             rotation: 90
@@ -878,8 +881,8 @@ Rectangle {
                 Rectangle {
                     id: treeHeader
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 30
-                    color: "#222222"
+                    Layout.preferredHeight: XsFileSystemStyle.headerHeight
+                    color: XsFileSystemStyle.headerBgColor
                     z: 10
                     
                     RowLayout {
@@ -889,9 +892,9 @@ Rectangle {
                         
                         Text {
                             text: "Directories"
-                            color: "#e0e0e0"
+                            color: XsFileSystemStyle.textColor
                             font.bold: true
-                            font.pixelSize: 12
+                            font.pixelSize: XsFileSystemStyle.fontSize
                             Layout.fillWidth: true
                         }
 
@@ -906,8 +909,8 @@ Rectangle {
                             }
                              contentItem: Text {
                                 text: "×"
-                                color: "#aaaaaa"
-                                font.pixelSize: 16
+                                color: XsFileSystemStyle.hintColor
+                                font.pixelSize: XsFileSystemStyle.fontSize + 4
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -918,7 +921,7 @@ Rectangle {
                     Rectangle {
                         width: parent.width
                         height: 1
-                        color: "#333333"
+                        color: XsFileSystemStyle.dividerColor
                         anchors.bottom: parent.bottom
                     }
                 }
@@ -977,8 +980,8 @@ Rectangle {
                 }
                 
                 background: Rectangle { 
-                    color: "#333333" 
-                    border.color: "#555555"
+                    color: XsFileSystemStyle.panelBgColor 
+                    border.color: XsFileSystemStyle.borderColor
                     border.width: 1 
                 }
                 focus: true
@@ -1082,12 +1085,12 @@ Rectangle {
                     width: parent.width 
                     height: 200
                     y: parent.height + 2 // Offset slightly
-                    background: Rectangle { color: "#333333"; border.color: "#555555" }
+                    background: Rectangle { color: XsFileSystemStyle.panelBgColor; border.color: XsFileSystemStyle.borderColor }
                     contentItem: ListView { 
                         id: completionListView
                         model: completionList
                         clip: true
-                        highlight: Rectangle { color: "#444444" }
+                        highlight: Rectangle { color: XsFileSystemStyle.hoverColor }
                         highlightMoveDuration: 0
                         delegate: Item {
                             width: parent.width
@@ -1095,7 +1098,7 @@ Rectangle {
                             Rectangle { anchors.fill: parent; color: "transparent" }
                             Text { 
                                 text: modelData
-                                color: "#cccccc"
+                                color: XsFileSystemStyle.secondaryTextColor
                                 anchors.fill: parent
                                 verticalAlignment: Text.AlignVCenter
                                 leftPadding: 5
@@ -1128,7 +1131,7 @@ Rectangle {
                 ToolTip.text: "Refresh directory scan"
                 
                 background: Rectangle {
-                    color: parent.down ? "#222222" : (parent.hovered ? "#444444" : "transparent")
+                    color: parent.down ? XsFileSystemStyle.pressedColor : (parent.hovered ? XsFileSystemStyle.hoverColor : "transparent")
                 }
                 contentItem: Text {
                     text: parent.text
@@ -1157,7 +1160,7 @@ Rectangle {
                 }
                 
                 background: Rectangle {
-                    color: parent.down || pathPopup.opened ? "#222222" : (parent.hovered ? "#444444" : "transparent")
+                    color: parent.down || pathPopup.opened ? XsFileSystemStyle.pressedColor : (parent.hovered ? XsFileSystemStyle.hoverColor : "transparent")
                     border.width: 0
                 }
 
@@ -1185,8 +1188,8 @@ Rectangle {
                     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
                     
                     background: Rectangle {
-                        color: "#2a2a2a"
-                        border.color: "#555555"
+                        color: XsFileSystemStyle.headerBgColor
+                        border.color: XsFileSystemStyle.borderColor
                     }
 
                     ColumnLayout {
@@ -1198,11 +1201,11 @@ Rectangle {
                         Rectangle {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 25
-                            color: "#333333"
+                            color: XsFileSystemStyle.panelBgColor
                             Label { 
                                 text: "QUICK ACCESS"
-                                color: "#aaaaaa"
-                                font.pixelSize: 10
+                                color: XsFileSystemStyle.hintColor
+                                font.pixelSize: fontSize
                                 anchors.centerIn: parent
                             }
                         }
@@ -1217,7 +1220,7 @@ Rectangle {
                             delegate: Rectangle {
                                 width: ListView.view.width
                                 height: 25
-                                color: mouseArea.containsMouse ? "#444444" : "transparent"
+                                color: mouseArea.containsMouse ? XsFileSystemStyle.hoverColor : "transparent"
                                 
                                 MouseArea {
                                     id: mouseArea
@@ -1277,7 +1280,7 @@ Rectangle {
                                     Text {
                                         text: modelData.name
                                         color: "#e0e0e0"
-                                        font.pixelSize: 11
+                                        font.pixelSize: fontSize
                                         Layout.fillWidth: true
                                         elide: Text.ElideMiddle
                                         verticalAlignment: Text.AlignVCenter
@@ -1286,8 +1289,8 @@ Rectangle {
                                     // Path Hint (Right aligned, faded)
                                     Text {
                                         text: modelData.path
-                                        color: "#666666"
-                                        font.pixelSize: 9
+                                        color: XsFileSystemStyle.hintColor
+                                        font.pixelSize: fontSize
                                         Layout.preferredWidth: parent.width * 0.4
                                         elide: Text.ElideRight
                                         verticalAlignment: Text.AlignVCenter
@@ -1330,13 +1333,13 @@ Rectangle {
                       width: ListView.view.width
                       contentItem: Text {
                           text: modelData
-                          color: "#e0e0e0"
-                          font.pixelSize: fontSize
+                          color: XsFileSystemStyle.textColor
+                          font.pixelSize: XsFileSystemStyle.fontSize
                           elide: Text.ElideRight
                           verticalAlignment: Text.AlignVCenter
                       }
                       background: Rectangle {
-                          color: parent.highlighted ? "#444444" : "#222222"
+                          color: parent.highlighted ? XsFileSystemStyle.hoverColor : XsFileSystemStyle.backgroundColor
                       }
                       highlighted: filterTimeCombo.highlightedIndex === index
                   }
@@ -1356,8 +1359,8 @@ Rectangle {
                       }
 
                       background: Rectangle {
-                          border.color: "#555555"
-                          color: "#222222"
+                          border.color: XsFileSystemStyle.borderColor
+                          color: XsFileSystemStyle.backgroundColor
                       }
                   }
              }
@@ -1377,13 +1380,13 @@ Rectangle {
                       width: ListView.view.width
                       contentItem: Text {
                           text: modelData
-                          color: "#e0e0e0"
-                          font.pixelSize: fontSize
+                          color: XsFileSystemStyle.textColor
+                          font.pixelSize: XsFileSystemStyle.fontSize
                           elide: Text.ElideRight
                           verticalAlignment: Text.AlignVCenter
                       }
                       background: Rectangle {
-                          color: parent.highlighted ? "#444444" : "#222222"
+                          color: parent.highlighted ? XsFileSystemStyle.hoverColor : XsFileSystemStyle.backgroundColor
                       }
                       highlighted: filterVersionCombo.highlightedIndex === index
                   }
@@ -1403,58 +1406,13 @@ Rectangle {
                       }
 
                       background: Rectangle {
-                          border.color: "#555555"
-                          color: "#222222"
+                          border.color: XsFileSystemStyle.borderColor
+                          color: XsFileSystemStyle.backgroundColor
                       }
                   }
              }
 
-              // recursion limit
-              RowLayout {
-                   spacing: 5
-                   Label { 
-                       text: "Depth:"
-                       color: "#aaaaaa"
-                       font.pixelSize: fontSize
-                       verticalAlignment: Text.AlignVCenter
-                   }
-                   SpinBox {
-                       id: depthSpin
-                       from: 1
-                       to: 10
-                       value: parseInt(depth_limit_attr.value) || 6
-                       editable: true
-                       Layout.preferredWidth: 80
-                       Layout.preferredHeight: rowHeight
-                       
-                       onValueModified: {
-                           sendCommand({"action": "set_attribute", "name": "recursion_limit", "value": value})
-                           // Optimistic update
-                           depth_limit_attr.value = value
-                       }
-                       
-                       // Customizing background to match dark theme
-                       contentItem: TextInput {
-                            z: 2
-                            text: depthSpin.textFromValue(depthSpin.value, depthSpin.locale)
-                            font: depthSpin.font
-                            color: "#e0e0e0"
-                            selectionColor: "#21be2b"
-                            selectedTextColor: "#ffffff"
-                            horizontalAlignment: Qt.AlignHCenter
-                            verticalAlignment: Qt.AlignVCenter
-                            readOnly: !depthSpin.editable
-                            validator: depthSpin.validator
-                            inputMethodHints: Qt.ImhDigitsOnly
-                        }
-                        background: Rectangle {
-                            implicitWidth: 80
-                            implicitHeight: rowHeight
-                            color: "#333333"
-                            border.color: "#555555"
-                        }
-                   }
-              }
+
               
             // Text Filter
             TextField {
@@ -1462,11 +1420,11 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: rowHeight
                 placeholderText: "Filter String..."
-                placeholderTextColor: "#888888" 
-                color: "white"
-                font.pixelSize: fontSize
+                placeholderTextColor: XsFileSystemStyle.hintColor
+                color: XsFileSystemStyle.textColor
+                font.pixelSize: XsFileSystemStyle.fontSize
                 leftPadding: 5
-                background: Rectangle { color: "#333333"; border.color: "#555555" }
+                background: Rectangle { color: XsFileSystemStyle.panelBgColor; border.color: XsFileSystemStyle.borderColor }
                 onTextEdited: refreshFiltering()
             }
         }
@@ -1477,7 +1435,7 @@ Rectangle {
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: rowHeight
-            color: "#2a2a2a" // Background
+            color: XsFileSystemStyle.headerBgColor
             
             Item {
                 anchors.fill: parent
@@ -1503,8 +1461,8 @@ Rectangle {
                             anchors.fill: parent
                             verticalAlignment: Text.AlignVCenter
                             leftPadding: 5
-                            color: hintColor
-                            font.pixelSize: fontSize
+                            color: root.XsFileSystemStyle.textColor
+                            font.pixelSize: root.XsFileSystemStyle.fontSize
                             font.weight: Font.DemiBold
                             elide: Text.ElideRight
                         }
@@ -1544,7 +1502,7 @@ Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
             
-            Rectangle { anchors.fill: parent; color: "#222222" }
+            Rectangle { anchors.fill: parent; color: XsFileSystemStyle.backgroundColor }
             
             ListView {
                 id: fileListView
@@ -1594,8 +1552,8 @@ Rectangle {
                 Text {
                     anchors.centerIn: parent
                     text: "Nothing found"
-                    color: "#666666"
-                    font.pixelSize: 18
+                    color: XsFileSystemStyle.hintColor
+                    font.pixelSize: XsFileSystemStyle.fontSize + 6
                     visible: fileListView.count === 0 && !searching_attr.value && !scan_required_attr.value
                 }
                 clip: true
@@ -1657,7 +1615,7 @@ Rectangle {
 
                     Rectangle {
                         anchors.fill: parent
-                        color: isSelected ? "#555555" : (isHovered ? "#333333" : (index % 2 == 0 ? "#222222" : "#252525"))
+                        color: isSelected ? XsFileSystemStyle.selectionColor : (isHovered ? XsFileSystemStyle.hoverColor : (index % 2 == 0 ? XsFileSystemStyle.backgroundColor : XsFileSystemStyle.alternateBgColor))
                     }
 
                     MouseArea {
@@ -1705,7 +1663,7 @@ Rectangle {
                             verticalAlignment: Text.AlignVCenter
                             elide: elideMode
                             leftPadding: 5
-                            color: isSelected ? "#ffffff" : "#cccccc"
+                            color: isSelected ? root.XsFileSystemStyle.textColor : root.XsFileSystemStyle.secondaryTextColor
                             font.pixelSize: fontSize
                         }
                         
@@ -1722,7 +1680,7 @@ Rectangle {
                             Text {
                                 anchors.centerIn: parent
                                 text: (root.viewMode !== 0 && root.viewMode !== 3 && modelData.isFolder) ? (modelData.expanded ? "▼" : "▶") : ""
-                                color: "#aaaaaa"
+                                color: XsFileSystemStyle.hintColor
                                 font.pixelSize: 10
                             }
                             MouseArea {
@@ -1732,10 +1690,10 @@ Rectangle {
                         }
                         
                         Cell { text: modelData.name || ""; Layout.fillWidth: true; Layout.minimumWidth: minWidthName; elideMode: Text.ElideMiddle }
-                        Cell { text: (modelData.data && modelData.data.version) ? "v"+modelData.data.version : ""; w: colWidthVersion; color: isSelected?"#eee":"#999" }
-                        Cell { text: (modelData.data && modelData.data.frames) || ""; w: colWidthFrames }
-                        Cell { text: (modelData.data && modelData.data.owner) || ""; w: colWidthOwner; color: isSelected?"#eee":"#999" }
-                        Cell { text: modelData.data ? formatDate(modelData.data.date) : ""; w: colWidthDate; color: isSelected?"#eee":"#999" }
+                        Cell { text: (modelData.data && modelData.data.version) ? "v"+modelData.data.version : ""; w: colWidthVersion; color: isSelected ? root.XsFileSystemStyle.textColor : root.XsFileSystemStyle.secondaryTextColor }
+                        Cell { text: (modelData.data && modelData.data.frames) || ""; w: colWidthFrames; color: isSelected ? root.XsFileSystemStyle.textColor : root.XsFileSystemStyle.secondaryTextColor }
+                        Cell { text: (modelData.data && modelData.data.owner) || ""; w: colWidthOwner; color: isSelected ? root.XsFileSystemStyle.textColor : root.XsFileSystemStyle.secondaryTextColor }
+                        Cell { text: modelData.data ? formatDate(modelData.data.date) : ""; w: colWidthDate; color: isSelected ? root.XsFileSystemStyle.textColor : root.XsFileSystemStyle.secondaryTextColor }
                         Cell { text: (modelData.data && modelData.data.size_str) || ""; w: colWidthSize; horizontalAlignment: Text.AlignRight; rightPadding: 5 }
                         Item { width: 20 } // Spacer at end
                     }
@@ -1746,8 +1704,8 @@ Rectangle {
                         background: Rectangle {
                             implicitWidth: 150
                             implicitHeight: 40
-                            color: "#333333"
-                            border.color: "#555555"
+                            color: XsFileSystemStyle.panelBgColor
+                            border.color: XsFileSystemStyle.borderColor
                             radius: 3
                         }
                         
@@ -2021,9 +1979,9 @@ Rectangle {
                                     }
                                     
                                     background: Rectangle {
-                                        color: "#333333"
+                                        color: XsFileSystemStyle.panelBgColor
                                         radius: 3
-                                        border.color: "#555555"
+                                        border.color: XsFileSystemStyle.borderColor
                                     }
                                 }
                             }
@@ -2209,7 +2167,7 @@ Rectangle {
                             width: 60
                             height: 18
                             color: (viewMode === index) ? "#444444" : "transparent"
-                            border.color: "#555555"
+                            border.color: XsFileSystemStyle.borderColor
                             border.width: 1
                             
                             // Connecting borders
