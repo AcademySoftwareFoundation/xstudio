@@ -41,6 +41,7 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <dlfcn.h>
+#include <string.h>
 
 #include "DeckLinkAPI.h"
 
@@ -69,6 +70,58 @@ static CreateVideoConversionInstanceFunc gCreateVideoConversionFunc     = NULL;
 static CreateDeckLinkDiscoveryInstanceFunc gCreateDeckLinkDiscoveryFunc = NULL;
 static CreateVideoFrameAncillaryPacketsInstanceFunc gCreateVideoFrameAncillaryPacketsFunc =
     NULL;
+static const char *gVideoConversionSymbolName            = NULL;
+static const char *gAncillaryPacketsSymbolName           = NULL;
+
+static void *GetSymbolAddress(
+    void *libraryHandle,
+    const char *primarySymbol,
+    const char *fallbackSymbol,
+    const char *symbolDescription) {
+    dlerror();
+    void *symbol = dlsym(libraryHandle, primarySymbol);
+    if (!dlerror() && symbol) {
+        if (fallbackSymbol && strcmp(primarySymbol, "CreateVideoConversionInstance_0002") == 0) {
+            gVideoConversionSymbolName = primarySymbol;
+        } else if (
+            fallbackSymbol &&
+            strcmp(primarySymbol, "CreateVideoFrameAncillaryPacketsInstance_0002") == 0) {
+            gAncillaryPacketsSymbolName = primarySymbol;
+        }
+        return symbol;
+    }
+
+    if (!fallbackSymbol) {
+        fprintf(stderr, "DeckLink API missing symbol %s\n", primarySymbol);
+        return NULL;
+    }
+
+    dlerror();
+    symbol = dlsym(libraryHandle, fallbackSymbol);
+    if (!dlerror() && symbol) {
+        if (strcmp(primarySymbol, "CreateVideoConversionInstance_0002") == 0) {
+            gVideoConversionSymbolName = fallbackSymbol;
+        } else if (
+            strcmp(primarySymbol, "CreateVideoFrameAncillaryPacketsInstance_0002") == 0) {
+            gAncillaryPacketsSymbolName = fallbackSymbol;
+        }
+        fprintf(
+            stderr,
+            "DeckLink API using compatibility %s symbol %s (preferred %s unavailable)\n",
+            symbolDescription,
+            fallbackSymbol,
+            primarySymbol);
+        return symbol;
+    }
+
+    fprintf(
+        stderr,
+        "DeckLink API missing %s symbols %s and %s\n",
+        symbolDescription,
+        primarySymbol,
+        fallbackSymbol);
+    return NULL;
+}
 
 static void InitDeckLinkAPI(void) {
     void *libraryHandle;
@@ -89,18 +142,21 @@ static void InitDeckLinkAPI(void) {
         libraryHandle, "CreateDeckLinkAPIInformationInstance_0001");
     if (!gCreateAPIInformationFunc)
         fprintf(stderr, "%s\n", dlerror());
-    gCreateVideoConversionFunc = (CreateVideoConversionInstanceFunc)dlsym(
-        libraryHandle, "CreateVideoConversionInstance_0002");
-    if (!gCreateVideoConversionFunc)
-        fprintf(stderr, "%s\n", dlerror());
+    gCreateVideoConversionFunc = (CreateVideoConversionInstanceFunc)GetSymbolAddress(
+        libraryHandle,
+        "CreateVideoConversionInstance_0002",
+        "CreateVideoConversionInstance_0001",
+        "video conversion");
     gCreateDeckLinkDiscoveryFunc = (CreateDeckLinkDiscoveryInstanceFunc)dlsym(
         libraryHandle, "CreateDeckLinkDiscoveryInstance_0003");
     if (!gCreateDeckLinkDiscoveryFunc)
         fprintf(stderr, "%s\n", dlerror());
-    gCreateVideoFrameAncillaryPacketsFunc = (CreateVideoFrameAncillaryPacketsInstanceFunc)dlsym(
-        libraryHandle, "CreateVideoFrameAncillaryPacketsInstance_0002");
-    if (!gCreateVideoFrameAncillaryPacketsFunc)
-        fprintf(stderr, "%s\n", dlerror());
+    gCreateVideoFrameAncillaryPacketsFunc =
+        (CreateVideoFrameAncillaryPacketsInstanceFunc)GetSymbolAddress(
+            libraryHandle,
+            "CreateVideoFrameAncillaryPacketsInstance_0002",
+            "CreateVideoFrameAncillaryPacketsInstance_0001",
+            "ancillary packets");
 }
 
 static void InitDeckLinkPreviewAPI(void) {
@@ -119,6 +175,16 @@ static void InitDeckLinkPreviewAPI(void) {
         libraryHandle, "CreateOpenGL3ScreenPreviewHelper_0002");
     if (!gCreateOpenGL3PreviewFunc)
         fprintf(stderr, "%s\n", dlerror());
+}
+
+extern "C" const char *GetDeckLinkVideoConversionSymbolName(void) {
+    pthread_once(&gDeckLinkOnceControl, InitDeckLinkAPI);
+    return gVideoConversionSymbolName;
+}
+
+extern "C" const char *GetDeckLinkAncillaryPacketsSymbolName(void) {
+    pthread_once(&gDeckLinkOnceControl, InitDeckLinkAPI);
+    return gAncillaryPacketsSymbolName;
 }
 
 bool IsDeckLinkAPIPresent(void) {

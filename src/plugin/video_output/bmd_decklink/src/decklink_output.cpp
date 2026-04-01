@@ -6,10 +6,15 @@
 #include "xstudio/enums.hpp"
 #include <iostream>
 #include <half.h>
+#include <sstream>
 
 #ifdef __linux__
 #include <dlfcn.h>
+#include "extern/linux/DeckLinkAPIVideoOutput_v14_2_1.h"
 #define kDeckLinkAPI_Name "libDeckLinkAPI.so"
+
+extern "C" const char *GetDeckLinkVideoConversionSymbolName(void);
+extern "C" const char *GetDeckLinkAncillaryPacketsSymbolName(void);
 #endif
 
 using namespace xstudio::bm_decklink_plugin_1_0;
@@ -48,7 +53,75 @@ class TimeLogger {
     std::string label_;
     std::chrono::high_resolution_clock::time_point start_time_;
 };
+
+std::string with_runtime_details(
+    const std::string &message, const std::string &runtime_info) {
+    if (runtime_info.empty()) {
+        return message;
+    }
+    return fmt::format("{} ({})", message, runtime_info);
+}
 } // namespace
+
+void DecklinkOutput::detect_runtime_info() {
+    std::vector<std::string> details;
+
+#ifdef __linux__
+    Dl_info dl_info;
+    if (dladdr(reinterpret_cast<void *>(CreateDeckLinkIteratorInstance), &dl_info) &&
+        dl_info.dli_fname) {
+        details.emplace_back(fmt::format("library={}", dl_info.dli_fname));
+    }
+
+    if (const auto *video_conversion_symbol = GetDeckLinkVideoConversionSymbolName()) {
+        details.emplace_back(fmt::format("video_conversion_symbol={}", video_conversion_symbol));
+    }
+
+    if (const auto *ancillary_packets_symbol = GetDeckLinkAncillaryPacketsSymbolName()) {
+        details.emplace_back(
+            fmt::format("ancillary_packets_symbol={}", ancillary_packets_symbol));
+    }
+#endif
+
+    if (auto *api_info = CreateDeckLinkAPIInformationInstance()) {
+        const char *api_version = nullptr;
+        if (api_info->GetString(BMDDeckLinkAPIVersion, &api_version) == S_OK && api_version) {
+            details.emplace_back(fmt::format("api_version={}", api_version));
+        }
+        api_info->Release();
+    }
+
+    if (details.empty()) {
+        runtime_info_.clear();
+        return;
+    }
+
+    std::ostringstream out;
+    for (size_t i = 0; i < details.size(); ++i) {
+        if (i) {
+            out << ", ";
+        }
+        out << details[i];
+    }
+    runtime_info_ = out.str();
+}
+
+void DecklinkOutput::log_runtime_info() const {
+    if (runtime_info_.empty() && output_interface_info_.empty()) {
+        return;
+    }
+
+    if (output_interface_info_.empty()) {
+        spdlog::info("DeckLink runtime detected: {}", runtime_info_);
+    } else if (runtime_info_.empty()) {
+        spdlog::info("DeckLink runtime detected: output_interface={}", output_interface_info_);
+    } else {
+        spdlog::info(
+            "DeckLink runtime detected: {}, output_interface={}",
+            runtime_info_,
+            output_interface_info_);
+    }
+}
 
 void DecklinkOutput::check_decklink_installation() {
 
@@ -117,6 +190,18 @@ DecklinkOutput::DecklinkOutput(BMDecklinkPlugin *decklink_xstudio_plugin)
 }
 
 DecklinkOutput::~DecklinkOutput() {
+    running_ = false;
+    {
+        std::lock_guard lk(audio_samples_cv_mutex_);
+        fetch_more_samples_from_xstudio_ = true;
+    }
+    audio_samples_cv_.notify_all();
+
+    release_resources();
+    spdlog::info("Closing Decklink Output");
+}
+
+void DecklinkOutput::release_resources() {
 
     if (decklink_output_interface_ != NULL) {
 
@@ -141,8 +226,13 @@ DecklinkOutput::~DecklinkOutput() {
 
     if (intermediate_frame_ != nullptr) {
         intermediate_frame_->Release();
+        intermediate_frame_ = nullptr;
     }
-    spdlog::info("Closing Decklink Output");
+
+    output_callback_           = nullptr;
+    frame_converter_           = nullptr;
+    decklink_output_interface_ = nullptr;
+    decklink_interface_        = nullptr;
 }
 
 void DecklinkOutput::set_preroll() {
@@ -245,8 +335,11 @@ bool DecklinkOutput::init_decklink() {
     bool bSuccess = false;
 
     IDeckLinkIterator *decklink_iterator = NULL;
+    last_error_.clear();
+    output_interface_info_.clear();
 
     try {
+        detect_runtime_info();
 
 #ifdef _WIN32
         HRESULT result;
@@ -272,14 +365,34 @@ bool DecklinkOutput::init_decklink() {
         }
 
         if (decklink_iterator->Next(&decklink_interface_) != S_OK) {
-            throw std::runtime_error(
-                "This plugin requires a DeckLink device. You will not be able to use the "
-                "features of this plugin until a DeckLink device is installed.");
+            throw std::runtime_error(with_runtime_details(
+                "DeckLink drivers found but no device is installed", runtime_info_));
         }
 
         if (decklink_interface_->QueryInterface(
                 IID_IDeckLinkOutput, (void **)&decklink_output_interface_) != S_OK) {
-            throw std::runtime_error("QueryInterface failed.");
+#ifdef __linux__
+            IDeckLinkOutput_v14_2_1 *legacy_output_interface = nullptr;
+            if (decklink_interface_->QueryInterface(
+                    IID_IDeckLinkOutput_v14_2_1, (void **)&legacy_output_interface) == S_OK &&
+                legacy_output_interface != nullptr) {
+                decklink_output_interface_ =
+                    reinterpret_cast<IDeckLinkOutput *>(legacy_output_interface);
+                output_interface_info_ = "IID_IDeckLinkOutput_v14_2_1";
+                spdlog::warn("DeckLink output is using the Linux v14.2.1 compatibility ABI.");
+            } else {
+                throw std::runtime_error(with_runtime_details(
+                    "DeckLink runtime ABI mismatch: failed to query the video output "
+                    "interface",
+                    runtime_info_));
+            }
+#else
+            throw std::runtime_error(with_runtime_details(
+                "DeckLink runtime ABI mismatch: failed to query the video output interface",
+                runtime_info_));
+#endif
+        } else {
+            output_interface_info_ = "IID_IDeckLinkOutput";
         }
 
         output_callback_ = new AVOutputCallback(this);
@@ -310,38 +423,35 @@ bool DecklinkOutput::init_decklink() {
 #else
 
         frame_converter_ = CreateVideoConversionInstance();
+        if (!frame_converter_) {
+            throw std::runtime_error(with_runtime_details(
+                "DeckLink runtime ABI mismatch: failed to create the video conversion "
+                "interface",
+                runtime_info_));
+        }
 
 #endif
 
-        bSuccess = true;
+        bSuccess      = true;
+        is_available_ = true;
+        log_runtime_info();
 
         query_display_modes();
 
     } catch (std::exception &e) {
 
+        is_available_ = false;
+        last_error_ = e.what();
         std::cerr << "DecklinkOutput::init_decklink() failed: " << e.what() << "\n";
 
         report_error(e.what());
-
-        if (decklink_output_interface_ != NULL) {
-            decklink_output_interface_->Release();
-            decklink_output_interface_ = NULL;
-        }
-        if (decklink_interface_ != NULL) {
-            decklink_interface_->Release();
-            decklink_interface_ = NULL;
-        }
-        if (output_callback_ != NULL) {
-            output_callback_->Release();
-            output_callback_ = NULL;
-        }
-
-        if (decklink_iterator != NULL) {
-            decklink_iterator->Release();
-            decklink_iterator = NULL;
-        }
+        release_resources();
     }
 
+    if (decklink_iterator != NULL) {
+        decklink_iterator->Release();
+        decklink_iterator = NULL;
+    }
 
     return bSuccess;
 }
@@ -350,6 +460,10 @@ void DecklinkOutput::query_display_modes() {
 
     IDeckLinkDisplayModeIterator *display_mode_iterator = NULL;
     IDeckLinkDisplayMode *display_mode                  = NULL;
+
+    if (!decklink_output_interface_) {
+        return;
+    }
 
     try {
 
@@ -437,7 +551,8 @@ bool DecklinkOutput::start_sdi_output() {
     try {
 
         if (!decklink_output_interface_) {
-            throw std::runtime_error("No DeckLink device is available.");
+            throw std::runtime_error(
+                last_error_.empty() ? "No DeckLink device is available." : last_error_);
         }
 
         bool mode_matched = false;
@@ -541,6 +656,12 @@ bool DecklinkOutput::stop_sdi_output(const std::string &error_message) {
         decklink_output_interface_->DisableVideoOutput();
         decklink_output_interface_->DisableAudioOutput();
     }
+
+    {
+        std::lock_guard lk(audio_samples_cv_mutex_);
+        fetch_more_samples_from_xstudio_ = true;
+    }
+    audio_samples_cv_.notify_all();
 
     mutex_.lock();
 
@@ -732,6 +853,10 @@ void DecklinkOutput::fill_decklink_video_frame(IDeckLinkVideoFrame *decklink_vid
                             pFrame, src_buf, num_pix);
 
                     } else {
+                        if (!frame_converter_) {
+                            throw std::runtime_error(
+                                "DeckLink video conversion interface is unavailable.");
+                        }
 
                         // here we do our own conversion from 16 bit RGBA to 12 bit RGB
                         // TimeLogger l("RGBA16_to_12bitRGBLE");
@@ -930,7 +1055,10 @@ long DecklinkOutput::num_samples_in_buffer() {
 void DecklinkOutput::copy_audio_samples_to_decklink_buffer(const bool /*preroll*/) {
 
     if (!decklink_output_interface_) {
-        fetch_more_samples_from_xstudio_ = true;
+        {
+            std::lock_guard m(audio_samples_cv_mutex_);
+            fetch_more_samples_from_xstudio_ = true;
+        }
         audio_samples_cv_.notify_one();
         return;
     }
