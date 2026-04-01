@@ -18,6 +18,7 @@
 #include <mutex>
 #include <atomic>
 #include <deque>
+#include <string>
 #include <vector>
 
 #include "extern/decklink_compat.h"
@@ -143,27 +144,36 @@ namespace bm_decklink_plugin_1_0 {
         }
 
         [[nodiscard]] bool is_available() const { return is_available_; }
+<<<<<<< HEAD
+=======
+        [[nodiscard]] const std::string &last_error() const { return last_error_; }
+        [[nodiscard]] const std::string &runtime_info() const { return runtime_info_; }
+>>>>>>> 6d529ba (Fix Decklink Linux startup and add ABI fallback)
 
       private:
-        AVOutputCallback *output_callback_;
+        void release_resources();
+        void detect_runtime_info();
+        void log_runtime_info() const;
+
+        AVOutputCallback *output_callback_ = {nullptr};
         std::mutex mutex_;
 
-        GLenum glStatus;
-        GLuint idFrameBuf, idColorBuf, idDepthBuf;
-        char *pFrameBuf;
+        GLenum glStatus = {0};
+        GLuint idFrameBuf = {0}, idColorBuf = {0}, idDepthBuf = {0};
+        char *pFrameBuf   = {nullptr};
 
         // DeckLink
-        uint32_t frame_width_;
-        uint32_t frame_height_;
+        uint32_t frame_width_  = {0};
+        uint32_t frame_height_ = {0};
 
-        IDeckLink *decklink_interface_;
-        IDeckLinkOutput *decklink_output_interface_;
-        IDeckLinkVideoConversion *frame_converter_;
+        IDeckLink *decklink_interface_              = {nullptr};
+        IDeckLinkOutput *decklink_output_interface_ = {nullptr};
+        IDeckLinkVideoConversion *frame_converter_  = {nullptr};
 
-        BMDTimeValue frame_duration_;
-        BMDTimeScale frame_timescale_;
-        uint32_t uiFPS;
-        uint32_t uiTotalFrames;
+        BMDTimeValue frame_duration_  = {0};
+        BMDTimeScale frame_timescale_ = {0};
+        uint32_t uiFPS                = {0};
+        uint32_t uiTotalFrames        = {0};
 
         media_reader::ImageBufPtr current_frame_;
         std::mutex frames_mutex_;
@@ -197,7 +207,14 @@ namespace bm_decklink_plugin_1_0 {
 
         HDRMetadata hdr_metadata_;
         std::mutex hdr_metadata_mutex_;
+<<<<<<< HEAD
         bool is_available_ = {false};
+=======
+        bool is_available_      = {false};
+        std::string last_error_ = {};
+        std::string runtime_info_ = {};
+        std::string output_interface_info_ = {};
+>>>>>>> 6d529ba (Fix Decklink Linux startup and add ABI fallback)
     };
 
     class AVOutputCallback : public IDeckLinkVideoOutputCallback,
