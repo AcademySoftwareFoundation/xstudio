@@ -4,6 +4,7 @@
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/chrono.hpp"
 #include "xstudio/enums.hpp"
+#include <cstring>
 #include <iostream>
 #include <half.h>
 #include <sstream>
@@ -207,9 +208,18 @@ void DecklinkOutput::release_resources() {
 
         spdlog::info("Stopping Decklink output loop.");
 
-        decklink_output_interface_->StopScheduledPlayback(0, NULL, 0);
-        decklink_output_interface_->DisableVideoOutput();
-        decklink_output_interface_->DisableAudioOutput();
+        if (scheduled_playback_started_) {
+            decklink_output_interface_->StopScheduledPlayback(0, NULL, 0);
+            scheduled_playback_started_ = false;
+        }
+        if (video_output_enabled_) {
+            decklink_output_interface_->DisableVideoOutput();
+            video_output_enabled_ = false;
+        }
+        if (audio_output_enabled_) {
+            decklink_output_interface_->DisableAudioOutput();
+            audio_output_enabled_ = false;
+        }
 
         decklink_output_interface_->Release();
     }
@@ -233,6 +243,9 @@ void DecklinkOutput::release_resources() {
     frame_converter_           = nullptr;
     decklink_output_interface_ = nullptr;
     decklink_interface_        = nullptr;
+    scheduled_playback_started_ = false;
+    video_output_enabled_       = false;
+    audio_output_enabled_       = false;
 }
 
 void DecklinkOutput::set_preroll() {
@@ -587,6 +600,7 @@ bool DecklinkOutput::start_sdi_output() {
                         S_OK) {
                         throw std::runtime_error("EnableVideoOutput call failed.");
                     }
+                    video_output_enabled_ = true;
                 }
             }
         }
@@ -605,6 +619,7 @@ bool DecklinkOutput::start_sdi_output() {
                 bmdAudioOutputStreamTimestamped) != S_OK) {
             throw std::runtime_error("Failed to enable audio output.");
         }
+        audio_output_enabled_ = true;
 
 
         set_preroll();
@@ -616,11 +631,23 @@ bool DecklinkOutput::start_sdi_output() {
         }
 
         decklink_output_interface_->StartScheduledPlayback(0, 100, 1.0);
+        scheduled_playback_started_ = true;
 
         bSuccess = true;
 
     } catch (std::exception &e) {
-
+        if (scheduled_playback_started_) {
+            decklink_output_interface_->StopScheduledPlayback(0, NULL, 0);
+            scheduled_playback_started_ = false;
+        }
+        if (audio_output_enabled_) {
+            decklink_output_interface_->DisableAudioOutput();
+            audio_output_enabled_ = false;
+        }
+        if (video_output_enabled_) {
+            decklink_output_interface_->DisableVideoOutput();
+            video_output_enabled_ = false;
+        }
 
         report_error(e.what());
     }
@@ -652,9 +679,18 @@ bool DecklinkOutput::stop_sdi_output(const std::string &error_message) {
     spdlog::info("Stopping Decklink output loop. {}", error_message);
 
     if (decklink_output_interface_) {
-        decklink_output_interface_->StopScheduledPlayback(0, NULL, 0);
-        decklink_output_interface_->DisableVideoOutput();
-        decklink_output_interface_->DisableAudioOutput();
+        if (scheduled_playback_started_) {
+            decklink_output_interface_->StopScheduledPlayback(0, NULL, 0);
+            scheduled_playback_started_ = false;
+        }
+        if (video_output_enabled_) {
+            decklink_output_interface_->DisableVideoOutput();
+            video_output_enabled_ = false;
+        }
+        if (audio_output_enabled_) {
+            decklink_output_interface_->DisableAudioOutput();
+            audio_output_enabled_ = false;
+        }
     }
 
     {
@@ -1119,8 +1155,24 @@ void DecklinkOutput::copy_audio_samples_to_decklink_buffer(const bool /*preroll*
 AVOutputCallback::AVOutputCallback(DecklinkOutput *pOwner) { owner_ = pOwner; }
 
 HRESULT AVOutputCallback::QueryInterface(REFIID /*iid*/, LPVOID *ppv) {
+    if (!ppv) {
+        return E_INVALIDARG;
+    }
+
     *ppv = NULL;
-    return E_NOINTERFACE;
+
+    if (std::memcmp(&iid, &IID_IUnknown, sizeof(REFIID)) == 0) {
+        *ppv = static_cast<IUnknown *>(static_cast<IDeckLinkVideoOutputCallback *>(this));
+    } else if (std::memcmp(&iid, &IID_IDeckLinkVideoOutputCallback, sizeof(REFIID)) == 0) {
+        *ppv = static_cast<IDeckLinkVideoOutputCallback *>(this);
+    } else if (std::memcmp(&iid, &IID_IDeckLinkAudioOutputCallback, sizeof(REFIID)) == 0) {
+        *ppv = static_cast<IDeckLinkAudioOutputCallback *>(this);
+    } else {
+        return E_NOINTERFACE;
+    }
+
+    AddRef();
+    return S_OK;
 }
 
 ULONG AVOutputCallback::AddRef() {

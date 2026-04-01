@@ -200,6 +200,9 @@ namespace bm_decklink_plugin_1_0 {
         unsigned long samples_delivered_      = {0};
         uint32_t samples_water_level_         = {4096};
         long audio_sync_delay_milliseconds_   = {0};
+        bool video_output_enabled_            = {false};
+        bool audio_output_enabled_            = {false};
+        bool scheduled_playback_started_      = {false};
         PixelSwizzler pixel_swizzler_;
 
         HDRMetadata hdr_metadata_;
