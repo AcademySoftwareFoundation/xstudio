@@ -1161,7 +1161,9 @@ HRESULT AVOutputCallback::QueryInterface(REFIID iid, LPVOID *ppv) {
 
     *ppv = NULL;
 
-    if (std::memcmp(&iid, &IID_IUnknown, sizeof(REFIID)) == 0) {
+    const auto iid_unknown = IID_IUnknown;
+
+    if (std::memcmp(&iid, &iid_unknown, sizeof(REFIID)) == 0) {
         *ppv = static_cast<IUnknown *>(static_cast<IDeckLinkVideoOutputCallback *>(this));
     } else if (std::memcmp(&iid, &IID_IDeckLinkVideoOutputCallback, sizeof(REFIID)) == 0) {
         *ppv = static_cast<IDeckLinkVideoOutputCallback *>(this);
