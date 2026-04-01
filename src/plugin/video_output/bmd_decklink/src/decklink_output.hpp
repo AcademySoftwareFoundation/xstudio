@@ -144,11 +144,8 @@ namespace bm_decklink_plugin_1_0 {
         }
 
         [[nodiscard]] bool is_available() const { return is_available_; }
-<<<<<<< HEAD
-=======
         [[nodiscard]] const std::string &last_error() const { return last_error_; }
         [[nodiscard]] const std::string &runtime_info() const { return runtime_info_; }
->>>>>>> 6d529ba (Fix Decklink Linux startup and add ABI fallback)
 
       private:
         void release_resources();
@@ -207,14 +204,10 @@ namespace bm_decklink_plugin_1_0 {
 
         HDRMetadata hdr_metadata_;
         std::mutex hdr_metadata_mutex_;
-<<<<<<< HEAD
-        bool is_available_ = {false};
-=======
-        bool is_available_      = {false};
-        std::string last_error_ = {};
-        std::string runtime_info_ = {};
+        bool is_available_             = {false};
+        std::string last_error_        = {};
+        std::string runtime_info_      = {};
         std::string output_interface_info_ = {};
->>>>>>> 6d529ba (Fix Decklink Linux startup and add ABI fallback)
     };
 
     class AVOutputCallback : public IDeckLinkVideoOutputCallback,

@@ -551,12 +551,8 @@ bool DecklinkOutput::start_sdi_output() {
     try {
 
         if (!decklink_output_interface_) {
-<<<<<<< HEAD
-            throw std::runtime_error("No DeckLink device is available.");
-=======
             throw std::runtime_error(
                 last_error_.empty() ? "No DeckLink device is available." : last_error_);
->>>>>>> 6d529ba (Fix Decklink Linux startup and add ABI fallback)
         }
 
         bool mode_matched = false;
@@ -660,15 +656,12 @@ bool DecklinkOutput::stop_sdi_output(const std::string &error_message) {
         decklink_output_interface_->DisableVideoOutput();
         decklink_output_interface_->DisableAudioOutput();
     }
-<<<<<<< HEAD
-=======
 
     {
         std::lock_guard lk(audio_samples_cv_mutex_);
         fetch_more_samples_from_xstudio_ = true;
     }
     audio_samples_cv_.notify_all();
->>>>>>> 6d529ba (Fix Decklink Linux startup and add ABI fallback)
 
     mutex_.lock();
 
@@ -1062,14 +1055,10 @@ long DecklinkOutput::num_samples_in_buffer() {
 void DecklinkOutput::copy_audio_samples_to_decklink_buffer(const bool /*preroll*/) {
 
     if (!decklink_output_interface_) {
-<<<<<<< HEAD
-        fetch_more_samples_from_xstudio_ = true;
-=======
         {
             std::lock_guard m(audio_samples_cv_mutex_);
             fetch_more_samples_from_xstudio_ = true;
         }
->>>>>>> 6d529ba (Fix Decklink Linux startup and add ABI fallback)
         audio_samples_cv_.notify_one();
         return;
     }
