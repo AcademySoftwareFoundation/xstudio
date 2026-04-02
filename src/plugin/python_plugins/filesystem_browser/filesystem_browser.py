@@ -546,6 +546,32 @@ class FilesystemBrowserPlugin(PluginBase):
                         except Exception as e:
                             _dbg(f"copy_path: Error: {e}")
 
+                elif action == "reveal_in_finder":
+                    path = data.get("path")
+                    if path:
+                        # If it's a sequence, use the first frame for the reveal selection
+                        if fileseq_available:
+                            try:
+                                seq = fileseq.FileSequence(path)
+                                if seq:
+                                    path = str(seq[0])
+                            except Exception:
+                                pass
+
+                        try:
+                            # Using 'open -R' on macOS, 'explorer /select,' on Windows
+                            if sys.platform == "darwin":
+                                subprocess.run(['open', '-R', path], check=True)
+                            elif sys.platform == "win32":
+                                # Note: explorer /select,path needs the comma
+                                subprocess.run(['explorer', '/select,', os.path.normpath(path)], check=True)
+                            else:
+                                # Linux fallback: open parent directory
+                                parent = os.path.dirname(path)
+                                subprocess.run(['open', parent], check=True)
+                        except Exception as e:
+                            _dbg(f"reveal_in_finder: Error: {e}")
+
                 elif action == "add_pin":
                     name = data.get("name")
                     path = data.get("path")

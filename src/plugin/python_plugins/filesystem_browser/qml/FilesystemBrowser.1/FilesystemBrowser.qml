@@ -73,6 +73,10 @@ Rectangle {
             text: "Copy Path"
             onTriggered: sendCommand({"action": "copy_path", "path": itemPath})
         }
+        StyledItem {
+            text: "Show in Finder"
+            onTriggered: sendCommand({"action": "reveal_in_finder", "path": itemPath})
+        }
     }
 
     // State for Preview Mode

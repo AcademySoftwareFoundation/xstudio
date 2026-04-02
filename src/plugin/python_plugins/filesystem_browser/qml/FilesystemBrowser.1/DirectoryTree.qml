@@ -337,10 +337,49 @@ Rectangle {
                     id: msgMouse
                     anchors.fill: parent
                     hoverEnabled: true
-                    acceptedButtons: Qt.LeftButton
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
                     
                     onClicked: (mouse) => {
-                         sendCommand({"action": "change_path", "path": model.path});
+                         if (mouse.button === Qt.LeftButton) {
+                             sendCommand({"action": "change_path", "path": model.path});
+                         } else if (mouse.button === Qt.RightButton) {
+                             treeContextMenu.popup();
+                         }
+                    }
+                }
+
+                Menu {
+                    id: treeContextMenu
+                    background: Rectangle {
+                        implicitWidth: 150
+                        implicitHeight: 25
+                        color: XsFileSystemStyle.panelBgColor
+                        border.color: XsFileSystemStyle.borderColor
+                        radius: 3
+                    }
+                    
+                    MenuItem {
+                        id: revealItem
+                        text: "Show in Finder"
+                        onTriggered: {
+                            // Using the same action name as the file context menu
+                            treeRoot.sendCommand({"action": "reveal_in_finder", "path": model.path})
+                        }
+                        
+                        contentItem: Text {
+                            text: revealItem.text
+                            color: "#e0e0e0"
+                            font.pixelSize: 12
+                            horizontalAlignment: Text.AlignLeft
+                            verticalAlignment: Text.AlignVCenter
+                            leftPadding: 10
+                        }
+                        
+                        background: Rectangle {
+                            implicitWidth: 150
+                            implicitHeight: 25
+                            color: revealItem.highlighted ? "#555555" : "transparent"
+                        }
                     }
                 }
 
