@@ -523,6 +523,10 @@ class FilesystemBrowserPlugin(PluginBase):
                     path = data.get("path")
                     self._compare_with_current_media(path)
 
+                elif action == "append_media":
+                    path = data.get("path")
+                    self._append_media(path)
+
                 elif action == "set_attribute":
                     attr_name = data.get("name")
                     attr_value = data.get("value")
@@ -533,9 +537,19 @@ class FilesystemBrowserPlugin(PluginBase):
                     elif attr_name == "recursion_limit":
                         self.depth_limit_attr.set_value(attr_value)
 
-                elif action == "add_pin":
+                elif action == "copy_path":
                     path = data.get("path")
-                    self._add_pin(path)
+                    if path:
+                        try:
+                            # Using pbcopy on macOS
+                            subprocess.run(['pbcopy'], input=path.encode(), check=True)
+                        except Exception as e:
+                            _dbg(f"copy_path: Error: {e}")
+
+                elif action == "add_pin":
+                    name = data.get("name")
+                    path = data.get("path")
+                    self._add_pin(name, path)
 
                 elif action == "remove_pin":
                     path = data.get("path")
@@ -1298,6 +1312,26 @@ class FilesystemBrowserPlugin(PluginBase):
 
         except Exception as e:
              print(f"Compare error: {e}")
+
+    def _append_media(self, path):
+        try:
+            print(f"Adding media to end of playlist: {path}")
+            playlist = None
+            try:
+                viewed = self.connection.api.session.viewed_container
+                if hasattr(viewed, 'add_media'):
+                    playlist = viewed
+            except:
+                pass
+            
+            if not playlist:
+                print("No active playlist found for append.")
+                return
+
+            self._add_media_to_playlist(playlist, path)
+
+        except Exception as e:
+             print(f"Append error: {e}")
              import traceback
              traceback.print_exc()
 
@@ -1503,84 +1537,111 @@ class FilesystemBrowserPlugin(PluginBase):
         try:
             print(f"FilesystemBrowser: Previewing {path}")
             
+            # 1. Capture current context safely
+            viewed = None
+            try:
+                viewed = self.connection.api.session.viewed_container
+            except Exception as e:
+                print(f"FilesystemBrowser: Could not get viewed container (expected in some states): {e}")
+
             # If we are not already in preview mode, capture the current playlist context
             if self.preview_playlist_uuid is None:
                 self.original_playlist_uuid = None
-                try:
-                    viewed = self.connection.api.session.viewed_container
-                    if hasattr(viewed, 'add_media') and viewed.name != "Preview":
+                if viewed and hasattr(viewed, 'add_media') and viewed.name != "Preview":
+                    try:
                         self.original_playlist_uuid = viewed.uuid
                         print(f"FilesystemBrowser: Saving original playlist {viewed.name}")
-                except Exception as e:
-                    print(f"FilesystemBrowser: Could not get viewed container: {e}")
+                    except Exception as e:
+                        print(f"FilesystemBrowser: Error saving original playlist UUID: {e}")
                 
-            # Attempt to capture the exact frame number we are currently looking at
+            # 2. Attempt to capture the exact frame number we are currently looking at
             current_frame = None
-            try:
-                # Need to use viewport playhead or session playhead to find logical frame
-                # Or try the playlist's playhead
-                viewed = self.connection.api.session.viewed_container
-                if hasattr(viewed, 'playhead'):
+            if viewed and hasattr(viewed, 'playhead'):
+                try:
                     current_frame = viewed.playhead.position
                     print(f"FilesystemBrowser: Captured frame sync position: {current_frame}")
-            except Exception as e:
-                print(f"FilesystemBrowser: Could not capture playhead position: {e}")
+                except Exception as e:
+                    print(f"FilesystemBrowser: Could not capture playhead position: {e}")
 
-            # Find or Create the 'Preview' playlist
+            # 3. Find or Create the 'Preview' playlist
             preview_playlist = None
-            for p in self.connection.api.session.playlists:
-                if p.name == "Preview":
-                    preview_playlist = p
-                    break
+            try:
+                for p in self.connection.api.session.playlists:
+                    try:
+                        if p.name == "Preview":
+                            preview_playlist = p
+                            break
+                    except:
+                        continue
+            except Exception as e:
+                print(f"FilesystemBrowser: Error searching playlists: {e}")
             
             if not preview_playlist:
-                self.connection.api.session.create_playlist("Preview")
-                for p in self.connection.api.session.playlists:
-                    if p.name == "Preview":
-                        preview_playlist = p
-                        break
+                try:
+                    # returns (uuid, Playlist)
+                    _, preview_playlist = self.connection.api.session.create_playlist("Preview")
+                except Exception as e:
+                    print(f"FilesystemBrowser: Error creating Preview playlist: {e}")
             
             if not preview_playlist:
                 print("FilesystemBrowser: Could not create or find Preview playlist")
                 return
                 
-            self.preview_playlist_uuid = preview_playlist.uuid
+            try:
+                self.preview_playlist_uuid = preview_playlist.uuid
+            except:
+                pass
 
-            # Clear the remote preview playlist
-            for m in list(preview_playlist.media):
-                preview_playlist.remove_media(m)
+            # 4. Clear the remote preview playlist safely
+            try:
+                media_list = list(preview_playlist.media)
+                if media_list:
+                    preview_playlist.remove_media(media_list)
+            except Exception as e:
+                print(f"FilesystemBrowser: Error clearing Preview playlist: {e}")
                 
-            # Add the new media
+            # 5. Add the new media
             media = self._add_media_to_playlist(preview_playlist, path)
             if not media:
                  return
 
-            # Force the viewport to display the preview playlist
-            self.connection.api.session.set_on_screen_source(preview_playlist)
+            # 6. Force the viewport to display the preview playlist
+            try:
+                self.connection.api.session.set_on_screen_source(preview_playlist)
+            except Exception as e:
+                print(f"FilesystemBrowser: Error setting on-screen source: {e}")
             
             # also try setting the selected/viewed container to force UI update
             try:
-                # XStudio python API may support setting viewed_container or selected_containers
-                # This ensures the session panel highlights the preview playlist
                 self.connection.api.session.viewed_container = preview_playlist
             except:
                 pass
             
-            # Select the media
-            if hasattr(preview_playlist, 'playhead_selection'):
-                preview_playlist.playhead_selection.set_selection([media.uuid])
+            # 7. Select the media and restore position
+            try:
+                if hasattr(preview_playlist, 'playhead_selection'):
+                    preview_playlist.playhead_selection.set_selection([media.uuid])
 
-            # Restore the frame number if we have one
-            if hasattr(preview_playlist, 'playhead'):
-                if current_frame is not None:
+                if hasattr(preview_playlist, 'playhead'):
+                    if current_frame is not None:
+                        try:
+                            preview_playlist.playhead.position = current_frame
+                            print(f"FilesystemBrowser: Restored frame position: {current_frame}")
+                        except Exception as e:
+                            print(f"FilesystemBrowser: Error restoring frame: {e}")
+                    
+                    # pause on load for preview
                     try:
-                        preview_playlist.playhead.position = current_frame
-                        print(f"FilesystemBrowser: Restored frame position: {current_frame}")
-                    except Exception as e:
-                        print(f"FilesystemBrowser: Error restoring frame: {e}")
+                        preview_playlist.playhead.playing = False
+                    except:
+                        pass
+            except Exception as e:
+                print(f"FilesystemBrowser: Error finalizing preview state: {e}")
                 
-                # pause on load for preview
-                preview_playlist.playhead.playing = False
+        except Exception as e:
+            print(f"FilesystemBrowser Preview error: {e}")
+            import traceback
+            traceback.print_exc()
                 
         except Exception as e:
             print(f"FilesystemBrowser Preview error: {e}")

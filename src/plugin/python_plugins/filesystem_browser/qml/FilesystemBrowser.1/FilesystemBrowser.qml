@@ -25,6 +25,56 @@ Rectangle {
         modelDataName: "Filesystem Browser" 
     }
 
+    // Reusable Styled MenuItem component for consistent dark theme
+    component StyledItem : MenuItem {
+        id: inner
+        contentItem: Text {
+            text: inner.text
+            color: "#e0e0e0"
+            font.pixelSize: 12
+            horizontalAlignment: Text.AlignLeft
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+            leftPadding: 10
+        }
+        
+        background: Rectangle {
+            implicitWidth: 150
+            implicitHeight: 25
+            color: inner.highlighted ? "#555555" : "transparent"
+        }
+    }
+
+    // Reusable Context Menu for files in both Table and Icon views
+    component FileContextMenu : Menu {
+        property string itemPath: ""
+        
+        background: Rectangle {
+            implicitWidth: 150
+            implicitHeight: 100 // 4 items (25 each)
+            color: XsFileSystemStyle.panelBgColor
+            border.color: XsFileSystemStyle.borderColor
+            radius: 3
+        }
+
+        StyledItem {
+            text: "Replace"
+            onTriggered: sendCommand({"action": "replace_current_media", "path": itemPath})
+        }
+        StyledItem {
+            text: "Compare with"
+            onTriggered: sendCommand({"action": "compare_with_current_media", "path": itemPath})
+        }
+        StyledItem {
+            text: "Append to Playlist"
+            onTriggered: sendCommand({"action": "append_media", "path": itemPath})
+        }
+        StyledItem {
+            text: "Copy Path"
+            onTriggered: sendCommand({"action": "copy_path", "path": itemPath})
+        }
+    }
+
     // State for Preview Mode
     property bool isPreviewMode: false
     property string pendingPreviewPath: ""
@@ -956,7 +1006,7 @@ Rectangle {
             
             Text {
                 text: "Path:"
-                color: hintColor
+                color: textColor
                 verticalAlignment: Text.AlignVCenter
             }
 
@@ -965,6 +1015,10 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: rowHeight
                 text: current_path_attr.value || "/"
+                color: textColor
+                font.pixelSize: fontSize
+                selectionColor: XsFileSystemStyle.selectionColor
+                selectedTextColor: XsFileSystemStyle.backgroundColor
                 onTextChanged: {
                     // This ensures that even if user is typing, a programmatic update
                     // to current_path_attr.value (e.g. from SCAN button) can force a refresh if needed.
@@ -985,6 +1039,39 @@ Rectangle {
                     border.width: 1 
                 }
                 focus: true
+                selectByMouse: true
+                
+                TapHandler {
+                    acceptedButtons: Qt.RightButton
+                    onTapped: pathContextMenu.popup()
+                }
+
+                Menu {
+                    id: pathContextMenu
+                    
+                    background: Rectangle {
+                        implicitWidth: 120
+                        implicitHeight: 75 // 3 items
+                        color: XsFileSystemStyle.panelBgColor
+                        border.color: XsFileSystemStyle.borderColor
+                        radius: 3
+                    }
+                    
+                    delegate: StyledItem {} // Using the shared component from the top!
+
+                    StyledItem {
+                        text: "Copy"
+                        onTriggered: pathField.copy()
+                    }
+                    StyledItem {
+                        text: "Paste"
+                        onTriggered: pathField.paste()
+                    }
+                    StyledItem {
+                        text: "Clear"
+                        onTriggered: pathField.clear()
+                    }
+                }
                 
                 onAccepted: {
                     sendCommand({"action": "change_path", "path": text})
@@ -1098,7 +1185,7 @@ Rectangle {
                             Rectangle { anchors.fill: parent; color: "transparent" }
                             Text { 
                                 text: modelData
-                                color: XsFileSystemStyle.secondaryTextColor
+                                color: "#ffffff"
                                 anchors.fill: parent
                                 verticalAlignment: Text.AlignVCenter
                                 leftPadding: 5
@@ -1204,8 +1291,9 @@ Rectangle {
                             color: XsFileSystemStyle.panelBgColor
                             Label { 
                                 text: "QUICK ACCESS"
-                                color: XsFileSystemStyle.hintColor
+                                color: "#ffffff"
                                 font.pixelSize: fontSize
+                                font.bold: true
                                 anchors.centerIn: parent
                             }
                         }
@@ -1279,7 +1367,7 @@ Rectangle {
                                     // Path Name
                                     Text {
                                         text: modelData.name
-                                        color: "#e0e0e0"
+                                        color: "#ffffff"
                                         font.pixelSize: fontSize
                                         Layout.fillWidth: true
                                         elide: Text.ElideMiddle
@@ -1289,7 +1377,7 @@ Rectangle {
                                     // Path Hint (Right aligned, faded)
                                     Text {
                                         text: modelData.path
-                                        color: XsFileSystemStyle.hintColor
+                                        color: "#ffffff"
                                         font.pixelSize: fontSize
                                         Layout.preferredWidth: parent.width * 0.4
                                         elide: Text.ElideRight
@@ -1317,6 +1405,24 @@ Rectangle {
              
              ComboBox {
                  id: filterTimeCombo
+                 ToolTip.visible: hovered
+                 ToolTip.text: "Filter files by modification time"
+                 
+                 contentItem: Text {
+                     text: filterTimeCombo.displayText
+                     font.pixelSize: XsFileSystemStyle.fontSize
+                     color: XsFileSystemStyle.textColor
+                     verticalAlignment: Text.AlignVCenter
+                     leftPadding: 10
+                 }
+
+                 background: Rectangle {
+                     implicitWidth: 120
+                     implicitHeight: rowHeight
+                     color: XsFileSystemStyle.panelBgColor
+                     border.color: XsFileSystemStyle.borderColor
+                     radius: 2
+                 }
                  model: ["Any", "Last 1 day", "Last 2 days", "Last 1 week", "Last 1 month"]
                  Layout.preferredWidth: 120
                  Layout.preferredHeight: rowHeight
@@ -1367,6 +1473,24 @@ Rectangle {
              
              ComboBox {
                  id: filterVersionCombo
+                 ToolTip.visible: hovered
+                 ToolTip.text: "Filter files by version (e.g. v001, v002)"
+                 
+                 contentItem: Text {
+                     text: filterVersionCombo.displayText
+                     font.pixelSize: XsFileSystemStyle.fontSize
+                     color: XsFileSystemStyle.textColor
+                     verticalAlignment: Text.AlignVCenter
+                     leftPadding: 10
+                 }
+
+                 background: Rectangle {
+                     implicitWidth: 140
+                     implicitHeight: rowHeight
+                     color: XsFileSystemStyle.panelBgColor
+                     border.color: XsFileSystemStyle.borderColor
+                     radius: 2
+                 }
                  model: ["All Versions", "Latest Version", "Latest 2 Versions"]
                  Layout.preferredWidth: 140
                  Layout.preferredHeight: rowHeight
@@ -1698,45 +1822,9 @@ Rectangle {
                         Item { width: 20 } // Spacer at end
                     }
                     
-                    Menu {
+                    FileContextMenu {
                         id: contextMenu
-                        
-                        background: Rectangle {
-                            implicitWidth: 150
-                            implicitHeight: 40
-                            color: XsFileSystemStyle.panelBgColor
-                            border.color: XsFileSystemStyle.borderColor
-                            radius: 3
-                        }
-                        
-                        delegate: MenuItem {
-                            id: menuItem
-                            
-                            contentItem: Text {
-                                text: menuItem.text
-                                color: "#e0e0e0"
-                                font.pixelSize: 12
-                                horizontalAlignment: Text.AlignLeft
-                                verticalAlignment: Text.AlignVCenter
-                                elide: Text.ElideRight
-                                leftPadding: 10
-                            }
-                            
-                            background: Rectangle {
-                                implicitWidth: 150
-                                implicitHeight: 25
-                                color: menuItem.highlighted ? "#555555" : "transparent"
-                            }
-                        }
-
-                        MenuItem {
-                            text: "Replace"
-                            onTriggered: sendCommand({"action": "replace_current_media", "path": modelData.path})
-                        }
-                        MenuItem {
-                            text: "Compare with"
-                            onTriggered: sendCommand({"action": "compare_with_current_media", "path": modelData.path})
-                        }
+                        itemPath: modelData.path
                     }
                 }
             }
@@ -1940,12 +2028,15 @@ Rectangle {
                                 id: cellMouse
                                 anchors.fill: parent; hoverEnabled: true
                                 visible: modelData.type === "file"
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton
                                 onClicked: (mouse) => {
                                     if (mouse.button === Qt.LeftButton) {
                                         thumbFlickable.forceActiveFocus()
                                         thumbFlickable.thumbCurrentIndex = index
                                         root.pendingPreviewPath = modelData.path
                                         previewTimer.restart()
+                                    } else if (mouse.button === Qt.RightButton) {
+                                        thumbContextMenu.popup()
                                     }
                                 }
                                 onDoubleClicked: (mouse) => {
@@ -1954,6 +2045,11 @@ Rectangle {
                                         isPreviewMode = false
                                         sendCommand({"action": "load_file", "path": modelData.path})
                                     }
+                                }
+
+                                FileContextMenu {
+                                    id: thumbContextMenu
+                                    itemPath: modelData.path
                                 }
                                 
                                 ToolTip {

@@ -24,7 +24,7 @@ QtObject {
 
     // Borders / Dividers
     property color borderColor: (typeof XsStyleSheet !== 'undefined') ? XsStyleSheet.menuBorderColor : "#858585"
-    property color dividerColor: (typeof XsStyleSheet !== 'undefined') ? XsStyleSheet.menuDividerColor : "#858585"
+    property color dividerColor: (typeof XsStyleSheet !== 'undefined' && XsStyleSheet.menuDividerColor !== undefined) ? XsStyleSheet.menuDividerColor : (typeof XsStyleSheet !== 'undefined' && XsStyleSheet.menuBorderColor !== undefined) ? XsStyleSheet.menuBorderColor : "#858585"
 
     // Fonts
     property string fontFamily: (typeof XsStyleSheet !== 'undefined') ? XsStyleSheet.fontFamily : "Inter"
