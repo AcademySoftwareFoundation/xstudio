@@ -408,3 +408,7 @@ class FileScanner:
 
     def stop(self):
         self.cancel_event.set()
+
+    def shutdown(self):
+        """Release the ThreadPoolExecutor. Call after stop() when the scanner is no longer needed."""
+        self.executor.shutdown(wait=False)

@@ -14,6 +14,8 @@ import shutil
 import pathlib
 import tempfile
 import uuid as _uuid
+import atexit
+from collections import OrderedDict
 from datetime import datetime
 
 # Try importing fileseq
@@ -378,7 +380,9 @@ class FilesystemBrowserPlugin(PluginBase):
         else:
             print("FilesystemBrowser: WARNING — ffmpeg not found, thumbnails disabled")
         self._temp_dir = tempfile.mkdtemp(prefix="xstudio_thumbs_")
-        self._thumbnail_cache = {}   # path -> file:///... thumb URI
+        self._thumbnail_cache = OrderedDict()  # path -> file:///... thumb URI (LRU, capped)
+        self._thumbnail_cache_max = 500
+        atexit.register(self._cleanup)
         self._thumb_lock = threading.Lock()
         self._thumb_pending = set()  # paths currently in queue/processing
         self._thumb_queue = queue.Queue()
@@ -595,10 +599,6 @@ class FilesystemBrowserPlugin(PluginBase):
                         current = self.current_path_attr.value()
                         self.start_search(current, force=True, depth=20)
 
-                elif action == "remove_pin":
-                    path = data.get("path")
-                    self._remove_pin(path)
-
                 elif action == "get_subdirs":
                     path = data.get("path")
                     self._get_subdirs(path)
@@ -679,6 +679,7 @@ class FilesystemBrowserPlugin(PluginBase):
             self.cancel_search = True
             if hasattr(self, 'scanner'):
                 self.scanner.stop()
+                self.scanner.shutdown()
             self.search_thread.join()
         
         self.cancel_search = False
@@ -1404,6 +1405,19 @@ class FilesystemBrowserPlugin(PluginBase):
         if len(new_pins) != len(pins):
             self.pinned_attr.set_value(json.dumps(new_pins))
 
+    def _cleanup(self):
+        """atexit handler: shut down scanner thread pool and remove temp thumbnail dir."""
+        if hasattr(self, 'scanner'):
+            try:
+                self.scanner.stop()
+                self.scanner.shutdown()
+            except Exception:
+                pass
+        try:
+            shutil.rmtree(self._temp_dir, ignore_errors=True)
+        except Exception:
+            pass
+
     def _request_thumbnail(self, path):
         """Queue an async thumbnail fetch if not already cached or pending."""
         if path in self._thumbnail_cache:
@@ -1488,6 +1502,16 @@ class FilesystemBrowserPlugin(PluginBase):
             if result.returncode == 0 and os.path.exists(out_file):
                 thumb_uri = pathlib.Path(out_file).as_uri()
                 _dbg(f"GEN_OK: {thumb_uri}")
+                # LRU eviction: if cache is at capacity, remove the oldest entry
+                # and delete its temp file to reclaim disk space.
+                if len(self._thumbnail_cache) >= self._thumbnail_cache_max:
+                    _, evicted_uri = self._thumbnail_cache.popitem(last=False)
+                    try:
+                        evicted_path = pathlib.Path(evicted_uri.replace("file://", "", 1))
+                        if evicted_path.exists() and evicted_path.parent.samefile(self._temp_dir):
+                            evicted_path.unlink()
+                    except Exception:
+                        pass
                 self._thumbnail_cache[path] = thumb_uri
                 self._update_file_thumbnail(path, thumb_uri)
             else:
@@ -1663,11 +1687,6 @@ class FilesystemBrowserPlugin(PluginBase):
                         pass
             except Exception as e:
                 print(f"FilesystemBrowser: Error finalizing preview state: {e}")
-                
-        except Exception as e:
-            print(f"FilesystemBrowser Preview error: {e}")
-            import traceback
-            traceback.print_exc()
                 
         except Exception as e:
             print(f"FilesystemBrowser Preview error: {e}")
