@@ -63,6 +63,10 @@ std::string with_runtime_details(
     return fmt::format("{} ({})", message, runtime_info);
 }
 
+std::string format_hresult(const HRESULT result) {
+    return fmt::format("0x{:08X}", static_cast<uint32_t>(result));
+}
+
 struct DeckLinkVersion {
     int major = 0;
     int minor = 0;
@@ -410,19 +414,30 @@ bool DecklinkOutput::init_decklink() {
                 "Blackmagic DeckLink drivers to use the features of this plugin.");
         }
 
-        if (decklink_iterator->Next(&decklink_interface_) != S_OK) {
+        const auto next_result = decklink_iterator->Next(&decklink_interface_);
+        if (next_result != S_OK) {
+            spdlog::warn(
+                "DeckLink iterator returned {} while probing for a device.",
+                format_hresult(next_result));
             throw std::runtime_error(with_runtime_details(
                 "DeckLink drivers found but no device is installed", runtime_info_));
         }
 
-        if (decklink_interface_->QueryInterface(
-                IID_IDeckLinkOutput, (void **)&decklink_output_interface_) != S_OK) {
+        const auto modern_output_result = decklink_interface_->QueryInterface(
+            IID_IDeckLinkOutput, (void **)&decklink_output_interface_);
+        if (modern_output_result != S_OK) {
+            spdlog::warn(
+                "DeckLink modern output interface query failed with {}.",
+                format_hresult(modern_output_result));
 #ifdef __linux__
             IDeckLinkOutput_v14_2_1 *legacy_output_interface = nullptr;
-            if (decklink_interface_->QueryInterface(
-                    IID_IDeckLinkOutput_v14_2_1, (void **)&legacy_output_interface) == S_OK &&
-                legacy_output_interface != nullptr) {
+            const auto legacy_output_result = decklink_interface_->QueryInterface(
+                IID_IDeckLinkOutput_v14_2_1, (void **)&legacy_output_interface);
+            if (legacy_output_result == S_OK && legacy_output_interface != nullptr) {
                 output_interface_info_ = "IID_IDeckLinkOutput_v14_2_1";
+                spdlog::warn(
+                    "DeckLink legacy v14.2.1 output interface query succeeded with {}.",
+                    format_hresult(legacy_output_result));
                 DeckLinkVersion parsed_version;
                 const DeckLinkVersion minimum_supported{14, 2, 1};
                 const bool parsed = parse_decklink_version(api_version_, parsed_version);
@@ -447,6 +462,9 @@ bool DecklinkOutput::init_decklink() {
                     "Upgrade Blackmagic Desktop Video drivers to 15.x or newer to use the "
                     "modern DeckLink binaries.");
             } else {
+                spdlog::error(
+                    "DeckLink legacy v14.2.1 output interface query failed with {}.",
+                    format_hresult(legacy_output_result));
                 throw std::runtime_error(with_runtime_details(
                     "DeckLink runtime ABI mismatch: failed to query the video output "
                     "interface",
@@ -459,21 +477,44 @@ bool DecklinkOutput::init_decklink() {
 #endif
         } else {
             output_interface_info_ = "IID_IDeckLinkOutput";
+            spdlog::info(
+                "DeckLink modern output interface query succeeded with {}.",
+                format_hresult(modern_output_result));
         }
 
         output_callback_ = new AVOutputCallback(this);
         if (output_callback_ == NULL)
             throw std::runtime_error("Failed to create Video Output Callback.");
 
-        if (decklink_output_interface_->SetScheduledFrameCompletionCallback(
-                static_cast<IDeckLinkVideoOutputCallback *>(output_callback_)) != S_OK) {
+        spdlog::info(
+            "Registering DeckLink video callback via {}.",
+            output_interface_info_.empty() ? "unknown interface" : output_interface_info_);
+        const auto video_callback_result = decklink_output_interface_->SetScheduledFrameCompletionCallback(
+            static_cast<IDeckLinkVideoOutputCallback *>(output_callback_));
+        if (video_callback_result != S_OK) {
+            spdlog::error(
+                "DeckLink SetScheduledFrameCompletionCallback failed with {}.",
+                format_hresult(video_callback_result));
             throw std::runtime_error("SetScheduledFrameCompletionCallback failed.");
         }
+        spdlog::info(
+            "DeckLink SetScheduledFrameCompletionCallback succeeded with {}.",
+            format_hresult(video_callback_result));
 
-        if (decklink_output_interface_->SetAudioCallback(
-                static_cast<IDeckLinkAudioOutputCallback *>(output_callback_)) != S_OK) {
+        spdlog::info(
+            "Registering DeckLink audio callback via {}.",
+            output_interface_info_.empty() ? "unknown interface" : output_interface_info_);
+        const auto audio_callback_result = decklink_output_interface_->SetAudioCallback(
+            static_cast<IDeckLinkAudioOutputCallback *>(output_callback_));
+        if (audio_callback_result != S_OK) {
+            spdlog::error(
+                "DeckLink SetAudioCallback failed with {}.",
+                format_hresult(audio_callback_result));
             throw std::runtime_error("SetAudioCallback failed.");
         }
+        spdlog::info(
+            "DeckLink SetAudioCallback succeeded with {}.",
+            format_hresult(audio_callback_result));
 
 #ifdef _WIN32
         // Create an IDeckLinkVideoConversion interface object to provide pixel format
@@ -652,11 +693,17 @@ bool DecklinkOutput::start_sdi_output() {
 
                     uiFPS = ((frame_timescale_ + (frame_duration_ - 1)) / frame_duration_);
 
-                    if (decklink_output_interface_->EnableVideoOutput(
-                            display_mode->GetDisplayMode(), bmdVideoOutputFlagDefault) !=
-                        S_OK) {
+                    const auto enable_video_result = decklink_output_interface_->EnableVideoOutput(
+                        display_mode->GetDisplayMode(), bmdVideoOutputFlagDefault);
+                    if (enable_video_result != S_OK) {
+                        spdlog::error(
+                            "DeckLink EnableVideoOutput failed with {}.",
+                            format_hresult(enable_video_result));
                         throw std::runtime_error("EnableVideoOutput call failed.");
                     }
+                    spdlog::info(
+                        "DeckLink EnableVideoOutput succeeded with {}.",
+                        format_hresult(enable_video_result));
                     video_output_enabled_ = true;
                 }
             }
@@ -669,13 +716,20 @@ bool DecklinkOutput::start_sdi_output() {
         uiTotalFrames = 0;
 
         // Set the audio output mode
-        if (decklink_output_interface_->EnableAudioOutput(
-                bmdAudioSampleRate48kHz,
-                bmdAudioSampleType16bitInteger,
-                2, // num channels
-                bmdAudioOutputStreamTimestamped) != S_OK) {
+        const auto enable_audio_result = decklink_output_interface_->EnableAudioOutput(
+            bmdAudioSampleRate48kHz,
+            bmdAudioSampleType16bitInteger,
+            2, // num channels
+            bmdAudioOutputStreamTimestamped);
+        if (enable_audio_result != S_OK) {
+            spdlog::error(
+                "DeckLink EnableAudioOutput failed with {}.",
+                format_hresult(enable_audio_result));
             throw std::runtime_error("Failed to enable audio output.");
         }
+        spdlog::info(
+            "DeckLink EnableAudioOutput succeeded with {}.",
+            format_hresult(enable_audio_result));
         audio_output_enabled_ = true;
 
 
@@ -683,9 +737,16 @@ bool DecklinkOutput::start_sdi_output() {
 
         samples_delivered_ = 0;
 
-        if (decklink_output_interface_->BeginAudioPreroll() != S_OK) {
+        const auto preroll_result = decklink_output_interface_->BeginAudioPreroll();
+        if (preroll_result != S_OK) {
+            spdlog::error(
+                "DeckLink BeginAudioPreroll failed with {}.",
+                format_hresult(preroll_result));
             throw std::runtime_error("Failed to pre-roll audio output.");
         }
+        spdlog::info(
+            "DeckLink BeginAudioPreroll succeeded with {}.",
+            format_hresult(preroll_result));
 
         decklink_output_interface_->StartScheduledPlayback(0, 100, 1.0);
         scheduled_playback_started_ = true;
