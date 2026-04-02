@@ -205,7 +205,6 @@ DecklinkOutput::~DecklinkOutput() {
 void DecklinkOutput::release_resources() {
 
     if (decklink_output_interface_ != NULL) {
-
         spdlog::info("Stopping Decklink output loop.");
 
         if (scheduled_playback_started_) {
@@ -220,7 +219,6 @@ void DecklinkOutput::release_resources() {
             decklink_output_interface_->DisableAudioOutput();
             audio_output_enabled_ = false;
         }
-
         decklink_output_interface_->Release();
     }
     if (decklink_interface_ != NULL) {
@@ -389,10 +387,19 @@ bool DecklinkOutput::init_decklink() {
             if (decklink_interface_->QueryInterface(
                     IID_IDeckLinkOutput_v14_2_1, (void **)&legacy_output_interface) == S_OK &&
                 legacy_output_interface != nullptr) {
-                decklink_output_interface_ =
-                    reinterpret_cast<IDeckLinkOutput *>(legacy_output_interface);
                 output_interface_info_ = "IID_IDeckLinkOutput_v14_2_1";
-                spdlog::warn("DeckLink output is using the Linux v14.2.1 compatibility ABI.");
+                legacy_output_interface->Release();
+                const auto upgrade_message = with_runtime_details(
+                    "Unsupported legacy Blackmagic DeckLink Linux runtime detected "
+                    "(output_interface=IID_IDeckLinkOutput_v14_2_1). Upgrade Blackmagic "
+                    "Desktop Video drivers to a newer release to use Blackmagic cards in "
+                    "xStudio.",
+                    runtime_info_);
+                spdlog::error("{}", upgrade_message);
+                spdlog::error(
+                    "Upgrade Blackmagic Desktop Video drivers to enable Blackmagic card "
+                    "support on Linux.");
+                throw std::runtime_error(upgrade_message);
             } else {
                 throw std::runtime_error(with_runtime_details(
                     "DeckLink runtime ABI mismatch: failed to query the video output "
@@ -412,12 +419,15 @@ bool DecklinkOutput::init_decklink() {
         if (output_callback_ == NULL)
             throw std::runtime_error("Failed to create Video Output Callback.");
 
-        if (decklink_output_interface_->SetScheduledFrameCompletionCallback(output_callback_) !=
-            S_OK)
+        if (decklink_output_interface_->SetScheduledFrameCompletionCallback(
+                static_cast<IDeckLinkVideoOutputCallback *>(output_callback_)) != S_OK) {
             throw std::runtime_error("SetScheduledFrameCompletionCallback failed.");
+        }
 
-        if (decklink_output_interface_->SetAudioCallback(output_callback_) != S_OK)
+        if (decklink_output_interface_->SetAudioCallback(
+                static_cast<IDeckLinkAudioOutputCallback *>(output_callback_)) != S_OK) {
             throw std::runtime_error("SetAudioCallback failed.");
+        }
 
 #ifdef _WIN32
         // Create an IDeckLinkVideoConversion interface object to provide pixel format
@@ -448,6 +458,7 @@ bool DecklinkOutput::init_decklink() {
         bSuccess      = true;
         is_available_ = true;
         log_runtime_info();
+        spdlog::info("DeckLink runtime is supported.");
 
         query_display_modes();
 
