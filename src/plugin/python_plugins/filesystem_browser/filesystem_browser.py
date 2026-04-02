@@ -405,6 +405,9 @@ class FilesystemBrowserPlugin(PluginBase):
         )
         self.thumbnail_request_attr.expose_in_ui_attrs_group("Filesystem Browser")
 
+        # Build the QML command dispatch table
+        self._command_handlers = self._build_command_handlers()
+
         # Initial search
         self.start_search(self.current_path_attr.value())
 
@@ -472,144 +475,112 @@ class FilesystemBrowserPlugin(PluginBase):
             print(f"Error opening dialog: {e}")
 
 
+    def _build_command_handlers(self):
+        """Build the QML command dispatch table. Called once from __init__."""
+        def _cmd_change_path(data):
+            new_path = data.get("path")
+            if os.path.exists(new_path) and os.path.isdir(new_path):
+                self.current_path_attr.set_value(new_path)
+                self._add_to_history(new_path)
+                self.start_search(new_path)
+            else:
+                print(f"Invalid path: {new_path}")
+
+        def _cmd_set_attribute(data):
+            attr_name = data.get("name")
+            attr_value = data.get("value")
+            if attr_name == "filter_time":
+                self.filter_time_attr.set_value(attr_value)
+            elif attr_name == "filter_version":
+                self.filter_version_attr.set_value(attr_value)
+            elif attr_name == "recursion_limit":
+                self.depth_limit_attr.set_value(attr_value)
+
+        def _cmd_copy_path(data):
+            path = data.get("path")
+            if not path:
+                return
+            try:
+                if sys.platform == "darwin":
+                    subprocess.run(["pbcopy"], input=path.encode(), check=True)
+                elif sys.platform == "win32":
+                    subprocess.run(["clip"], input=path.encode(), check=True)
+                else:
+                    subprocess.run(["xclip", "-selection", "clipboard"],
+                                   input=path.encode(), check=True)
+            except Exception as e:
+                _dbg(f"copy_path: Error: {e}")
+
+        def _cmd_reveal_in_finder(data):
+            path = data.get("path")
+            if not path:
+                return
+            # Resolve sequence to a concrete first frame
+            if fileseq_available:
+                try:
+                    seq = fileseq.FileSequence(path)
+                    if seq:
+                        path = str(seq[0])
+                except Exception:
+                    pass
+            try:
+                if sys.platform == "darwin":
+                    subprocess.run(["open", "-R", path], check=True)
+                elif sys.platform == "win32":
+                    subprocess.run(["explorer", "/select,", os.path.normpath(path)], check=True)
+                else:
+                    subprocess.run(["open", os.path.dirname(path)], check=True)
+            except Exception as e:
+                _dbg(f"reveal_in_finder: Error: {e}")
+
+        def _cmd_force_scan(data):
+            path = data.get("path")
+            if path:
+                self.current_path_attr.set_value(path)
+                self._add_to_history(path)
+                self.start_search(path, force=True, depth=20)
+            else:
+                self.start_search(self.current_path_attr.value(), force=True, depth=20)
+
+        return {
+            "change_path":              _cmd_change_path,
+            "load_file":                lambda d: self.load_file(d.get("path")),
+            "preview_file":             lambda d: self._preview_file(d.get("path")),
+            "request_browser":          lambda d: self._open_browser_dialog(self.current_path_attr.value()),
+            "complete_path":            lambda d: self.compute_completions(d.get("path", "")),
+            "replace_current_media":    lambda d: self._replace_current_media(d.get("path")),
+            "compare_with_current_media": lambda d: self._compare_with_current_media(d.get("path")),
+            "append_media":             lambda d: self._append_media(d.get("path")),
+            "set_attribute":            _cmd_set_attribute,
+            "copy_path":                _cmd_copy_path,
+            "reveal_in_finder":         _cmd_reveal_in_finder,
+            "add_pin":                  lambda d: self._add_pin(d.get("name"), d.get("path")),
+            "remove_pin":               lambda d: self._remove_pin(d.get("path")),
+            "force_scan":               _cmd_force_scan,
+            "get_subdirs":              lambda d: self._get_subdirs(d.get("path")),
+            "request_thumbnail":        lambda d: self._request_thumbnail(d.get("path")),
+        }
+
     def attribute_changed(self, attribute, role):
-        # Handle commands from QML via the command attribute
         from xstudio.core import AttributeRole
-        
-        # Check if it's our command attribute and the Value changed
+
         if attribute.uuid == self.command_attr.uuid and role == AttributeRole.Value:
-            # Safely get value
             try:
                 val = self.command_attr.value()
             except TypeError:
-                # Can happen if connection is shutting down or not ready
                 return
-
             if not val:
-                return # Empty command
-                
+                return
             try:
                 data = json.loads(val)
                 action = data.get("action")
-                
-                if action == "change_path":
-                    new_path = data.get("path")
-                    if os.path.exists(new_path) and os.path.isdir(new_path):
-                         self.current_path_attr.set_value(new_path)
-                         self._add_to_history(new_path)
-                         self.start_search(new_path)
-                    else:
-                         print(f"Invalid path: {new_path}")
-
-                elif action == "load_file":
-                    file_path = data.get("path")
-                    self.load_file(file_path)
-
-                elif action == "preview_file":
-                    file_path = data.get("path")
-                    self._preview_file(file_path)
-                    
-                elif action == "request_browser":
-                    # Open native directory dialog
-                    current = self.current_path_attr.value()
-                    # Execute directly (will fail gracefully if PySide6 missing)
-                    self._open_browser_dialog(current)
-                        
-                elif action == "complete_path":
-                    partial = data.get("path", "")
-                    self.compute_completions(partial)
-
-                elif action == "replace_current_media":
-                    path = data.get("path")
-                    self._replace_current_media(path)
-
-                elif action == "compare_with_current_media":
-                    path = data.get("path")
-                    self._compare_with_current_media(path)
-
-                elif action == "append_media":
-                    path = data.get("path")
-                    self._append_media(path)
-
-                elif action == "set_attribute":
-                    attr_name = data.get("name")
-                    attr_value = data.get("value")
-                    if attr_name == "filter_time":
-                        self.filter_time_attr.set_value(attr_value)
-                    elif attr_name == "filter_version":
-                        self.filter_version_attr.set_value(attr_value)
-                    elif attr_name == "recursion_limit":
-                        self.depth_limit_attr.set_value(attr_value)
-
-                elif action == "copy_path":
-                    path = data.get("path")
-                    if path:
-                        try:
-                            # Using pbcopy on macOS
-                            subprocess.run(['pbcopy'], input=path.encode(), check=True)
-                        except Exception as e:
-                            _dbg(f"copy_path: Error: {e}")
-
-                elif action == "reveal_in_finder":
-                    path = data.get("path")
-                    if path:
-                        # If it's a sequence, use the first frame for the reveal selection
-                        if fileseq_available:
-                            try:
-                                seq = fileseq.FileSequence(path)
-                                if seq:
-                                    path = str(seq[0])
-                            except Exception:
-                                pass
-
-                        try:
-                            # Using 'open -R' on macOS, 'explorer /select,' on Windows
-                            if sys.platform == "darwin":
-                                subprocess.run(['open', '-R', path], check=True)
-                            elif sys.platform == "win32":
-                                # Note: explorer /select,path needs the comma
-                                subprocess.run(['explorer', '/select,', os.path.normpath(path)], check=True)
-                            else:
-                                # Linux fallback: open parent directory
-                                parent = os.path.dirname(path)
-                                subprocess.run(['open', parent], check=True)
-                        except Exception as e:
-                            _dbg(f"reveal_in_finder: Error: {e}")
-
-                elif action == "add_pin":
-                    name = data.get("name")
-                    path = data.get("path")
-                    self._add_pin(name, path)
-
-                elif action == "remove_pin":
-                    path = data.get("path")
-                    self._remove_pin(path)
-
-                elif action == "force_scan":
-                    # User clicked "Scan" button
-                    path = data.get("path")
-                    if path:
-                        # Ensure we update the attribute (and thus the QML path field)
-                        self.current_path_attr.set_value(path)
-                        self._add_to_history(path)
-                        # Use deep recursion for manual scan (e.g., 20)
-                        self.start_search(path, force=True, depth=20)
-                    else:
-                        # Fallback for the main Refresh button
-                        current = self.current_path_attr.value()
-                        self.start_search(current, force=True, depth=20)
-
-                elif action == "get_subdirs":
-                    path = data.get("path")
-                    self._get_subdirs(path)
-
-                elif action == "request_thumbnail":
-                    path = data.get("path")
-                    self._request_thumbnail(path)
-                
+                handler = self._command_handlers.get(action)
+                if handler:
+                    handler(data)
+                elif action:
+                    print(f"FilesystemBrowser: Unknown command action: {action!r}")
                 # Clear command channel
                 self.command_attr.set_value("")
-                
             except Exception as e:
                 print(f"Command error: {e}")
                 import traceback
@@ -995,56 +966,13 @@ class FilesystemBrowserPlugin(PluginBase):
                  return
             else:
                 # --- Sequence Handling ---
-                loaded_as_sequence = False
-                if fileseq_available:
-                    try:
-                        seq = fileseq.FileSequence(path)
-                        if len(seq) > 1:
-                            # It's a sequence!
-                            # Construct xstudio-compatible sequence string with Explicit Range:
-                            # /path/to/prefix_{:04d}.ext=1001-1050
-                            
-                            dirname = seq.dirname()
-                            basename = seq.basename() # e.g. 'shot_' or 'shot.'
-                            
-                            # Calculate padding width from '####' or '@@@@@'
-                            pad_str = seq.padding()
-                            if pad_str == '#':
-                                pad_len = 4
-                            else:
-                                pad_len = len(pad_str) if pad_str else 0
-                            
-                            # Construct brace pattern e.g. {:04d}
-                            # If no padding, just empty brace? No, xstudio expects {:0Nd} usually.
-                            # But fileseq handling > 1 implies padding.
-                            
-                            brace_padding = f"{{:0{pad_len}d}}" if pad_len > 0 else ""
-                            
-                            frames = str(seq.frameSet()) # e.g. 1001-1050
-                            ext = seq.extension() # e.g. .exr
-                            
-                            # Normalize basename: sometimes fileseq puts the whole thing in basename.
-                            # But typical usage: dirname + basename + padded_part + ext
-                            
-                            # Construct the special path for xstudio parsing
-                            # IMPORTANT: xstudio regex expects: ^(.*\{.+\}.*?)(=([-0-9x,]+))?$
-                            # So we put the brace pattern in the path, and the range at end.
-                            
-                            seq_path = f"{dirname}{basename}{brace_padding}{ext}={frames}"
-                            
-                            # playlist.add_media(path) calls parse_posix_path internally 
-                            # which handles this pattern.
-                            media = playlist.add_media(seq_path)
-                            loaded_as_sequence = True
-                            
-                    except Exception as e:
-                        print(f"Sequence load error: {e}")
-
-                if not loaded_as_sequence:
+                seq_path = self._format_sequence_path(path) if fileseq_available else None
+                if seq_path:
+                    media = playlist.add_media(seq_path)
+                    print(f"Loaded Sequence: {seq_path}")
+                else:
                     media = playlist.add_media(path)
                     print(f"Loaded File: {path}")
-                else:
-                    print(f"Loaded Sequence: {seq_path}")
                 # Add to cache immediately
                 self.playlist_path_cache[pl_uuid].add(tgt_path)
 
@@ -1210,82 +1138,56 @@ class FilesystemBrowserPlugin(PluginBase):
             threading.Thread(target=self.apply_filters).start()
 
 
+    def _resolve_active_playlist(self):
+        """Return the currently active (viewed or selected) non-Preview playlist, or None."""
+        try:
+            viewed = self.connection.api.session.viewed_container
+            if hasattr(viewed, 'add_media') and viewed.name != "Preview":
+                return viewed
+        except Exception:
+            pass
+        try:
+            selection = self.connection.api.session.selected_containers
+            if selection and hasattr(selection[0], 'add_media') and selection[0].name != "Preview":
+                return selection[0]
+        except Exception:
+            pass
+        return None
+
     def _replace_current_media(self, path):
         try:
             print(f"Replacing current media with: {path}")
-            # 1. Identify valid playlist (use same logic as load_file or simplify)
-            # For replace, we usually mean the "active" playlist/viewed one.
-            playlist = None
-            try:
-                viewed = self.connection.api.session.viewed_container
-                if hasattr(viewed, 'add_media'):
-                    playlist = viewed
-            except:
-                pass
-                
-            if not playlist:
-                # Fallback to selection
-                try:
-                    selection = self.connection.api.session.selected_containers
-                    if selection and hasattr(selection[0], 'add_media'):
-                        playlist = selection[0]
-                except:
-                    pass
-            
+            playlist = self._resolve_active_playlist()
             if not playlist:
                 print("No active playlist found for replace.")
                 return
 
             self.connection.api.session.set_on_screen_source(playlist)
-
-            # 2. Add new media
-            # Use same helpers as load_file for sequences? 
-            # Ideally load_file should be refactored to return the media object.
-            # For now, duplicate simple add logic or internal helper.
-            # Let's use simple add for now to save complexity, or better, 
-            # we need sequence logic.
-            # Refactor load_file is risky mid-flight. 
-            # I will assume path is safe or reuse the sequence logic block?
-            # Let's extract sequence loading to a helper `_add_media_to_playlist(playlist, path)`
-            
             new_media = self._add_media_to_playlist(playlist, path)
             if not new_media:
                 return
 
-            # 3. Find currently selected/playing components to remove
-            # We want to remove the item that playhead is focusing on? 
-            # Or just the selection?
-            # "Replaces the media in the current viewport" implies the one being watched.
-            
             items_to_remove = []
             if hasattr(playlist, 'playhead_selection'):
-                 # Get what is currently selected/playing
-                 # selected_sources returns list of Media objects
-                 current_selection = playlist.playhead_selection.selected_sources
-                 if current_selection:
-                     items_to_remove = current_selection
-                 
-            # 4. Select new media
+                current_selection = playlist.playhead_selection.selected_sources
+                if current_selection:
+                    items_to_remove = current_selection
+
             if hasattr(playlist, 'playhead_selection'):
                 playlist.playhead_selection.set_selection([new_media.uuid])
-                
-            # 5. Move new media to position of old media?
-            # playlist.move_media(new_media, before=old_media_uuid)
+
             if items_to_remove:
-                # Move before the first removed item
                 try:
                     playlist.move_media(new_media, before=items_to_remove[0].uuid)
                 except Exception as e:
                     print(f"Move error: {e}")
-                
-            # 6. Remove old media
+
             for m in items_to_remove:
                 try:
                     playlist.remove_media(m)
                 except Exception as e:
                     print(f"Remove error: {e}")
 
-            # 7. Play
             if hasattr(playlist, 'playhead'):
                 playlist.playhead.playing = True
 
@@ -1297,70 +1199,43 @@ class FilesystemBrowserPlugin(PluginBase):
     def _compare_with_current_media(self, path):
         try:
             print(f"Comparing current media with: {path}")
-            # 1. Identify valid playlist
-            playlist = None
-            try:
-                viewed = self.connection.api.session.viewed_container
-                if hasattr(viewed, 'add_media'):
-                    playlist = viewed
-            except:
-                pass
-            
+            playlist = self._resolve_active_playlist()
             if not playlist:
                 print("No active playlist found for compare.")
                 return
 
             self.connection.api.session.set_on_screen_source(playlist)
-
-            # 2. Add new media
             new_media = self._add_media_to_playlist(playlist, path)
             if not new_media:
                 return
 
-            # 3. Get current selection and append new media
             new_selection = []
             if hasattr(playlist, 'playhead_selection'):
-                 current_m = playlist.playhead_selection.selected_sources
-                 for m in current_m:
-                     new_selection.append(m.uuid)
-            
+                for m in playlist.playhead_selection.selected_sources:
+                    new_selection.append(m.uuid)
             new_selection.append(new_media.uuid)
-            
-            # 4. Set selection
             if hasattr(playlist, 'playhead_selection'):
                 playlist.playhead_selection.set_selection(new_selection)
-                
-            # 5. Set Compare Mode
+
             if hasattr(playlist, 'playhead'):
-                # Check for AB mode availability? 
-                # Assuming "A/B" string is correct based on other plugins/docs
                 playlist.playhead.compare_mode = "A/B"
                 playlist.playhead.playing = True
 
         except Exception as e:
-             print(f"Compare error: {e}")
+            print(f"Compare error: {e}")
 
     def _append_media(self, path):
         try:
             print(f"Adding media to end of playlist: {path}")
-            playlist = None
-            try:
-                viewed = self.connection.api.session.viewed_container
-                if hasattr(viewed, 'add_media'):
-                    playlist = viewed
-            except:
-                pass
-            
+            playlist = self._resolve_active_playlist()
             if not playlist:
                 print("No active playlist found for append.")
                 return
-
             self._add_media_to_playlist(playlist, path)
-
         except Exception as e:
-             print(f"Append error: {e}")
-             import traceback
-             traceback.print_exc()
+            print(f"Append error: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _add_to_history(self, path):
         try:
@@ -1543,30 +1418,47 @@ class FilesystemBrowserPlugin(PluginBase):
         self.files_attr.set_value(serialised)
 
 
-    def _add_media_to_playlist(self, playlist, path):
-        """Helper to add media handling sequences."""
-        import os
+    @staticmethod
+    def _format_sequence_path(path):
+        """Convert a fileseq path string to the xStudio sequence URI format.
+
+        xStudio expects:  /dir/prefix{:04d}.ext=1001-1050
+        Returns the formatted string if the path resolves to a multi-frame
+        sequence, or None if it's a single file or fileseq is unavailable.
+        """
+        if not fileseq_available:
+            return None
         try:
-             tgt_path = os.path.normpath(os.path.abspath(path))
-             
-             # Check for sequence
-             if fileseq_available:
-                 try:
-                    seq = fileseq.FileSequence(path)
-                    if len(seq) > 1:
-                        dirname = seq.dirname()
-                        basename = seq.basename()
-                        pad_str = seq.padding()
-                        pad_len = len(pad_str) if pad_str else 0
-                        brace_padding = f"{{:0{pad_len}d}}" if pad_len > 0 else ""
-                        frames = str(seq.frameSet())
-                        ext = seq.extension()
-                        seq_path = f"{dirname}{basename}{brace_padding}{ext}={frames}"
-                        return playlist.add_media(seq_path)
-                 except:
-                    pass
-             
-             return playlist.add_media(path)
+            seq = fileseq.FileSequence(path)
+            if len(seq) <= 1:
+                return None
+            pad_str = seq.padding()
+            # Normalise fileseq padding tokens to a digit width:
+            #   '#'  → 4 (fileseq shorthand for @@@@)
+            #   '@'  → 1 per '@'
+            #   '%0Nd' → N  (printf style)
+            if pad_str == "#":
+                pad_len = 4
+            elif pad_str and pad_str.startswith("%"):
+                # printf style e.g. "%04d"
+                import re
+                m = re.search(r"%(0(\d+))?d", pad_str)
+                pad_len = int(m.group(2)) if m and m.group(2) else 0
+            else:
+                pad_len = len(pad_str) if pad_str else 0
+            brace_padding = f"{{:0{pad_len}d}}" if pad_len > 0 else "{:d}"
+            return (
+                f"{seq.dirname()}{seq.basename()}"
+                f"{brace_padding}{seq.extension()}={seq.frameRange()}"
+            )
+        except Exception:
+            return None
+
+    def _add_media_to_playlist(self, playlist, path):
+        """Add a file or image sequence to a playlist."""
+        try:
+            seq_path = self._format_sequence_path(path)
+            return playlist.add_media(seq_path if seq_path else path)
         except Exception as e:
             print(f"Add media error: {e}")
             return None
