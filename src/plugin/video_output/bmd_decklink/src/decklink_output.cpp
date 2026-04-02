@@ -62,10 +62,43 @@ std::string with_runtime_details(
     }
     return fmt::format("{} ({})", message, runtime_info);
 }
+
+struct DeckLinkVersion {
+    int major = 0;
+    int minor = 0;
+    int patch = 0;
+};
+
+bool parse_decklink_version(const std::string &version, DeckLinkVersion &parsed) {
+    if (version.empty()) {
+        return false;
+    }
+
+    std::stringstream ss(version);
+    char dot1 = 0;
+    char dot2 = 0;
+    if (!(ss >> parsed.major >> dot1 >> parsed.minor >> dot2 >> parsed.patch)) {
+        return false;
+    }
+
+    return dot1 == '.' && dot2 == '.';
+}
+
+bool is_decklink_version_older_than(
+    const DeckLinkVersion &lhs, const DeckLinkVersion &rhs) {
+    if (lhs.major != rhs.major) {
+        return lhs.major < rhs.major;
+    }
+    if (lhs.minor != rhs.minor) {
+        return lhs.minor < rhs.minor;
+    }
+    return lhs.patch < rhs.patch;
+}
 } // namespace
 
 void DecklinkOutput::detect_runtime_info() {
     std::vector<std::string> details;
+    api_version_.clear();
 
 #ifdef __linux__
     Dl_info dl_info;
@@ -87,6 +120,7 @@ void DecklinkOutput::detect_runtime_info() {
     if (auto *api_info = CreateDeckLinkAPIInformationInstance()) {
         const char *api_version = nullptr;
         if (api_info->GetString(BMDDeckLinkAPIVersion, &api_version) == S_OK && api_version) {
+            api_version_ = api_version;
             details.emplace_back(fmt::format("api_version={}", api_version));
         }
         api_info->Release();
@@ -347,6 +381,7 @@ bool DecklinkOutput::init_decklink() {
 
     IDeckLinkIterator *decklink_iterator = NULL;
     last_error_.clear();
+    api_version_.clear();
     output_interface_info_.clear();
 
     try {
@@ -388,18 +423,29 @@ bool DecklinkOutput::init_decklink() {
                     IID_IDeckLinkOutput_v14_2_1, (void **)&legacy_output_interface) == S_OK &&
                 legacy_output_interface != nullptr) {
                 output_interface_info_ = "IID_IDeckLinkOutput_v14_2_1";
-                legacy_output_interface->Release();
-                const auto upgrade_message = with_runtime_details(
-                    "Unsupported legacy Blackmagic DeckLink Linux runtime detected "
-                    "(output_interface=IID_IDeckLinkOutput_v14_2_1). Upgrade Blackmagic "
-                    "Desktop Video drivers to a newer release to use Blackmagic cards in "
-                    "xStudio.",
-                    runtime_info_);
-                spdlog::error("{}", upgrade_message);
-                spdlog::error(
-                    "Upgrade Blackmagic Desktop Video drivers to enable Blackmagic card "
-                    "support on Linux.");
-                throw std::runtime_error(upgrade_message);
+                DeckLinkVersion parsed_version;
+                const DeckLinkVersion minimum_supported{14, 2, 1};
+                const bool parsed = parse_decklink_version(api_version_, parsed_version);
+                if (!parsed || is_decklink_version_older_than(parsed_version, minimum_supported)) {
+                    legacy_output_interface->Release();
+                    const auto upgrade_message = with_runtime_details(
+                        "Unsupported Blackmagic DeckLink Linux runtime detected. Drivers "
+                        "older than 14.2.1 are not supported. Upgrade Blackmagic Desktop "
+                        "Video drivers to use Blackmagic cards in xStudio.",
+                        runtime_info_);
+                    spdlog::error("{}", upgrade_message);
+                    spdlog::error(
+                        "Upgrade Blackmagic Desktop Video drivers to version 14.2.1 or "
+                        "newer to enable Blackmagic card support on Linux.");
+                    throw std::runtime_error(upgrade_message);
+                }
+
+                decklink_output_interface_ =
+                    reinterpret_cast<IDeckLinkOutput *>(legacy_output_interface);
+                spdlog::warn(
+                    "DeckLink output is using the Linux v14.2.1 compatibility ABI. "
+                    "Upgrade Blackmagic Desktop Video drivers to 15.x or newer to use the "
+                    "modern DeckLink binaries.");
             } else {
                 throw std::runtime_error(with_runtime_details(
                     "DeckLink runtime ABI mismatch: failed to query the video output "

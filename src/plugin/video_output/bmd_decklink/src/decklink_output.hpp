@@ -209,6 +209,7 @@ namespace bm_decklink_plugin_1_0 {
         std::mutex hdr_metadata_mutex_;
         bool is_available_             = {false};
         std::string last_error_        = {};
+        std::string api_version_       = {};
         std::string runtime_info_      = {};
         std::string output_interface_info_ = {};
     };
