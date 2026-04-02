@@ -70,6 +70,382 @@ def _find_ffmpeg():
 # For GUI dialogs, we need another approach or they are disabled without PySide.
 
 
+class XStudioHostInterface:
+    """
+    Concrete implementation of the host application interface for xStudio.
+    Handles loading, previewing, and comparing media, as well as playlist management.
+    To port to OpenRV or another app, create a new host interface mapping to these methods.
+    """
+    def __init__(self, connection, plugin):
+        """
+        Initializes the xStudio host interface.
+
+        Args:
+            connection (RemoteConnection): The xStudio remote API connection object.
+            plugin (PluginBase): The parent plugin instance, which holds shared state 
+                                 or helper functions if needed.
+        """
+        self.connection = connection
+        self.plugin = plugin
+        self.playlist_path_cache = {}
+        self.last_used_playlist_uuid = None
+        self.original_playlist_uuid = None
+        self.preview_playlist_uuid = None
+        self.pending_preview_deletion_uuid = None
+
+    def _resolve_active_playlist(self):
+        """
+        Attempts to find an active (on-screen or selected) playlist that isn't the Preview playlist.
+
+        Returns:
+            Playlist | None: The active playlist container, or None if no valid playlist is found.
+        """
+        try:
+            viewed = self.connection.api.session.viewed_container
+            if hasattr(viewed, 'add_media') and viewed.name != "Preview":
+                return viewed
+        except Exception: pass
+        try:
+            selection = self.connection.api.session.selected_containers
+            if selection and hasattr(selection[0], 'add_media') and selection[0].name != "Preview":
+                return selection[0]
+        except Exception: pass
+        return None
+
+    @staticmethod
+    def _format_sequence_path(path):
+        """
+        Converts a fileseq path string into the specific URI formatting xStudio demands 
+        for loading image sequences (e.g. `/dir/prefix{:04d}.ext=1001-1050`).
+
+        Args:
+            path (str): The raw file path or fileseq string.
+        
+        Returns:
+            str | None: The formatted sequence path, or None if fileseq is unavailable or it's a single file.
+        """
+        if not fileseq_available: return None
+        try:
+            seq = fileseq.FileSequence(path)
+            if len(seq) <= 1: return None
+            pad_str = seq.padding()
+            if pad_str == "#":
+                pad_len = 4
+            elif pad_str and pad_str.startswith("%"):
+                import re
+                m = re.search(r"%(0(\d+))?d", pad_str)
+                pad_len = int(m.group(2)) if m and m.group(2) else 0
+            else:
+                pad_len = len(pad_str) if pad_str else 0
+            brace_padding = f"{{:0{pad_len}d}}" if pad_len > 0 else "{:d}"
+            return f"{seq.dirname()}{seq.basename()}{brace_padding}{seq.extension()}={seq.frameRange()}"
+        except Exception: return None
+
+    def _add_media_to_playlist(self, playlist, path):
+        """
+        Adds a file or sequence to the given playlist. Formats the path as a sequence if applicable.
+
+        Args:
+            playlist (Playlist): The target xStudio playlist object.
+            path (str): The filesystem path to load.
+
+        Returns:
+            Media | None: The newly added media object, or None if it fails.
+        """
+        try:
+            seq_path = self._format_sequence_path(path)
+            return playlist.add_media(seq_path if seq_path else path)
+        except Exception as e:
+            print(f"Add media error: {e}")
+            return None
+
+    def _find_container_uuid(self, tree, target_value_uuid):
+        """
+        Recursively searches the playlist tree to find the internal tree-node UUID 
+        corresponding to a known actor value UUID.
+
+        Args:
+            tree (TreeNode): The root node of the playlist tree sequence.
+            target_value_uuid (Uuid): The value_uuid to search for.
+
+        Returns:
+            Uuid | None: The tree node UUID, or None if not found.
+        """
+        if hasattr(tree, 'value_uuid') and str(tree.value_uuid) == str(target_value_uuid):
+            return tree.uuid
+        if hasattr(tree, 'children'):
+            for child in tree.children:
+                res = self._find_container_uuid(child, target_value_uuid)
+                if res: return res
+        return None
+
+    def load_media(self, path):
+        """
+        Loads the specified media into xStudio, creating a new playlist if necessary, or attaching it 
+        to the currently active one. Handles sequence detection, local state caching, and playhead setup.
+        Will not add the file if it detects a duplicate already inside the playlist.
+
+        Args:
+            path (str): The path to the file or sequence to load.
+        """
+        try:
+            valid_playlist = None
+            try:
+                selection = self.connection.api.session.selected_containers
+                for item in selection:
+                    if hasattr(item, 'add_media') and item.name != "Preview":
+                        valid_playlist = item
+                        self.last_used_playlist_uuid = item.uuid
+                        break
+            except Exception: pass
+            
+            if not valid_playlist and self.last_used_playlist_uuid:
+                try:
+                    target_uuid_str = str(self.last_used_playlist_uuid)
+                    for p in self.connection.api.session.playlists:
+                        if str(p.uuid) == target_uuid_str and p.name != "Preview":
+                            valid_playlist = p
+                            break
+                except Exception: pass
+
+            if not valid_playlist:
+                try:
+                    viewed = self.connection.api.session.viewed_container
+                    if hasattr(viewed, 'add_media') and viewed.name != "Preview":
+                        valid_playlist = viewed
+                        self.last_used_playlist_uuid = viewed.uuid
+                except Exception: pass
+
+            if not valid_playlist:
+                 playlists = [p for p in self.connection.api.session.playlists if p.name != "Preview"]
+                 if playlists:
+                     valid_playlist = playlists[0]
+                 else:
+                     self.connection.api.session.create_playlist("Filesystem Import")
+                     valid_playlist = [p for p in self.connection.api.session.playlists if p.name != "Preview"][0]
+                 self.last_used_playlist_uuid = valid_playlist.uuid
+            
+            if self.preview_playlist_uuid is not None:
+                if self.original_playlist_uuid is not None:
+                    orig_uuid_str = str(self.original_playlist_uuid)
+                    for p in self.connection.api.session.playlists:
+                        if str(p.uuid) == orig_uuid_str:
+                            valid_playlist = p
+                            break
+                self.pending_preview_deletion_uuid = self.preview_playlist_uuid
+                self.original_playlist_uuid = None
+                self.preview_playlist_uuid = None
+
+            playlist = valid_playlist
+            pl_uuid = str(playlist.uuid)
+            if pl_uuid not in self.playlist_path_cache:
+                self.playlist_path_cache[pl_uuid] = set()
+            
+            existing_media = None
+            try:
+                current_media_list = playlist.media
+                tgt_path = os.path.normpath(os.path.abspath(path))
+                for m in current_media_list:
+                    try:
+                        ms = m.media_source()
+                        mr = ms.media_reference
+                        if mr:
+                            u = mr.uri()
+                            mp = u.path()
+                            if mp:
+                                mp_norm = os.path.normpath(os.path.abspath(mp))
+                                if mp_norm == tgt_path:
+                                    existing_media = m
+                                    break
+                    except Exception: continue
+            except Exception as e: print(f"Dup check error: {e}")
+
+            if existing_media:
+                media = existing_media
+            elif tgt_path in self.playlist_path_cache[pl_uuid]:
+                 return
+            else:
+                seq_path = self._format_sequence_path(path) if fileseq_available else None
+                if seq_path:
+                    media = playlist.add_media(seq_path)
+                else:
+                    media = playlist.add_media(path)
+                self.playlist_path_cache[pl_uuid].add(tgt_path)
+
+            self.connection.api.session.set_on_screen_source(playlist)
+            try: self.connection.api.session.viewed_container = playlist
+            except Exception: pass
+            
+            if hasattr(playlist, 'playhead_selection'):
+                playlist.playhead_selection.set_selection([media.uuid])
+
+            try: playlist.playhead.playing = True
+            except Exception: pass
+
+            if self.pending_preview_deletion_uuid:
+                try:
+                    prev_uuid = self.pending_preview_deletion_uuid
+                    self.pending_preview_deletion_uuid = None
+                    tree = self.connection.api.session.playlist_tree
+                    cuuid = self._find_container_uuid(tree, prev_uuid)
+                    if cuuid:
+                        self.connection.api.session.remove_container(cuuid)
+                    else:
+                        for p in self.connection.api.session.playlists:
+                            if str(p.uuid) == str(prev_uuid):
+                                self.connection.api.session.remove_container(p)
+                                break
+                except Exception as e: _dbg(f"Final cleanup error: {e}")
+
+        except Exception as e:
+            print(f"Error loading file: {e}")
+
+    def replace_current_media(self, path):
+        """
+        Replaces the currently selected/playing media in the active playlist with the new source.
+
+        Args:
+            path (str): The new file path to insert into the playlist in place of the old one.
+        """
+        try:
+            playlist = self._resolve_active_playlist()
+            if not playlist: return
+            self.connection.api.session.set_on_screen_source(playlist)
+            new_media = self._add_media_to_playlist(playlist, path)
+            if not new_media: return
+            items_to_remove = []
+            if hasattr(playlist, 'playhead_selection'):
+                current_selection = playlist.playhead_selection.selected_sources
+                if current_selection: items_to_remove = current_selection
+
+            if hasattr(playlist, 'playhead_selection'):
+                playlist.playhead_selection.set_selection([new_media.uuid])
+
+            if items_to_remove:
+                try: playlist.move_media(new_media, before=items_to_remove[0].uuid)
+                except Exception: pass
+
+            for m in items_to_remove:
+                try: playlist.remove_media(m)
+                except Exception: pass
+
+            if hasattr(playlist, 'playhead'):
+                playlist.playhead.playing = True
+
+        except Exception as e: print(f"Replace error: {e}")
+
+    def compare_with_current_media(self, path):
+        """
+        Adds the specified media to the current selection, and puts the playhead into A/B compare mode.
+
+        Args:
+            path (str): The new media file path to compare.
+        """
+        try:
+            playlist = self._resolve_active_playlist()
+            if not playlist: return
+            self.connection.api.session.set_on_screen_source(playlist)
+            new_media = self._add_media_to_playlist(playlist, path)
+            if not new_media: return
+            new_selection = []
+            if hasattr(playlist, 'playhead_selection'):
+                for m in playlist.playhead_selection.selected_sources:
+                    new_selection.append(m.uuid)
+            new_selection.append(new_media.uuid)
+            if hasattr(playlist, 'playhead_selection'):
+                playlist.playhead_selection.set_selection(new_selection)
+            if hasattr(playlist, 'playhead'):
+                playlist.playhead.compare_mode = "A/B"
+                playlist.playhead.playing = True
+        except Exception as e: print(f"Compare error: {e}")
+
+    def append_media(self, path):
+        """
+        Appends a piece of media to the currently active playlist without altering 
+        the playhead's current playback mode or selection.
+
+        Args:
+            path (str): The media file path to append.
+        """
+        try:
+            playlist = self._resolve_active_playlist()
+            if not playlist: return
+            self._add_media_to_playlist(playlist, path)
+        except Exception as e: print(f"Append error: {e}")
+
+    def preview_media(self, path):
+        """
+        Creates or utilizes a transient 'Preview' playlist to temporarily view an item. 
+        It safely captures the existing playlist and playhead frame so that closing the preview 
+        can revert the interface to precisely what was observed before.
+
+        Args:
+            path (str): The media file path to preview.
+        """
+        try:
+            viewed = None
+            try: viewed = self.connection.api.session.viewed_container
+            except Exception: pass
+
+            if self.preview_playlist_uuid is None:
+                self.original_playlist_uuid = None
+                if viewed and hasattr(viewed, 'add_media') and viewed.name != "Preview":
+                    try: self.original_playlist_uuid = viewed.uuid
+                    except Exception: pass
+                
+            current_frame = None
+            if viewed and hasattr(viewed, 'playhead'):
+                try: current_frame = viewed.playhead.position
+                except Exception: pass
+
+            preview_playlist = None
+            try:
+                for p in self.connection.api.session.playlists:
+                    try:
+                        if p.name == "Preview":
+                            preview_playlist = p
+                            break
+                    except Exception: continue
+            except Exception: pass
+            
+            if not preview_playlist:
+                try: _, preview_playlist = self.connection.api.session.create_playlist("Preview")
+                except Exception: pass
+            
+            if not preview_playlist: return
+                
+            try: self.preview_playlist_uuid = preview_playlist.uuid
+            except Exception: pass
+
+            try:
+                media_list = list(preview_playlist.media)
+                if media_list: preview_playlist.remove_media(media_list)
+            except Exception: pass
+                
+            media = self._add_media_to_playlist(preview_playlist, path)
+            if not media: return
+
+            try: self.connection.api.session.set_on_screen_source(preview_playlist)
+            except Exception: pass
+            
+            try: self.connection.api.session.viewed_container = preview_playlist
+            except Exception: pass
+            
+            try:
+                if hasattr(preview_playlist, 'playhead_selection'):
+                    preview_playlist.playhead_selection.set_selection([media.uuid])
+
+                if hasattr(preview_playlist, 'playhead'):
+                    if current_frame is not None:
+                        try: preview_playlist.playhead.position = current_frame
+                        except Exception: pass
+                    try: preview_playlist.playhead.playing = False
+                    except Exception: pass
+            except Exception: pass
+                
+        except Exception as e: print(f"FilesystemBrowser Preview error: {e}")
+
+
 class FilesystemBrowserPlugin(PluginBase):
     def __init__(self, connection):
         PluginBase.__init__(
@@ -78,6 +454,9 @@ class FilesystemBrowserPlugin(PluginBase):
             "Filesystem Browser",
             qml_folder="qml/FilesystemBrowser.1"
         )
+        # Initialize the host application interface (xStudio concrete implementation)
+        self.host = XStudioHostInterface(self.connection, self)
+
         # Load Configuration
         self.config = self.load_config()
         
@@ -545,12 +924,12 @@ class FilesystemBrowserPlugin(PluginBase):
         return {
             "change_path":              _cmd_change_path,
             "load_file":                lambda d: self.load_file(d.get("path")),
-            "preview_file":             lambda d: self._preview_file(d.get("path")),
+            "preview_file":             lambda d: self.host.preview_media(d.get("path")),
             "request_browser":          lambda d: self._open_browser_dialog(self.current_path_attr.value()),
             "complete_path":            lambda d: self.compute_completions(d.get("path", "")),
-            "replace_current_media":    lambda d: self._replace_current_media(d.get("path")),
-            "compare_with_current_media": lambda d: self._compare_with_current_media(d.get("path")),
-            "append_media":             lambda d: self._append_media(d.get("path")),
+            "replace_current_media":    lambda d: self.host.replace_current_media(d.get("path")),
+            "compare_with_current_media": lambda d: self.host.compare_with_current_media(d.get("path")),
+            "append_media":             lambda d: self.host.append_media(d.get("path")),
             "set_attribute":            _cmd_set_attribute,
             "copy_path":                _cmd_copy_path,
             "reveal_in_finder":         _cmd_reveal_in_finder,
@@ -840,197 +1219,13 @@ class FilesystemBrowserPlugin(PluginBase):
         self.directory_query_result.set_value(json.dumps(result))
 
     def load_file(self, path):
-        """Logic to load file into xstudio."""
-        # Handle directory navigation
+        """Handle directory navigation or delegating file loading to host interface."""
         if os.path.isdir(path):
             self.current_path_attr.set_value(path)
             self._add_to_history(path)
             self.start_search(path)
             return
-
-        try:
-            valid_playlist = None
-            
-            # 1. Try Selected Containers
-            try:
-                selection = self.connection.api.session.selected_containers
-                for item in selection:
-                    if hasattr(item, 'add_media') and item.name != "Preview":
-                        valid_playlist = item
-                        self.last_used_playlist_uuid = item.uuid
-                        print(f"Targeting Selected Playlist: {item.name}")
-                        break
-            except Exception:
-                pass
-            
-            # 2. Try Cached Playlist (Sticky)
-            if not valid_playlist and hasattr(self, 'last_used_playlist_uuid'):
-                try:
-                    target_uuid_str = str(self.last_used_playlist_uuid)
-                    for p in self.connection.api.session.playlists:
-                        if str(p.uuid) == target_uuid_str and p.name != "Preview":
-                            valid_playlist = p
-                            print(f"Targeting Cached Playlist: {p.name}")
-                            break
-                except:
-                    pass
-
-            # 3. Try Viewed Container
-            if not valid_playlist:
-                try:
-                    viewed = self.connection.api.session.viewed_container
-                    if hasattr(viewed, 'add_media') and viewed.name != "Preview":
-                        valid_playlist = viewed
-                        self.last_used_playlist_uuid = viewed.uuid
-                        print(f"Targeting Viewed Playlist: {viewed.name}")
-                except Exception:
-                    pass
-
-            # 4. Fallback to first non-preview playlist
-            if not valid_playlist:
-                 playlists = [p for p in self.connection.api.session.playlists if p.name != "Preview"]
-                 if playlists:
-                     valid_playlist = playlists[0]
-                     # print(f"Targeting First Playlist (Fallback): {valid_playlist.name}")
-                 else:
-                     self.connection.api.session.create_playlist("Filesystem Import")
-                     valid_playlist = [p for p in self.connection.api.session.playlists if p.name != "Preview"][0]
-                 # Update cache to this fallback
-                 self.last_used_playlist_uuid = valid_playlist.uuid
-            
-            # If we were in preview mode, switch back to the original playlist
-            if self.preview_playlist_uuid is not None:
-                if self.original_playlist_uuid is not None:
-                    orig_uuid_str = str(self.original_playlist_uuid)
-                    for p in self.connection.api.session.playlists:
-                        if str(p.uuid) == orig_uuid_str:
-                            valid_playlist = p
-                            print(f"Restoring to original playlist from preview: {p.name}")
-                            break
-                
-                # Capture the preview uuid to delete later
-                self.pending_preview_deletion_uuid = self.preview_playlist_uuid
-                
-                self.original_playlist_uuid = None
-                self.preview_playlist_uuid = None
-
-            playlist = valid_playlist
-            
-            # --- Duplicate Check Logic: Local Cache ---
-            if not hasattr(self, 'playlist_path_cache'):
-                self.playlist_path_cache = {} # Dict[uuid_str, set(paths)]
-
-            pl_uuid = str(playlist.uuid)
-            if pl_uuid not in self.playlist_path_cache:
-                self.playlist_path_cache[pl_uuid] = set()
-            
-            # Check if media already exists in playlist
-            existing_media = None
-            try:
-                # Force refresh of media list?? No direct method, accessing .media should request it.
-                current_media_list = playlist.media
-                
-                # Normalize input path: absolute + normpath
-                tgt_path = os.path.normpath(os.path.abspath(path))
-                
-                print(f"Checking for duplicates of: {tgt_path}")
-                
-                for m in current_media_list:
-                    try:
-                        ms = m.media_source()
-                        mr = ms.media_reference
-                        if mr:
-                            # URI path might include file:// scheme or be absolute
-                            u = mr.uri()
-                            mp = u.path()
-                            if mp:
-                                # Also abspath/normpath the existing media path
-                                mp_norm = os.path.normpath(os.path.abspath(mp))
-                                # print(f"  Existing: {mp_norm}")
-                                if mp_norm == tgt_path:
-                                    existing_media = m
-                                    print("  -> Match found!")
-                                    break
-                    except:
-                        continue
-            except Exception as e:
-                print(f"Dup check error: {e}")
-
-
-            if existing_media:
-                media = existing_media
-                print(f"Media already exists: {path}")
-            elif tgt_path in self.playlist_path_cache[pl_uuid]:
-                 # In cache but not in media list yet (pending)
-                 print(f"Skipping duplicate (pending load): {path}")
-                 return
-            else:
-                # --- Sequence Handling ---
-                seq_path = self._format_sequence_path(path) if fileseq_available else None
-                if seq_path:
-                    media = playlist.add_media(seq_path)
-                    print(f"Loaded Sequence: {seq_path}")
-                else:
-                    media = playlist.add_media(path)
-                    print(f"Loaded File: {path}")
-                # Add to cache immediately
-                self.playlist_path_cache[pl_uuid].add(tgt_path)
-
-            # Force the viewport to display the playlist (parent of the media)
-            # We can't set the media directly as source if we want to use the playlist's playhead logic effectively 
-            # (and avoid "create_playhead_atom" errors on MediaActor).
-            self.connection.api.session.set_on_screen_source(playlist)
-            
-            # also try setting the selected/viewed container to force UI update
-            try:
-                self.connection.api.session.viewed_container = playlist
-            except:
-                pass
-            
-            # Select the media in the playlist's playhead selection
-            # This ensures the playhead jumps to/plays this specific media
-            if hasattr(playlist, 'playhead_selection'):
-                playlist.playhead_selection.set_selection([media.uuid])
-
-            # Start playback
-            try:
-                # Use the playlist's playhead to control playback
-                playlist.playhead.playing = True
-            except:
-                pass
-
-            # Final cleanup of the Preview playlist if we have one pending
-            if hasattr(self, 'pending_preview_deletion_uuid') and self.pending_preview_deletion_uuid:
-                try:
-                    prev_uuid = self.pending_preview_deletion_uuid
-                    self.pending_preview_deletion_uuid = None
-                    
-                    _dbg(f"Attempting to delete Preview playlist node for actor: {prev_uuid}")
-                    
-                    # We need the tree node UUID, not the actor UUID
-                    tree = self.connection.api.session.playlist_tree
-                    cuuid = self._find_container_uuid(tree, prev_uuid)
-                    
-                    if cuuid:
-                        _dbg(f"Found tree node UUID: {cuuid}, calling remove_container")
-                        res = self.connection.api.session.remove_container(cuuid)
-                        _dbg(f"Deletion result: {res}")
-                        print(f"FilesystemBrowser: Deleted Preview playlist (Node: {cuuid})")
-                    else:
-                        _dbg(f"Could not find tree node UUID for {prev_uuid}")
-                        # Fallback to old method just in case, though likely to fail
-                        for p in self.connection.api.session.playlists:
-                            if str(p.uuid) == str(prev_uuid):
-                                self.connection.api.session.remove_container(p)
-                                break
-                except Exception as e:
-                    _dbg(f"Final cleanup error: {e}")
-                    print(f"Error in final preview cleanup: {e}")
-
-        except Exception as e:
-            print(f"Error loading file: {e}")
-            import traceback
-            traceback.print_exc()
+        self.host.load_media(path)
 
 
 
@@ -1136,106 +1331,6 @@ class FilesystemBrowserPlugin(PluginBase):
         if role == AttributeRole.Value:
             # Re-apply filters on cached results
             threading.Thread(target=self.apply_filters).start()
-
-
-    def _resolve_active_playlist(self):
-        """Return the currently active (viewed or selected) non-Preview playlist, or None."""
-        try:
-            viewed = self.connection.api.session.viewed_container
-            if hasattr(viewed, 'add_media') and viewed.name != "Preview":
-                return viewed
-        except Exception:
-            pass
-        try:
-            selection = self.connection.api.session.selected_containers
-            if selection and hasattr(selection[0], 'add_media') and selection[0].name != "Preview":
-                return selection[0]
-        except Exception:
-            pass
-        return None
-
-    def _replace_current_media(self, path):
-        try:
-            print(f"Replacing current media with: {path}")
-            playlist = self._resolve_active_playlist()
-            if not playlist:
-                print("No active playlist found for replace.")
-                return
-
-            self.connection.api.session.set_on_screen_source(playlist)
-            new_media = self._add_media_to_playlist(playlist, path)
-            if not new_media:
-                return
-
-            items_to_remove = []
-            if hasattr(playlist, 'playhead_selection'):
-                current_selection = playlist.playhead_selection.selected_sources
-                if current_selection:
-                    items_to_remove = current_selection
-
-            if hasattr(playlist, 'playhead_selection'):
-                playlist.playhead_selection.set_selection([new_media.uuid])
-
-            if items_to_remove:
-                try:
-                    playlist.move_media(new_media, before=items_to_remove[0].uuid)
-                except Exception as e:
-                    print(f"Move error: {e}")
-
-            for m in items_to_remove:
-                try:
-                    playlist.remove_media(m)
-                except Exception as e:
-                    print(f"Remove error: {e}")
-
-            if hasattr(playlist, 'playhead'):
-                playlist.playhead.playing = True
-
-        except Exception as e:
-            print(f"Replace error: {e}")
-            import traceback
-            traceback.print_exc()
-
-    def _compare_with_current_media(self, path):
-        try:
-            print(f"Comparing current media with: {path}")
-            playlist = self._resolve_active_playlist()
-            if not playlist:
-                print("No active playlist found for compare.")
-                return
-
-            self.connection.api.session.set_on_screen_source(playlist)
-            new_media = self._add_media_to_playlist(playlist, path)
-            if not new_media:
-                return
-
-            new_selection = []
-            if hasattr(playlist, 'playhead_selection'):
-                for m in playlist.playhead_selection.selected_sources:
-                    new_selection.append(m.uuid)
-            new_selection.append(new_media.uuid)
-            if hasattr(playlist, 'playhead_selection'):
-                playlist.playhead_selection.set_selection(new_selection)
-
-            if hasattr(playlist, 'playhead'):
-                playlist.playhead.compare_mode = "A/B"
-                playlist.playhead.playing = True
-
-        except Exception as e:
-            print(f"Compare error: {e}")
-
-    def _append_media(self, path):
-        try:
-            print(f"Adding media to end of playlist: {path}")
-            playlist = self._resolve_active_playlist()
-            if not playlist:
-                print("No active playlist found for append.")
-                return
-            self._add_media_to_playlist(playlist, path)
-        except Exception as e:
-            print(f"Append error: {e}")
-            import traceback
-            traceback.print_exc()
 
     def _add_to_history(self, path):
         try:
@@ -1416,174 +1511,6 @@ class FilesystemBrowserPlugin(PluginBase):
 
         # Push the update; QML will merge thumbnailSource via the Image.source binding
         self.files_attr.set_value(serialised)
-
-
-    @staticmethod
-    def _format_sequence_path(path):
-        """Convert a fileseq path string to the xStudio sequence URI format.
-
-        xStudio expects:  /dir/prefix{:04d}.ext=1001-1050
-        Returns the formatted string if the path resolves to a multi-frame
-        sequence, or None if it's a single file or fileseq is unavailable.
-        """
-        if not fileseq_available:
-            return None
-        try:
-            seq = fileseq.FileSequence(path)
-            if len(seq) <= 1:
-                return None
-            pad_str = seq.padding()
-            # Normalise fileseq padding tokens to a digit width:
-            #   '#'  → 4 (fileseq shorthand for @@@@)
-            #   '@'  → 1 per '@'
-            #   '%0Nd' → N  (printf style)
-            if pad_str == "#":
-                pad_len = 4
-            elif pad_str and pad_str.startswith("%"):
-                # printf style e.g. "%04d"
-                import re
-                m = re.search(r"%(0(\d+))?d", pad_str)
-                pad_len = int(m.group(2)) if m and m.group(2) else 0
-            else:
-                pad_len = len(pad_str) if pad_str else 0
-            brace_padding = f"{{:0{pad_len}d}}" if pad_len > 0 else "{:d}"
-            return (
-                f"{seq.dirname()}{seq.basename()}"
-                f"{brace_padding}{seq.extension()}={seq.frameRange()}"
-            )
-        except Exception:
-            return None
-
-    def _add_media_to_playlist(self, playlist, path):
-        """Add a file or image sequence to a playlist."""
-        try:
-            seq_path = self._format_sequence_path(path)
-            return playlist.add_media(seq_path if seq_path else path)
-        except Exception as e:
-            print(f"Add media error: {e}")
-            return None
-
-    def _find_container_uuid(self, tree, target_value_uuid):
-        """Recursively find the tree node UUID for a given playlist actor UUID."""
-        if hasattr(tree, 'value_uuid') and str(tree.value_uuid) == str(target_value_uuid):
-            return tree.uuid
-        if hasattr(tree, 'children'):
-            for child in tree.children:
-                res = self._find_container_uuid(child, target_value_uuid)
-                if res:
-                    return res
-        return None
-
-    def _preview_file(self, path):
-        """Load a file into the transient Preview playlist."""
-        try:
-            print(f"FilesystemBrowser: Previewing {path}")
-            
-            # 1. Capture current context safely
-            viewed = None
-            try:
-                viewed = self.connection.api.session.viewed_container
-            except Exception as e:
-                print(f"FilesystemBrowser: Could not get viewed container (expected in some states): {e}")
-
-            # If we are not already in preview mode, capture the current playlist context
-            if self.preview_playlist_uuid is None:
-                self.original_playlist_uuid = None
-                if viewed and hasattr(viewed, 'add_media') and viewed.name != "Preview":
-                    try:
-                        self.original_playlist_uuid = viewed.uuid
-                        print(f"FilesystemBrowser: Saving original playlist {viewed.name}")
-                    except Exception as e:
-                        print(f"FilesystemBrowser: Error saving original playlist UUID: {e}")
-                
-            # 2. Attempt to capture the exact frame number we are currently looking at
-            current_frame = None
-            if viewed and hasattr(viewed, 'playhead'):
-                try:
-                    current_frame = viewed.playhead.position
-                    print(f"FilesystemBrowser: Captured frame sync position: {current_frame}")
-                except Exception as e:
-                    print(f"FilesystemBrowser: Could not capture playhead position: {e}")
-
-            # 3. Find or Create the 'Preview' playlist
-            preview_playlist = None
-            try:
-                for p in self.connection.api.session.playlists:
-                    try:
-                        if p.name == "Preview":
-                            preview_playlist = p
-                            break
-                    except:
-                        continue
-            except Exception as e:
-                print(f"FilesystemBrowser: Error searching playlists: {e}")
-            
-            if not preview_playlist:
-                try:
-                    # returns (uuid, Playlist)
-                    _, preview_playlist = self.connection.api.session.create_playlist("Preview")
-                except Exception as e:
-                    print(f"FilesystemBrowser: Error creating Preview playlist: {e}")
-            
-            if not preview_playlist:
-                print("FilesystemBrowser: Could not create or find Preview playlist")
-                return
-                
-            try:
-                self.preview_playlist_uuid = preview_playlist.uuid
-            except:
-                pass
-
-            # 4. Clear the remote preview playlist safely
-            try:
-                media_list = list(preview_playlist.media)
-                if media_list:
-                    preview_playlist.remove_media(media_list)
-            except Exception as e:
-                print(f"FilesystemBrowser: Error clearing Preview playlist: {e}")
-                
-            # 5. Add the new media
-            media = self._add_media_to_playlist(preview_playlist, path)
-            if not media:
-                 return
-
-            # 6. Force the viewport to display the preview playlist
-            try:
-                self.connection.api.session.set_on_screen_source(preview_playlist)
-            except Exception as e:
-                print(f"FilesystemBrowser: Error setting on-screen source: {e}")
-            
-            # also try setting the selected/viewed container to force UI update
-            try:
-                self.connection.api.session.viewed_container = preview_playlist
-            except:
-                pass
-            
-            # 7. Select the media and restore position
-            try:
-                if hasattr(preview_playlist, 'playhead_selection'):
-                    preview_playlist.playhead_selection.set_selection([media.uuid])
-
-                if hasattr(preview_playlist, 'playhead'):
-                    if current_frame is not None:
-                        try:
-                            preview_playlist.playhead.position = current_frame
-                            print(f"FilesystemBrowser: Restored frame position: {current_frame}")
-                        except Exception as e:
-                            print(f"FilesystemBrowser: Error restoring frame: {e}")
-                    
-                    # pause on load for preview
-                    try:
-                        preview_playlist.playhead.playing = False
-                    except:
-                        pass
-            except Exception as e:
-                print(f"FilesystemBrowser: Error finalizing preview state: {e}")
-                
-        except Exception as e:
-            print(f"FilesystemBrowser Preview error: {e}")
-            import traceback
-            traceback.print_exc()
 
 def create_plugin_instance(connection):
     return FilesystemBrowserPlugin(connection)
