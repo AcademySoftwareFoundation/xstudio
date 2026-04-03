@@ -4,8 +4,10 @@
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/chrono.hpp"
 #include "xstudio/enums.hpp"
+#include <cstring>
 #include <iostream>
 #include <half.h>
+#include <sstream>
 
 #ifdef __linux__
 #include <dlfcn.h>
@@ -48,7 +50,104 @@ class TimeLogger {
     std::string label_;
     std::chrono::high_resolution_clock::time_point start_time_;
 };
+
+std::string with_runtime_details(
+    const std::string &message, const std::string &runtime_info) {
+    if (runtime_info.empty()) {
+        return message;
+    }
+    return fmt::format("{} ({})", message, runtime_info);
+}
+
+std::string format_hresult(const HRESULT result) {
+    return fmt::format("0x{:08X}", static_cast<uint32_t>(result));
+}
+
+struct DeckLinkVersion {
+    int major = 0;
+    int minor = 0;
+    int patch = 0;
+};
+
+bool parse_decklink_version(const std::string &version, DeckLinkVersion &parsed) {
+    if (version.empty()) {
+        return false;
+    }
+
+    std::stringstream ss(version);
+    char dot1 = 0;
+    char dot2 = 0;
+    if (!(ss >> parsed.major >> dot1 >> parsed.minor >> dot2 >> parsed.patch)) {
+        return false;
+    }
+
+    return dot1 == '.' && dot2 == '.';
+}
+
+bool is_decklink_version_older_than(
+    const DeckLinkVersion &lhs, const DeckLinkVersion &rhs) {
+    if (lhs.major != rhs.major) {
+        return lhs.major < rhs.major;
+    }
+    if (lhs.minor != rhs.minor) {
+        return lhs.minor < rhs.minor;
+    }
+    return lhs.patch < rhs.patch;
+}
 } // namespace
+
+void DecklinkOutput::detect_runtime_info() {
+    std::vector<std::string> details;
+    api_version_.clear();
+
+#ifdef __linux__
+    Dl_info dl_info;
+    if (dladdr(reinterpret_cast<void *>(CreateDeckLinkIteratorInstance), &dl_info) &&
+        dl_info.dli_fname) {
+        details.emplace_back(fmt::format("library={}", dl_info.dli_fname));
+    }
+#endif
+
+    if (auto *api_info = CreateDeckLinkAPIInformationInstance()) {
+        const char *api_version = nullptr;
+        if (api_info->GetString(BMDDeckLinkAPIVersion, &api_version) == S_OK && api_version) {
+            api_version_ = api_version;
+            details.emplace_back(fmt::format("api_version={}", api_version));
+        }
+        api_info->Release();
+    }
+
+    if (details.empty()) {
+        runtime_info_.clear();
+        return;
+    }
+
+    std::ostringstream out;
+    for (size_t i = 0; i < details.size(); ++i) {
+        if (i) {
+            out << ", ";
+        }
+        out << details[i];
+    }
+    runtime_info_ = out.str();
+}
+
+void DecklinkOutput::log_runtime_info() const {
+    if (runtime_info_.empty() && output_interface_info_.empty()) {
+        return;
+    }
+
+    if (output_interface_info_.empty()) {
+        spdlog::info("DeckLink runtime detected: {}", runtime_info_);
+    } else if (runtime_info_.empty()) {
+        spdlog::info("DeckLink runtime detected: output_interface={}", output_interface_info_);
+    } else {
+        spdlog::info(
+            "DeckLink runtime detected: {}, output_interface={}",
+            runtime_info_,
+            output_interface_info_);
+    }
+}
 
 void DecklinkOutput::check_decklink_installation() {
 
@@ -117,22 +216,47 @@ DecklinkOutput::DecklinkOutput(BMDecklinkPlugin *decklink_xstudio_plugin)
 }
 
 DecklinkOutput::~DecklinkOutput() {
+    running_ = false;
+    {
+        std::lock_guard lk(audio_samples_cv_mutex_);
+        fetch_more_samples_from_xstudio_ = true;
+    }
+    audio_samples_cv_.notify_all();
+
+    release_resources();
+    spdlog::info("Closing Decklink Output");
+}
+
+void DecklinkOutput::release_resources() {
 
     if (decklink_output_interface_ != NULL) {
-
         spdlog::info("Stopping Decklink output loop.");
 
-        decklink_output_interface_->StopScheduledPlayback(0, NULL, 0);
-        decklink_output_interface_->DisableVideoOutput();
-        decklink_output_interface_->DisableAudioOutput();
+        decklink_output_interface_->SetScheduledFrameCompletionCallback(nullptr);
+        decklink_output_interface_->SetAudioCallback(nullptr);
 
+        if (scheduled_playback_started_) {
+            decklink_output_interface_->StopScheduledPlayback(0, NULL, 0);
+            scheduled_playback_started_ = false;
+        }
+        if (video_output_enabled_) {
+            decklink_output_interface_->DisableVideoOutput();
+            video_output_enabled_ = false;
+        }
+        if (audio_output_enabled_) {
+            decklink_output_interface_->DisableAudioOutput();
+            audio_output_enabled_ = false;
+        }
         decklink_output_interface_->Release();
     }
     if (decklink_interface_ != NULL) {
         decklink_interface_->Release();
     }
-    if (output_callback_ != NULL) {
-        output_callback_->Release();
+    if (video_output_callback_ != NULL) {
+        video_output_callback_->Release();
+    }
+    if (audio_output_callback_ != NULL) {
+        audio_output_callback_->Release();
     }
 
     if (frame_converter_ != NULL) {
@@ -141,8 +265,17 @@ DecklinkOutput::~DecklinkOutput() {
 
     if (intermediate_frame_ != nullptr) {
         intermediate_frame_->Release();
+        intermediate_frame_ = nullptr;
     }
-    spdlog::info("Closing Decklink Output");
+
+    video_output_callback_     = nullptr;
+    audio_output_callback_     = nullptr;
+    frame_converter_           = nullptr;
+    decklink_output_interface_ = nullptr;
+    decklink_interface_        = nullptr;
+    scheduled_playback_started_ = false;
+    video_output_enabled_       = false;
+    audio_output_enabled_       = false;
 }
 
 void DecklinkOutput::set_preroll() {
@@ -245,8 +378,12 @@ bool DecklinkOutput::init_decklink() {
     bool bSuccess = false;
 
     IDeckLinkIterator *decklink_iterator = NULL;
+    last_error_.clear();
+    api_version_.clear();
+    output_interface_info_.clear();
 
     try {
+        detect_runtime_info();
 
 #ifdef _WIN32
         HRESULT result;
@@ -271,27 +408,81 @@ bool DecklinkOutput::init_decklink() {
                 "Blackmagic DeckLink drivers to use the features of this plugin.");
         }
 
-        if (decklink_iterator->Next(&decklink_interface_) != S_OK) {
-            throw std::runtime_error(
-                "This plugin requires a DeckLink device. You will not be able to use the "
-                "features of this plugin until a DeckLink device is installed.");
+        const auto next_result = decklink_iterator->Next(&decklink_interface_);
+        if (next_result != S_OK) {
+            spdlog::warn(
+                "DeckLink iterator returned {} while probing for a device.",
+                format_hresult(next_result));
+            throw std::runtime_error(with_runtime_details(
+                "DeckLink drivers found but no device is installed", runtime_info_));
         }
 
-        if (decklink_interface_->QueryInterface(
-                IID_IDeckLinkOutput, (void **)&decklink_output_interface_) != S_OK) {
-            throw std::runtime_error("QueryInterface failed.");
+        DeckLinkVersion parsed_version;
+        const DeckLinkVersion minimum_supported{15, 0, 0};
+        const bool parsed = parse_decklink_version(api_version_, parsed_version);
+        if (!parsed || is_decklink_version_older_than(parsed_version, minimum_supported)) {
+            const auto upgrade_message = with_runtime_details(
+                "Unsupported Blackmagic DeckLink runtime detected. xStudio requires "
+                "Blackmagic Desktop Video drivers 15.x or newer to use Blackmagic cards.",
+                runtime_info_);
+            spdlog::error("{}", upgrade_message);
+            throw std::runtime_error(upgrade_message);
         }
 
-        output_callback_ = new AVOutputCallback(this);
-        if (output_callback_ == NULL)
+        const auto modern_output_result = decklink_interface_->QueryInterface(
+            IID_IDeckLinkOutput, (void **)&decklink_output_interface_);
+        if (modern_output_result != S_OK) {
+            spdlog::warn(
+                "DeckLink modern output interface query failed with {}.",
+                format_hresult(modern_output_result));
+            throw std::runtime_error(with_runtime_details(
+                "Unsupported Blackmagic DeckLink runtime detected. xStudio requires "
+                "Blackmagic Desktop Video drivers 15.x or newer to use Blackmagic cards.",
+                runtime_info_));
+        } else {
+            output_interface_info_ = "IID_IDeckLinkOutput";
+            spdlog::info(
+                "DeckLink modern output interface query succeeded with {}.",
+                format_hresult(modern_output_result));
+        }
+
+        video_output_callback_ = new AVOutputCallback(this);
+        if (video_output_callback_ == NULL)
             throw std::runtime_error("Failed to create Video Output Callback.");
 
-        if (decklink_output_interface_->SetScheduledFrameCompletionCallback(output_callback_) !=
-            S_OK)
-            throw std::runtime_error("SetScheduledFrameCompletionCallback failed.");
+        audio_output_callback_ = new AudioOutputCallback(this);
+        if (audio_output_callback_ == NULL)
+            throw std::runtime_error("Failed to create Audio Output Callback.");
 
-        if (decklink_output_interface_->SetAudioCallback(output_callback_) != S_OK)
+        spdlog::info(
+            "Registering DeckLink video callback via {}.",
+            output_interface_info_.empty() ? "unknown interface" : output_interface_info_);
+        const auto video_callback_result = decklink_output_interface_->SetScheduledFrameCompletionCallback(
+            static_cast<IDeckLinkVideoOutputCallback *>(video_output_callback_));
+        if (video_callback_result != S_OK) {
+            spdlog::error(
+                "DeckLink SetScheduledFrameCompletionCallback failed with {}.",
+                format_hresult(video_callback_result));
+            throw std::runtime_error("SetScheduledFrameCompletionCallback failed.");
+        }
+        spdlog::info(
+            "DeckLink SetScheduledFrameCompletionCallback succeeded with {}.",
+            format_hresult(video_callback_result));
+
+        spdlog::info(
+            "Registering DeckLink audio callback via {}.",
+            output_interface_info_.empty() ? "unknown interface" : output_interface_info_);
+        const auto audio_callback_result = decklink_output_interface_->SetAudioCallback(
+            static_cast<IDeckLinkAudioOutputCallback *>(audio_output_callback_));
+        if (audio_callback_result != S_OK) {
+            spdlog::error(
+                "DeckLink SetAudioCallback failed with {}.",
+                format_hresult(audio_callback_result));
             throw std::runtime_error("SetAudioCallback failed.");
+        }
+        spdlog::info(
+            "DeckLink SetAudioCallback succeeded with {}.",
+            format_hresult(audio_callback_result));
 
 #ifdef _WIN32
         // Create an IDeckLinkVideoConversion interface object to provide pixel format
@@ -310,38 +501,39 @@ bool DecklinkOutput::init_decklink() {
 #else
 
         frame_converter_ = CreateVideoConversionInstance();
+        if (!frame_converter_) {
+            throw std::runtime_error(with_runtime_details(
+                "DeckLink runtime ABI mismatch: failed to create the video conversion "
+                "interface",
+                runtime_info_));
+        }
 
 #endif
 
-        bSuccess = true;
+        bSuccess      = true;
+        is_available_ = true;
+        log_runtime_info();
+        spdlog::info("DeckLink runtime is supported.");
 
         query_display_modes();
 
     } catch (std::exception &e) {
 
-        std::cerr << "DecklinkOutput::init_decklink() failed: " << e.what() << "\n";
+        is_available_ = false;
+        last_error_ = e.what();
 
         report_error(e.what());
-
-        if (decklink_output_interface_ != NULL) {
-            decklink_output_interface_->Release();
-            decklink_output_interface_ = NULL;
+        if (decklink_output_interface_) {
+            decklink_output_interface_->SetScheduledFrameCompletionCallback(nullptr);
+            decklink_output_interface_->SetAudioCallback(nullptr);
         }
-        if (decklink_interface_ != NULL) {
-            decklink_interface_->Release();
-            decklink_interface_ = NULL;
-        }
-        if (output_callback_ != NULL) {
-            output_callback_->Release();
-            output_callback_ = NULL;
-        }
-
-        if (decklink_iterator != NULL) {
-            decklink_iterator->Release();
-            decklink_iterator = NULL;
-        }
+        release_resources();
     }
 
+    if (decklink_iterator != NULL) {
+        decklink_iterator->Release();
+        decklink_iterator = NULL;
+    }
 
     return bSuccess;
 }
@@ -350,6 +542,10 @@ void DecklinkOutput::query_display_modes() {
 
     IDeckLinkDisplayModeIterator *display_mode_iterator = NULL;
     IDeckLinkDisplayMode *display_mode                  = NULL;
+
+    if (!decklink_output_interface_) {
+        return;
+    }
 
     try {
 
@@ -437,7 +633,8 @@ bool DecklinkOutput::start_sdi_output() {
     try {
 
         if (!decklink_output_interface_) {
-            throw std::runtime_error("No DeckLink device is available.");
+            throw std::runtime_error(
+                last_error_.empty() ? "No DeckLink device is available." : last_error_);
         }
 
         bool mode_matched = false;
@@ -467,11 +664,18 @@ bool DecklinkOutput::start_sdi_output() {
 
                     uiFPS = ((frame_timescale_ + (frame_duration_ - 1)) / frame_duration_);
 
-                    if (decklink_output_interface_->EnableVideoOutput(
-                            display_mode->GetDisplayMode(), bmdVideoOutputFlagDefault) !=
-                        S_OK) {
+                    const auto enable_video_result = decklink_output_interface_->EnableVideoOutput(
+                        display_mode->GetDisplayMode(), bmdVideoOutputFlagDefault);
+                    if (enable_video_result != S_OK) {
+                        spdlog::error(
+                            "DeckLink EnableVideoOutput failed with {}.",
+                            format_hresult(enable_video_result));
                         throw std::runtime_error("EnableVideoOutput call failed.");
                     }
+                    spdlog::info(
+                        "DeckLink EnableVideoOutput succeeded with {}.",
+                        format_hresult(enable_video_result));
+                    video_output_enabled_ = true;
                 }
             }
         }
@@ -483,29 +687,56 @@ bool DecklinkOutput::start_sdi_output() {
         uiTotalFrames = 0;
 
         // Set the audio output mode
-        if (decklink_output_interface_->EnableAudioOutput(
-                bmdAudioSampleRate48kHz,
-                bmdAudioSampleType16bitInteger,
-                2, // num channels
-                bmdAudioOutputStreamTimestamped) != S_OK) {
+        const auto enable_audio_result = decklink_output_interface_->EnableAudioOutput(
+            bmdAudioSampleRate48kHz,
+            bmdAudioSampleType16bitInteger,
+            2, // num channels
+            bmdAudioOutputStreamTimestamped);
+        if (enable_audio_result != S_OK) {
+            spdlog::error(
+                "DeckLink EnableAudioOutput failed with {}.",
+                format_hresult(enable_audio_result));
             throw std::runtime_error("Failed to enable audio output.");
         }
+        spdlog::info(
+            "DeckLink EnableAudioOutput succeeded with {}.",
+            format_hresult(enable_audio_result));
+        audio_output_enabled_ = true;
 
 
         set_preroll();
 
         samples_delivered_ = 0;
 
-        if (decklink_output_interface_->BeginAudioPreroll() != S_OK) {
+        const auto preroll_result = decklink_output_interface_->BeginAudioPreroll();
+        if (preroll_result != S_OK) {
+            spdlog::error(
+                "DeckLink BeginAudioPreroll failed with {}.",
+                format_hresult(preroll_result));
             throw std::runtime_error("Failed to pre-roll audio output.");
         }
+        spdlog::info(
+            "DeckLink BeginAudioPreroll succeeded with {}.",
+            format_hresult(preroll_result));
 
         decklink_output_interface_->StartScheduledPlayback(0, 100, 1.0);
+        scheduled_playback_started_ = true;
 
         bSuccess = true;
 
     } catch (std::exception &e) {
-
+        if (scheduled_playback_started_) {
+            decklink_output_interface_->StopScheduledPlayback(0, NULL, 0);
+            scheduled_playback_started_ = false;
+        }
+        if (audio_output_enabled_) {
+            decklink_output_interface_->DisableAudioOutput();
+            audio_output_enabled_ = false;
+        }
+        if (video_output_enabled_) {
+            decklink_output_interface_->DisableVideoOutput();
+            video_output_enabled_ = false;
+        }
 
         report_error(e.what());
     }
@@ -537,12 +768,27 @@ bool DecklinkOutput::stop_sdi_output(const std::string &error_message) {
     spdlog::info("Stopping Decklink output loop. {}", error_message);
 
     if (decklink_output_interface_) {
-        decklink_output_interface_->StopScheduledPlayback(0, NULL, 0);
-        decklink_output_interface_->DisableVideoOutput();
-        decklink_output_interface_->DisableAudioOutput();
+        if (scheduled_playback_started_) {
+            decklink_output_interface_->StopScheduledPlayback(0, NULL, 0);
+            scheduled_playback_started_ = false;
+        }
+        if (video_output_enabled_) {
+            decklink_output_interface_->DisableVideoOutput();
+            video_output_enabled_ = false;
+        }
+        if (audio_output_enabled_) {
+            decklink_output_interface_->DisableAudioOutput();
+            audio_output_enabled_ = false;
+        }
     }
 
-    mutex_.lock();
+    {
+        std::lock_guard lk(audio_samples_cv_mutex_);
+        fetch_more_samples_from_xstudio_ = true;
+    }
+    audio_samples_cv_.notify_all();
+
+    std::unique_lock<std::mutex> output_lock(mutex_);
 
     free(pFrameBuf);
     pFrameBuf = NULL;
@@ -649,15 +895,17 @@ void DecklinkOutput::fill_decklink_video_frame(IDeckLinkVideoFrame *decklink_vid
     auto tp1       = utility::clock::now();
     tp             = tp1;
 
-    mutex_.lock();
+    std::unique_lock<std::mutex> output_lock(mutex_);
 
     // SDK v15.3: GetBytes() moved from IDeckLinkVideoFrame to IDeckLinkVideoBuffer
     IDeckLinkVideoBuffer *video_buffer = nullptr;
     decklink_video_frame->QueryInterface(IID_IDeckLinkVideoBuffer, (void **)&video_buffer);
 
-    frames_mutex_.lock();
-    media_reader::ImageBufPtr the_frame = current_frame_;
-    frames_mutex_.unlock();
+    media_reader::ImageBufPtr the_frame;
+    {
+        std::lock_guard<std::mutex> frame_lock(frames_mutex_);
+        the_frame = current_frame_;
+    }
 
     if (the_frame) {
 
@@ -671,6 +919,8 @@ void DecklinkOutput::fill_decklink_video_frame(IDeckLinkVideoFrame *decklink_vid
 
                 // On macOS, DMA buffers may need StartAccess to map into CPU memory
                 HRESULT sa_hr = video_buffer->StartAccess(bmdBufferAccessReadAndWrite);
+                IDeckLinkVideoBuffer *intermediate_video_buffer = nullptr;
+                bool intermediate_access_started                = false;
                 try {
 
                     void *pFrame  = nullptr;
@@ -732,12 +982,15 @@ void DecklinkOutput::fill_decklink_video_frame(IDeckLinkVideoFrame *decklink_vid
                             pFrame, src_buf, num_pix);
 
                     } else {
+                        if (!frame_converter_) {
+                            throw std::runtime_error(
+                                "DeckLink video conversion interface is unavailable.");
+                        }
 
                         // here we do our own conversion from 16 bit RGBA to 12 bit RGB
                         // TimeLogger l("RGBA16_to_12bitRGBLE");
                         make_intermediate_frame();
 
-                        IDeckLinkVideoBuffer *intermediate_video_buffer = nullptr;
                         auto r = intermediate_frame_->QueryInterface(
                             IID_IDeckLinkVideoBuffer, (void **)&intermediate_video_buffer);
                         if (r != S_OK || !intermediate_video_buffer) {
@@ -749,6 +1002,7 @@ void DecklinkOutput::fill_decklink_video_frame(IDeckLinkVideoFrame *decklink_vid
                             throw std::runtime_error(
                                 "Could not access the video frame byte buffer");
                         }
+                        intermediate_access_started = true;
 
                         void *pFrame2 = nullptr;
 
@@ -759,8 +1013,6 @@ void DecklinkOutput::fill_decklink_video_frame(IDeckLinkVideoFrame *decklink_vid
                         }
                         pixel_swizzler_.copy_frame_buffer_12bit<RGBA16_to_12bitRGBLE>(
                             pFrame2, src_buf, num_pix);
-
-                        intermediate_video_buffer->EndAccess(bmdBufferAccessWrite);
 
                         // Now we use Decklink's conversion to convert from our intermediate 12
                         // bit RGB frame to the desired output format (e.g. 10 bit YUV)
@@ -782,20 +1034,28 @@ void DecklinkOutput::fill_decklink_video_frame(IDeckLinkVideoFrame *decklink_vid
                         error_count = 0;
                     }
                 }
+                if (intermediate_video_buffer) {
+                    if (intermediate_access_started) {
+                        intermediate_video_buffer->EndAccess(bmdBufferAccessWrite);
+                    }
+                    intermediate_video_buffer->Release();
+                }
                 video_buffer->EndAccess(bmdBufferAccessReadAndWrite);
             }
         }
     }
 
+    IDeckLinkMutableVideoFrame *mutable_video_buffer = nullptr;
     try {
 
-        IDeckLinkMutableVideoFrame *mutable_video_buffer = nullptr;
         auto r                                           = decklink_video_frame->QueryInterface(
             IID_IDeckLinkMutableVideoFrame, (void **)&mutable_video_buffer);
         if (r != S_OK || !mutable_video_buffer) {
             throw std::runtime_error("Failed to get mutable video buffer");
         }
         update_frame_metadata(mutable_video_buffer);
+        mutable_video_buffer->Release();
+        mutable_video_buffer = nullptr;
 
     } catch (std::exception &e) {
         // reduce log spamming if we're getting errors on every frame
@@ -807,6 +1067,9 @@ void DecklinkOutput::fill_decklink_video_frame(IDeckLinkVideoFrame *decklink_vid
             error_count = 0;
         }
     }
+    if (mutable_video_buffer) {
+        mutable_video_buffer->Release();
+    }
 
     if (video_buffer)
         video_buffer->Release();
@@ -816,7 +1079,6 @@ void DecklinkOutput::fill_decklink_video_frame(IDeckLinkVideoFrame *decklink_vid
             (uiTotalFrames * frame_duration_),
             frame_duration_,
             frame_timescale_) != S_OK) {
-        mutex_.unlock();
         running_ = false;
         decklink_xstudio_plugin_->stop();
         report_error("Failed to schedule video frame.");
@@ -829,12 +1091,16 @@ void DecklinkOutput::fill_decklink_video_frame(IDeckLinkVideoFrame *decklink_vid
         decklink_xstudio_plugin_->start(frameWidth(), frameHeight());
     }
     uiTotalFrames++;
-    mutex_.unlock();
 }
 
 void DecklinkOutput::update_frame_metadata(IDeckLinkMutableVideoFrame *mutableFrame) {
+    HDRMetadata hdr_metadata;
+    {
+        std::lock_guard<std::mutex> lock(hdr_metadata_mutex_);
+        hdr_metadata = hdr_metadata_;
+    }
 
-    if (hdr_metadata_.EOTF == 0) {
+    if (hdr_metadata.EOTF == 0) {
         // SDR Mode - we don't need to set any metadata, but we do need to make sure to clear
         // the HDR flag if it was set by a previous HDR frame
         mutableFrame->SetFlags(mutableFrame->GetFlags() & ~bmdFrameContainsHDRMetadata);
@@ -852,38 +1118,37 @@ void DecklinkOutput::update_frame_metadata(IDeckLinkMutableVideoFrame *mutableFr
             "Failed to get mutable metadata extensions for HDR metadata update.");
     }
 
-    frameMeta->AddRef();
-    frameMeta->SetInt(bmdDeckLinkFrameMetadataColorspace, hdr_metadata_.colourspace_);
+    frameMeta->SetInt(bmdDeckLinkFrameMetadataColorspace, hdr_metadata.colourspace_);
     frameMeta->SetInt(
-        bmdDeckLinkFrameMetadataHDRElectroOpticalTransferFunc, hdr_metadata_.EOTF);
+        bmdDeckLinkFrameMetadataHDRElectroOpticalTransferFunc, hdr_metadata.EOTF);
     frameMeta->SetFloat(
-        bmdDeckLinkFrameMetadataHDRDisplayPrimariesRedX, hdr_metadata_.referencePrimaries[0]);
+        bmdDeckLinkFrameMetadataHDRDisplayPrimariesRedX, hdr_metadata.referencePrimaries[0]);
     frameMeta->SetFloat(
-        bmdDeckLinkFrameMetadataHDRDisplayPrimariesRedY, hdr_metadata_.referencePrimaries[1]);
+        bmdDeckLinkFrameMetadataHDRDisplayPrimariesRedY, hdr_metadata.referencePrimaries[1]);
     frameMeta->SetFloat(
-        bmdDeckLinkFrameMetadataHDRDisplayPrimariesGreenX, hdr_metadata_.referencePrimaries[2]);
+        bmdDeckLinkFrameMetadataHDRDisplayPrimariesGreenX, hdr_metadata.referencePrimaries[2]);
     frameMeta->SetFloat(
-        bmdDeckLinkFrameMetadataHDRDisplayPrimariesGreenY, hdr_metadata_.referencePrimaries[3]);
+        bmdDeckLinkFrameMetadataHDRDisplayPrimariesGreenY, hdr_metadata.referencePrimaries[3]);
     frameMeta->SetFloat(
-        bmdDeckLinkFrameMetadataHDRDisplayPrimariesBlueX, hdr_metadata_.referencePrimaries[4]);
+        bmdDeckLinkFrameMetadataHDRDisplayPrimariesBlueX, hdr_metadata.referencePrimaries[4]);
     frameMeta->SetFloat(
-        bmdDeckLinkFrameMetadataHDRDisplayPrimariesBlueY, hdr_metadata_.referencePrimaries[5]);
+        bmdDeckLinkFrameMetadataHDRDisplayPrimariesBlueY, hdr_metadata.referencePrimaries[5]);
     frameMeta->SetFloat(
-        bmdDeckLinkFrameMetadataHDRWhitePointX, hdr_metadata_.referencePrimaries[6]);
+        bmdDeckLinkFrameMetadataHDRWhitePointX, hdr_metadata.referencePrimaries[6]);
     frameMeta->SetFloat(
-        bmdDeckLinkFrameMetadataHDRWhitePointY, hdr_metadata_.referencePrimaries[7]);
+        bmdDeckLinkFrameMetadataHDRWhitePointY, hdr_metadata.referencePrimaries[7]);
     frameMeta->SetFloat(
         bmdDeckLinkFrameMetadataHDRMaxDisplayMasteringLuminance,
-        hdr_metadata_.luminanceSettings[0]);
+        hdr_metadata.luminanceSettings[0]);
     frameMeta->SetFloat(
         bmdDeckLinkFrameMetadataHDRMinDisplayMasteringLuminance,
-        hdr_metadata_.luminanceSettings[1]);
+        hdr_metadata.luminanceSettings[1]);
     frameMeta->SetFloat(
         bmdDeckLinkFrameMetadataHDRMaximumContentLightLevel,
-        hdr_metadata_.luminanceSettings[2]);
+        hdr_metadata.luminanceSettings[2]);
     frameMeta->SetFloat(
         bmdDeckLinkFrameMetadataHDRMaximumFrameAverageLightLevel,
-        hdr_metadata_.luminanceSettings[3]);
+        hdr_metadata.luminanceSettings[3]);
     frameMeta->Release();
 }
 
@@ -930,7 +1195,10 @@ long DecklinkOutput::num_samples_in_buffer() {
 void DecklinkOutput::copy_audio_samples_to_decklink_buffer(const bool /*preroll*/) {
 
     if (!decklink_output_interface_) {
-        fetch_more_samples_from_xstudio_ = true;
+        {
+            std::lock_guard m(audio_samples_cv_mutex_);
+            fetch_more_samples_from_xstudio_ = true;
+        }
         audio_samples_cv_.notify_one();
         return;
     }
@@ -990,9 +1258,25 @@ void DecklinkOutput::copy_audio_samples_to_decklink_buffer(const bool /*preroll*
 ////////////////////////////////////////////
 AVOutputCallback::AVOutputCallback(DecklinkOutput *pOwner) { owner_ = pOwner; }
 
-HRESULT AVOutputCallback::QueryInterface(REFIID /*iid*/, LPVOID *ppv) {
+HRESULT AVOutputCallback::QueryInterface(REFIID iid, LPVOID *ppv) {
+    if (!ppv) {
+        return E_INVALIDARG;
+    }
+
     *ppv = NULL;
-    return E_NOINTERFACE;
+
+    const auto iid_unknown = IID_IUnknown;
+
+    if (std::memcmp(&iid, &iid_unknown, sizeof(REFIID)) == 0) {
+        *ppv = static_cast<IUnknown *>(static_cast<IDeckLinkVideoOutputCallback *>(this));
+    } else if (std::memcmp(&iid, &IID_IDeckLinkVideoOutputCallback, sizeof(REFIID)) == 0) {
+        *ppv = static_cast<IDeckLinkVideoOutputCallback *>(this);
+    } else {
+        return E_NOINTERFACE;
+    }
+
+    AddRef();
+    return S_OK;
 }
 
 ULONG AVOutputCallback::AddRef() {
@@ -1015,16 +1299,71 @@ ULONG AVOutputCallback::Release() {
 
 HRESULT AVOutputCallback::ScheduledFrameCompleted(
     IDeckLinkVideoFrame *completedFrame, BMDOutputFrameCompletionResult /*result*/) {
-    owner_->fill_decklink_video_frame(completedFrame);
-    return S_OK;
+    try {
+        owner_->fill_decklink_video_frame(completedFrame);
+        return S_OK;
+    } catch (const std::exception &e) {
+        spdlog::error("DeckLink video callback failed: {}", e.what());
+    } catch (...) {
+        spdlog::error("DeckLink video callback failed with an unknown exception.");
+    }
+    return E_FAIL;
 }
 
 HRESULT AVOutputCallback::ScheduledPlaybackHasStopped() { return S_OK; }
 
-HRESULT AVOutputCallback::RenderAudioSamples(BOOL preroll) {
+AudioOutputCallback::AudioOutputCallback(DecklinkOutput *pOwner) { owner_ = pOwner; }
+
+HRESULT AudioOutputCallback::QueryInterface(REFIID iid, LPVOID *ppv) {
+    if (!ppv) {
+        return E_INVALIDARG;
+    }
+
+    *ppv = NULL;
+
+    const auto iid_unknown = IID_IUnknown;
+
+    if (std::memcmp(&iid, &iid_unknown, sizeof(REFIID)) == 0) {
+        *ppv = static_cast<IUnknown *>(static_cast<IDeckLinkAudioOutputCallback *>(this));
+    } else if (std::memcmp(&iid, &IID_IDeckLinkAudioOutputCallback, sizeof(REFIID)) == 0) {
+        *ppv = static_cast<IDeckLinkAudioOutputCallback *>(this);
+    } else {
+        return E_NOINTERFACE;
+    }
+
+    AddRef();
+    return S_OK;
+}
+
+ULONG AudioOutputCallback::AddRef() {
+    int oldValue;
+
+    oldValue = ref_count_.fetchAndAddAcquire(1);
+    return (ULONG)(oldValue + 1);
+}
+
+ULONG AudioOutputCallback::Release() {
+    int oldValue;
+
+    oldValue = ref_count_.fetchAndAddAcquire(-1);
+    if (oldValue == 1) {
+        delete this;
+    }
+
+    return (ULONG)(oldValue - 1);
+}
+
+HRESULT AudioOutputCallback::RenderAudioSamples(BOOL preroll) {
     // decklink driver is calling this at regular intervals. There may be
     // plenty of samples in the buffer for it to render, we check that in
     // our own function
-    owner_->copy_audio_samples_to_decklink_buffer(preroll);
-    return S_OK;
+    try {
+        owner_->copy_audio_samples_to_decklink_buffer(preroll);
+        return S_OK;
+    } catch (const std::exception &e) {
+        spdlog::error("DeckLink audio callback failed: {}", e.what());
+    } catch (...) {
+        spdlog::error("DeckLink audio callback failed with an unknown exception.");
+    }
+    return E_FAIL;
 }
