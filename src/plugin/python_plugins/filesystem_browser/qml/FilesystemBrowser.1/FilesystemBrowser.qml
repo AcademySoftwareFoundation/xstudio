@@ -276,12 +276,10 @@ Rectangle {
         model: pluginData
         role: "value" 
         onValueChanged: {
-            console.log("QML: filter_time changed to: " + value)
             currentFilterTime = value || "Any"
             refreshFiltering()
         }
         Component.onCompleted: {
-             console.log("QML: filter_time init value: " + value)
              currentFilterTime = value || "Any"
         }
     }
@@ -291,12 +289,10 @@ Rectangle {
         model: pluginData
         role: "value"
         onValueChanged: {
-             console.log("QML: filter_version changed to: " + value)
              currentFilterVersion = value || "All Versions"
              refreshFiltering()
         }
         Component.onCompleted: {
-             console.log("QML: filter_version init value: " + value)
              currentFilterVersion = value || "All Versions"
         }
     }

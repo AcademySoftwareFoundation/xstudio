@@ -122,12 +122,10 @@ Rectangle {
         role: "value"
         
         onValueChanged: {
-            console.log("DirectoryTree: dir_query_attr changed. Value length: " + (value ? value.length : "null"));
             try {
                 var val = value;
                 if (val && val !== "{}") {
                     var result = JSON.parse(val);
-                    console.log("DirectoryTree: Parsed result for path: " + result.path + ", dirs: " + (result.dirs ? result.dirs.length : "0") + ", isSyncing: " + isSyncing);
                     handleQueryResult(result);
                 }
             } catch(e) {
@@ -156,7 +154,6 @@ Rectangle {
         expandNode(0);
         
         if (currentPath && currentPath !== "/") {
-             console.log("DirectoryTree: Initial sync request for " + currentPath);
              pendingExpandPath = currentPath;
              isSyncing = true;
              syncToPath();
@@ -165,7 +162,6 @@ Rectangle {
     
     function expandNode(index) {
         var node = treeModel.get(index);
-        console.log("DirectoryTree: expandNode called for: " + node.path + ", expanded: " + node.expanded + ", isLoading: " + node.isLoading);
         
         // If already expanded and not loading, we might still need to load if it has no children but should
         // However, for now let's just allow re-requesting if isLoading is false or if explicitly called when collapsed
@@ -175,12 +171,10 @@ Rectangle {
              if (nextIndex < treeModel.count) {
                  var next = treeModel.get(nextIndex);
                  if (next.level > node.level) {
-                     console.log("DirectoryTree: Node already expanded with children.");
                      return;
                  }
              }
              // No children? Trigger load anyway
-             console.log("DirectoryTree: Node expanded but no children, re-requesting.");
         } else if (node.expanded) {
             return;
         }
@@ -188,7 +182,6 @@ Rectangle {
         treeModel.setProperty(index, "expanded", true);
         
         if (node.isLoading) {
-            console.log("DirectoryTree: Node is already loading, skipping command.");
             return;
         }
         
@@ -200,7 +193,6 @@ Rectangle {
     
     function collapseNode(index) {
         var node = treeModel.get(index);
-        console.log("DirectoryTree: collapseNode called for: " + node.path);
         
         treeModel.setProperty(index, "expanded", false);
         treeModel.setProperty(index, "isLoading", false); // Important: stop loading if collapsed
@@ -246,7 +238,6 @@ Rectangle {
         }
         
         if (foundIndex !== -1) {
-            console.log("DirectoryTree: Found target node at index: " + foundIndex);
             
             // Check if next item is already a child
             var nextIndex = foundIndex + 1;
@@ -255,14 +246,12 @@ Rectangle {
             if (nextIndex < treeModel.count) {
                 var next = treeModel.get(nextIndex);
                 if (next.level > parentLevel) {
-                     console.log("DirectoryTree: Removing existing children before re-populating.");
                      collapseNode(foundIndex); 
                      treeModel.setProperty(foundIndex, "expanded", true); 
                 }
             }
             
             // Insert children
-            console.log("DirectoryTree: Inserting " + dirs.length + " children for " + path);
             for(var j=0; j<dirs.length; j++) {
                 var d = dirs[j];
                 treeModel.insert(foundIndex + 1 + j, {
@@ -277,7 +266,6 @@ Rectangle {
             
             // If no children, mark as leaf
             if (dirs.length === 0) {
-                 console.log("DirectoryTree: No children found, marking as leaf.");
                  treeModel.setProperty(foundIndex, "hasChildren", false);
             } else {
                  treeModel.setProperty(foundIndex, "hasChildren", true);
@@ -305,19 +293,7 @@ Rectangle {
         anchors.fill: parent
         spacing: 0
         
-        // Header
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: XsFileSystemStyle.headerHeight
-            color: XsFileSystemStyle.headerBgColor
-            
-            Text {
-                anchors.centerIn: parent
-                text: "Directories"
-                color: XsFileSystemStyle.secondaryTextColor
-                font.bold: true
-            }
-        }
+
         
         ListView {
             id: treeView

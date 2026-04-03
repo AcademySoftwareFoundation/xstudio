@@ -129,14 +129,14 @@ class XStudioHostInterface:
             seq = fileseq.FileSequence(path)
             if len(seq) <= 1: return None
             pad_str = seq.padding()
-            if pad_str == "#":
-                pad_len = 4
-            elif pad_str and pad_str.startswith("%"):
+            if pad_str and pad_str.startswith("%"):
                 import re
                 m = re.search(r"%(0(\d+))?d", pad_str)
                 pad_len = int(m.group(2)) if m and m.group(2) else 0
+            elif pad_str:
+                pad_len = pad_str.count('#') * 4 + pad_str.count('@')
             else:
-                pad_len = len(pad_str) if pad_str else 0
+                pad_len = 0
             brace_padding = f"{{:0{pad_len}d}}" if pad_len > 0 else "{:d}"
             return f"{seq.dirname()}{seq.basename()}{brace_padding}{seq.extension()}={seq.frameRange()}"
         except Exception: return None
@@ -1184,7 +1184,6 @@ class FilesystemBrowserPlugin(PluginBase):
 
     def _get_subdirs(self, path):
         """Fetch subdirectories for the given path and update attribute."""
-        print(f"FilesystemBrowser: _get_subdirs called for {path}")
         result = {"path": path, "dirs": []}
         try:
             if os.path.exists(path) and os.path.isdir(path):
@@ -1207,7 +1206,6 @@ class FilesystemBrowserPlugin(PluginBase):
                 # Sort alphabetically
                 dirs.sort(key=lambda x: x["name"].lower())
                 result["dirs"] = dirs
-                print(f"FilesystemBrowser: Found {len(dirs)} subdirs in {path}")
         except Exception as e:
             print(f"Error getting subdirs for {path}: {e}")
         
