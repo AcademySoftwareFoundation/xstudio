@@ -105,12 +105,6 @@ static void *GetSymbolAddress(
             strcmp(primarySymbol, "CreateVideoFrameAncillaryPacketsInstance_0002") == 0) {
             gAncillaryPacketsSymbolName = fallbackSymbol;
         }
-        fprintf(
-            stderr,
-            "DeckLink API using compatibility %s symbol %s (preferred %s unavailable)\n",
-            symbolDescription,
-            fallbackSymbol,
-            primarySymbol);
         return symbol;
     }
 

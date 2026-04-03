@@ -426,9 +426,6 @@ bool DecklinkOutput::init_decklink() {
                 "Blackmagic Desktop Video drivers 15.x or newer to use Blackmagic cards.",
                 runtime_info_);
             spdlog::error("{}", upgrade_message);
-            spdlog::error(
-                "Upgrade Blackmagic Desktop Video drivers to version 15.x or newer to "
-                "enable Blackmagic card support.");
             throw std::runtime_error(upgrade_message);
         }
 
@@ -524,7 +521,6 @@ bool DecklinkOutput::init_decklink() {
 
         is_available_ = false;
         last_error_ = e.what();
-        std::cerr << "DecklinkOutput::init_decklink() failed: " << e.what() << "\n";
 
         report_error(e.what());
         if (decklink_output_interface_) {

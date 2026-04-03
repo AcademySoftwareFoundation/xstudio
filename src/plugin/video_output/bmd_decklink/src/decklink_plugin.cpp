@@ -309,7 +309,7 @@ void BMDecklinkPlugin::initialise() {
             status_message_->set_value(
                 decklink_error);
             is_in_error_->set_value(true);
-            spdlog::warn("Decklink output unavailable: {}", decklink_error);
+            spdlog::warn("Decklink output unavailable.");
             return;
         }
 
