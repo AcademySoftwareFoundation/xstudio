@@ -12,6 +12,7 @@ Rectangle {
     // Properties to communicate with parent
     property var pluginData: null
     property var currentPath: "/"
+    property string baseRootPath: "/"
     
     signal sendCommand(var cmd)
     onSendCommand: (cmd) => console.log("DirectoryTree: Sending command: " + JSON.stringify(cmd))
@@ -140,11 +141,32 @@ Rectangle {
         id: treeModel
     }
     
+    onBaseRootPathChanged: {
+        treeModel.clear();
+        var rootName = baseRootPath === "/" ? "Root" : (baseRootPath.split("/").pop() || baseRootPath);
+        treeModel.append({
+            "name": rootName,
+            "path": baseRootPath,
+            "level": 0,
+            "expanded": false,
+            "hasChildren": true,
+            "isLoading": false
+        });
+        expandNode(0);
+        
+        if (currentPath && currentPath.indexOf(baseRootPath) === 0 && currentPath !== baseRootPath) {
+             pendingExpandPath = currentPath;
+             isSyncing = true;
+             syncToPath();
+        }
+    }
+
     Component.onCompleted: {
         // Init with root
+        var rootName = baseRootPath === "/" ? "Root" : (baseRootPath.split("/").pop() || baseRootPath);
         treeModel.append({
-            "name": "Root",
-            "path": "/",
+            "name": rootName,
+            "path": baseRootPath,
             "level": 0,
             "expanded": false,
             "hasChildren": true, // Assume root has children
@@ -153,7 +175,7 @@ Rectangle {
         // Immediately expand root
         expandNode(0);
         
-        if (currentPath && currentPath !== "/") {
+        if (currentPath && currentPath.indexOf(baseRootPath) === 0 && currentPath !== baseRootPath) {
              pendingExpandPath = currentPath;
              isSyncing = true;
              syncToPath();
@@ -293,7 +315,60 @@ Rectangle {
         anchors.fill: parent
         spacing: 0
         
-
+        // Header for custom root
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: visible ? XsFileSystemStyle.headerHeight : 0
+            color: XsFileSystemStyle.panelBgColor
+            visible: treeRoot.baseRootPath !== "/"
+            
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 10
+                anchors.rightMargin: 5
+                spacing: 5
+                
+                Text {
+                    text: "Directory root: " + treeRoot.baseRootPath
+                    color: XsFileSystemStyle.hintColor
+                    font.pixelSize: 10
+                    Layout.fillWidth: true
+                    elide: Text.ElideLeft
+                    
+                    MouseArea {
+                        id: rootHoverArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                    }
+                    ToolTip.visible: rootHoverArea.containsMouse
+                    ToolTip.text: treeRoot.baseRootPath
+                    ToolTip.delay: 500
+                }
+                
+                Button {
+                    text: "×"
+                    Layout.preferredHeight: 16
+                    Layout.preferredWidth: 16
+                    flat: true
+                    padding: 0
+                    
+                    background: Rectangle {
+                        color: parent.down ? "#444444" : "transparent"
+                        radius: 2
+                    }
+                    
+                    contentItem: Text {
+                        text: "×"
+                        color: XsFileSystemStyle.hintColor
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 14
+                    }
+                    
+                    onClicked: treeRoot.baseRootPath = "/"
+                }
+            }
+        }
         
         ListView {
             id: treeView
@@ -328,10 +403,33 @@ Rectangle {
                     id: treeContextMenu
                     background: Rectangle {
                         implicitWidth: 150
-                        implicitHeight: 25
+                        implicitHeight: 75
                         color: XsFileSystemStyle.panelBgColor
                         border.color: XsFileSystemStyle.borderColor
                         radius: 3
+                    }
+                    
+                    MenuItem {
+                        id: setRootItem
+                        text: "Set as Root"
+                        onTriggered: {
+                            treeRoot.baseRootPath = model.path;
+                        }
+                        
+                        contentItem: Text {
+                            text: setRootItem.text
+                            color: "#e0e0e0"
+                            font.pixelSize: 12
+                            horizontalAlignment: Text.AlignLeft
+                            verticalAlignment: Text.AlignVCenter
+                            leftPadding: 10
+                        }
+                        
+                        background: Rectangle {
+                            implicitWidth: 150
+                            implicitHeight: 25
+                            color: setRootItem.highlighted ? "#555555" : "transparent"
+                        }
                     }
                     
                     MenuItem {
