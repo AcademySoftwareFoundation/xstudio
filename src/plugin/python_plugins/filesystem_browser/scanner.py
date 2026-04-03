@@ -275,9 +275,11 @@ class FileScanner:
             # Format name
             try:
                 pad = seq.padding()
-                if pad == '#': pad = "@@@@"
-                elif '#' in pad: pad = "@" * len(pad)
-                elif not pad: pad = "@@@@" # Default?
+                if pad:
+                    pad_len = pad.count('#') * 4 + pad.count('@')
+                    pad = "@" * pad_len
+                else: 
+                    pad = "@@@@" # Default?
             except:
                 pad = "@@@@"
                 
