@@ -1405,6 +1405,43 @@ Rectangle {
             property var initialValue: 0
             property real minScaleX: 0
 
+            function wheelDelta(pixelDelta, angleDelta) {
+                return pixelDelta !== 0 ? pixelDelta : angleDelta
+            }
+
+            function scrollTimelineHorizontally(deltaX) {
+                let stackItem = list_view.itemAtIndex(0)
+                if(
+                    !stackItem ||
+                    Math.abs(deltaX) < 1 ||
+                    stackItem.scrollbar.size >= 1.0 ||
+                    stackItem.scrollbar.width <= 0
+                ) {
+                    return false
+                }
+
+                let positionDelta = (stackItem.scrollbar.size / stackItem.scrollbar.width) * deltaX
+                stackItem.jumpToPosition(stackItem.currentPosition() + positionDelta)
+                return true
+            }
+
+            function scrollTimelineVertically(deltaY) {
+                if(
+                    hovered == null ||
+                    Math.abs(deltaY) < 1 ||
+                    !["Video Track", "Audio Track", "Gap", "Clip"].includes(hovered.itemTypeRole)
+                ) {
+                    return false
+                }
+
+                if(["Video Track", "Audio Track"].includes(hovered.itemTypeRole))
+                    hovered.parentLV.flick(0, deltaY > 0 ? 500 : -500)
+                else if(["Gap", "Clip"].includes(hovered.itemTypeRole))
+                    hovered.parentLV.parentLV.flick(0, deltaY > 0 ? 500 : -500)
+
+                return true
+            }
+
             Rectangle {
                 id: region
                 visible: ma.isRegionSelection
@@ -1614,16 +1651,18 @@ Rectangle {
             }
 
             onWheel: wheel => {
+                let deltaX = wheelDelta(wheel.pixelDelta.x, wheel.angleDelta.x)
+                let deltaY = wheelDelta(wheel.pixelDelta.y, wheel.angleDelta.y)
 
                 // maintain position as we zoom..
                 if(wheel.modifiers == Qt.ShiftModifier) {
                     // wheel.angleDelta.y always return 0 on MacOS laptops
                     // when SHIFT is pressed and a mouse wheel is used, but in
                     // that case the x component is updating and usable.
-                    let deltaY = wheel.angleDelta.y == 0 ? wheel.angleDelta.x : wheel.angleDelta.y
+                    let zoomDelta = deltaY == 0 ? deltaX : deltaY
                     // Limit the scale to keep it within a usable range and
                     // avoid a negative scaleY value.
-                    if(deltaY > 1) {
+                    if(zoomDelta > 1) {
                         scaleY = Math.min(2.0, scaleY + 0.2)
                     } else {
                         scaleY = Math.max(0.6, scaleY - 0.2)
@@ -1631,7 +1670,8 @@ Rectangle {
                     wheel.accepted = true
                 } else if(wheel.modifiers == Qt.ControlModifier) {
                     let tmp = scaleX
-                    if(wheel.angleDelta.y > 1) {
+                    let zoomDelta = deltaY == 0 ? deltaX : deltaY
+                    if(zoomDelta > 1) {
                         tmp += 0.2
                     } else {
                         tmp -= 0.2
@@ -1639,11 +1679,9 @@ Rectangle {
                     scaleX = Math.max((list_view.width - trackHeaderWidth) / theSessionData.timelineRect([timeline_items.rootIndex]).width, tmp)
                     list_view.itemAtIndex(0).jumpToFrame(timelinePlayhead.logicalFrame, ListView.Center)
                     wheel.accepted = true
-                } else if(hovered != null && ["Video Track", "Audio Track","Gap","Clip"].includes(hovered.itemTypeRole)) {
-                    if(["Video Track", "Audio Track"].includes(hovered.itemTypeRole))
-                        hovered.parentLV.flick(0, wheel.angleDelta.y > 1 ? 500 : -500)
-                    else if(["Gap", "Clip"].includes(hovered.itemTypeRole))
-                        hovered.parentLV.parentLV.flick(0, wheel.angleDelta.y > 1 ? 500 : -500)
+                } else if(Math.abs(deltaX) > Math.abs(deltaY)) {
+                    wheel.accepted = scrollTimelineHorizontally(deltaX)
+                } else if(scrollTimelineVertically(deltaY)) {
                     wheel.accepted = true
                 } else {
                     wheel.accepted = false
