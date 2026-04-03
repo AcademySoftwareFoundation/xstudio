@@ -427,58 +427,31 @@ bool DecklinkOutput::init_decklink() {
                 "DeckLink drivers found but no device is installed", runtime_info_));
         }
 
+        DeckLinkVersion parsed_version;
+        const DeckLinkVersion minimum_supported{15, 0, 0};
+        const bool parsed = parse_decklink_version(api_version_, parsed_version);
+        if (parsed && is_decklink_version_older_than(parsed_version, minimum_supported)) {
+            const auto upgrade_message = with_runtime_details(
+                "Unsupported Blackmagic DeckLink runtime detected. xStudio requires "
+                "Blackmagic Desktop Video drivers 15.x or newer to use Blackmagic cards.",
+                runtime_info_);
+            spdlog::error("{}", upgrade_message);
+            spdlog::error(
+                "Upgrade Blackmagic Desktop Video drivers to version 15.x or newer to "
+                "enable Blackmagic card support.");
+            throw std::runtime_error(upgrade_message);
+        }
+
         const auto modern_output_result = decklink_interface_->QueryInterface(
             IID_IDeckLinkOutput, (void **)&decklink_output_interface_);
         if (modern_output_result != S_OK) {
             spdlog::warn(
                 "DeckLink modern output interface query failed with {}.",
                 format_hresult(modern_output_result));
-#ifdef __linux__
-            IDeckLinkOutput_v14_2_1 *legacy_output_interface = nullptr;
-            const auto legacy_output_result = decklink_interface_->QueryInterface(
-                IID_IDeckLinkOutput_v14_2_1, (void **)&legacy_output_interface);
-            if (legacy_output_result == S_OK && legacy_output_interface != nullptr) {
-                output_interface_info_ = "IID_IDeckLinkOutput_v14_2_1";
-                spdlog::warn(
-                    "DeckLink legacy v14.2.1 output interface query succeeded with {}.",
-                    format_hresult(legacy_output_result));
-                DeckLinkVersion parsed_version;
-                const DeckLinkVersion minimum_supported{14, 2, 1};
-                const bool parsed = parse_decklink_version(api_version_, parsed_version);
-                if (!parsed || is_decklink_version_older_than(parsed_version, minimum_supported)) {
-                    legacy_output_interface->Release();
-                    const auto upgrade_message = with_runtime_details(
-                        "Unsupported Blackmagic DeckLink Linux runtime detected. Drivers "
-                        "older than 14.2.1 are not supported. Upgrade Blackmagic Desktop "
-                        "Video drivers to use Blackmagic cards in xStudio.",
-                        runtime_info_);
-                    spdlog::error("{}", upgrade_message);
-                    spdlog::error(
-                        "Upgrade Blackmagic Desktop Video drivers to version 14.2.1 or "
-                        "newer to enable Blackmagic card support on Linux.");
-                    throw std::runtime_error(upgrade_message);
-                }
-
-                decklink_output_interface_ =
-                    reinterpret_cast<IDeckLinkOutput *>(legacy_output_interface);
-                spdlog::warn(
-                    "DeckLink output is using the Linux v14.2.1 compatibility ABI. "
-                    "Upgrade Blackmagic Desktop Video drivers to 15.x or newer to use the "
-                    "modern DeckLink binaries.");
-            } else {
-                spdlog::error(
-                    "DeckLink legacy v14.2.1 output interface query failed with {}.",
-                    format_hresult(legacy_output_result));
-                throw std::runtime_error(with_runtime_details(
-                    "DeckLink runtime ABI mismatch: failed to query the video output "
-                    "interface",
-                    runtime_info_));
-            }
-#else
             throw std::runtime_error(with_runtime_details(
-                "DeckLink runtime ABI mismatch: failed to query the video output interface",
+                "Unsupported Blackmagic DeckLink runtime detected. xStudio requires "
+                "Blackmagic Desktop Video drivers 15.x or newer to use Blackmagic cards.",
                 runtime_info_));
-#endif
         } else {
             output_interface_info_ = "IID_IDeckLinkOutput";
             spdlog::info(
