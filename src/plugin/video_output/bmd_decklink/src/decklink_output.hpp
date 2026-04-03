@@ -152,7 +152,8 @@ namespace bm_decklink_plugin_1_0 {
         void detect_runtime_info();
         void log_runtime_info() const;
 
-        AVOutputCallback *output_callback_ = {nullptr};
+        AVOutputCallback *video_output_callback_ = {nullptr};
+        class AudioOutputCallback *audio_output_callback_ = {nullptr};
         std::mutex mutex_;
 
         GLenum glStatus = {0};
@@ -214,8 +215,7 @@ namespace bm_decklink_plugin_1_0 {
         std::string output_interface_info_ = {};
     };
 
-    class AVOutputCallback : public IDeckLinkVideoOutputCallback,
-                             public IDeckLinkAudioOutputCallback {
+    class AVOutputCallback : public IDeckLinkVideoOutputCallback {
       private:
         struct RefCt {
 
@@ -240,14 +240,40 @@ namespace bm_decklink_plugin_1_0 {
         ULONG AddRef() override;
         ULONG Release() override;
 
-        // IDeckLinkAudioOutputCallback
-        HRESULT RenderAudioSamples(BOOL preroll) override;
-
         // IDeckLinkVideoOutputCallback
         HRESULT ScheduledFrameCompleted(
             IDeckLinkVideoFrame *completedFrame,
             BMDOutputFrameCompletionResult result) override;
         HRESULT ScheduledPlaybackHasStopped() override;
+    };
+
+    class AudioOutputCallback : public IDeckLinkAudioOutputCallback {
+      private:
+        struct RefCt {
+
+            int fetchAndAddAcquire(const int delta) {
+
+                std::lock_guard<std::mutex> l(m);
+                int old = count;
+                count += delta;
+                return old;
+            }
+            std::atomic<int> count = 1;
+            std::mutex m;
+        } ref_count_;
+
+        DecklinkOutput *owner_;
+
+      public:
+        AudioOutputCallback(DecklinkOutput *pOwner);
+
+        // IUnknown
+        HRESULT QueryInterface(REFIID /*iid*/, LPVOID * /*ppv*/) override;
+        ULONG AddRef() override;
+        ULONG Release() override;
+
+        // IDeckLinkAudioOutputCallback
+        HRESULT RenderAudioSamples(BOOL preroll) override;
     };
 
 } // namespace bm_decklink_plugin_1_0

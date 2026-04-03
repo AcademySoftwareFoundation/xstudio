@@ -262,8 +262,11 @@ void DecklinkOutput::release_resources() {
     if (decklink_interface_ != NULL) {
         decklink_interface_->Release();
     }
-    if (output_callback_ != NULL) {
-        output_callback_->Release();
+    if (video_output_callback_ != NULL) {
+        video_output_callback_->Release();
+    }
+    if (audio_output_callback_ != NULL) {
+        audio_output_callback_->Release();
     }
 
     if (frame_converter_ != NULL) {
@@ -275,7 +278,8 @@ void DecklinkOutput::release_resources() {
         intermediate_frame_ = nullptr;
     }
 
-    output_callback_           = nullptr;
+    video_output_callback_     = nullptr;
+    audio_output_callback_     = nullptr;
     frame_converter_           = nullptr;
     decklink_output_interface_ = nullptr;
     decklink_interface_        = nullptr;
@@ -482,15 +486,19 @@ bool DecklinkOutput::init_decklink() {
                 format_hresult(modern_output_result));
         }
 
-        output_callback_ = new AVOutputCallback(this);
-        if (output_callback_ == NULL)
+        video_output_callback_ = new AVOutputCallback(this);
+        if (video_output_callback_ == NULL)
             throw std::runtime_error("Failed to create Video Output Callback.");
+
+        audio_output_callback_ = new AudioOutputCallback(this);
+        if (audio_output_callback_ == NULL)
+            throw std::runtime_error("Failed to create Audio Output Callback.");
 
         spdlog::info(
             "Registering DeckLink video callback via {}.",
             output_interface_info_.empty() ? "unknown interface" : output_interface_info_);
         const auto video_callback_result = decklink_output_interface_->SetScheduledFrameCompletionCallback(
-            static_cast<IDeckLinkVideoOutputCallback *>(output_callback_));
+            static_cast<IDeckLinkVideoOutputCallback *>(video_output_callback_));
         if (video_callback_result != S_OK) {
             spdlog::error(
                 "DeckLink SetScheduledFrameCompletionCallback failed with {}.",
@@ -505,7 +513,7 @@ bool DecklinkOutput::init_decklink() {
             "Registering DeckLink audio callback via {}.",
             output_interface_info_.empty() ? "unknown interface" : output_interface_info_);
         const auto audio_callback_result = decklink_output_interface_->SetAudioCallback(
-            static_cast<IDeckLinkAudioOutputCallback *>(output_callback_));
+            static_cast<IDeckLinkAudioOutputCallback *>(audio_output_callback_));
         if (audio_callback_result != S_OK) {
             spdlog::error(
                 "DeckLink SetAudioCallback failed with {}.",
@@ -556,6 +564,10 @@ bool DecklinkOutput::init_decklink() {
         std::cerr << "DecklinkOutput::init_decklink() failed: " << e.what() << "\n";
 
         report_error(e.what());
+        if (decklink_output_interface_) {
+            decklink_output_interface_->SetScheduledFrameCompletionCallback(nullptr);
+            decklink_output_interface_->SetAudioCallback(nullptr);
+        }
         release_resources();
     }
 
@@ -1285,8 +1297,6 @@ HRESULT AVOutputCallback::QueryInterface(REFIID iid, LPVOID *ppv) {
         *ppv = static_cast<IUnknown *>(static_cast<IDeckLinkVideoOutputCallback *>(this));
     } else if (std::memcmp(&iid, &IID_IDeckLinkVideoOutputCallback, sizeof(REFIID)) == 0) {
         *ppv = static_cast<IDeckLinkVideoOutputCallback *>(this);
-    } else if (std::memcmp(&iid, &IID_IDeckLinkAudioOutputCallback, sizeof(REFIID)) == 0) {
-        *ppv = static_cast<IDeckLinkAudioOutputCallback *>(this);
     } else {
         return E_NOINTERFACE;
     }
@@ -1321,7 +1331,48 @@ HRESULT AVOutputCallback::ScheduledFrameCompleted(
 
 HRESULT AVOutputCallback::ScheduledPlaybackHasStopped() { return S_OK; }
 
-HRESULT AVOutputCallback::RenderAudioSamples(BOOL preroll) {
+AudioOutputCallback::AudioOutputCallback(DecklinkOutput *pOwner) { owner_ = pOwner; }
+
+HRESULT AudioOutputCallback::QueryInterface(REFIID iid, LPVOID *ppv) {
+    if (!ppv) {
+        return E_INVALIDARG;
+    }
+
+    *ppv = NULL;
+
+    const auto iid_unknown = IID_IUnknown;
+
+    if (std::memcmp(&iid, &iid_unknown, sizeof(REFIID)) == 0) {
+        *ppv = static_cast<IUnknown *>(static_cast<IDeckLinkAudioOutputCallback *>(this));
+    } else if (std::memcmp(&iid, &IID_IDeckLinkAudioOutputCallback, sizeof(REFIID)) == 0) {
+        *ppv = static_cast<IDeckLinkAudioOutputCallback *>(this);
+    } else {
+        return E_NOINTERFACE;
+    }
+
+    AddRef();
+    return S_OK;
+}
+
+ULONG AudioOutputCallback::AddRef() {
+    int oldValue;
+
+    oldValue = ref_count_.fetchAndAddAcquire(1);
+    return (ULONG)(oldValue + 1);
+}
+
+ULONG AudioOutputCallback::Release() {
+    int oldValue;
+
+    oldValue = ref_count_.fetchAndAddAcquire(-1);
+    if (oldValue == 1) {
+        delete this;
+    }
+
+    return (ULONG)(oldValue - 1);
+}
+
+HRESULT AudioOutputCallback::RenderAudioSamples(BOOL preroll) {
     // decklink driver is calling this at regular intervals. There may be
     // plenty of samples in the buffer for it to render, we check that in
     // our own function
