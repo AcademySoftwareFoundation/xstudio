@@ -1,3 +1,0 @@
-[submodule "extern/otio/OpenTimelineIO"]
-	path = extern/otio/OpenTimelineIO
-	url = https://github.com/AcademySoftwareFoundation/OpenTimelineIO

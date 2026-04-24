@@ -308,6 +308,7 @@ macro(default_options_qt name)
 		set_target_properties(${name}
 	    	PROPERTIES
 	    	LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/lib"
+	    	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 		)
 		install(TARGETS ${name} EXPORT xstudio
         	LIBRARY DESTINATION share/xstudio/lib)

@@ -12,7 +12,7 @@ Some of xSTUDIO's dependencies require 'homebrew', the MacOS open source softwar
 
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-We require 5 packages to be installed to proceed. Run these commands in a terminal:
+We require 6 packages to be installed to proceed. Run these commands in a terminal:
 
     brew install cmake
     brew install pkg-config
@@ -24,18 +24,12 @@ We require 5 packages to be installed to proceed. Run these commands in a termin
 
 Follow [these instructions](downloading_qt.md)
 
-> **NOTE:** Since Xcode version 26.X our specified version of Qt (6.5.3) is not strictly compatible with MacOS and you may see an error when you run the first 'cmake' command below. There are two options to resolve this. You can download Qt version 6.8.3 and use this instead of 6.5.3. Alternatively, open the file 'FindWrapOpenGL.cmake' within the Qt installation (at 6.5.3/macos/lib/cmake) and comment out lines 48 and 49 so that they look like this:
-
-    #target_link_libraries(WrapOpenGL::WrapOpenGL INTERFACE ${__opengl_fw_path})
-    #target_link_libraries(WrapOpenGL::WrapOpenGL INTERFACE ${__opengl_agl_fw_path})
-
 ### Download the VCPKG repo
 
-To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo, run the bootstrap script and then switch to a specific git commit before we build xstudio. Run these commands in a terminal:
+To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo and run the bootstrap script before we build xstudio. Run these commands in a terminal:
 
     git clone https://github.com/microsoft/vcpkg.git
     ./vcpkg/bootstrap-vcpkg.sh
-    git checkout c2aeddd80357b17592e59ad965d2adf65a19b22f
 
 ### Download the xSTUDIO repo
 
@@ -45,32 +39,66 @@ Download from github in the usual manner. Enter the root folder of the repo and 
     cd xstudio
     git checkout develop
 
-You must run these commands to add the OpenTimelineIO submodule to the tree and apply a small patch
+### Tell CMake where Qt is installed
 
-    git submodule init
-    git submodule update
-    git apply cmake/otio_patch.diff
+CMake needs to know where your Qt 6.5.3 SDK is installed. The simplest way is to set the `Qt6_DIR` environment variable in your shell, pointing to a directory named 'Qt6' which is in a directory named 'cmake', which is in a directory named 'lib'. For example, on MacOS where user Mary Jane downloaded Qt into her home folder:
 
-### Modify the CMakePresets.json file
+    export Qt6_DIR=/Users/maryjane/Qt/6.5.3/macos/lib/cmake/Qt6
 
-Open the CMakePresets.json file (which is in the root of the xstudio repo) in a text editor. You must look for the entry "Qt6_DIR" and modify the value that follows it to point to your installation of the Qt SDK. Specifically, you need to point to a directory named 'Qt6' which is in a directory named 'cmake', which is in a directory named 'lib'. For example, on MacOS where user Mary Jane downloaded Qt into her home folder the entry should look like this:
+Add this to your `~/.zshrc` (or `~/.bash_profile`) so it's set in every new shell.
 
-    "Qt6_DIR": "/Users/maryjane/Qt/6.5.3/macos/lib/cmake/Qt6",
+Alternative options if you prefer not to use an environment variable:
+
+- **Per-machine user preset**: create a `CMakeUserPresets.json` file alongside `CMakePresets.json` in the repo root. This file is gitignored, so your local path won't be committed. The user preset should have a different name from the tracked preset it inherits from, and add `Qt6_DIR` to `cacheVariables`. For example:
+
+        {
+          "version": 3,
+          "configurePresets": [
+            {
+              "name": "MacOSReleaseLocal",
+              "inherits": "MacOSRelease",
+              "cacheVariables": {
+                "Qt6_DIR": "/Users/maryjane/Qt/6.5.3/macos/lib/cmake/Qt6"
+              }
+            }
+          ]
+        }
+
+    See the [CMake presets documentation](https://cmake.org/cmake/help/latest/manual/cmake-presets.7.html) for the full format reference.
+
+- **One-off command-line override**: pass `-DQt6_DIR=/path/to/Qt6` directly to the `cmake` command below.
 
 ### Build xSTUDIO
 
 Run the appropriate command for your platform (whether you have an older Intel or a newer Apple Silicon machine) to set-up for building. Note that this cmake command ***may take several hours to complete***. This is because xSTUDIO's dependencies (particularly ffmpeg) take a long time to download and build from the source code, which is what VCPKG is doing.
 
 **Apple Silicon (ARM) Machines:**
-    
+
     cmake -B build --preset MacOSRelease
 
 **Intel Machines:**
 
     cmake -B build --preset MacOSIntelRelease
 
+Or, if you are using a `CMakeUserPresets.json` file to point at your Qt installation (see the previous section), run the matching local preset instead, e.g.:
+
+    cmake -B build --preset MacOSReleaseLocal
+
 When this has finished, you can build xSTUDIO with this command. 
 
     cmake --build build --parallel 16 --target install
 
 If the build is successful, you should have an application bundle in the 'build' folder called 'xSTUDIO.app'. This can be drag & dropped into your applications folder, desktop and dock as for any other application.
+
+### Faster builds with Ninja (optional)
+
+To speed up the build, you can use Ninja instead of make. Ninja parallelises the build at the file level and is noticeably faster. Install it via Homebrew:
+
+    brew install ninja
+
+Ninja-based presets are provided for macOS (Release, RelWithDebInfo and Debug variants). For example, to configure a macOS release build:
+
+    cmake -B build --preset MacOSNinjaRelease
+    cmake --build build --target install
+
+Ninja handles parallelism automatically so there is no need for the `--parallel` flag. See [CMakePresets.json](../../../CMakePresets.json) for the full list of available presets.
