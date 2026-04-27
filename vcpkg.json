@@ -18,6 +18,7 @@
     "openimageio",
     "openexr",
     "imath",
+    "opentimelineio",
     {
       "name": "ffmpeg",
       "features": [
@@ -76,6 +77,14 @@
     {
       "name": "boost-modular-build-helper",
       "version": "1.84.0#3"
+    },
+    {
+      "name": "opentimelineio",
+      "version": "0.17.0"
+    },
+    {
+      "name": "python3",
+      "version": "3.11.11"
     }
   ]
 }
