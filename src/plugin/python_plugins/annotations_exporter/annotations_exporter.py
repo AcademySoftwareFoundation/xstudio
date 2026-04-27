@@ -159,7 +159,7 @@ class AnnotationsExporter(PluginBase):
         if attr == self.scope:
             if self.scope.value() in ["Current Media", "Current Frame"]:
                 self.user_name.set_value(
-                    self.connection.api.session.viewed_container.playhead.on_screen_media.name
+                    self.current_playhead().on_screen_media.name
                 )
             elif self.scope.value() == "Current Playlist / Timeline":
                 self.user_name.set_value(
@@ -232,7 +232,7 @@ class AnnotationsExporter(PluginBase):
         elif scope == "Current Media":
 
             self.export_media_annotations(
-                self.connection.api.session.viewed_container.playhead.on_screen_media
+                self.current_playhead().on_screen_media
                 )
             
         elif scope == "Current Playlist / Timeline":
@@ -254,7 +254,7 @@ class AnnotationsExporter(PluginBase):
             gp_file_path = self.__output_folder + "/greasePencil.xml"
             self.make_greaspencil_xml_file(
                 gp_file_path,
-                self.connection.api.session.viewed_container.playhead.on_screen_media.media_source().rate.fps()
+                self.current_playhead().on_screen_media.media_source().rate.fps()
                 )
             # now we zip the folder
             final_name = shutil.make_archive(self.__output_folder + "/" + self.user_name.value(), 'zip', __tmp_folder)
@@ -314,8 +314,8 @@ class AnnotationsExporter(PluginBase):
 
     def export_bookmark_on_current_frame(self):
 
-        m = self.connection.api.session.viewed_container.playhead.on_screen_media
-        current_frame = self.connection.api.session.viewed_container.playhead.attributes['Media Logical Frame'].value()
+        m = self.current_playhead().on_screen_media
+        current_frame = self.current_playhead().attributes['Media Logical Frame'].value()
         bookmarks = m.ordered_bookmarks()
         bookmark = None
         for bm in bookmarks:
