@@ -4,7 +4,13 @@ xSTUDIO can be built in just a few steps on many Linux distros by employing Micr
 
 ### Base dependencies
 
-We assume that you have some knowledge of development on Linux platforms and have git, gcc & cmake installed on your system.
+We assume that you have some knowledge of development on Linux platforms and have git, gcc and cmake installed on your system. You also need Ninja, which xSTUDIO uses as its CMake generator on all platforms. Install it via your distro's package manager:
+
+    # Rocky / RHEL / Fedora
+    sudo dnf install ninja-build
+
+    # Ubuntu / Debian
+    sudo apt install ninja-build
 
 ### Download and install Qt 6.5.3 SDK
 
@@ -12,9 +18,10 @@ Follow [these instructions](downloading_qt.md) - ensuring that you download the 
 
 ### Download the VCPKG repo
 
-To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo and run the bootstrap script before we build xstudio. Run these commands in the Powershell:
+To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo and run the bootstrap script before we build xstudio. Run these commands in a terminal:
 
     git clone https://github.com/microsoft/vcpkg.git
+    git -C vcpkg checkout c2aeddd80357b17592e59ad965d2adf65a19b22f
     ./vcpkg/bootstrap-vcpkg.sh
 
 ### Download the xSTUDIO repo
@@ -27,74 +34,34 @@ Download from github in the usual manner. Enter the root folder of the repo and 
 
 ### Tell CMake where Qt is installed
 
-CMake needs to know where your Qt 6.5.3 SDK is installed. The simplest way is to set the `Qt6_DIR` environment variable in your shell, before launching the build comman. For example, if user Mary Jane downloaded Qt into her home folder:
+CMake needs to know where your Qt 6.5.3 SDK is installed. Create a `CMakeUserPresets.json` file alongside `CMakePresets.json` in the repo root. This file is gitignored, so your local path won't be committed. The user preset should have a different name from the tracked preset it inherits from, and add `Qt6_DIR` to `cacheVariables`. For example, if user Mary Jane downloaded Qt into her home folder:
 
-    export Qt6_DIR=/home/maryjane/Qt/6.5.3/gcc_64/lib/cmake/Qt6
-
-Optionally, add this to your `~/.bashrc` (or `~/.zshrc`) so it's set in every new shell.
-
-If you prefer not to use an environment variable, alternative options are:
-
-- **Per-machine user preset**: create a `CMakeUserPresets.json` file alongside `CMakePresets.json` in the repo root. The user preset should have a different name from the tracked preset it inherits from, and add `Qt6_DIR` to `cacheVariables`. For example:
-
+    {
+      "version": 3,
+      "configurePresets": [
         {
-          "version": 3,
-          "configurePresets": [
-            {
-              "name": "LinuxReleaseLocal",
-              "inherits": "LinuxRelease",
-              "cacheVariables": {
-                "Qt6_DIR": "/home/maryjane/Qt/6.5.3/gcc_64/lib/cmake/Qt6"
-              }
-            }
-          ]
+          "name": "LinuxNinjaReleaseLocal",
+          "inherits": "LinuxNinjaRelease",
+          "cacheVariables": {
+            "Qt6_DIR": "/home/maryjane/Qt/6.5.3/gcc_64/lib/cmake/Qt6"
+          }
         }
+      ]
+    }
 
-    See the [CMake presets documentation](https://cmake.org/cmake/help/latest/manual/cmake-presets.7.html) for the full format reference.
-
-- **One-off command-line override**: pass `-DQt6_DIR=/path/to/Qt6` directly to the `cmake` command below.
+See the [CMake presets documentation](https://cmake.org/cmake/help/latest/manual/cmake-presets.7.html) for the full format reference.
 
 ### Build xSTUDIO
 
 First, we configure for building. Note that this cmake command ***may take several hours to complete*** the first time it is run, though subsequently it will take a few seconds. This is because xSTUDIO's dependencies (particularly ffmpeg) take a long time to download and build from the source code, which is what VCPKG is doing.
 
-- If you are using an environment variable to specify the Qt installation run:
+    cmake -B build --preset LinuxNinjaReleaseLocal
 
-    cmake -B build --preset LinuxRelease
+When this has finished, you can build xSTUDIO with:
 
-- If you are using a `CMakeUserPresets.json` file to point at your Qt installation (see the previous section), run instead:
-
-    cmake -B build --preset LinuxReleaseLocal
-
-- Or, to pass the Qt path as a one-off command-line override:
-
-    cmake -B build --preset LinuxRelease -DQt6_DIR=/home/maryjane/Qt/6.5.3/gcc_64/lib/cmake/Qt6
-
-When this has finished, you can build xSTUDIO with this command (in this case, the --parallel flag is set for a machine with 16 cores as an example). 
-
-    cmake --build build --parallel 16
-
-### Faster builds with Ninja (optional)
-
-To speed up the build, you can use Ninja instead of make. Ninja parallelises the build at the file level and is noticeably faster. Install it via your platform's package manager:
-
-    # Rocky / RHEL / Fedora
-    sudo dnf install ninja-build
-
-    # Ubuntu / Debian
-    sudo apt install ninja-build
-
-    # macOS (Homebrew)
-    brew install ninja
-
-On Windows, Ninja is already bundled with Visual Studio's CMake tools, so no separate install is needed.
-
-Ninja-based presets are provided for Linux, macOS and Windows (Release, RelWithDebInfo and Debug variants for each). For example, to configure a Linux release build:
-
-    cmake -B build --preset LinuxNinjaRelease
     cmake --build build
 
-Ninja handles parallelism automatically so there is no need for the `--parallel` flag. See [CMakePresets.json](../../../CMakePresets.json) for the full list of available presets.
+RelWithDebInfo and Debug variants are also available — see [CMakePresets.json](../../../CMakePresets.json) for the full list.
 
 ### Running xSTUDIO in a dev environment
 
@@ -106,4 +73,4 @@ Run this from the xstudio repository root. The `python3.11` segment tracks which
 
 ### Installing xSTUDIO
 
-Correct packaging and installation of xstudio and its dependencies across various Linux distros is a problem we are still working on! For now, it is up to individual developers to do an effective installation on their system. You can try running 'make install' from the 'build' folder. Use -DCMAKE_BUILD_PREFIX={path} to set a test installation location
+Correct packaging and installation of xstudio and its dependencies across various Linux distros is a problem we are still working on! For now, it is up to individual developers to do an effective installation on their system. You can try running `cmake --install build` from the repository root. Use -DCMAKE_BUILD_PREFIX={path} to set a test installation location
