@@ -518,10 +518,10 @@ void QMLViewport::wheelEvent(QWheelEvent *event) {
     PointerEvent ev(
         EventType::MouseWheel,
         static_cast<Signature::Button>((int)event->buttons()),
-        event->position().x(),
-        event->position().y(),
-        width(),  // FIXME should be width, but this function appears to never be called.
-        height(), // FIXME should be height
+        int(round(float(event->position().x()) * window()->effectiveDevicePixelRatio())),
+        int(round(float(event->position().y()) * window()->effectiveDevicePixelRatio())),
+        int(round(float(width()) * window()->effectiveDevicePixelRatio())),
+        int(round(float(height()) * window()->effectiveDevicePixelRatio())),
         qtModifierToOurs(event->modifiers()),
         renderer_actor ? renderer_actor->std_name() : "",
         std::make_pair(event->angleDelta().rx(), event->angleDelta().ry()),
