@@ -18,6 +18,7 @@
 #include <mutex>
 #include <atomic>
 #include <deque>
+#include <string>
 #include <vector>
 
 #include "extern/decklink_compat.h"
@@ -143,27 +144,34 @@ namespace bm_decklink_plugin_1_0 {
         }
 
         [[nodiscard]] bool is_available() const { return is_available_; }
+        [[nodiscard]] const std::string &last_error() const { return last_error_; }
+        [[nodiscard]] const std::string &runtime_info() const { return runtime_info_; }
 
       private:
-        AVOutputCallback *output_callback_;
+        void release_resources();
+        void detect_runtime_info();
+        void log_runtime_info() const;
+
+        AVOutputCallback *video_output_callback_ = {nullptr};
+        class AudioOutputCallback *audio_output_callback_ = {nullptr};
         std::mutex mutex_;
 
-        GLenum glStatus;
-        GLuint idFrameBuf, idColorBuf, idDepthBuf;
-        char *pFrameBuf;
+        GLenum glStatus = {0};
+        GLuint idFrameBuf = {0}, idColorBuf = {0}, idDepthBuf = {0};
+        char *pFrameBuf   = {nullptr};
 
         // DeckLink
-        uint32_t frame_width_;
-        uint32_t frame_height_;
+        uint32_t frame_width_  = {0};
+        uint32_t frame_height_ = {0};
 
-        IDeckLink *decklink_interface_;
-        IDeckLinkOutput *decklink_output_interface_;
-        IDeckLinkVideoConversion *frame_converter_;
+        IDeckLink *decklink_interface_              = {nullptr};
+        IDeckLinkOutput *decklink_output_interface_ = {nullptr};
+        IDeckLinkVideoConversion *frame_converter_  = {nullptr};
 
-        BMDTimeValue frame_duration_;
-        BMDTimeScale frame_timescale_;
-        uint32_t uiFPS;
-        uint32_t uiTotalFrames;
+        BMDTimeValue frame_duration_  = {0};
+        BMDTimeScale frame_timescale_ = {0};
+        uint32_t uiFPS                = {0};
+        uint32_t uiTotalFrames        = {0};
 
         media_reader::ImageBufPtr current_frame_;
         std::mutex frames_mutex_;
@@ -193,15 +201,21 @@ namespace bm_decklink_plugin_1_0 {
         unsigned long samples_delivered_      = {0};
         uint32_t samples_water_level_         = {4096};
         long audio_sync_delay_milliseconds_   = {0};
+        bool video_output_enabled_            = {false};
+        bool audio_output_enabled_            = {false};
+        bool scheduled_playback_started_      = {false};
         PixelSwizzler pixel_swizzler_;
 
         HDRMetadata hdr_metadata_;
         std::mutex hdr_metadata_mutex_;
-        bool is_available_ = {false};
+        bool is_available_             = {false};
+        std::string last_error_        = {};
+        std::string api_version_       = {};
+        std::string runtime_info_      = {};
+        std::string output_interface_info_ = {};
     };
 
-    class AVOutputCallback : public IDeckLinkVideoOutputCallback,
-                             public IDeckLinkAudioOutputCallback {
+    class AVOutputCallback : public IDeckLinkVideoOutputCallback {
       private:
         struct RefCt {
 
@@ -226,14 +240,40 @@ namespace bm_decklink_plugin_1_0 {
         ULONG AddRef() override;
         ULONG Release() override;
 
-        // IDeckLinkAudioOutputCallback
-        HRESULT RenderAudioSamples(BOOL preroll) override;
-
         // IDeckLinkVideoOutputCallback
         HRESULT ScheduledFrameCompleted(
             IDeckLinkVideoFrame *completedFrame,
             BMDOutputFrameCompletionResult result) override;
         HRESULT ScheduledPlaybackHasStopped() override;
+    };
+
+    class AudioOutputCallback : public IDeckLinkAudioOutputCallback {
+      private:
+        struct RefCt {
+
+            int fetchAndAddAcquire(const int delta) {
+
+                std::lock_guard<std::mutex> l(m);
+                int old = count;
+                count += delta;
+                return old;
+            }
+            std::atomic<int> count = 1;
+            std::mutex m;
+        } ref_count_;
+
+        DecklinkOutput *owner_;
+
+      public:
+        AudioOutputCallback(DecklinkOutput *pOwner);
+
+        // IUnknown
+        HRESULT QueryInterface(REFIID /*iid*/, LPVOID * /*ppv*/) override;
+        ULONG AddRef() override;
+        ULONG Release() override;
+
+        // IDeckLinkAudioOutputCallback
+        HRESULT RenderAudioSamples(BOOL preroll) override;
     };
 
 } // namespace bm_decklink_plugin_1_0

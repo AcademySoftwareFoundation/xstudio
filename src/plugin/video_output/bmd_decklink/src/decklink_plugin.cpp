@@ -158,7 +158,9 @@ BMDecklinkPlugin::BMDecklinkPlugin(
 
 // This method is called when a new image buffer is ready to be displayed
 void BMDecklinkPlugin::incoming_video_frame_callback(media_reader::ImageBufPtr incoming) {
-    dcl_output_->incoming_frame(incoming);
+    if (dcl_output_ && dcl_output_->is_available()) {
+        dcl_output_->incoming_frame(incoming);
+    }
 }
 
 void BMDecklinkPlugin::exit_cleanup() {
@@ -166,6 +168,7 @@ void BMDecklinkPlugin::exit_cleanup() {
     // instance. The BMDecklinkPlugin will therefore never get deleted due to
     // circular dependency so we use the on_exit
     delete dcl_output_;
+    dcl_output_ = nullptr;
 }
 
 void BMDecklinkPlugin::receive_status_callback(const utility::JsonStore &status_data) {
@@ -296,6 +299,20 @@ void BMDecklinkPlugin::initialise() {
     try {
 
         dcl_output_ = new DecklinkOutput(this);
+
+        if (!dcl_output_->is_available()) {
+            const auto decklink_error =
+                dcl_output_->last_error().empty() ? "No DeckLink device detected."
+                                                 : dcl_output_->last_error();
+            delete dcl_output_;
+            dcl_output_ = nullptr;
+            status_message_->set_value(
+                decklink_error);
+            is_in_error_->set_value(true);
+            spdlog::warn("Decklink output unavailable.");
+            return;
+        }
+
         set_hdr_mode_and_metadata();
 
         if (!dcl_output_->is_available()) {
