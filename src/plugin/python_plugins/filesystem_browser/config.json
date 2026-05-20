@@ -1,0 +1,42 @@
+{
+    "extensions": [
+        ".mov",
+        ".mp4",
+        ".mkv",
+        ".exr",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".dpx",
+        ".tiff",
+        ".tif",
+        ".wav",
+        ".mp3",
+        ".pdf"
+    ],
+    "ignore_dirs": [
+        ".git",
+        ".quarantine",
+        "eryx_unreal_plugin",
+        ".DS_Store"
+    ],
+    "root_ignore_dirs": [
+        "/Applications",
+        "/bin",
+        "/cores",
+        "/dev",
+        "/etc",
+        "/Library",
+        "/opt",
+        "/private",
+        "/sbin",
+        "/System",
+        "/usr",
+        "/var",
+        "/proc",
+        "/sys",
+        "/snap"
+    ],
+    "max_recursion_depth": 6,
+    "auto_scan_threshold": 4
+}
