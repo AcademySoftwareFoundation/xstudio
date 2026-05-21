@@ -35,10 +35,19 @@ JsonStore xstudio::utility::open_session(const caf::uri &path) {
 }
 
 JsonStore xstudio::utility::open_session(const std::string &path) {
+
+#ifdef _WIN32
+    zstr::ifstream i(path, std::ios::binary);
+    i >> std::noskipws;
+    const std::string uncompressed(
+        (std::istreambuf_iterator<char>(i)), std::istreambuf_iterator<char>());
+    return JsonStore(nlohmann::json::parse(uncompressed));
+#else
     JsonStore js;
     zstr::ifstream i(path);
     i >> js;
     return js;
+#endif
 }
 
 

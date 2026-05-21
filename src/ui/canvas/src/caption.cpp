@@ -15,16 +15,16 @@ Caption::Caption(
     const std::string font_name,
     const utility::ColourTriplet background_colour,
     const float background_opacity)
-    : position_(position),
+    : id_(utility::Uuid::generate()),
+      position_(position),
       wrap_width_(wrap_width),
       font_size_(font_size),
+      font_name_(std::move(font_name)),
       colour_(colour),
       opacity_(opacity),
       justification_(justification),
-      font_name_(std::move(font_name)),
       background_colour_(background_colour),
-      background_opacity_(background_opacity),
-      id_(utility::Uuid::generate()) {
+      background_opacity_(background_opacity) {
 
     update_vertices();
 }

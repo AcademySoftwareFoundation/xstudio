@@ -21,6 +21,7 @@
 					"default_value": {
 						"AAF": "MRC_FULLY",
 						"AIFF": "MRC_FULLY",
+						"AIF": "MRC_FULLY",
 						"AVI": "MRC_FULLY",
 						"BMP": "MRC_FULLY",
 						"CIN": "MRC_FULLY",
@@ -46,6 +47,7 @@
 					"value": {
 						"AAF": "MRC_FULLY",
 						"AIFF": "MRC_FULLY",
+						"AIF": "MRC_FULLY",
 						"AVI": "MRC_FULLY",
 						"BMP": "MRC_FULLY",
 						"CIN": "MRC_FULLY",

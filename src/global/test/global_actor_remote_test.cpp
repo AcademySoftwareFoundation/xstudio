@@ -22,5 +22,5 @@ TEST(GlobalActorRemoteTest, Test) {
     fixture f;
 
     auto remote = f.system.middleman().remote_actor("localhost", 14441);
-    f.self->send(*remote, version_atom_v);
+    f.self->mail(version_atom_v).send(*remote);
 }

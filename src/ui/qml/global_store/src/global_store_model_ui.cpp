@@ -608,9 +608,9 @@ void PublicPreferencesModel::storeToTree(const nlohmann::json &src, nlohmann::js
         }
     }
 
-    nlohmann::json &children = tree["children"];
-    for (auto &c : children) {
-    }
+    // nlohmann::json &children = tree["children"];
+    // for (auto &c : children) {
+    // }
 }
 
 QVariant PublicPreferencesModel::data(const QModelIndex &index, int role) const {

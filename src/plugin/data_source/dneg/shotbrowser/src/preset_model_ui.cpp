@@ -27,7 +27,7 @@ const static auto q_quick_load         = QStringFromStd("Quick Load");
 }; // namespace
 
 ShotBrowserPresetModel::ShotBrowserPresetModel(QueryEngine &query_engine, QObject *parent)
-    : query_engine_(query_engine), JSONTreeModel(parent) {
+    : JSONTreeModel(parent), query_engine_(query_engine) {
     setRoleNames(
         std::vector<std::string>(
             {"checksumRole",  "checksumSystemRole", "enabledRole",        "entityRole",
@@ -1150,7 +1150,7 @@ QObject *ShotBrowserPresetModel::termModel(
 
                     auto item = R"({"name": null, "id":null})"_json;
 
-                    for (const auto i : cache->items()) {
+                    for (const auto &i : cache->items()) {
                         // don't expose ids if they are numbers
                         if (not i.value().at("id").is_string() and
                             std::to_string(i.value().at("id").get<long>()) == i.key())
@@ -1198,7 +1198,7 @@ QObject *ShotBrowserPresetModel::termModel(
                     auto data = R"([])"_json;
 
                     auto item = R"({"name": null, "id":null})"_json;
-                    for (const auto i : cache->items()) {
+                    for (const auto &i : cache->items()) {
                         // don't expose ids if they are numbers
                         if (not i.value().at("id").is_string() and
                             std::to_string(i.value().at("id").get<long>()) == i.key())
@@ -1261,7 +1261,7 @@ void ShotBrowserPresetModel::updateTermModel(const std::string &key, const bool 
                 data->is_object() and static_cast<int>(data->size()) != model->rowCount()) {
                 auto tmp = R"([])"_json;
 
-                for (const auto i : data->items()) {
+                for (const auto &i : data->items()) {
                     auto item    = R"({"name": null, "id":null})"_json;
                     item["name"] = i.key();
                     item["id"]   = i.value().at("id");

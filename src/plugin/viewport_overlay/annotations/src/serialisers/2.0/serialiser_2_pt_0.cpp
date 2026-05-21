@@ -68,10 +68,19 @@ void AnnotationSerialiser_2_pt_0::_deserialise(Annotation *anno, const nlohmann:
             }
 
             stroke["points"] = std::move(new_points);
+
+            // V3 → V4: convert "is_erase_stroke" + r/g/b → "type" + "colour"
+            stroke["type"] = stroke.value("is_erase_stroke", false) ? "Erase" : "Brush";
+            stroke.erase("is_erase_stroke");
+            float r          = stroke.value("r", 1.0f);
+            float g          = stroke.value("g", 1.0f);
+            float b          = stroke.value("b", 1.0f);
+            stroke["colour"] = {r, g, b};
+            stroke.erase("r");
+            stroke.erase("g");
+            stroke.erase("b");
         }
     }
-
-    // std::cout << converted.dump(2) << std::endl;
 
     // Now deserialise the converted JSON
     anno->canvas() = converted.template get<Canvas>();

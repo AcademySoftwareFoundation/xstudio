@@ -22,6 +22,8 @@ HUDPluginBase::HUDPluginBase(
     hud_data_ = add_boolean_attribute(name, name, false);
     hud_data_->expose_in_ui_attrs_group("hud_element_toggles");
 
+    globally_enabled_ = add_boolean_attribute("Globally Enabled", "Globally Enabled", false);
+
     // add a preference path using the plugin name so that the status of the
     // HUD plugin (on or off) is preserved between sessions
     static std::regex whitespace(R"(\s)");
@@ -47,7 +49,7 @@ HUDPluginBase::HUDPluginBase(
 
     message_handler_ = {
         [=](ui::viewport::hud_settings_atom, bool hud_enabled) {
-            globally_enabled_ = hud_enabled;
+            globally_enabled_->set_value(hud_enabled);
             redraw_viewport();
         },
         [=](ui::viewport::hud_settings_atom,

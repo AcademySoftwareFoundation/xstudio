@@ -54,8 +54,8 @@ const char *frag_shader = R"(
 class EXRDataWindowRenderer : public plugin::ViewportOverlayRenderer {
 
   public:
-    Imath::V2f
-    get_transformed_point(Imath::V2i point, Imath::V2i image_dims, const float pixel_aspect) {
+    Imath::V2f get_transformed_point(
+        const Imath::V2i &point, const Imath::V2i &image_dims, const float pixel_aspect) {
         const float aspect = float(image_dims.y) / float(image_dims.x);
 
         float norm_x = float(point.x) / image_dims.x;
@@ -79,11 +79,11 @@ class EXRDataWindowRenderer : public plugin::ViewportOverlayRenderer {
             if (!shader_)
                 init_overlay_opengl();
 
-            auto image_dims = frame ? frame->image_size_in_pixels() : Imath::V2i();
+            auto image_dims = frame ? frame->image_size_in_pixels() : Imath::V2i(0);
             auto image_bounds_min =
-                frame ? frame->image_pixels_bounding_box().min : Imath::V2i();
+                frame ? frame->image_pixels_bounding_box().min : Imath::V2i(0);
             auto image_bounds_max =
-                frame ? frame->image_pixels_bounding_box().max : Imath::V2i();
+                frame ? frame->image_pixels_bounding_box().max : Imath::V2i(0);
 
             Imath::V2f top_left = get_transformed_point(
                 image_bounds_min, image_dims, frame.frame_id().pixel_aspect());

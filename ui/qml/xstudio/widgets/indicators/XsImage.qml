@@ -8,7 +8,7 @@ Image {
     horizontalAlignment: Image.AlignHCenter
     verticalAlignment: Image.AlignVCenter
 
-    smooth: true
-    antialiasing: true
+    //smooth: true
+    //antialiasing: true
     asynchronous: true
 }

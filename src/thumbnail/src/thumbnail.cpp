@@ -119,8 +119,8 @@ float *yHalfSize(const int inWidth, const int inHeight, float *inBuffer, const i
 
     auto tbuf = new float[sz];
     memset(tbuf, 0, sizeof(float) * sz);
-    auto t_tbuf = tbuf;
-    int step    = inWidth * nchans;
+    // auto t_tbuf = tbuf;
+    int step = inWidth * nchans;
     for (int i = 0; i < inHeight / 2; ++i) {
 
         float *t_tbuf = &tbuf[i * inWidth * nchans];

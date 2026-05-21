@@ -16,6 +16,9 @@ using namespace std::chrono_literals;
 #include "xstudio/utility/serialise_headers.hpp"
 
 ACTOR_TEST_SETUP()
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
 
 TEST(JsonStoreActorTest, Test) {
     fixture f;
@@ -24,7 +27,8 @@ TEST(JsonStoreActorTest, Test) {
 
     // const Uuid u = c(Uuid, get_uuid_atom_v);
 
-    f.self->request(tmp, std::chrono::seconds(10), uuid_atom_v)
+    f.self->mail(uuid_atom_v)
+        .request(tmp, std::chrono::seconds(10))
         .receive(
             [&](const Uuid &uuid) {
                 EXPECT_FALSE(uuid.is_null()) << "Should return valid uuid";
@@ -37,22 +41,26 @@ TEST(JsonStoreActorTest, Test) {
 
     c(set_json_atom_v, json_data);
 
-    f.self->request(tmp, caf::infinite, get_json_atom_v, "")
+    f.self->mail(get_json_atom_v, "")
+        .request(tmp, caf::infinite)
         .receive(
             [&](const JsonStore &_json) { EXPECT_EQ(_json, json_data) << "Should be equal"; },
             [&](const caf::error &) { EXPECT_TRUE(false) << "Should return valid json"; });
 
-    f.self->request(tmp, caf::infinite, get_json_atom_v, "/happy")
+    f.self->mail(get_json_atom_v, "/happy")
+        .request(tmp, caf::infinite)
         .receive(
             [&](const JsonStore &_json) { EXPECT_TRUE(_json) << "Should be true"; },
             [&](const caf::error &) { EXPECT_TRUE(false) << "Should return true"; });
 
-    f.self->request(tmp, caf::infinite, get_json_atom_v, "/arr/2")
+    f.self->mail(get_json_atom_v, "/arr/2")
+        .request(tmp, caf::infinite)
         .receive(
             [&](const JsonStore &_json) { EXPECT_EQ(_json, 4) << "Should be 4"; },
             [&](const caf::error &) { EXPECT_TRUE(false) << "Should return 4"; });
 
-    f.self->request(tmp, caf::infinite, get_json_atom_v, "/arr/6")
+    f.self->mail(get_json_atom_v, "/arr/6")
+        .request(tmp, caf::infinite)
         .receive(
             [&](const JsonStore &) { EXPECT_TRUE(false) << "Should be Exception"; },
             [&](const caf::error &) { EXPECT_TRUE(true) << "Should return exception"; });
@@ -62,12 +70,14 @@ TEST(JsonStoreActorTest, Test) {
           nlohmann::json::parse(
               R"([{"op": "remove", "path": "/arr"}, {"op": "add", "path": "/hello", "value": "goodbye"}])")));
 
-    f.self->request(tmp, caf::infinite, get_json_atom_v, "/arr")
+    f.self->mail(get_json_atom_v, "/arr")
+        .request(tmp, caf::infinite)
         .receive(
             [&](const JsonStore &) { EXPECT_TRUE(false) << "Should be Exception"; },
             [&](const caf::error &) { EXPECT_TRUE(true) << "Should return exception"; });
 
-    f.self->request(tmp, caf::infinite, get_json_atom_v, "/hello")
+    f.self->mail(get_json_atom_v, "/hello")
+        .request(tmp, caf::infinite)
         .receive(
             [&](const JsonStore &_json) { EXPECT_EQ(_json, "goodbye") << "Should be goodbye"; },
             [&](const caf::error &) { EXPECT_TRUE(false) << "Should return goodbye"; });
@@ -75,6 +85,7 @@ TEST(JsonStoreActorTest, Test) {
 
     // EXPECT_TRUE(c(get_uuid_atom_v)->is_null()) << "Structure should be null after clear";
 }
+
 
 TEST(JsonStoreActorTest, TestSubscribe) {
     fixture f;
@@ -103,7 +114,8 @@ TEST(JsonStoreActorTest, TestSubscribe) {
     // need small delay to allow sync to happen..
     std::this_thread::sleep_for(100ms);
 
-    f.self->request(act1, caf::infinite, get_json_atom_v, "/sub1/happy")
+    f.self->mail(get_json_atom_v, "/sub1/happy")
+        .request(act1, caf::infinite)
         .receive(
             [&](const JsonStore &_json) {
                 EXPECT_FALSE(_json) << "Should be equal to actor 2";
@@ -115,12 +127,14 @@ TEST(JsonStoreActorTest, TestSubscribe) {
     // need small delay to allow sync to happen..
     std::this_thread::sleep_for(100ms);
 
-    f.self->request(act1, caf::infinite, get_json_atom_v, "/sub1/happy")
+    f.self->mail(get_json_atom_v, "/sub1/happy")
+        .request(act1, caf::infinite)
         .receive(
             [&](const JsonStore &_json) { EXPECT_TRUE(_json) << "Should be equal to actor 2"; },
             [&](const caf::error &) { EXPECT_TRUE(false) << "Should return json"; });
 
-    f.self->request(act1, caf::infinite, get_json_atom_v, "/sub1/sub2/sad")
+    f.self->mail(get_json_atom_v, "/sub1/sub2/sad")
+        .request(act1, caf::infinite)
         .receive(
             [&](const JsonStore &_json) {
                 EXPECT_TRUE(_json) << "Should be equal to actor true";
@@ -133,3 +147,5 @@ TEST(JsonStoreActorTest, TestSubscribe) {
     f.self->send_exit(act2, caf::exit_reason::user_shutdown);
     f.self->send_exit(act3, caf::exit_reason::user_shutdown);
 }
+
+#pragma GCC diagnostic pop

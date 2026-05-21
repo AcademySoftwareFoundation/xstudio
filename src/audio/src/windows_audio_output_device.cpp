@@ -93,7 +93,7 @@ HRESULT WindowsAudioOutputDevice::initializeAudioClient(
     }
 
     // Get the mix format from the audio client
-    WAVEFORMATEX *pMixFormat = NULL;
+    WAVEFORMATEX *pMixFormat = nullptr;
     hr                       = audio_client_->GetMixFormat(&pMixFormat);
     if (FAILED(hr)) {
         spdlog::error("Failed to get mix format: HRESULT=0x{:08x}", hr);
@@ -137,7 +137,7 @@ HRESULT WindowsAudioOutputDevice::initializeAudioClient(
 #endif
 
     // Fetch the currently active shared mode format
-    WAVEFORMATEX *wavefmt = NULL;
+    WAVEFORMATEX *wavefmt = nullptr;
     UINT32 current_period = 0;
     hr                    = audio_client_->GetCurrentSharedModeEnginePeriod(
         (WAVEFORMATEX **)&wavefmt, &current_period);
@@ -266,7 +266,7 @@ long WindowsAudioOutputDevice::latency_microseconds() {
 
 bool WindowsAudioOutputDevice::push_samples(const void *sample_data, const long num_samples) {
 
-    auto t0 = utility::clock::now();
+    // auto t0 = utility::clock::now();
 
     int channel_count = num_channels_;
 

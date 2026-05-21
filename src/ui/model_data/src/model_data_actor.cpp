@@ -20,6 +20,11 @@ using namespace xstudio;
 using namespace xstudio::ui::model_data;
 using namespace xstudio::utility;
 
+#ifdef __GNUC__ // Check if GCC compiler is being used
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 namespace {
 
 utility::JsonTree *add_node(utility::JsonTree *node, const nlohmann::json &new_entry_data) {
@@ -30,7 +35,7 @@ utility::JsonTree *add_node(utility::JsonTree *node, const nlohmann::json &new_e
 
 std::string path_from_node(utility::JsonTree *node) {
     if (!node->parent())
-        return std::string();
+        return {};
     return path_from_node(node->parent()) +
            std::string(fmt::format("/children/{}", node->index()));
 }
@@ -114,11 +119,8 @@ GlobalUIModelData::GlobalUIModelData(caf::actor_config &cfg) : caf::event_based_
         // to a hotkey then we need to update the info if the hotkey is
         // changed
         auto keyboard_manager = system().registry().template get<caf::actor>(keyboard_events);
-        request(
-            keyboard_manager,
-            infinite,
-            utility::get_event_group_atom_v,
-            keypress_monitor::hotkey_event_atom_v)
+        mail(utility::get_event_group_atom_v, keypress_monitor::hotkey_event_atom_v)
+            .request(keyboard_manager, infinite)
             .then(
                 [=](caf::actor hotkeys_config_events_group) mutable {
                     anon_send(
@@ -130,7 +132,6 @@ GlobalUIModelData::GlobalUIModelData(caf::actor_config &cfg) : caf::event_based_
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                 });
     }
-
 
     set_down_handler([=](down_msg &msg) {
         // has a client exited?
@@ -399,7 +400,9 @@ GlobalUIModelData::GlobalUIModelData(caf::actor_config &cfg) : caf::event_based_
         [=](keypress_monitor::hotkey_event_atom, Hotkey &hotkey) {
             update_hotkeys_model_data(hotkey);
         },
-        [=](keypress_monitor::hotkey_event_atom, const std::string & /*pressed_keys*/) {},
+        [=](keypress_monitor::hotkey_event_atom,
+            const std::vector<std::string> & /*pressed_keys*/,
+            const std::vector<std::string> & /*modifiers*/) {},
         [=](keypress_monitor::hotkey_event_atom,
             const utility::Uuid kotkey_uuid,
             const bool pressed,
@@ -525,7 +528,7 @@ void GlobalUIModelData::set_data(
 
         check_model_is_registered(model_name);
 
-        utility::JsonTree *model_data = &(models_[model_name]->data_);
+        // utility::JsonTree *model_data = &(models_[model_name]->data_);
 
         utility::JsonTree *node = find_node_matching_string_field(
             &(models_[model_name]->data_), attr_uuid_role_name, to_string(attribute_uuid));
@@ -784,7 +787,7 @@ void GlobalUIModelData::register_model(
         // load data from preferennces
         auto prefs = global_store::GlobalStoreHelper(system());
         JsonStore j;
-        prefs.get_group(j);
+        std::ignore          = prefs.get_group(j);
         auto data_from_prefs = global_store::preference_value<JsonStore>(j, preference_path);
 
         models_[model_name] =
@@ -882,13 +885,13 @@ void GlobalUIModelData::insert_rows(
 
     try {
 
-        bool blank = false;
+        // bool blank = false;
         if (models_.find(model_name) == models_.end()) {
             // it's possible something tries to insert data to a model that
             // hasn't been set-up yet, so do the set-up now.
             utility::JsonStore blank_model(nlohmann::json::parse(R"({})"));
             models_[model_name] = std::make_shared<ModelData>(model_name, blank_model);
-            blank               = true;
+            // blank               = true;
         }
 
         auto &model_data = models_[model_name]->data_;
@@ -967,7 +970,7 @@ void GlobalUIModelData::remove_rows(
         auto &model_data = models_[model_name]->data_;
         auto j           = pointer_to_tree(model_data, "children", ptr);
 
-        while (row < j->size() && count--) {
+        while (row < static_cast<int>(j->size()) && count--) {
             j->erase(std::next(j->begin(), row));
         }
 
@@ -1567,3 +1570,7 @@ void GlobalUIModelData::reset_model(
         spdlog::warn("{} {} for model {}", __PRETTY_FUNCTION__, e.what(), model_name);
     }
 }
+
+#ifdef __GNUC__ // Check if GCC compiler is being used
+#pragma GCC diagnostic pop
+#endif

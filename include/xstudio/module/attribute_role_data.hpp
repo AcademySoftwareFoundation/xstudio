@@ -14,319 +14,306 @@
 #include <typeindex>
 #include <Imath/ImathVec.h>
 
-namespace xstudio {
+namespace xstudio::module {
 
-namespace module {
+template <class T, class F>
+inline std::pair<const std::type_index, std::function<nlohmann::json(std::any const &)>>
+to_any_to_json(F const &f) {
+    return {std::type_index(typeid(T)), [g = f](std::any const &a) -> nlohmann::json {
+                return g(std::any_cast<T const &>(a));
+            }};
+}
 
-    template <class T, class F>
-    inline std::pair<const std::type_index, std::function<nlohmann::json(std::any const &)>>
-    to_any_to_json(F const &f) {
-        return {std::type_index(typeid(T)), [g = f](std::any const &a) -> nlohmann::json {
-                    return g(std::any_cast<T const &>(a));
-                }};
-    }
+/*
+Map of functions to convert certain types wrapped by std::any to nlohmann::json
+*/
 
-    /*
-    Map of functions to convert certain types wrapped by std::any to nlohmann::json
-    */
+inline const std::
+    unordered_map<std::type_index, std::function<nlohmann::json(std::any const &)>> &
+    any_to_json() {
 
-    inline const std::
-        unordered_map<std::type_index, std::function<nlohmann::json(std::any const &)>> &
-        any_to_json() {
-
-        static std::unordered_map<
-            std::type_index,
-            std::function<nlohmann::json(std::any const &)>>
-            _any_to_json{
-                to_any_to_json<nlohmann::json>(
-                    [](nlohmann::json x) -> nlohmann::json { return x; }),
-                to_any_to_json<int64_t>(
-                    [](int64_t x) -> nlohmann::json { return nlohmann::json(x); }),
-                to_any_to_json<float>(
-                    [](float x) -> nlohmann::json { return nlohmann::json(x); }),
-                to_any_to_json<double>(
-                    [](double x) -> nlohmann::json { return nlohmann::json(x); }),
-                to_any_to_json<bool>(
-                    [](bool x) -> nlohmann::json { return nlohmann::json(x); }),
-                to_any_to_json<utility::Uuid>(
-                    [](utility::Uuid x) -> nlohmann::json { return nlohmann::json(x); }),
-                to_any_to_json<std::string>(
-                    [](std::string x) -> nlohmann::json { return nlohmann::json(x); }),
-                to_any_to_json<std::array<float, 4>>(
-                    [](std::array<float, 4> x) -> nlohmann::json { return nlohmann::json(x); }),
-                to_any_to_json<Imath::V3f>([](Imath::V3f x) -> nlohmann::json {
-                    return nlohmann::json{"vec3", 1, x.x, x.y, x.z};
+    static std::unordered_map<std::type_index, std::function<nlohmann::json(std::any const &)>>
+        _any_to_json{
+            to_any_to_json<nlohmann::json>(
+                [](nlohmann::json x) -> nlohmann::json { return x; }),
+            to_any_to_json<int64_t>(
+                [](int64_t x) -> nlohmann::json { return nlohmann::json(x); }),
+            to_any_to_json<float>([](float x) -> nlohmann::json { return nlohmann::json(x); }),
+            to_any_to_json<double>(
+                [](double x) -> nlohmann::json { return nlohmann::json(x); }),
+            to_any_to_json<bool>([](bool x) -> nlohmann::json { return nlohmann::json(x); }),
+            to_any_to_json<utility::Uuid>(
+                [](utility::Uuid x) -> nlohmann::json { return nlohmann::json(x); }),
+            to_any_to_json<std::string>(
+                [](std::string x) -> nlohmann::json { return nlohmann::json(x); }),
+            to_any_to_json<std::array<float, 4>>(
+                [](std::array<float, 4> x) -> nlohmann::json { return nlohmann::json(x); }),
+            to_any_to_json<Imath::V3f>([](Imath::V3f x) -> nlohmann::json {
+                return nlohmann::json{"vec3", 1, x.x, x.y, x.z};
+            }),
+            to_any_to_json<Imath::V4f>([](Imath::V4f x) -> nlohmann::json {
+                return nlohmann::json{"vec4", 1, x.x, x.y, x.z, x.w};
+            }),
+            to_any_to_json<utility::ColourTriplet>(
+                [](utility::ColourTriplet x) -> nlohmann::json {
+                    return nlohmann::json{"colour", 1, x.r, x.g, x.b};
                 }),
-                to_any_to_json<Imath::V4f>([](Imath::V4f x) -> nlohmann::json {
-                    return nlohmann::json{"vec4", 1, x.x, x.y, x.z, x.w};
+            to_any_to_json<std::vector<float>>(
+                [](std::vector<float> x) -> nlohmann::json { return nlohmann::json(x); }),
+            to_any_to_json<std::vector<int>>(
+                [](std::vector<int> x) -> nlohmann::json { return nlohmann::json(x); }),
+            to_any_to_json<std::vector<bool>>(
+                [](std::vector<bool> x) -> nlohmann::json { return nlohmann::json(x); }),
+            to_any_to_json<std::vector<std::string>>(
+                [](std::vector<std::string> x) -> nlohmann::json { return nlohmann::json(x); }),
+            to_any_to_json<std::vector<utility::Uuid>>(
+                [](std::vector<utility::Uuid> x) -> nlohmann::json {
+                    return nlohmann::json(x);
                 }),
-                to_any_to_json<utility::ColourTriplet>(
-                    [](utility::ColourTriplet x) -> nlohmann::json {
-                        return nlohmann::json{"colour", 1, x.r, x.g, x.b};
-                    }),
-                to_any_to_json<std::vector<float>>(
-                    [](std::vector<float> x) -> nlohmann::json { return nlohmann::json(x); }),
-                to_any_to_json<std::vector<int>>(
-                    [](std::vector<int> x) -> nlohmann::json { return nlohmann::json(x); }),
-                to_any_to_json<std::vector<bool>>(
-                    [](std::vector<bool> x) -> nlohmann::json { return nlohmann::json(x); }),
-                to_any_to_json<std::vector<std::string>>(
-                    [](std::vector<std::string> x) -> nlohmann::json {
-                        return nlohmann::json(x);
-                    }),
-                to_any_to_json<std::vector<utility::Uuid>>(
-                    [](std::vector<utility::Uuid> x) -> nlohmann::json {
-                        return nlohmann::json(x);
-                    }),
-            };
-        return _any_to_json;
-    }
-    /*
-        Class using 'type erasure' pattern to handle multiple types of data via std::any
-    */
-    class AttributeData {
+        };
+    return _any_to_json;
+}
+/*
+    Class using 'type erasure' pattern to handle multiple types of data via std::any
+*/
+class AttributeData {
 
-      public:
-        AttributeData() = default;
+  public:
+    AttributeData() = default;
 
-        AttributeData(const AttributeData &) = default;
+    AttributeData(const AttributeData &) = default;
 
-        template <typename T> AttributeData(const T &d) : data_(d) {}
+    template <typename T> AttributeData(const T &d) : data_(d) {}
 
-        template <typename T> [[nodiscard]] const T get() const {
-            try {
+    template <typename T> [[nodiscard]] const T get() const {
+        try {
 
-                return std::any_cast<T>(data_);
+            return std::any_cast<T>(data_);
 
-            } catch ([[maybe_unused]] std::exception &e) {
+        } catch ([[maybe_unused]] std::exception &e) {
 
-                // may request, say, T=std::vector<std::string> ... data_ is
-                // json, but json that CAN be cast to std::vector<std::string>
-                if (data_.type() == typeid(nlohmann::json)) {
-                    try {
+            // may request, say, T=std::vector<std::string> ... data_ is
+            // json, but json that CAN be cast to std::vector<std::string>
+            if (data_.type() == typeid(nlohmann::json)) {
+                try {
 
-                        return std::any_cast<nlohmann::json>(data_).get<T>();
+                    return std::any_cast<nlohmann::json>(data_).get<T>();
 
-                    } catch ([[maybe_unused]] std::exception &e2) {
-                    }
+                } catch ([[maybe_unused]] std::exception &e2) {
                 }
-                spdlog::warn(
-                    "{} Attempt to get AttributeData with type {} as type {}",
-                    __PRETTY_FUNCTION__,
-                    data_.type().name(),
-                    typeid(T).name());
-                throw;
             }
+            spdlog::warn(
+                "{} Attempt to get AttributeData with type {} as type {}",
+                __PRETTY_FUNCTION__,
+                data_.type().name(),
+                typeid(T).name());
+            throw;
         }
+    }
 
-        template <typename T> bool __set(const T &v) { // NOLINT
-            if (data_.has_value() && typeid(v) != data_.type()) {
+    template <typename T> bool __set(const T &v) { // NOLINT
+        if (data_.has_value() && typeid(v) != data_.type()) {
 
-                if (data_.type() == typeid(nlohmann::json)) {
+            if (data_.type() == typeid(nlohmann::json)) {
 
-                    try {
-                        const auto j = nlohmann::json(v);
-                        if (j != std::any_cast<nlohmann::json>(data_)) {
-                            data_ = j;
-                            return true;
-                        }
-                        return false;
-                    } catch ([[maybe_unused]] std::exception &e2) {
+                try {
+                    const auto j = nlohmann::json(v);
+                    if (j != std::any_cast<nlohmann::json>(data_)) {
+                        data_ = j;
+                        return true;
                     }
+                    return false;
+                } catch ([[maybe_unused]] std::exception &e2) {
                 }
+            }
+            spdlog::warn(
+                "{} Attempt to set AttributeData with type {} with data of type {} and "
+                "value {}",
+                __PRETTY_FUNCTION__,
+                data_.type().name(),
+                typeid(v).name(),
+                to_json().dump());
+
+            return false;
+
+        } else if ((data_.has_value() && get<T>() != v) || !data_.has_value()) {
+            data_ = v;
+            return true;
+        }
+        return false;
+    }
+
+    template <typename T> bool set(const T &v) { return __set(v); }
+
+    bool set(const std::string &data) {
+        if (typeid(utility::Uuid) == data_.type()) {
+            return set(utility::Uuid(data));
+        } else {
+            return __set(data);
+        }
+    }
+
+    bool set(const utility::JsonStore &data) {
+        return set(static_cast<const nlohmann::json &>(data));
+    }
+
+    bool set(const nlohmann::json &data) {
+
+        bool rt = false;
+        if (data.is_string()) {
+
+            if (typeid(utility::Uuid) == data_.type()) {
+                rt = set(utility::Uuid(data.get<std::string>()));
+            } else {
+                rt = set(data.get<std::string>());
+            }
+
+        } else if (
+            data.is_array() && data.size() == 5 && data.begin().value().is_string() &&
+            data.begin().value().get<std::string>() == "vec3") {
+
+            rt = set(data.get<Imath::V3f>());
+
+        } else if (
+            data.is_array() && data.size() == 6 && data.begin().value().is_string() &&
+            data.begin().value().get<std::string>() == "vec4") {
+
+            rt = set(data.get<Imath::V4f>());
+
+        } else if (
+            data.is_array() && data.size() == 5 && data.begin().value().is_string() &&
+            data.begin().value().get<std::string>() == "colour") {
+
+            rt = set(data.get<utility::ColourTriplet>());
+
+        } else if (
+            (data.is_array() || data.is_object()) &&
+            (data_.type() == typeid(nlohmann::json) || data_.type() == typeid(void))) {
+
+            if (data_.type() == typeid(void) || get<nlohmann::json>() != data) {
+                data_ = data;
+                rt    = true;
+            }
+
+        } else if (data.is_array() && data.size() && data.begin().value().is_string()) {
+
+            std::vector<std::string> v;
+            for (auto p = data.begin(); p != data.end(); p++) {
+                if (p.value().is_string()) {
+                    v.push_back(p.value().get<std::string>());
+                }
+            }
+            rt = set(v);
+
+        } else if (data.is_array() && data.size() && data.begin().value().is_boolean()) {
+
+            std::vector<bool> v;
+            for (auto p = data.begin(); p != data.end(); p++) {
+                if (p.value().is_boolean()) {
+                    v.push_back(p.value().get<bool>());
+                }
+            }
+            rt = set(v);
+
+        } else if (data.is_array() && data.size() && data.begin().value().is_number()) {
+
+            std::vector<float> v;
+            for (auto p = data.begin(); p != data.end(); p++) {
+                if (p.value().is_number()) {
+                    v.push_back(p.value().get<float>());
+                }
+            }
+            rt = set(v);
+
+        } else if (data.is_boolean()) {
+            rt = set(data.get<bool>());
+        } else if (data.is_number_integer()) {
+            rt = set(data.get<int64_t>());
+        } else if (data.is_number_float()) {
+            rt = set(data.get<float>());
+        } else if (data_.type() == typeid(nlohmann::json) && get<nlohmann::json>() != data) {
+            data_ = data;
+            rt    = true;
+        } else if (!data_.has_value()) {
+            data_ = data;
+            rt    = true;
+        } else if (data.is_null()) {
+            rt = true;
+        }
+        return rt;
+    }
+
+    // not pretty, must be a better way of letting an int64_t set a float and vice versa
+    // without violating type checking
+    bool set(const float &v) {
+        if (data_.has_value()) {
+            if (data_.type() == typeid(float) && get<float>() != v) {
+                data_ = v;
+                return true;
+            } else if (data_.type() == typeid(int64_t) && get<int64_t>() != (int64_t)v) {
+                data_ = (int64_t)v;
+                return true;
+            } else if (!(data_.type() == typeid(int64_t) || data_.type() == typeid(float))) {
                 spdlog::warn(
-                    "{} Attempt to set AttributeData with type {} with data of type {} and "
-                    "value {}",
+                    "{} Attempt to set AttributeData with type {} with data of type {} "
+                    "and value {}",
                     __PRETTY_FUNCTION__,
                     data_.type().name(),
                     typeid(v).name(),
-                    to_json().dump());
-
-                return false;
-
-            } else if ((data_.has_value() && get<T>() != v) || !data_.has_value()) {
-                data_ = v;
-                return true;
+                    v);
             }
             return false;
         }
+        data_ = v;
+        return true;
+    }
 
-        template <typename T> bool set(const T &v) { return __set(v); }
+    bool set(const int v) { return set(int64_t(v)); }
 
-        bool set(const std::string &data) {
-            if (typeid(utility::Uuid) == data_.type()) {
-                return set(utility::Uuid(data));
+    bool set(const int64_t &v) {
+        if (data_.has_value()) {
+            if (data_.type() == typeid(float) && get<float>() != (float)v) {
+                data_ = (float)v;
+                return true;
+            } else if (data_.type() == typeid(int64_t) && get<int64_t>() != v) {
+                data_ = v;
+                return true;
+            } else if (!(data_.type() == typeid(int64_t) || data_.type() == typeid(float))) {
+                spdlog::warn(
+                    "{} Attempt to set AttributeData with type {} with data of type {} "
+                    "and value {}",
+                    __PRETTY_FUNCTION__,
+                    data_.type().name(),
+                    typeid(v).name(),
+                    v);
+            }
+            return false;
+        }
+        data_ = v;
+        return true;
+    }
+
+    template <typename T> AttributeData &operator=(const T &v) {
+        set(v);
+        return *this;
+    }
+
+    [[nodiscard]] inline nlohmann::json to_json() const {
+        if (data_.has_value()) {
+            auto atj = any_to_json();
+            if (const auto it = atj.find(std::type_index(data_.type())); it != atj.cend()) {
+                return it->second(data_);
             } else {
-                return __set(data);
+                spdlog::warn(
+                    "{} Unregistered type {}", __PRETTY_FUNCTION__, data_.type().name());
             }
         }
 
-        bool set(const utility::JsonStore &data) {
-            return set(static_cast<const nlohmann::json &>(data));
-        }
+        return {};
+    }
 
-        bool set(const nlohmann::json &data) {
+  private:
+    std::any data_;
+};
 
-            bool rt = false;
-            if (data.is_string()) {
-
-                if (typeid(utility::Uuid) == data_.type()) {
-                    rt = set(utility::Uuid(data.get<std::string>()));
-                } else {
-                    rt = set(data.get<std::string>());
-                }
-
-            } else if (
-                data.is_array() && data.size() == 5 && data.begin().value().is_string() &&
-                data.begin().value().get<std::string>() == "vec3") {
-
-                rt = set(data.get<Imath::V3f>());
-
-            } else if (
-                data.is_array() && data.size() == 6 && data.begin().value().is_string() &&
-                data.begin().value().get<std::string>() == "vec4") {
-
-                rt = set(data.get<Imath::V4f>());
-
-            } else if (
-                data.is_array() && data.size() == 5 && data.begin().value().is_string() &&
-                data.begin().value().get<std::string>() == "colour") {
-
-                rt = set(data.get<utility::ColourTriplet>());
-
-            } else if (
-                (data.is_array() || data.is_object()) &&
-                (data_.type() == typeid(nlohmann::json) || data_.type() == typeid(void))) {
-
-                if (data_.type() == typeid(void) || get<nlohmann::json>() != data) {
-                    data_ = data;
-                    rt    = true;
-                }
-
-            } else if (data.is_array() && data.size() && data.begin().value().is_string()) {
-
-                std::vector<std::string> v;
-                for (auto p = data.begin(); p != data.end(); p++) {
-                    if (p.value().is_string()) {
-                        v.push_back(p.value().get<std::string>());
-                    }
-                }
-                rt = set(v);
-
-            } else if (data.is_array() && data.size() && data.begin().value().is_boolean()) {
-
-                std::vector<bool> v;
-                for (auto p = data.begin(); p != data.end(); p++) {
-                    if (p.value().is_boolean()) {
-                        v.push_back(p.value().get<bool>());
-                    }
-                }
-                rt = set(v);
-
-            } else if (data.is_array() && data.size() && data.begin().value().is_number()) {
-
-                std::vector<float> v;
-                for (auto p = data.begin(); p != data.end(); p++) {
-                    if (p.value().is_number()) {
-                        v.push_back(p.value().get<float>());
-                    }
-                }
-                rt = set(v);
-
-            } else if (data.is_boolean()) {
-                rt = set(data.get<bool>());
-            } else if (data.is_number_integer()) {
-                rt = set(data.get<int64_t>());
-            } else if (data.is_number_float()) {
-                rt = set(data.get<float>());
-            } else if (
-                data_.type() == typeid(nlohmann::json) && get<nlohmann::json>() != data) {
-                data_ = data;
-                rt    = true;
-            } else if (!data_.has_value()) {
-                data_ = data;
-                rt    = true;
-            } else if (data.is_null()) {
-                rt = true;
-            }
-            return rt;
-        }
-
-        // not pretty, must be a better way of letting an int64_t set a float and vice versa
-        // without violating type checking
-        bool set(const float &v) {
-            if (data_.has_value()) {
-                if (data_.type() == typeid(float) && get<float>() != v) {
-                    data_ = v;
-                    return true;
-                } else if (data_.type() == typeid(int64_t) && get<int64_t>() != (int64_t)v) {
-                    data_ = (int64_t)v;
-                    return true;
-                } else if (!(data_.type() == typeid(int64_t) ||
-                             data_.type() == typeid(float))) {
-                    spdlog::warn(
-                        "{} Attempt to set AttributeData with type {} with data of type {} "
-                        "and value {}",
-                        __PRETTY_FUNCTION__,
-                        data_.type().name(),
-                        typeid(v).name(),
-                        v);
-                }
-                return false;
-            }
-            data_ = v;
-            return true;
-        }
-
-        bool set(const int v) { return set(int64_t(v)); }
-
-        bool set(const int64_t &v) {
-            if (data_.has_value()) {
-                if (data_.type() == typeid(float) && get<float>() != (float)v) {
-                    data_ = (float)v;
-                    return true;
-                } else if (data_.type() == typeid(int64_t) && get<int64_t>() != v) {
-                    data_ = v;
-                    return true;
-                } else if (!(data_.type() == typeid(int64_t) ||
-                             data_.type() == typeid(float))) {
-                    spdlog::warn(
-                        "{} Attempt to set AttributeData with type {} with data of type {} "
-                        "and value {}",
-                        __PRETTY_FUNCTION__,
-                        data_.type().name(),
-                        typeid(v).name(),
-                        v);
-                }
-                return false;
-            }
-            data_ = v;
-            return true;
-        }
-
-        template <typename T> AttributeData &operator=(const T &v) {
-            set(v);
-            return *this;
-        }
-
-        [[nodiscard]] inline nlohmann::json to_json() const {
-            if (data_.has_value()) {
-                auto atj = any_to_json();
-                if (const auto it = atj.find(std::type_index(data_.type())); it != atj.cend()) {
-                    return it->second(data_);
-                } else {
-                    spdlog::warn(
-                        "{} Unregistered type {}", __PRETTY_FUNCTION__, data_.type().name());
-                }
-            }
-
-            return nlohmann::json();
-        }
-
-      private:
-        std::any data_;
-    };
-
-} // namespace module
-
-} // namespace xstudio
+} // namespace xstudio::module

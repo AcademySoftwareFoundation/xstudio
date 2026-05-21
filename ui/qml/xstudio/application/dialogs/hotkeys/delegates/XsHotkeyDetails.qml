@@ -1,128 +1,77 @@
 // SPDX-License-Identifier: Apache-2.0
 import QtQuick
 import QtQuick.Layouts
-
+import QtQml.Models
+import Qt.labs.qmlmodels
+import QtQuick.Controls
 
 import xstudio.qml.models 1.0
 import xStudio 1.0
+import "."
 
-Item {
+Rectangle {
 
-    height: XsStyleSheet.widgetStdHeight
+    id: root
+    //Layout.preferredWidth: widthHint
+    height: 26
+    color: "transparent"
+    border.color: ma2.pressed ? XsStyleSheet.accentColor : "transparent"
+    border.width: 1
 
-    // divider line
-    Rectangle {
-        width: parent.width
-        anchors.bottom: parent.bottom
-        height: 1
-        color: XsStyleSheet.widgetBgNormalColor
-    }
+    /*property var maxWidth: sequence.width + label.width + 20
+    onMaxWidthChanged: {
+        hintWidth(maxWidth)
+    }*/
 
-    RowLayout {
-
+    MouseArea {
+        id: ma2
         anchors.fill: parent
-        spacing: 10
-
-        XsLabel {
-            id: lab1
-            Layout.alignment: Qt.AlignVCenter|Qt.AlignLeft
-            Layout.preferredWidth: row_widths[0]
-            Layout.topMargin: 4
-            Layout.bottomMargin: 4
-            Layout.leftMargin: 10
-            Layout.rightMargin: 10
-            text: hotkeyName
-            horizontalAlignment: Text.AlignLeft
-            TextMetrics {
-                font: lab1.font
-                text: lab1.text
-                onWidthChanged: setRowMinWidth(width, 0)
-            }
+        hoverEnabled: true
+        onClicked: {
+            showHotkeySetter(hotkeyUuid)
         }
+    }
 
-        Rectangle {
-            Layout.fillHeight: true
-            Layout.preferredWidth: 1
-            color: XsStyleSheet.widgetBgNormalColor
-        }
+    Rectangle {
+        anchors.fill: parent
+        color: "white"
+        opacity: 0.1
+        visible: ma2.containsMouse
+    }
 
-        /*XsLabel {
-            Layout.alignment: Qt.AlignVCenter|Qt.AlignLeft
-            Layout.preferredWidth: 0// row_widths[1]
-            Layout.topMargin: 4
-            Layout.bottomMargin: 4
-            Layout.leftMargin: 10
-            Layout.rightMargin: 10
-            text: hotkeyCategory
-            horizontalAlignment: Text.AlignLeft
-            visible: false
-            onTextWidthChanged: {
-                setRowMinWidth(textWidth, 1)
-            }
-        }
+    XsLabel {
 
-        Rectangle {
-            Layout.fillHeight: true
-            Layout.preferredWidth: 1
-            color: XsStyleSheet.widgetBgNormalColor
-        }*/
+        id: label
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        text: "" + hotkeyName
+        horizontalAlignment: Text.AlignLeft
+        verticalAlignment: Text.AlignVCenter    
 
-        XsLabel {
-            id: lab2
-            Layout.alignment: Qt.AlignVCenter|Qt.AlignLeft
-            Layout.preferredWidth: row_widths[2]
-            Layout.bottomMargin: 4
-            Layout.topMargin: 4
-            Layout.leftMargin: 10
-            Layout.rightMargin: 10
-            text: hotkeySequence
-            horizontalAlignment: Text.AlignLeft
-            TextMetrics {
-                font: lab2.font
-                text: lab2.text
-                onWidthChanged: setRowMinWidth(width, 2)
-            }
-        }
-
-        Rectangle {
-            Layout.fillHeight: true
-            Layout.preferredWidth: 1
-            color: XsStyleSheet.widgetBgNormalColor
-        }
-
-        Item {
-
-            Layout.preferredWidth: 20
-            Layout.fillHeight: true
-
-            XsIcon {
-
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.left: parent.left
-                anchors.leftMargin: 5
-                width: height
-                height: parent.height -2
-                source: "qrc:/icons/help.svg"
-                imgOverlayColor: ma.containsMouse ? XsStyleSheet.accentColor : XsStyleSheet.hintColor
-                // antialiasing: true
-                // smooth: true
-
-                MouseArea {
-                    id: ma
-                    anchors.fill: parent
-                    hoverEnabled: true
+        XsToolTip {
+            id: tooltip
+            text: hotkeyDescription
+            visible: ma2.containsMouse
+            maxWidth: root.width
+            onVisibleChanged: {
+                if (visible) {
+                    tooltip.x = ma2.mouseX
+                    tooltip.y = ma2.mouseY
                 }
-
             }
-
-            XsToolTip {
-                id: tooltip
-                text: hotkeyDescription
-                width: 300 //Math.min(300, metricsDiv.width)
-                visible: ma.containsMouse
-            }
-
         }
 
     }
+
+    XsHotkeySequence {
+
+        id: sequence
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        regularKeys: keyboardKey
+        modifiers: keyModifiers
+        fontSize: XsStyleSheet.fontSize
+        borderSize: 2
+    }
+
 }

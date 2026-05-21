@@ -34,7 +34,9 @@ GridLayout {
         "qrc:///anno_icons/draw_shape_line.svg",
         "qrc:///anno_icons/draw_text.svg",
         "qrc:///anno_icons/draw_eraser.svg",
-        "qrc:///anno_icons/draw_color_pick.svg"
+        "qrc:///anno_icons/draw_color_pick.svg",        
+        "qrc:///anno_icons/draw_burn.svg",
+        "qrc:///anno_icons/draw_dodge.svg"
     ]
 
     property var tootTips: [
@@ -47,7 +49,9 @@ GridLayout {
         "Line - click & drag to draw lines",
         "Text - click to create editable text caption boxes",
         "Eraser - eraser brush strokes",
-        "Colour picker - click and/or drag over image to pick pixel colour for the pen (Hotkey: " + colour_pick_hk.sequence + ")"
+        "Colour picker - click and/or drag over image to pick pixel colour for the pen (Hotkey: " + colour_pick_hk.sequence + ")",
+        "Burn - darken image areas",
+        "Dodge - lighten image areas"
     ]
 
     XsHotkeyReference {

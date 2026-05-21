@@ -196,7 +196,6 @@ class AnnotationsExporter(PluginBase):
         self.file_type.set_value(file_type)
         self.resolution.set_value(resolution)
         self.__image_file_ext = file_type.lower()
-        __tmp_folder = None
 
         m = re.match("([0-9]+)*x*([0-9]+)", resolution)
         if m:
@@ -214,16 +213,16 @@ class AnnotationsExporter(PluginBase):
             self.__export_type = ExportType.GREASEPENCIL
             # try to make package folder
             import uuid
-            __tmp_folder = self.__output_folder + "/.tmpfolder." + str(uuid.uuid4())
-            if not os.path.isdir(__tmp_folder):
-                os.mkdir(__tmp_folder)
+            self.__output_folder = self.__output_folder + "/.tmpfolder." + str(uuid.uuid4())
+            if not os.path.isdir(self.__output_folder):
+                os.mkdir(self.__output_folder)
             self.__image_file_ext = "png"
         else:
             raise Exception("Bad export type: {}.".format(self.export_type.value()))
 
-        if not os.path.isdir(__tmp_folder if __tmp_folder else self.__output_folder):
+        if not os.path.isdir(self.__output_folder):
 
-            raise Exception("Output path {} is not a valid filesystem directory.".format(__tmp_folder if __tmp_folder else self.__output_folder))
+            raise Exception("Output path {} is not a valid filesystem directory.".format(self.__output_folder))
         
         if scope == "Current Frame":
 
@@ -257,9 +256,10 @@ class AnnotationsExporter(PluginBase):
                 self.current_playhead().on_screen_media.media_source().rate.fps()
                 )
             # now we zip the folder
-            final_name = shutil.make_archive(self.__output_folder + "/" + self.user_name.value(), 'zip', __tmp_folder)
+            zip_name_stem = urlsplit(output_folder).path + "/" + self.user_name.value()
+            final_name = shutil.make_archive(zip_name_stem, 'zip', self.__output_folder)
             # clean-up the temp folder
-            shutil.rmtree(__tmp_folder)
+            shutil.rmtree(self.__output_folder)
             result_message = "GreasePencil package exported to {} with {} images.".format(
                 final_name,
                 len(self.exported_images)

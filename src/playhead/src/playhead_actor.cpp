@@ -94,26 +94,26 @@ utility::UuidVector to_uuid_vector(const utility::UuidActorVector &v) {
     return result;
 }
 
-bool check_actor_down(caf::actor actor_down, utility::UuidActor &v) {
-    if (v.actor() == actor_down) {
-        v = utility::UuidActor();
-        return true;
-    }
-    return false;
-}
+// bool check_actor_down(caf::actor actor_down, utility::UuidActor &v) {
+//     if (v.actor() == actor_down) {
+//         v = utility::UuidActor();
+//         return true;
+//     }
+//     return false;
+// }
 
-bool check_actor_down(caf::actor actor_down, utility::UuidActorVector &v) {
+// bool check_actor_down(caf::actor actor_down, utility::UuidActorVector &v) {
 
-    const size_t sz = v.size();
-    auto p          = v.begin();
-    while (p != v.end()) {
-        if (p->actor() == actor_down)
-            p = v.erase(p);
-        else
-            p++;
-    }
-    return sz != v.size();
-}
+//     const size_t sz = v.size();
+//     auto p          = v.begin();
+//     while (p != v.end()) {
+//         if (p->actor() == actor_down)
+//             p = v.erase(p);
+//         else
+//             p++;
+//     }
+//     return sz != v.size();
+// }
 
 } // namespace
 
@@ -121,8 +121,8 @@ bool check_actor_down(caf::actor actor_down, utility::UuidActorVector &v) {
 PlayheadActor::PlayheadActor(caf::actor_config &cfg, const std::string &name)
     : caf::event_based_actor(cfg),
       PlayheadBase(name, std::move(utility::Uuid::generate())),
-      audio_path_(NO_AUDIO),
-      offscreen_only_(true) {
+      offscreen_only_(true),
+      audio_path_(NO_AUDIO) {
 
     init();
     set_parent_actor_addr(actor_cast<caf::actor_addr>(this));
@@ -137,8 +137,8 @@ PlayheadActor::PlayheadActor(
     caf::actor_addr parent_playlist)
     : caf::event_based_actor(cfg),
       PlayheadBase(name, std::move(uuid)),
-      audio_path_(audio_path),
-      parent_playlist_(parent_playlist) {
+      parent_playlist_(std::move(parent_playlist)),
+      audio_path_(audio_path) {
 
     init();
     set_parent_actor_addr(actor_cast<caf::actor_addr>(this));
@@ -848,12 +848,16 @@ void PlayheadActor::init() {
 
         [=](audio_buffer_atom,
             const timebase::flicks tp,
-            AudioBufPtr buffer_to_fill) -> result<AudioBufPtr> {
+            AudioBufPtr buffer_to_fill,
+            const bool frame_for_frame) -> result<AudioBufPtr> {
             auto rp = make_response_promise<AudioBufPtr>();
             // Fill the provided buffer with audio samples, starting at the playhead timeline
-            // timepoint 'tp'. Used by VideoRenderPlugin, for example
+            // timepoint 'tp'. Used by VideoRenderPlugin, for example.
+            // 'frame_for_frame' means we get audio samples for the frame at the 
+            // current playhead position and then re-sample to match the number
+            // of samples in 'buffer_to_fill'. 
             if (audio_playhead_) {
-                rp.delegate(audio_playhead_, audio_buffer_atom_v, tp, buffer_to_fill);
+                rp.delegate(audio_playhead_, audio_buffer_atom_v, tp, buffer_to_fill, frame_for_frame);
             } else {
                 rp.deliver(buffer_to_fill);
             }
@@ -1002,7 +1006,7 @@ void PlayheadActor::init() {
             return next_step_timepoint;
         },
 
-        [=](step_atom, const int step_frames) {
+        [=](step_atom, const int step_frames) -> result <timebase::flicks> {
             // we get the key playhead to work out what step_frames are
             // in terms of flicks, and adjust our position
 
@@ -1010,6 +1014,7 @@ void PlayheadActor::init() {
             // range in 'flicks' ... so the child playhead will have to work out
             // when to loop round and which frames it loops out and in through and
             // then convert those frames back to flicks
+            auto rp = make_response_promise<timebase::flicks>();
             mail(step_atom_v, position(), step_frames, loop() == LM_LOOP)
                 .request(hero_sub_playhead_.actor(), infinite)
                 .await(
@@ -1017,6 +1022,7 @@ void PlayheadActor::init() {
                     [=](const timebase::flicks new_flicks) mutable {
                         user_is_frame_scrubbing_->set_value(true);
                         set_position(new_flicks);
+                        rp.deliver(new_flicks);
                         update_child_playhead_positions(true);
                         user_is_frame_scrubbing_->set_value(false);
                     },
@@ -1024,7 +1030,9 @@ void PlayheadActor::init() {
                         spdlog::warn(
                             "Failed to get logical frame from child playhead {}",
                             to_string(err));
+                        rp.deliver(err);
                     });
+            return rp;
         },
 
         [=](skip_to_clip_atom, bool next_clip) {
@@ -1228,7 +1236,7 @@ void PlayheadActor::init() {
             } else if (!source_list.empty()) {
                 // for contact sheet mode, we just make sure the 'hero playhead' respects
                 // the first item in source_list
-                for (int i = 0; i < dynamic_source_actors_.size(); ++i) {
+                for (size_t i = 0; i < dynamic_source_actors_.size(); ++i) {
                     if (dynamic_source_actors_[i].actor() == source_list[0]) {
                         switch_key_playhead(i);
                         break;
@@ -1496,7 +1504,7 @@ void PlayheadActor::init() {
                                     align_audio_playhead();
 
                                     auto offset_frames = source_alignment_values_->value();
-                                    int idx            = 0;
+                                    size_t idx         = 0;
                                     for (auto &sub_playhead : sub_playheads_) {
                                         if (idx < offset_frames.size())
                                             anon_mail(
@@ -1921,7 +1929,6 @@ void PlayheadActor::rebuild_from_dynamic_sources() {
 
     } else if (source_actors_.size() == 1 || assembly_mode() == AM_ONE) {
 
-        int count = 1;
         for (auto source : source_actors_) {
             make_child_playhead(source);
         }
@@ -1971,7 +1978,8 @@ void PlayheadActor::rebuild_from_dynamic_sources() {
 
 void PlayheadActor::switch_key_playhead(int idx) {
 
-    if (idx < sub_playheads_.size() && idx >= 0 && hero_sub_playhead_ == sub_playheads_[idx])
+    if (idx < static_cast<int>(sub_playheads_.size()) && idx >= 0 &&
+        hero_sub_playhead_ == sub_playheads_[idx])
         return;
 
     caf::scoped_actor sys(system());
@@ -2101,7 +2109,7 @@ void PlayheadActor::switch_key_playhead(int idx) {
 
             // kick the key sub-playhead to re-broadcast its current Media, which thisw
             // PlayheadActor receives and re-broadcasts
-            if (idx < sub_playheads_.size()) {
+            if (idx < static_cast<int>(sub_playheads_.size())) {
                 mail(media_atom_v, true).send(sub_playheads_[idx].actor());
             }
         } catch (std::exception &e) {
@@ -2615,7 +2623,7 @@ void PlayheadActor::align_clip_frame_numbers() {
             int first_frame =
                 trim ? std::numeric_limits<int>::lowest() : std::numeric_limits<int>::max();
 
-            for (auto &sub_playhead : sub_playheads_) {
+            for (const auto &sub_playhead : sub_playheads_) {
 
                 // get the first frame (timecode frames) of the source
                 const int source_first_frame =
@@ -2629,7 +2637,7 @@ void PlayheadActor::align_clip_frame_numbers() {
                                    : std::min(first_frame, source_first_frame);
             }
 
-            for (auto sub_playhead : sub_playheads_) {
+            for (const auto &sub_playhead : sub_playheads_) {
 
                 const auto source_first_frame = request_receive_wait<media::AVFrameID>(
                     *sys, sub_playhead.actor(), timeout, first_frame_media_pointer_atom_v);
@@ -2649,7 +2657,7 @@ void PlayheadActor::align_clip_frame_numbers() {
             }
         } else {
 
-            for (auto sub_playhead : sub_playheads_) {
+            for (const auto &sub_playhead : sub_playheads_) {
 
                 // remove time offset
                 request_receive_wait<bool>(
@@ -2665,14 +2673,14 @@ void PlayheadActor::align_clip_frame_numbers() {
 
         // now find the sub-playhead with the longest duration after the offset
         timebase::flicks dur = trim ? timebase::k_flicks_max : timebase::flicks(0);
-        for (auto sub_playhead : sub_playheads_) {
+        for (const auto &sub_playhead : sub_playheads_) {
 
             auto d = request_receive_wait<timebase::flicks>(
                 *sys, sub_playhead.actor(), timeout, duration_flicks_atom_v);
             dur = trim ? std::min(d, dur) : std::max(d, dur);
         }
 
-        for (auto sub_playhead : sub_playheads_) {
+        for (const auto &sub_playhead : sub_playheads_) {
 
             request_receive_wait<bool>(
                 *sys, sub_playhead.actor(), timeout, timeline::duration_atom_v, dur);
@@ -3449,7 +3457,7 @@ void PlayheadActor::make_source_menu_model() {
 
     move_selection_up_hotkey_ = register_hotkey(
         "Up",
-        "Move backwards through media/clips",
+        "Jump to previous media/clip",
         "When comparing multiple selected items hit the hotkey to cycle back through the "
         "selection. If only one item is selected then select the previous item in the "
         "playlist.",
@@ -3458,7 +3466,7 @@ void PlayheadActor::make_source_menu_model() {
 
     move_selection_down_hotkey_ = register_hotkey(
         "Down",
-        "Move Forwards through media/clips",
+        "Jump to next media/clip",
         "When comparing multiple selected items hit the hotkey to cycle forward through the "
         "selection. If only one item is selected then select the next item in the playlist.",
         true,
@@ -3466,7 +3474,7 @@ void PlayheadActor::make_source_menu_model() {
 
     jump_to_previous_note_hotkey_ = register_hotkey(
         ",",
-        "Move backwards to previous note",
+        "Jump to previous note",
         "Jump the playhead backwards to the next note.",
         true,
         "Playback");

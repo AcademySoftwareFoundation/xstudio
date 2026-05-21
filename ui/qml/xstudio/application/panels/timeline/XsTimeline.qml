@@ -1147,7 +1147,7 @@ Rectangle {
     // "timeline"
     XsHotkeyReference {
         id: select_next_hotkey
-        hotkeyName: "Move Forwards through media/clips"
+        hotkeyName: "Jump to next media/clip"
         // Because the Playhead also watches this hotkey, we want to exclusively
         // grab it if the timeline is active
         exclusive: theTimeline.have_timeline && isPlayheadActive
@@ -1164,7 +1164,7 @@ Rectangle {
     // See note above
     XsHotkeyReference {
         id: select_previous_hotkey
-        hotkeyName: "Move backwards through media/clips"
+        hotkeyName: "Jump to previous media/clip"
         exclusive: theTimeline.have_timeline && isPlayheadActive
         onActivated: {
             if(!timeline.timelineSelection.selectedIndexes.length) {

@@ -2,7 +2,6 @@
 Checks:          '-*,modernize-*,-modernize-use-trailing-return-type,-modernize-use-using,clang-diagnostic-gnu-include-next,-modernize-avoid-c-arrays'
 WarningsAsErrors: ''
 HeaderFilterRegex: '/xstudio/include/.*'
-AnalyzeTemporaryDtors: false
 FormatStyle:     none
 User:            al
 CheckOptions:

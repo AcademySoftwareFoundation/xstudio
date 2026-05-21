@@ -133,6 +133,42 @@ AnnotationsUI::AnnotationsUI(caf::actor_config &cfg, const utility::JsonStore &i
     colour_picker_hide_drawings_->set_preference_path(
         "/plugin/annotations/colour_pick_hide_drawings");
 
+    // Burn
+    burn_softness_ = add_integer_attribute("Burn Softness", "Burn Softness", 0, 0, 100);
+    burn_softness_->expose_in_ui_attrs_group("annotations_tool_settings");
+    burn_softness_->set_preference_path("/plugin/annotations/burn_softness");
+
+    burn_size_ = add_integer_attribute("Burn Size", "Burn Size", 45, 1, 300);
+    burn_size_->expose_in_ui_attrs_group("annotations_tool_settings");
+    burn_size_->set_preference_path("/plugin/annotations/burn_size");
+
+    burn_intensity_ = add_integer_attribute("Burn Intensity", "Burn Intensity", 10, 1, 100);
+    burn_intensity_->expose_in_ui_attrs_group("annotations_tool_settings");
+    burn_intensity_->set_preference_path("/plugin/annotations/burn_intensity");
+
+    burn_blend_mode_ = add_string_choice_attribute(
+        "Burn Blend Mode", "Burn Blend Mode", "Mult", {"Add", "Mult"});
+    burn_blend_mode_->expose_in_ui_attrs_group("annotations_tool_settings");
+    burn_blend_mode_->set_preference_path("/plugin/annotations/burn_blend_mode");
+
+    // Dodge
+    dodge_softness_ = add_integer_attribute("Dodge Softness", "Dodge Softness", 0, 0, 100);
+    dodge_softness_->expose_in_ui_attrs_group("annotations_tool_settings");
+    dodge_softness_->set_preference_path("/plugin/annotations/dodge_softness");
+
+    dodge_size_ = add_integer_attribute("Dodge Size", "Dodge Size", 45, 1, 300);
+    dodge_size_->expose_in_ui_attrs_group("annotations_tool_settings");
+    dodge_size_->set_preference_path("/plugin/annotations/dodge_size");
+
+    dodge_intensity_ = add_integer_attribute("Dodge Intensity", "Dodge Intensity", 10, 1, 100);
+    dodge_intensity_->expose_in_ui_attrs_group("annotations_tool_settings");
+    dodge_intensity_->set_preference_path("/plugin/annotations/dodge_intensity");
+
+    dodge_blend_mode_ = add_string_choice_attribute(
+        "Dodge Blend Mode", "Dodge Blend Mode", "Add", {"Add", "Mult"});
+    dodge_blend_mode_->expose_in_ui_attrs_group("annotations_tool_settings");
+    dodge_blend_mode_->set_preference_path("/plugin/annotations/dodge_blend_mode");
+
     // Toolset
     auto tn = utility::map_value_to_vec(tool_names_);
     tn.pop_back(); // remove 'None' from the list of tools to show in the UI
@@ -141,8 +177,12 @@ AnnotationsUI::AnnotationsUI(caf::actor_config &cfg, const utility::JsonStore &i
     active_tool_->expose_in_ui_attrs_group("annotations_tool_types");
 
     // Undo and Redo
-    action_attribute_ = add_string_attribute("action_attribute", "action_attribute", "");
+    action_attribute_ = add_action_attribute("action_attribute", "action_attribute");
     action_attribute_->expose_in_ui_attrs_group("annotations_tool_settings");
+
+    // Visibility toggle
+    annotations_visible_ = add_boolean_attribute("Visibility", "Vis", true);
+    annotations_visible_->expose_in_ui_attrs_group("annotations_tool_settings");
 
     // Display mode
     display_mode_attribute_ = add_string_choice_attribute(
@@ -252,19 +292,38 @@ void AnnotationsUI::attribute_changed(const utility::Uuid &attribute_uuid, const
             }
         }
 
-    } else if (
-        attribute_uuid == action_attribute_->uuid() && action_attribute_->value() != "") {
+    } else if (attribute_uuid == action_attribute_->uuid()) {
 
-        // When user clicks 'Redo', 'Undo' buttons etc the action_attribute_ is
-        // set with the action name plus the name of the viewport for the toolbox
-        if (action_attribute_->value().find("Clear") == 0) {
-            clear_annotation(std::string(action_attribute_->value(), 6));
-        } else if (action_attribute_->value().find("Undo") == 0) {
-            undo(std::string(action_attribute_->value(), 5));
-        } else if (action_attribute_->value().find("Redo") == 0) {
-            redo(std::string(action_attribute_->value(), 5));
+        const auto args = action_attribute_->get_role_data<std::vector<std::string>>(
+            module::Attribute::Value);
+
+        if (!args.empty()) {
+            const std::string &action   = args[0];
+            const std::string &viewport = args.size() > 1 ? args[1] : "";
+
+            // When user clicks 'Redo', 'Undo' buttons etc the action_attribute_ is
+            // set with the action name and the name of the viewport for the toolbox
+            if (action == "Clear") {
+                clear_annotation(viewport);
+            } else if (action == "Undo") {
+                undo(viewport);
+            } else if (action == "Redo") {
+                redo(viewport);
+            } else if (action == "HideVisibility") {
+                annotations_visible_->set_value(false);
+                utility::JsonStore payload;
+                payload["viewport"] = viewport;
+                send_event("HideViewportVisibility", payload);
+            } else if (action == "ShowVisibility") {
+                annotations_visible_->set_value(true);
+                utility::JsonStore payload;
+                payload["viewport"] = viewport;
+                send_event("ShowViewportVisibility", payload);
+            }
+
+            action_attribute_->set_role_data(
+                module::Attribute::Value, std::vector<std::string>(), false);
         }
-        action_attribute_->set_value("");
 
     } else if (attribute_uuid == display_mode_attribute_->uuid()) {
 
@@ -386,10 +445,18 @@ void AnnotationsUI::register_hotkeys() {
 
     colour_picker_hotkey_ = register_hotkey(
         int('V'),
-        ui::NoModifier,
+        ui::ControlModifier,
         "Activate colour picker",
-        "While this hotkey his held down, the annotation tool switches to activate the colour "
+        "While this hotkey is held down, the annotation tool switches to activate the colour "
         "picker tool.",
+        false,
+        "Drawing Tools");
+
+    toggle_visibility_hotkey_ = register_hotkey(
+        int('V'),
+        ui::NoModifier,
+        "Toggle annotation visibility",
+        "Toggle the visibility of annotations on/off.",
         false,
         "Drawing Tools");
 }
@@ -415,6 +482,11 @@ void AnnotationsUI::hotkey_pressed(
 
         last_tool_ = current_tool();
         active_tool_->set_value(tool_name(Dropper));
+    } else if (hotkey_uuid == toggle_visibility_hotkey_) {
+        const std::string visibility_action =
+            annotations_visible_->value() ? "HideVisibility" : "ShowVisibility";
+        action_attribute_->set_role_data(
+            module::Attribute::Value, std::vector<std::string>{visibility_action, context});
     }
 }
 
@@ -491,6 +563,18 @@ void AnnotationsUI::start_item(const ui::PointerEvent &e) {
     case Erase:
         payload["paint"]["size"] = erase_size_->value() / PEN_STROKE_THICKNESS_SCALE;
         break;
+    case Burn: {
+        payload["item_type"]          = "Burn" + burn_blend_mode_->value();
+        payload["paint"]["intensity"] = get_burn_intensity();
+        payload["paint"]["size"]      = burn_size_->value() / PEN_STROKE_THICKNESS_SCALE;
+        payload["paint"]["softness"]  = float(burn_softness_->value()) / 10.0f;
+    } break;
+    case Dodge: {
+        payload["item_type"]          = "Dodge" + dodge_blend_mode_->value();
+        payload["paint"]["intensity"] = get_dodge_intensity();
+        payload["paint"]["size"]      = dodge_size_->value() / PEN_STROKE_THICKNESS_SCALE;
+        payload["paint"]["softness"]  = float(dodge_softness_->value()) / 10.0f;
+    } break;
     case Circle:
     case Line:
     case Square:
@@ -513,9 +597,9 @@ void AnnotationsUI::start_item(const ui::PointerEvent &e) {
 
 void AnnotationsUI::modify_item(const ui::PointerEvent &e) {
 
-    auto tp = utility::clock::now();
-    auto vv =
-        std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch()).count();
+    // auto tp = utility::clock::now();
+    // auto vv =
+    //     std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch()).count();
     if (current_item_id_.is_null())
         return;
 
@@ -898,14 +982,13 @@ bool AnnotationsUI::check_click_on_caption(
     pt *= img.layout_transform().inverse();
     const Imath::V2f image_pointer_position(pt.x / pt.w, pt.y / pt.w);
 
-    auto old_capt_id  = focus_caption_id_;
+    // auto old_capt_id  = focus_caption_id_;
     focus_caption_id_ = 0;
     utility::Uuid bookmark_id;
     for (const auto &bookmark : img.bookmarks()) {
         // get to annotation data by dynamic casing the annotation_ pointer on
         // the bookmark to our 'Annotation' class.
-        const Annotation *my_annotation =
-            dynamic_cast<const Annotation *>(bookmark->annotation_.get());
+        auto my_annotation = dynamic_cast<const Annotation *>(bookmark->annotation_.get());
         if (my_annotation) {
 
             auto p = my_annotation->canvas().begin();
@@ -1020,7 +1103,8 @@ void AnnotationsUI::update_colour_picker_info(const ui::PointerEvent &e) {
         // pixel colour to sample
         const int middle_pixel = patch_w + patch_w * (patch_w + patch_w + 1);
         Imath::V4f picked_pixel_colour(0.0f, 0.0f, 0.0f, 0.0f);
-        if (middle_pixel < pix_info.extra_pixel_display_rgba_values().size()) {
+        if (middle_pixel <
+            static_cast<int>(pix_info.extra_pixel_display_rgba_values().size())) {
             picked_pixel_colour = pix_info.extra_pixel_display_rgba_values()
                                       [patch_w + patch_w * (patch_w + patch_w + 1)];
         }
@@ -1186,4 +1270,16 @@ float AnnotationsUI::map_bezier_pressure(float input) const {
 float AnnotationsUI::map_power_pressure(float input) const {
     // expected from 0 to 4
     return std::pow(input, get_size_sensitivity() * 4.0f);
+}
+
+float AnnotationsUI::get_burn_intensity() const {
+    // Quadratic curve: slider 1-100 maps to 0.005 - 0.30 strength (0.5% - 30%)
+    float t = float(burn_intensity_->value()) / 100.0f;
+    return 0.005f + t * t * 0.295f;
+}
+
+float AnnotationsUI::get_dodge_intensity() const {
+    // Quadratic curve: slider 1-100 maps to 0.005 - 0.30 strength (0.5% - 30%)
+    float t = float(dodge_intensity_->value()) / 100.0f;
+    return 0.005f + t * t * 0.295f;
 }

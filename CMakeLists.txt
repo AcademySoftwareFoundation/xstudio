@@ -170,7 +170,7 @@ if(ENABLE_CLANG_TIDY)
     set(CMAKE_EXPORT_COMPILE_COMMANDS "ON")
     add_custom_target(
         clang-tidy
-        COMMAND ${CLANG_TIDY_COMMAND} -quiet -extra-arg=-I${CLANG_PATH}/lib/clang/11.1.0/include
+        COMMAND ${CLANG_TIDY_COMMAND} -use-color -quiet -extra-arg="-std=c++17 -I${CLANG_PATH}/lib/clang/20/include"
         USES_TERMINAL
     )
   endif()
@@ -216,11 +216,11 @@ if (USE_VCPKG)
     message(FATAL_ERROR "Failed to ensurepip.")
   else()
     execute_process(
-      COMMAND "${Python_EXECUTABLE}" -m pip install setuptools sphinx breathe sphinx-rtd-theme OpenTimelineIO-Plugins importlib_metadata zipp numpy fileseq
+      COMMAND "${Python_EXECUTABLE}" -m pip install setuptools sphinx breathe sphinx-rtd-theme OpenTimelineIO-Plugins importlib_metadata zipp numpy pyyaml fileseq
       RESULT_VARIABLE PIP_RESULT
     )
     if(PIP_RESULT)
-      message(FATAL_ERROR "Failed to install Sphinx using pip.")
+      message(FATAL_ERROR "Failed to install python dependencies using pip.")
     endif()
   endif()
 
@@ -316,10 +316,14 @@ if (WIN32)
 
   include(InstallRequiredSystemLibraries)
 
-  set(CPACK_PACKAGE_VERSION "1.2.0")
-  set(CPACK_PACKAGE_VERSION_MAJOR "2")
-  set(CPACK_PACKAGE_VERSION_MINOR "1")
-  set(CPACK_PACKAGE_VERSION_PATCH "0")
+  set(CPACK_PACKAGE_VERSION ${XSTUDIO_GLOBAL_VERSION})
+
+  string(REGEX MATCH "^([0-9]+)\\.([0-9]+)\\.([0-9]+)" VERSION_MATCH ${XSTUDIO_GLOBAL_VERSION})
+
+  set(CPACK_PACKAGE_VERSION_MAJOR ${CMAKE_MATCH_1})
+  set(CPACK_PACKAGE_VERSION_MINOR ${CMAKE_MATCH_2})
+  set(CPACK_PACKAGE_VERSION_PATCH ${CMAKE_MATCH_3})
+
   set(CPACK_PACKAGE_VENDOR "DNEG / Academy Software Foundation")
   set (CPACK_NSIS_MUI_ICON
       "${CMAKE_CURRENT_SOURCE_DIR}/ui/icons\\\\xstudio_app.ico")

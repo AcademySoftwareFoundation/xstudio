@@ -21,7 +21,8 @@ add_custom_target(pipequery_python_module ALL DEPENDS __pybind_xstudio ${OUTPUT}
 
 
 if(WIN32)
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio_pipequery DESTINATION python/ FILES_MATCHING PATTERN "*.py")
+  install(DIRECTORY ${OUTPUT}/lib/site-packages/xstudio_pipequery
+      DESTINATION bin/python3/Lib/site-packages)
 else()
   if(INSTALL_PYTHON_MODULE)
     install(DIRECTORY ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio_pipequery

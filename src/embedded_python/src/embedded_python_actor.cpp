@@ -17,6 +17,7 @@
 #include "xstudio/global_store/global_store.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
+#include "xstudio/ui/viewport/mask.hpp"
 
 using namespace xstudio;
 using namespace xstudio::utility;
@@ -41,7 +42,7 @@ the Python interpreter UI) starts up */
 class PythonOutputToShellActor : public caf::event_based_actor {
   public:
     PythonOutputToShellActor(caf::actor_config &cfg, caf::actor py_event_group)
-        : caf::event_based_actor(cfg), py_event_group_(py_event_group) {
+        : caf::event_based_actor(cfg), py_event_group_(std::move(py_event_group)) {
 
         utility::join_broadcast(this, py_event_group_);
 
@@ -185,6 +186,7 @@ EmbeddedPythonActor::EmbeddedPythonActor(caf::actor_config &cfg, const std::stri
     init();
 }
 
+static void *s_run(void *self) __attribute__((unused));
 static void *s_run(void *self) {
     ((EmbeddedPythonActor *)self)->main_loop();
     return nullptr;
@@ -219,8 +221,8 @@ void EmbeddedPythonActor::main_loop() {
 
     data_.set_origin(true);
     data_.bind_send_event_func([&](auto &&PH1, auto &&PH2) {
-        auto event     = JsonStore(std::forward<decltype(PH1)>(PH1));
-        auto undo_redo = std::forward<decltype(PH2)>(PH2);
+        auto event = JsonStore(std::forward<decltype(PH1)>(PH1));
+        // auto undo_redo = std::forward<decltype(PH2)>(PH2);
         mail(utility::event_atom_v, json_store::sync_atom_v, data_uuid_, event)
             .send(event_group_);
     });
@@ -868,6 +870,93 @@ void EmbeddedPythonActor::main_loop() {
             [=](bool) {},
 
             [=](embedded_python::python_exec_atom,
+                ui::viewport::viewport_mask_atom,
+                playhead::show_atom,
+                const caf::actor &media_source,
+                const utility::Uuid &plugin_uuid) {
+                // special message from the MaskRenderer component to inform
+                // mask plugins that need to know when the 'hero' on-screen
+                // image has changed.
+                py::gil_scoped_acquire gil;
+                try {
+
+                    auto func = get_mask_plugin_method(plugin_uuid);
+                    func(media_source, true);
+
+                } catch (py::error_already_set &e) {
+                    e.restore();
+                    py_print(e.what());
+
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                }
+            },
+
+            [=](embedded_python::python_exec_atom,
+                ui::viewport::viewport_mask_atom,
+                const utility::Uuid &plugin_uuid,
+                const utility::UuidActorVector &media_sources)
+                -> result<std::vector<std::vector<ui::viewport::Mask>>> {
+                // special message handler used by the MaskRenderer component.
+                // It uses this to request the Mask(s) for given media sources
+                // for each python plugin derived from MaskPlugin base class.
+                py::gil_scoped_acquire gil;
+                try {
+
+                    std::vector<std::vector<ui::viewport::Mask>> result;
+                    auto func = get_mask_plugin_method(plugin_uuid);
+                    for (const auto &media_source : media_sources) {
+                        py::object py_result = media_source ? func(media_source.actor(), false)
+                                                            : func(py::none(), false);
+                        if (py_result.is(py::none()))
+                            result.emplace_back(std::vector<ui::viewport::Mask>());
+                        else {
+                            auto r = py_result.cast<std::vector<ui::viewport::Mask>>();
+                            result.emplace_back(r);
+                        }
+                    }
+                    return result;
+
+                } catch (py::error_already_set &e) {
+                    e.restore();
+                    py_print(e.what());
+                    return make_error(xstudio_error::error, e.what());
+
+                } catch (const std::exception &err) {
+                    return make_error(xstudio_error::error, err.what());
+                }
+            },
+
+
+            [=](embedded_python::python_exec_atom,
+                ui::viewport::viewport_mask_atom,
+                const utility::Uuid &plugin_uuid,
+                const caf::actor &media_source) -> result<std::vector<ui::viewport::Mask>> {
+                // special message handler used by the MaskRenderer component.
+                // It uses this to request the Mask(s) for a given media source
+                // for each python plugin derived from MaskPlugin base class.
+                py::gil_scoped_acquire gil;
+                try {
+
+                    auto func = get_mask_plugin_method(plugin_uuid);
+                    py::object result =
+                        media_source ? func(media_source, false) : func(py::none(), false);
+                    if (result.is(py::none()))
+                        return std::vector<ui::viewport::Mask>();
+                    auto r = result.cast<std::vector<ui::viewport::Mask>>();
+                    return r;
+
+                } catch (py::error_already_set &e) {
+                    e.restore();
+                    py_print(e.what());
+                    return make_error(xstudio_error::error, e.what());
+
+                } catch (const std::exception &err) {
+                    return make_error(xstudio_error::error, err.what());
+                }
+            },
+
+            [=](embedded_python::python_exec_atom,
                 const std::string &plugin_name,
                 const std::string &method_name,
                 const utility::JsonStore &packed_args) -> result<utility::JsonStore> {
@@ -1032,6 +1121,7 @@ void EmbeddedPythonActor::main_loop() {
                 if (em.reason) {
                     if (base_.enabled()) {
                         py::gil_scoped_acquire gil;
+                        mask_plugin_methods_.clear();
                         base_.disconnect();
                     }
                     fail_state(std::move(em.reason));
@@ -1186,4 +1276,22 @@ void EmbeddedPythonActor::delayed_callback(utility::Uuid &cb_id, const int micro
     anon_mail(cb_id)
         .delay(std::chrono::microseconds(microseconds_delay))
         .send(caf::actor_cast<caf::actor>(this), weak_ref);
+}
+
+py::object EmbeddedPythonActor::get_mask_plugin_method(const utility::Uuid &plugin_uuid) {
+    auto p = mask_plugin_methods_.find(plugin_uuid);
+    if (p == mask_plugin_methods_.end()) {
+        auto g = py::globals();
+        if (g.contains(py::str("XSTUDIO"))) {
+
+            py::object xstudio_link = g["XSTUDIO"];
+            py::object plugin       = xstudio_link.attr("get_plugin_instance")(plugin_uuid);
+            mask_plugin_methods_[plugin_uuid] = plugin.attr("_media_source_masks");
+            p                                 = mask_plugin_methods_.find(plugin_uuid);
+        }
+    }
+    if (p == mask_plugin_methods_.end()) {
+        throw std::runtime_error("Couldn't get _media_source_masks from MaskPlugin instance.");
+    }
+    return p->second;
 }

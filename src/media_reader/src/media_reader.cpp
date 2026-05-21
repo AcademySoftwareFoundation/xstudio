@@ -78,10 +78,9 @@ void ImageBufferRecyclerCache::store_unwanted_buffer(
         }
         size_by_time_.erase(p);
     }
-    auto tp = utility::clock::now();
     recycle_buffer_bin_[size].push_back(buf);
     total_size_ += size;
-    size_by_time_[tp] = size;
+    size_by_time_[utility::clock::now()] = size;
     mutex_.unlock();
 }
 
@@ -174,6 +173,27 @@ template <typename T> void typed_resample(AudioBuffer &in, const size_t out_samp
     }
 
     in.set_buf_data(new_buffer);
+}
+
+void AudioBuffer::stretch_samples(
+    const uint64_t num_samples) {
+
+    if (sample_format() == audio::SampleFormat::UINT8) {
+        typed_resample<uint8_t>(*this, num_samples);
+    } else if (sample_format() == audio::SampleFormat::INT16) {
+        typed_resample<int16_t>(*this, num_samples);
+    } else if (sample_format() == audio::SampleFormat::SFINT32) {
+        typed_resample<int32_t>(*this, num_samples);
+    } else if (sample_format() == audio::SampleFormat::FLOAT32) {
+        typed_resample<float>(*this, num_samples);
+    } else if (sample_format() == audio::SampleFormat::INT64) {
+        typed_resample<int64_t>(*this, num_samples);
+    } else if (sample_format() == audio::SampleFormat::DOUBLE64) {
+        typed_resample<double>(*this, num_samples);
+    }
+
+    num_samples_ = num_samples;
+
 }
 
 void AudioBuffer::set_new_sample_rate(
@@ -292,8 +312,7 @@ void ImageBufDisplaySet::finalise() {
         }
     };
     for (int i = 0; i < num_onscreen_images(); ++i) {
-        const auto &im = onscreen_image(i);
-        const auto t   = onscreen_image(i).layout_transform();
+        const auto t = onscreen_image(i).layout_transform();
         hash_fun(reinterpret_cast<const uint8_t *>(t.x), sizeof(t));
     }
 }
@@ -320,14 +339,14 @@ MediaReader::MediaReader(std::string name, const utility::JsonStore &)
 
 std::string MediaReader::name() const { return name_; }
 
-ImageBufPtr MediaReader::image(const media::AVFrameID &) { return ImageBufPtr(); }
+ImageBufPtr MediaReader::image(const media::AVFrameID &) { return {}; }
 
-AudioBufPtr MediaReader::audio(const media::AVFrameID &) { return AudioBufPtr(); }
+AudioBufPtr MediaReader::audio(const media::AVFrameID &) { return {}; }
 
 thumbnail::ThumbnailBufferPtr MediaReader::thumbnail(const media::AVFrameID &mp, const size_t) {
     throw std::runtime_error(
         "Thumbnail generation not supported for this format. " + mp.reader());
-    return thumbnail::ThumbnailBufferPtr();
+    return {};
 }
 
 MRCertainty MediaReader::supported(const caf::uri &, const std::array<uint8_t, 16> &) {
@@ -342,7 +361,7 @@ MediaDetail MediaReader::detail(const caf::uri &) const {
 
 uint8_t MediaReader::maximum_readers(const caf::uri &) const { return 1; }
 
-bool MediaReader::prefer_sequential_access(const caf::uri &) const { return true; }
+bool MediaReader::prefer_sequential_access() const { return true; }
 
 bool MediaReader::can_decode_audio() const { return false; }
 
