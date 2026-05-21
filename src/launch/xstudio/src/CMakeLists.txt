@@ -108,11 +108,15 @@ if(WIN32)
 	file(GLOB FFMPEG_COMPONENTS ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/ffmpeg/*)
 	install(FILES ${FFMPEG_COMPONENTS} DESTINATION bin)
 
-    get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)
-    get_filename_component(_qt_bin_dir "${_qmake_executable}" DIRECTORY)
-    find_program(windeployqt_exe windeployqt HINTS "${_qt_bin_dir}")
-        configure_file(windeploy.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/windeploy.cmake @ONLY)
-    install(SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/windeploy.cmake)
+	# Note: windeployqt for Windows is run from scripts/qt_install so it executes
+	# after all other install rules have populated the install tree.
+
+	# Generate a dev-only launcher that puts Qt's bin dir on PATH, so xstudio
+	# can be run from the build tree without a windeployqt pass.
+	get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)
+	get_filename_component(_qt_bin_dir "${_qmake_executable}" DIRECTORY)
+	file(TO_NATIVE_PATH "${_qt_bin_dir}" _qt_bin_dir)
+	configure_file(run_xstudio.bat.in ${CMAKE_BINARY_DIR}/run_xstudio.bat @ONLY)
 
 elseif(APPLE)
 

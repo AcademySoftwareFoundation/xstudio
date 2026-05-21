@@ -1,0 +1,12 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -245,7 +245,7 @@
+ endif()
+
+ # set up the internally hosted dependencies
+-add_subdirectory(src/deps)
++# add_subdirectory(src/deps)
+
+ set (OTIO_IMATH_TARGETS
+     # For OpenEXR/Imath 3.x:

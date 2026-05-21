@@ -18,9 +18,16 @@ Individual Users
 
 If you have any **questions** reach out on the ASWF Slack in the `#ori-xstudio-discussion <https://academysoftwarefdn.slack.com/archives/C07RGJW6MLZ>`_ .
 
+Choosing a guide
+^^^^^^^^^^^^^^^^
+
+The **macOS**, **Windows** and **Linux Generic** guides all use the same approach: xSTUDIO's dependencies are built and managed automatically by `vcpkg <https://vcpkg.io>`_, so the only things you need to install by hand are a compiler toolchain, CMake, git and the Qt SDK. These are the **recommended** paths — they work on any reasonably recent distro and require the least manual setup.
+
+The **Rocky Linux 9.1**, **Ubuntu 22.04** and **CentOS 7** guides take a different, more advanced approach: instead of using vcpkg, they resolve xSTUDIO's dependencies from each distro's native package manager (and build a handful of libraries from source when no suitable package exists). This gives a tighter integration with the host system but is significantly more work and more fragile — package names and versions drift over time, and any mismatch against the VFX Reference Platform requires manual intervention. These guides are intended for users who specifically want a native-package build, or whose target distro matches one of the three and who are comfortable troubleshooting package issues. If you just want xSTUDIO to build on a Linux machine, prefer **Linux Generic**.
+
 .. toctree::
     :maxdepth: 1
-    
+
     macos
     windows
     linux_generic

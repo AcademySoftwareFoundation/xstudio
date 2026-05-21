@@ -51,7 +51,7 @@ if(NOT APPLE)
     if(INSTALL_PYTHON_MODULE)
         
         if (WIN32)
-        install(DIRECTORY ${OUTPUT}/Lib/site-packages/xstudio
+        install(DIRECTORY ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio
             DESTINATION bin/python3/Lib/site-packages)
         else()
             install(DIRECTORY ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio
