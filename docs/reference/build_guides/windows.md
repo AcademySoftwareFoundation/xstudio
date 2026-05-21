@@ -12,6 +12,7 @@ Get it here: [Git Download](https://git-scm.com/download/win)
 
 Get it here: [Microsoft Visual Studio](https://visualstudio.microsoft.com/vs/)
 Ensure CMake tools for Windows is included on install. [CMake projects in Visual Studio](https://learn.microsoft.com/en-us/cpp/build/cmake-projects-in-visual-studio?view=msvc-170#installation)
+The "CMake tools" component bundles `cmake` and `ninja` (xSTUDIO's CMake generator) along with the MSVC compiler, so no separate install is needed.
 Restart your machine after Visual Studio finishes installing.
 
 ### Download and install Qt 6.5.3 SDK
@@ -29,11 +30,11 @@ Start a Windows Powershell to continue these instructions, where you must run a 
     mkdir dev
     cd dev
 
-To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo, run the bootstrap script and then switch to a specific git commit before we build xstudio. Run these commands in the Powershell:
+To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo and run the bootstrap script before we build xstudio. Run these commands in the Powershell:
 
     git clone https://github.com/microsoft/vcpkg.git
+    git -C vcpkg checkout c2aeddd80357b17592e59ad965d2adf65a19b22f
     ./vcpkg/bootstrap-vcpkg.bat
-    git checkout c2aeddd80357b17592e59ad965d2adf65a19b22f
 
 ### Download the xSTUDIO repo
 
@@ -43,50 +44,54 @@ Download from github in the usual manner. Enter the root folder of the repo and 
     cd xstudio
     git checkout develop
 
-You must run these commands to add the OpenTimelineIO submodule to the tree and apply a small patch:
+### Tell CMake where Qt is installed
 
-    git submodule init
-    git submodule update
-    git apply cmake/otio_patch.diff
+CMake needs to know where your Qt 6.5.3 SDK is installed. Create a `CMakeUserPresets.json` file alongside `CMakePresets.json` in the repo root. This file is gitignored, so your local path won't be committed. The user preset should have a different name from the tracked preset it inherits from, and add `Qt6_DIR` to `cacheVariables`. For example, if user Mary Jane downloaded Qt into the root of her C: drive:
 
-### Modify the CMakePresets.json file
+    {
+      "version": 3,
+      "configurePresets": [
+        {
+          "name": "WinNinjaReleaseLocal",
+          "inherits": "WinNinjaRelease",
+          "cacheVariables": {
+            "Qt6_DIR": "C:/Qt/6.5.3/msvc2019_64/lib/cmake/Qt6"
+          }
+        }
+      ]
+    }
 
-Open the CMakePresets.json file (which is in the root of the xstudio repo) in a text editor. You must look for the entry "Qt6_DIR" and modify the value that follows it to point to your installation of the Qt SDK. Specifically, you need to point to a directory named 'Qt6' which is in a directory named 'cmake', which is in a directory named 'lib'. For example, on Windows where user Mary Jane downloaded Qt into the root of her C: drive the entry should look like this:
+See the [CMake presets documentation](https://cmake.org/cmake/help/latest/manual/cmake-presets.7.html) for the full format reference.
 
-    "Qt6_DIR": ""C:/Qt6/6.5.3/msvc2019_64/lib/cmake/Qt6",
+### Set up the build environment
+
+The `cmake` and `ninja` tools, along with the MSVC compiler, are bundled with Visual Studio 2022's "CMake tools" component but are not on your `PATH` by default. Make them available in your PowerShell session by entering the Visual Studio Developer Shell:
+
+    Import-Module "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+    Enter-VsDevShell -VsInstallPath "C:\Program Files\Microsoft Visual Studio\2022\Community" -Arch amd64 -SkipAutomaticLocation
+
+After running those two commands, `cmake` and `ninja` will resolve directly from the command line for the rest of the session, and the build commands below work as shown.
 
 ### Build xSTUDIO
 
-Run the first cmake command to set-up for building. Note that this cmake command ***may take several hours to complete***. This is because xSTUDIO's dependencies (particularly ffmpeg) take a long time to download and build from the source code, which is what VCPKG is doing.
+Note that the first cmake command below ***may take several hours to complete***. This is because xSTUDIO's dependencies (particularly ffmpeg) take a long time to download and build from the source code, which is what VCPKG is doing.
 
-First, you may need to find the path to the 'cmake.exe' tool that is part of the VisualStudio install. Substitute as appropriate into the following commands as appropriate.
+Configure:
 
-    'C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe' -B build --preset WinRelease
+    cmake -B build --preset WinNinjaReleaseLocal
 
-When this has finished, you can build xSTUDIO with this command. Note the value after --parallel: change this number to match the number of cores your machine has for best build times.
+Build:
 
-    'C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe' --build build --parallel 16 --target PACKAGE --config Release
+    cmake --build build --target package
 
-If the build is successful, you should have an exectuable in the 'build' folder called something like 'xSTUDIO-1.2.0-win64.exe'. This can be executed to start the xSTUDIO installer.
+> **Note:** `--target package` produces the NSIS installer and is significantly slower than a plain build. When iterating during development, drop the `--target package` flag and just run `cmake --build build`.
 
-### Alternative: Build with Ninja (faster builds)
-
-Ninja is significantly faster than MSBuild as it parallelises at the file level. Both Ninja and cmake are included with Visual Studio's CMake tools, so no separate install is needed.
-
-First, set up the Visual Studio build environment in your Powershell session. This puts the MSVC compiler, cmake and ninja on your PATH:
-
-    Import-Module "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
-    Enter-VsDevShell -VsInstallPath "C:\Program Files\Microsoft Visual Studio\2022\Community" -Arch amd64
-
-Run the cmake command to configure for building. Note that this cmake command ***may take several hours to complete***. This is because xSTUDIO's dependencies (particularly ffmpeg) take a long time to download and build from the source code, which is what VCPKG is doing.
-
-    cmake -B build --preset WinNinjaRelease
-
-When this has finished, you can build xSTUDIO with this command. Ninja handles parallelism automatically so there is no need for the `--parallel` flag.
-
-    cmake --build build --target PACKAGE
+RelWithDebInfo and Debug variants are also available — see [CMakePresets.json](../../../CMakePresets.json) for the full list.
 
 If the build is successful, you should have an executable in the 'build' folder called something like 'xSTUDIO-1.2.0-win64.exe'. This can be executed to start the xSTUDIO installer.
 
-For additional tips for **developers** follow [this link](developer_tips.md)
+### Running xSTUDIO from the build tree (dev workflow)
 
+For a quick dev run without going through the installer, the build generates a launcher at `build/run_xstudio.bat`. Arguments are forwarded to xstudio:
+
+    .\build\run_xstudio.bat path\to\session.xst

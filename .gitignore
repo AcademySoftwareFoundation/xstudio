@@ -14,9 +14,7 @@ python/src/xstudio/version.py
 /build/
 xstudio_install/
 **/qml/*_qml_export.h
-<<<<<<< HEAD
 CMakeUserPresets.json
-=======
 __build
 __build_debug
->>>>>>> c808bb352 (WIP)
+aqtinstall.log
