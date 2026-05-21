@@ -7,13 +7,13 @@
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/../vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "Qt6_DIR": "/Users/tedwaine/Qt6/6.5.3/macos/lib/cmake/Qt6",
         "CMAKE_INSTALL_PREFIX": "xstudio_install",
         "X_VCPKG_APPLOCAL_DEPS_INSTALL": "ON",
         "BUILD_DOCS": "OFF",
         "USE_VCPKG": "ON",
         "STUDIO_PLUGINS": "",
-        "BMD_DECKLINK_PLUGIN": "OFF"
+        "BMD_DECKLINK_PLUGIN": "OFF",
+        "VCPKG_OVERLAY_PORTS": "${sourceDir}/cmake/vcpkg_overlay_ports"
       }
     },
     { 
@@ -44,7 +44,6 @@
     },
     {
       "name": "WinDebug",
-      "hidden":  true,
       "inherits": ["windows-base"],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
@@ -151,10 +150,67 @@
         "USE_SANITIZER": "address"
       }
     },
-    { 
+    {
+      "name": "macos-ninja-base-arm",
+      "inherits": "macos-base-arm",
+      "generator": "Ninja"
+    },
+    {
+      "name": "macos-ninja-base-intel",
+      "inherits": "macos-base-intel",
+      "generator": "Ninja"
+    },
+    {
+      "name": "MacOSNinjaRelease",
+      "inherits": ["macos-ninja-base-arm"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "MacOSNinjaRelWithDebInfo",
+      "inherits": ["macos-ninja-base-arm"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "USE_SANITIZER": "address"
+      }
+    },
+    {
+      "name": "MacOSNinjaDebug",
+      "inherits": ["macos-ninja-base-arm"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "USE_SANITIZER": "address"
+      }
+    },
+    {
+      "name": "MacOSIntelNinjaRelease",
+      "inherits": ["macos-ninja-base-intel"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "MacOSIntelNinjaRelWithDebInfo",
+      "inherits": ["macos-ninja-base-intel"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "USE_SANITIZER": "address"
+      }
+    },
+    {
+      "name": "MacOSIntelNinjaDebug",
+      "inherits": ["macos-ninja-base-intel"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "USE_SANITIZER": "address"
+      }
+    },
+    {
       "name": "linux-base",
       "inherits": "default",
       "cacheVariables": {
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/vcpkg_triplets",
         "VCPKG_TARGET_TRIPLET": "x64-xstudio-linux"
       }
     },
@@ -176,6 +232,34 @@
     {
       "name": "LinuxDebug",
       "inherits": ["linux-base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "USE_SANITIZER": "address"
+      }
+    },
+    {
+      "name": "linux-ninja-base",
+      "inherits": "linux-base",
+      "generator": "Ninja"
+    },
+    {
+      "name": "LinuxNinjaRelease",
+      "inherits": ["linux-ninja-base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "LinuxNinjaRelWithDebInfo",
+      "inherits": ["linux-ninja-base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "USE_SANITIZER": "address"
+      }
+    },
+    {
+      "name": "LinuxNinjaDebug",
+      "inherits": ["linux-ninja-base"],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "USE_SANITIZER": "address"

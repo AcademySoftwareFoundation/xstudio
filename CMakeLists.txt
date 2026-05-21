@@ -1,5 +1,7 @@
-cmake_minimum_required(VERSION 3.28 FATAL_ERROR)
-cmake_policy(VERSION 3.28)
+cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
+cmake_policy(VERSION 3.26)
+#cmake_minimum_required(VERSION 3.28 FATAL_ERROR)
+#cmake_policy(VERSION 3.28)
 
 set(XSTUDIO_GLOBAL_VERSION "1.2.0" CACHE STRING "Version string")
 set(XSTUDIO_GLOBAL_NAME xStudio)
@@ -7,6 +9,17 @@ set(XSTUDIO_GLOBAL_NAME xStudio)
 # set(CMAKE_OSX_DEPLOYMENT_TARGET "14.5" CACHE STRING "Minimum OS X deployment version" FORCE)
 
 project(${XSTUDIO_GLOBAL_NAME} VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
+
+# Work around Qt bug: FindWrapOpenGL.cmake links -framework AGL, which was
+# removed from the macOS SDK in 10.14. Fixed upstream in Qt 6.9+ but not
+# backported to 6.5/6.8 LTS (see https://codereview.qt-project.org/c/qt/qtbase/+/652022).
+# Pre-create the target so Qt's FindWrapOpenGL early-returns and never hits the
+# broken AGL block. Can be removed once the minimum supported Qt is >= 6.9.
+if(APPLE AND NOT TARGET WrapOpenGL::WrapOpenGL)
+    find_package(OpenGL REQUIRED)
+    add_library(WrapOpenGL::WrapOpenGL INTERFACE IMPORTED)
+    target_link_libraries(WrapOpenGL::WrapOpenGL INTERFACE OpenGL::GL)
+endif()
 
 option(BUILD_TESTING "Build tests" OFF)
 option(INSTALL_PYTHON_MODULE "Install python module" ON)
@@ -16,7 +29,6 @@ option(ENABLE_CLANG_TIDY "Enable clang-tidy, ninja clang-tidy." OFF)
 option(ENABLE_CLANG_FORMAT "Enable clang format, ninja clangformat." OFF)
 option(FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang only)." TRUE)
 option(OPTIMIZE_FOR_NATIVE "Build with -march=native" OFF)
-option(OTIO_SUBMODULE "Automatically build OpenTimelineIO as a submodule" OFF)
 option(USE_VCPKG "Use Vcpkg for package management" OFF)
 option(BUILD_PYSIDE_WIDGETS "Build xstudio player as PySide widget" OFF)
 option(OPENIMAGEIO_PLUGIN "Include the OpenImageIO PLugin" ON)
@@ -188,10 +200,6 @@ endif()
 
 if (USE_VCPKG)
 
-  # When building with VCPKG, we will use OTIO submodule
-  set(OTIO_SUBMODULE true)
-  add_subdirectory("extern/otio")
-
   set(VCPKG_INTEGRATION ON)
 
   # Install pip and sphinx
@@ -218,14 +226,12 @@ if (USE_VCPKG)
 
 else()
   list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
-  if(${OTIO_SUBMODULE})
-	  add_subdirectory("extern/otio")
-  endif()
  	find_package(PkgConfig REQUIRED)
 endif()
 
 # Add the necessary libraries from Vcpkg if Vcpkg integration is enabled
 
+find_package(OpenTimelineIO CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 include(CTest)
 
