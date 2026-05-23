@@ -93,6 +93,7 @@ namespace ui {
             bool isSynthFromTabletEvent(QMouseEvent *event);
 
           public slots:
+            void initRenderer();
 
             void sync();
             void cleanup();
@@ -148,6 +149,7 @@ namespace ui {
             void hasOverlaysChanged();
 
           private:
+            void createRenderer();
             void releaseResources() override;
 
             void sendPointerEvent(EventType t, QMouseEvent *event, int force_modifiers = 0);
@@ -166,6 +168,7 @@ namespace ui {
             bool has_overlays_ = {true};
 
             caf::actor keypress_monitor_;
+            caf::actor m_playhead;
         };
 
     } // namespace qml
