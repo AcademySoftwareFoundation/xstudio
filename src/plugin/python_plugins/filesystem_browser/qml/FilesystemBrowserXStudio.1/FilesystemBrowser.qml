@@ -950,6 +950,7 @@ Item {
                 MouseArea {
                                 
                     id: mouseArea
+                    anchors.topMargin: root.viewMode !== 3 ? XsStyleSheet.widgetStdHeight : 0 // avoid list header
                     anchors.fill: parent
                     anchors.rightMargin: 20 // Avoid scrollbar area
                     propagateComposedEvents: true

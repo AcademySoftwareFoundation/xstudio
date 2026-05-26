@@ -36,7 +36,9 @@ static Imath::M44f matrix_from_square(const float *in) {
     return i;
 }
 
+#ifdef __GNUC__
 Imath::M44f matrix_from_corners(const float *in) __attribute__((unused));
+#endif
 Imath::M44f matrix_from_corners(const float *in) {
 
     // A simplified version of the cornerpin transform matrix

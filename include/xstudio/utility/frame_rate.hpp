@@ -12,7 +12,9 @@
 
 namespace xstudio::utility {
 
+#ifdef __GNUC__
 static timebase::flicks fps_to_flicks(const double s) __attribute__((unused));
+#endif
 static timebase::flicks fps_to_flicks(const double s) {
     auto result =
         std::chrono::duration_cast<timebase::flicks>(std::chrono::duration<double>{1.0 / s});
@@ -56,8 +58,10 @@ static timebase::flicks fps_to_flicks(const double s) {
     return result;
 }
 
+#ifdef __GNUC__
 static std::pair<uint32_t, uint32_t> flicks_to_num_den(const timebase::flicks &flicks)
     __attribute__((unused));
+#endif
 static std::pair<uint32_t, uint32_t> flicks_to_num_den(const timebase::flicks &flicks) {
     auto result = std::pair<uint32_t, uint32_t>(0, 1000);
 

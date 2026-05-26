@@ -185,8 +185,9 @@ EmbeddedPythonActor::EmbeddedPythonActor(caf::actor_config &cfg, const std::stri
 
     init();
 }
-
+#ifdef __GNUC__
 static void *s_run(void *self) __attribute__((unused));
+#endif
 static void *s_run(void *self) {
     ((EmbeddedPythonActor *)self)->main_loop();
     return nullptr;

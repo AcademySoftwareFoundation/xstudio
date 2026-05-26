@@ -82,7 +82,7 @@ XsListView {
     onOriginYChanged: scrollChangeTimer.restart()
     onContentYChanged: scrollChangeTimer.restart()    
     property var mousePosition: mouse
-    property var mousePositionInFlickArea: Qt.point(mousePosition.x, mousePosition.y + yMin - XsStyleSheet.widgetStdHeight) // adjust for header height
+    property var mousePositionInFlickArea: Qt.point(mousePosition.x, mousePosition.y + yMin) // adjust for header height
     onMousePositionChanged: {
         if (!visible) return
         var index = fileListView.indexAt(mousePositionInFlickArea.x, mousePositionInFlickArea.y)

@@ -745,7 +745,9 @@ struct GLPoint {
 
 
 // Use to debug memory layout issues
+#ifdef __GNUC__
 void dump_mem_layout(GLuint prog_obj) __attribute__((unused));
+#endif
 void dump_mem_layout(GLuint prog_obj) {
     // C++
 

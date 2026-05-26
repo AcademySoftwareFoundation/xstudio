@@ -6,7 +6,10 @@ import re
 import threading
 import queue
 import time
-import pwd
+try:
+    import pwd
+except ImportError:
+    pwd = None
 import json
 from concurrent.futures import ThreadPoolExecutor
 
@@ -27,10 +30,10 @@ class FileScanner:
         
         self.cancel_event = threading.Event()
         self.executor = ThreadPoolExecutor(max_workers=self.max_workers)
-        
-
 
     def get_owner(self, uid):
+        if not pwd:
+            return str(uid)
         try:
             return pwd.getpwuid(uid).pw_name
         except KeyError:
@@ -57,7 +60,6 @@ class FileScanner:
         """
         self.cancel_event.clear()
         
-        print ("scanning", start_path)
         from collections import deque
         from concurrent.futures import wait, FIRST_COMPLETED
 

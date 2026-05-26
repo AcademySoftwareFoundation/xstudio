@@ -32,7 +32,6 @@ except ImportError:
 # File-based debug log (more reliable than _dbg in xStudio's embedded Python)
 _DEBUG_LOG = "/{}/xstudio_thumb_debug.txt".format(os.environ.get("TMPDIR", "/tmp").rstrip("/"))
 def _dbg(*msg):
-    print (msg)
     return
     try:
         with open(_DEBUG_LOG, "a") as _f:
