@@ -642,6 +642,7 @@ QFuture<QUrl> ShotBrowserEngine::remapCachePathFuture(const QPersistentModelInde
 
             // trigger re-evaluation of source detail..
             anon_mail(media::acquire_media_detail_atom_v, true).send(source_actor);
+            anon_mail(media_hook::get_media_hook_atom_v).send(source_actor);
 
             // switch current media source ?
             anon_mail(media::current_media_source_atom_v, source_uuid).send(media_actor);

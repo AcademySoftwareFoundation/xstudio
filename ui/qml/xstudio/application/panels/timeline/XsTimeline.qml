@@ -50,6 +50,18 @@ Rectangle {
     property alias contract_previous_hotkey: contract_previous_hotkey
     property alias contract_both_hotkey: contract_both_hotkey
 
+    property alias select_none_hotkey: select_none_hotkey
+    property alias rename_tracks_hotkey: rename_tracks_hotkey
+    property alias duplicate_tracks_hotkey: duplicate_tracks_hotkey
+    property alias flatten_tracks_hotkey: flatten_tracks_hotkey
+    property alias insert_track_above_hotkey: insert_track_above_hotkey
+    property alias move_track_up_hotkey: move_track_up_hotkey
+    property alias move_track_down_hotkey: move_track_down_hotkey
+    property alias remove_items_hotkey: remove_items_hotkey
+
+
+
+
     // property bool selectionIsLocked: false
     // property bool selectionIsEnabled: false
     property bool loopSelection: false
@@ -1061,6 +1073,137 @@ Rectangle {
             ), ItemSelectionModel.ClearAndSelect)
     }
 
+    function selectNone() {
+        timelineSelection.select(helpers.createItemSelection([]), ItemSelectionModel.ClearAndSelect)
+    }
+
+    function renameTracks() {
+        let indexes = timelineSelection.selectedIndexes
+        for(let i=0;i<indexes.length; i++) {
+            dialogHelpers.textInputDialog(
+                function(new_name, button) {
+                    if (button == "Rename") {
+                        setItemName(indexes[i], new_name)
+                    }},
+                "Rename Track",
+                "Enter Track Name.",
+                theSessionData.get(indexes[i], "nameRole"),
+                ["Cancel", "Rename"])
+        }
+    }
+
+    XsHotkey {
+        id: remove_items_hotkey
+        context: hotkey_area_id
+        name: "Remove Selected Items"
+        description: "Remove Selected Items"
+        onActivated: theTimeline.deleteItems(timelineSelection.selectedIndexes)
+        componentName: "Timeline"
+    }
+
+    XsHotkey {
+        id: move_track_up_hotkey
+        context: hotkey_area_id
+        name: "Move Tracks Up"
+        description: "Move Tracks Up"
+        onActivated: moveItems(timelineSelection.selectedIndexes, -1)
+        componentName: "Timeline"
+    }
+
+    XsHotkey {
+        id: move_track_down_hotkey
+        context: hotkey_area_id
+        name: "Move Tracks Down"
+        description: "Move Tracks Down"
+        onActivated: moveItems(timelineSelection.selectedIndexes, 1)
+        componentName: "Timeline"
+    }
+
+
+    XsHotkey {
+        id: disable_items_hotkey
+        context: hotkey_area_id
+        name: "Disable Items"
+        description: "Disable Selected Items"
+        onActivated: enableItems(timelineSelection.selectedIndexes, false)
+        componentName: "Timeline"
+    }
+
+    XsHotkey {
+        id: enable_items_hotkey
+        context: hotkey_area_id
+        name: "Enable Items"
+        description: "Enable Selected Items"
+        onActivated: enableItems(timelineSelection.selectedIndexes, true)
+        componentName: "Timeline"
+    }
+
+    XsHotkey {
+        id: lock_items_hotkey
+        context: hotkey_area_id
+        name: "Lock Items"
+        description: "Lock Selected Items"
+        onActivated: lockItems(timelineSelection.selectedIndexes, true)
+        componentName: "Timeline"
+    }
+
+    XsHotkey {
+        id: unlock_items_hotkey
+        context: hotkey_area_id
+        name: "Unlock Items"
+        description: "Unlock Selected Items"
+        onActivated: lockItems(timelineSelection.selectedIndexes, false)
+        componentName: "Timeline"
+    }
+
+    XsHotkey {
+        id: flatten_tracks_hotkey
+        context: hotkey_area_id
+        name: "Flatten Tracks"
+        description: "Flatten Selected Tracks"
+        onActivated: {
+            theSessionData.bakeTimelineItems(timelineSelection.selectedIndexes)
+            theTimeline.deleteItems(timelineSelection.selectedIndexes)
+        }
+        componentName: "Timeline"
+    }
+
+    XsHotkey {
+        id: insert_track_above_hotkey
+        context: hotkey_area_id
+        name: "Insert Track Above"
+        description: "Insert Track Above"
+        onActivated: insertTrackAbove(timelineSelection.selectedIndexes)
+        componentName: "Timeline"
+    }
+
+    XsHotkey {
+        id: duplicate_tracks_hotkey
+        context: hotkey_area_id
+        name: "Duplicate Tracks"
+        description: "Duplicate Selected Tracks"
+        onActivated: duplicateTracks(timelineSelection.selectedIndexes)
+        componentName: "Timeline"
+    }
+
+    XsHotkey {
+        id: rename_tracks_hotkey
+        context: hotkey_area_id
+        name: "Rename Tracks"
+        description: "Rename Selected Tracks"
+        onActivated: renameTracks()
+        componentName: "Timeline"
+    }
+
+    XsHotkey {
+        id: select_none_hotkey
+        context: hotkey_area_id
+        name: "Clear Selection"
+        description: "Clear Selection"
+        onActivated: selectNone()
+        componentName: "Timeline"
+    }
+
     XsHotkey {
         id: select_up_hotkey
         context: hotkey_area_id
@@ -1068,6 +1211,24 @@ Rectangle {
         name: "Move Selection Up"
         description: "Move Selection Up"
         onActivated: updateItemSelectionVertical(1,-1)
+        componentName: "Timeline"
+    }
+
+    XsHotkey {
+        id: add_video_track_hotkey
+        context: hotkey_area_id
+        name: "Add Video Track"
+        description: "Add Video Track"
+        onActivated: addTrack("Video Track")
+        componentName: "Timeline"
+    }
+
+    XsHotkey {
+        id: add_audio_track_hotkey
+        context: hotkey_area_id
+        name: "Add Audio Track"
+        description: "Add Audio Track"
+        onActivated: addTrack("Audio Track")
         componentName: "Timeline"
     }
 

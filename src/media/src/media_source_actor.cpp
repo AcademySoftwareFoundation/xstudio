@@ -50,7 +50,7 @@ MediaSourceActor::MediaSourceActor(caf::actor_config &cfg, const JsonStore &jsn)
     : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn["base"])), parent_() {
     if (not jsn.count("store") or jsn["store"].is_null()) {
         json_store_ = spawn<json_store::JsonStoreActor>(
-            utility::Uuid::generate(), utility::JsonStore(), std::chrono::milliseconds(50));
+            utility::Uuid::generate(), utility::JsonStore(R"({"colour_pipeline": {}})"_json), std::chrono::milliseconds(50));
     } else {
         json_store_ = spawn<json_store::JsonStoreActor>(
             utility::Uuid::generate(),
@@ -105,7 +105,7 @@ MediaSourceActor::MediaSourceActor(
         base_.set_uuid(uuid);
 
     json_store_ = spawn<json_store::JsonStoreActor>(
-        utility::Uuid::generate(), utility::JsonStore(), std::chrono::milliseconds(50));
+        utility::Uuid::generate(), utility::JsonStore(R"({"colour_pipeline": {}})"_json), std::chrono::milliseconds(50));
     link_to(json_store_);
     join_event_group(this, json_store_);
 
@@ -127,7 +127,7 @@ MediaSourceActor::MediaSourceActor(
     if (not uuid.is_null())
         base_.set_uuid(uuid);
     json_store_ = spawn<json_store::JsonStoreActor>(
-        utility::Uuid::generate(), utility::JsonStore(), std::chrono::milliseconds(50));
+        utility::Uuid::generate(), utility::JsonStore(R"({"colour_pipeline": {}})"_json), std::chrono::milliseconds(50));
     link_to(json_store_);
     join_event_group(this, json_store_);
 
@@ -149,7 +149,7 @@ MediaSourceActor::MediaSourceActor(
         base_.set_uuid(uuid);
     base_.set_reader(reader);
     json_store_ = spawn<json_store::JsonStoreActor>(
-        utility::Uuid::generate(), utility::JsonStore(), std::chrono::milliseconds(50));
+        utility::Uuid::generate(), utility::JsonStore(R"({"colour_pipeline": {}})"_json), std::chrono::milliseconds(50));
     link_to(json_store_);
     join_event_group(this, json_store_);
 
@@ -1428,6 +1428,9 @@ void MediaSourceActor::init() {
 
     update_media_status();
 
+    /*
+    NOT SAFE
+
     // set an empty dict for colour_pipeline, as we request this at various
     // times and need a placeholder or we get warnings if it's not there
     mail(json_store::get_json_atom_v, "/colour_pipeline")
@@ -1439,6 +1442,7 @@ void MediaSourceActor::init() {
                 anon_mail(json_store::set_json_atom_v, utility::JsonStore(), "/colour_pipeline")
                     .send(json_store_);
             });
+    */
 }
 
 void MediaSourceActor::get_media_pointers_for_frames(

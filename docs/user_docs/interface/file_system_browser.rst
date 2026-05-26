@@ -1,7 +1,10 @@
-.. _file_system_brwoser:
+.. _file_system_browser:
 
 The File System Browser 
 =======================
+
+.. note::
+    May 2026: This feature isn't *quite* ready for Windows but is available on Mac and Linux builds. Windows compatibility will be available very soon.
 
 .. figure:: ../images/file-system-browser-1.png
     :align: center
@@ -74,7 +77,10 @@ The browser has 4 view modes - a flat list, a tree showing full directory hierar
 .. figure:: ../images/file-system-browser-tree.png
     :alt: Tree View Mode
     :figclass: align-center
-    :align: center
+    :align: center.. raw:: html
+    
+    <center><video src="../../_static/drag-drop1.webm" width="720" height="366" controls></video></center>
+
     :scale: 60 %
 
     The tree interface.

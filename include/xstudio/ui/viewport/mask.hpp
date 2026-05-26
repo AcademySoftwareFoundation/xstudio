@@ -99,6 +99,7 @@ struct Mask {
             f.field("lt", x.line_thickness_),
             f.field("lo", x.line_opacity_),
             f.field("mo", x.mask_opacity_),
+            f.field("hs", x.hash_value_),
             f.field("lbl", x.label_),
             f.field("ls", x.label_size_),
             f.field("af", x.auto_fit_));
