@@ -142,9 +142,12 @@ class ModuleAttribute:
     def set_value(self, value):
 
         if isinstance(value, list):
-            v = JsonStore()
-            v.parse_string(json.dumps(value))
-            value = v
+            pass
+        if isinstance(value, dict):
+            pass
+        #    v = JsonStore()
+        #    v.parse_string(json.dumps(value))
+        #    value = v
         elif not isinstance(value, JsonStore):
             value = JsonStore(value)
 

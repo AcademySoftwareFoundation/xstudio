@@ -184,163 +184,159 @@ namespace nlohmann {
 inline void PrintTo(json const &json, std::ostream *os) { *os << json.dump(); }
 } // namespace nlohmann
 
-namespace xstudio {
-/** @brief Contains Json store classes */
-namespace utility {
+namespace xstudio::utility {
+/**
+ *  @brief JSON container class.
+ *
+ *  @details
+ *   Handles JSON operations, wraps nlohmann::json class.
+ */
+using namespace caf;
+
+class JsonStore : public nlohmann::json {
+  public:
     /**
-     *  @brief JSON container class.
-     *
-     *  @details
-     *   Handles JSON operations, wraps nlohmann::json class.
+     *  @brief Init from json.
+     *  @param json  Init with json.
      */
-    using namespace caf;
+    JsonStore(nlohmann::json json = nlohmann::json());
+    /**
+     *  @brief Init from other JsonStore.
+     *  @param json  copy from other.
+     */
+    // JsonStore(const JsonStore &other);
 
-    class JsonStore : public nlohmann::json {
-      public:
-        /**
-         *  @brief Init from json.
-         *  @param json  Init with json.
-         */
-        JsonStore(nlohmann::json json = nlohmann::json());
-        /**
-         *  @brief Init from other JsonStore.
-         *  @param json  copy from other.
-         */
-        // JsonStore(const JsonStore &other);
+    virtual ~JsonStore() = default;
 
-        virtual ~JsonStore() = default;
+    /**
+     *  @brief Get json at JSON pointer path.
+     *  @param path  JSON pointer path.
+     *  @result JSON or exception.
+     */
+    [[nodiscard]] nlohmann::json get(const std::string &path) const;
 
-        /**
-         *  @brief Get json at JSON pointer path.
-         *  @param path  JSON pointer path.
-         *  @result JSON or exception.
-         */
-        [[nodiscard]] nlohmann::json get(const std::string &path) const;
-
-        /**
-         *  @brief Get type at JSON pointer path.
-         *  @param path  JSON pointer path.
-         *  @result type or exception.
-         */
-        template <typename result_type>
-        [[nodiscard]] inline result_type get(const std::string &path = "") const {
-            return get(path);
-        }
-
-        /**
-         *  @brief Get type at JSON pointer path.
-         *  @param path  JSON pointer path.
-         *  @param default_val  Value returned if path invalid.
-         *  @result type or exception.
-         */
-        template <typename result_type>
-        [[nodiscard]] inline result_type
-        get_or(const std::string &path, const result_type &default_val) const {
-            return !is_null() ? value(path, default_val) : default_val;
-        }
-
-        /**
-         *  @brief Set json at JSON pointer path.
-         *  @param path  JSON pointer path.
-         *  @param _json  JSON to insert.
-         */
-        void set(const nlohmann::json &json, const std::string &path = "");
-        // void set(const JsonStore &json, const std::string &path = "");
-
-        /**
-         *  @brief Remove json at JSON pointer path.
-         *  @param path  JSON pointer path.
-         */
-        bool remove(const std::string &path);
-
-        /**
-         *  @brief Merge json.
-         *  @param json Json to merge.
-         *  @param path JSON pointer path.
-         */
-        // void merge(const JsonStore &json, const std::string &path = "");
-        void merge(const nlohmann::json &json, const std::string &path = "");
-
-        nlohmann::json &ref() { return *this; }
-
-        void parse_string(const std::string &data);
-
-        // nlohmann::json &operator[](const std::string &key) { return json_[key]; }
-
-        // const nlohmann::json &operator[](const std::string &key) const { return
-        // json_[key]; }
-
-        [[nodiscard]] nlohmann::json cref() const { return *this; }
-
-        [[nodiscard]] const nlohmann::json &ref() const { return *this; }
-
-        // [[nodiscard]] bool empty() const { return json_.empty(); }
-        // void clear() { json_.clear(); }
-        [[nodiscard]] std::string dump(int pad = 0) const {
-            return nlohmann::json::dump(
-                pad, ' ', false, nlohmann::detail::error_handler_t::replace);
-        }
-        // [[nodiscard]] bool is_null() const { return json_.is_null(); }
-
-        // bool operator==(const JsonStore &other) const { return json_ == other.json_; }
-
-        // operator nlohmann::json() const { return json_; }
-
-      private:
-        // nlohmann::json json_;
-    };
-
-
-    template <class Inspector> bool inspect(Inspector &f, JsonStore &x) {
-        auto get_jsn = [&x] { return x.dump(-1); };
-        auto set_jsn = [&x](const std::string &val) {
-            try {
-                x.set(nlohmann::json::parse(val));
-            } catch (const std::exception &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-                return false;
-            }
-
-            return true;
-        };
-        return f.object(x).fields(f.field("jsn", get_jsn, set_jsn));
+    /**
+     *  @brief Get type at JSON pointer path.
+     *  @param path  JSON pointer path.
+     *  @result type or exception.
+     */
+    template <typename result_type>
+    [[nodiscard]] inline result_type get(const std::string &path = "") const {
+        return get(path);
     }
 
-    void to_json(nlohmann::json &j, const JsonStore &c);
-    void from_json(const nlohmann::json &j, JsonStore &c);
+    /**
+     *  @brief Get type at JSON pointer path.
+     *  @param path  JSON pointer path.
+     *  @param default_val  Value returned if path invalid.
+     *  @result type or exception.
+     */
+    template <typename result_type>
+    [[nodiscard]] inline result_type
+    get_or(const std::string &path, const result_type &default_val) const {
+        return !is_null() ? value(path, default_val) : default_val;
+    }
 
     /**
-     *  @brief Serialize JSON.
-     *  @param json  JSON.
-     *  @result Serialized JSON.
+     *  @brief Set json at JSON pointer path.
+     *  @param path  JSON pointer path.
+     *  @param _json  JSON to insert.
      */
-    extern std::string to_string(const JsonStore &json);
+    void set(const nlohmann::json &json, const std::string &path = "");
+    // void set(const JsonStore &json, const std::string &path = "");
 
-    namespace fs = std::filesystem;
+    /**
+     *  @brief Remove json at JSON pointer path.
+     *  @param path  JSON pointer path.
+     */
+    bool remove(const std::string &path);
 
-    JsonStore open_session(const caf::uri &path);
-    JsonStore open_session(const std::string &path);
+    /**
+     *  @brief Merge json.
+     *  @param json Json to merge.
+     *  @param path JSON pointer path.
+     */
+    // void merge(const JsonStore &json, const std::string &path = "");
+    void merge(const nlohmann::json &json, const std::string &path = "");
 
-    nlohmann::json sort_by(const nlohmann::json &jsn, const nlohmann::json::json_pointer &ptr);
+    nlohmann::json &ref() { return *this; }
 
-    inline JsonStore
-    merge_json_from_path(const std::string &path, JsonStore merged = JsonStore()) {
+    void parse_string(const std::string &data);
+
+    // nlohmann::json &operator[](const std::string &key) { return json_[key]; }
+
+    // const nlohmann::json &operator[](const std::string &key) const { return
+    // json_[key]; }
+
+    [[nodiscard]] nlohmann::json cref() const { return *this; }
+
+    [[nodiscard]] const nlohmann::json &ref() const { return *this; }
+
+    // [[nodiscard]] bool empty() const { return json_.empty(); }
+    // void clear() { json_.clear(); }
+    [[nodiscard]] std::string dump(int pad = 0) const {
+        return nlohmann::json::dump(
+            pad, ' ', false, nlohmann::detail::error_handler_t::replace);
+    }
+    // [[nodiscard]] bool is_null() const { return json_.is_null(); }
+
+    // bool operator==(const JsonStore &other) const { return json_ == other.json_; }
+
+    // operator nlohmann::json() const { return json_; }
+
+  private:
+    // nlohmann::json json_;
+};
+
+
+template <class Inspector> bool inspect(Inspector &f, JsonStore &x) {
+    auto get_jsn = [&x] { return x.dump(-1); };
+    auto set_jsn = [&x](const std::string &val) {
         try {
-            for (const auto &entry : fs::directory_iterator(path)) {
-                if (not fs::is_regular_file(entry.status()) or
-                    not(entry.path().extension() == ".json")) {
-                    continue;
-                }
-
-                std::ifstream i(entry.path());
-                utility::JsonStore j;
-                i >> j;
-                merged.merge(j);
-            }
-        } catch ([[maybe_unused]] const std::exception &e) {
-            spdlog::warn("Preference path does not exist {}.", path);
+            x.set(nlohmann::json::parse(val));
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+            return false;
         }
-        return merged;
+
+        return true;
+    };
+    return f.object(x).fields(f.field("jsn", get_jsn, set_jsn));
+}
+
+void to_json(nlohmann::json &j, const JsonStore &c);
+void from_json(const nlohmann::json &j, JsonStore &c);
+
+/**
+ *  @brief Serialize JSON.
+ *  @param json  JSON.
+ *  @result Serialized JSON.
+ */
+extern std::string to_string(const JsonStore &json);
+
+namespace fs = std::filesystem;
+
+JsonStore open_session(const caf::uri &path);
+JsonStore open_session(const std::string &path);
+
+nlohmann::json sort_by(const nlohmann::json &jsn, const nlohmann::json::json_pointer &ptr);
+
+inline JsonStore merge_json_from_path(const std::string &path, JsonStore merged = JsonStore()) {
+    try {
+        for (const auto &entry : fs::directory_iterator(path)) {
+            if (not fs::is_regular_file(entry.status()) or
+                not(entry.path().extension() == ".json")) {
+                continue;
+            }
+
+            std::ifstream i(entry.path());
+            utility::JsonStore j;
+            i >> j;
+            merged.merge(j);
+        }
+    } catch ([[maybe_unused]] const std::exception &e) {
+        spdlog::warn("Preference path does not exist {}.", path);
     }
-} // namespace utility
-} // namespace xstudio
+    return merged;
+}
+} // namespace xstudio::utility

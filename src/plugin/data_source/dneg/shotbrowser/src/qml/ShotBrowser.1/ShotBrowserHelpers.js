@@ -330,6 +330,28 @@ function refreshMetadata(indexes=[]) {
 	}
 }
 
+function useCache(indexes=[], sourceName=null) {
+	if(indexes.length) {
+		for(let i = 0; i< indexes.length; i++) {
+            let actoruuid = theSessionData.get(indexes[i], "imageActorUuidRole")
+            let image_source = theSessionData.searchRecursive(actoruuid, "actorUuidRole", indexes[i])
+
+            if(sourceName) {
+            	let found = theSessionData.getIndexesByName(indexes[i], sourceName, "MediaSource");
+            	if(found.length)
+            		image_source = found[0]
+            }
+
+            if (image_source.valid) {
+			    Future.promise(ShotBrowserEngine.remapCachePathFuture(image_source)).then(
+			        function(result) {},
+			        function() {}
+			    )
+			}
+		}
+	}
+}
+
 function downloadMovies(indexes=[]) {
 	if(indexes.length) {
 		let m = indexes[0].model
@@ -1262,7 +1284,7 @@ function tagResultVersions(type, id, results, prerun=true) {
 		                refreshTags(results)
 
 			    	} catch(err) {
-			    		console.log(err)
+			    		console.log(err, json_string)
 			    	}
 					tagResultVersions(type, id, results, false)
 			    },

@@ -47,8 +47,8 @@ using namespace xstudio::global;
 using namespace xstudio::utility;
 using namespace xstudio::global_store;
 
-APIActor::APIActor(caf::actor_config &cfg, const caf::actor &global)
-    : caf::event_based_actor(cfg), global_(global) {
+APIActor::APIActor(caf::actor_config &cfg, const caf::actor global)
+    : caf::event_based_actor(cfg), global_(std::move(global)) {
 
     spdlog::debug("Created APIActor");
     print_on_exit(this, "APIActor");
@@ -136,7 +136,7 @@ GlobalActor::GlobalActor(
     init(prefs, embedded_python, read_only);
 }
 
-GlobalActor::~GlobalActor() {}
+// GlobalActor::~GlobalActor() {}
 
 int GlobalActor::publish_port(
     const int minimum, const int maximum, const std::string &bind_address, caf::actor a) {
@@ -183,8 +183,8 @@ void GlobalActor::init(
         gsa_ = spawn<global_store::GlobalStoreActor>("GlobalStore", prefs, read_only);
     }
 
-    auto phev            = spawn<playhead::PlayheadGlobalEventsActor>();
     auto keyboard_events = spawn<ui::keypress_monitor::KeypressMonitor>();
+    auto phev            = spawn<playhead::PlayheadGlobalEventsActor>();
     auto ui_models       = spawn<ui::model_data::GlobalUIModelData>();
     auto metadata_mgr    = spawn<media::GlobalMetadataManager>();
     auto audio           = spawn<audio::GlobalAudioOutputActor>();

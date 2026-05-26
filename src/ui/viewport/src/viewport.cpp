@@ -24,11 +24,11 @@ namespace {
 
 static Imath::M44f matrix_from_square(const float *in) {
 
-    const Imath::V2f *corners = (const Imath::V2f *)in;
-    const float xscale        = corners[1].x - corners[0].x;
-    const float yscale        = corners[2].y - corners[1].y;
-    const float x_offset      = corners[0].x + corners[1].x;
-    const float y_offset      = corners[2].y + corners[0].y;
+    auto corners         = (const Imath::V2f *)in;
+    const float xscale   = corners[1].x - corners[0].x;
+    const float yscale   = corners[2].y - corners[1].y;
+    const float x_offset = corners[0].x + corners[1].x;
+    const float y_offset = corners[2].y + corners[0].y;
     Imath::M44f i;
     i.makeIdentity();
     i.translate(Imath::V3f(x_offset / 2.0f, y_offset / 2.0f, 0.0f));
@@ -36,6 +36,9 @@ static Imath::M44f matrix_from_square(const float *in) {
     return i;
 }
 
+#ifdef __GNUC__
+Imath::M44f matrix_from_corners(const float *in) __attribute__((unused));
+#endif
 Imath::M44f matrix_from_corners(const float *in) {
 
     // A simplified version of the cornerpin transform matrix
@@ -745,8 +748,8 @@ bool Viewport::process_pointer_event(PointerEvent &pointer_event) {
     if (pointer_event_handlers_.find(pointer_event.signature()) !=
         pointer_event_handlers_.end()) {
 
-        const float old_scale          = state_.scale_;
-        const Imath::V3f old_translate = state_.translate_;
+        // const float old_scale          = state_.scale_;
+        // const Imath::V3f old_translate = state_.translate_;
 
         if (pointer_event_handlers_[pointer_event.signature()](pointer_event)) {
 
@@ -1202,6 +1205,10 @@ caf::message_handler Viewport::message_handler() {
                     return jsn;
                 },
 
+                [=](viewport_reset_atom) { reset(); },
+
+                [=](fit_mode_atom, const bool reset) { revert_fit_zoom_to_previous(); },
+
                 [=](viewport_pan_atom) -> Imath::V2f { return pan(); },
 
                 [=](viewport_pan_atom, const Imath::V2f pan) {
@@ -1223,6 +1230,13 @@ caf::message_handler Viewport::message_handler() {
                     }
                 },
 
+                [=](utility::event_atom, viewport_playhead_atom, caf::actor playhead) {
+                    // this comes from the global playhead actor when the global selected playhead changes.
+                    if (sync_to_main_viewport_->value()) {
+                        set_playhead(playhead);
+                    }
+                },
+
                 [=](viewport_playhead_atom, caf::actor playhead) -> bool {
                     set_playhead(playhead);
                     return true;
@@ -1237,6 +1251,18 @@ caf::message_handler Viewport::message_handler() {
                 },
 
                 [=](viewport_scale_atom) -> float { return state_.scale_; },
+
+                [=](viewport_scale_atom,
+                    const float xpan,
+                    const float ypan,
+                    const float scale) {
+                    auto current_pan = pan();
+                    // spdlog::warn("x {} xx {} y {} yy {} s {}", current_pan.x, current_pan.x +
+                    // xpan, current_pan.y, current_pan.y + ypan, scale);
+                    set_pan(current_pan.x + xpan, current_pan.y + ypan);
+                    set_scale(scale);
+                    event_callback(Redraw);
+                },
 
                 [=](viewport_scale_atom, float scale) {
                     set_scale(scale);
@@ -2178,8 +2204,8 @@ void Viewport::render(const media_reader::ImageBufPtr &image_buf, const bool wit
     // rendering in the same thread, rendering a single image
     // - used by offscreen renderer
 
-    RenderData *rdata = new RenderData;
-    rdata->images     = prepare_image_for_display(image_buf);
+    auto rdata    = new RenderData;
+    rdata->images = prepare_image_for_display(image_buf);
     update_onscreen_frame_info(rdata->images);
     rdata->window_to_viewport_matrix = window_to_viewport_matrix();
     rdata->projection_matrix         = projection_matrix();
@@ -2197,8 +2223,8 @@ void Viewport::render(const media_reader::ImageBufPtr &image_buf, const bool wit
 void Viewport::prepare_render_data(
     const utility::time_point &when_going_on_screen, const bool sync_to_playhead) {
     // here we make data for rendering in separate thread
-    RenderData *rdata = new RenderData;
-    rdata->images     = get_frames_for_display(sync_to_playhead, when_going_on_screen);
+    auto rdata    = new RenderData;
+    rdata->images = get_frames_for_display(sync_to_playhead, when_going_on_screen);
     update_onscreen_frame_info(rdata->images);
     rdata->window_to_viewport_matrix = window_to_viewport_matrix();
     rdata->projection_matrix         = projection_matrix();
@@ -2240,8 +2266,8 @@ void Viewport::set_compare_mode(const std::string &compare_mode) {
         // fetch the full prefs dict - the viewport renderer may require some
         // prefs for configuration
         JsonStore prefs_jsn;
-        auto prefs = global_store::GlobalStoreHelper(self()->home_system());
-        prefs.get_group(prefs_jsn);
+        auto prefs  = global_store::GlobalStoreHelper(self()->home_system());
+        std::ignore = prefs.get_group(prefs_jsn);
 
         // get the viewport renderer for the layout/compare mode
         active_renderer_ = request_receive<ViewportRendererPtr>(

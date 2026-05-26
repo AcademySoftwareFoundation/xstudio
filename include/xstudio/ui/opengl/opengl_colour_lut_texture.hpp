@@ -14,37 +14,33 @@
 
 // #define USE_SSBO
 
-namespace xstudio {
-namespace ui {
-    namespace opengl {
+namespace xstudio::ui::opengl {
 
-        class GLColourLutTexture {
+class GLColourLutTexture {
 
-          public:
-            GLColourLutTexture(
-                const colour_pipeline::LUTDescriptor desc, const std::string texture_name);
-            virtual ~GLColourLutTexture();
+  public:
+    GLColourLutTexture(
+        const colour_pipeline::LUTDescriptor desc, const std::string texture_name);
+    virtual ~GLColourLutTexture();
 
-            void bind(int tex_index);
-            void release();
-            void upload_texture_data(const colour_pipeline::ColourLUTPtr &lut);
+    void bind(int tex_index);
+    void release();
+    void upload_texture_data(const colour_pipeline::ColourLUTPtr &lut);
 
-            [[nodiscard]] GLuint texture_id() const { return tex_id_; }
-            [[nodiscard]] GLenum target() const;
-            [[nodiscard]] const std::string &texture_name() const { return texture_name_; }
+    [[nodiscard]] GLuint texture_id() const { return tex_id_; }
+    [[nodiscard]] GLenum target() const;
+    [[nodiscard]] const std::string &texture_name() const { return texture_name_; }
 
-          private:
-            GLint interpolation();
-            GLint internal_format();
-            GLint data_type();
-            GLint format();
+  private:
+    GLint interpolation();
+    GLint internal_format();
+    GLint data_type();
+    GLint format();
 
-            GLuint tex_id_ = {0};
-            GLuint pbo_    = {0};
-            const colour_pipeline::LUTDescriptor descriptor_;
-            std::size_t lut_cache_id_;
-            const std::string texture_name_;
-        };
-    } // namespace opengl
-} // namespace ui
-} // namespace xstudio
+    GLuint tex_id_ = {0};
+    GLuint pbo_    = {0};
+    const colour_pipeline::LUTDescriptor descriptor_;
+    std::size_t lut_cache_id_;
+    const std::string texture_name_;
+};
+} // namespace xstudio::ui::opengl

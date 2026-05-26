@@ -71,6 +71,7 @@ Item{
                 replaceSelection(name, mediaSelectionModel.selectedIndexes)
         }
         context: "any"
+        componentName: "ConformTool"
     }
     XsHotkey {
         id: previous_version_hotkey
@@ -84,6 +85,7 @@ Item{
                 replaceSelection(name, mediaSelectionModel.selectedIndexes)
         }
         context: "any"
+        componentName: "ConformTool"
     }
     XsHotkey {
         id: latest_version_hotkey
@@ -97,6 +99,7 @@ Item{
                 replaceSelection(name, mediaSelectionModel.selectedIndexes)
         }
         context: "any"
+        componentName: "ConformTool"
     }
 
     function removeDuplicates(selection) {

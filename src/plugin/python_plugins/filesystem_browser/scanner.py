@@ -6,7 +6,10 @@ import re
 import threading
 import queue
 import time
-import pwd
+try:
+    import pwd
+except ImportError:
+    pwd = None
 import json
 from concurrent.futures import ThreadPoolExecutor
 
@@ -27,10 +30,10 @@ class FileScanner:
         
         self.cancel_event = threading.Event()
         self.executor = ThreadPoolExecutor(max_workers=self.max_workers)
-        
-
 
     def get_owner(self, uid):
+        if not pwd:
+            return str(uid)
         try:
             return pwd.getpwuid(uid).pw_name
         except KeyError:
@@ -109,6 +112,7 @@ class FileScanner:
                         callback(items, {"scanned": scanned_count, "progress": total_progress * 100, "phase": "scanning", "scanned_dirs": []})
                     
                     # Distribute weight or complete it
+                    # print ("Scanned: {}, Depth: {}, Subdirs: {} = {}".format(scanned_path, depth, subdirs, self.max_depth))
                     if subdirs and depth < self.max_depth:
                         if len(subdirs) > 0:
                             child_weight = weight / len(subdirs)
@@ -184,6 +188,20 @@ class FileScanner:
         # Process files immediately
         items = self._process_files(raw_files, root_path)
         return subdirs, items, weight, depth, path
+
+    def _resolve_sequence_frame(self, seq):
+        """Given a fileseq, return (concrete_file_path, frame_number).
+        For single files, returns (path, 0)."""
+        try:
+            frames = list(seq.frameSet())
+            if len(frames) > 1:
+                mid = frames[len(frames) // 2]
+                return seq.frame(mid)
+            elif len(frames) == 1:
+                return seq.frame(frames[0])
+        except Exception:
+            pass
+        return path
 
     def _process_files(self, raw_files, start_path):
         """
@@ -293,7 +311,6 @@ class FileScanner:
             # fileseq.FileSequence string conversion gives the sequence string (path-#.ext).
             # We want that as 'path'?
             # xstudio expects 'path' to be loadable.
-            
             item = {
                 "name": name,
                 "path": str(seq), # Sequence string path
@@ -306,6 +323,7 @@ class FileScanner:
                 # If path is /foo/bar/seq.####.exr. relpath = bar/seq.####.exr.
                 # parts = [bar, seq...].
                 # This works.
+                "thumbnailFrame": self._resolve_sequence_frame(seq),
                 "type": "Sequence",
                 "frames": str(seq.frameRange()),
                 "size": total_size,
@@ -338,7 +356,8 @@ class FileScanner:
             "owner": self.get_owner(st.st_uid),
             "extension": "" if is_directory else os.path.splitext(name)[1],
             "is_sequence": False,
-            "is_folder": is_directory
+            "is_folder": is_directory,
+            "thumbnailFrame": path if not is_directory else None
         }
 
     def _group_versions(self, items):

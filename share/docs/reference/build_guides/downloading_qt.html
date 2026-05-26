@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Downloading Qt SDK &mdash; xStudio 1.2.0 documentation</title>
+  <title>Downloading Qt SDK &mdash; xStudio 1.3.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=eafc0fe6" />
@@ -16,7 +16,7 @@
   
         <script src="../../_static/jquery.js?v=5d32c60e"></script>
         <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=6efca38a"></script>
+        <script src="../../_static/documentation_options.js?v=1f29e9d3"></script>
         <script src="../../_static/doctools.js?v=888ff710"></script>
         <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
@@ -38,7 +38,7 @@
             xStudio
           </a>
               <div class="version">
-                1.2.0
+                1.3.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -80,14 +80,35 @@
   <section id="downloading-qt-sdk">
 <h1>Downloading Qt SDK<a class="headerlink" href="#downloading-qt-sdk" title="Link to this heading"></a></h1>
 <p>xSTUDIO’s UI is built with the Qt cross-platform GUI development libraries. The Qt SDK is a major dependency that is required to build xSTUDIO but fortunately it is freely available for public use under the GPL license.</p>
-<section id="running-the-qt-installer">
-<h2>Running the Qt installer<a class="headerlink" href="#running-the-qt-installer" title="Link to this heading"></a></h2>
+<p>There are two ways to install it: the official Qt installer (GUI, requires a Qt account), or <code class="docutils literal notranslate"><span class="pre">aqtinstall</span></code> (command-line, scriptable, no account). Either produces the same result and both are documented below — pick whichever you prefer.</p>
+<section id="option-a-using-aqtinstall-command-line-recommended">
+<h2>Option A: Using <code class="docutils literal notranslate"><span class="pre">aqtinstall</span></code> (command-line, recommended)<a class="headerlink" href="#option-a-using-aqtinstall-command-line-recommended" title="Link to this heading"></a></h2>
+<p><a class="reference external" href="https://github.com/miurahr/aqtinstall"><code class="docutils literal notranslate"><span class="pre">aqtinstall</span></code></a> is a small open-source Python tool that downloads the same official Qt prebuilt binaries as the GUI installer, directly from Qt’s CDN. It requires no Qt account, is fully scriptable, and installs exactly the version and modules you ask for.</p>
+<p>First, make sure you have Python 3 and <code class="docutils literal notranslate"><span class="pre">pip</span></code> available, then install <code class="docutils literal notranslate"><span class="pre">aqtinstall</span></code>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>pip install aqtinstall
+</pre></div>
+</div>
+<p>Then download Qt 6.5.3 for your platform. Choose the command that matches your OS:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># Linux (gcc x86_64)
+aqt install-qt linux desktop 6.5.3 gcc_64 -O ~/Qt -m qtimageformats
+
+# macOS (universal: ARM + Intel)
+aqt install-qt mac desktop 6.5.3 clang_64 -O ~/Qt -m qtimageformats
+
+# Windows (MSVC 2019 64-bit, in PowerShell)
+aqt install-qt windows desktop 6.5.3 win64_msvc2019_64 -O C:\Qt -m qtimageformats
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">-m</span> <span class="pre">qtimageformats</span></code> flag installs the extra ‘Qt Image Formats’ module that xSTUDIO requires. The <code class="docutils literal notranslate"><span class="pre">-O</span></code> flag specifies the output directory — feel free to change it, but make a note of the path as you will need it later when setting <code class="docutils literal notranslate"><span class="pre">Qt6_DIR</span></code> in your build environment.</p>
+<p>After the command finishe, you will have a Qt installation layout identical to what the GUI installer produces, e.g. <code class="docutils literal notranslate"><span class="pre">~/Qt/6.5.3/gcc_64/</span></code> on Linux, <code class="docutils literal notranslate"><span class="pre">~/Qt/6.5.3/macos/</span></code> on macOS, or <code class="docutils literal notranslate"><span class="pre">C:\Qt\6.5.3\msvc2019_64\</span></code> on Windows.</p>
+</section>
+<section id="option-b-running-the-qt-installer-gui">
+<h2>Option B: Running the Qt installer (GUI)<a class="headerlink" href="#option-b-running-the-qt-installer-gui" title="Link to this heading"></a></h2>
 <p>First you need to download the <a class="reference external" href="https://www.qt.io/download-qt-installer">Qt Installer</a>.</p>
 <p>Run the installer app. Before you can proceed you must register with Qt if you aren’t already and then log-in with your credentials when the installer requests you to do so. Agree to the terms and conditions and hit ‘Next’. You are then presented with a panel with options about which developer tools to download. <em><strong>Ensure that Custom Installation is checked and all other options are not checked.</strong></em> . Choose a destination location on your filesystem for the Qt modules to be installed to (Where it says ‘Please specify the directory where QT will be installed’). Make a note of this location as you will need it later. Now hit ‘Next’.</p>
 <p><img alt="Qt Installer" src="../../_images/qt_inst1.jpg" /></p>
-</section>
-<section id="select-qt-6-5-3-components">
-<h2>Select Qt 6.5.3 components<a class="headerlink" href="#select-qt-6-5-3-components" title="Link to this heading"></a></h2>
+<section id="select-qt-6-5-3-components-option-b-only">
+<h3>Select Qt 6.5.3 components (Option B only)<a class="headerlink" href="#select-qt-6-5-3-components-option-b-only" title="Link to this heading"></a></h3>
 <p>Now you must select the correct version of Qt to download. The required version is <strong>6.5.3</strong>. Epand the ‘Qt’ item in the list, then expand the Qt 6.5.3 below that. You only need to check the following option within the list under 6.5.3, depending on your platform:</p>
 <ul class="simple">
 <li><p>Apple: <strong>macOS</strong></p></li>
@@ -98,6 +119,7 @@
 <p>The following screengrab was done when downloading onto an Apple Mac machine. If you’re on Windows it will look slightly different and you must check ‘MSVC 2019 64-bit’.</p>
 <p><img alt="Qt Installer" src="../../_images/qt_inst2.jpg" /></p>
 <p>Now You can hit the Next button and continue. Agree to the license terms and continue to the final page where you must hit the <strong>Install</strong> button. Note that the Qt components that we need are more than 1Gb in size, so may take some time to download depending on you connection and geographical location.</p>
+</section>
 </section>
 </section>
 

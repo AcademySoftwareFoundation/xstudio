@@ -74,8 +74,8 @@ ImageBufPtr make_blank_image() {
     buf->set_image_dimensions(Imath::V2i(width, height));
 
     std::array<uint8_t, 4> c = {48, 48, 48};
-    int i                    = 0;
-    uint8_t *b               = (uint8_t *)buf->buffer();
+    size_t i                 = 0;
+    auto b                   = (uint8_t *)buf->buffer();
     while (i < size) {
         if (((i / 16) & 1) == (i / (192 * 16) & 1)) {
             b[0] = c[0];
@@ -320,22 +320,22 @@ static ui::viewport::GPUShaderPtr
 // https://aswf.s3-accelerate.amazonaws.com/ALab_h264_MOVs/mk020_0220.mov. For
 // FFMPEG reader, we might want to access media via https and other protocols
 // so I have avoided using uri_to_posix_path
-std::string uri_decode(const std::string &eString) {
-    std::string ret;
-    char ch;
-    unsigned int i, j;
-    for (i = 0; i < eString.length(); i++) {
-        if (int(eString[i]) == 37) {
-            sscanf(eString.substr(i + 1, 2).c_str(), "%x", &j);
-            ch = static_cast<char>(j);
-            ret += ch;
-            i = i + 2;
-        } else {
-            ret += eString[i];
-        }
-    }
-    return (ret);
-}
+// std::string uri_decode(const std::string &eString) {
+//     std::string ret;
+//     char ch;
+//     unsigned int i, j;
+//     for (i = 0; i < eString.length(); i++) {
+//         if (int(eString[i]) == 37) {
+//             sscanf(eString.substr(i + 1, 2).c_str(), "%x", &j);
+//             ch = static_cast<char>(j);
+//             ret += ch;
+//             i = i + 2;
+//         } else {
+//             ret += eString[i];
+//         }
+//     }
+//     return (ret);
+// }
 
 std::string uri_convert(const caf::uri &uri) {
 
@@ -499,7 +499,7 @@ AudioBufPtr FFMpegMediaReader::audio(const media::AVFrameID &mptr) {
     }
 
     // If everything else fails, return an empty shared pointer.
-    return AudioBufPtr();
+    return {};
 }
 
 
@@ -725,7 +725,7 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
         auto fetch_rgba_pixel_from_rgba32 = [&](const Imath::V2i image_coord) -> Imath::V4f {
             int address = image_coord.x * 4 + image_coord.y * y_linesize;
             auto bytes4 = get_image_data_4bytes(address);
-            Imath::V4f r;
+            Imath::V4f r(0, 0, 0, 0);
             if (pix_fmt == 3) { // AV_PIX_FMT_ARGB
                 r = Imath::V4f(bytes4[1], bytes4[2], bytes4[3], bytes4[0]);
             } else if (pix_fmt == 4) { // AV_PIX_FMT_RGBA
@@ -898,5 +898,5 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
 
         std::cerr << "E " << e.what() << "\n";
     }
-    return PixelInfo();
+    return {};
 }

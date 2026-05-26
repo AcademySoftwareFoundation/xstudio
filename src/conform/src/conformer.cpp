@@ -8,16 +8,14 @@ Conformer::Conformer(const utility::JsonStore &prefs) { update_preferences(prefs
 
 void Conformer::update_preferences(const utility::JsonStore &prefs) {}
 
-std::vector<std::string> Conformer::conform_tasks() { return std::vector<std::string>(); }
+std::vector<std::string> Conformer::conform_tasks() { return {}; }
 
 ConformReply
 Conformer::conform_request(const std::string &conform_task, const ConformRequest &request) {
-    return ConformReply(request);
+    return {request};
 }
 
-ConformReply Conformer::conform_request(const ConformRequest &request) {
-    return ConformReply(request);
-}
+ConformReply Conformer::conform_request(const ConformRequest &request) { return {request}; }
 
 std::vector<std::optional<std::tuple<std::string, caf::uri, utility::JsonStore>>>
 Conformer::conform_find_timeline(
@@ -35,5 +33,5 @@ utility::UuidActorVector Conformer::find_matching(
     const std::string &key,
     const std::pair<utility::UuidActor, utility::JsonStore> &needle,
     const std::vector<std::pair<utility::UuidActor, utility::JsonStore>> &haystack) {
-    return utility::UuidActorVector();
+    return {};
 }

@@ -627,7 +627,7 @@ XsWindow{
                     Layout.preferredWidth: parent.width/2
                     Layout.fillHeight: true
                     text: "Publish Notes To SG"
-                    enabled: !invalidPublish
+                    enabled: !(invalidPublish || !notesCount)
                     onClicked: {
                         publishNotes()
                         close()
@@ -640,7 +640,6 @@ XsWindow{
             Layout.fillWidth: true
             Layout.preferredHeight: itemHeight
             Layout.bottomMargin: itemHeight/3
-
 
             XsText{
                 x: 20

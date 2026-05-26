@@ -25,6 +25,23 @@ This depends somewhat on how you have installed xSTUDIO, but generally the metho
 
 .. image:: ../images/default-interface.png
 
+Loading Media (built-in browser)
+----------------------------------
+
+As of version 1.3 (Mac and Linux only - this will be available on Windows shortly), xSTUDIO now offers a fast and easy-to-use built-in filesystem browser. This offers a convenient way to scan your local disk or network drives for media and import into your xSTUDIO session. For full description of this feature click :ref:`here <file_system_browser>`
+
+There are 3 destinations into which you can drag-and-drop from the file system browser:
+
+  - The empty space of the Playlists panel : this will create a new playlist and add the media.
+    - Subfolders of the top-level folder that was dropped into xSTUDIO will create a *subset*
+  - An existing playlist entry in the Playlists panel : this will add the media to the playlist that you dropped the file into.
+  - The Media List panel : this will add the media to the end of the playlist being inspected in the media List.
+
+.. raw:: html
+    
+    <center><video src="../../_static/file-browser-01.webm" width="720" height="366" controls></video></center>
+
+
 Loading Media (filesystem browser)
 ----------------------------------
 

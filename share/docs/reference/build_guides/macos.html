@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MacOS (Intel/ARM) &mdash; xStudio 1.2.0 documentation</title>
+  <title>MacOS (Intel/ARM) &mdash; xStudio 1.3.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=eafc0fe6" />
@@ -16,7 +16,7 @@
   
         <script src="../../_static/jquery.js?v=5d32c60e"></script>
         <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=6efca38a"></script>
+        <script src="../../_static/documentation_options.js?v=1f29e9d3"></script>
         <script src="../../_static/doctools.js?v=888ff710"></script>
         <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
@@ -40,7 +40,7 @@
             xStudio
           </a>
               <div class="version">
-                1.2.0
+                1.3.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -55,7 +55,8 @@
 <li class="toctree-l1 current"><a class="reference internal" href="../index.html">xSTUDIO Reference</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="index.html">xSTUDIO Build Guides</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="index.html#post-production-studios-and-other-organisations">Post Production Studios and Other Organisations</a></li>
-<li class="toctree-l3 current"><a class="reference internal" href="index.html#individual-users">Individual Users</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="index.html#individual-users">Individual Users</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="index.html#choosing-a-guide">Choosing a guide</a><ul class="current">
 <li class="toctree-l4 current"><a class="current reference internal" href="#">MacOS (Intel/ARM)</a></li>
 <li class="toctree-l4"><a class="reference internal" href="windows.html">Windows 10/11</a></li>
 <li class="toctree-l4"><a class="reference internal" href="linux_generic.html">Linux Generic Guide</a></li>
@@ -112,8 +113,9 @@
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>/bin/bash -c &quot;$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)&quot;
 </pre></div>
 </div>
-<p>We require 5 packages to be installed to proceed. Run these commands in a terminal:</p>
+<p>We require these packages to be installed to proceed. xSTUDIO uses Ninja as its CMake generator on all platforms, so install it here as well. Run these commands in a terminal:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>brew install cmake
+brew install ninja
 brew install pkg-config
 brew install nasm
 brew install autoconf
@@ -124,20 +126,13 @@ brew install autoconf-archive
 <section id="download-and-install-qt-6-5-3-sdk">
 <h2>Download and install Qt 6.5.3 SDK<a class="headerlink" href="#download-and-install-qt-6-5-3-sdk" title="Link to this heading"></a></h2>
 <p>Follow <a class="reference internal" href="downloading_qt.html"><span class="std std-doc">these instructions</span></a></p>
-<blockquote>
-<div><p><strong>NOTE:</strong> Since Xcode version 26.X our specified version of Qt (6.5.3) is not strictly compatible with MacOS and you may see an error when you run the first ‘cmake’ command below. There are two options to resolve this. You can download Qt version 6.8.3 and use this instead of 6.5.3. Alternatively, open the file ‘FindWrapOpenGL.cmake’ within the Qt installation (at 6.5.3/macos/lib/cmake) and comment out lines 48 and 49 so that they look like this:</p>
-</div></blockquote>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>#target_link_libraries(WrapOpenGL::WrapOpenGL INTERFACE ${__opengl_fw_path})
-#target_link_libraries(WrapOpenGL::WrapOpenGL INTERFACE ${__opengl_agl_fw_path})
-</pre></div>
-</div>
 </section>
 <section id="download-the-vcpkg-repo">
 <h2>Download the VCPKG repo<a class="headerlink" href="#download-the-vcpkg-repo" title="Link to this heading"></a></h2>
-<p>To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo, run the bootstrap script and then switch to a specific git commit before we build xstudio. Run these commands in a terminal:</p>
+<p>To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo and run the bootstrap script before we build xstudio. Run these commands in a terminal:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/microsoft/vcpkg.git
+git -C vcpkg checkout c2aeddd80357b17592e59ad965d2adf65a19b22f
 ./vcpkg/bootstrap-vcpkg.sh
-git checkout c2aeddd80357b17592e59ad965d2adf65a19b22f
 </pre></div>
 </div>
 </section>
@@ -149,35 +144,37 @@ cd xstudio
 git checkout develop
 </pre></div>
 </div>
-<p>You must run these commands to add the OpenTimelineIO submodule to the tree and apply a small patch</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git submodule init
-git submodule update
-git apply cmake/otio_patch.diff
-</pre></div>
-</div>
 </section>
-<section id="modify-the-cmakepresets-json-file">
-<h2>Modify the CMakePresets.json file<a class="headerlink" href="#modify-the-cmakepresets-json-file" title="Link to this heading"></a></h2>
-<p>Open the CMakePresets.json file (which is in the root of the xstudio repo) in a text editor. You must look for the entry “Qt6_DIR” and modify the value that follows it to point to your installation of the Qt SDK. Specifically, you need to point to a directory named ‘Qt6’ which is in a directory named ‘cmake’, which is in a directory named ‘lib’. For example, on MacOS where user Mary Jane downloaded Qt into her home folder the entry should look like this:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>&quot;Qt6_DIR&quot;: &quot;/Users/maryjane/Qt/6.5.3/macos/lib/cmake/Qt6&quot;,
+<section id="tell-cmake-where-qt-is-installed">
+<h2>Tell CMake where Qt is installed<a class="headerlink" href="#tell-cmake-where-qt-is-installed" title="Link to this heading"></a></h2>
+<p>CMake needs to know where your Qt 6.5.3 SDK is installed. Create a <code class="docutils literal notranslate"><span class="pre">CMakeUserPresets.json</span></code> file alongside <code class="docutils literal notranslate"><span class="pre">CMakePresets.json</span></code> in the repo root. This file is gitignored, so your local path won’t be committed. The user preset should have a different name from the tracked preset it inherits from, and add <code class="docutils literal notranslate"><span class="pre">Qt6_DIR</span></code> to <code class="docutils literal notranslate"><span class="pre">cacheVariables</span></code>. For example, if user Mary Jane downloaded Qt into her home folder:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>{
+  &quot;version&quot;: 3,
+  &quot;configurePresets&quot;: [
+    {
+      &quot;name&quot;: &quot;MacOSNinjaReleaseLocal&quot;,
+      &quot;inherits&quot;: &quot;MacOSNinjaRelease&quot;,
+      &quot;cacheVariables&quot;: {
+        &quot;Qt6_DIR&quot;: &quot;/Users/maryjane/Qt/6.5.3/macos/lib/cmake/Qt6&quot;
+      }
+    }
+  ]
+}
 </pre></div>
 </div>
+<p>For an Intel Mac, inherit from <code class="docutils literal notranslate"><span class="pre">MacOSIntelNinjaRelease</span></code> instead. See the <a class="reference external" href="https://cmake.org/cmake/help/latest/manual/cmake-presets.7.html">CMake presets documentation</a> for the full format reference.</p>
 </section>
 <section id="build-xstudio">
 <h2>Build xSTUDIO<a class="headerlink" href="#build-xstudio" title="Link to this heading"></a></h2>
-<p>Run the appropriate command for your platform (whether you have an older Intel or a newer Apple Silicon machine) to set-up for building. Note that this cmake command <em><strong>may take several hours to complete</strong></em>. This is because xSTUDIO’s dependencies (particularly ffmpeg) take a long time to download and build from the source code, which is what VCPKG is doing.</p>
-<p><strong>Apple Silicon (ARM) Machines:</strong></p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cmake -B build --preset MacOSRelease
+<p>Run the configure command. Note that this cmake command <em><strong>may take several hours to complete</strong></em>. This is because xSTUDIO’s dependencies (particularly ffmpeg) take a long time to download and build from the source code, which is what VCPKG is doing.</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cmake -B build --preset MacOSNinjaReleaseLocal
 </pre></div>
 </div>
-<p><strong>Intel Machines:</strong></p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cmake -B build --preset MacOSIntelRelease
+<p>When this has finished, you can build xSTUDIO with:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cmake --build build --target install
 </pre></div>
 </div>
-<p>When this has finished, you can build xSTUDIO with this command.</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cmake --build build --parallel 16 --target install
-</pre></div>
-</div>
+<p>RelWithDebInfo and Debug variants are also available — see <a class="reference download internal" download="" href="../../_downloads/320813cbeeb16ba523e52d06672cf078/CMakePresets.json"><span class="xref download myst">CMakePresets.json</span></a> for the full list.</p>
 <p>If the build is successful, you should have an application bundle in the ‘build’ folder called ‘xSTUDIO.app’. This can be drag &amp; dropped into your applications folder, desktop and dock as for any other application.</p>
 </section>
 </section>

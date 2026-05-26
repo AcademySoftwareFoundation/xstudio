@@ -50,7 +50,7 @@ AnnotationsCore::AnnotationsCore(
     link_to(live_edit_event_group_);
 }
 
-AnnotationsCore::~AnnotationsCore() {}
+// AnnotationsCore::~AnnotationsCore() {}
 
 caf::message_handler AnnotationsCore::message_handler_extensions() {
 
@@ -153,9 +153,9 @@ void AnnotationsCore::receive_annotation_data(const utility::JsonStore &d) {
 
     if (event == "PaintStart") {
         start_stroke_or_shape(payload, user_edit_data);
-    }
-
-    if (event == "PaintStart" || event == "PaintPoint") {
+        modify_stroke_or_shape(payload, user_edit_data);
+        broadcast_live_stroke(user_edit_data, user_id);
+    } else if (event == "PaintPoint") {
         modify_stroke_or_shape(payload, user_edit_data);
         broadcast_live_stroke(user_edit_data, user_id);
     } else if (event == "PaintEnd") {
@@ -181,6 +181,7 @@ void AnnotationsCore::receive_annotation_data(const utility::JsonStore &d) {
     } else if (event == "CaptionPointerHover") {
         caption_hover(payload, user_edit_data);
     } else if (event == "ToolChanged") {
+        dropper_active_ = (payload.value("tool", "") == "Colour Picker");
         clear_live_caption(user_edit_data);
     } else if (event == "PaintUndo") {
         undo(user_edit_data);
@@ -192,6 +193,22 @@ void AnnotationsCore::receive_annotation_data(const utility::JsonStore &d) {
         hide_all_drawings_ = true;
     } else if (event == "ShowDrawings") {
         hide_all_drawings_ = false;
+    } else if (event == "HideViewportVisibility") {
+        const std::string vp = payload.value("viewport", "");
+        if (!vp.empty()) {
+            user_hidden_per_viewport_[vp] = true;
+            if (hide_all_per_viewport_.find(vp) != hide_all_per_viewport_.end()) {
+                *(hide_all_per_viewport_[vp]) = true;
+            }
+        }
+    } else if (event == "ShowViewportVisibility") {
+        const std::string vp = payload.value("viewport", "");
+        if (!vp.empty()) {
+            user_hidden_per_viewport_[vp] = false;
+            if (hide_all_per_viewport_.find(vp) != hide_all_per_viewport_.end()) {
+                *(hide_all_per_viewport_[vp]) = false;
+            }
+        }
     } else if (event == "SetDisplayMode") {
 
         if (payload.value("display_mode", "Only When Paused") == "Only When Paused") {
@@ -209,19 +226,19 @@ void AnnotationsCore::start_stroke_or_shape(
 
     const auto item_type = payload.value("item_type", "");
     Imath::V2f pos;
-    float size_pressure;
-    float opacity_pressure;
+    // float size_pressure;
+    // float opacity_pressure;
     if (payload.contains("points")) {
         pos = Imath::V2f(
             payload.at("points").at(0).at("x").get<float>(),
             payload.at("points").at(0).at("y").get<float>());
-        size_pressure    = 1.0f;
-        opacity_pressure = 1.0f;
+        // size_pressure    = 1.0f;
+        // opacity_pressure = 1.0f;
     } else {
         pos =
             Imath::V2f(payload["point"]["x"].get<float>(), payload["point"]["y"].get<float>());
-        size_pressure    = payload["point"]["size_pressure"].get<float>();
-        opacity_pressure = payload["point"]["opacity_pressure"].get<float>();
+        // size_pressure    = payload["point"]["size_pressure"].get<float>();
+        // opacity_pressure = payload["point"]["opacity_pressure"].get<float>();
     }
 
     auto size = payload["paint"]["size"].get<float>();
@@ -243,62 +260,95 @@ void AnnotationsCore::start_stroke_or_shape(
         user_edit_data->live_stroke.reset(Stroke::Erase(size));
         user_edit_data->item_type = Canvas::ItemType::Erase;
 
-    } else {
+    } else if (item_type == "BurnAdd") {
+
+        auto intensity = payload["paint"]["intensity"].get<float>();
+        auto softness  = payload["paint"]["softness"].get<float>();
+        user_edit_data->live_stroke.reset(Stroke::BurnAdd(intensity, size, softness));
+        user_edit_data->item_type = Canvas::ItemType::Burn;
+
+    } else if (item_type == "BurnMult") {
+
+        auto intensity = payload["paint"]["intensity"].get<float>();
+        auto softness  = payload["paint"]["softness"].get<float>();
+        user_edit_data->live_stroke.reset(Stroke::BurnMult(intensity, size, softness));
+        user_edit_data->item_type = Canvas::ItemType::Burn;
+
+    } else if (item_type == "DodgeAdd") {
+
+        auto intensity = payload["paint"]["intensity"].get<float>();
+        auto softness  = payload["paint"]["softness"].get<float>();
+        user_edit_data->live_stroke.reset(Stroke::DodgeAdd(intensity, size, softness));
+        user_edit_data->item_type = Canvas::ItemType::Dodge;
+
+    } else if (item_type == "DodgeMult") {
+
+        auto intensity = payload["paint"]["intensity"].get<float>();
+        auto softness  = payload["paint"]["softness"].get<float>();
+        user_edit_data->live_stroke.reset(Stroke::DodgeMult(intensity, size, softness));
+        user_edit_data->item_type = Canvas::ItemType::Dodge;
+
+    } else if (item_type == "Draw") {
 
         auto c = payload["paint"]["rgba"].get<std::vector<float>>();
         utility::ColourTriplet colour(c[0], c[1], c[2]);
-        const float opacity = c[3];
+        user_edit_data->live_stroke.reset(Stroke::Pen(colour, size, 0.0f, c[3]));
+        user_edit_data->item_type = Canvas::ItemType::Draw;
 
-        if (item_type == "Draw") {
+    } else if (item_type == "Brush") {
 
-            user_edit_data->live_stroke.reset(Stroke::Pen(colour, size, 0.0, opacity));
-            user_edit_data->item_type = Canvas::ItemType::Draw;
+        auto c = payload["paint"]["rgba"].get<std::vector<float>>();
+        utility::ColourTriplet colour(c[0], c[1], c[2]);
+        auto softness            = payload["paint"]["softness"].get<float>();
+        auto size_sensitivity    = payload["paint"]["size_sensitivity"].get<float>();
+        auto opacity_sensitivity = payload["paint"]["opacity_sensitivity"].get<float>();
+        user_edit_data->live_stroke.reset(
+            Stroke::Brush(colour, size, softness, c[3], size_sensitivity, opacity_sensitivity));
+        user_edit_data->item_type = Canvas::ItemType::Brush;
 
-        } else if (item_type == "Brush") {
+    } else if (item_type == "Square") {
 
-            auto softness            = payload["paint"]["softness"].get<float>();
-            auto size_sensitivity    = payload["paint"]["size_sensitivity"].get<float>();
-            auto opacity_sensitivity = payload["paint"]["opacity_sensitivity"].get<float>();
-            user_edit_data->live_stroke.reset(
-                Stroke::Brush(
-                    colour, size, softness, opacity, size_sensitivity, opacity_sensitivity));
-            user_edit_data->item_type = Canvas::ItemType::Brush;
+        auto c = payload["paint"]["rgba"].get<std::vector<float>>();
+        utility::ColourTriplet colour(c[0], c[1], c[2]);
+        user_edit_data->live_stroke.reset(Stroke::Pen(colour, size, 0.0f, c[3]));
+        user_edit_data->item_type = Canvas::ItemType::Square;
 
-        } else if (item_type == "Square") {
+    } else if (item_type == "Circle") {
 
-            user_edit_data->live_stroke.reset(Stroke::Pen(colour, size, 0.0f, opacity));
-            user_edit_data->item_type = Canvas::ItemType::Square;
+        auto c = payload["paint"]["rgba"].get<std::vector<float>>();
+        utility::ColourTriplet colour(c[0], c[1], c[2]);
+        user_edit_data->live_stroke.reset(Stroke::Pen(colour, size, 0.0f, c[3]));
+        user_edit_data->item_type = Canvas::ItemType::Circle;
 
-        } else if (item_type == "Circle") {
+    } else if (item_type == "Arrow") {
 
-            user_edit_data->live_stroke.reset(Stroke::Pen(colour, size, 0.0f, opacity));
-            user_edit_data->item_type = Canvas::ItemType::Circle;
+        auto c = payload["paint"]["rgba"].get<std::vector<float>>();
+        utility::ColourTriplet colour(c[0], c[1], c[2]);
+        user_edit_data->live_stroke.reset(Stroke::Pen(colour, size, 0.0f, c[3]));
+        user_edit_data->item_type = Canvas::ItemType::Arrow;
 
-        } else if (item_type == "Arrow") {
+    } else if (item_type == "Line") {
 
-            user_edit_data->live_stroke.reset(Stroke::Pen(colour, size, 0.0f, opacity));
-            user_edit_data->item_type = Canvas::ItemType::Arrow;
+        auto c = payload["paint"]["rgba"].get<std::vector<float>>();
+        utility::ColourTriplet colour(c[0], c[1], c[2]);
+        user_edit_data->live_stroke.reset(Stroke::Pen(colour, size, 0.0f, c[3]));
+        user_edit_data->item_type = Canvas::ItemType::Line;
 
-        } else if (item_type == "Line") {
+    } else if (item_type == "Laser") {
 
-            user_edit_data->live_stroke.reset(Stroke::Pen(colour, size, 0.0f, opacity));
-            user_edit_data->item_type = Canvas::ItemType::Line;
+        auto c = payload["paint"]["rgba"].get<std::vector<float>>();
+        utility::ColourTriplet colour(c[0], c[1], c[2]);
+        user_edit_data->laser_strokes.emplace_back(
+            Stroke::Brush(colour, size, 0.0f, c[3], 0.0f, 1.0f));
+        user_edit_data->item_type = Canvas::ItemType::Laser;
 
-        } else if (item_type == "Laser") {
-
-            user_edit_data->laser_strokes.emplace_back(
-                Stroke::Brush(colour, size, 0.0f, opacity, 0.0f, 1.0f));
-
-            user_edit_data->item_type = Canvas::ItemType::Laser;
-
-            if (!laser_stroke_animation_) {
-                laser_stroke_animation_ = true;
-                delayed_anon_send(
-                    caf::actor_cast<caf::actor>(this),
-                    std::chrono::milliseconds(16),
-                    utility::event_atom_v,
-                    true);
-            }
+        if (!laser_stroke_animation_) {
+            laser_stroke_animation_ = true;
+            delayed_anon_send(
+                caf::actor_cast<caf::actor>(this),
+                std::chrono::milliseconds(16),
+                utility::event_atom_v,
+                true);
         }
     }
 
@@ -349,7 +399,9 @@ void AnnotationsCore::modify_stroke_or_shape(
     Imath::V2f shape_anchor = user_edit_data->start_point;
 
     if (user_edit_data->item_type == Canvas::ItemType::Brush ||
-        user_edit_data->item_type == Canvas::ItemType::Draw) {
+        user_edit_data->item_type == Canvas::ItemType::Draw ||
+        user_edit_data->item_type == Canvas::ItemType::Burn ||
+        user_edit_data->item_type == Canvas::ItemType::Dodge) {
 
         user_edit_data->live_stroke->add_points(points);
 
@@ -470,8 +522,7 @@ Caption const *AnnotationsCore::caption_under_pointer(
     for (const auto &bookmark : img.bookmarks()) {
 
         // does the bookmark already have an annotation on it?
-        const Annotation *my_annotation =
-            dynamic_cast<const Annotation *>(bookmark->annotation_.get());
+        auto my_annotation = dynamic_cast<const Annotation *>(bookmark->annotation_.get());
         if (my_annotation) {
             auto p = my_annotation->canvas().begin();
             while (p != my_annotation->canvas().end()) {
@@ -505,8 +556,8 @@ void AnnotationsCore::caption_drag(
         user_edit_data->caption_handle_over_state_ == HandleHoverState::NotHovered)
         return;
 
-    auto pos          = payload["pointer_position"].get<Imath::V2f>();
-    auto vp_pix_scale = payload["viewport_pix_scale"].get<float>();
+    auto pos = payload["pointer_position"].get<Imath::V2f>();
+    // auto vp_pix_scale = payload["viewport_pix_scale"].get<float>();
 
     Imath::V2f pointer_position = transform_pointer_to_image_coord(pos, user_edit_data);
 
@@ -846,8 +897,7 @@ Annotation *AnnotationsCore::modifiable_annotation(LiveEditData &user_edit_data)
     AnnotationBasePtr existing_annotation =
         get_bookmark_annotation(user_edit_data->edited_bookmark_id);
 
-    const Annotation *my_annotation =
-        dynamic_cast<const Annotation *>(existing_annotation.get());
+    auto my_annotation         = dynamic_cast<const Annotation *>(existing_annotation.get());
     Annotation *mod_annotation = my_annotation ? new Annotation(*my_annotation) : nullptr;
 
     return mod_annotation;
@@ -903,8 +953,7 @@ void AnnotationsCore::pick_image_to_annotate(
     for (const auto &anno : user_edit_data->annotated_image.bookmarks()) {
 
         // does the bookmark already have an annotation on it?
-        const Annotation *my_annotation =
-            dynamic_cast<const Annotation *>(anno->annotation_.get());
+        auto my_annotation = dynamic_cast<const Annotation *>(anno->annotation_.get());
         if (my_annotation) {
             user_edit_data->edited_bookmark_id = anno->detail_.uuid_;
             annotation_to_add_to               = anno->annotation_;
@@ -1087,7 +1136,8 @@ void AnnotationsCore::images_going_on_screen(
         hide_all_per_viewport_[viewport_name] = new std::atomic_bool(false);
     }
     *(hide_all_per_viewport_[viewport_name]) =
-        show_annotations_during_playback_ ? false : playhead_playing;
+        (!dropper_active_ && user_hidden_per_viewport_[viewport_name]) ||
+        (show_annotations_during_playback_ ? false : playhead_playing);
 
     // what if a new image is going on screen, and we have an active edit going
     // on with the given viewport? We need to wipe the active edit so that we
@@ -1230,7 +1280,7 @@ void AnnotationsCore::broadcast_live_stroke(
     const utility::Uuid &user_id,
     const bool stroke_completed) {
 
-    Annotation *anno = new Annotation();
+    auto anno = new Annotation();
     if (user_edit_data->live_stroke)
         anno->canvas().append_item(*(user_edit_data->live_stroke));
 
@@ -1259,79 +1309,75 @@ void AnnotationsCore::make_bookmark_for_annotations(
     create_bookmark_on_frame(frame_id, note_name, detail, false);
 }
 
-namespace xstudio {
-namespace ui {
-    namespace viewport {
+namespace xstudio::ui::viewport {
 
-        class CreateBookmark : public UndoableAction {
+class CreateBookmark : public UndoableAction {
 
-          public:
-            CreateBookmark(
-                const media::AVFrameID &frameid, AnnotationsCore *plugin, utility::Uuid &bm_id)
-                : frameid_(frameid), plugin_(plugin), bm_id_(bm_id) {}
+  public:
+    CreateBookmark(
+        const media::AVFrameID &frameid, AnnotationsCore *plugin, utility::Uuid &bm_id)
+        : frameid_(frameid), plugin_(plugin), bm_id_(bm_id) {}
 
-            bool redo(Annotation **annotation) override {
-                plugin_->make_bookmark_for_annotations(frameid_, bm_id_);
-                *annotation = new Annotation();
-                return true;
-            }
+    bool redo(Annotation **annotation) override {
+        plugin_->make_bookmark_for_annotations(frameid_, bm_id_);
+        *annotation = new Annotation();
+        return true;
+    }
 
-            bool undo(Annotation ** /*annotation*/) override {
-                plugin_->remove_bookmark(bm_id_);
-                return true;
-            }
+    bool undo(Annotation ** /*annotation*/) override {
+        plugin_->remove_bookmark(bm_id_);
+        return true;
+    }
 
-            friend class AnnotationsCore;
+    friend class AnnotationsCore;
 
-            const media::AVFrameID frameid_;
-            AnnotationsCore *plugin_;
-            utility::Uuid bm_id_;
-        };
+    const media::AVFrameID frameid_;
+    AnnotationsCore *plugin_;
+    utility::Uuid bm_id_;
+};
 
-        class ClearAnnotation : public UndoableAction {
+class ClearAnnotation : public UndoableAction {
 
-          public:
-            ClearAnnotation(
-                const media::AVFrameID &frameid,
-                AnnotationsCore *plugin,
-                utility::Uuid &bm_id,
-                const bool bookmark_is_empty)
-                : frameid_(frameid),
-                  plugin_(plugin),
-                  bm_id_(bm_id),
-                  bookmark_is_empty_(bookmark_is_empty) {}
+  public:
+    ClearAnnotation(
+        const media::AVFrameID &frameid,
+        AnnotationsCore *plugin,
+        utility::Uuid &bm_id,
+        const bool bookmark_is_empty)
+        : frameid_(frameid),
+          plugin_(plugin),
+          bm_id_(bm_id),
+          bookmark_is_empty_(bookmark_is_empty) {}
 
-            bool redo(Annotation **annotation) override {
-                if (!(*annotation))
-                    return false;
-                canvas_ = (*annotation)->canvas();
-                (*annotation)->canvas().clear();
-                if (bookmark_is_empty_)
-                    plugin_->remove_bookmark(bm_id_);
-                return true;
-            }
+    bool redo(Annotation **annotation) override {
+        if (!(*annotation))
+            return false;
+        canvas_ = (*annotation)->canvas();
+        (*annotation)->canvas().clear();
+        if (bookmark_is_empty_)
+            plugin_->remove_bookmark(bm_id_);
+        return true;
+    }
 
-            bool undo(Annotation **annotation) override {
-                if (!(*annotation))
-                    (*annotation) = new Annotation();
-                if (bookmark_is_empty_)
-                    plugin_->make_bookmark_for_annotations(frameid_, bm_id_);
-                (*annotation)->canvas() = canvas_;
-                return true;
-            }
+    bool undo(Annotation **annotation) override {
+        if (!(*annotation))
+            (*annotation) = new Annotation();
+        if (bookmark_is_empty_)
+            plugin_->make_bookmark_for_annotations(frameid_, bm_id_);
+        (*annotation)->canvas() = canvas_;
+        return true;
+    }
 
-            friend class AnnotationsCore;
+    friend class AnnotationsCore;
 
-            canvas::Canvas canvas_;
-            const media::AVFrameID frameid_;
-            AnnotationsCore *plugin_;
-            utility::Uuid bm_id_;
-            const bool bookmark_is_empty_;
-        };
+    canvas::Canvas canvas_;
+    const media::AVFrameID frameid_;
+    AnnotationsCore *plugin_;
+    utility::Uuid bm_id_;
+    const bool bookmark_is_empty_;
+};
 
-    } // namespace viewport
-} // namespace ui
-} // namespace xstudio
+} // namespace xstudio::ui::viewport
 
 void AnnotationsCore::clear_annotation(LiveEditData &user_edit_data) {
 
@@ -1348,8 +1394,7 @@ void AnnotationsCore::clear_annotation(LiveEditData &user_edit_data) {
 
         for (const auto &bookmark : onscreen_image_set->hero_image().bookmarks()) {
             // does the bookmark already have an annotation on it?
-            const Annotation *my_annotation =
-                dynamic_cast<const Annotation *>(bookmark->annotation_.get());
+            auto my_annotation = dynamic_cast<const Annotation *>(bookmark->annotation_.get());
             if (my_annotation) {
 
                 // we've found a bookmark with an annotation.

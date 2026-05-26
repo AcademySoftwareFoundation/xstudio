@@ -112,7 +112,7 @@ namespace colour_pipeline {
 
         ColourPipeline(caf::actor_config &cfg, const utility::JsonStore &init_settings);
 
-        virtual ~ColourPipeline();
+        ~ColourPipeline() override;
 
         /*! Create the ColourOperationDataPtr containing the necessary LUT and
         *shader data for linearising the source colourspace RGB data from the
@@ -164,7 +164,7 @@ namespace colour_pipeline {
         /* For the given colour management metadata, return a json dict specifying
         the display and view options available and the default display and view
         choices */
-        virtual utility::JsonStore get_display_and_view_options_for_media(
+        [[nodiscard]] virtual utility::JsonStore get_display_and_view_options_for_media(
             const utility::JsonStore &media_source_colour_metadata) const = 0;
 
         virtual void screen_changed(

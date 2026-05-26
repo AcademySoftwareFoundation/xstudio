@@ -100,6 +100,7 @@ utility::JsonStore SnapshotMenuModel::toMenuModelItemData(FileSystemItem *item) 
         auto items                       = R"([
             {"name": "Open", "menu_item_type": "button", "menu_item_enabled": true, "watch_visibility": false, "user_data": "SNAPSHOT_LOAD"},
             {"name": "Import", "menu_item_type": "button", "menu_item_enabled": true, "watch_visibility": false, "user_data": "SNAPSHOT_IMPORT"},
+            {"name": "Copy Path", "menu_item_type": "button", "menu_item_enabled": true, "watch_visibility": false, "user_data": "SNAPSHOT_COPY_PATH"},
             {"name": "Save", "menu_item_type": "button", "menu_item_enabled": true, "watch_visibility": false, "user_data": "SNAPSHOT_SAVE"},
             {"name": "Save Selected", "menu_item_type": "button", "menu_item_enabled": true, "watch_visibility": false, "user_data": "SNAPSHOT_SAVE_SELECTED"}
         ])"_json;
@@ -108,6 +109,7 @@ utility::JsonStore SnapshotMenuModel::toMenuModelItemData(FileSystemItem *item) 
         items[1]["snapshot_filesystem_path"] = snapshot_filesystem_path;
         items[2]["snapshot_filesystem_path"] = snapshot_filesystem_path;
         items[3]["snapshot_filesystem_path"] = snapshot_filesystem_path;
+        items[4]["snapshot_filesystem_path"] = snapshot_filesystem_path;
 
         menu_item_data["children"] = items;
 

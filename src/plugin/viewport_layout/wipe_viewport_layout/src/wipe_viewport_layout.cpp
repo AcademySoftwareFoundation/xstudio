@@ -22,7 +22,7 @@ class OpenGLViewportWipeRenderer : public OpenGLViewportRenderer {
     OpenGLViewportWipeRenderer(const std::string &window_id, const utility::JsonStore &prefs)
         : OpenGLViewportRenderer(window_id, prefs) {}
 
-    virtual ~OpenGLViewportWipeRenderer() {
+    ~OpenGLViewportWipeRenderer() override {
         if (wipe_vbo_)
             glDeleteBuffers(1, &wipe_vbo_);
         if (wipe_vao_)
@@ -97,15 +97,13 @@ void OpenGLViewportWipeRenderer::draw_image(
     active_shader_program_->use();
 
     // set-up core shader parameters (e.g. image transform matrix etc)
-    utility::JsonStore shader_params = core_shader_params(
+    init_shader_uniforms(
         image_to_be_drawn,
         window_to_viewport_matrix,
         viewport_to_image_space,
         viewport_du_dx,
         layout_data->custom_layout_data_,
         index);
-
-    active_shader_program_->set_shader_parameters(shader_params);
 
     {
 

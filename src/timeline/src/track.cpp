@@ -51,7 +51,7 @@ Track Track::duplicate() const {
     jsn["media_type"] = media_type_;
     jsn["item"]       = dup_item.serialise(1);
 
-    return Track(jsn);
+    return {jsn};
 }
 
 JsonStore Track::serialise() const {

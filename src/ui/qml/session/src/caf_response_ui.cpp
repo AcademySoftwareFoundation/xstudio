@@ -382,11 +382,14 @@ class CafRequest : public ControllableJob<QMap<int, QString>> {
                     QStringFromStd(json(answer.uuid()).dump());
             }
         } else if (type == "MediaSource") {
+
             auto answer = request_receive<UuidActor>(
                 *sys,
                 actorFromString(system_, json_.at("actor")),
                 media::current_media_stream_atom_v,
-                media::MT_IMAGE);
+                media::MT_IMAGE,
+                true // silent (no error) flag
+            );
 
             result[SessionModel::Roles::imageActorUuidRole] =
                 QStringFromStd(json(answer.uuid()).dump());
@@ -733,7 +736,7 @@ class CafRequest : public ControllableJob<QMap<int, QString>> {
     const std::string role_name_;
 };
 
-static int ct = 0;
+// static int ct = 0;
 
 CafResponse::CafResponse(
     const QVariant search_value,
@@ -771,7 +774,7 @@ CafResponse::CafResponse(
     }
 }
 
-CafResponse::~CafResponse() {}
+// CafResponse::~CafResponse() {}
 
 void CafResponse::handleFinished() {
     emit finished(search_value_, search_role_, role_);

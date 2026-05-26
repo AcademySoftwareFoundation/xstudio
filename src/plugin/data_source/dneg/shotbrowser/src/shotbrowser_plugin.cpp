@@ -981,43 +981,6 @@ void ShotBrowser::attribute_changed(const utility::Uuid &attr_uuid) {
 }
 
 void ShotBrowser::update_preferences(const JsonStore &js) {
-
-
-    try {
-        static bool enabled = false;
-        if (not enabled) {
-            // here we ping the plugin manager to tell it to load the SYNC plugin if
-            // the user has shotgrid login access (i.e. they are a lead/supe who will
-            // need Sync to run reviews)
-
-            // Note: Ted Feb 5th 2025 - not enabling sync as per below until roll-out
-            // plan is agreed with all parties
-            auto whitelist = preference_value<JsonStore>(js, "/core/sync/user_whitelist");
-            auto login     = utility::get_login_name();
-            for (const auto &i : whitelist) {
-                if (i == login) {
-                    spdlog::info(
-                        "You have SYNC permissions: xSTUDIO SYNC plugin will be enabled.");
-
-                    auto plugin_manager =
-                        system().registry().template get<caf::actor>(plugin_manager_registry);
-                    anon_mail(
-                        plugin_manager::spawn_plugin_atom_v,
-                        utility::Uuid(
-                            "0ceb4fdb-cb6e-4148-894c-b8a0fad6bec0"), // sync plugin UUID
-                        utility::JsonStore(), // init settings (not needed)
-                        true                  // resident
-                        )
-                        .send(plugin_manager);
-                    enabled = true;
-                    break;
-                }
-            }
-        }
-    } catch (const std::exception &err) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-    }
-
     try {
         auto grant = preference_value<std::string>(
             js, "/plugin/data_source/shotbrowser/authentication/grant_type");
@@ -2138,11 +2101,11 @@ void ShotBrowser::do_add_media_sources_from_ivy(
                             .request(source.actor(), infinite)
                             .then(
                                 [=](bool got_media_detail) mutable {
-                                    if (got_media_detail)
+                                    // if (got_media_detail)
                                         good_sources->push_back(source);
-                                    else
-                                        send_exit(
-                                            source.actor(), caf::exit_reason::user_shutdown);
+                                    // else
+                                    //     send_exit(
+                                    //         source.actor(), caf::exit_reason::user_shutdown);
 
                                     (*count)--;
                                     if (!(*count))

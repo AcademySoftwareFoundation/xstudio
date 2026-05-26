@@ -484,7 +484,7 @@ void SessionModel::processChildren(const nlohmann::json &rj, const QModelIndex &
                     // us the src index in ptree. So if reordered_src_indeces[5] = 1,
                     // say, then the 2nd child of ptree needs to be moved to be
                     // the 6th child etc.
-                    for (int j = 0; j < rjc.size(); j++) {
+                    for (size_t j = 0; j < rjc.size(); j++) {
                         if (rjc.at(j).contains(compare_key)) {
                             auto p = index_by_key.find(rjc.at(j).at(compare_key));
                             reordered_src_indeces.push_back(p->second);
@@ -531,7 +531,8 @@ void SessionModel::processChildren(const nlohmann::json &rj, const QModelIndex &
                         }
                     }
 
-                    for (int dest_idx = 0; dest_idx < rjc.size(); dest_idx++) {
+                    for (int dest_idx = 0; dest_idx < static_cast<int>(rjc.size());
+                         dest_idx++) {
 
                         if (rjc.at(dest_idx).count(compare_key)) {
 
@@ -796,15 +797,12 @@ void SessionModel::receivedData(
                     // if media status has changed it may be because the MediaReference on a
                     // MediaSourceActor has changed. We may need to re-generate the thumbnail
                     // if we already have one.
-                    auto type = j.value("type", "");
-                    if (type == "Media" && j.count("actor") and not j.at("actor").is_null()) {
-                        auto actor_str = j.at("actor");
-                        auto p         = media_thumbnails_.find(QStringFromStd(actor_str));
-                        if (p != media_thumbnails_.end()) {
+                    if (auto type = j.value("type", ""); type == "Media" && j.count("actor") and not j.at("actor").is_null()) {
+                        if (auto p = media_thumbnails_.find(QStringFromStd(j.at("actor"))); p != media_thumbnails_.end())
                             media_thumbnails_.erase(p);
-                            emit dataChanged(
-                                index, index, QVector<int>({Roles::thumbnailImageRole}));
-                        }
+
+                        emit dataChanged(
+                            index, index, QVector<int>({Roles::thumbnailImageRole}));
                     }
 
                     if (j.count(role_to_key[Roles::thumbnailURLRole])) {
@@ -1453,8 +1451,8 @@ QModelIndex MediaListFilterModel::rowToSourceIndex(const int row) const {
     QModelIndex srcIdx;
     if (row == -1) {
         // last row
-        srcIdx                      = mapToSource(index(rowCount() - 1, 0));
-        QTreeModelToTableModel *mdl = dynamic_cast<QTreeModelToTableModel *>(sourceModel());
+        srcIdx   = mapToSource(index(rowCount() - 1, 0));
+        auto mdl = dynamic_cast<QTreeModelToTableModel *>(sourceModel());
         if (mdl) {
             srcIdx = mdl->mapToModel(srcIdx);
         }
@@ -1462,8 +1460,8 @@ QModelIndex MediaListFilterModel::rowToSourceIndex(const int row) const {
         srcIdx = srcIdx.siblingAtRow(srcIdx.row() + 1);
 
     } else {
-        srcIdx                      = mapToSource(index(row, 0));
-        QTreeModelToTableModel *mdl = dynamic_cast<QTreeModelToTableModel *>(sourceModel());
+        srcIdx   = mapToSource(index(row, 0));
+        auto mdl = dynamic_cast<QTreeModelToTableModel *>(sourceModel());
         if (mdl) {
             srcIdx = mdl->mapToModel(srcIdx);
         }
@@ -1474,8 +1472,8 @@ QModelIndex MediaListFilterModel::rowToSourceIndex(const int row) const {
 int MediaListFilterModel::sourceIndexToRow(const QModelIndex &idx) const {
 
     // idx comes from SessionModelUI, which is the sourceModel of OUR sourceModel
-    QModelIndex remapped        = idx;
-    QTreeModelToTableModel *mdl = dynamic_cast<QTreeModelToTableModel *>(sourceModel());
+    QModelIndex remapped = idx;
+    auto mdl             = dynamic_cast<QTreeModelToTableModel *>(sourceModel());
     if (mdl) {
         // map from SessionModelUI to OUR sourceModel
         remapped = mdl->mapFromModel(remapped);
@@ -1490,10 +1488,10 @@ int MediaListFilterModel::sourceIndexToRow(const QModelIndex &idx) const {
 int MediaListFilterModel::getRowWithMatchingRoleData(
     const QVariant &searchValue, const QString &searchRole) const {
 
-    QTreeModelToTableModel *mdl = dynamic_cast<QTreeModelToTableModel *>(sourceModel());
+    auto mdl = dynamic_cast<QTreeModelToTableModel *>(sourceModel());
     if (mdl) {
         // map from SessionModelUI to OUR sourceModel
-        SessionModel *sessionModel = dynamic_cast<SessionModel *>(mdl->model());
+        auto sessionModel = dynamic_cast<SessionModel *>(mdl->model());
         if (sessionModel) {
             // note - we use this for the auto-scroll in the media list. We have the uuid of the
             // on-screen media, we need to find our row in the model. If we are looking at a

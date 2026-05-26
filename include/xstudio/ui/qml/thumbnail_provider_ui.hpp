@@ -37,7 +37,7 @@ class ThumbnailReader : public ControllableJob<std::pair<QImage, QString>> {
     std::pair<QImage, QString> run(JobControl &cjc) override;
 
   private:
-    const QString id_;
+    QString id_;
     const QSize requestedSize_;
 };
 
@@ -45,11 +45,11 @@ class ThumbnailReader : public ControllableJob<std::pair<QImage, QString>> {
 class ThumbnailResponse : public QQuickImageResponse {
   public:
     ThumbnailResponse(
-        const QString &id,
+        const QString id,
         const QSize &requestedSize,
         QThreadPool *pool,
         QMap<QString, QDateTime> &bad_thumbs)
-        : id_(id), bad_thumbs_(bad_thumbs) {
+        : id_(std::move(id)), bad_thumbs_(bad_thumbs) {
         // spdlog::warn("{}", StdFromQString(id));
         if (bad_thumbs_.contains(id_) and
             bad_thumbs_[id_].secsTo(QDateTime::currentDateTime()) < 60 * 20) {

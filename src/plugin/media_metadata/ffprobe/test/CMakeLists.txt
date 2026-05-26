@@ -6,6 +6,7 @@ target_link_libraries(ffprobe_test
 	PUBLIC
 		xstudio::media_metadata::ffprobe
 		xstudio::utility
+		xstudio::global
 		${GTEST_LDFLAGS}
 )
 target_include_directories(ffprobe_test

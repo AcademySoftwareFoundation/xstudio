@@ -23,8 +23,6 @@ PlayheadBase::PlayheadBase(const std::string &name, const utility::Uuid uuid)
     add_attributes();
 }
 
-PlayheadBase::~PlayheadBase() {}
-
 void PlayheadBase::add_attributes() {
 
     image_source_ = add_string_choice_attribute("Source", "Src", "", {}, {});
@@ -404,7 +402,7 @@ timebase::flicks PlayheadBase::adjusted_position() const {
 
         } else if (loop() == LM_PING_PONG) {
 
-            bool fwd = 0;
+            bool fwd = false;
             while (remainder > (out - in)) {
                 remainder -= (out - in);
                 fwd = !fwd;
@@ -431,7 +429,7 @@ timebase::flicks PlayheadBase::adjusted_position() const {
 
         } else if (loop() == LM_PING_PONG) {
 
-            bool fwd = 0;
+            bool fwd = false;
             while (remainder > (out - in)) {
                 remainder -= (out - in);
                 fwd = !fwd;

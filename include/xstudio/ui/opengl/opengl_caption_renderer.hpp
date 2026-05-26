@@ -12,49 +12,45 @@
 #include "xstudio/ui/opengl/opengl_text_rendering.hpp"
 #include "xstudio/ui/canvas/caption.hpp"
 
-namespace xstudio {
-namespace ui {
-    namespace opengl {
+namespace xstudio::ui::opengl {
 
-        class OpenGLCaptionRenderer {
-          public:
-            ~OpenGLCaptionRenderer();
+class OpenGLCaptionRenderer {
+  public:
+    ~OpenGLCaptionRenderer();
 
-            void render_captions(
-                const std::vector<xstudio::ui::canvas::Caption> &captions,
-                const Imath::M44f &transform_window_to_viewport_space,
-                const Imath::M44f &transform_viewport_to_image_space,
-                const float viewport_du_dx,
-                const float device_pixel_ratio,
-                const std::set<std::size_t> &skip_captions);
+    void render_captions(
+        const std::vector<xstudio::ui::canvas::Caption> &captions,
+        const Imath::M44f &transform_window_to_viewport_space,
+        const Imath::M44f &transform_viewport_to_image_space,
+        const float viewport_du_dx,
+        const float device_pixel_ratio,
+        const std::set<std::size_t> &skip_captions);
 
-            void render_single_caption(
-                const xstudio::ui::canvas::Caption &caption,
-                const Imath::M44f &transform_window_to_viewport_space,
-                const Imath::M44f &transform_viewport_to_image_space,
-                const float viewport_du_dx,
-                const float device_pixel_ratio);
+    void render_single_caption(
+        const xstudio::ui::canvas::Caption &caption,
+        const Imath::M44f &transform_window_to_viewport_space,
+        const Imath::M44f &transform_viewport_to_image_space,
+        const float viewport_du_dx,
+        const float device_pixel_ratio);
 
-          private:
-            void init_gl();
-            void cleanup_gl();
+  private:
+    void init_gl();
+    void cleanup_gl();
 
-            void render_background(
-                const Imath::M44f &transform_window_to_viewport_space,
-                const Imath::M44f &transform_viewport_to_image_space,
-                const float viewport_du_dpixel,
-                const utility::ColourTriplet &background_colour,
-                const float background_opacity,
-                const Imath::Box2f &bounding_box);
+    void render_background(
+        const Imath::M44f &transform_window_to_viewport_space,
+        const Imath::M44f &transform_viewport_to_image_space,
+        const float viewport_du_dpixel,
+        const utility::ColourTriplet &background_colour,
+        const float background_opacity,
+        const Imath::Box2f &bounding_box);
 
-            typedef std::shared_ptr<OpenGLTextRendererSDF> FontRenderer;
-            std::map<std::string, FontRenderer> text_renderers_;
+    typedef std::shared_ptr<OpenGLTextRendererSDF> FontRenderer;
+    std::map<std::string, FontRenderer> text_renderers_;
 
-            std::unique_ptr<GLShaderProgram> bg_shader_;
-            GLuint bg_vertex_buffer_{0};
-            GLuint bg_vertex_array_{0};
-        };
+    std::unique_ptr<GLShaderProgram> bg_shader_;
+    GLuint bg_vertex_buffer_{0};
+    GLuint bg_vertex_array_{0};
+};
 
-    } // namespace opengl
-} // namespace ui
-} // namespace xstudio
+} // namespace xstudio::ui::opengl

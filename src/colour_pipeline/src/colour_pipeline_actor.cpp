@@ -49,7 +49,7 @@ caf::behavior GlobalColourPipelineActor::make_behavior() {
             if (colour_piplines_.find(viewport_name) != colour_piplines_.end()) {
                 return colour_piplines_[viewport_name];
             }
-            return caf::actor();
+            return {};
         },
         [=](colour_pipeline_atom,
             const std::string &viewport_name,

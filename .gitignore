@@ -7,6 +7,7 @@ __*__
 ignore/
 *.egg-info/
 python/test/xstudio.log
+docs/Doxyfile
 docs/conf.py
 python/src/xstudio/version.py
 .vs/
@@ -17,4 +18,6 @@ xstudio_install/
 CMakeUserPresets.json
 __build
 __build_debug
+build_rel/
+build_dbg/
 aqtinstall.log

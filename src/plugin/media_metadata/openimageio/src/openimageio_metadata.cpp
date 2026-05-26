@@ -68,7 +68,6 @@ MMCertainty OpenImageIOMediaMetadata::supported(
 #else
         std::string ext = ltrim_char(to_upper(p.extension().string()), '.');
 #endif
-
         // Step 5: Check if the extension is in the supported list
         // Return fully supported if the extension is in the supported list
         try {

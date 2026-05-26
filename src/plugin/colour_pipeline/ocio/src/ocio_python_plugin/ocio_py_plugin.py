@@ -48,11 +48,6 @@ class OCIOPluginPython(PluginBase):
             name="OCIOPluginPython"
         )
 
-        # TODO: Changing here mess up the pixel probe
-        # TODO: qrc:/menus/XsMenuMultiChoice.qml:107:17:
-        # Unable to assign [undefined] to bool error when
-        # changing Auto labels
-
         # Range setting
 
         self.range_attr = self.add_attribute(
@@ -247,16 +242,16 @@ class OCIOPluginPython(PluginBase):
                 "/colour_pipeline/shader_overrides",
             )
         else:
-            media.media_source().set_metadata(
-                {}, "/colour_pipeline/shader_overrides"
-            )
+            # Need to remove shader_overrides entry and not just setting it to empty dict
+            # An empty dict will erase all decoding parameters when merged for the pixel probe
+            metadata = media.media_source().get_metadata("/colour_pipeline")
+            metadata.pop("shader_overrides", None)
+            media.media_source().set_metadata(metadata, "/colour_pipeline")
 
     def _plugin_metadata(self, media):
         metadata = media.media_source().get_metadata(
             "/colour_pipeline"
         )
-        if not metadata:
-            metadata = {}
         return metadata.get("ocio_py_plugin", {})
 
     def _set_plugin_metadata(self, media, plugin_metadata):

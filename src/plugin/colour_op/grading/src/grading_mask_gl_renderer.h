@@ -8,9 +8,7 @@
 #include "xstudio/ui/opengl/opengl_canvas_renderer.hpp"
 
 
-namespace xstudio {
-namespace ui {
-namespace viewport {
+namespace xstudio::ui::viewport {
 
     /*
     The pre_viewport_draw_gpu_hook is called with the GL context of the
@@ -31,7 +29,7 @@ namespace viewport {
 
       public:
 
-        GradingMaskRenderer(const std::string &viewport_name);
+        GradingMaskRenderer(const std::string viewport_name);
 
         void pre_viewport_draw_gpu_hook(
             const Imath::M44f &transform_window_to_viewport_space,
@@ -64,5 +62,3 @@ namespace viewport {
     using GradingMaskRendererSPtr = std::shared_ptr<GradingMaskRenderer>;
 
 } // end namespace viewport
-} // end namespace ui
-} // end namespace xstudio

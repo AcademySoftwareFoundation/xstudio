@@ -259,7 +259,7 @@ utility::Uuid EmbeddedPython::create_session(const bool interactive) {
         return u;
     }
 
-    return utility::Uuid();
+    return {};
 }
 
 bool EmbeddedPython::remove_session(const utility::Uuid &session_uuid) {
@@ -279,8 +279,8 @@ bool EmbeddedPython::input_session(
         std::string clean_input = rtrim(input);
         py::object scope        = py::module::import("__main__").attr("__dict__");
         py::exec(
-            "xstudio_sessions['" + to_string(session_uuid) + "'].interact_more(\"\"\"" +
-                clean_input + "\"\"\")",
+            "xstudio_sessions['" + to_string(session_uuid) + R"('].interact_more(""")" +
+                clean_input + R"("""))",
             scope);
         return true;
     } else if (session_uuid.is_null()) {
