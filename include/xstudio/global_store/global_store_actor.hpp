@@ -9,39 +9,37 @@
 #include "xstudio/json_store/json_store_actor.hpp"
 #include "xstudio/utility/json_store.hpp"
 
-namespace xstudio {
-namespace global_store {
-    class GlobalStoreActor : public caf::event_based_actor {
-      public:
-        GlobalStoreActor(
-            caf::actor_config &cfg,
-            const std::string &name        = "GlobalStore",
-            const utility::JsonStore &json = utility::JsonStore(),
-            const bool read_only           = false,
-            std::string reg_value          = global_store_registry);
-        GlobalStoreActor(
-            caf::actor_config &cfg,
-            const utility::JsonStore &json,
-            const bool read_only  = false,
-            std::string reg_value = global_store_registry);
-        void on_exit() override;
-        const char *name() const override { return NAME.c_str(); }
-        caf::message_handler message_handler();
+namespace xstudio::global_store {
+class GlobalStoreActor : public caf::event_based_actor {
+  public:
+    GlobalStoreActor(
+        caf::actor_config &cfg,
+        const std::string &name        = "GlobalStore",
+        const utility::JsonStore &json = utility::JsonStore(),
+        const bool read_only           = false,
+        std::string reg_value          = global_store_registry);
+    GlobalStoreActor(
+        caf::actor_config &cfg,
+        const utility::JsonStore &json,
+        const bool read_only  = false,
+        std::string reg_value = global_store_registry);
+    void on_exit() override;
+    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
+    caf::message_handler message_handler();
 
-        caf::behavior make_behavior() override {
-            return message_handler().or_else(base_.container_message_handler(this));
-        }
+    caf::behavior make_behavior() override {
+        return message_handler().or_else(base_.container_message_handler(this));
+    }
 
-      private:
-        inline static const std::string NAME = "GlobalStoreActor";
-        void init();
+  private:
+    inline static const std::string NAME = "GlobalStoreActor";
+    void init();
 
-      private:
-        const std::string reg_value_;
-        GlobalStore base_;
-        bool read_only_ = {false};
-        caf::actor jsonactor_;
-        caf::actor ioactor_;
-    };
-} // namespace global_store
-} // namespace xstudio
+  private:
+    const std::string reg_value_;
+    GlobalStore base_;
+    bool read_only_ = {false};
+    caf::actor jsonactor_;
+    caf::actor ioactor_;
+};
+} // namespace xstudio::global_store

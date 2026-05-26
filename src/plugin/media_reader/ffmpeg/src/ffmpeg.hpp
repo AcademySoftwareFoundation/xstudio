@@ -6,56 +6,60 @@
 #include "xstudio/media_reader/media_reader.hpp"
 #include "xstudio/utility/helpers.hpp"
 
-namespace xstudio {
-namespace media_reader {
-    namespace ffmpeg {
-        class FFMpegDecoder;
+namespace xstudio::media_reader {
+
+namespace ffmpeg {
+    class FFMpegDecoder;
+}
+
+class FFMpegMediaReader : public MediaReader {
+  public:
+    FFMpegMediaReader(const utility::JsonStore &prefs = utility::JsonStore());
+    virtual ~FFMpegMediaReader() = default;
+
+    ImageBufPtr image(const media::AVFrameID &mptr) override;
+
+    AudioBufPtr audio(const media::AVFrameID &mptr) override;
+
+    void update_preferences(const utility::JsonStore &) override;
+    MRCertainty
+    supported(const caf::uri &uri, const std::array<uint8_t, 16> &signature) override;
+    [[nodiscard]] media::MediaDetail detail(const caf::uri &uri) const override;
+    [[nodiscard]] uint8_t maximum_readers(const caf::uri &) const override {
+        return readers_per_source_;
     }
-    class FFMpegMediaReader : public MediaReader {
-      public:
-        FFMpegMediaReader(const utility::JsonStore &prefs = utility::JsonStore());
-        virtual ~FFMpegMediaReader() = default;
+    [[nodiscard]] bool prefer_sequential_access() const override {
+        return true;
+    }
+    [[nodiscard]] bool can_decode_audio() const override { return true; }
+    std::shared_ptr<thumbnail::ThumbnailBuffer>
+    thumbnail(const media::AVFrameID &mptr, const size_t thumb_size) override;
 
-        ImageBufPtr image(const media::AVFrameID &mptr) override;
+    [[nodiscard]] std::vector<std::string> supported_extensions() const override;
 
-        AudioBufPtr audio(const media::AVFrameID &mptr) override;
+    [[nodiscard]] utility::Uuid plugin_uuid() const override;
 
-        void update_preferences(const utility::JsonStore &) override;
-        MRCertainty
-        supported(const caf::uri &uri, const std::array<uint8_t, 16> &signature) override;
-        media::MediaDetail detail(const caf::uri &uri) const override;
-        uint8_t maximum_readers(const caf::uri &) const override { return readers_per_source_; }
-        bool prefer_sequential_access(const caf::uri &) const override { return true; }
-        bool can_decode_audio() const override { return true; }
-        std::shared_ptr<thumbnail::ThumbnailBuffer>
-        thumbnail(const media::AVFrameID &mptr, const size_t thumb_size) override;
+    [[nodiscard]] ImageBuffer::PixelPickerFunc pixel_picker_func() const override {
+        return &FFMpegMediaReader::ffmpeg_buffer_pixel_picker;
+    }
 
-        std::vector<std::string> supported_extensions() const override;
+  private:
+    static PixelInfo ffmpeg_buffer_pixel_picker(
+        const ImageBuffer &buf,
+        const utility::JsonStore &pixel_unpack_uniforms,
+        const Imath::V2i &pixel_location,
+        const std::vector<Imath::V2i> &extra_pixel_locationss);
 
-        [[nodiscard]] utility::Uuid plugin_uuid() const override;
+    std::shared_ptr<ffmpeg::FFMpegDecoder> decoder;
+    std::shared_ptr<ffmpeg::FFMpegDecoder> audio_decoder;
+    std::shared_ptr<ffmpeg::FFMpegDecoder> thumbnail_decoder;
 
-        [[nodiscard]] ImageBuffer::PixelPickerFunc pixel_picker_func() const override {
-            return &FFMpegMediaReader::ffmpeg_buffer_pixel_picker;
-        }
+    int readers_per_source_;
+    int soundcard_sample_rate_       = {48000};
+    int channels_                    = 2;
+    utility::FrameRate default_rate_ = {utility::FrameRate(timebase::k_flicks_24fps)};
 
-      private:
-        static PixelInfo ffmpeg_buffer_pixel_picker(
-            const ImageBuffer &buf,
-            const utility::JsonStore &pixel_unpack_uniforms,
-            const Imath::V2i &pixel_location,
-            const std::vector<Imath::V2i> &extra_pixel_locationss);
-
-        std::shared_ptr<ffmpeg::FFMpegDecoder> decoder;
-        std::shared_ptr<ffmpeg::FFMpegDecoder> audio_decoder;
-        std::shared_ptr<ffmpeg::FFMpegDecoder> thumbnail_decoder;
-
-        int readers_per_source_;
-        int soundcard_sample_rate_       = {48000};
-        int channels_                    = 2;
-        utility::FrameRate default_rate_ = {utility::FrameRate(timebase::k_flicks_24fps)};
-
-        ImageBufPtr last_decoded_image_;
-        utility::JsonStore supported_;
-    };
-} // namespace media_reader
-} // namespace xstudio
+    ImageBufPtr last_decoded_image_;
+    utility::JsonStore supported_;
+};
+} // namespace xstudio::media_reader

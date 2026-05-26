@@ -4,9 +4,7 @@
 
 #include "grading_data.h"
 
-namespace xstudio {
-namespace ui {
-namespace viewport {
+namespace xstudio::ui::viewport {
 
 class GradingMaskRenderData : public utility::BlindDataObject {
   public:
@@ -15,5 +13,3 @@ class GradingMaskRenderData : public utility::BlindDataObject {
 };
 
 } // end namespace viewport
-} // end namespace ui
-} // namespace xstudio

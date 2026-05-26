@@ -4,19 +4,22 @@
 from xstudio.plugin import PluginBase
 from xstudio.core import JsonStore, FrameList, add_media_atom, Uuid
 import os
+from enum import Enum
 import sys
 import json
 import threading
-import queue
 import time
 import subprocess
 import shutil
 import pathlib
-import tempfile
-import uuid as _uuid
 import atexit
-from collections import OrderedDict
-from datetime import datetime
+class HostApp(Enum):
+    generic = 1
+    xstudio = 2
+    rv = 3
+    rpa = 4
+
+HOST_APP = HostApp.xstudio
 
 # Try importing fileseq
 try:
@@ -24,42 +27,18 @@ try:
     fileseq_available = True
 except ImportError:
     fileseq_available = False
-    print("Warning: fileseq module not found. Sequence detection will be disabled.")
+    _dbg("Warning: fileseq module not found. Sequence detection will be disabled.")
 
-# File-based debug log (more reliable than print in xStudio's embedded Python)
-_DEBUG_LOG = "/tmp/xstudio_thumb_debug.txt"
-def _dbg(msg):
+# File-based debug log (more reliable than _dbg in xStudio's embedded Python)
+_DEBUG_LOG = "/{}/xstudio_thumb_debug.txt".format(os.environ.get("TMPDIR", "/tmp").rstrip("/"))
+def _dbg(*msg):
+    return
     try:
         with open(_DEBUG_LOG, "a") as _f:
             _f.write(f"{msg}\n")
             _f.flush()
     except Exception:
         pass
-
-
-def _find_ffmpeg():
-    """Find ffmpeg binary. Checks env var, xStudio app bundle, then system PATH."""
-    # 1. Explicit override
-    env_path = os.environ.get("FFMPEG_PATH")
-    if env_path and os.path.isfile(env_path):
-        return env_path, None  # (binary, dyld_lib_path)
-
-    # 2. xStudio app bundle (same directory as the main binary)
-    exe = sys.argv[0] if sys.argv else ""
-    bundle_ffmpeg = os.path.join(os.path.dirname(exe), "ffmpeg")
-    if os.path.isfile(bundle_ffmpeg):
-        # Bundled ffmpeg needs Frameworks dir on DYLD_LIBRARY_PATH
-        frameworks = os.path.join(os.path.dirname(exe), "..", "Frameworks")
-        frameworks = os.path.normpath(frameworks)
-        return bundle_ffmpeg, frameworks
-
-    # 3. System PATH
-    system_ffmpeg = shutil.which("ffmpeg")
-    if system_ffmpeg:
-        return system_ffmpeg, None
-
-    return None, None
-
 
 # PySide6 dependency removed
 # from PySide6.QtCore import QObject, Signal, Qt
@@ -87,11 +66,7 @@ class XStudioHostInterface:
         """
         self.connection = connection
         self.plugin = plugin
-        self.playlist_path_cache = {}
-        self.last_used_playlist_uuid = None
-        self.original_playlist_uuid = None
-        self.preview_playlist_uuid = None
-        self.pending_preview_deletion_uuid = None
+        self.preview_playlist = None
 
     def _resolve_active_playlist(self):
         """
@@ -100,17 +75,7 @@ class XStudioHostInterface:
         Returns:
             Playlist | None: The active playlist container, or None if no valid playlist is found.
         """
-        try:
-            viewed = self.connection.api.session.viewed_container
-            if hasattr(viewed, 'add_media') and viewed.name != "Preview":
-                return viewed
-        except Exception: pass
-        try:
-            selection = self.connection.api.session.selected_containers
-            if selection and hasattr(selection[0], 'add_media') and selection[0].name != "Preview":
-                return selection[0]
-        except Exception: pass
-        return None
+        return self.connection.api.session.inspected_container
 
     @staticmethod
     def _format_sequence_path(path):
@@ -156,7 +121,8 @@ class XStudioHostInterface:
             seq_path = self._format_sequence_path(path)
             return playlist.add_media(seq_path if seq_path else path)
         except Exception as e:
-            print(f"Add media error: {e}")
+            _dbg (traceback.format_exc())
+            _dbg(f"Add media error: {e}")
             return None
 
     def _find_container_uuid(self, tree, target_value_uuid):
@@ -188,117 +154,27 @@ class XStudioHostInterface:
         Args:
             path (str): The path to the file or sequence to load.
         """
-        try:
-            valid_playlist = None
+        target_playlist = self.connection.api.session.inspected_container
+        if not target_playlist:
+            target_playlist = self.connection.api.session.create_playlist("File System Imports")
+            
+        for m in target_playlist.media:
             try:
-                selection = self.connection.api.session.selected_containers
-                for item in selection:
-                    if hasattr(item, 'add_media') and item.name != "Preview":
-                        valid_playlist = item
-                        self.last_used_playlist_uuid = item.uuid
-                        break
-            except Exception: pass
-            
-            if not valid_playlist and self.last_used_playlist_uuid:
-                try:
-                    target_uuid_str = str(self.last_used_playlist_uuid)
-                    for p in self.connection.api.session.playlists:
-                        if str(p.uuid) == target_uuid_str and p.name != "Preview":
-                            valid_playlist = p
-                            break
-                except Exception: pass
+                if m.metadata.get("/fs_browser/import_path") == path:
+                    # already loaded this media into the playlist
+                    return
+            except:
+                pass
 
-            if not valid_playlist:
-                try:
-                    viewed = self.connection.api.session.viewed_container
-                    if hasattr(viewed, 'add_media') and viewed.name != "Preview":
-                        valid_playlist = viewed
-                        self.last_used_playlist_uuid = viewed.uuid
-                except Exception: pass
+        seq_path = self._format_sequence_path(path) if fileseq_available else None
+        if seq_path:
+            media = target_playlist.add_media(seq_path)
+        else:
+            media = target_playlist.add_media(path)
 
-            if not valid_playlist:
-                 playlists = [p for p in self.connection.api.session.playlists if p.name != "Preview"]
-                 if playlists:
-                     valid_playlist = playlists[0]
-                 else:
-                     self.connection.api.session.create_playlist("Filesystem Import")
-                     valid_playlist = [p for p in self.connection.api.session.playlists if p.name != "Preview"][0]
-                 self.last_used_playlist_uuid = valid_playlist.uuid
-            
-            if self.preview_playlist_uuid is not None:
-                if self.original_playlist_uuid is not None:
-                    orig_uuid_str = str(self.original_playlist_uuid)
-                    for p in self.connection.api.session.playlists:
-                        if str(p.uuid) == orig_uuid_str:
-                            valid_playlist = p
-                            break
-                self.pending_preview_deletion_uuid = self.preview_playlist_uuid
-                self.original_playlist_uuid = None
-                self.preview_playlist_uuid = None
-
-            playlist = valid_playlist
-            pl_uuid = str(playlist.uuid)
-            if pl_uuid not in self.playlist_path_cache:
-                self.playlist_path_cache[pl_uuid] = set()
-            
-            existing_media = None
-            try:
-                current_media_list = playlist.media
-                tgt_path = os.path.normpath(os.path.abspath(path))
-                for m in current_media_list:
-                    try:
-                        ms = m.media_source()
-                        mr = ms.media_reference
-                        if mr:
-                            u = mr.uri()
-                            mp = u.path()
-                            if mp:
-                                mp_norm = os.path.normpath(os.path.abspath(mp))
-                                if mp_norm == tgt_path:
-                                    existing_media = m
-                                    break
-                    except Exception: continue
-            except Exception as e: print(f"Dup check error: {e}")
-
-            if existing_media:
-                media = existing_media
-            elif tgt_path in self.playlist_path_cache[pl_uuid]:
-                 return
-            else:
-                seq_path = self._format_sequence_path(path) if fileseq_available else None
-                if seq_path:
-                    media = playlist.add_media(seq_path)
-                else:
-                    media = playlist.add_media(path)
-                self.playlist_path_cache[pl_uuid].add(tgt_path)
-
-            self.connection.api.session.set_on_screen_source(playlist)
-            try: self.connection.api.session.viewed_container = playlist
-            except Exception: pass
-            
-            if hasattr(playlist, 'playhead_selection'):
-                playlist.playhead_selection.set_selection([media.uuid])
-
-            try: playlist.playhead.playing = True
-            except Exception: pass
-
-            if self.pending_preview_deletion_uuid:
-                try:
-                    prev_uuid = self.pending_preview_deletion_uuid
-                    self.pending_preview_deletion_uuid = None
-                    tree = self.connection.api.session.playlist_tree
-                    cuuid = self._find_container_uuid(tree, prev_uuid)
-                    if cuuid:
-                        self.connection.api.session.remove_container(cuuid)
-                    else:
-                        for p in self.connection.api.session.playlists:
-                            if str(p.uuid) == str(prev_uuid):
-                                self.connection.api.session.remove_container(p)
-                                break
-                except Exception as e: _dbg(f"Final cleanup error: {e}")
-
-        except Exception as e:
-            print(f"Error loading file: {e}")
+        self.connection.api.session.viewed_container = target_playlist
+        target_playlist.playhead_selection.set_selection([media.uuid])
+        playlist.playhead.playing = True
 
     def replace_current_media(self, path):
         """
@@ -332,7 +208,7 @@ class XStudioHostInterface:
             if hasattr(playlist, 'playhead'):
                 playlist.playhead.playing = True
 
-        except Exception as e: print(f"Replace error: {e}")
+        except Exception as e: _dbg(f"Replace error: {e}")
 
     def compare_with_current_media(self, path):
         """
@@ -357,93 +233,40 @@ class XStudioHostInterface:
             if hasattr(playlist, 'playhead'):
                 playlist.playhead.compare_mode = "A/B"
                 playlist.playhead.playing = True
-        except Exception as e: print(f"Compare error: {e}")
+        except Exception as e: _dbg(f"Compare error: {e}")
 
-    def append_media(self, path):
+    def append_media(self, paths):
         """
         Appends a piece of media to the currently active playlist without altering 
         the playhead's current playback mode or selection.
 
         Args:
-            path (str): The media file path to append.
+            paths (list): The media file paths to append.
         """
         try:
             playlist = self._resolve_active_playlist()
             if not playlist: return
-            self._add_media_to_playlist(playlist, path)
-        except Exception as e: print(f"Append error: {e}")
+            for path in paths:
+                self._add_media_to_playlist(playlist, path)
+        except Exception as e: _dbg(f"Append error: {e}")
 
     def preview_media(self, path):
         """
-        Creates or utilizes a transient 'Preview' playlist to temporarily view an item. 
-        It safely captures the existing playlist and playhead frame so that closing the preview 
-        can revert the interface to precisely what was observed before.
+        Creates or utilizes a hidden 'Preview' playlist to temporarily view an item. 
 
         Args:
             path (str): The media file path to preview.
         """
-        try:
-            viewed = None
-            try: viewed = self.connection.api.session.viewed_container
-            except Exception: pass
+        if not self.preview_playlist:
+            self.preview_playlist = self.connection.api.session.create_hidden_playlist("Preview")
 
-            if self.preview_playlist_uuid is None:
-                self.original_playlist_uuid = None
-                if viewed and hasattr(viewed, 'add_media') and viewed.name != "Preview":
-                    try: self.original_playlist_uuid = viewed.uuid
-                    except Exception: pass
-                
-            current_frame = None
-            if viewed and hasattr(viewed, 'playhead'):
-                try: current_frame = viewed.playhead.position
-                except Exception: pass
+        self.preview_playlist.clear()
+        media = self._add_media_to_playlist(self.preview_playlist, path)
+        if not media: return
 
-            preview_playlist = None
-            try:
-                for p in self.connection.api.session.playlists:
-                    try:
-                        if p.name == "Preview":
-                            preview_playlist = p
-                            break
-                    except Exception: continue
-            except Exception: pass
-            
-            if not preview_playlist:
-                try: _, preview_playlist = self.connection.api.session.create_playlist("Preview")
-                except Exception: pass
-            
-            if not preview_playlist: return
-                
-            try: self.preview_playlist_uuid = preview_playlist.uuid
-            except Exception: pass
-
-            try:
-                media_list = list(preview_playlist.media)
-                if media_list: preview_playlist.remove_media(media_list)
-            except Exception: pass
-                
-            media = self._add_media_to_playlist(preview_playlist, path)
-            if not media: return
-
-            try: self.connection.api.session.set_on_screen_source(preview_playlist)
-            except Exception: pass
-            
-            try: self.connection.api.session.viewed_container = preview_playlist
-            except Exception: pass
-            
-            try:
-                if hasattr(preview_playlist, 'playhead_selection'):
-                    preview_playlist.playhead_selection.set_selection([media.uuid])
-
-                if hasattr(preview_playlist, 'playhead'):
-                    if current_frame is not None:
-                        try: preview_playlist.playhead.position = current_frame
-                        except Exception: pass
-                    try: preview_playlist.playhead.playing = False
-                    except Exception: pass
-            except Exception: pass
-                
-        except Exception as e: print(f"FilesystemBrowser Preview error: {e}")
+        self.connection.api.session.viewed_container = self.preview_playlist
+        self.preview_playlist.playhead_selection.set_selection([media.uuid])
+        self.preview_playlist.playhead.playing = True
 
 
 class FilesystemBrowserPlugin(PluginBase):
@@ -451,21 +274,27 @@ class FilesystemBrowserPlugin(PluginBase):
         PluginBase.__init__(
             self,
             connection,
-            "Filesystem Browser",
-            qml_folder="qml/FilesystemBrowser.1"
+            "File System Browser",
+            qml_folder="qml/FilesystemBrowserXStudio.1" if HOST_APP == HostApp.xstudio else "qml/FilesystemBrowserGeneric.1"
         )
         # Initialize the host application interface (xStudio concrete implementation)
         self.host = XStudioHostInterface(self.connection, self)
 
         # Load Configuration
         self.config = self.load_config()
+
+        if HOST_APP == HostApp.generic:
+            # instanciate object that manages ffmpeg subprocess and threads for
+            # generation of thumbnail images
+            from .ffmpeg_thumbnails import FFMpegThumbnails
+            self.thumbnail_generator = FFMpegThumbnails(self._update_file_thumbnail, _dbg)
         
         # self.main_executor = MainThreadExecutor()
 
         # Attribute to communicate list of files to QML (as JSON string)
         self.files_attr = self.add_attribute(
             "file_list",
-            "[]", # Empty JSON list
+            "", # empty string - sets file type as string
             {"title": "file_list"}, # Explicit title for QML lookup
             register_as_preference=False
         )
@@ -526,14 +355,14 @@ class FilesystemBrowserPlugin(PluginBase):
         
         # Register the panel, passing the action
         self.register_ui_panel_qml(
-            "Filesystem Browser",
+            "File System Browser",
             """
             FilesystemBrowser {
                 anchors.fill: parent
             }
             """,
             10.0, # Position in menu
-            "", # No icon = Standard Panel (Dockable)
+            "", # No icon = Standard Panel (Docked)
             -1.0,
             self.toggle_browser_action # Pass the action UUID
         )
@@ -600,6 +429,15 @@ class FilesystemBrowserPlugin(PluginBase):
         )
         self.depth_limit_attr.expose_in_ui_attrs_group("Filesystem Browser Settings")
 
+        # stores the view mode (list, tree, groups, thumbs)
+        self.view_mode_attr = self.add_attribute(
+            "view_mode",
+            3,
+            {},
+            register_as_preference=True
+        )
+        self.view_mode_attr.expose_in_ui_attrs_group("Filesystem Browser")
+
         # New: Scan Required flag (for manual scan mode)
         self.scan_required_attr = self.add_attribute(
             "scan_required",
@@ -608,6 +446,12 @@ class FilesystemBrowserPlugin(PluginBase):
             register_as_preference=False
         )
         self.scan_required_attr.expose_in_ui_attrs_group("Filesystem Browser")
+
+        self.is_deepscan_attr = self.add_attribute(
+            "is_deepscan",
+            False
+        )
+        self.is_deepscan_attr.expose_in_ui_attrs_group("Filesystem Browser")
 
         self.auto_scan_threshold_attr = self.add_attribute(
             "auto_scan_threshold",
@@ -619,20 +463,20 @@ class FilesystemBrowserPlugin(PluginBase):
         
         # New: Filter attributes
         self.filter_time_attr = self.add_attribute(
-            "filter_time",
+            "Mod. Time",
             "Any", 
-            {"title": "filter_time", "values": ["Any", "Last 1 day", "Last 2 days", "Last 1 week", "Last 1 month"]},
+            {"combo_box_options": ["Any", "Last 1 day", "Last 2 days", "Last 1 week", "Last 1 month"]},
             register_as_preference=True
         )
-        self.filter_time_attr.expose_in_ui_attrs_group("Filesystem Browser")
+        self.filter_time_attr.expose_in_ui_attrs_group(["Filesystem Browser", "Filter Terms"])
         
         self.filter_version_attr = self.add_attribute(
-            "filter_version",
+            "Version",
             "All Versions",
-            {"title": "filter_version", "values": ["All Versions", "Latest Version", "Latest 2 Versions"]},
+            {"title": "Version", "combo_box_options": ["All Versions", "Latest Version", "Latest 2 Versions"]},
             register_as_preference=True
         )
-        self.filter_version_attr.expose_in_ui_attrs_group("Filesystem Browser")
+        self.filter_version_attr.expose_in_ui_attrs_group(["Filesystem Browser", "Filter Terms"])
 
         # History and Pinned Attributes
         self.history_attr = self.add_attribute(
@@ -717,7 +561,7 @@ class FilesystemBrowserPlugin(PluginBase):
                 self.pinned_attr.set_value(new_val)
                 
         except Exception as e:
-            print(f"FilesystemBrowser: Error merging pins: {e}")
+            _dbg(f"FilesystemBrowser: Error merging pins: {e}")
 
         # Connect listeners
         # Note: We need to register callbacks properly.
@@ -752,28 +596,6 @@ class FilesystemBrowserPlugin(PluginBase):
         self.results_lock = threading.Lock()  # Protects current_scan_results
         self.current_scan_results = []
         
-        # Thumbnail setup — ffmpeg-based, no xStudio actor system needed
-        self._ffmpeg_bin, self._ffmpeg_dyld = _find_ffmpeg()
-        if self._ffmpeg_bin:
-            print(f"FilesystemBrowser: using ffmpeg at {self._ffmpeg_bin}")
-        else:
-            print("FilesystemBrowser: WARNING — ffmpeg not found, thumbnails disabled")
-        self._temp_dir = tempfile.mkdtemp(prefix="xstudio_thumbs_")
-        self._thumbnail_cache = OrderedDict()  # path -> file:///... thumb URI (LRU, capped)
-        self._thumbnail_cache_max = 500
-        atexit.register(self._cleanup)
-        self._thumb_lock = threading.Lock()
-        self._thumb_pending = set()  # paths currently in queue/processing
-        self._thumb_queue = queue.Queue()
-        # 4 worker threads — daemon so they die with the process
-        for _ in range(4):
-            t = threading.Thread(target=self._thumb_worker_loop, daemon=True)
-            t.start()
-
-        # State tracking for Preview Mode
-        self.original_playlist_uuid = None
-        self.preview_playlist_uuid = None
-
         # Dedicated attribute for batch thumbnail requests from QML.
         # QML writes a JSON array of paths; Python reads and queues them all at once.
         self.thumbnail_request_attr = self.add_attribute(
@@ -813,7 +635,7 @@ class FilesystemBrowserPlugin(PluginBase):
         # Since we are now a standard dockable panel, the user should use View -> Panels -> Filesystem Browser
         # or rely on the hotkey's default action if it maps to the view.
         # We'll just log here.
-        print("Menu item clicked. The Filesystem Browser is available in the Panels menu.")
+        _dbg("Menu item clicked. The Filesystem Browser is available in the Panels menu.")
         self.toggle_browser(None, "Menu Click")
 
     def open_floating_browser(self):
@@ -836,7 +658,7 @@ class FilesystemBrowserPlugin(PluginBase):
         self.create_qml_item(qml)
 
     def toggle_browser(self, converting, context):
-        print(f"Toggling Filesystem Browser (Action Triggered). Context: {context}")
+        _dbg(f"Toggling Filesystem Browser (Action Triggered). Context: {context}")
         # We can also verify visibility here if possible, but the Model handles it.
 
 
@@ -849,9 +671,9 @@ class FilesystemBrowserPlugin(PluginBase):
                 self.current_path_attr.set_value(dir_path)
                 self.start_search(dir_path)
         except ImportError:
-            print("PySide6 not available. Directory dialog disabled.")
+            _dbg("PySide6 not available. Directory dialog disabled.")
         except Exception as e:
-            print(f"Error opening dialog: {e}")
+            _dbg(f"Error opening dialog: {e}")
 
 
     def _build_command_handlers(self):
@@ -863,14 +685,14 @@ class FilesystemBrowserPlugin(PluginBase):
                 self._add_to_history(new_path)
                 self.start_search(new_path)
             else:
-                print(f"Invalid path: {new_path}")
+                _dbg(f"Invalid path: {new_path}")
 
         def _cmd_set_attribute(data):
             attr_name = data.get("name")
             attr_value = data.get("value")
-            if attr_name == "filter_time":
+            if attr_name == "Mod. Time":
                 self.filter_time_attr.set_value(attr_value)
-            elif attr_name == "filter_version":
+            elif attr_name == "Version":
                 self.filter_version_attr.set_value(attr_value)
             elif attr_name == "recursion_limit":
                 self.depth_limit_attr.set_value(attr_value)
@@ -912,6 +734,12 @@ class FilesystemBrowserPlugin(PluginBase):
             except Exception as e:
                 _dbg(f"reveal_in_finder: Error: {e}")
 
+        def _cmd_go_to_parent(data):
+            from pathlib import Path
+            path = Path(self.current_path_attr.value())
+            self.current_path_attr.set_value(str(path.parent.absolute()))
+            self.start_search(self.current_path_attr.value())
+
         def _cmd_force_scan(data):
             path = data.get("path")
             if path:
@@ -929,15 +757,16 @@ class FilesystemBrowserPlugin(PluginBase):
             "complete_path":            lambda d: self.compute_completions(d.get("path", "")),
             "replace_current_media":    lambda d: self.host.replace_current_media(d.get("path")),
             "compare_with_current_media": lambda d: self.host.compare_with_current_media(d.get("path")),
-            "append_media":             lambda d: self.host.append_media(d.get("path")),
+            "append_media":             lambda d: self.host.append_media(d.get("paths")),
             "set_attribute":            _cmd_set_attribute,
             "copy_path":                _cmd_copy_path,
             "reveal_in_finder":         _cmd_reveal_in_finder,
             "add_pin":                  lambda d: self._add_pin(d.get("name"), d.get("path")),
             "remove_pin":               lambda d: self._remove_pin(d.get("path")),
             "force_scan":               _cmd_force_scan,
+            "go_to_parent_folder":      _cmd_go_to_parent,
             "get_subdirs":              lambda d: self._get_subdirs(d.get("path")),
-            "request_thumbnail":        lambda d: self._request_thumbnail(d.get("path")),
+            "request_thumbnail":        lambda d: self.thumbnail_generator(d.get("path")),
         }
 
     def attribute_changed(self, attribute, role):
@@ -957,11 +786,11 @@ class FilesystemBrowserPlugin(PluginBase):
                 if handler:
                     handler(data)
                 elif action:
-                    print(f"FilesystemBrowser: Unknown command action: {action!r}")
+                    _dbg(f"FilesystemBrowser: Unknown command action: {action!r}")
                 # Clear command channel
                 self.command_attr.set_value("")
             except Exception as e:
-                print(f"Command error: {e}")
+                _dbg(f"Command error: {e}")
                 import traceback
                 traceback.print_exc()
                 
@@ -982,11 +811,31 @@ class FilesystemBrowserPlugin(PluginBase):
                     paths = json.loads(val)
                     _dbg(f"BATCH: received {len(paths)} paths")
                     for p in paths:
-                        self._request_thumbnail(p)
+                        self.thumbnail_generator.request_thumbnail(p)
                     self.thumbnail_request_attr.set_value("[]")
             except Exception as e:
                 import traceback
                 _dbg(f"BATCH ERROR: {e}\n{traceback.format_exc()}")
+
+    def _manual_scan_required(self):
+        """Called when a path is selected that is shallow enough to require 
+        manual confirmation before scanning."""
+        self.scan_required_attr.set_value(True)
+        self.searching_attr.set_value(False)
+        self.progress_attr.set_value("0")
+        
+        with self.results_lock:
+            self.current_scan_results = []
+        self.scanned_attr.set_value("0") 
+        self.scanned_dirs_attr.set_value("[]")
+        
+        self.apply_filters()
+        
+        if self.search_thread and self.search_thread.is_alive():
+            self.cancel_search = True
+            if hasattr(self, 'scanner'):
+                self.scanner.stop()
+            self.search_thread.join()
 
     def start_search(self, start_path, force=False, depth=None):
         """
@@ -999,29 +848,21 @@ class FilesystemBrowserPlugin(PluginBase):
         # Check path depth
         norm_path = os.path.normpath(start_path)
         parts = norm_path.strip(os.sep).split(os.sep)
-        p_depth = len([p for p in parts if p])
         
-        threshold = self.config.get("auto_scan_threshold", 4)
-        
-        if not force and p_depth <= threshold:
-            print(f"FilesystemBrowser: Path '{start_path}' (depth {p_depth}) requires manual scan.")
-            self.scan_required_attr.set_value(True)
-            self.searching_attr.set_value(False)
-            self.progress_attr.set_value("0")
-            
-            with self.results_lock:
-                self.current_scan_results = []
-            self.scanned_attr.set_value("0") 
-            self.scanned_dirs_attr.set_value("[]")
-            
-            self.apply_filters()
-            
-            if self.search_thread and self.search_thread.is_alive():
-                self.cancel_search = True
-                if hasattr(self, 'scanner'):
-                    self.scanner.stop()
-                self.search_thread.join()
-            return
+        if HOST_APP == HostApp.xstudio:
+            if not force:
+                depth = 0
+            if depth == None:
+                # if no depth is set, we only scan the current folder
+                depth = 0
+        else:
+            p_depth = len([p for p in parts if p])        
+            threshold = self.config.get("auto_scan_threshold", 4)
+            if not force and p_depth <= threshold:
+                self._manual_scan_required()
+                return
+
+        self.is_deepscan_attr.set_value(depth != 0)
 
         self.scan_required_attr.set_value(False)
 
@@ -1039,7 +880,7 @@ class FilesystemBrowserPlugin(PluginBase):
         self.search_thread.start()
 
     def _search_worker(self, start_path, custom_depth=None):
-        print(f"Starting search in {start_path} (depth={custom_depth if custom_depth is not None else 'default'})")
+        _dbg(f"Starting search in {start_path} (depth={custom_depth if custom_depth is not None else 'default'})")
         
         from .scanner import FileScanner
         
@@ -1096,13 +937,13 @@ class FilesystemBrowserPlugin(PluginBase):
                 return
 
             with self.results_lock:
-                self.current_scan_results = results
+                self.current_scan_results = results        
             self.apply_filters()
             
-            print(f"Search finished, found {len(results)} items")
+            _dbg(f"Search finished, found {len(results)} items")
             
         except Exception as e:
-            print(f"Search error: {e}")
+            _dbg(f"Search error: {e}")
             import traceback
             traceback.print_exc()
         finally:
@@ -1152,10 +993,28 @@ class FilesystemBrowserPlugin(PluginBase):
             self.completions_attr.set_value(json.dumps(candidates[:20]))
 
         except Exception as e:
-            print(f"Completion error: {e}")
+            _dbg(f"Completion error: {e}")
             self.completions_attr.set_value("[]")
 
+    def _update_file_thumbnail(self, path, thumb_uri):
+        """Update thumbnailSource in current_scan_results and push to files_attr
+        WITHOUT calling apply_filters() to avoid a full QML model rebuild."""
+        with self.results_lock:
+            found = False
+            for r in self.current_scan_results:
+                if r.get("path") == path:
+                    if r.get("thumbnailSource") == thumb_uri:
+                        return  # Already up to date; don't trigger another rebuild
+                    r["thumbnailSource"] = thumb_uri
+                    found = True
+                    break
+            if not found:
+                return
+            # Serialise only what QML needs — same JSON format as apply_filters
+            serialised = json.dumps(self.current_scan_results)
 
+        # Push the update; QML will merge thumbnailSource via the Image.source binding
+        self.files_attr.set_value(serialised)
 
     def load_config(self):
         """Load configuration from config.json in the plugin directory."""
@@ -1176,9 +1035,9 @@ class FilesystemBrowserPlugin(PluginBase):
                     # Merge with defaults
                     for key, value in loaded_config.items():
                         default_config[key] = value
-                    print(f"FilesystemBrowser: Loaded config from {config_path}")
+                    _dbg(f"FilesystemBrowser: Loaded config from {config_path}")
             except Exception as e:
-                print(f"FilesystemBrowser: Error loading config: {e}")
+                _dbg(f"FilesystemBrowser: Error loading config: {e}")
         
         return default_config
 
@@ -1207,7 +1066,7 @@ class FilesystemBrowserPlugin(PluginBase):
                 dirs.sort(key=lambda x: x["name"].lower())
                 result["dirs"] = dirs
         except Exception as e:
-            print(f"Error getting subdirs for {path}: {e}")
+            _dbg(f"Error getting subdirs for {path}: {e}")
         
         import time
         result["timestamp"] = time.time()
@@ -1225,8 +1084,6 @@ class FilesystemBrowserPlugin(PluginBase):
             return
         self.host.load_media(path)
 
-
-
     def apply_filters(self):
         """Re-run filtering logic on the current results cache."""
         try:
@@ -1241,7 +1098,7 @@ class FilesystemBrowserPlugin(PluginBase):
             # Doing it synchronously for now, but catching errors
             self._apply_filters_logic(results)
         except Exception as e:
-            print(f"Error applying filters: {e}")
+            _dbg(f"Error applying filters: {e}")
 
     def _apply_filters_logic(self, results):
         import os
@@ -1256,7 +1113,7 @@ class FilesystemBrowserPlugin(PluginBase):
         else:
             filter_version = self.filter_version_attr.value() if hasattr(self, 'filter_version_attr') else "All Versions"
 
-        print(f"Applying filters: Time={filter_time}, Version={filter_version}, Count={len(results)}")
+        _dbg(f"Applying filters: Time={filter_time}, Version={filter_version}, Count={len(results)}")
 
         # Separate directories and files
         dirs = []
@@ -1320,9 +1177,8 @@ class FilesystemBrowserPlugin(PluginBase):
         final_results.sort(key=lambda x: x["name"])
 
         # Serialize
-        json_str = json.dumps(final_results)
-        
-        self.files_attr.set_value(json_str)
+        # json_str = json.dumps(final_results)        
+        self.files_attr.set_value(json.dumps(final_results))
 
     def _on_filter_changed(self, attribute, role):
         from xstudio.core import AttributeRole
@@ -1381,134 +1237,6 @@ class FilesystemBrowserPlugin(PluginBase):
                 self.scanner.shutdown()
             except Exception:
                 pass
-        try:
-            shutil.rmtree(self._temp_dir, ignore_errors=True)
-        except Exception:
-            pass
-
-    def _request_thumbnail(self, path):
-        """Queue an async thumbnail fetch if not already cached or pending."""
-        if path in self._thumbnail_cache:
-            # Already done — push the cached URI back to UI immediately
-            self._update_file_thumbnail(path, self._thumbnail_cache[path])
-            return
-        with self._thumb_lock:
-            if path not in self._thumb_pending:
-                self._thumb_pending.add(path)
-                self._thumb_queue.put(path)
-
-    def _thumb_worker_loop(self):
-        """Daemon worker pulling thumbnail requests from the queue."""
-        while True:
-            path = self._thumb_queue.get()
-            try:
-                self._generate_thumbnail(path)
-            except Exception as e:
-                _dbg(f"WORKER_ERR: {e}")
-            finally:
-                with self._thumb_lock:
-                    self._thumb_pending.discard(path)
-                self._thumb_queue.task_done()
-
-    def _resolve_sequence_frame(self, path):
-        """Given a fileseq path string, return (concrete_file_path, frame_number).
-        For single files, returns (path, 0)."""
-        if not fileseq_available:
-            return path, 0
-        try:
-            seq = fileseq.FileSequence(path)
-            frames = list(seq.frameSet())
-            if len(frames) > 1:
-                mid = frames[len(frames) // 2]
-                return seq.frame(mid), mid
-            elif len(frames) == 1:
-                return seq.frame(frames[0]), frames[0]
-        except Exception:
-            pass
-        return path, 0
-
-    def _generate_thumbnail(self, path):
-        """Generate a thumbnail JPEG using ffmpeg subprocess."""
-        if not self._ffmpeg_bin:
-            _dbg(f"GEN_SKIP (no ffmpeg): {path}")
-            return
-
-        target_file, _frame = self._resolve_sequence_frame(path)
-        _dbg(f"GEN_START: {path} -> {target_file}")
-
-        if not os.path.exists(target_file):
-            _dbg(f"GEN_MISSING: {target_file}")
-            return
-
-        out_file = os.path.join(self._temp_dir, f"{_uuid.uuid4().hex}.jpg")
-
-        env = os.environ.copy()
-        if self._ffmpeg_dyld:
-            existing = env.get("DYLD_LIBRARY_PATH", "")
-            env["DYLD_LIBRARY_PATH"] = (
-                self._ffmpeg_dyld + (":" + existing if existing else "")
-            )
-
-        cmd = [
-            self._ffmpeg_bin,
-            "-y",               # overwrite output file
-            "-i", target_file,
-            "-vf", "scale=150:-1,format=rgb24",
-            "-frames:v", "1",
-            "-update", "1",     # allow single-image output
-            out_file,
-        ]
-
-        _dbg(f"GEN_CMD: {' '.join(cmd)}")
-        try:
-            result = subprocess.run(
-                cmd, env=env,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
-                timeout=30
-            )
-            if result.returncode == 0 and os.path.exists(out_file):
-                thumb_uri = pathlib.Path(out_file).as_uri()
-                _dbg(f"GEN_OK: {thumb_uri}")
-                # LRU eviction: if cache is at capacity, remove the oldest entry
-                # and delete its temp file to reclaim disk space.
-                if len(self._thumbnail_cache) >= self._thumbnail_cache_max:
-                    _, evicted_uri = self._thumbnail_cache.popitem(last=False)
-                    try:
-                        evicted_path = pathlib.Path(evicted_uri.replace("file://", "", 1))
-                        if evicted_path.exists() and evicted_path.parent.samefile(self._temp_dir):
-                            evicted_path.unlink()
-                    except Exception:
-                        pass
-                self._thumbnail_cache[path] = thumb_uri
-                self._update_file_thumbnail(path, thumb_uri)
-            else:
-                stderr = result.stderr.decode("utf-8", errors="replace")[-500:]
-                _dbg(f"GEN_FAIL (rc={result.returncode}): {stderr}")
-        except subprocess.TimeoutExpired:
-            _dbg(f"GEN_TIMEOUT: {target_file}")
-        except Exception as exc:
-            _dbg(f"GEN_EXCEPTION: {exc}")
-
-    def _update_file_thumbnail(self, path, thumb_uri):
-        """Update thumbnailSource in current_scan_results and push to files_attr
-        WITHOUT calling apply_filters() to avoid a full QML model rebuild."""
-        with self.results_lock:
-            found = False
-            for r in self.current_scan_results:
-                if r.get("path") == path:
-                    if r.get("thumbnailSource") == thumb_uri:
-                        return  # Already up to date; don't trigger another rebuild
-                    r["thumbnailSource"] = thumb_uri
-                    found = True
-                    break
-            if not found:
-                return
-            # Serialise only what QML needs — same JSON format as apply_filters
-            serialised = json.dumps(self.current_scan_results)
-
-        # Push the update; QML will merge thumbnailSource via the Image.source binding
-        self.files_attr.set_value(serialised)
 
 def create_plugin_instance(connection):
     return FilesystemBrowserPlugin(connection)

@@ -32,10 +32,10 @@ XsPopupMenu {
             ItemSelectionModel.Select
         )
     }
-    XsHotkey {
+
+    XsHotkeyReference {
         id: select_all_key
-        name: "select_all_key"+rightClickMenu
-        sequence: "Ctrl+A"
+        hotkeyName: "Select All"
     }
 
     XsMenuModelItem {

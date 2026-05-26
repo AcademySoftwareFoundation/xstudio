@@ -55,9 +55,10 @@ void set_gl_uniform_matrix(
     const xstudio::utility::JsonStore &v,
     const int count,
     const int typesize,
-    const std::string &nm) {
+    const std::string &nm,
+    bool transpose = false) {
     std::vector<float> vals = unpack_json_to_vect<float>(v, count * typesize, nm);
-    std::apply(f, std::make_tuple(location, count, false, vals.data()));
+    std::apply(f, std::make_tuple(location, count, transpose, vals.data()));
 }
 
 
@@ -976,11 +977,32 @@ void GLShaderProgram::set_shader_parameters(const utility::JsonStore &shader_par
             } else if (shader_param_type == "uvec4") {
                 set_gl_uniform<unsigned int>(glUniform4uiv, location, vs, count, 4, param_name);
             } else if (shader_param_type == "mat2") {
-                set_gl_uniform_matrix(glUniformMatrix2fv, location, vs, count, 4, param_name);
+                set_gl_uniform_matrix(
+                    glUniformMatrix2fv,
+                    location,
+                    vs,
+                    count,
+                    4,
+                    param_name,
+                    transpose_matrices_);
             } else if (shader_param_type == "mat3") {
-                set_gl_uniform_matrix(glUniformMatrix3fv, location, vs, count, 9, param_name);
+                set_gl_uniform_matrix(
+                    glUniformMatrix3fv,
+                    location,
+                    vs,
+                    count,
+                    9,
+                    param_name,
+                    transpose_matrices_);
             } else if (shader_param_type == "mat4") {
-                set_gl_uniform_matrix(glUniformMatrix4fv, location, vs, count, 16, param_name);
+                set_gl_uniform_matrix(
+                    glUniformMatrix4fv,
+                    location,
+                    vs,
+                    count,
+                    16,
+                    param_name,
+                    transpose_matrices_);
             }
         }
     }

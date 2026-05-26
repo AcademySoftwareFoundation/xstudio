@@ -13,3 +13,8 @@ XsShapesToolProperties  2.0 XsShapesToolProperties.qml
 XsTextToolProperties    2.0 XsTextToolProperties.qml
 XsEraseToolProperties   2.0 XsEraseToolProperties.qml
 XsColourPick            2.0 XsColourPick.qml
+XsBurnToolProperties    2.0 XsBurnToolProperties.qml
+XsDodgeToolProperties   2.0 XsDodgeToolProperties.qml
+XsToolAttrControl       2.0 XsToolAttrControl.qml
+XsToolColourPicker      2.0 XsToolColourPicker.qml
+XsBlendModeToggle       2.0 XsBlendModeToggle.qml

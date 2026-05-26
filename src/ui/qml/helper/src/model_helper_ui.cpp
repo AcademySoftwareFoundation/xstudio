@@ -473,7 +473,7 @@ nlohmann::json xstudio::ui::qml::mapFromValue(const QVariant &value) {
 
         QVariant v = qjsvalue.toVariant();
 
-        switch (static_cast<int>(v.type())) {
+        switch (static_cast<int>(v.typeId())) {
         case QMetaType::QVariantMap:
             result = nlohmann::json::parse(
                 QJsonDocument(v.toJsonObject()).toJson(QJsonDocument::Compact).constData());
@@ -500,7 +500,7 @@ nlohmann::json xstudio::ui::qml::mapFromValue(const QVariant &value) {
 
         default:
             spdlog::warn(
-                "1 Unsupported datatype {} {}", static_cast<int>(v.type()), v.typeName());
+                "1 Unsupported datatype {} {}", static_cast<int>(v.typeId()), v.typeName());
             break;
         }
 
@@ -576,7 +576,7 @@ nlohmann::json xstudio::ui::qml::mapFromValue(const QVariant &value) {
             if (value.userType() == qMetaTypeId<QJSValue>())
                 v = qvariant_cast<QJSValue>(value).toVariant();
 
-            switch (static_cast<int>(v.type())) {
+            switch (static_cast<int>(v.typeId())) {
             case QMetaType::QVariantMap:
                 result = nlohmann::json::parse(
                     QJsonDocument(v.toJsonObject()).toJson(QJsonDocument::Compact).constData());

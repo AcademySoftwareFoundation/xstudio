@@ -4,6 +4,7 @@
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
+#include "xstudio/playhead/playhead_actor.hpp"
 #include "xstudio/playhead/playhead_global_events_actor.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
@@ -20,6 +21,16 @@ PlayheadGlobalEventsActor::PlayheadGlobalEventsActor(caf::actor_config &cfg)
     : caf::event_based_actor(cfg) {
 
     init();
+
+    // In an xSTUDIO session, playheads are created by Playlists, SubSets,
+    // Timelines etc. When xSTUDIO starts up with an empty session there are no
+    // playheads, though. However, Viewports need a playhead to connect to in
+    // order to fully populate their toolbar. Also we need a playhead to exist
+    // so that playhead related hotkeys are registere. Therefore we create a
+    // dummy playhead here as a stand-in until real playheads are created by the session.
+    global_active_playhead_ =
+        spawn<PlayheadActor>("DummyPlayhead", playhead::INDEPENDENT_AUDIO);
+    link_to(global_active_playhead_);
 }
 
 void PlayheadGlobalEventsActor::on_exit() {
@@ -164,7 +175,7 @@ void PlayheadGlobalEventsActor::init() {
             // playhead - i.e. the playhead that is being viewed by non-quickview
             // viewports. SessionModel::setCurrentPlayheadFromPlaylist does this for example.
             for (auto &p : viewports_) {
-                anon_mail(ui::viewport::viewport_playhead_atom_v, playhead)
+                anon_mail(utility::event_atom_v, ui::viewport::viewport_playhead_atom_v, playhead)
                     .send(p.second.viewport);
             }
             global_active_playhead_ = playhead;
@@ -267,18 +278,19 @@ void PlayheadGlobalEventsActor::init() {
                         media,
                         media_source,
                         p.first,
-                        playhead_index)
+                        playhead_index,
+                        playhead == global_active_playhead_)
                         .send(event_group_);
 
                     // this message is for backward compatibility ... some plugins may be
                     // expecting a message with this format
-                    mail(
+                    /*mail(
                         utility::event_atom_v,
                         show_atom_v,
                         media.actor(),
                         media_source.actor(),
                         p.first)
-                        .send(event_group_);
+                        .send(event_group_);*/
                 }
             }
         },
@@ -306,7 +318,7 @@ void PlayheadGlobalEventsActor::init() {
             monitor_it(viewport);
             // viewports register themselves by sending us this message
             viewports_[viewport_name] =
-                ViewportAndPlayhead({viewport, caf::actor(), window_id});
+                ViewportAndPlayhead({viewport, caf::actor(), window_id, Imath::M44f()});
             mail(utility::event_atom_v, ui::viewport::viewport_atom_v, viewport_name, viewport)
                 .send(event_group_);
         },

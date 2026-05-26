@@ -85,7 +85,7 @@ void ShotBrowser::use_action(
             auto count   = std::make_shared<int>(ids.size());
             auto results = std::make_shared<UuidActorVector>();
 
-            for (const auto i : ids) {
+            for (const auto &i : ids) {
                 try {
                     auto type    = query["type"];
                     auto squery  = R"({})"_json;
@@ -143,7 +143,7 @@ void ShotBrowser::use_action(
             auto count   = std::make_shared<int>(ids.size());
             auto results = std::make_shared<UuidActorVector>();
 
-            for (const auto i : ids) {
+            for (const auto &i : ids) {
                 auto id           = std::atoi(i.c_str());
                 auto js           = JsonStore(UseLoadPlaylist);
                 js["playlist_id"] = id;

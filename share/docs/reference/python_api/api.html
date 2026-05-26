@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>xstudio.api &mdash; xStudio 1.2.0 documentation</title>
+  <title>xstudio.api &mdash; xStudio 1.3.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=eafc0fe6" />
@@ -16,7 +16,7 @@
   
         <script src="../../_static/jquery.js?v=5d32c60e"></script>
         <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=6efca38a"></script>
+        <script src="../../_static/documentation_options.js?v=1f29e9d3"></script>
         <script src="../../_static/doctools.js?v=888ff710"></script>
         <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
@@ -40,7 +40,7 @@
             xStudio
           </a>
               <div class="version">
-                1.2.0
+                1.3.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -1252,7 +1252,7 @@ media_type(MediaType): Media Source type</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="xstudio.api.session.media.Media.set_metadata">
 <span class="sig-name descname"><span class="pre">set_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/api/session/media/media.html#Media.set_metadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.api.session.media.Media.set_metadata" title="Link to this definition"></a></dt>
-<dd><p>Get metdata at JSON path</p>
+<dd><p>Set metdata at JSON path</p>
 <dl class="simple">
 <dt>Args:</dt><dd><p>data(json): JSON Data
 path(str): JSON Pointer</p>
@@ -2074,6 +2074,16 @@ audio_path(str/URI): path to collect audio from.</p>
 </dl>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="xstudio.api.session.playlist.Playlist.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/api/session/playlist/playlist.html#Playlist.clear"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.clear" title="Link to this definition"></a></dt>
+<dd><p>Clear the playlist of all media</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>success(bool): Returns result.</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py property">
 <dt class="sig sig-object py" id="xstudio.api.session.playlist.Playlist.containers">
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">containers</span></span><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.containers" title="Link to this definition"></a></dt>
@@ -2466,6 +2476,21 @@ before(Uuid): Insert before this item.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="xstudio.api.session.Session.create_hidden_playlist">
+<span class="sig-name descname"><span class="pre">create_hidden_playlist</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Hidden</span> <span class="pre">Playlist'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/api/session/session.html#Session.create_hidden_playlist"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.api.session.Session.create_hidden_playlist" title="Link to this definition"></a></dt>
+<dd><p>Create hidden playlist. This playlist can be used to put transient
+media on screen (e.g. preview mode of File System Browser plugin). The
+playlist is not added to the session and is not visible in the playlists
+interface and is not serialised into the session file.</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>name(str): Name of new playlist</p>
+</dd>
+<dt>Returns:</dt><dd><p>Playlist: Returns the Playlist</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="xstudio.api.session.Session.create_playlist">
 <span class="sig-name descname"><span class="pre">create_playlist</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name='New</span> <span class="pre">Playlist'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">before=&lt;xstudio.core.__pybind_xstudio.Uuid</span> <span class="pre">object&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">into=False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/api/session/session.html#Session.create_playlist"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.api.session.Session.create_playlist" title="Link to this definition"></a></dt>
 <dd><p>Create new playlist.</p>
@@ -2654,7 +2679,7 @@ container(Container/Uuid): Item to rename.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="xstudio.api.session.Session.render_container">
-<span class="sig-name descname"><span class="pre">render_container</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">container</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_file_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_audio_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1920</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">height</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1080</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">in_frame</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_frame</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">video_codec_opts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'-c:v</span> <span class="pre">libx264</span> <span class="pre">-pix_fmt</span> <span class="pre">yuv420p</span> <span class="pre">-preset</span> <span class="pre">medium</span> <span class="pre">-tune</span> <span class="pre">film'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">audio_codec_opts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'-c:a</span> <span class="pre">aac</span> <span class="pre">-ac</span> <span class="pre">2</span> <span class="pre">-ar</span> <span class="pre">44100'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">auto_check_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ocio_display</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'sRGB'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ocio_view</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Raw'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timecode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">status_callback</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/api/session/session.html#Session.render_container"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.api.session.Session.render_container" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">render_container</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">container</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_file_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_audio_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1920</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">height</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1080</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">in_frame</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_frame</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame_for_frame</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">video_codec_opts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'-c:v</span> <span class="pre">libx264</span> <span class="pre">-pix_fmt</span> <span class="pre">yuv420p</span> <span class="pre">-preset</span> <span class="pre">medium</span> <span class="pre">-tune</span> <span class="pre">film'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">audio_codec_opts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'-c:a</span> <span class="pre">aac</span> <span class="pre">-ac</span> <span class="pre">2</span> <span class="pre">-ar</span> <span class="pre">44100'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">auto_check_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ocio_display</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'sRGB'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ocio_view</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Raw'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timecode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">status_callback</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/api/session/session.html#Session.render_container"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.api.session.Session.render_container" title="Link to this definition"></a></dt>
 <dd><p>Render a playlist, timeline, subset or contact sheet to a quicktime 
 or image sequence (jpg, tiff, png etc)
 Args:</p>
@@ -2682,6 +2707,14 @@ in_frame(int): Only valid for timelines. Start frame for output render.</p>
 <dt>out_frame(int): Only valid for timelines. End frame for output render.</dt><dd><p>Defaults to timeline duration.</p>
 </dd>
 <dt>frame_rate(FrameRate): Output video frame rate - defaults to the</dt><dd><p>frame rate of the first media item in the playlist etc.</p>
+</dd>
+<dt>frame_for_frame(bool): If the media or timeline frame rate is different</dt><dd><p>to the output frame rate, frames will map 1:1 to the output
+if this is True. If False, the output will match the input in
+terms of duration. For example if rendering out at 12fps and the 
+media is 24 fps then using True for this flag will result in an output
+that is twice as long and half the speed of the input. Otherwise
+the output will be the same duration as the input and every
+other frame will be dropped.</p>
 </dd>
 <dt>video_codec_opts(str): FFMpeg video codec options. For example use</dt><dd><p>“-c:v libx264 -pix_fmt yuv420p -preset medium -tune film” for an
 H264 encoding.</p>
@@ -3262,16 +3295,16 @@ unsubscribe_from_event_group to cancel an event subscription</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="xstudio.plugin.HUDPlugin">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xstudio.plugin.</span></span><span class="sig-name descname"><span class="pre">HUDPlugin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/plugin/hud_plugin.html#HUDPlugin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.plugin.HUDPlugin" title="Link to this definition"></a></dt>
-<dd><p>Base class for HUD (Viewport Overlay) plugins</p>
+<dd><p>Base class for HUD (Viewport Overlay) plugins.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="xstudio.plugin.HUDPlugin.add_hud_settings_attribute">
 <span class="sig-name descname"><span class="pre">add_hud_settings_attribute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/plugin/hud_plugin.html#HUDPlugin.add_hud_settings_attribute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.plugin.HUDPlugin.add_hud_settings_attribute" title="Link to this definition"></a></dt>
-<dd><p>Add an attribute to the ‘settings’ for the HUD plugin. This means
-the attribute will appear in the settings interface for the plugin
-via the HUD toolbar button.</p>
+<dd><p>Add an attribute to the ‘settings’ for the HUD plugin.</p>
+<p>This means the attribute will appear in the settings interface
+for the plugin via the HUD toolbar button.</p>
 <dl class="simple">
 <dt>Args:</dt><dd><dl class="simple">
-<dt>attr_uuid(ModuleAttribute): The attribute to be exposed in the</dt><dd><p>settings dialog.</p>
+<dt>attr(ModuleAttribute): The attribute to be exposed in the</dt><dd><p>settings dialog.</p>
 </dd>
 </dl>
 </dd>
@@ -3281,29 +3314,32 @@ via the HUD toolbar button.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="xstudio.plugin.HUDPlugin.attribute_changed">
 <span class="sig-name descname"><span class="pre">attribute_changed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">role</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/plugin/hud_plugin.html#HUDPlugin.attribute_changed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.plugin.HUDPlugin.attribute_changed" title="Link to this definition"></a></dt>
-<dd><p>Override this method to get callbacks when an attribute’s role
-data has changed</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>attr(ModuleAttribute): The attribute that has changed
-role(int): The index for the role data that has changed</p>
-</dd>
-</dl>
+<dd><p>Handle attribute value changes.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="xstudio.plugin.HUDPlugin.enabled">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">enabled</span></span><a class="headerlink" href="#xstudio.plugin.HUDPlugin.enabled" title="Link to this definition"></a></dt>
+<dd><p>Return whether the HUD plugin is currently enabled.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="xstudio.plugin.HUDPlugin.hud_element_qml">
 <span class="sig-name descname"><span class="pre">hud_element_qml</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">qml_code</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hud_position=&lt;HUDElementPosition.FullScreen:</span> <span class="pre">6&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/plugin/hud_plugin.html#HUDPlugin.hud_element_qml"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.plugin.HUDPlugin.hud_element_qml" title="Link to this definition"></a></dt>
-<dd><p>Set the QML code for the visual element of the HUD that appears in
-the xSTUDIO viewport.</p>
+<dd><p>Set the QML code for the visual element of the HUD.</p>
+<p>The element appears in the xSTUDIO viewport.</p>
 <dl class="simple">
 <dt>Args:</dt><dd><dl class="simple">
-<dt>qml_code(str): The qml code required to instance a visual element</dt><dd><p>that will be displayed over the viewport</p>
+<dt>qml_code(str): The QML code required to instance a visual</dt><dd><p>element that will be displayed over the viewport.</p>
 </dd>
-<dt>hud_position(HUDElementPosition): The position in the viewport where the visual</dt><dd><p>element will be. Must be one of (HUDElementPosition.FullScreen,
-HUDElementPosition.BottomLeft, HUDElementPosition.BottomCentre,
-HUDElementPosition.TopLeft etc.). The FullScreen option requires that
-the visual element manages its own transformation to draw
-itself over the viewport as required.</p>
+<dt>hud_position(HUDElementPosition): The position in the</dt><dd><p>viewport where the visual element will be. Must be one
+of <code class="docutils literal notranslate"><span class="pre">HUDElementPosition.FullScreen</span></code>,
+<code class="docutils literal notranslate"><span class="pre">HUDElementPosition.BottomLeft</span></code>,
+<code class="docutils literal notranslate"><span class="pre">HUDElementPosition.BottomCentre</span></code>,
+<code class="docutils literal notranslate"><span class="pre">HUDElementPosition.TopLeft</span></code>, etc. The FullScreen
+option requires that the visual element manages its own
+transformation to draw itself over the viewport as
+required.</p>
 </dd>
 </dl>
 </dd>
@@ -3313,33 +3349,64 @@ itself over the viewport as required.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="xstudio.plugin.HUDPlugin.media_item_hud_data">
 <span class="sig-name descname"><span class="pre">media_item_hud_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">media_item</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/plugin/hud_plugin.html#HUDPlugin.media_item_hud_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.plugin.HUDPlugin.media_item_hud_data" title="Link to this definition"></a></dt>
-<dd><p>This method should be overridden by HUD plugins that inherit from
-this HUDPlugin class. A Media object is passed in when a new media
-item is due to be drawn on screen. At this point, the HUD plugin should
-perform necessary operations to generate the data required to do the
-HUD display in the UI overlay for the given Media item and return it
-as a dictionary or array that can be expressed as json data. xSTUDIO 
-will store the data and make it available to the QML overlay as a 
-special JavaScript variable ‘hud_item_data’.</p>
+<dd><p>Return HUD overlay data for the given media item.</p>
+<p>This method should be overridden by HUD plugins that inherit
+from this <code class="docutils literal notranslate"><span class="pre">HUDPlugin</span></code> class.  A <code class="docutils literal notranslate"><span class="pre">Media</span></code> object is passed in
+when a new media item is due to be drawn on screen.  At this
+point, the HUD plugin should perform necessary operations to
+generate the data required to do the HUD display in the UI
+overlay for the given media item and return it as a dictionary
+or array that can be expressed as JSON data.  xSTUDIO will
+store the data and make it available to the QML overlay as a
+special JavaScript variable <code class="docutils literal notranslate"><span class="pre">hud_item_data</span></code>.</p>
 <dl class="simple">
 <dt>Args:</dt><dd><p>media_item(Media): Media due to go on-screen.</p>
 </dd>
-<dt>Returns:</dt><dd><p>hud data(dict)/array: An array or a dict with string keys with no 
-whitespaces or numbers as first character. Values can be strings, 
-numbers, boolean or uuid or more dictionaries or arrays.</p>
+<dt>Returns:</dt><dd><dl class="simple">
+<dt>dict or list: An array or a dict with string keys (no</dt><dd><p>whitespace or leading digits).  Values can be strings,
+numbers, booleans, UUIDs or nested dicts / arrays.
+Another option is to return a single <code class="docutils literal notranslate"><span class="pre">Mask</span></code> or a list
+of <code class="docutils literal notranslate"><span class="pre">Mask</span></code> objects.  In this case, xSTUDIO will take
+care of drawing the masks in the viewport overlay.</p>
+</dd>
+</dl>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="xstudio.plugin.HUDPlugin.media_item_hud_data_rw">
+<span class="sig-name descname"><span class="pre">media_item_hud_data_rw</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">media_actor</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/plugin/hud_plugin.html#HUDPlugin.media_item_hud_data_rw"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.plugin.HUDPlugin.media_item_hud_data_rw" title="Link to this definition"></a></dt>
+<dd><p>Wrapper that converts a raw actor to a Media before dispatch.</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="xstudio.plugin.HUDPlugin.set_custom_settings_qml">
 <span class="sig-name descname"><span class="pre">set_custom_settings_qml</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">qml_code</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/plugin/hud_plugin.html#HUDPlugin.set_custom_settings_qml"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.plugin.HUDPlugin.set_custom_settings_qml" title="Link to this definition"></a></dt>
-<dd><p>Add qml for a custom dialog to control the settings for a HUD item</p>
+<dd><p>Add QML for a custom dialog to control HUD item settings.</p>
 <dl class="simple">
-<dt>Args:</dt><dd><p>qml_code(str): The qml code required to instance a dialog that will
-allow the user to adjust the settings for your HUD item.</p>
+<dt>Args:</dt><dd><dl class="simple">
+<dt>qml_code(str): The QML code required to instance a dialog</dt><dd><p>that will allow the user to adjust the settings for
+your HUD item.</p>
 </dd>
 </dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="xstudio.plugin.HUDPlugin.set_hud_media_data">
+<span class="sig-name descname"><span class="pre">set_hud_media_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">viewport_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sub_playhead_index</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">media_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/plugin/hud_plugin.html#HUDPlugin.set_hud_media_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.plugin.HUDPlugin.set_hud_media_data" title="Link to this definition"></a></dt>
+<dd><p>Push HUD data for a specific viewport / sub-playhead.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="xstudio.plugin.HUDPlugin.update_hud">
+<span class="sig-name descname"><span class="pre">update_hud</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/plugin/hud_plugin.html#HUDPlugin.update_hud"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.plugin.HUDPlugin.update_hud" title="Link to this definition"></a></dt>
+<dd><p>Trigger an update of the HUD graphics.</p>
+<p>This will cause xSTUDIO to call the <code class="docutils literal notranslate"><span class="pre">media_item_hud_data</span></code>
+method for the currently displayed media items in the viewports
+and update the graphics with any new data returned.</p>
 </dd></dl>
 
 </dd></dl>

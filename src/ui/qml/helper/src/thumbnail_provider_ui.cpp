@@ -17,10 +17,10 @@ std::pair<QImage, QString> ThumbnailReader::run(JobControl &cjc) {
         if (not cjc.shouldRun())
             throw std::runtime_error("Cancelled");
 
-        if (id_.indexOf("http") == 0) {
+        if (id_.indexOf("http") == 0 || id_.indexOf("file") == 0) {
             auto thumbgen = system_.registry().get<caf::actor>(thumbnail_manager_registry);
             int frame     = 1;
-            auto hash     = std::hash<std::string>{}(id_.toStdString());
+            auto hash     = std::hash<std::string>{}(id_.toStdString());            
 
             auto _uri = make_uri(id_.toStdString());
             if (id_.indexOf("@") != -1) {
@@ -30,7 +30,9 @@ std::pair<QImage, QString> ThumbnailReader::run(JobControl &cjc) {
 
             if (_uri) {
 
-                AVFrameID frame_id(*_uri, frame);
+                // here we make a frame id where we don't know about the media streams. The thumnail reader actor will automatically
+                // pick the first video stream to generate the thumbnail from.
+                AVFrameID frame_id(*_uri, frame, 0, FS_UNKNOWN, 0, 1.0f, utility::FrameRate(timebase::k_flicks_24fps), "auto video");
                 scoped_actor sys{system_};
                 const auto tbp = request_receive<ThumbnailBufferPtr>(
                     *sys,
@@ -154,6 +156,7 @@ std::pair<QImage, QString> ThumbnailReader::run(JobControl &cjc) {
             QString());
 
     } catch (const std::exception &err) {
+        std::cerr << "Error generating thumbnail for " << id_.toStdString() << ": " << err.what() << "\n";
         if (cjc.shouldRun())
             error = err.what();
     }

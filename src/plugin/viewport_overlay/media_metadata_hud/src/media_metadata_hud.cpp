@@ -58,7 +58,7 @@ void MediaMetadataRenderer::render_image_overlay(
     const float device_pixel_ratio,
     const xstudio::media_reader::ImageBufPtr &frame) {
 
-    auto t0 = utility::clock::now();
+    // auto t0 = utility::clock::now();
 
     if (!text_renderer_) {
         init_overlay_opengl();
@@ -378,12 +378,12 @@ void MediaMetadataHUD::attribute_changed(const utility::Uuid &attribute_uuid, co
     } else {
 
         // update display settings
-        DisplaySettings *display_settings = new DisplaySettings;
-        display_settings->text_colour     = text_colour_->value();
-        display_settings->font_size       = text_size_->value();
-        display_settings->text_opacity    = text_opacity_->value();
-        display_settings->bg_opacity      = bg_opacity_->value();
-        display_settings->text_spacing    = text_spacing_->value();
+        auto display_settings          = new DisplaySettings;
+        display_settings->text_colour  = text_colour_->value();
+        display_settings->font_size    = text_size_->value();
+        display_settings->text_opacity = text_opacity_->value();
+        display_settings->bg_opacity   = bg_opacity_->value();
+        display_settings->text_spacing = text_spacing_->value();
         display_settings_.reset(display_settings);
         render_data_per_metadata_cache_.clear();
         render_data_per_image_cache_.clear();
@@ -726,9 +726,7 @@ void MediaMetadataHUD::update_profile_metadata() {
     image_selected_metadata_fields_.clear();
     profile_essential_data_.clear();
 
-    for (size_t i = 0; i < profile_data_store_.size(); ++i) {
-        const nlohmann::json &field_data = profile_data_store_[i];
-
+    for (const auto &field_data : profile_data_store_) {
 
         const auto field_path = field_data["metadata_field"].get<std::string>();
         const auto field_name = field_data["metadata_field_label"].get<std::string>();
@@ -809,7 +807,7 @@ void MediaMetadataHUD::update_media_metadata_for_media(
     caf::actor media_actor,
     const bool update_profile_attr) {
 
-    utility::JsonStore *result = new utility::JsonStore;
+    auto result = new utility::JsonStore;
     mail(json_store::get_json_atom_v, media_selected_metadata_fields_)
         .request(media_actor, infinite)
         .then(
@@ -884,8 +882,7 @@ void MediaMetadataHUD::profile_changed() {
 
     StringVec profile_selected_fields;
     StringVec profile_selected_field_labels;
-    for (size_t i = 0; i < profile_data_store_.size(); ++i) {
-        const nlohmann::json &field_data = profile_data_store_[i];
+    for (const auto &field_data : profile_data_store_) {
         profile_selected_fields.push_back(field_data["metadata_field"].get<std::string>());
         profile_selected_field_labels.push_back(
             field_data["metadata_field_label"].get<std::string>());
@@ -1112,7 +1109,7 @@ void flatten(
     if (obj.is_object() && !obj.is_array()) {
         for (auto p = obj.begin(); p != obj.end(); ++p) {
             if (p.key() == "streams" && p.value().is_array()) {
-                for (int i = 0; i < p.value().size(); ++i) {
+                for (size_t i = 0; i < p.value().size(); ++i) {
                     flatten(
                         result,
                         p.value()[i],
@@ -1224,7 +1221,10 @@ caf::message_handler MediaMetadataHUD::message_handler_extensions() {
                         }
                     }
                 },
-                [=](json_store::update_atom, const utility::JsonStore &) {}})
+                [=](json_store::update_atom, const utility::JsonStore &) {},
+                [=](utility::event_atom,
+                    utility::last_changed_atom,
+                    const utility::time_point &) {}})
         .or_else(
             media::MediaActor::default_event_handler().or_else(
                 plugin::HUDPluginBase::message_handler_extensions()));

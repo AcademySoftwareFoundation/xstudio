@@ -1,26 +1,20 @@
 macro(default_compile_options name)
 	target_compile_options(${name}
 		# PRIVATE -fvisibility=hidden
+		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wextra>
+		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wno-unused-function>
+		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wpedantic>
+		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Windows>>:/wd4100>
 		PRIVATE $<$<AND:$<CONFIG:RelWithDebInfo>,$<PLATFORM_ID:Linux>>:-fno-omit-frame-pointer>
 		PRIVATE $<$<AND:$<CONFIG:RelWithDebInfo>,$<PLATFORM_ID:Windows>>:/Oy>
 		PRIVATE $<$<PLATFORM_ID:Darwin>:-Wno-deprecated>
-		PRIVATE $<$<PLATFORM_ID:Linux>:-Wno-deprecated>
-		# PRIVATE $<$<PLATFORM_ID:Linux>:-Wno-deprecated-declarations>
-		# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-variable>
-		# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-but-set-variable>
-		# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-parameter>
-		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wno-unused-function>
-		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wextra>
-		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wextra>
+		PRIVATE $<$<PLATFORM_ID:Linux>:-Wextra>
+		PRIVATE $<$<PLATFORM_ID:Linux>:-Wall>
+		PRIVATE $<$<PLATFORM_ID:Linux>:-Wno-unused-parameter>
+		PRIVATE $<$<PLATFORM_ID:Linux>:-Werror>
 		PRIVATE $<$<PLATFORM_ID:Linux>:-Wfatal-errors> # Stop after first error
-		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wpedantic>
-		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Windows>>:/wd4100>
+		PRIVATE $<$<PLATFORM_ID:Linux>:-Wno-deprecated>
 		PRIVATE $<$<PLATFORM_ID:Windows>:/bigobj>
-		# PRIVATE $<$<CONFIG:Debug>:-Wall>
-		# PRIVATE $<$<CONFIG:Debug>:-Werror>
-		# PRIVATE $<$<CONFIG:Debug>:-Wextra>
-		# PRIVATE $<$<CONFIG:Debug>:-Wpedantic>
-		# PRIVATE ${GTEST_CFLAGS}
 	)
 
 	target_compile_features(${name}
@@ -582,6 +576,7 @@ macro(create_test PATH DEPS)
 	default_options_gtest(${NAME})
 	target_link_libraries(${NAME}
 		PRIVATE
+		xstudio::global
 		"${DEPS}"
 		${GTEST_LDFLAGS}
 	)

@@ -1,3 +1,5 @@
+find_package(OpenImageIO REQUIRED)
+
 SET(LINK_DEPS
 	xstudio::media_reader
 	OpenImageIO::OpenImageIO

@@ -14,6 +14,10 @@
 
 #include <fmt/format.h>
 
+#include <openssl/evp.h>
+#include <openssl/md5.h>
+#include <openssl/opensslv.h>
+
 #ifdef __apple__
 #include <mach-o/dyld.h>
 #endif
@@ -25,6 +29,7 @@
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/sequence.hpp"
 #include "xstudio/utility/string_helpers.hpp"
+#include "xstudio/utility/path_remapper.hpp"
 
 #ifndef MAXHOSTNAMELEN
 #define MAXHOSTNAMELEN 256
@@ -44,17 +49,12 @@ namespace fs = std::filesystem;
 // 	}
 // }
 
-namespace xstudio {
-namespace utility {
-    static std::vector<std::pair<std::regex, std::string>> s_forward_remap_regex;
-    static std::vector<std::pair<std::regex, std::string>> s_backward_remap_regex;
-} // namespace utility
-} // namespace xstudio
-
-
 namespace {
-std::set<std::string> supported_extensions_;
-std::mutex supported_extensions_mutex;
+    std::set<std::string> supported_extensions_;
+    std::mutex supported_extensions_mutex;
+    std::set<std::string> warned_undefined_envvars_;
+    std::mutex warned_undefined_envvars_mutex;
+    static PathRemapper s_remapper;
 } // namespace
 
 void xstudio::utility::add_supported_extensions(const std::vector<std::string> &values) {
@@ -84,45 +84,20 @@ bool xstudio::utility::is_file_supported(const caf::uri &uri) {
     return false;
 }
 
+void xstudio::utility::add_remap_file_path(const std::string &from, const std::string &to) {
+    s_remapper.add_path_mapping(from, to);
+}
+
+std::string xstudio::utility::forward_remap_file_path (const std::string &path) {
+    return s_remapper.forwards(path);
+}
+
+std::string xstudio::utility::reverse_remap_file_path(const std::string &path) {
+    return s_remapper.backwards(path);
+}
 
 void xstudio::utility::setup_filepath_remap_regex(const utility::JsonStore &j) {
-    try {
-        if (!j.is_object())
-            throw std::runtime_error("Json should be a dict");
-
-        for (auto p = j.begin(); p != j.end(); ++p) {
-            auto f = p.value();
-            if (!f.is_array())
-                continue;
-            for (const auto &e : f) {
-                if (e.size() != 3 || !e[0].is_string() || !e[1].is_string() ||
-                    !e[2].is_boolean())
-                    throw std::runtime_error(
-                        "Elements of Json should be an array with 3 elemens [str, str, bool]");
-            }
-        }
-
-        s_forward_remap_regex.clear();
-        s_backward_remap_regex.clear();
-
-        for (auto p = j.begin(); p != j.end(); ++p) {
-            auto f = p.value();
-            if (!f.is_array())
-                continue;
-            for (const auto &e : f) {
-                if (e[2].get<bool>())
-                    s_forward_remap_regex.emplace_back(
-                        e[0].get<std::string>(), e[1].get<std::string>());
-                else {
-                    s_backward_remap_regex.emplace_back(
-                        e[0].get<std::string>(), e[1].get<std::string>());
-                }
-            }
-        }
-
-    } catch (std::exception &e) {
-        spdlog::warn("{} {} -- \n\n{}\n\n", __PRETTY_FUNCTION__, e.what(), j.dump(2));
-    }
+    s_remapper.configure(j);
 }
 
 static std::shared_ptr<ActorSystemSingleton> s_actor_system_singleton;
@@ -338,11 +313,7 @@ void xstudio::utility::print_on_exit(
     return output;
 }*/
 
-static std::set<std::string> doink;
-static std::set<std::string> doink2;
-static std::mutex mmmm;
-
-std::string xstudio::utility::uri_to_posix_path(const caf::uri &uri) {
+std::string xstudio::utility::uri_to_posix_path(const caf::uri &uri, const bool remap) {
     if (uri.path().data()) {
         std::string path = uri_decode(uri.path().data());
         // spdlog::warn("{} {}",uri.path().data(), path);
@@ -355,11 +326,13 @@ std::string xstudio::utility::uri_to_posix_path(const caf::uri &uri) {
 #ifdef _WIN32
 
         static const std::regex drive_letter_with_unwanted_leading_fwd_slash(
-            R"(^\/[A-Z]\:)", std::regex::optimize);
+            R"(^[\/]+[a-zA-Z]\:)", std::regex::optimize);
         std::cmatch m;
         if (std::regex_search(path.c_str(), m, drive_letter_with_unwanted_leading_fwd_slash)) {
             // Remove the leading /
-            path.erase(0, 1);
+            while (path.find("/") == 0) {
+                path.erase(0, 1);
+            }
         }
 
         // Reconstruct UNC path from URI authority (server name)
@@ -372,29 +345,17 @@ std::string xstudio::utility::uri_to_posix_path(const caf::uri &uri) {
                 path = R"(\\)" + host + R"(\)" + path;
             }
         }
+        // replace double slashes with single slashes. This can happen with
+        // file://server////share/path
+        auto p = path.find("//");
+        while (p != std::string::npos) {
+            path.erase(p, 1);
+            p = path.find("//");
+        }
 #endif
-        return forward_remap_file_path(path);
+        return (remap ? forward_remap_file_path(path) : path);
     }
     return "";
-}
-
-std::string xstudio::utility::forward_remap_file_path(const std::string path) {
-    auto _path = path;
-    for (const auto &remap_regex : s_forward_remap_regex) {
-        _path = std::regex_replace(_path, remap_regex.first, remap_regex.second);
-        /*if (_path != path) {
-            std::cerr << "Path remap " << _path << " " << path << "\n";
-        }*/
-    }
-    return _path;
-}
-
-std::string xstudio::utility::reverse_remap_file_path(const std::string path) {
-    auto _path = path;
-    for (const auto &remap_regex : s_backward_remap_regex) {
-        _path = std::regex_replace(_path, remap_regex.first, remap_regex.second);
-    }
-    return _path;
 }
 
 std::string xstudio::utility::uri_encode(const std::string &s) {
@@ -413,6 +374,12 @@ std::string xstudio::utility::uri_encode(const std::string &s) {
             break;
         case ' ':
             result += "%20";
+            break;
+        case '(':
+            result += "%28";
+            break;
+        case ')':
+            result += "%29";
             break;
         case '+':
             result += "%2B";
@@ -598,7 +565,7 @@ caf::uri xstudio::utility::parse_cli_posix_path(
     return uri;
 }
 
-caf::uri xstudio::utility::posix_path_to_uri(const std::string &path, const bool abspath) {
+caf::uri xstudio::utility::posix_path_to_uri(const std::string &path, const bool abspath, const bool remap) {
 
     auto p = path;
 
@@ -616,8 +583,8 @@ caf::uri xstudio::utility::posix_path_to_uri(const std::string &path, const bool
 #endif
     }
 
-    p = reverse_remap_file_path(p);
-
+    if(remap)
+        p = reverse_remap_file_path(p);
 
     // spdlog::warn("posix_path_to_uri: {} -> {}", path, p);
 
@@ -815,7 +782,6 @@ std::string xstudio::utility::get_user_name() {
     return result;
 }
 
-
 std::string xstudio::utility::expand_envvars(
     const std::string &src, const std::map<std::string, std::string> &additional) {
 
@@ -863,7 +829,13 @@ std::string xstudio::utility::expand_envvars(
                 } else if (match_str == "XSTUDIO_ROOT") {
                     env = xstudio_root();
                 } else {
-                    spdlog::warn("Undefined envvar ${{{}}}", match_str);
+                    bool first_warning = false;
+                    {
+                        std::lock_guard lock(warned_undefined_envvars_mutex);
+                        first_warning = warned_undefined_envvars_.insert(match_str).second;
+                    }
+                    if (first_warning)
+                        spdlog::warn("Undefined envvar ${{{}}}", match_str);
                     env = "";
                 }
             }
@@ -990,4 +962,23 @@ std::string xstudio::utility::xstudio_resources_dir(const std::string &append_pa
 #else
     return xstudio_root("/" + append_path);
 #endif
+}
+
+std::array<unsigned char, 16>
+xstudio::utility::md5_hash(const void *data, std::size_t size) {
+    std::array<unsigned char, 16> hash{};
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    EVP_DigestInit_ex(ctx, EVP_md5(), nullptr);
+    EVP_DigestUpdate(ctx, data, size);
+    unsigned int len = 0;
+    EVP_DigestFinal_ex(ctx, hash.data(), &len);
+    EVP_MD_CTX_free(ctx);
+#else
+    MD5_CTX md5;
+    MD5_Init(&md5);
+    MD5_Update(&md5, data, size);
+    MD5_Final(hash.data(), &md5);
+#endif
+    return hash;
 }

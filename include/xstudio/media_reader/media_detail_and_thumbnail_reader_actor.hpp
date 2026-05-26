@@ -19,65 +19,63 @@
 // will start arriving before some MediaDetail requests because we don't have
 // a single queue
 
-namespace xstudio {
-namespace media_reader {
+namespace xstudio::media_reader {
 
-    class MediaDetailAndThumbnailReaderActor : public caf::event_based_actor {
+class MediaDetailAndThumbnailReaderActor : public caf::event_based_actor {
 
-      public:
-        MediaDetailAndThumbnailReaderActor(
-            caf::actor_config &cfg, const utility::Uuid &uuid = utility::Uuid::generate());
-        ~MediaDetailAndThumbnailReaderActor() override = default;
-        caf::behavior make_behavior() override { return behavior_; }
-        const char *name() const override { return NAME.c_str(); }
+  public:
+    MediaDetailAndThumbnailReaderActor(
+        caf::actor_config &cfg, const utility::Uuid &uuid = utility::Uuid::generate());
+    ~MediaDetailAndThumbnailReaderActor() override = default;
+    caf::behavior make_behavior() override { return behavior_; }
+    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
 
-      private:
-        void send_error_to_source(const caf::actor_addr &addr, const caf::error &err);
-        void process_get_media_detail_queue();
-        bool queues_empty() const { return media_detail_request_queue_.empty(); }
-        void continue_processing_queue();
+  private:
+    void send_error_to_source(const caf::actor_addr &addr, const caf::error &err);
+    void process_get_media_detail_queue();
+    [[nodiscard]] bool queues_empty() const { return media_detail_request_queue_.empty(); }
+    void continue_processing_queue();
 
-      private:
-        struct MediaDetailRequest {
+  private:
+    struct MediaDetailRequest {
 
-            MediaDetailRequest(const MediaDetailRequest &o) = default;
-            MediaDetailRequest()                            = default;
-            MediaDetailRequest(
-                const caf::uri uri,
-                const caf::actor_addr key,
-                caf::typed_response_promise<media::MediaDetail> rp)
-                : uri_(std::move(uri)), key_(std::move(key)), rp_(std::move(rp)) {}
+        MediaDetailRequest(const MediaDetailRequest &o) = default;
+        MediaDetailRequest()                            = default;
+        MediaDetailRequest(
+            const caf::uri uri,
+            const caf::actor_addr key,
+            caf::typed_response_promise<media::MediaDetail> rp)
+            : uri_(std::move(uri)), key_(std::move(key)), rp_(std::move(rp)) {}
 
-            caf::uri uri_;
-            caf::actor_addr key_;
-            caf::typed_response_promise<media::MediaDetail> rp_;
-        };
-
-      private:
-        void get_thumbnail(
-            caf::typed_response_promise<thumbnail::ThumbnailBufferPtr> rp,
-            const media::AVFrameID &mptr,
-            const size_t size);
-
-        void get_thumbnail_from_reader_plugin(
-            caf::actor &reader_plugin,
-            caf::typed_response_promise<thumbnail::ThumbnailBufferPtr> rp,
-            const media::AVFrameID &mptr,
-            const size_t size);
-
-        inline static const std::string NAME = "MediaDetailAndThumbnailReaderActor";
-        caf::behavior behavior_;
-
-        int num_detail_requests_since_thumbnail_request_ = {0};
-
-        std::queue<MediaDetailRequest> media_detail_request_queue_;
-
-        std::map<caf::uri, media::MediaDetail> media_detail_cache_;
-        std::map<caf::uri, utility::time_point> media_detail_cache_age_;
-
-        utility::Uuid uuid_;
-        std::vector<caf::actor> plugins_;
-        std::map<utility::Uuid, caf::actor> plugins_map_;
+        caf::uri uri_;
+        caf::actor_addr key_;
+        caf::typed_response_promise<media::MediaDetail> rp_;
     };
-} // namespace media_reader
-} // namespace xstudio
+
+  private:
+    void get_thumbnail(
+        caf::typed_response_promise<thumbnail::ThumbnailBufferPtr> rp,
+        const media::AVFrameID &mptr,
+        const size_t size);
+
+    void get_thumbnail_from_reader_plugin(
+        caf::actor &reader_plugin,
+        caf::typed_response_promise<thumbnail::ThumbnailBufferPtr> rp,
+        const media::AVFrameID &mptr,
+        const size_t size);
+
+    inline static const std::string NAME = "MediaDetailAndThumbnailReaderActor";
+    caf::behavior behavior_;
+
+    int num_detail_requests_since_thumbnail_request_ = {0};
+
+    std::queue<MediaDetailRequest> media_detail_request_queue_;
+
+    std::map<caf::uri, media::MediaDetail> media_detail_cache_;
+    std::map<caf::uri, utility::time_point> media_detail_cache_age_;
+
+    utility::Uuid uuid_;
+    std::vector<caf::actor> plugins_;
+    std::map<utility::Uuid, caf::actor> plugins_map_;
+};
+} // namespace xstudio::media_reader

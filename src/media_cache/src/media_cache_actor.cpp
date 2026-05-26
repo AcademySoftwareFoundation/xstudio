@@ -28,7 +28,7 @@ class TrimActor : public caf::event_based_actor {
     TrimActor(caf::actor_config &cfg);
     ~TrimActor() override = default;
 
-    const char *name() const override { return NAME.c_str(); }
+    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
 
   private:
     inline static const std::string NAME = "TrimActor";
@@ -66,7 +66,7 @@ TrimActor::TrimActor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {
 }
 
 GlobalImageCacheActor::GlobalImageCacheActor(caf::actor_config &cfg)
-    : caf::event_based_actor(cfg), update_pending_(false) {
+    : caf::event_based_actor(cfg) {
     print_on_exit(this, "GlobalImageCacheActor");
 
     system().registry().put(image_cache_registry, this);
@@ -312,7 +312,7 @@ void GlobalImageCacheActor::on_exit() { system().registry().erase(image_cache_re
 
 
 GlobalAudioCacheActor::GlobalAudioCacheActor(caf::actor_config &cfg)
-    : caf::event_based_actor(cfg), update_pending_(false) {
+    : caf::event_based_actor(cfg) {
     print_on_exit(this, "GlobalAudioCacheActor");
 
     system().registry().put(audio_cache_registry, this);

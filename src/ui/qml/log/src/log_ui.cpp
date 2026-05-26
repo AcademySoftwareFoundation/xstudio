@@ -43,7 +43,7 @@ QStringList LogFilterModel::logLevels() const {
         return ll->logLevels();
     } catch (...) {
     }
-    return QStringList();
+    return {};
 }
 
 bool LogFilterModel::filterAcceptsRow(int source_row, const QModelIndex &source_parent) const {

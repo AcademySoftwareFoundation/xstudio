@@ -40,70 +40,56 @@ TEST(GlobalMediaMetadataActorTest, Test) {
     } catch (const std::exception &) {
     }
 
-    auto a = fix.self->request(
-        tmp,
-        std::chrono::seconds(10),
-        get_metadata_atom_v,
-        posix_path_to_uri(TEST_RESOURCE "/media/test.mov"));
-    auto b = fix.self->request(
-        tmp,
-        std::chrono::seconds(10),
-        get_metadata_atom_v,
-        posix_path_to_uri(TEST_RESOURCE "/media/test.0001.exr"));
-    auto c = fix.self->request(
-        tmp,
-        std::chrono::seconds(10),
-        get_metadata_atom_v,
-        posix_path_to_uri(TEST_RESOURCE "/media/test.mov"),
-        "OpenExr");
-    auto d = fix.self->request(
-        tmp,
-        std::chrono::seconds(10),
-        get_metadata_atom_v,
-        posix_path_to_uri(TEST_RESOURCE "/media/test.mov"),
-        "Exr");
-    auto e = fix.self->request(
-        tmp,
-        std::chrono::seconds(10),
-        get_metadata_atom_v,
-        posix_path_to_uri(TEST_RESOURCE "/media/test.mov"),
-        "FFProbe");
+    fix.self->mail(get_metadata_atom_v, posix_path_to_uri(TEST_RESOURCE "/media/test.mov"))
+        .request(tmp, std::chrono::seconds(10))
+        .receive(
+            [&](const std::pair<JsonStore, int> &_json) {
+                EXPECT_FALSE(_json.first.empty()) << "Should return valid json";
+            },
+            [&](const caf::error &err) {
+                EXPECT_TRUE(false) << "Should return valid json" << std::endl << to_string(err);
+            });
 
-    a.receive(
-        [&](const std::pair<JsonStore, int> &_json) {
-            EXPECT_FALSE(_json.first.empty()) << "Should return valid json";
-        },
-        [&](const caf::error &err) {
-            EXPECT_TRUE(false) << "Should return valid json" << std::endl << to_string(err);
-        });
+    fix.self->mail(get_metadata_atom_v, posix_path_to_uri(TEST_RESOURCE "/media/test.0001.exr"))
+        .request(tmp, std::chrono::seconds(10))
+        .receive(
+            [&](const std::pair<JsonStore, int> &_json) {
+                EXPECT_FALSE(_json.first.empty()) << "Should return valid json";
+            },
+            [&](const caf::error &err) {
+                EXPECT_TRUE(false) << "Should return valid json" << std::endl << to_string(err);
+            });
 
-    b.receive(
-        [&](const std::pair<JsonStore, int> &_json) {
-            EXPECT_FALSE(_json.first.empty()) << "Should return valid json";
-        },
-        [&](const caf::error &err) {
-            EXPECT_TRUE(false) << "Should return valid json" << std::endl << to_string(err);
-        });
+    fix.self
+        ->mail(
+            get_metadata_atom_v, posix_path_to_uri(TEST_RESOURCE "/media/test.mov"), "OpenExr")
+        .request(tmp, std::chrono::seconds(10))
+        .receive(
+            [&](const std::pair<JsonStore, int> &) { EXPECT_FALSE(true) << "Should fail"; },
+            [&](const caf::error &err) {
+                EXPECT_TRUE(true) << "Should fail" << std::endl << to_string(err);
+            });
 
-    c.receive(
-        [&](const std::pair<JsonStore, int> &) { EXPECT_FALSE(true) << "Should fail"; },
-        [&](const caf::error &err) {
-            EXPECT_TRUE(true) << "Should fail" << std::endl << to_string(err);
-        });
+    fix.self
+        ->mail(get_metadata_atom_v, posix_path_to_uri(TEST_RESOURCE "/media/test.mov"), "Exr")
+        .request(tmp, std::chrono::seconds(10))
+        .receive(
+            [&](const std::pair<JsonStore, int> &) { EXPECT_FALSE(true) << "Should fail"; },
+            [&](const caf::error &err) {
+                EXPECT_TRUE(true) << "Should fail" << std::endl << to_string(err);
+            });
 
-    d.receive(
-        [&](const std::pair<JsonStore, int> &) { EXPECT_FALSE(true) << "Should fail"; },
-        [&](const caf::error &err) {
-            EXPECT_TRUE(true) << "Should fail" << std::endl << to_string(err);
-        });
-
-    e.receive(
-        [&](const std::pair<JsonStore, int> &_json) {
-            EXPECT_FALSE(_json.first.empty()) << "Should return valid json";
-        },
-        [&](const caf::error &err) {
-            EXPECT_TRUE(false) << "Should return valid json" << std::endl << to_string(err);
-        });
+    fix.self
+        ->mail(
+            get_metadata_atom_v, posix_path_to_uri(TEST_RESOURCE "/media/test.mov"), "FFProbe")
+        .request(tmp, std::chrono::seconds(10))
+        .receive(
+            [&](const std::pair<JsonStore, int> &_json) {
+                EXPECT_FALSE(_json.first.empty()) << "Should return valid json";
+            },
+            [&](const caf::error &err) {
+                EXPECT_TRUE(false) << "Should return valid json" << std::endl << to_string(err);
+            });
 
     fix.self->send_exit(tmp, caf::exit_reason::user_shutdown);
     fix.self->send_exit(gsa, caf::exit_reason::user_shutdown);

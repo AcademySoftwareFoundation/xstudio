@@ -374,7 +374,8 @@ void AudioOutputControl::prepare_samples_for_audio_scrubbing(
     float *f        = fade_out_coeffs.data() + long(FADE_FUNC_SAMPS) - fade_samps;
     while (fade_samps) {
         for (int chn = 0; chn < num_channels; ++chn) {
-            (*samps++) = round((*samps) * (*f));
+            (*samps) = round((*samps) * (*f));
+            samps++;
         }
         f++;
         fade_samps--;
@@ -414,7 +415,6 @@ void AudioOutputControl::queue_samples_for_playing(
     if (audio_frames.size()) {
         t0 = audio_frames[0].timeline_timestamp();
     }
-    timebase::flicks o;
     for (const auto &_frame : audio_frames) {
 
         // xstudio stores a frame of audio samples for every video frame for any
@@ -560,8 +560,7 @@ media_reader::AudioBufPtr AudioOutputControl::pick_audio_buffer(
     auto r = sample_data_.lower_bound(future_playhead_position);
 
     if (r == sample_data_.end()) {
-        auto r = media_reader::AudioBufPtr();
-        return r;
+        return {};
     }
 
     // gtp et the audio buf with a 'show' time that is CLOSEST
@@ -594,7 +593,7 @@ media_reader::AudioBufPtr AudioOutputControl::pick_audio_buffer(
 
     // so if we are more than half the duration of the buffer out, return empty ptr
     if (!buf || fabs(t_mismatch) > buf->duration_seconds() / 2) {
-        return media_reader::AudioBufPtr();
+        return {};
     }
 
     if (drop_old_buffers && playing_forward_) {
@@ -787,7 +786,9 @@ bool copy_samples_to_scrub_buffer(
         const float f = fade_in_coeffs[total_samps_pushed];
         // blend incoming samps with whatever samps are already in the buffer
         for (int chn = 0; chn < num_channels; ++chn) {
-            (*stream++) = T(round((*tt++) * f)) + T(round((*stream) * (1.0f - f)));
+            (*stream) = T(round((*tt) * f)) + T(round((*stream) * (1.0f - f)));
+            stream++;
+            tt++;
         }
         buffer_position++;
         total_samps_pushed++;

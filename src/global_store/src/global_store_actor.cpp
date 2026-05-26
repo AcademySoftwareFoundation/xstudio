@@ -18,7 +18,7 @@ namespace xstudio::global_store {
 class GlobalStoreIOActor : public caf::event_based_actor {
   public:
     GlobalStoreIOActor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {}
-    const char *name() const override { return NAME.c_str(); }
+    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
 
     caf::message_handler message_handler() {
         return caf::message_handler{

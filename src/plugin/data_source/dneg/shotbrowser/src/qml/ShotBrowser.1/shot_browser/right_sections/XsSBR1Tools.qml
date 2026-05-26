@@ -153,7 +153,7 @@ ColumnLayout{
             Layout.fillWidth: true
             Layout.fillHeight: true
 
-            visible: !linkMode
+            visible: !linkMode && resultsBaseModel.entity != "Playlists"
 
             model: ShotBrowserEngine.ready ? ShotBrowserEngine.presetsModel.termModel("Pipeline Step") : []
             textRole: "nameRole"
@@ -187,6 +187,51 @@ ColumnLayout{
                 target: panel
                 function onCurrentPresetIndexChanged() {
                     filterStep.currentIndex = -1
+                }
+            }
+        }
+
+        XsComboBoxEditable{ id: filterPlaylistType
+            Layout.minimumWidth: btnWidth/2
+            Layout.preferredWidth: btnWidth*4
+            Layout.maximumWidth: btnWidth*4
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+
+            visible: !linkMode && resultsBaseModel.entity == "Playlists"
+
+            model: ShotBrowserEngine.ready ? ShotBrowserEngine.presetsModel.termModel("Playlist Type") : []
+            textRole: "nameRole"
+            currentIndex: -1
+            placeholderText: "Playlist Type"
+
+            onModelChanged: currentIndex = -1
+
+            onCurrentIndexChanged: {
+                if(currentIndex == -1)
+                    playlistType = ""
+            }
+            onAccepted: {
+                if(currentIndex != -1)
+                    playlistType = model.get(model.index(currentIndex, 0), "nameRole")
+                focus = false
+            }
+
+            onActivated: {
+                if(currentIndex != -1)
+                    playlistType = model.get(model.index(currentIndex,0), "nameRole")
+            }
+
+            Connections {
+                target: panel
+                function onPipeStepChanged() {
+                    filterPlaylistType.currentIndex = filterPlaylistType.find(playlistType)
+                }
+            }
+            Connections {
+                target: panel
+                function onCurrentPresetIndexChanged() {
+                    filterPlaylistType.currentIndex = -1
                 }
             }
         }
@@ -301,6 +346,7 @@ ColumnLayout{
             onClicked: {
                 linkMode = !linkMode
                 pipeStep = ""
+                playlistType = ""
                 linkFilter = "All"
             }
         }

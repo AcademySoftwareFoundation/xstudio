@@ -133,26 +133,26 @@ std::string Timecode::to_string() const {
 
 Timecode Timecode::operator+(const Timecode &t) const { return operator+(t.total_frames()); }
 
-Timecode Timecode::operator+(const int &i) const {
+Timecode Timecode::operator+(const int i) const {
     int frameSum = total_frames() + i;
     frameSum %= (max_frames() + 1);
-    return Timecode(frameSum, frame_rate_, drop_frame_);
+    return {static_cast<unsigned int>(frameSum), frame_rate_, drop_frame_};
 }
 
 Timecode Timecode::operator-(const Timecode &t) const { return operator-(t.total_frames()); }
 
-Timecode Timecode::operator-(const int &i) const {
+Timecode Timecode::operator-(const int i) const {
     int f = total_frames() - i;
     if (f < 0)
         f += max_frames();
-    return Timecode(f, frame_rate_, drop_frame_);
+    return {static_cast<unsigned int>(f), frame_rate_, drop_frame_};
 }
 
-Timecode Timecode::operator*(const int &i) const {
+Timecode Timecode::operator*(const int i) const {
     int f = total_frames() * i;
     while (f < 0)
         f += max_frames();
-    return Timecode(f, frame_rate_, drop_frame_);
+    return {static_cast<unsigned int>(f), frame_rate_, drop_frame_};
 }
 
 bool Timecode::operator==(const Timecode &t) const {

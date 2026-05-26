@@ -3,6 +3,7 @@
 #include "xstudio/ui/opengl/opengl_stroke_renderer.hpp"
 
 #include "opengl_stroke_shaders.glsl"
+#include "opengl_offscreen_shaders.glsl"
 
 using namespace xstudio::ui::canvas;
 using namespace xstudio::ui::opengl;
@@ -15,6 +16,7 @@ void OpenGLStrokeRenderer::init_gl() {
     // Stroke rendering
     stroke_shader_ =
         std::make_unique<ui::opengl::GLShaderProgram>(stroke_vertex_shader, stroke_frag_shader);
+    stroke_shader_->set_transpose_matrices(true);
     glGenVertexArrays(1, &stroke_vao_);
     glGenBuffers(1, &stroke_vbo_);
     glBindVertexArray(stroke_vao_);
@@ -28,6 +30,7 @@ void OpenGLStrokeRenderer::init_gl() {
     offscreen_renderer_ = std::make_unique<OpenGLOffscreenRenderer>(GL_RGBA8);
     offscreen_shader_   = std::make_unique<ui::opengl::GLShaderProgram>(
         offscreen_vertex_shader, offscreen_frag_shader);
+    offscreen_shader_->set_transpose_matrices(true);
 }
 
 void OpenGLStrokeRenderer::cleanup_gl() {
@@ -39,17 +42,21 @@ void OpenGLStrokeRenderer::cleanup_gl() {
     }
 }
 
-const int OpenGLStrokeRenderer::vertex_array_filler(
+int OpenGLStrokeRenderer::vertex_array_filler(
     const std::shared_ptr<xstudio::ui::canvas::Stroke> stroke,
     std::vector<Imath::V2f> &line_start_end_per_vertex) {
 
-    const Stroke::Point *v0 = stroke->points().data();
+    const auto &points = stroke->points();
+    if (points.empty())
+        return 0;
+
+    const Stroke::Point *v0 = points.data();
     const Stroke::Point *v1 = v0;
 
-    if (stroke->points().size() > 1)
+    if (points.size() > 1)
         v1++;
 
-    int n_segments = std::max(size_t(1), (stroke->points().size() - 1));
+    int n_segments = std::max(size_t(1), (points.size() - 1));
 
     for (int i = 0; i < n_segments; ++i) {
         Imath::V2f pt_sz(v0->size_pressure, v1->size_pressure);
@@ -76,7 +83,7 @@ void OpenGLStrokeRenderer::render_erase_strokes(
     std::vector<Imath::V2f> line_start_end_per_vertex;
     std::vector<int> n_vtx_per_stroke;
 
-    for (const auto stroke : strokes) {
+    for (const auto &stroke : strokes) {
 
         // Only render erase strokes here
         if (stroke->type() != StrokeType_Erase)
@@ -96,7 +103,7 @@ void OpenGLStrokeRenderer::render_erase_strokes(
         line_start_end_per_vertex.size() * sizeof(Imath::V2f),
         line_start_end_per_vertex.data(),
         GL_STREAM_DRAW);
-    float *ptr = 0;
+    float *ptr = nullptr;
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)ptr);
     ptr += 2;
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)ptr);
@@ -110,12 +117,21 @@ void OpenGLStrokeRenderer::render_erase_strokes(
     // Here we draw the erase strokes.
     // Essentially we just draw into the depth buffer, nothing goes into the frag buffer.
     // Later, when we draw visible strokes, the depth test will cause the 'erase' to work.
+
+    // Set shared uniforms once — only z_adjust and thickness vary per stroke
+    utility::JsonStore shared_params;
+    shared_params["to_coord_system"] = transform_viewport_to_image_space.inverse();
+    shared_params["to_canvas"]       = transform_window_to_viewport_space;
+    shared_params["brush_opacity"]   = 1.0f;
+    shared_params["just_black"]      = 2.0f;
+    stroke_shader_->set_shader_parameters(shared_params);
+
     GLint offset = 0;
     float depth  = 0.0f;
 
     auto p_n_vtx_per_stroke = n_vtx_per_stroke.begin();
 
-    for (const auto stroke : strokes) {
+    for (const auto &stroke : strokes) {
 
         depth += 0.001;
 
@@ -124,17 +140,11 @@ void OpenGLStrokeRenderer::render_erase_strokes(
             continue;
         }
 
-        utility::JsonStore shader_params;
-        shader_params["to_coord_system"]     = transform_viewport_to_image_space.inverse();
-        shader_params["to_canvas"]           = transform_window_to_viewport_space;
-        shader_params["soft_edge"]           = get_soft_edge(stroke, viewport_du_dx);
-        shader_params["z_adjust"]            = depth;
-        shader_params["brush_opacity"]       = 1.0f;
-        shader_params["thickness"]           = stroke->thickness();
-        shader_params["size_sensitivity"]    = 0.0f;
-        shader_params["opacity_sensitivity"] = 0.0f;
-        shader_params["just_black"]          = 2.0f;
-        stroke_shader_->set_shader_parameters(shader_params);
+        utility::JsonStore per_stroke_params;
+        per_stroke_params["z_adjust"]  = depth;
+        per_stroke_params["thickness"] = stroke->thickness();
+        per_stroke_params["soft_edge"] = get_soft_edge(stroke, viewport_du_dx);
+        stroke_shader_->set_shader_parameters(per_stroke_params);
 
         glDrawArrays(GL_TRIANGLES, offset, *p_n_vtx_per_stroke);
         offset += *p_n_vtx_per_stroke;
@@ -150,42 +160,24 @@ void OpenGLStrokeRenderer::render_single_stroke_pass1(
     const Imath::M44f &transform_viewport_to_image_space,
     float viewport_du_dx,
     float depth,
-    const std::vector<Imath::V2f> &vertex_data,
-    int n_segments) {
+    int offset_verts,
+    int n_verts) {
 
     // Begin rendering to offscreen texture
     offscreen_renderer_->begin();
 
     glBindVertexArray(stroke_vao_);
 
-    // Upload vertex data
-    glBindBuffer(GL_ARRAY_BUFFER, stroke_vbo_);
-    glBufferData(
-        GL_ARRAY_BUFFER,
-        vertex_data.size() * sizeof(Imath::V2f),
-        vertex_data.data(),
-        GL_STREAM_DRAW);
-    float *ptr = 0;
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)ptr);
-    ptr += 2;
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)ptr);
-    ptr += 2;
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)ptr);
-    ptr += 2;
-    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)ptr);
-
     stroke_shader_->use();
 
     utility::JsonStore shader_params;
-    shader_params["to_coord_system"]     = transform_viewport_to_image_space.inverse();
-    shader_params["to_canvas"]           = transform_window_to_viewport_space;
-    shader_params["soft_edge"]           = get_soft_edge(stroke, viewport_du_dx);
-    shader_params["z_adjust"]            = depth;
-    shader_params["brush_opacity"]       = stroke->opacity();
-    shader_params["thickness"]           = stroke->thickness();
-    shader_params["size_sensitivity"]    = stroke->size_sensitivity();
-    shader_params["opacity_sensitivity"] = stroke->opacity_sensitivity();
-    shader_params["just_black"]          = 1.0f; // renders stroke quads as black
+    shader_params["to_coord_system"] = transform_viewport_to_image_space.inverse();
+    shader_params["to_canvas"]       = transform_window_to_viewport_space;
+    shader_params["soft_edge"]       = get_soft_edge(stroke, viewport_du_dx);
+    shader_params["z_adjust"]        = depth;
+    shader_params["brush_opacity"]   = stroke->opacity();
+    shader_params["thickness"]       = stroke->thickness();
+    shader_params["just_black"]      = 1.0f; // renders stroke quads as black
     stroke_shader_->set_shader_parameters(shader_params);
 
     // 1st sub-pass: no blending, no depth test. We render black to the whole
@@ -193,7 +185,7 @@ void OpenGLStrokeRenderer::render_single_stroke_pass1(
     // by only clearing pixels within the stroke footprint.
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
-    glDrawArrays(GL_TRIANGLES, 0, n_segments * 6);
+    glDrawArrays(GL_TRIANGLES, offset_verts, n_verts);
 
     // 2nd sub-pass: enable blending with MAX equation. Stroke sections are
     // rendered with overlapping 'sausages' but where they overlap we don't
@@ -206,10 +198,9 @@ void OpenGLStrokeRenderer::render_single_stroke_pass1(
     params2["just_black"] = 0.0f;
     stroke_shader_->set_shader_parameters(params2);
 
-    glDrawArrays(GL_TRIANGLES, 0, n_segments * 6);
+    glDrawArrays(GL_TRIANGLES, offset_verts, n_verts);
 
     glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     stroke_shader_->stop_using();
 
@@ -223,44 +214,23 @@ void OpenGLStrokeRenderer::render_single_stroke_pass2(
     const Imath::M44f &transform_viewport_to_image_space,
     float viewport_du_dx,
     float depth,
-    const std::vector<Imath::V2f> &vertex_data,
-    int n_segments) {
+    int offset_verts,
+    int n_verts) {
 
     glBindVertexArray(stroke_vao_);
 
-    // Upload vertex data (same stroke geometry as pass 1)
-    glBindBuffer(GL_ARRAY_BUFFER, stroke_vbo_);
-    glBufferData(
-        GL_ARRAY_BUFFER,
-        vertex_data.size() * sizeof(Imath::V2f),
-        vertex_data.data(),
-        GL_STREAM_DRAW);
-    float *ptr = 0;
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)ptr);
-    ptr += 2;
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)ptr);
-    ptr += 2;
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)ptr);
-    ptr += 2;
-    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)ptr);
-
     offscreen_shader_->use();
 
-    // The offscreen shader now receives stroke uniforms plus the offscreen
-    // texture, and renders the stroke geometry (not a fullscreen quad).
-    // This is more efficient as it only composites pixels where the stroke
-    // actually exists.
     utility::JsonStore shader_params;
-    shader_params["to_coord_system"]     = transform_viewport_to_image_space.inverse();
-    shader_params["to_canvas"]           = transform_window_to_viewport_space;
-    shader_params["soft_edge"]           = get_soft_edge(stroke, viewport_du_dx);
-    shader_params["z_adjust"]            = depth;
-    shader_params["brush_colour"]        = stroke->colour();
-    shader_params["brush_opacity"]       = stroke->opacity();
-    shader_params["thickness"]           = stroke->thickness();
-    shader_params["size_sensitivity"]    = stroke->size_sensitivity();
-    shader_params["opacity_sensitivity"] = stroke->opacity_sensitivity();
-    shader_params["offscreenTexture"]    = 11;
+    shader_params["to_coord_system"]  = transform_viewport_to_image_space.inverse();
+    shader_params["to_canvas"]        = transform_window_to_viewport_space;
+    shader_params["soft_edge"]        = get_soft_edge(stroke, viewport_du_dx);
+    shader_params["z_adjust"]         = depth;
+    shader_params["brush_colour"]     = stroke->colour();
+    shader_params["brush_opacity"]    = stroke->opacity();
+    shader_params["thickness"]        = stroke->thickness();
+    shader_params["offscreenTexture"] = 11;
+    shader_params["blend_mode"]       = 0;
     offscreen_shader_->set_shader_parameters(shader_params);
 
     // Save current GL_ACTIVE_TEXTURE
@@ -278,10 +248,80 @@ void OpenGLStrokeRenderer::render_single_stroke_pass2(
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     glBlendEquation(GL_FUNC_ADD);
 
-    glDrawArrays(GL_TRIANGLES, 0, n_segments * 6);
+    glDrawArrays(GL_TRIANGLES, offset_verts, n_verts);
 
     glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    offscreen_shader_->stop_using();
+}
+
+void OpenGLStrokeRenderer::render_effect_stroke_pass2(
+    const std::shared_ptr<xstudio::ui::canvas::Stroke> stroke,
+    const Imath::M44f &transform_window_to_viewport_space,
+    const Imath::M44f &transform_viewport_to_image_space,
+    float viewport_du_dx,
+    float depth,
+    int offset_verts,
+    int n_verts) {
+
+    const int blend_mode = stroke->blend_mode();
+
+    glBindVertexArray(stroke_vao_);
+
+    offscreen_shader_->use();
+
+    utility::JsonStore shader_params;
+    shader_params["to_coord_system"]  = transform_viewport_to_image_space.inverse();
+    shader_params["to_canvas"]        = transform_window_to_viewport_space;
+    shader_params["soft_edge"]        = get_soft_edge(stroke, viewport_du_dx);
+    shader_params["z_adjust"]         = depth;
+    shader_params["brush_colour"]     = stroke->colour();
+    shader_params["brush_opacity"]    = 1.0f;
+    shader_params["thickness"]        = stroke->thickness();
+    shader_params["offscreenTexture"] = 11;
+    shader_params["blend_mode"]       = blend_mode;
+    offscreen_shader_->set_shader_parameters(shader_params);
+
+    // Save current GL_ACTIVE_TEXTURE
+    int active_texture;
+    glGetIntegerv(GL_ACTIVE_TEXTURE, &active_texture);
+
+    glActiveTexture(GL_TEXTURE11);
+    glBindTexture(GL_TEXTURE_2D, offscreen_renderer_->texture_handle());
+
+    // Restore saved texture unit
+    glActiveTexture(active_texture);
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_GREATER);
+    glEnable(GL_BLEND);
+    glBlendEquation(GL_FUNC_ADD);
+
+    // Set blend function based on effect type
+    switch (blend_mode) {
+    case 1: // BurnAdd (subtractive): dst - strength
+        glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
+        glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ZERO, GL_ONE);
+        break;
+    case 2: // BurnMult (multiply): dst * (1 - strength)
+        glBlendFuncSeparate(GL_ZERO, GL_ONE_MINUS_SRC_COLOR, GL_ZERO, GL_ONE);
+        break;
+    case 3: // DodgeAdd (additive): dst + strength
+        glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ZERO, GL_ONE);
+        break;
+    case 4: // DodgeMult (screen): dst * (1 + strength)
+        glBlendFuncSeparate(GL_DST_COLOR, GL_ONE, GL_ZERO, GL_ONE);
+        break;
+    }
+
+    glDrawArrays(GL_TRIANGLES, offset_verts, n_verts);
+
+    // Restore default blend state for subsequent strokes
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendEquation(GL_FUNC_ADD);
+
+    glBindVertexArray(0);
 
     offscreen_shader_->stop_using();
 }
@@ -335,10 +375,55 @@ void OpenGLStrokeRenderer::render_strokes(
 
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
-    // Render each non-erase stroke using two-pass approach:
-    // Pass 1: render to offscreen (black fill + MAX blend alpha)
-    // Pass 2: composite to screen using stroke geometry + offscreen texture
+    // Pre-build all visible stroke vertex data into a single buffer and
+    // upload once, then draw each stroke at its offset. This avoids
+    // re-uploading the VBO per stroke.
+    struct StrokeInfo {
+        std::shared_ptr<xstudio::ui::canvas::Stroke> stroke;
+        int offset_verts;
+        int n_verts;
+        float depth;
+    };
+
+    std::vector<Imath::V2f> combined_vertex_data;
+    std::vector<StrokeInfo> stroke_infos;
     float depth = 0.0f;
+
+    for (const auto &stroke : strokes) {
+
+        depth += 0.001;
+
+        if (stroke->type() == StrokeType_Erase)
+            continue;
+        if (stroke->points().empty())
+            continue;
+
+        const int offset_verts = static_cast<int>(combined_vertex_data.size()) / 4;
+        const int n_segments   = vertex_array_filler(stroke, combined_vertex_data);
+        const int n_verts      = n_segments * 6;
+
+        stroke_infos.push_back({stroke, offset_verts, n_verts, depth});
+    }
+
+    if (stroke_infos.empty())
+        return;
+
+    // Single VBO upload for all visible strokes
+    glBindVertexArray(stroke_vao_);
+    glBindBuffer(GL_ARRAY_BUFFER, stroke_vbo_);
+    glBufferData(
+        GL_ARRAY_BUFFER,
+        combined_vertex_data.size() * sizeof(Imath::V2f),
+        combined_vertex_data.data(),
+        GL_STREAM_DRAW);
+    float *ptr = nullptr;
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)ptr);
+    ptr += 2;
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)ptr);
+    ptr += 2;
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)ptr);
+    ptr += 2;
+    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)ptr);
 
     // Pass 1 uses identity for to_canvas so the stroke fills the entire
     // offscreen texture at full resolution. Pass 2 uses the real
@@ -352,49 +437,46 @@ void OpenGLStrokeRenderer::render_strokes(
     std::array<int, 4> saved_viewport;
     glGetIntegerv(GL_VIEWPORT, saved_viewport.data());
 
-    for (const auto stroke : strokes) {
+    for (const auto &info : stroke_infos) {
 
-        depth += 0.001;
-
-        if (stroke->type() == StrokeType_Erase) {
-            continue;
-        }
-
-        // Build vertex data once, share between both passes
-        std::vector<Imath::V2f> line_start_end_per_vertex;
-        const int n_segments = vertex_array_filler(stroke, line_start_end_per_vertex);
-
-        // Pass 1: render stroke to offscreen texture with identity for
-        // to_canvas — stroke fills the full FBO at full resolution.
+        // Pass 1: render stroke mask to offscreen FBO via MAX blend
         render_single_stroke_pass1(
-            stroke,
+            info.stroke,
             identity,
             transform_viewport_to_image_space,
             viewport_du_dx,
-            depth,
-            line_start_end_per_vertex,
-            n_segments);
+            info.depth,
+            info.offset_verts,
+            info.n_verts);
 
         // Restore viewport after offscreen rendering may have changed it
         glViewport(saved_viewport[0], saved_viewport[1], saved_viewport[2], saved_viewport[3]);
 
-        // Pass 2: composite to screen using stroke geometry + offscreen
-        // texture. Uses transform_window_to_viewport_space for correct
-        // screen positioning. The offscreen vertex shader computes
-        // frag_pos without to_canvas so UV lookup matches pass 1.
-        render_single_stroke_pass2(
-            stroke,
-            transform_window_to_viewport_space,
-            transform_viewport_to_image_space,
-            viewport_du_dx,
-            depth,
-            line_start_end_per_vertex,
-            n_segments);
+        // Pass 2: composite to screen (blend mode varies by type)
+        if (info.stroke->blend_mode()) {
+            render_effect_stroke_pass2(
+                info.stroke,
+                transform_window_to_viewport_space,
+                transform_viewport_to_image_space,
+                viewport_du_dx,
+                info.depth,
+                info.offset_verts,
+                info.n_verts);
+        } else {
+            render_single_stroke_pass2(
+                info.stroke,
+                transform_window_to_viewport_space,
+                transform_viewport_to_image_space,
+                viewport_du_dx,
+                info.depth,
+                info.offset_verts,
+                info.n_verts);
+        }
     }
 }
 
 
-const Imath::V2i OpenGLStrokeRenderer::calculate_viewport_size(
+Imath::V2i OpenGLStrokeRenderer::calculate_viewport_size(
     const Imath::M44f &transform_window_to_viewport_space) {
     // the gl viewport corresponds to the parent window size.
     std::array<int, 4> gl_viewport;
@@ -428,7 +510,7 @@ const Imath::V2i OpenGLStrokeRenderer::calculate_viewport_size(
     const int viewport_width  = (int)round(topright.x - botomleft.x);
     const int viewport_height = (int)round(topright.y - botomleft.y);
 
-    return Imath::V2i(viewport_width, viewport_height);
+    return {viewport_width, viewport_height};
 }
 
 float OpenGLStrokeRenderer::get_soft_edge(
@@ -438,7 +520,4 @@ float OpenGLStrokeRenderer::get_soft_edge(
     float min_antialias = viewport_du_dx * 4.0;
 
     return soft_edge < min_antialias ? min_antialias : soft_edge;
-
-    // return stroke->softness() == 0 ? viewport_du_dx * 4.0f : stroke->thickness() *
-    // stroke->softness();
 }

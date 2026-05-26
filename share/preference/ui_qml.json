@@ -271,13 +271,17 @@
 											"children": [
 												{
 													"tab_view": "Viewport",
-													"user_data": [
-														[
-															"Annotate",
-															false,
-															"left"
-														]
-													]
+													"user_data": {
+														"dock_widgets_model": [
+															[
+																"Annotate",
+																false,
+																"left"
+															]
+														],
+														"infoBarVisible": false,
+														"tabBarVisible": false
+													}
 												}
 											],
 											"current_tab": 0,
@@ -298,12 +302,36 @@
 									"children": [
 										{
 											"child_dividers": [
-												0.2639399609144996
+												0.7480857726369179
 											],
 											"children": [
 												{
 													"child_dividers": [
-														0.5111100077629089
+														0.5203144803298188
+													],
+													"children": [
+														{
+															"children": [
+																{
+																	"tab_view": "Viewport"
+																}
+															],
+															"current_tab": 0
+														},
+														{
+															"children": [
+																{
+																	"tab_view": "File System Browser"
+																}
+															],
+															"current_tab": 0
+														}
+													],
+													"split_horizontal": false
+												},
+												{
+													"child_dividers": [
+														0.41838003743649943
 													],
 													"children": [
 														{
@@ -317,14 +345,70 @@
 														{
 															"children": [
 																{
+																	"tab_view": "Media"
+																}
+															],
+															"current_tab": 0
+														}
+													],
+													"split_horizontal": false
+												}
+											],
+											"split_horizontal": true
+										}
+									],
+									"enabled": true,
+									"layout_name": "Browse"
+								},
+								{
+									"children": [
+										{
+											"child_dividers": [
+												0.23581066790640562
+											],
+											"children": [
+												{
+													"child_dividers": [
+														0.30921562350552395
+													],
+													"children": [
+														{
+															"children": [
+																{
 																	"current_tab": 0,
-																	"tab_view": "Media",
-																	"user_data": {
-																		"cellSize": 200,
-																		"viewType": "list"
-																	}
+																	"tab_view": "Playlists"
 																}
 															]
+														},
+														{
+															"children": [
+																{
+																	"tab_view": "Media",
+																	"user_data": {
+																		"cellSize": 218,
+																		"scope": "Stream",
+																		"viewType": "list"
+																	}
+																},
+																{
+																	"tab_view": "Shot History",
+																	"user_data": {
+																		"scope": "Stream"
+																	}
+																},
+																{
+																	"tab_view": "Notes History",
+																	"user_data": {
+																		"scope": "Shot",
+																		"type": "Client"
+																	}
+																}
+															],
+															"current_tab": 0,
+															"user_data": {
+																"scope": "Shot",
+																"type": "Client"
+															}
 														}
 													],
 													"split_horizontal": false
@@ -332,17 +416,13 @@
 												{
 													"children": [
 														{
-															"current_tab": 0,
 															"tab_view": "Viewport",
-															"user_data": [
-																[
-																	"Annotate",
-																	false,
-																	"left"
-																]
-															]
+															"user_data": {
+																"infoBarVisible": false
+															}
 														}
-													]
+													],
+													"current_tab": 0
 												}
 											],
 											"split_horizontal": true
@@ -355,260 +435,97 @@
 									"children": [
 										{
 											"child_dividers": [
-												0.2543601384519992
+												0.2476724978421641
 											],
 											"children": [
 												{
 													"child_dividers": [
-														0.4885725844704628
+														0.33653355380016636
 													],
 													"children": [
 														{
 															"children": [
 																{
-																	"tab_view": "Playlists"
-																}
-															],
-															"current_tab": 0
-														},
-														{
-															"children": [
-																{
-																	"tab_view": "Media",
-																	"user_data": "87519a92-a3b7-4b57-899a-574c6a48357b"
-																}
-															],
-															"current_tab": 0,
-															"user_data": "Ref"
-														}
-													],
-													"split_horizontal": false
-												},
-												{
-													"child_dividers": [
-														0.7026894017605045
-													],
-													"children": [
-														{
-															"children": [
-																{
-																	"tab_view": "Viewport",
-																	"user_data": [
-																		[
-																			"Annotate",
-																			false,
-																			"left"
-																		]
-																	]
-																}
-															],
-															"current_tab": 0,
-															"user_data": {
-																"category": "Tree",
-																"left_panel_width": 316,
-																"project": "FUR",
-																"quick_load": "Latest Anim",
-																"right_panel_width": 200
-															}
-														},
-														{
-															"children": [
-																{
-																	"tab_view": "Timeline"
-																}
-															],
-															"current_tab": 0,
-															"user_data": "Stream"
-														}
-													],
-													"split_horizontal": false
-												}
-											],
-											"split_horizontal": true
-										}
-									],
-									"enabled": true,
-									"layout_name": "Timeline"
-								}
-							],
-							"current_layout": 0,
-							"height": 1057,
-							"position_x": 181,
-							"position_y": 30,
-							"width": 2176,
-							"window_name": "main_window"
-						},
-						{
-							"height": 813,
-							"position_x": 1269,
-							"position_y": 553,
-							"user_data": [
-								[
-									"Annotate",
-									true,
-									"right"
-								]
-							],
-							"width": 1074,
-							"window_name": "popout_window"
-						}
-					]
-				},
-				"description": "Windows layouts",
-				"value": {
-					"children": [
-						{
-							"children": [
-								{
-									"children": [
-										{
-											"children": [
-												{
-													"tab_view": "Viewport",
-													"user_data": [
-														[
-															"Annotate",
-															false,
-															"left"
-														]
-													]
-												}
-											],
-											"current_tab": 0,
-											"tabs_hidden": false,
-											"user_data": {
-												"category": "Tree",
-												"left_panel_width": 267,
-												"project": "FUR",
-												"quick_load": "",
-												"right_panel_width": 200
-											}
-										}
-									],
-									"enabled": true,
-									"layout_name": "Present"
-								},
-								{
-									"children": [
-										{
-											"child_dividers": [
-												0.2639399609144996
-											],
-											"children": [
-												{
-													"child_dividers": [
-														0.5111100077629089
-													],
-													"children": [
-														{
-															"children": [
-																{
-																	"tab_view": "Playlists"
-																}
-															],
-															"current_tab": 0
-														},
-														{
-															"children": [
-																{
-																	"current_tab": 0,
-																	"tab_view": "Media",
+																	"tab_view": "Playlists",
 																	"user_data": {
-																		"cellSize": 200,
+																		"cellSize": 164,
+																		"media_list_id": "cfbc7d2f-d6c6-4192-a66d-2ffdbc949a19",
 																		"viewType": "list"
 																	}
 																}
-															]
-														}
-													],
-													"split_horizontal": false
-												},
-												{
-													"children": [
-														{
-															"current_tab": 0,
-															"tab_view": "Viewport",
-															"user_data": [
-																[
-																	"Annotate",
-																	false,
-																	"left"
-																]
-															]
-														}
-													]
-												}
-											],
-											"split_horizontal": true
-										}
-									],
-									"enabled": true,
-									"layout_name": "Review"
-								},
-								{
-									"children": [
-										{
-											"child_dividers": [
-												0.2543601384519992
-											],
-											"children": [
-												{
-													"child_dividers": [
-														0.4885725844704628
-													],
-													"children": [
-														{
-															"children": [
-																{
-																	"tab_view": "Playlists"
-																}
-															],
-															"current_tab": 0
-														},
-														{
-															"children": [
-																{
-																	"tab_view": "Media",
-																	"user_data": "87519a92-a3b7-4b57-899a-574c6a48357b"
-																}
-															],
-															"current_tab": 0,
-															"user_data": "Ref"
-														}
-													],
-													"split_horizontal": false
-												},
-												{
-													"child_dividers": [
-														0.7026894017605045
-													],
-													"children": [
-														{
-															"children": [
-																{
-																	"tab_view": "Viewport",
-																	"user_data": [
-																		[
-																			"Annotate",
-																			false,
-																			"left"
-																		]
-																	]
-																}
 															],
 															"current_tab": 0,
 															"user_data": {
-																"category": "Tree",
-																"left_panel_width": 316,
-																"project": "FUR",
-																"quick_load": "Latest Anim",
-																"right_panel_width": 200
+																"scope": "Shot",
+																"type": "Client"
 															}
 														},
 														{
 															"children": [
 																{
-																	"tab_view": "Timeline"
+																	"tab_view": "Media",
+																	"user_data": {
+																		"cellSize": 217,
+																		"is_list_view": true,
+																		"viewType": "list"
+																	}
+																}
+															],
+															"current_tab": 0
+														}
+													],
+													"split_horizontal": false
+												},
+												{
+													"child_dividers": [
+														0.5853181443453789
+													],
+													"children": [
+														{
+															"child_dividers": [
+																0.6252765361290133
+															],
+															"children": [
+																{
+																	"children": [
+																		{
+																			"tab_view": "Viewport",
+																			"user_data": {
+																				"dock_widgets_model": [
+																					[
+																						"Annotate",
+																						false,
+																						"left"
+																					]
+																				],
+																				"infoBarVisible": false
+																			}
+																		}
+																	],
+																	"current_tab": 0
+																},
+																{
+																	"children": [
+																		{
+																			"tab_view": "Shot History"
+																		},
+																		{
+																			"tab_view": "Notes History"
+																		}
+																	],
+																	"current_tab": 1
+																}
+															],
+															"split_horizontal": true
+														},
+														{
+															"children": [
+																{
+																	"tab_view": "Timeline",
+																	"user_data": {
+																		"hideMarkers": true,
+																		"verticalScale": 1
+																	}
 																}
 															],
 															"current_tab": 0,
@@ -626,25 +543,390 @@
 								}
 							],
 							"current_layout": 1,
-							"height": 1057,
-							"position_x": 181,
-							"position_y": 30,
-							"width": 2176,
+							"height": 1304,
+							"position_x": 4,
+							"position_y": 51,
+							"width": 2363,
 							"window_name": "main_window"
 						},
 						{
-							"height": 813,
-							"position_x": 1269,
-							"position_y": 553,
-							"user_data": [
-								[
-									"Annotate",
-									true,
-									"right"
-								]
-							],
-							"width": 1074,
+							"height": 2160,
+							"position_x": 3840,
+							"position_y": 0,
+							"user_data": null,
+							"width": 4096,
 							"window_name": "popout_window"
+						},
+						{
+							"user_data": {
+								"category": "Tree",
+								"quickLoad": "Latest Anim",
+								"resultPanelWidth": 736,
+								"window_geometry": {
+									"height": 674,
+									"width": 1104,
+									"x": 280,
+									"y": 144
+								}
+							},
+							"window_name": "Shot Browser"
+						},
+						{
+							"user_data": {
+								"window_geometry": {
+									"height": 400,
+									"width": 1024,
+									"x": 246,
+									"y": 564
+								}
+							},
+							"window_name": "Notes"
+						},
+						{
+							"user_data": {
+								"window_geometry": {
+									"height": 397,
+									"width": 1371,
+									"x": 184,
+									"y": 423
+								}
+							},
+							"window_name": "Grading Tools"
+						}
+					]
+				},
+				"description": "Windows layouts",
+				"value": {
+					"children": [
+						{
+							"children": [
+								{
+									"children": [
+										{
+											"children": [
+												{
+													"tab_view": "Viewport",
+													"user_data": {
+														"dock_widgets_model": [
+															[
+																"Annotate",
+																false,
+																"left"
+															]
+														],
+														"infoBarVisible": false,
+														"tabBarVisible": false
+													}
+												}
+											],
+											"current_tab": 0,
+											"tabs_hidden": false,
+											"user_data": {
+												"category": "Tree",
+												"left_panel_width": 267,
+												"project": "FUR",
+												"quick_load": "",
+												"right_panel_width": 200
+											}
+										}
+									],
+									"enabled": true,
+									"layout_name": "Present"
+								},
+								{
+									"children": [
+										{
+											"child_dividers": [
+												0.7480857726369179
+											],
+											"children": [
+												{
+													"child_dividers": [
+														0.5203144803298188
+													],
+													"children": [
+														{
+															"children": [
+																{
+																	"tab_view": "Viewport"
+																}
+															],
+															"current_tab": 0
+														},
+														{
+															"children": [
+																{
+																	"tab_view": "File System Browser"
+																}
+															],
+															"current_tab": 0
+														}
+													],
+													"split_horizontal": false
+												},
+												{
+													"child_dividers": [
+														0.41838003743649943
+													],
+													"children": [
+														{
+															"children": [
+																{
+																	"tab_view": "Playlists"
+																}
+															],
+															"current_tab": 0
+														},
+														{
+															"children": [
+																{
+																	"tab_view": "Media"
+																}
+															],
+															"current_tab": 0
+														}
+													],
+													"split_horizontal": false
+												}
+											],
+											"split_horizontal": true
+										}
+									],
+									"enabled": true,
+									"layout_name": "Browse"
+								},
+								{
+									"children": [
+										{
+											"child_dividers": [
+												0.23581066790640562
+											],
+											"children": [
+												{
+													"child_dividers": [
+														0.30921562350552395
+													],
+													"children": [
+														{
+															"children": [
+																{
+																	"current_tab": 0,
+																	"tab_view": "Playlists"
+																}
+															]
+														},
+														{
+															"children": [
+																{
+																	"tab_view": "Media",
+																	"user_data": {
+																		"cellSize": 218,
+																		"scope": "Stream",
+																		"viewType": "list"
+																	}
+																},
+																{
+																	"tab_view": "Shot History",
+																	"user_data": {
+																		"scope": "Stream"
+																	}
+																},
+																{
+																	"tab_view": "Notes History",
+																	"user_data": {
+																		"scope": "Shot",
+																		"type": "Client"
+																	}
+																}
+															],
+															"current_tab": 0,
+															"user_data": {
+																"scope": "Shot",
+																"type": "Client"
+															}
+														}
+													],
+													"split_horizontal": false
+												},
+												{
+													"children": [
+														{
+															"tab_view": "Viewport",
+															"user_data": {
+																"infoBarVisible": false
+															}
+														}
+													],
+													"current_tab": 0
+												}
+											],
+											"split_horizontal": true
+										}
+									],
+									"enabled": true,
+									"layout_name": "Review"
+								},
+								{
+									"children": [
+										{
+											"child_dividers": [
+												0.2476724978421641
+											],
+											"children": [
+												{
+													"child_dividers": [
+														0.33653355380016636
+													],
+													"children": [
+														{
+															"children": [
+																{
+																	"tab_view": "Playlists",
+																	"user_data": {
+																		"cellSize": 164,
+																		"media_list_id": "cfbc7d2f-d6c6-4192-a66d-2ffdbc949a19",
+																		"viewType": "list"
+																	}
+																}
+															],
+															"current_tab": 0,
+															"user_data": {
+																"scope": "Shot",
+																"type": "Client"
+															}
+														},
+														{
+															"children": [
+																{
+																	"tab_view": "Media",
+																	"user_data": {
+																		"cellSize": 217,
+																		"is_list_view": true,
+																		"viewType": "list"
+																	}
+																}
+															],
+															"current_tab": 0
+														}
+													],
+													"split_horizontal": false
+												},
+												{
+													"child_dividers": [
+														0.5853181443453789
+													],
+													"children": [
+														{
+															"child_dividers": [
+																0.6252765361290133
+															],
+															"children": [
+																{
+																	"children": [
+																		{
+																			"tab_view": "Viewport",
+																			"user_data": {
+																				"dock_widgets_model": [
+																					[
+																						"Annotate",
+																						false,
+																						"left"
+																					]
+																				],
+																				"infoBarVisible": false
+																			}
+																		}
+																	],
+																	"current_tab": 0
+																},
+																{
+																	"children": [
+																		{
+																			"tab_view": "Shot History"
+																		},
+																		{
+																			"tab_view": "Notes History"
+																		}
+																	],
+																	"current_tab": 1
+																}
+															],
+															"split_horizontal": true
+														},
+														{
+															"children": [
+																{
+																	"tab_view": "Timeline",
+																	"user_data": {
+																		"hideMarkers": true,
+																		"verticalScale": 1
+																	}
+																}
+															],
+															"current_tab": 0,
+															"user_data": "Stream"
+														}
+													],
+													"split_horizontal": false
+												}
+											],
+											"split_horizontal": true
+										}
+									],
+									"enabled": true,
+									"layout_name": "Timeline"
+								}
+							],
+							"current_layout": 1,
+							"height": 1304,
+							"position_x": 4,
+							"position_y": 51,
+							"width": 2363,
+							"window_name": "main_window"
+						},
+						{
+							"height": 2160,
+							"position_x": 3840,
+							"position_y": 0,
+							"user_data": null,
+							"width": 4096,
+							"window_name": "popout_window"
+						},
+						{
+							"user_data": {
+								"category": "Tree",
+								"quickLoad": "Latest Anim",
+								"resultPanelWidth": 736,
+								"window_geometry": {
+									"height": 674,
+									"width": 1104,
+									"x": 280,
+									"y": 144
+								}
+							},
+							"window_name": "Shot Browser"
+						},
+						{
+							"user_data": {
+								"window_geometry": {
+									"height": 400,
+									"width": 1024,
+									"x": 246,
+									"y": 564
+								}
+							},
+							"window_name": "Notes"
+						},
+						{
+							"user_data": {
+								"window_geometry": {
+									"height": 397,
+									"width": 1371,
+									"x": 184,
+									"y": 423
+								}
+							},
+							"window_name": "Grading Tools"
 						}
 					]
 				},

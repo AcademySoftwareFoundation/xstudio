@@ -8,9 +8,7 @@
 #include "xstudio/bookmark/bookmark.hpp"
 #include "xstudio/ui/canvas/canvas.hpp"
 
-namespace xstudio {
-namespace ui {
-namespace viewport {
+namespace xstudio::ui::viewport {
 
     struct Grade {
         std::array<double, 4> slope  {1.0, 1.0, 1.0, 1.0};
@@ -39,7 +37,7 @@ namespace viewport {
       public:
         GradingData() = default;
         GradingData(const utility::JsonStore &s);
-        GradingData(const GradingData &o) :
+        GradingData(const GradingData &o) : AnnotationBase(),
             colour_space_(o.colour_space_),
             grade_(o.grade_),
             mask_active_(o.mask_active_),
@@ -65,7 +63,7 @@ namespace viewport {
                 mask_active_ == o.mask_active_ &&
                 mask_editing_ == o.mask_editing_ &&
                 mask_ == o.mask_
-            ); 
+            );
         }
 
         [[nodiscard]] utility::JsonStore serialise(utility::Uuid &plugin_uuid) const override;
@@ -111,5 +109,3 @@ namespace viewport {
     };
 
 } // end namespace viewport
-} // end namespace ui
-} // end namespace xstudio

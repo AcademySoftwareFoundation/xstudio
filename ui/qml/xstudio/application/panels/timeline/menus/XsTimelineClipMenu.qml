@@ -91,7 +91,8 @@ XsPopupMenu {
         menuItemPosition: 0.3
         menuModelName: timelineMenu.menu_model_name
         panelContext: timelineMenu.panelContext
-        onActivated: timelineSelection.select(helpers.createItemSelection([]), ItemSelectionModel.ClearAndSelect)
+        hotkeyUuid: theTimeline.select_none_hotkey.uuid
+        onActivated: theTimeline.selectNone()
     }
 
     XsMenuModelItem {

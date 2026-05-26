@@ -15,12 +15,15 @@ Rectangle {
     property var margin: 10
 
     property var minWidth: 0
-    width: Math.max(metrics.width+margin*2)
-    height: metrics.height+margin
+    width: idealWidth
+    height: idealHeight
     color: "transparent"
     border.color: XsStyleSheet.accentColor
     border.width: hovered ? 1 : 0
     property bool hovered: mouseArea.containsMouse
+
+    property var idealWidth: metrics.width + margin*2
+    property var idealHeight: metrics.height + margin
 
     XsGradientRectangle{
         id: bgDiv

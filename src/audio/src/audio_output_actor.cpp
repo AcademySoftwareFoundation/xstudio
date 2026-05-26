@@ -475,5 +475,5 @@ caf::actor GlobalAudioOutputActor::independent_output(const utility::Uuid &playh
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
 
-    return caf::actor();
+    return {};
 }
