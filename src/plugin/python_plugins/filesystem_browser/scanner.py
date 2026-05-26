@@ -57,6 +57,7 @@ class FileScanner:
         """
         self.cancel_event.clear()
         
+        print ("scanning", start_path)
         from collections import deque
         from concurrent.futures import wait, FIRST_COMPLETED
 

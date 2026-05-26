@@ -117,7 +117,7 @@ Rectangle {
                     historyList = []
                 }
             } catch(e) {
-                console.log("history_attr: Parse Error: " + e)
+                // console.log("history_attr: Parse Error: " + e)
                 historyList = []
             }
         }
@@ -146,7 +146,7 @@ Rectangle {
                     pinnedList = []
                 }
             } catch(e) {
-                console.log("pinned_attr: Parse Error: " + e)
+                // console.log("pinned_attr: Parse Error: " + e)
                 pinnedList = []
             }
         }
@@ -224,7 +224,8 @@ Rectangle {
         model: pluginData
         role: "value" // Explicitly request value role
         
-        function updateList() {
+
+        /*function updateList() {
              var rawVal = value
              try {
                 if (typeof(rawVal) === "string" && rawVal !== "") {
@@ -237,14 +238,15 @@ Rectangle {
                     buildTree()
                 }
              } catch(e) {
-                console.log("files_attr: Parse Error: " + e)
+                // console.log("files_attr: Parse Error: " + e)
              }
         }
 
         onValueChanged: updateList()
-        Component.onCompleted: updateList()
+        Component.onCompleted: updateList()*/
     }
-    
+    property alias fileList: files_attr.value
+
     XsAttributeValue {
         id: current_path_attr
         attributeTitle: "current_path"
@@ -378,8 +380,6 @@ Rectangle {
         command_attr.value = JSON.stringify(cmd)
     }
 
-    // Local property to hold the parsed JSON file list
-    property var fileList: []
     onFileListChanged: buildTree()
     property var completionList: []
     
@@ -465,7 +465,7 @@ Rectangle {
         }
 
         if (pending.length > 0) {
-            console.log("QML: requesting " + pending.length + " visible thumbnails")
+            // console.log("QML: requesting " + pending.length + " visible thumbnails")
             thumbnail_request_attr.value = JSON.stringify(pending)
         }
     }
@@ -1428,7 +1428,7 @@ Rectangle {
                  Layout.preferredHeight: rowHeight
                  currentIndex: model.indexOf(currentFilterTime)
                  onActivated: {
-                     console.log("Time Filter Changed to: " + currentText)
+                     // console.log("Time Filter Changed to: " + currentText)
                      // Send command to update backend
                      sendCommand({"action": "set_attribute", "name": "filter_time", "value": currentText})
                      // Optimistically update local state (backend update will confirm it via onValueChanged)

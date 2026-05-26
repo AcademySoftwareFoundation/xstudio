@@ -2,7 +2,32 @@
 
 xSTUDIO's UI is built with the Qt cross-platform GUI development libraries. The Qt SDK is a major dependency that is required to build xSTUDIO but fortunately it is freely available for public use under the GPL license.
 
-### Running the Qt installer
+There are two ways to install it: the official Qt installer (GUI, requires a Qt account), or `aqtinstall` (command-line, scriptable, no account). Either produces the same result and both are documented below — pick whichever you prefer.
+
+### Option A: Using `aqtinstall` (command-line, recommended)
+
+[`aqtinstall`](https://github.com/miurahr/aqtinstall) is a small open-source Python tool that downloads the same official Qt prebuilt binaries as the GUI installer, directly from Qt's CDN. It requires no Qt account, is fully scriptable, and installs exactly the version and modules you ask for.
+
+First, make sure you have Python 3 and `pip` available, then install `aqtinstall`:
+
+    pip install aqtinstall
+
+Then download Qt 6.5.3 for your platform. Choose the command that matches your OS:
+
+    # Linux (gcc x86_64)
+    aqt install-qt linux desktop 6.5.3 gcc_64 -O ~/Qt -m qtimageformats
+
+    # macOS (universal: ARM + Intel)
+    aqt install-qt mac desktop 6.5.3 clang_64 -O ~/Qt -m qtimageformats
+
+    # Windows (MSVC 2019 64-bit, in PowerShell)
+    aqt install-qt windows desktop 6.5.3 win64_msvc2019_64 -O C:\Qt -m qtimageformats
+
+The `-m qtimageformats` flag installs the extra 'Qt Image Formats' module that xSTUDIO requires. The `-O` flag specifies the output directory — feel free to change it, but make a note of the path as you will need it later when setting `Qt6_DIR` in your build environment.
+
+After the command finishe, you will have a Qt installation layout identical to what the GUI installer produces, e.g. `~/Qt/6.5.3/gcc_64/` on Linux, `~/Qt/6.5.3/macos/` on macOS, or `C:\Qt\6.5.3\msvc2019_64\` on Windows.
+
+### Option B: Running the Qt installer (GUI)
 
 First you need to download the [Qt Installer](https://www.qt.io/download-qt-installer).
 
@@ -10,7 +35,7 @@ Run the installer app. Before you can proceed you must register with Qt if you a
 
 ![Qt Installer](qt_inst1.jpg)
 
-### Select Qt 6.5.3 components
+#### Select Qt 6.5.3 components (Option B only)
 
 Now you must select the correct version of Qt to download. The required version is **6.5.3**. Epand the 'Qt' item in the list, then expand the Qt 6.5.3 below that. You only need to check the following option within the list under 6.5.3, depending on your platform:
 

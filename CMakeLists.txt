@@ -3,7 +3,7 @@ cmake_policy(VERSION 3.26)
 #cmake_minimum_required(VERSION 3.28 FATAL_ERROR)
 #cmake_policy(VERSION 3.28)
 
-set(XSTUDIO_GLOBAL_VERSION "1.2.0" CACHE STRING "Version string")
+set(XSTUDIO_GLOBAL_VERSION "1.3.0" CACHE STRING "Version string")
 set(XSTUDIO_GLOBAL_NAME xStudio)
 
 # set(CMAKE_OSX_DEPLOYMENT_TARGET "14.5" CACHE STRING "Minimum OS X deployment version" FORCE)

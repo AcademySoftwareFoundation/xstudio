@@ -8,17 +8,11 @@ from enum import Enum
 import sys
 import json
 import threading
-import queue
 import time
 import subprocess
 import shutil
 import pathlib
-import tempfile
-import uuid as _uuid
 import atexit
-from collections import OrderedDict
-from datetime import datetime
-
 class HostApp(Enum):
     generic = 1
     xstudio = 2
@@ -38,6 +32,7 @@ except ImportError:
 # File-based debug log (more reliable than _dbg in xStudio's embedded Python)
 _DEBUG_LOG = "/{}/xstudio_thumb_debug.txt".format(os.environ.get("TMPDIR", "/tmp").rstrip("/"))
 def _dbg(*msg):
+    print (msg)
     return
     try:
         with open(_DEBUG_LOG, "a") as _f:
@@ -45,31 +40,6 @@ def _dbg(*msg):
             _f.flush()
     except Exception:
         pass
-
-
-def _find_ffmpeg():
-    """Find ffmpeg binary. Checks env var, xStudio app bundle, then system PATH."""
-    # 1. Explicit override
-    env_path = os.environ.get("FFMPEG_PATH")
-    if env_path and os.path.isfile(env_path):
-        return env_path, None  # (binary, dyld_lib_path)
-
-    # 2. xStudio app bundle (same directory as the main binary)
-    exe = sys.argv[0] if sys.argv else ""
-    bundle_ffmpeg = os.path.join(os.path.dirname(exe), "ffmpeg")
-    if os.path.isfile(bundle_ffmpeg):
-        # Bundled ffmpeg needs Frameworks dir on DYLD_LIBRARY_PATH
-        frameworks = os.path.join(os.path.dirname(exe), "..", "Frameworks")
-        frameworks = os.path.normpath(frameworks)
-        return bundle_ffmpeg, frameworks
-
-    # 3. System PATH
-    system_ffmpeg = shutil.which("ffmpeg")
-    if system_ffmpeg:
-        return system_ffmpeg, None
-
-    return None, None
-
 
 # PySide6 dependency removed
 # from PySide6.QtCore import QObject, Signal, Qt
@@ -190,9 +160,12 @@ class XStudioHostInterface:
             target_playlist = self.connection.api.session.create_playlist("File System Imports")
             
         for m in target_playlist.media:
-            if m.metadata.get("/fs_browser/import_path") == path:
-                # already loaded this media into the playlist
-                return
+            try:
+                if m.metadata.get("/fs_browser/import_path") == path:
+                    # already loaded this media into the playlist
+                    return
+            except:
+                pass
 
         seq_path = self._format_sequence_path(path) if fileseq_available else None
         if seq_path:
@@ -290,7 +263,6 @@ class XStudioHostInterface:
 
         self.preview_playlist.clear()
         media = self._add_media_to_playlist(self.preview_playlist, path)
-        print ("media", media)
         if not media: return
 
         self.connection.api.session.viewed_container = self.preview_playlist
@@ -311,13 +283,19 @@ class FilesystemBrowserPlugin(PluginBase):
 
         # Load Configuration
         self.config = self.load_config()
+
+        if HOST_APP == HostApp.generic:
+            # instanciate object that manages ffmpeg subprocess and threads for
+            # generation of thumbnail images
+            from .ffmpeg_thumbnails import FFMpegThumbnails
+            self.thumbnail_generator = FFMpegThumbnails(self._update_file_thumbnail, _dbg)
         
         # self.main_executor = MainThreadExecutor()
 
         # Attribute to communicate list of files to QML (as JSON string)
         self.files_attr = self.add_attribute(
             "file_list",
-            "[]", # Empty JSON list
+            "", # empty string - sets file type as string
             {"title": "file_list"}, # Explicit title for QML lookup
             register_as_preference=False
         )
@@ -378,14 +356,14 @@ class FilesystemBrowserPlugin(PluginBase):
         
         # Register the panel, passing the action
         self.register_ui_panel_qml(
-            "Filesystem Browser",
+            "File System Browser",
             """
             FilesystemBrowser {
                 anchors.fill: parent
             }
             """,
             10.0, # Position in menu
-            "", # No icon = Standard Panel (Dockable)
+            "", # No icon = Standard Panel (Docked)
             -1.0,
             self.toggle_browser_action # Pass the action UUID
         )
@@ -619,24 +597,6 @@ class FilesystemBrowserPlugin(PluginBase):
         self.results_lock = threading.Lock()  # Protects current_scan_results
         self.current_scan_results = []
         
-        # Thumbnail setup — ffmpeg-based, no xStudio actor system needed
-        self._ffmpeg_bin, self._ffmpeg_dyld = _find_ffmpeg()
-        if self._ffmpeg_bin:
-            _dbg(f"FilesystemBrowser: using ffmpeg at {self._ffmpeg_bin}")
-        else:
-            _dbg("FilesystemBrowser: WARNING — ffmpeg not found, thumbnails disabled")
-        self._temp_dir = tempfile.mkdtemp(prefix="xstudio_thumbs_")
-        self._thumbnail_cache = OrderedDict()  # path -> file:///... thumb URI (LRU, capped)
-        self._thumbnail_cache_max = 500
-        atexit.register(self._cleanup)
-        self._thumb_lock = threading.Lock()
-        self._thumb_pending = set()  # paths currently in queue/processing
-        self._thumb_queue = queue.Queue()
-        # 4 worker threads — daemon so they die with the process
-        for _ in range(4):
-            t = threading.Thread(target=self._thumb_worker_loop, daemon=True)
-            t.start()
-
         # Dedicated attribute for batch thumbnail requests from QML.
         # QML writes a JSON array of paths; Python reads and queues them all at once.
         self.thumbnail_request_attr = self.add_attribute(
@@ -807,7 +767,7 @@ class FilesystemBrowserPlugin(PluginBase):
             "force_scan":               _cmd_force_scan,
             "go_to_parent_folder":      _cmd_go_to_parent,
             "get_subdirs":              lambda d: self._get_subdirs(d.get("path")),
-            "request_thumbnail":        lambda d: self._request_thumbnail(d.get("path")),
+            "request_thumbnail":        lambda d: self.thumbnail_generator(d.get("path")),
         }
 
     def attribute_changed(self, attribute, role):
@@ -852,7 +812,7 @@ class FilesystemBrowserPlugin(PluginBase):
                     paths = json.loads(val)
                     _dbg(f"BATCH: received {len(paths)} paths")
                     for p in paths:
-                        self._request_thumbnail(p)
+                        self.thumbnail_generator.request_thumbnail(p)
                     self.thumbnail_request_attr.set_value("[]")
             except Exception as e:
                 import traceback
@@ -978,7 +938,7 @@ class FilesystemBrowserPlugin(PluginBase):
                 return
 
             with self.results_lock:
-                self.current_scan_results = results
+                self.current_scan_results = results        
             self.apply_filters()
             
             _dbg(f"Search finished, found {len(results)} items")
@@ -1037,7 +997,25 @@ class FilesystemBrowserPlugin(PluginBase):
             _dbg(f"Completion error: {e}")
             self.completions_attr.set_value("[]")
 
+    def _update_file_thumbnail(self, path, thumb_uri):
+        """Update thumbnailSource in current_scan_results and push to files_attr
+        WITHOUT calling apply_filters() to avoid a full QML model rebuild."""
+        with self.results_lock:
+            found = False
+            for r in self.current_scan_results:
+                if r.get("path") == path:
+                    if r.get("thumbnailSource") == thumb_uri:
+                        return  # Already up to date; don't trigger another rebuild
+                    r["thumbnailSource"] = thumb_uri
+                    found = True
+                    break
+            if not found:
+                return
+            # Serialise only what QML needs — same JSON format as apply_filters
+            serialised = json.dumps(self.current_scan_results)
 
+        # Push the update; QML will merge thumbnailSource via the Image.source binding
+        self.files_attr.set_value(serialised)
 
     def load_config(self):
         """Load configuration from config.json in the plugin directory."""
@@ -1106,8 +1084,6 @@ class FilesystemBrowserPlugin(PluginBase):
             self.start_search(path)
             return
         self.host.load_media(path)
-
-
 
     def apply_filters(self):
         """Re-run filtering logic on the current results cache."""
@@ -1202,9 +1178,8 @@ class FilesystemBrowserPlugin(PluginBase):
         final_results.sort(key=lambda x: x["name"])
 
         # Serialize
-        json_str = json.dumps(final_results)
-        
-        self.files_attr.set_value(json_str)
+        # json_str = json.dumps(final_results)        
+        self.files_attr.set_value(json.dumps(final_results))
 
     def _on_filter_changed(self, attribute, role):
         from xstudio.core import AttributeRole
@@ -1263,136 +1238,6 @@ class FilesystemBrowserPlugin(PluginBase):
                 self.scanner.shutdown()
             except Exception:
                 pass
-        try:
-            shutil.rmtree(self._temp_dir, ignore_errors=True)
-        except Exception:
-            pass
-
-    def _request_thumbnail(self, path):
-        """Queue an async thumbnail fetch if not already cached or pending."""
-        if path in self._thumbnail_cache:
-            # Already done — push the cached URI back to UI immediately
-            self._update_file_thumbnail(path, self._thumbnail_cache[path])
-            return
-        with self._thumb_lock:
-            if path not in self._thumb_pending:
-                self._thumb_pending.add(path)
-                self._thumb_queue.put(path)
-
-    def _thumb_worker_loop(self):
-        """Daemon worker pulling thumbnail requests from the queue."""
-        while True:
-            _dbg ("QUEUE SIZE", self._thumb_queue.qsize())
-            path = self._thumb_queue.get()
-            try:
-                self._generate_thumbnail(path)
-            except Exception as e:
-                _dbg(f"WORKER_ERR: {e}")
-            finally:
-                with self._thumb_lock:
-                    self._thumb_pending.discard(path)
-                self._thumb_queue.task_done()
-
-    def _resolve_sequence_frame(self, path):
-        """Given a fileseq path string, return (concrete_file_path, frame_number).
-        For single files, returns (path, 0)."""
-        if not fileseq_available:
-            return path, 0
-        try:
-            seq = fileseq.FileSequence(path)
-            frames = list(seq.frameSet())
-            if len(frames) > 1:
-                mid = frames[len(frames) // 2]
-                return seq.frame(mid), mid
-            elif len(frames) == 1:
-                return seq.frame(frames[0]), frames[0]
-        except Exception:
-            pass
-        return path, 0
-
-    def _generate_thumbnail(self, path):
-        """Generate a thumbnail JPEG using ffmpeg subprocess."""
-        return
-        if not self._ffmpeg_bin:
-            _dbg(f"GEN_SKIP (no ffmpeg): {path}")
-            return
-
-        target_file, _frame = self._resolve_sequence_frame(path)
-        _dbg(f"GEN_START: {path} -> {target_file}")
-
-        if not os.path.exists(target_file):
-            _dbg(f"GEN_MISSING: {target_file}")
-            return
-
-        out_file = os.path.join(self._temp_dir, f"{_uuid.uuid4().hex}.jpg")
-
-        env = os.environ.copy()
-        if self._ffmpeg_dyld:
-            existing = env.get("DYLD_LIBRARY_PATH", "")
-            env["DYLD_LIBRARY_PATH"] = (
-                self._ffmpeg_dyld + (":" + existing if existing else "")
-            )
-
-        cmd = [
-            self._ffmpeg_bin,
-            "-y",               # overwrite output file
-            "-i", target_file,
-            "-vf", "scale=150:-1,format=rgb24",
-            "-frames:v", "1",
-            "-update", "1",     # allow single-image output
-            out_file,
-        ]
-
-        _dbg(f"GEN_CMD: {' '.join(cmd)}")
-        try:
-            result = subprocess.run(
-                cmd, env=env,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
-                timeout=30
-            )
-            if result.returncode == 0 and os.path.exists(out_file):
-                thumb_uri = pathlib.Path(out_file).as_uri()
-                _dbg(f"GEN_OK: {thumb_uri}")
-                # LRU eviction: if cache is at capacity, remove the oldest entry
-                # and delete its temp file to reclaim disk space.
-                if len(self._thumbnail_cache) >= self._thumbnail_cache_max:
-                    _, evicted_uri = self._thumbnail_cache.popitem(last=False)
-                    try:
-                        evicted_path = pathlib.Path(evicted_uri.replace("file://", "", 1))
-                        if evicted_path.exists() and evicted_path.parent.samefile(self._temp_dir):
-                            evicted_path.unlink()
-                    except Exception:
-                        pass
-                self._thumbnail_cache[path] = thumb_uri
-                self._update_file_thumbnail(path, thumb_uri)
-            else:
-                stderr = result.stderr.decode("utf-8", errors="replace")[-500:]
-                _dbg(f"GEN_FAIL (rc={result.returncode}): {stderr}")
-        except subprocess.TimeoutExpired:
-            _dbg(f"GEN_TIMEOUT: {target_file}")
-        except Exception as exc:
-            _dbg(f"GEN_EXCEPTION: {exc}")
-
-    def _update_file_thumbnail(self, path, thumb_uri):
-        """Update thumbnailSource in current_scan_results and push to files_attr
-        WITHOUT calling apply_filters() to avoid a full QML model rebuild."""
-        with self.results_lock:
-            found = False
-            for r in self.current_scan_results:
-                if r.get("path") == path:
-                    if r.get("thumbnailSource") == thumb_uri:
-                        return  # Already up to date; don't trigger another rebuild
-                    r["thumbnailSource"] = thumb_uri
-                    found = True
-                    break
-            if not found:
-                return
-            # Serialise only what QML needs — same JSON format as apply_filters
-            serialised = json.dumps(self.current_scan_results)
-
-        # Push the update; QML will merge thumbnailSource via the Image.source binding
-        self.files_attr.set_value(serialised)
 
 def create_plugin_instance(connection):
     return FilesystemBrowserPlugin(connection)

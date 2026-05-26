@@ -271,29 +271,17 @@ Item {
         id: files_attr
         attributeTitle: "file_list"
         model: pluginData
-        role: "value" // Explicitly request value role
-        
         function updateList() {
-             var rawVal = value
-             try {
-                if (typeof(rawVal) === "string" && rawVal !== "") {
-                    if (rawVal === "[]") {
-                         fileList = []
-                    } else {
-                        var parsed = JSON.parse(rawVal)
-                        fileList = parsed
-                    }
-                    buildTree()
-                }
-             } catch(e) {
-                //("files_attr: Parse Error: " + e)
-             }
+            if (typeof(value) === "string") {
+                fileList = JSON.parse(value)
+            }
         }
-
+        
         onValueChanged: updateList()
         Component.onCompleted: updateList()
     }
-    
+    property var fileList: []
+
     XsAttributeValue {
         id: current_path_attr
         attributeTitle: "current_path"
@@ -408,8 +396,9 @@ Item {
     }
 
     // Local property to hold the parsed JSON file list
-    property var fileList: []
-    onFileListChanged: buildTree()
+    onFileListChanged: {
+        buildTree()
+    }
     property var completionList: []
     
     // Sorting State
@@ -612,8 +601,8 @@ Item {
     }
 
     function buildTree() {
+
         var roots = []
-        
         if (viewMode === 0) {
 
             var subfolders = false
@@ -803,7 +792,7 @@ Item {
                     subfolders = true
                 }
                 // we only show sub-dirs when a deep scan has been executed
-                if (node.visible && (deepScan || node.type=="file" || node.data.type=="File")) {
+                if (node.visible && (deepScan || node.type=="file" || node.data.type=="File" || node.data.type=="Sequence")) {
                     node.depth = depth 
                     visible.push(node)
                     if (node.isFolder && node.expanded) {
@@ -1028,7 +1017,7 @@ Item {
                     spacing: 20
                     XsText {
                         id: msg
-                        visible: (root.viewMode === 3 && flatThumbnailModel.length === 0 || visibleTreeList.length === 0)
+                        visible: root.viewMode === 3 ? flatThumbnailModel.length === 0 : visibleTreeList.length === 0
                         text: "No media found in " + current_path_attr.value + (haveSubFolders ? deepScan ? " or its subfolders" : ", but subfolders yet to be scanned." : "")
                         color: "#666666"
                         font.pixelSize: 18

@@ -450,6 +450,10 @@ void FFMpegDecoder::decode_video_frame(
 
     try {
 
+        if (!decode_stream_) {
+            throw std::runtime_error("No decode stream.");
+        }
+
         if (decode_stream_ && decode_stream_->is_attached_pic()) {
             image_buffer = decode_stream_->attached_pic();
             return;

@@ -142,6 +142,10 @@ CafActorSystem::CafActorSystem() {
     // caf_config config{6, const_cast<char **>(args)};
     const char *args[] = {
         "xstudio",
+
+        // "--caf.logger.file.verbosity=debug",
+        // "--caf.logger.file.format=%r|%c|%p|%a|%t|%M|%F:%L|%m%n"
+
         "--caf.scheduler.max-threads=128",
         "--caf.scheduler.policy=sharing",
         "--caf.logger.console.verbosity=warn"};
