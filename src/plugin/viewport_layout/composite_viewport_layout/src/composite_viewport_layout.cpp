@@ -21,6 +21,7 @@ const char *vertex_shader = R"(
     uniform mat4 to_canvas;
     uniform mat4 canvas_to_image;
     out vec2 canvasCoordinate;
+    out vec2 imageCoordinate;
 
     void main()
     {
@@ -28,6 +29,7 @@ const char *vertex_shader = R"(
         gl_Position = (rpos*to_canvas);
         vec4 ipos = (aPos*canvas_to_image);
         canvasCoordinate = (rpos.xy + vec2(1.0, 1.0))*0.5f;
+        imageCoordinate = vec2(ipos.x/ipos.w, ipos.y/ipos.w);
     }
     )";
 
@@ -37,35 +39,41 @@ const char *frag_shader = R"(
     uniform sampler2D textureSamplerA;
     uniform sampler2D textureSamplerB;
     in vec2 canvasCoordinate;
+    in vec2 imageCoordinate;
     uniform float boost;
     uniform bool screen;
     uniform bool monochrome;
+    uniform float image_aspect;
 
     void main(void)
     {
-        vec4 a = texture(textureSamplerA, canvasCoordinate);
-        vec4 b = texture(textureSamplerB, canvasCoordinate);
-        if (screen) {
-
-            vec4 m = max(a, b);
-            vec4 screen = vec4(1.0) - (vec4(1.0) - a)*(vec4(1.0) - b);
-            FragColor = vec4(
-                m.x > 1.0 ? m.x : screen.x,
-                m.y > 1.0 ? m.y : screen.y,
-                m.z > 1.0 ? m.z : screen.z,
-                m.w > 1.0 ? m.w : screen.w
-                );
-
-        } else if (monochrome) {
-            float al = length(a.rgb);
-            float bl = length(b.xyz);
-            float scale = pow(2.0, boost);
-            float d = (al - bl)*scale;
-            FragColor = vec4(0.5) + vec4(vec3(d), (a.a-b.a)*scale);
+        if (!screen && (imageCoordinate.x < -1.0 || imageCoordinate.x > 1.0 || imageCoordinate.y < -image_aspect || imageCoordinate.y > image_aspect)) {
+            FragColor = vec4(0.0, 0.0, 0.0, 1.0);
         } else {
-            float scale = pow(2.0, boost);
-            vec4 d = (a - b)*scale;
-            FragColor = vec4(0.5, 0.5, 0.5, 0.5) + d;        
+            vec4 a = texture(textureSamplerA, canvasCoordinate);
+            vec4 b = texture(textureSamplerB, canvasCoordinate);
+            if (screen) {
+
+                vec4 m = max(a, b);
+                vec4 screen = vec4(1.0) - (vec4(1.0) - a)*(vec4(1.0) - b);
+                FragColor = vec4(
+                    m.x > 1.0 ? m.x : screen.x,
+                    m.y > 1.0 ? m.y : screen.y,
+                    m.z > 1.0 ? m.z : screen.z,
+                    m.w > 1.0 ? m.w : screen.w
+                    );
+
+            } else if (monochrome) {
+                float al = length(a.rgb);
+                float bl = length(b.xyz);
+                float scale = pow(2.0, boost);
+                float d = (al - bl)*scale;
+                FragColor = vec4(vec3(d) + vec3(0.5), 1.0);
+            } else {
+                float scale = pow(2.0, boost);
+                vec4 d = (a - b)*scale;
+                FragColor = vec4(d.xyz + vec3(0.5), 1.0);
+            }
         }
     }
 
@@ -81,7 +89,7 @@ class OpenGLViewportCompositeRenderer : public OpenGLViewportRenderer {
         const std::string &window_id, const utility::JsonStore &prefs)
         : OpenGLViewportRenderer(window_id, prefs) {}
 
-    virtual ~OpenGLViewportCompositeRenderer() = default;
+    ~OpenGLViewportCompositeRenderer() override = default;
 
     void pre_init() override {
         OpenGLViewportRenderer::pre_init();
@@ -136,7 +144,7 @@ void OpenGLViewportCompositeRenderer::draw_image(
         return;
     }
     // set-up core shader parameters (e.g. image transform matrix etc)
-    utility::JsonStore shader_params = core_shader_params(
+    init_shader_uniforms(
         image_to_be_drawn,
         window_to_viewport_matrix,
         viewport_to_image_space,
@@ -161,7 +169,8 @@ void OpenGLViewportCompositeRenderer::draw_image(
             // we don't pre-mult the first image, just draw it
             glDisable(GL_BLEND);
         } else {
-            shader_params["use_alpha"] = true;
+            static const utility::JsonStore j(nlohmann::json::parse(R"({"use_alpha": true})"));
+            active_shader_program_->set_shader_parameters(j);
             glEnable(GL_BLEND);
             if (mode == 1) {
                 glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
@@ -172,8 +181,6 @@ void OpenGLViewportCompositeRenderer::draw_image(
             glBlendEquation(GL_FUNC_ADD);
         }
     }
-
-    active_shader_program_->set_shader_parameters(shader_params);
 
     // the actual draw .. a quad that spans -1.0, 1.0 in x & y.
     glBindVertexArray(vao());
@@ -205,11 +212,10 @@ void OpenGLViewportCompositeRenderer::render_difference(
 
         glDisable(GL_SCISSOR_TEST);
         glClear(GL_COLOR_BUFFER_BIT);
-        utility::JsonStore j;
-        utility::JsonStore shader_params = core_shader_params(
-            image_to_be_drawn, Imath::M44f(), viewport_to_image_space, viewport_du_dx, j, 0);
 
-        active_shader_program_->set_shader_parameters(shader_params);
+        utility::JsonStore j;
+        init_shader_uniforms(
+            image_to_be_drawn, Imath::M44f(), viewport_to_image_space, viewport_du_dx, j, 0);
 
         // the actual draw .. a quad that spans -1.0, 1.0 in x & y.
         glBindVertexArray(vao());
@@ -238,6 +244,7 @@ void OpenGLViewportCompositeRenderer::render_difference(
     params["monochrome"]      = mode_params.value("monochrome", true);
     params["boost"]           = mode_params.value("boost", 0.0f);
     params["screen"]          = mode_params.value("screen", false);
+    params["image_aspect"]    = mode_params.value("image_aspect", 9.0f/16.0f);
 
     // set the active tex IDs for our texture targets
     glActiveTexture(GL_TEXTURE10);
@@ -350,8 +357,9 @@ void CompositeViewportLayout::do_layout(
             layout_data.custom_layout_data_["mode"]   = 4;
             layout_data.custom_layout_data_["screen"] = true;
         }
-
         layout_data.layout_aspect_ = image_layout_aspect(image_set->onscreen_image(wipeA));
+        layout_data.custom_layout_data_["image_aspect"] = 1.0f/layout_data.layout_aspect_;
+
 
     } else {
 

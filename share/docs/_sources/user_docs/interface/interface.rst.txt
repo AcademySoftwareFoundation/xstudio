@@ -10,6 +10,7 @@ The xSTUDIO Interface
    layouts
    playlists
    media_list
+   file_system_browser
    viewport   
    timeline
    transport

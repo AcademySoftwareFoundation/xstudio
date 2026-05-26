@@ -12,8 +12,6 @@
 #include <opentimelineio/imageSequenceReference.h>
 #include <opentimelineio/deserialization.h>
 
-#include <cpp-colors/colors.h>
-
 #include "xstudio/atoms.hpp"
 #include "xstudio/bookmark/bookmark_actor.hpp"
 #include "xstudio/history/history_actor.hpp"
@@ -28,6 +26,7 @@
 #include "xstudio/utility/chrono.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
+#include "xstudio/utility/colours.hpp"
 
 using namespace xstudio;
 using namespace xstudio::utility;
@@ -288,10 +287,8 @@ std::vector<Marker> process_markers(
     for (const auto &om : markers) {
         auto m = Marker(om->name());
 
-        if (colors::wpf_named_color_converter::is_named(om->color()))
-            m.set_flag(
-                colors::to_ahex_str<char>(colors::color(
-                    colors::value_of(colors::wpf_named_color_converter::value(om->color())))));
+        if (utility::ColourMap.count(to_lower(om->color())))
+            m.set_flag(utility::ColourMap.at(to_lower(om->color())));
 
         auto marker_metadata = JsonStore();
         try {
@@ -1032,7 +1029,7 @@ void timeline_importer(
                 .send(target_url_map[active_path].actor());
         }
 
-        otio::RationalTime dur = cl->duration();
+        // otio::RationalTime dur = cl->duration();
         // std::cout << "Name: " << cl->name() << " [";
         // std::cout << dur.value() << "/" << dur.rate() << "]" << std::endl;
         // trigger population of additional sources ? May conflict with timeline ?
@@ -2086,7 +2083,7 @@ caf::message_handler TimelineActor::message_handler() {
                     .then(
                         [=](const JsonStore &media_display_info) mutable {
                             if (media_display_info.is_array()) {
-                                for (int i = 0; i < media_display_info.size(); ++i) {
+                                for (size_t i = 0; i < media_display_info.size(); ++i) {
                                     std::string data = media_display_info[i].dump();
                                     if (to_lower(data).find(filter_string_lower) !=
                                         std::string::npos) {
@@ -2829,7 +2826,7 @@ void TimelineActor::add_item(const UuidActor &ua) {
 
     try {
         auto grp    = request_receive<caf::actor>(*sys, ua.actor(), get_event_group_atom_v);
-        auto joined = request_receive<bool>(*sys, grp, broadcast::join_broadcast_atom_v, this);
+        std::ignore = request_receive<bool>(*sys, grp, broadcast::join_broadcast_atom_v, this);
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
@@ -3040,7 +3037,7 @@ void TimelineActor::sort_by_media_display_info(
                     auto sort_key = nlohmann::json(fmt::format("ZZZZZZ{}", idx));
 
                     if (media_display_info.is_array() &&
-                        sort_column_index < media_display_info.size()) {
+                        sort_column_index < static_cast<int>(media_display_info.size())) {
                         sort_key = media_display_info[sort_column_index];
                     }
 

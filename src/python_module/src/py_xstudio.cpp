@@ -25,6 +25,7 @@ CAF_POP_WARNINGS
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/utility/serialise_headers.hpp"
 #include "xstudio/media_reader/pixel_info.hpp"
+#include "xstudio/ui/viewport/mask.hpp"
 
 #ifdef __apple__
 namespace caf {
@@ -62,10 +63,6 @@ py_actor_from_string(const std::string &actor_addr, caf::actor remote = caf::act
     // is not the main xstudio system. In this case, we can use remote which is
     // passed in from the python side and is a reference actor from the xstudio
     // system (usually the 'remote' member of a Python plugin instance)
-
-    std::cerr << "AA " << to_string(utility::ActorSystemSingleton::actor_system_ref()) << " "
-              << to_string(remote) << " " << to_string(remote->home_system()) << " "
-              << actor_addr << "\n";
 
     auto actor = utility::actor_from_string(
         utility::ActorSystemSingleton::actor_system_ref(), actor_addr);
@@ -197,6 +194,7 @@ PYBIND11_MODULE(__pybind_xstudio, m) {
 
     py::bind_vector<std::vector<std::string>>(m, "VectorString");
     py::bind_vector<std::vector<xstudio::utility::Uuid>>(m, "VectorUuid");
+    py::bind_vector<std::vector<xstudio::ui::viewport::Mask>>(m, "VectorMask");
 
     py_remote_session_file(m);
     py_playhead(m);

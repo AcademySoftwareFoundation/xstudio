@@ -19,11 +19,11 @@ GLBlindTex::GLBlindTex() {
         media::MediaKey("EmptyTex{}{}{}", caf::uri(), f++, "_0", 0, utility::FrameRate());
 }
 
-GLBlindTex::~GLBlindTex() {}
+GLBlindTex::~GLBlindTex() = default;
 
 void GLBlindTex::do_pixel_upload() {
 
-    auto t0 = utility::clock::now();
+    // auto t0 = utility::clock::now();
 
     std::unique_lock lk(mutex_);
     in_progress_ = true;

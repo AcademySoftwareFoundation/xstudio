@@ -341,8 +341,6 @@ PlaylistActor::PlaylistActor(
     init();
 }
 
-PlaylistActor::~PlaylistActor() {}
-
 caf::message_handler PlaylistActor::default_event_handler() {
     return caf::message_handler(
                {[=](utility::event_atom, change_atom) {},
@@ -1270,7 +1268,7 @@ caf::message_handler PlaylistActor::message_handler() {
                     .then(
                         [=](const utility::JsonStore &media_display_info) mutable {
                             if (media_display_info.is_array()) {
-                                for (int i = 0; i < media_display_info.size(); ++i) {
+                                for (size_t i = 0; i < media_display_info.size(); ++i) {
                                     std::string data = media_display_info[i].dump();
                                     if (utility::to_lower(data).find(filter_string_lower) !=
                                         std::string::npos) {
@@ -2374,9 +2372,6 @@ void PlaylistActor::open_media_readers() {
 }
 
 void PlaylistActor::open_media_reader(caf::actor media_actor) {
-
-    // #pragma message                                                                                \
-//     "Disabling auto initialising of readers, it hits IO too hard when playlist is large. Needs a rethink."
     return;
 
     auto global_reader = system().registry().template get<caf::actor>(media_reader_registry);
@@ -2609,7 +2604,7 @@ void PlaylistActor::sort_by_media_display_info(
                     auto sort_key = nlohmann::json(fmt::format("ZZZZZZ{}", idx));
 
                     if (media_display_info.is_array() &&
-                        sort_column_index < media_display_info.size()) {
+                        sort_column_index < static_cast<int>(media_display_info.size())) {
                         sort_key = media_display_info[sort_column_index];
                     }
 

@@ -30,7 +30,7 @@
 #include "openexr.hpp"
 #include "simple_exr_sampler.hpp"
 
-#define EXR_READ_BLOCK_HEIGHT 256
+enum { EXR_READ_BLOCK_HEIGHT = 256 };
 
 namespace fs = std::filesystem;
 
@@ -39,11 +39,9 @@ using namespace xstudio::global_store;
 using namespace xstudio::media_reader;
 using namespace xstudio::utility;
 
-namespace xstudio {
-namespace exr_reader {
-    bool dump_json_headers(const Imf::Header &h, nlohmann::json &root);
+namespace xstudio::exr_reader {
+bool dump_json_headers(const Imf::Header &h, nlohmann::json &root);
 }
-} // namespace xstudio
 
 namespace {
 static Uuid s_plugin_uuid("9fd34c7e-8b35-44c7-8976-387bae1e35e0");
@@ -182,7 +180,8 @@ static ui::viewport::GPUShaderPtr
 
 OpenEXRMediaReader::OpenEXRMediaReader(const utility::JsonStore &prefs)
     : MediaReader("OpenEXR", prefs) {
-    Imf::setGlobalThreadCount(16);
+
+    Imf::setGlobalThreadCount(std::min(std::max(4, int(std::thread::hardware_concurrency()) - 2), 16));
     max_exr_overscan_percent_ = 5.0f;
     readers_per_source_       = 1;
 
@@ -713,8 +712,8 @@ xstudio::media::MediaDetail OpenEXRMediaReader::detail(const caf::uri &uri) cons
         PartDetail pd;
         stream_ids_from_exr_part(part_header, pd.stream_ids);
         pd.resolution = {
-            part_header.displayWindow().max.x - part_header.displayWindow().min.x,
-            part_header.displayWindow().max.y - part_header.displayWindow().min.y};
+            part_header.displayWindow().max.x - part_header.displayWindow().min.x + 1,
+            part_header.displayWindow().max.y - part_header.displayWindow().min.y + 1};
         pd.pixel_aspect = part_header.pixelAspectRatio();
         pd.part_number  = prt;
         parts_detail.push_back(pd);
@@ -787,8 +786,8 @@ PixelInfo OpenEXRMediaReader::exr_buffer_pixel_picker(
     const utility::JsonStore &pixel_unpack_uniforms,
     const Imath::V2i &pixel_location,
     const std::vector<Imath::V2i> &extra_pixel_locations) {
-    int width                         = buf.image_size_in_pixels().x;
-    int height                        = buf.image_size_in_pixels().y;
+    // int width                         = buf.image_size_in_pixels().x;
+    // int height                        = buf.image_size_in_pixels().y;
     int num_channels                  = pixel_unpack_uniforms.value("num_channels", 0);
     int bytes_per_pixel               = pixel_unpack_uniforms.value("bytes_per_pixel", 0);
     int pix_type_r                    = pixel_unpack_uniforms.value("pix_type_r", 0);
@@ -834,7 +833,7 @@ PixelInfo OpenEXRMediaReader::exr_buffer_pixel_picker(
     auto get_pixel_rgba = [&](int pixel_address_bytes) -> Imath::V4f {
         Imath::V2f pixRG = get_image_data_2xhalf_float(pixel_address_bytes);
 
-        Imath::V4f result;
+        Imath::V4f result(0.f, 0.f, 0.f, 0.f);
 
         if (pix_type_r == 1) {
             result.x = pixRG.x;

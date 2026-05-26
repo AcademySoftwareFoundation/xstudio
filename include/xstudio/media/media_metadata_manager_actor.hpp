@@ -10,24 +10,22 @@
 #include "xstudio/utility/tree.hpp"
 #include "xstudio/utility/uuid.hpp"
 
-namespace xstudio {
-namespace media {
-    class GlobalMetadataManager : public caf::event_based_actor {
-      public:
-        GlobalMetadataManager(caf::actor_config &cfg);
-        ~GlobalMetadataManager() override = default;
+namespace xstudio::media {
+class GlobalMetadataManager : public caf::event_based_actor {
+  public:
+    GlobalMetadataManager(caf::actor_config &cfg);
+    ~GlobalMetadataManager() override = default;
 
-        caf::behavior make_behavior() override { return behavior_; }
+    caf::behavior make_behavior() override { return behavior_; }
 
-        void on_exit() override;
+    void on_exit() override;
 
-      private:
-        void config_updated();
+  private:
+    void config_updated();
 
-        caf::actor event_group_;
-        utility::JsonTree metadata_config_;
-        utility::JsonStore metadata_extraction_config_;
-        caf::behavior behavior_;
-    };
-} // namespace media
-} // namespace xstudio
+    caf::actor event_group_;
+    utility::JsonTree metadata_config_;
+    utility::JsonStore metadata_extraction_config_;
+    caf::behavior behavior_;
+};
+} // namespace xstudio::media

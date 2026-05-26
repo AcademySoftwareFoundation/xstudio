@@ -1,0 +1,13 @@
+{
+    "ui": {
+		"keyboard":{
+			"hotkey_overrides": {
+				"path": "/ui/keyboard/hotkey_overrides",
+				"default_value": {},
+				"value": {},
+				"datatype": "json",
+				"context": ["APPLICATION"]
+			}
+        }
+    }
+}

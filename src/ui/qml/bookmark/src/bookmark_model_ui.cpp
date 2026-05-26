@@ -124,9 +124,9 @@ BookmarkFilterModel::previousBookmark(const int mediaFrame, const QUuid &ownerUu
         auto ind = index(i, 0);
 
         if (ind.isValid()) {
-            auto owner      = ind.data(BookmarkModel::Roles::ownerRole).toUuid();
-            auto startFrame = ind.data(BookmarkModel::Roles::startFrameRole).toInt();
-            auto endFrame   = ind.data(BookmarkModel::Roles::endFrameRole).toInt();
+            auto owner = ind.data(BookmarkModel::Roles::ownerRole).toUuid();
+            // auto startFrame = ind.data(BookmarkModel::Roles::startFrameRole).toInt();
+            auto endFrame = ind.data(BookmarkModel::Roles::endFrameRole).toInt();
 
             if (ownerUuid == owner and endFrame < mediaFrame) {
                 result = ind;

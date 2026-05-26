@@ -60,11 +60,12 @@ void FrameRequestQueue::add_frame_requests(
 }
 
 std::optional<FrameRequest>
-FrameRequestQueue::pop_request(const std::map<utility::Uuid, int> &exclude_playheads) {
+FrameRequestQueue::pop_request(const std::map<utility::Uuid, int> &in_flight_frame_requests_per_playhead, const size_t max_num_inflight_requests) {
     std::optional<FrameRequest> rt = {};
 
     for (auto p = queue_.begin(); p != queue_.end(); p++) {
-        if (!exclude_playheads.count((*p)->requesting_playhead_uuid_)) {
+        auto q = in_flight_frame_requests_per_playhead.find((*p)->requesting_playhead_uuid_);
+        if (q == in_flight_frame_requests_per_playhead.end() || size_t(q->second) < max_num_inflight_requests) {
             rt = *(*p);
             queue_.erase(p);
             break;

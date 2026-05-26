@@ -21,7 +21,7 @@ class ShotbrowserConform : public Conformer {
   public:
     ShotbrowserConform(const utility::JsonStore &prefs = utility::JsonStore())
         : Conformer(prefs) {}
-    ~ShotbrowserConform() = default;
+    ~ShotbrowserConform() override = default;
 
 
     void update_preferences(const utility::JsonStore &prefs) override {
@@ -87,14 +87,15 @@ class ShotbrowserConform : public Conformer {
         return result;
     }
 
-    std::optional<utility::Uuid> get_task_id(const std::string &name) const {
+    [[nodiscard]] std::optional<utility::Uuid> get_task_id(const std::string &name) const {
         if (task_uuids_.count(name))
             return task_uuids_.at(name);
 
         return {};
     }
 
-    std::optional<utility::Uuid> get_cut_query_id(const utility::JsonStoreSync &presets) const {
+    [[nodiscard]] std::optional<utility::Uuid>
+    get_cut_query_id(const utility::JsonStoreSync &presets) const {
         try {
             // iterate over groups looking for flags containing "View In Sequence"
             for (const auto &i : presets.as_json().at("children")) {
@@ -266,9 +267,6 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                 conform_.update_tasks(presets_);
             }
 
-            // spdlog::warn("conform_request {} {}", conform_task,
-            // crequest.operations_.dump(2));
-
             if (crequest.items_.empty()) {
                 rp.deliver(ConformReply(crequest));
             } else {
@@ -336,6 +334,30 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                             }
                             // metadata.update(crequest.metadata_.at(media_uuid));
                         }
+
+                        // add task metadata if available, but we should only do this if the
+                        // current metadata has shot info.. we're gonna have issues as we don't
+                        // know what fields we should allow over.. or we'll overrride the clip
+                        // metadata by accident, as shot is stored in multiple locations.
+                        auto tmp = crequest.task_metadata_;
+                        // task metadata is media meta, strip shot  or we'll override entity
+                        // data.
+                        try {
+                            for (const auto &i : ShotLocations) {
+                                const auto p = json::json_pointer(i);
+                                if (tmp.contains(p))
+                                    tmp.at(p.parent_pointer()).erase(p.back());
+                            }
+                            // also remove entity id..
+                            const auto p = json::json_pointer(
+                                "/metadata/shotgun/version/relationships/entity");
+                            if (tmp.contains(p))
+                                tmp.at(p.parent_pointer()).erase(p.back());
+                        } catch (...) {
+                        }
+
+                        tmp.update(metadata, true);
+                        metadata = tmp;
 
                         auto project_id = QueryEngine::get_project_id(metadata, JsonStore());
 
@@ -445,21 +467,21 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
 
                                                 (*shotgrid_results)[i] = final_media;
                                                 (*shotgrid_count)--;
-                                                if (not *shotgrid_count)
+                                                if (not*shotgrid_count)
                                                     process_results(
                                                         rp, *shotgrid_results, crequest);
                                                 // }
                                             },
                                             [=](caf::error &err) mutable {
                                                 (*shotgrid_count)--;
-                                                if (not *shotgrid_count)
+                                                if (not*shotgrid_count)
                                                     process_results(
                                                         rp, *shotgrid_results, crequest);
                                             });
                                 },
                                 [=](caf::error &err) mutable {
                                     (*shotgrid_count)--;
-                                    if (not *shotgrid_count)
+                                    if (not*shotgrid_count)
                                         process_results(rp, *shotgrid_results, crequest);
                                 });
                     }
@@ -1207,24 +1229,24 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                                                 }
 
                                                 (*shotgrid_count)--;
-                                                if (not *shotgrid_count)
+                                                if (not*shotgrid_count)
                                                     rp.deliver(*shotgrid_results);
                                             },
                                             [=](caf::error &err) mutable {
                                                 (*shotgrid_count)--;
-                                                if (not *shotgrid_count)
+                                                if (not*shotgrid_count)
                                                     rp.deliver(*shotgrid_results);
                                             });
                                 } else {
                                     (*shotgrid_results)[count] = {};
                                     (*shotgrid_count)--;
-                                    if (not *shotgrid_count)
+                                    if (not*shotgrid_count)
                                         rp.deliver(*shotgrid_results);
                                 }
                             },
                             [=](caf::error &err) mutable {
                                 (*shotgrid_count)--;
-                                if (not *shotgrid_count)
+                                if (not*shotgrid_count)
                                     rp.deliver(*shotgrid_results);
                             });
                     count++;

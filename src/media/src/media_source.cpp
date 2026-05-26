@@ -116,6 +116,8 @@ bool MediaSource::set_current(const MediaType media_type, const Uuid &uuid) {
             result         = true;
         }
         break;
+    default:
+        break;
     }
     return result;
 }
@@ -129,6 +131,8 @@ Uuid MediaSource::current(const MediaType media_type) const {
         break;
     case MT_AUDIO:
         uuid = current_audio_;
+        break;
+    default:
         break;
     }
 
@@ -144,6 +148,8 @@ bool MediaSource::has_type(const MediaType media_type) const {
         break;
     case MT_AUDIO:
         result = not audio_streams_.empty();
+        break;
+    default:
         break;
     }
 
@@ -170,6 +176,8 @@ void MediaSource::add_media_stream(
                 current_audio_ = uuid;
         }
         break;
+    default:
+        break;
     }
 }
 
@@ -194,6 +202,8 @@ void MediaSource::remove_media_stream(const MediaType media_type, const Uuid &uu
             else
                 current_audio_.clear();
         }
+        break;
+    default:
         break;
     }
 }

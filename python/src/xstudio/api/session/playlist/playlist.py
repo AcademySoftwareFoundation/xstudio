@@ -447,6 +447,16 @@ class Playlist(Container, NotificationHandler, JsonStoreHandler):
                     media_list.push_back(m)
 
         return self.connection.request_receive(self.remote, remove_media_atom(), VectorUuid(media_list))[0]
+    
+    def clear(self):
+        """Clear the playlist of all media
+
+        Returns:
+            success(bool): Returns result.
+        """
+        if len(self.media):
+            return self.remove_media(self.media)
+        return False
 
     def move_media(self, media, before=Uuid()):
         """Move media in tree.

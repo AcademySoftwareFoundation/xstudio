@@ -16,38 +16,36 @@
 // for collision? use above to decide which plugin to use.. The worker actor should wrap the
 // underlying class.
 
-namespace xstudio {
-namespace media_metadata {
-    class MediaMetadataWorkerActor : public caf::event_based_actor {
-      public:
-        MediaMetadataWorkerActor(caf::actor_config &cfg, const utility::JsonStore &prefs);
-        ~MediaMetadataWorkerActor() override = default;
+namespace xstudio::media_metadata {
+class MediaMetadataWorkerActor : public caf::event_based_actor {
+  public:
+    MediaMetadataWorkerActor(caf::actor_config &cfg, const utility::JsonStore &prefs);
+    ~MediaMetadataWorkerActor() override = default;
 
-        caf::behavior make_behavior() override { return behavior_; }
-        const char *name() const override { return NAME.c_str(); }
+    caf::behavior make_behavior() override { return behavior_; }
+    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
 
-      private:
-        inline static const std::string NAME = "MediaMetadataWorkerActor";
-        caf::behavior behavior_;
-        std::vector<caf::actor> plugins_;
-        std::map<std::string, caf::actor> name_plugin_;
-    };
+  private:
+    inline static const std::string NAME = "MediaMetadataWorkerActor";
+    caf::behavior behavior_;
+    std::vector<caf::actor> plugins_;
+    std::map<std::string, caf::actor> name_plugin_;
+};
 
-    class GlobalMediaMetadataActor : public caf::event_based_actor {
-      public:
-        GlobalMediaMetadataActor(caf::actor_config &cfg);
+class GlobalMediaMetadataActor : public caf::event_based_actor {
+  public:
+    GlobalMediaMetadataActor(caf::actor_config &cfg);
 
-        ~GlobalMediaMetadataActor() override = default;
+    ~GlobalMediaMetadataActor() override = default;
 
-        caf::behavior make_behavior() override { return behavior_; }
+    caf::behavior make_behavior() override { return behavior_; }
 
-        const char *name() const override { return NAME.c_str(); }
-        void on_exit() override;
+    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
+    void on_exit() override;
 
-      private:
-        inline static const std::string NAME = "GlobalMediaMetadataActor";
-        caf::behavior behavior_;
-        utility::Uuid uuid_;
-    };
-} // namespace media_metadata
-} // namespace xstudio
+  private:
+    inline static const std::string NAME = "GlobalMediaMetadataActor";
+    caf::behavior behavior_;
+    utility::Uuid uuid_;
+};
+} // namespace xstudio::media_metadata

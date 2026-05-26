@@ -186,6 +186,7 @@ bool ViewportGLWidget::event(QEvent *event) {
             anon_mail(
                 ui::keypress_monitor::key_down_atom_v,
                 key_event->key(),
+                StdFromQString(key_event->text()),
                 the_viewport_->name(),
                 window_name_,
                 key_event->isAutoRepeat())

@@ -230,6 +230,22 @@ class Session(Container, NotificationHandler):
         result = self.connection.request_receive(self.remote, get_playlists_atom())[0]
         return [Playlist(self.connection, i.actor, i.uuid) for i in result]
 
+    def create_hidden_playlist(self, name="Hidden Playlist"):
+        """Create hidden playlist. This playlist can be used to put transient
+        media on screen (e.g. preview mode of File System Browser plugin). The
+        playlist is not added to the session and is not visible in the playlists
+        interface and is not serialised into the session file.
+
+        Kwargs:
+            name(str): Name of new playlist
+
+        Returns:
+            Playlist: Returns the Playlist
+        """
+
+        result = self.connection.request_receive(self.remote, add_playlist_atom(), name, True)[0]
+        return Playlist(self.connection, result.actor, result.uuid)
+
 
     def create_playlist(self, name="New Playlist", before=Uuid(), into=False):
         """Create new playlist.
@@ -512,6 +528,7 @@ class Session(Container, NotificationHandler):
         in_frame=-1,
         out_frame=-1,
         frame_rate=None,
+        frame_for_frame=False,
         video_codec_opts="-c:v libx264 -pix_fmt yuv420p -preset medium -tune film",
         audio_codec_opts="-c:a aac -ac 2 -ar 44100",
         auto_check_output=False,
@@ -540,6 +557,14 @@ class Session(Container, NotificationHandler):
                 Defaults to timeline duration.
             frame_rate(FrameRate): Output video frame rate - defaults to the
                 frame rate of the first media item in the playlist etc.
+            frame_for_frame(bool): If the media or timeline frame rate is different
+                to the output frame rate, frames will map 1:1 to the output
+                if this is True. If False, the output will match the input in
+                terms of duration. For example if rendering out at 12fps and the 
+                media is 24 fps then using True for this flag will result in an output
+                that is twice as long and half the speed of the input. Otherwise
+                the output will be the same duration as the input and every
+                other frame will be dropped.
             video_codec_opts(str): FFMpeg video codec options. For example use
                 "-c:v libx264 -pix_fmt yuv420p -preset medium -tune film" for an
                 H264 encoding.

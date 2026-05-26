@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>xstudio.api.session.session &mdash; xStudio 0.0.0 documentation</title>
+  <title>xstudio.api.session.session &mdash; xStudio 1.3.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=fa44fd50" />
       <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css?v=eafc0fe6" />
@@ -15,7 +15,7 @@
   
         <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
         <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../../../_static/documentation_options.js?v=7026087e"></script>
+        <script src="../../../../_static/documentation_options.js?v=1f29e9d3"></script>
         <script src="../../../../_static/doctools.js?v=888ff710"></script>
         <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/js/theme.js"></script>
@@ -37,7 +37,7 @@
             xStudio
           </a>
               <div class="version">
-                0.0.0
+                1.3.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -67,6 +67,7 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../api.html">xstudio.api</a></li>
       <li class="breadcrumb-item active">xstudio.api.session.session</li>
       <li class="wy-breadcrumbs-aside">
       </li>
@@ -310,6 +311,25 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_playlists_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">Playlist</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">result</span><span class="p">]</span>
+
+<div class="viewcode-block" id="Session.create_hidden_playlist">
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.session.Session.create_hidden_playlist">[docs]</a>
+    <span class="k">def</span> <span class="nf">create_hidden_playlist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Hidden Playlist&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create hidden playlist. This playlist can be used to put transient</span>
+<span class="sd">        media on screen (e.g. preview mode of File System Browser plugin). The</span>
+<span class="sd">        playlist is not added to the session and is not visible in the playlists</span>
+<span class="sd">        interface and is not serialised into the session file.</span>
+
+<span class="sd">        Kwargs:</span>
+<span class="sd">            name(str): Name of new playlist</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Playlist: Returns the Playlist</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">add_playlist_atom</span><span class="p">(),</span> <span class="n">name</span><span class="p">,</span> <span class="kc">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">Playlist</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span></div>
+
 
 
 <div class="viewcode-block" id="Session.create_playlist">
@@ -640,6 +660,7 @@
         <span class="n">in_frame</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
         <span class="n">out_frame</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
         <span class="n">frame_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">frame_for_frame</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">video_codec_opts</span><span class="o">=</span><span class="s2">&quot;-c:v libx264 -pix_fmt yuv420p -preset medium -tune film&quot;</span><span class="p">,</span>
         <span class="n">audio_codec_opts</span><span class="o">=</span><span class="s2">&quot;-c:a aac -ac 2 -ar 44100&quot;</span><span class="p">,</span>
         <span class="n">auto_check_output</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
@@ -668,6 +689,14 @@
 <span class="sd">                Defaults to timeline duration.</span>
 <span class="sd">            frame_rate(FrameRate): Output video frame rate - defaults to the</span>
 <span class="sd">                frame rate of the first media item in the playlist etc.</span>
+<span class="sd">            frame_for_frame(bool): If the media or timeline frame rate is different</span>
+<span class="sd">                to the output frame rate, frames will map 1:1 to the output</span>
+<span class="sd">                if this is True. If False, the output will match the input in</span>
+<span class="sd">                terms of duration. For example if rendering out at 12fps and the </span>
+<span class="sd">                media is 24 fps then using True for this flag will result in an output</span>
+<span class="sd">                that is twice as long and half the speed of the input. Otherwise</span>
+<span class="sd">                the output will be the same duration as the input and every</span>
+<span class="sd">                other frame will be dropped.</span>
 <span class="sd">            video_codec_opts(str): FFMpeg video codec options. For example use</span>
 <span class="sd">                &quot;-c:v libx264 -pix_fmt yuv420p -preset medium -tune film&quot; for an</span>
 <span class="sd">                H264 encoding.</span>

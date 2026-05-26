@@ -16,8 +16,10 @@ target_link_libraries(embedded_python_test
 	PRIVATE
 		xstudio::embedded_python
 		pybind11::embed
+		xstudio::global
 		xstudio::utility
 		xstudio::media
+		xstudio::ui::viewport	
 		${GTEST_LDFLAGS}
 )
 add_test(embedded_python_tests embedded_python_test)
@@ -33,6 +35,7 @@ target_link_libraries(embedded_python_actor_test
 		pybind11::embed
 		xstudio::utility
 		xstudio::media
+		xstudio::global
 		${GTEST_LDFLAGS}
 )
 add_test(embedded_python_tests embedded_python_actor_test)

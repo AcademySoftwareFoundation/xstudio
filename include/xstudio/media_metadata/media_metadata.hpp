@@ -16,132 +16,130 @@
 #include "xstudio/plugin_manager/plugin_factory.hpp"
 #include "xstudio/global_store/global_store.hpp"
 
-namespace xstudio {
-namespace media_metadata {
+namespace xstudio::media_metadata {
 
-    using namespace caf;
+using namespace caf;
 
-    // type should be std::byte... need newer gcc..
-    class MediaMetadata {
-      public:
-        MediaMetadata(std::string name, const utility::JsonStore &prefs);
-        virtual ~MediaMetadata() = default;
+// type should be std::byte... need newer gcc..
+class MediaMetadata {
+  public:
+    MediaMetadata(std::string name, const utility::JsonStore &prefs);
+    virtual ~MediaMetadata() = default;
 
-        [[nodiscard]] std::string name() const;
+    [[nodiscard]] std::string name() const;
 
-        nlohmann::json metadata(const caf::uri &uri);
+    nlohmann::json metadata(const caf::uri &uri);
 
-        virtual MMCertainty
-        supported(const caf::uri &uri, const std::array<uint8_t, 16> &signature) = 0;
+    virtual MMCertainty
+    supported(const caf::uri &uri, const std::array<uint8_t, 16> &signature) = 0;
 
-        virtual void update_preferences(const utility::JsonStore &prefs);
+    virtual void update_preferences(const utility::JsonStore &prefs);
 
 
-      protected:
-        struct StandardFields {
-            std::string resolution_;
-            std::string format_;
-            std::string bit_depth_;
-            float pixel_aspect_ = {1.0f};
-        };
-
-        /**
-         *  @brief Pure virtual method for filling in 'standard' metadata fields
-         *
-         *  @details The metadata reader implementation should parse the metadata dictionary
-         * and fill in the 'standard' fields, resolution, format and bit_depth where
-         * possible
-         */
-        virtual std::optional<StandardFields>
-        fill_standard_fields(const nlohmann::json &metadata) = 0;
-
-        virtual nlohmann::json read_metadata(const caf::uri &uri) = 0;
-
-      private:
-        const std::string name_;
+  protected:
+    struct StandardFields {
+        std::string resolution_;
+        std::string format_;
+        std::string bit_depth_;
+        float pixel_aspect_ = {1.0f};
     };
 
-    template <typename T>
-    class MediaMetadataPlugin : public plugin_manager::PluginFactoryTemplate<T> {
-      public:
-        MediaMetadataPlugin(
-            utility::Uuid uuid,
-            std::string name        = "",
-            std::string author      = "",
-            std::string description = "",
-            semver::version version = semver::version("0.0.0"))
-            : plugin_manager::PluginFactoryTemplate<T>(
-                  uuid,
-                  name,
-                  plugin_manager::PluginFlags::PF_MEDIA_METADATA,
-                  false,
-                  author,
-                  description,
-                  version) {}
-        ~MediaMetadataPlugin() override = default;
-    };
+    /**
+     *  @brief Pure virtual method for filling in 'standard' metadata fields
+     *
+     *  @details The metadata reader implementation should parse the metadata dictionary
+     * and fill in the 'standard' fields, resolution, format and bit_depth where
+     * possible
+     */
+    virtual std::optional<StandardFields>
+    fill_standard_fields(const nlohmann::json &metadata) = 0;
 
-    template <typename T> class MediaMetadataActor : public caf::event_based_actor {
+    virtual nlohmann::json read_metadata(const caf::uri &uri) = 0;
 
-      public:
-        MediaMetadataActor(caf::actor_config &cfg, const utility::JsonStore &jsn)
-            : caf::event_based_actor(cfg), media_metadata_(jsn) {
+  private:
+    const std::string name_;
+};
 
-            spdlog::debug("Created MediaMetadataActor");
-            // print_on_exit(this, "MediaHookActor");
+template <typename T>
+class MediaMetadataPlugin : public plugin_manager::PluginFactoryTemplate<T> {
+  public:
+    MediaMetadataPlugin(
+        utility::Uuid uuid,
+        std::string name        = "",
+        std::string author      = "",
+        std::string description = "",
+        semver::version version = semver::version("0.0.0"))
+        : plugin_manager::PluginFactoryTemplate<T>(
+              uuid,
+              name,
+              plugin_manager::PluginFlags::PF_MEDIA_METADATA,
+              false,
+              author,
+              description,
+              version) {}
+    ~MediaMetadataPlugin() override = default;
+};
 
-            {
-                auto prefs = global_store::GlobalStoreHelper(system());
-                utility::JsonStore js;
-                utility::join_broadcast(this, prefs.get_group(js));
-                media_metadata_.update_preferences(js);
-            }
+template <typename T> class MediaMetadataActor : public caf::event_based_actor {
 
-            behavior_.assign(
-                [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-                [=](utility::name_atom) -> std::string { return media_metadata_.name(); },
+  public:
+    MediaMetadataActor(caf::actor_config &cfg, const utility::JsonStore &jsn)
+        : caf::event_based_actor(cfg), media_metadata_(jsn) {
 
-                [=](get_metadata_atom,
-                    const caf::uri &_uri,
-                    const int frame) -> result<std::pair<utility::JsonStore, int>> {
-                    nlohmann::json json;
-                    try {
-                        json = media_metadata_.metadata(_uri);
-                    } catch (const std::exception &e) {
-                        return make_error(xstudio_error::error, e.what());
-                    }
-                    return std::make_pair(utility::JsonStore(json), frame);
-                },
+        spdlog::debug("Created MediaMetadataActor");
+        // print_on_exit(this, "MediaHookActor");
 
-                [=](media_reader::supported_atom,
-                    const caf::uri &_uri,
-                    const std::array<uint8_t, 16> &signature)
-                    -> std::pair<std::string, MMCertainty> {
-                    return std::make_pair(
-                        media_metadata_.name(), media_metadata_.supported(_uri, signature));
-                },
-                [=](json_store::update_atom,
-                    const utility::JsonStore & /*change*/,
-                    const std::string & /*path*/,
-                    const utility::JsonStore &full) {
-                    return mail(json_store::update_atom_v, full)
-                        .delegate(actor_cast<caf::actor>(this));
-                },
-
-                [=](json_store::update_atom, const utility::JsonStore &js) {
-                    try {
-                        media_metadata_.update_preferences(js);
-                    } catch (const std::exception &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-                    }
-                });
+        {
+            auto prefs = global_store::GlobalStoreHelper(system());
+            utility::JsonStore js;
+            utility::join_broadcast(this, prefs.get_group(js));
+            media_metadata_.update_preferences(js);
         }
 
-        caf::behavior make_behavior() override { return behavior_; }
+        behavior_.assign(
+            [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
+            [=](utility::name_atom) -> std::string { return media_metadata_.name(); },
 
-      private:
-        caf::behavior behavior_;
-        T media_metadata_;
-    };
-} // namespace media_metadata
-} // namespace xstudio
+            [=](get_metadata_atom,
+                const caf::uri &_uri,
+                const int frame) -> result<std::pair<utility::JsonStore, int>> {
+                nlohmann::json json;
+                try {
+                    json = media_metadata_.metadata(_uri);
+                } catch (const std::exception &e) {
+                    return make_error(xstudio_error::error, e.what());
+                }
+                return std::make_pair(utility::JsonStore(json), frame);
+            },
+
+            [=](media_reader::supported_atom,
+                const caf::uri &_uri,
+                const std::array<uint8_t, 16> &signature)
+                -> std::pair<std::string, MMCertainty> {
+                return std::make_pair(
+                    media_metadata_.name(), media_metadata_.supported(_uri, signature));
+            },
+            [=](json_store::update_atom,
+                const utility::JsonStore & /*change*/,
+                const std::string & /*path*/,
+                const utility::JsonStore &full) {
+                return mail(json_store::update_atom_v, full)
+                    .delegate(actor_cast<caf::actor>(this));
+            },
+
+            [=](json_store::update_atom, const utility::JsonStore &js) {
+                try {
+                    media_metadata_.update_preferences(js);
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                }
+            });
+    }
+
+    caf::behavior make_behavior() override { return behavior_; }
+
+  private:
+    caf::behavior behavior_;
+    T media_metadata_;
+};
+} // namespace xstudio::media_metadata

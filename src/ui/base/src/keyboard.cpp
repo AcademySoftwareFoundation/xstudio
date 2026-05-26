@@ -16,7 +16,9 @@ Hotkey::Hotkey(
     const bool auto_repeat,
     caf::actor_addr watcher,
     const utility::Uuid uuid)
-    : key_(k),
+    : default_key_(k),
+      default_modifiers_(mod),
+      key_(k),
       modifiers_(mod),
       uuid_(
           uuid.is_null() ? utility::Uuid::generate_from_name((name + component).c_str())
@@ -30,11 +32,13 @@ Hotkey::Hotkey(
         watchers_.emplace_back(watcher);
 }
 
-bool Hotkey::update(const Hotkey &o) {
+bool Hotkey::update(const Hotkey &o, const bool update_sequence) {
     bool changed = o.key_ != key_ || o.modifiers_ != modifiers_;
-    key_         = o.key_;
-    modifiers_   = o.modifiers_;
-    auto_repeat_ = o.auto_repeat_;
+    if (changed && update_sequence) {
+        key_         = o.key_;
+        modifiers_   = o.modifiers_;
+        auto_repeat_ = o.auto_repeat_;
+    }
     for (const auto &p : o.watchers_) {
         bool match = false;
         for (auto &q : watchers_) {
@@ -46,6 +50,15 @@ bool Hotkey::update(const Hotkey &o) {
         if (!match) {
             watchers_.push_back(p);
         }
+    }
+    return changed;
+}
+
+bool Hotkey::update(const int new_key, const int new_modifiers) {
+    bool changed = new_key != key_ || new_modifiers != modifiers_;
+    if (changed) {
+        key_       = new_key;
+        modifiers_ = new_modifiers;
     }
     return changed;
 }
@@ -69,8 +82,8 @@ void Hotkey::update_state(
         if (k == key_) {
             kp = true;
         }
-        auto r = key_to_modifier.find(k);
-        if (r != key_to_modifier.end()) {
+        auto r = Hotkey::key_to_modifier.find(k);
+        if (r != Hotkey::key_to_modifier.end()) {
             mod |= r->second;
         }
     }
@@ -192,6 +205,9 @@ void Hotkey::notify_watchers(
 }
 
 const std::string Hotkey::key() const {
+    if (key_ == -1) {
+        return "";
+    }
     std::array<char, 2> k{(char)key_, 0};
     return std::string(k.data());
 }
@@ -242,7 +258,7 @@ void Hotkey::sequence_to_key_and_modifier(
             modifier |= MetaModifier;
         } else if (d == "alt") {
             modifier |= AltModifier;
-        } else if (d == "ctrl") {
+        } else if (d == "ctrl" || d == "control") {
             modifier |= ControlModifier;
         } else {
             for (const auto &q : ui::Hotkey::key_names) {
@@ -255,7 +271,50 @@ void Hotkey::sequence_to_key_and_modifier(
     }
     if (keycode == -1) {
         throw std::runtime_error(
-            fmt::format("Unable to identify key name in hotkey sequence \"{}\"", sequence)
+            fmt::format("Unable to identify key name in hotkey sequence '{}'", sequence)
                 .c_str());
+    }
+}
+
+void Hotkey::sequence_to_key_and_modifier(
+    const std::vector<std::string> &seq, int &keycode, int &modifier) {
+
+    modifier = 0;
+    keycode  = -1;
+
+    if (seq.size() == 1 && seq[0] == "") {
+        // 'unbound' hotkeyt case
+        return;
+    }
+
+    for (const auto &p : seq) {
+        const std::string d = utility::to_lower(p);
+        if (d == "shift") {
+            modifier |= ShiftModifier;
+        } else if (d == "meta") {
+            modifier |= MetaModifier;
+        } else if (d == "alt") {
+            modifier |= AltModifier;
+        } else if (d == "ctrl" || d == "control") {
+            modifier |= ControlModifier;
+        } else {
+            for (const auto &q : ui::Hotkey::key_names) {
+                if (q.second == p) {
+                    keycode = q.first;
+                    break;
+                }
+            }
+        }
+    }
+    if (keycode == -1) {
+        std::string ss;
+        for (const auto &s : seq) {
+            if (!ss.empty()) {
+                ss += "+";
+            }
+            ss += s;
+        }
+        throw std::runtime_error(
+            fmt::format("Unable to identify key name in hotkey sequence \"{}\"", ss).c_str());
     }
 }

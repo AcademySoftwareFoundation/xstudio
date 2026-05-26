@@ -254,7 +254,7 @@ void OpenGLViewportRenderer::render(
 
     init();
 
-    auto t0 = utility::clock::now();
+    // auto t0 = utility::clock::now();
 
     // this value tells us how much we are zoomed into the image in the viewport (in
     // the x dimension). If the image is width-fitted exactly to the viewport, then this
@@ -450,7 +450,7 @@ void OpenGLViewportRenderer::__draw_per_image_overlays(
         if (!target_image.error_details().empty()) {
 
             std::vector<float> vtxs;
-            resources_->text_renderer_->precompute_text_rendering_vertex_layout(
+            std::ignore = resources_->text_renderer_->precompute_text_rendering_vertex_layout(
                 vtxs,
                 target_image.error_details(),
                 Imath::V2f(0.0f, 0.0f),
@@ -483,25 +483,13 @@ void OpenGLViewportRenderer::draw_image(
     active_shader_program_->use();
 
     // set-up core shader parameters (e.g. image transform matrix etc)
-    utility::JsonStore shader_params = core_shader_params(
+    init_shader_uniforms(
         image_to_be_drawn,
         window_to_viewport_matrix,
         viewport_to_image_space,
         viewport_du_dx,
         layout_data->custom_layout_data_,
         index);
-
-    active_shader_program_->set_shader_parameters(shader_params);
-
-    if (image_to_be_drawn) {
-        active_shader_program_->set_shader_parameters(image_to_be_drawn);
-        active_shader_program_->set_shader_parameters(image_to_be_drawn.colour_pipe_uniforms());
-        static utility::JsonStore prev_image_shader_params;
-
-        if (prev_image_shader_params != image_to_be_drawn->shader_params()) {
-            prev_image_shader_params = image_to_be_drawn->shader_params();
-        }
-    }
 
     glDisable(GL_BLEND);
     // the actual draw .. a quad that spans -1.0, 1.0 in x & y.
@@ -572,6 +560,35 @@ bool OpenGLViewportRenderer::activate_shader(
     }
 
     return active_shader_program_ != no_image_shader_program();
+}
+
+void OpenGLViewportRenderer::init_shader_uniforms(
+    const media_reader::ImageBufPtr &image_to_be_drawn,
+    const Imath::M44f &window_to_viewport_matrix,
+    const Imath::M44f &viewport_to_image_space,
+    const float viewport_du_dx,
+    const utility::JsonStore &layout_data,
+    const int image_index) const {
+    try {
+        // set-up core shader parameters (e.g. image transform matrix etc)
+        utility::JsonStore shader_params = core_shader_params(
+            image_to_be_drawn,
+            window_to_viewport_matrix,
+            viewport_to_image_space,
+            viewport_du_dx,
+            layout_data,
+            image_index);
+
+        active_shader_program_->set_shader_parameters(shader_params);
+
+        if (image_to_be_drawn) {
+            active_shader_program_->set_shader_parameters(image_to_be_drawn);
+            active_shader_program_->set_shader_parameters(
+                image_to_be_drawn.colour_pipe_uniforms());
+        }
+    } catch (std::exception &e) {
+        spdlog::error("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
 }
 
 void OpenGLViewportRenderer::pre_init() { resources_->init(); }

@@ -48,7 +48,7 @@ namespace {
 class DefaultFrameGrabber : public ViewportFramePostProcessor {
 
   public:
-    DefaultFrameGrabber() {}
+    DefaultFrameGrabber() = default;
     ~DefaultFrameGrabber();
 
     void viewport_capture_gl_framebuffer(
@@ -72,7 +72,7 @@ class DefaultFrameGrabber : public ViewportFramePostProcessor {
 //
 class ThreadedMemCopy {
   public:
-    ThreadedMemCopy() : num_threads_(8) {
+    ThreadedMemCopy() {
         for (int i = 0; i < num_threads_; ++i) {
             threads_.emplace_back(std::thread(&ThreadedMemCopy::run, this));
         }
@@ -80,7 +80,7 @@ class ThreadedMemCopy {
 
     ~ThreadedMemCopy() {
 
-        for (auto &t : threads_) {
+        for ([[maybe_unused]] const auto &t : threads_) {
             // when any thread picks up an em
             {
                 std::lock_guard lk(m);
@@ -125,7 +125,7 @@ class ThreadedMemCopy {
         uint8_t *dst = (uint8_t *)_dst;
         uint8_t *src = (uint8_t *)_src;
 
-        while (1) {
+        while (true) {
             {
                 std::lock_guard lk(m);
                 queue.emplace_back(dst, src, std::min(n, step));
@@ -145,7 +145,7 @@ class ThreadedMemCopy {
     }
 
     void run() {
-        while (1) {
+        while (true) {
 
             // this blocks until there is something in queue for us
             Job j = get_job();
@@ -163,7 +163,7 @@ class ThreadedMemCopy {
     std::condition_variable cv, cv2;
     std::deque<Job> queue;
     int in_progress = 0;
-    const int num_threads_;
+    const int num_threads_{8};
 };
 
 static ThreadedMemCopy threaded_memcopy;
@@ -521,7 +521,7 @@ OffscreenViewport::OffscreenViewport(const std::string name, bool sync_with_main
     initGL();
 }
 
-OffscreenViewport::~OffscreenViewport() {}
+// OffscreenViewport::~OffscreenViewport() {}
 
 void OffscreenViewport::cleanup() {
 
@@ -1011,7 +1011,7 @@ void OffscreenViewport::render(
     // create the FBO and texture for us to render into
     const bool updateTarget = setupTextureAndFrameBuffer(w, h, format);
 
-    auto t1 = utility::clock::now();
+    // auto t1 = utility::clock::now();
 
     glPopClientAttrib();
 
@@ -1094,7 +1094,7 @@ void OffscreenViewport::render(
         quick_win_->setHeight(h);
         quick_win_->setGeometry(0, 0, w, h);
 
-        auto t2 = utility::clock::now();
+        // auto t2 = utility::clock::now();
 
         render_control_->polishItems();
         render_control_->beginFrame();
@@ -1124,7 +1124,7 @@ void OffscreenViewport::render(
             xstudio_viewport_->render();
         }
 
-        auto t2 = utility::clock::now();
+        // auto t2 = utility::clock::now();
 
         glActiveTexture(GL_TEXTURE0);
     }
@@ -1142,7 +1142,7 @@ void OffscreenViewport::render(
             xstudio_viewport_->projection_matrix());
     }
 
-    auto t3 = utility::clock::now();
+    // auto t3 = utility::clock::now();
 
     // Not sure if this is necessary
     // glFinish();
@@ -1190,7 +1190,7 @@ void OffscreenViewport::sync_python_hud_data() {
 
     try {
 
-        auto t0             = utility::clock::now();
+        // auto t0             = utility::clock::now();
         const auto hud_data = utility::request_receive<utility::JsonStore>(
             *sys, python_interp, hud_settings_atom_v, onscreen_media);
 
@@ -1212,7 +1212,7 @@ void OffscreenViewport::renderToImageBuffer(
     const media_reader::ImageBufPtr &image_to_use,
     const bool include_overlays,
     const bool include_drawings) {
-    auto t0 = utility::clock::now();
+    // auto t0 = utility::clock::now();
 
     // the actual render call
     render(
@@ -1242,7 +1242,7 @@ void OffscreenViewport::receive_change_notification(Viewport::ChangeCallbackId i
 void OffscreenViewport::make_conversion_lut() {
 
     if (half_to_int_32_lut_.empty()) {
-        const double int_max = double(std::numeric_limits<uint32_t>::max());
+        auto int_max = double(std::numeric_limits<uint32_t>::max());
         half_to_int_32_lut_.resize(1 << 16);
         for (size_t i = 0; i < (1 << 16); ++i) {
             half h;
@@ -1499,9 +1499,9 @@ void DefaultFrameGrabber::viewport_capture_gl_framebuffer(
         glGenBuffers(1, &pixel_buffer_object_);
     }
 
-    if (pix_buf_size != pix_buf_size_) {
+    if (static_cast<int>(pix_buf_size) != pix_buf_size_) {
         glBindBuffer(GL_PIXEL_PACK_BUFFER, pixel_buffer_object_);
-        glBufferData(GL_PIXEL_PACK_BUFFER, pix_buf_size, NULL, GL_STREAM_COPY);
+        glBufferData(GL_PIXEL_PACK_BUFFER, pix_buf_size, nullptr, GL_STREAM_COPY);
         pix_buf_size_ = pix_buf_size;
     }
 
@@ -1526,15 +1526,15 @@ void DefaultFrameGrabber::viewport_capture_gl_framebuffer(
     glBindBuffer(GL_PIXEL_PACK_BUFFER, pixel_buffer_object_);
     void *mappedBuffer = glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
 
-    auto t4 = utility::clock::now();
+    // auto t4 = utility::clock::now();
 
     threaded_memcpy(destination_image->buffer(), mappedBuffer, pix_buf_size);
 
     // now mapped buffer contains the pixel data
     glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-    auto t5 = utility::clock::now();
+    // auto t5 = utility::clock::now();
 
-    auto tt = utility::clock::now();
+    // auto tt = utility::clock::now();
 
     // TODO: Gather stats on draw times etc and send to video_output_actor_
     // so it can monitor performance

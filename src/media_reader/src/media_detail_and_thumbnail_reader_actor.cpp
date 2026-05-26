@@ -49,7 +49,7 @@ MediaDetailAndThumbnailReaderActor::MediaDetailAndThumbnailReaderActor(
 
         auto prefs = GlobalStoreHelper(system());
         JsonStore js;
-        prefs.get_group(js);
+        std::ignore = prefs.get_group(js);
 
         for (const auto &i : details) {
             if (i.enabled_) {
@@ -214,8 +214,7 @@ void MediaDetailAndThumbnailReaderActor::get_thumbnail_from_reader_plugin(
                                     ui::viewport::render_viewport_to_image_atom_v,
                                     thumb_width,
                                     thumb_height,
-                                    buf,
-                                    false)
+                                    buf)
                                     .request(offscreen_renderer, infinite)
                                     .then(
                                         [=](const thumbnail::ThumbnailBufferPtr &buf) mutable {
@@ -308,7 +307,7 @@ void MediaDetailAndThumbnailReaderActor::send_error_to_source(
     if (addr) {
         auto dest = caf::actor_cast<caf::actor>(addr);
         if (dest and err.category() == caf::type_id_v<media::media_error>) {
-            media_error me;
+            media_error me = media_error::missing;
             from_integer(err.code(), me);
             switch (me) {
             case media_error::corrupt:

@@ -26,6 +26,8 @@ ShotBrowserResultModel::ShotBrowserResultModel(QObject *parent) : JSONTreeModel(
              "authorRole",
              "clientFilenameRole",
              "clientNoteRole",
+             // "clientStagesRole",
+             // "clientStagesCurrentRole",
              "contentRole",
              "createdByRole",
              "createdDateRole",
@@ -348,6 +350,27 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
             result = QString::fromStdString(j.at("attributes").value("sg_status_list", ""));
             break;
 
+            // case Roles::clientStagesRole: {
+            //         auto jsn = R"([])"_json;
+            //         jsn.push_back(j.at("attributes").value("sg_client_stage_0_status",
+            //         "na"));
+            //         jsn.push_back(j.at("attributes").value("sg_client_stage_1_status",
+            //         "na"));
+            //         jsn.push_back(j.at("attributes").value("sg_client_stage_2_status",
+            //         "na"));
+            //         jsn.push_back(j.at("attributes").value("sg_client_stage_3_status",
+            //         "na"));
+            //         jsn.push_back(j.at("attributes").value("sg_client_stage_4_status",
+            //         "na"));
+            //         jsn.push_back(j.at("attributes").value("sg_client_stage_5_status",
+            //         "na"));
+            //         jsn.push_back(j.at("attributes").value("sg_client_stage_6_status",
+            //         "na")); result = mapFromValue(jsn); spdlog::warn("{}", jsn.dump(2));
+            //     }
+            //     break;
+            // case Roles::clientStagesCurrentRole:
+            //     break;
+
         case Roles::stageRole:
             result = QString::fromStdString(
                 j.at("relationships").at("sg_client_send_stage").at("data").value("name", ""));
@@ -453,14 +476,15 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
             result = v;
         } break;
 
-        case Roles::versionNameRole:
+        case Roles::versionNameRole: {
+            std::vector<std::string> names;
+
             for (const auto &i : j.at("relationships").at("note_links").at("data")) {
-                if (i.at("type").get<std::string>() == "Version") {
-                    result = QString::fromStdString(i.at("name").get<std::string>());
-                    break;
-                }
+                if (i.at("type").get<std::string>() == "Version")
+                    names.push_back(i.at("name").get<std::string>());
             }
-            break;
+            result = QString::fromStdString(utility::join_as_string(names, ", "));
+        } break;
 
         case Roles::shotRole:
             if (j.at("relationships").at("entity").at("data").at("type") == "Shot")
@@ -1070,6 +1094,13 @@ void ShotBrowserResultFilterModel::setFilterPipeStep(const QString &value) {
         invalidateFilter();
     }
 }
+void ShotBrowserResultFilterModel::setFilterPlaylistType(const QString &value) {
+    if (value != filterPlaylistType_) {
+        filterPlaylistType_ = value;
+        emit filterPlaylistTypeChanged();
+        invalidateFilter();
+    }
+}
 void ShotBrowserResultFilterModel::setFilterName(const QString &value) {
     if (value != filterName_) {
         filterName_ = value;
@@ -1108,8 +1139,8 @@ bool ShotBrowserResultFilterModel::filterAcceptsRow(
     auto source_index = sourceModel()->index(source_row, 0, source_parent);
 
     if (source_index.isValid()) {
-        if (source_index.data(ShotBrowserResultModel::Roles::typeRole).toString() ==
-            "Version") {
+        auto type = source_index.data(ShotBrowserResultModel::Roles::typeRole).toString();
+        if (type == "Version") {
             if (filterChn_ and
                 not source_index.data(ShotBrowserResultModel::Roles::onSiteChn).toInt())
                 result = false;
@@ -1144,6 +1175,12 @@ bool ShotBrowserResultFilterModel::filterAcceptsRow(
                 not mapFromValue(source_index.data(ShotBrowserResultModel::Roles::tagRole))
                         .empty())
                 result = false;
+        } else if (type == "Playlist") {
+            if (not filterPlaylistType_.isEmpty() and
+                filterPlaylistType_ !=
+                    source_index.data(ShotBrowserResultModel::Roles::playlistTypeRole)
+                        .toString())
+                result = false;
         }
         // only apply name filter to parent, not children.
 
@@ -1160,4 +1197,4 @@ bool ShotBrowserResultFilterModel::filterAcceptsRow(
 }
 
 
-#include "result_model_ui.moc"
+// #include "result_model_ui.moc"

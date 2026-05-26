@@ -32,6 +32,7 @@ CAF_POP_WARNINGS
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/utility/frame_range.hpp"
 #include "xstudio/utility/notification_handler.hpp"
+#include "xstudio/ui/viewport/mask.hpp"
 
 
 namespace py = pybind11;
@@ -277,6 +278,7 @@ void register_mediareference_class(py::module &m, const std::string &name) {
         .def("__str__", str_impl)
         .def("container", &utility::MediaReference::container)
         .def("frame_count", &utility::MediaReference::frame_count)
+        .def("fill_partial_sequences", &utility::MediaReference::fill_partial_sequences)
         .def(
             "seconds",
             &utility::MediaReference::seconds,
@@ -294,6 +296,7 @@ void register_mediareference_class(py::module &m, const std::string &name) {
             py::arg("fpf") = utility::MediaReference::FramePadFormat::FPF_XSTUDIO)
         .def("set_frame_list", &utility::MediaReference::set_frame_list)
         .def("uri_from_frame", &utility::MediaReference::uri_from_frame)
+        .def("pick_representative_frame", &utility::MediaReference::pick_representative_frame)
         .def("timecode", &utility::MediaReference::timecode)
         .def("set_timecode", &utility::MediaReference::set_timecode)
         .def("offset", &utility::MediaReference::offset)
@@ -491,10 +494,10 @@ void register_colour_triplet_class(py::module &m, const std::string &name) {
     py::class_<utility::ColourTriplet>(m, name.c_str())
         .def(py::init<>())
         .def(py::init<float, float, float>())
-        .def_property("red", &utility::ColourTriplet::red, &utility::ColourTriplet::setRed)
+        .def_property("red", &utility::ColourTriplet::red, &utility::ColourTriplet::set_red)
         .def_property(
-            "green", &utility::ColourTriplet::green, &utility::ColourTriplet::setGreen)
-        .def_property("blue", &utility::ColourTriplet::blue, &utility::ColourTriplet::setBlue)
+            "green", &utility::ColourTriplet::green, &utility::ColourTriplet::set_green)
+        .def_property("blue", &utility::ColourTriplet::blue, &utility::ColourTriplet::set_blue)
         .def("__str__", str_impl)
         .def("__repr__", str_impl);
 }
@@ -640,6 +643,48 @@ void register_frame_list_class(py::module &m, const std::string &name) {
         .def(py::init<>())
         .def(py::init<int, int, int>())
         .def(py::init<std::string>())
+        .def("__str__", str_impl);
+}
+
+void register_mask_class(py::module &m, const std::string &name) {
+    auto str_impl = [](const ui::viewport::Mask &x) { return to_string(x); };
+    py::class_<ui::viewport::Mask>(m, name.c_str())
+        .def(
+            py::init<
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                std::string,
+                float,
+                bool>(),
+            "Construct a Mask for viewport masking (black bars, safe areas, etc.). The "
+            "HUDPlugin base class provides an interface for defining masks for specific media "
+            "items.\n\n"
+            "Args:\n"
+            "    left (float): Left edge position of the mask.\n"
+            "    right (float): Right edge position of the mask.\n"
+            "    top (float): Top edge position of the mask.\n"
+            "    bottom (float): Bottom edge position of the mask.\n"
+            "    line_thickness (float): Thickness of the mask border lines.\n"
+            "    line_opacity (float): Opacity of the mask border lines.\n"
+            "    mask_opacity (float): Opacity of the masked (blacked-out) area.\n"
+            "    label (str): Text label displayed on the mask.\n"
+            "    label_size (float): Font size of the label.\n"
+            "    auto_fit (bool): Whether the mask automatically fits to the viewport.\n",
+            py::arg("left"),
+            py::arg("right"),
+            py::arg("top"),
+            py::arg("bottom"),
+            py::arg("line_thickness"),
+            py::arg("line_opacity"),
+            py::arg("mask_opacity"),
+            py::arg("label"),
+            py::arg("label_size"),
+            py::arg("auto_fit"))
         .def("__str__", str_impl);
 }
 

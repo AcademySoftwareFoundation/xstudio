@@ -11,6 +11,7 @@
 					"default_value": {
 						".AAF": "MMC_FULLY",
 						".AIFF": "MMC_FULLY",
+						".AIF": "MMC_FULLY",
 						".AVI": "MMC_FULLY",
 						".BMP": "MMC_FULLY",
 						".CIN": "MMC_FULLY",
@@ -36,6 +37,7 @@
 					"value": {
 						".AAF": "MMC_FULLY",
 						".AIFF": "MMC_FULLY",
+						".AIF": "MMC_FULLY",
 						".AVI": "MMC_FULLY",
 						".BMP": "MMC_FULLY",
 						".CIN": "MMC_FULLY",

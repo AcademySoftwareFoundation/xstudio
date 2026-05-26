@@ -61,6 +61,8 @@ class ShotBrowserResultModel : public JSONTreeModel {
         authorRole,
         clientFilenameRole,
         clientNoteRole,
+        // clientStagesRole,
+        // clientStagesCurrentRole,
         contentRole,
         createdByRole,
         createdDateRole,
@@ -110,7 +112,7 @@ class ShotBrowserResultModel : public JSONTreeModel {
         URLRole,
         versionCountRole,
         versionNameRole,
-        versionRole
+        versionRole,
     };
 
     explicit ShotBrowserResultModel(QObject *parent = nullptr);
@@ -217,6 +219,9 @@ class ShotBrowserResultFilterModel : public QSortFilterProxyModel {
     Q_PROPERTY(
         QString filterPipeStep READ filterPipeStep WRITE setFilterPipeStep NOTIFY
             filterPipeStepChanged)
+    Q_PROPERTY(
+        QString filterPlaylistType READ filterPlaylistType WRITE setFilterPlaylistType NOTIFY
+            filterPlaylistTypeChanged)
     Q_PROPERTY(QString filterName READ filterName WRITE setFilterName NOTIFY filterNameChanged)
     Q_PROPERTY(QString filterLink READ filterLink WRITE setFilterLink NOTIFY filterLinkChanged)
 
@@ -268,6 +273,7 @@ class ShotBrowserResultFilterModel : public QSortFilterProxyModel {
     [[nodiscard]] bool filterSyd() const { return filterSyd_; }
 
     [[nodiscard]] QString filterPipeStep() const { return filterPipeStep_; }
+    [[nodiscard]] QString filterPlaylistType() const { return filterPlaylistType_; }
     [[nodiscard]] QString filterName() const { return filterName_; }
     [[nodiscard]] QString filterLink() const {
         auto result = QString("All");
@@ -292,6 +298,7 @@ class ShotBrowserResultFilterModel : public QSortFilterProxyModel {
     // void setFilterVan(const bool value);
     void setFilterSyd(const bool value);
 
+    void setFilterPlaylistType(const QString &value);
     void setFilterPipeStep(const QString &value);
     void setFilterName(const QString &value);
     void setFilterLink(const QString &value);
@@ -307,6 +314,7 @@ class ShotBrowserResultFilterModel : public QSortFilterProxyModel {
     // void filterVanChanged();
     void filterSydChanged();
 
+    void filterPlaylistTypeChanged();
     void filterPipeStepChanged();
     void filterNameChanged();
     void filterLinkChanged();
@@ -333,6 +341,7 @@ class ShotBrowserResultFilterModel : public QSortFilterProxyModel {
     bool filterLinked_{false};
 
     QString filterPipeStep_{};
+    QString filterPlaylistType_{};
     QString filterName_{};
     QRegularExpression filterNameRE_{};
 

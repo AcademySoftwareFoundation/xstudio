@@ -57,9 +57,9 @@ void xstudio::ui::canvas::to_json(nlohmann::json &j, const Quad &q) {
 std::string Polygon::hash() const {
 
     std::string hash;
-    for (int i = 0; i < points.size(); ++i) {
-        hash += std::to_string(points[i].x);
-        hash += std::to_string(points[i].y);
+    for (const auto &p : points) {
+        hash += std::to_string(p.x);
+        hash += std::to_string(p.y);
     }
     hash += utility::to_string(colour);
     hash += std::to_string(softness);

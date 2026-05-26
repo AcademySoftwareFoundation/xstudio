@@ -33,12 +33,12 @@ FFMpegDecoder::FFMpegDecoder(
     std::string stream_id)
     : movie_file_path_(std::move(path)),
       last_requested_frame_(-100),
+      last_decoded_frame_(-100),
       avc_packet_(nullptr),
       av_format_ctx_(nullptr),
       soundcard_sample_rate_(soundcard_sample_rate),
-      default_rate_(default_rate),
-      last_decoded_frame_(-100),
-      stream_id_(std::move(stream_id))
+      stream_id_(std::move(stream_id)),
+      default_rate_(default_rate)
 
 {
     open_handles();
@@ -400,6 +400,14 @@ void FFMpegDecoder::decode_audio_frame(
             return;
         }
 
+        if (decode_stream_->stream_type() != AUDIO_STREAM)
+            throw std::runtime_error(
+                fmt::format(
+                    "Stream is not audio {} {} {}",
+                    decode_stream_->stream_index(),
+                    static_cast<int>(decode_stream_->stream_type()),
+                    movie_file_path_));
+
         if (last_decoded_frame_ != (frame_num - 1)) {
             do_seek(frame_num);
         }
@@ -442,6 +450,10 @@ void FFMpegDecoder::decode_video_frame(
 
     try {
 
+        if (!decode_stream_) {
+            throw std::runtime_error("No decode stream.");
+        }
+
         if (decode_stream_ && decode_stream_->is_attached_pic()) {
             image_buffer = decode_stream_->attached_pic();
             return;
@@ -473,6 +485,14 @@ void FFMpegDecoder::decode_video_frame(
             image_buffer = decode_stream_->get_ffmpeg_frame_as_xstudio_image();
             return;
         }
+
+        if (decode_stream_->stream_type() != VIDEO_STREAM)
+            throw std::runtime_error(
+                fmt::format(
+                    "Stream is not video {} {} {}",
+                    decode_stream_->stream_index(),
+                    static_cast<int>(decode_stream_->stream_type()),
+                    movie_file_path_));
 
         if (last_decoded_frame_ != (frame_num - 1)) {
             do_seek(frame_num);
@@ -694,7 +714,8 @@ void FFMpegDecoder::print_ffmpeg_buf_into_output_audio_buf(
     // and we can 'publish' it
     if (output_buf->copy_samples_from_other_buffer(ffmpeg_audio_buf)) {
 
-        if (output_buf->the_buffer_->sample_rate() != soundcard_sample_rate_) {
+        if (static_cast<int>(output_buf->the_buffer_->sample_rate()) !=
+            soundcard_sample_rate_) {
 
             // this call will re-sample the audio to match the desired
             // soundcard rate
@@ -861,38 +882,38 @@ void FFMpegDecoder::do_seek(const int seek_frame, bool force) {
     // frames will be put in our mini cache, so next time we need a frame
     // that is before the one we were just asked for it's already decoded.
 
-    if (decode_stream_)
+    if (decode_stream_) {
         decode_stream_->set_current_frame_unknown();
 
-    if (decode_stream_ && (force || seek_frame <= last_decoded_frame_ ||
-                           seek_frame > (last_decoded_frame_ + MIN_SEEK_FORWARD_FRAMES))) {
+        if ((force || seek_frame <= last_decoded_frame_ ||
+             seek_frame > (last_decoded_frame_ + MIN_SEEK_FORWARD_FRAMES))) {
 
-        // std::cerr << "seek " << seek_frame << " " << last_decoded_frame_ << "\n";
+            // std::cerr << "seek " << seek_frame << " " << last_decoded_frame_ << "\n";
 
-        // here, if we are going backwards frame by frames, we are going
-        // to jump back by 16 frames
-        int64_t timestamp = decode_stream_->frame_to_pts(
-            decoding_backwards_ ? std::max(seek_frame - 16, 0) : std::max(seek_frame - 1, 0));
+            // here, if we are going backwards frame by frames, we are going
+            // to jump back by 16 frames
+            int64_t timestamp = decode_stream_->frame_to_pts(
+                decoding_backwards_ ? std::max(seek_frame - 16, 0)
+                                    : std::max(seek_frame - 1, 0));
 
-        decode_stream_->flush_buffers();
-        if (decode_stream_)
             decode_stream_->flush_buffers();
 
-        std::stringstream msg;
-        msg << "av_seek_frame to frame " << seek_frame << ", timestamp " << timestamp;
-        AVC_CHECK_THROW(
-            av_seek_frame(
-                av_format_ctx_,
-                decode_stream_->stream_index(),
-                timestamp,
-                AVSEEK_FLAG_BACKWARD),
-            msg.str().c_str());
+            std::stringstream msg;
+            msg << "av_seek_frame to frame " << seek_frame << ", timestamp " << timestamp;
+            AVC_CHECK_THROW(
+                av_seek_frame(
+                    av_format_ctx_,
+                    decode_stream_->stream_index(),
+                    timestamp,
+                    AVSEEK_FLAG_BACKWARD),
+                msg.str().c_str());
 
-        last_decoded_frame_ = -100;
+            last_decoded_frame_ = -100;
 
-        // clear our caches
-        video_frame_mini_cache_.clear();
-        audio_frame_mini_cache_.clear();
+            // clear our caches
+            video_frame_mini_cache_.clear();
+            audio_frame_mini_cache_.clear();
+        }
     }
 }
 

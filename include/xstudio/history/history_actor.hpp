@@ -11,334 +11,330 @@
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/uuid.hpp"
 
-namespace xstudio {
-namespace history {
+namespace xstudio::history {
 
-    using namespace xstudio::utility;
+using namespace xstudio::utility;
 
-    template <typename V> class HistoryActor : public caf::event_based_actor {
-      public:
-        HistoryActor(caf::actor_config &cfg, const utility::JsonStore &jsn);
-        HistoryActor(
-            caf::actor_config &cfg, const utility::Uuid &uuid = utility::Uuid::generate());
+template <typename V> class HistoryActor : public caf::event_based_actor {
+  public:
+    HistoryActor(caf::actor_config &cfg, const utility::JsonStore &jsn);
+    HistoryActor(caf::actor_config &cfg, const utility::Uuid &uuid = utility::Uuid::generate());
 
-        const char *name() const override { return NAME.c_str(); }
+    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
 
-      private:
-        inline static const std::string NAME = "HistoryActor";
-        void init();
-        caf::message_handler message_handler();
+  private:
+    inline static const std::string NAME = "HistoryActor";
+    void init();
+    caf::message_handler message_handler();
 
-        caf::behavior make_behavior() override {
-            return message_handler().or_else(base_.container_message_handler(this));
-        }
-
-      private:
-        History<V> base_;
-    };
-
-    template <typename V>
-    HistoryActor<V>::HistoryActor(caf::actor_config &cfg, const utility::JsonStore &jsn)
-        : caf::event_based_actor(cfg), base_(static_cast<utility::JsonStore>(jsn["base"])) {
-
-        init();
+    caf::behavior make_behavior() override {
+        return message_handler().or_else(base_.container_message_handler(this));
     }
 
-    template <typename V>
-    HistoryActor<V>::HistoryActor(caf::actor_config &cfg, const utility::Uuid &uuid)
-        : caf::event_based_actor(cfg) {
-        base_.set_uuid(uuid);
+  private:
+    History<V> base_;
+};
 
-        init();
+template <typename V>
+HistoryActor<V>::HistoryActor(caf::actor_config &cfg, const utility::JsonStore &jsn)
+    : caf::event_based_actor(cfg), base_(static_cast<utility::JsonStore>(jsn["base"])) {
+
+    init();
+}
+
+template <typename V>
+HistoryActor<V>::HistoryActor(caf::actor_config &cfg, const utility::Uuid &uuid)
+    : caf::event_based_actor(cfg) {
+    base_.set_uuid(uuid);
+
+    init();
+}
+
+template <typename V> caf::message_handler HistoryActor<V>::message_handler() {
+    return caf::message_handler{
+        [=](plugin_manager::enable_atom) -> bool { return base_.enabled(); },
+
+        [=](plugin_manager::enable_atom, const bool enabled) -> bool {
+            base_.set_enabled(enabled);
+            return true;
+        },
+
+        [=](utility::clear_atom) -> bool {
+            base_.clear();
+            return true;
+        },
+
+        [=](media_cache::count_atom) -> int { return static_cast<int>(base_.count()); },
+
+        [=](media_cache::count_atom, const int count) -> bool {
+            base_.set_max_count(static_cast<size_t>(count));
+            return true;
+        },
+
+        [=](undo_atom) -> result<V> {
+            auto i = base_.undo();
+            if (i)
+                return *i;
+            return make_error(xstudio_error::error, "No history");
+        },
+
+        [=](redo_atom) -> result<V> {
+            auto i = base_.redo();
+            if (i)
+                return *i;
+            return make_error(xstudio_error::error, "No history");
+        },
+
+        [=](log_atom, const V &value) -> bool {
+            if (base_.enabled()) {
+                base_.push(value);
+                return true;
+            }
+            return false;
+        },
+
+        [=](utility::serialise_atom) -> utility::JsonStore {
+            utility::JsonStore jsn;
+            jsn["base"] = base_.serialise();
+            return jsn;
+        }};
+}
+
+
+template <typename V> void HistoryActor<V>::init() {
+    print_on_create(this, "HistoryActor");
+    print_on_exit(this, "HistoryActor");
+}
+
+template <typename K, typename V> class HistoryMapActor : public caf::event_based_actor {
+  public:
+    HistoryMapActor(caf::actor_config &cfg, const utility::JsonStore &jsn);
+    HistoryMapActor(
+        caf::actor_config &cfg, const utility::Uuid &uuid = utility::Uuid::generate());
+
+    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
+
+  private:
+    inline static const std::string NAME = "HistoryActor";
+    void init();
+    caf::message_handler message_handler();
+
+    caf::behavior make_behavior() override {
+        return message_handler().or_else(base_.container_message_handler(this));
     }
 
-    template <typename V> caf::message_handler HistoryActor<V>::message_handler() {
-        return caf::message_handler{
-            [=](plugin_manager::enable_atom) -> bool { return base_.enabled(); },
+  private:
+    caf::behavior behavior_;
+    HistoryMap<K, V> base_;
+};
 
-            [=](plugin_manager::enable_atom, const bool enabled) -> bool {
-                base_.set_enabled(enabled);
+template <typename K, typename V>
+HistoryMapActor<K, V>::HistoryMapActor(caf::actor_config &cfg, const utility::JsonStore &jsn)
+    : caf::event_based_actor(cfg), base_(static_cast<utility::JsonStore>(jsn["base"])) {
+
+    init();
+}
+
+template <typename K, typename V>
+HistoryMapActor<K, V>::HistoryMapActor(caf::actor_config &cfg, const utility::Uuid &uuid)
+    : caf::event_based_actor(cfg) {
+    base_.set_uuid(uuid);
+
+    init();
+}
+
+template <typename K, typename V>
+caf::message_handler HistoryMapActor<K, V>::message_handler() {
+    return caf::message_handler{
+        [=](plugin_manager::enable_atom) -> bool { return base_.enabled(); },
+
+        [=](plugin_manager::enable_atom, const bool enabled) -> bool {
+            base_.set_enabled(enabled);
+            return true;
+        },
+
+        [=](utility::clear_atom) -> bool {
+            base_.clear();
+            return true;
+        },
+
+        [=](media_cache::count_atom) -> int { return static_cast<int>(base_.count()); },
+
+        [=](media_cache::count_atom, const int count) -> bool {
+            base_.set_max_count(static_cast<size_t>(count));
+            return true;
+        },
+
+        [=](undo_atom) -> result<V> {
+            auto i = base_.undo();
+            if (i)
+                return *i;
+            return make_error(xstudio_error::error, "No history");
+        },
+
+        [=](redo_atom) -> result<V> {
+            auto i = base_.redo();
+            if (i)
+                return *i;
+            return make_error(xstudio_error::error, "No history");
+        },
+
+        [=](undo_atom, const K &key) -> result<V> {
+            auto i = base_.undo(key);
+            if (i)
+                return *i;
+            return make_error(xstudio_error::error, "No history");
+        },
+
+        [=](redo_atom, const K &key) -> result<V> {
+            auto i = base_.redo(key);
+            if (i)
+                return *i;
+            return make_error(xstudio_error::error, "No history");
+        },
+
+        [=](log_atom, const K &key, const V &value) -> bool {
+            if (base_.enabled()) {
+                base_.push(key, value);
                 return true;
-            },
+            }
+            return false;
+        },
 
-            [=](utility::clear_atom) -> bool {
-                base_.clear();
-                return true;
-            },
+        [=](utility::serialise_atom) -> utility::JsonStore {
+            utility::JsonStore jsn;
+            jsn["base"] = base_.serialise();
+            return jsn;
+        }};
+}
 
-            [=](media_cache::count_atom) -> int { return static_cast<int>(base_.count()); },
 
-            [=](media_cache::count_atom, const int count) -> bool {
-                base_.set_max_count(static_cast<size_t>(count));
-                return true;
-            },
+template <typename K, typename V> void HistoryMapActor<K, V>::init() {
+    print_on_create(this, "HistoryActor");
+    print_on_exit(this, "HistoryActor");
+}
 
-            [=](undo_atom) -> result<V> {
-                auto i = base_.undo();
-                if (i)
-                    return *i;
-                return make_error(xstudio_error::error, "No history");
-            },
+template <>
+caf::message_handler
+HistoryMapActor<utility::sys_time_point, utility::JsonStore>::message_handler() {
+    return caf::message_handler{
+        [=](plugin_manager::enable_atom) -> bool { return base_.enabled(); },
 
-            [=](redo_atom) -> result<V> {
-                auto i = base_.redo();
-                if (i)
-                    return *i;
-                return make_error(xstudio_error::error, "No history");
-            },
+        [=](plugin_manager::enable_atom, const bool enabled) -> bool {
+            base_.set_enabled(enabled);
+            return true;
+        },
 
-            [=](log_atom, const V &value) -> bool {
-                if (base_.enabled()) {
-                    base_.push(value);
-                    return true;
+        [=](utility::clear_atom) -> bool {
+            base_.clear();
+            return true;
+        },
+
+        [=](media_cache::count_atom) -> int { return static_cast<int>(base_.count()); },
+
+        [=](media_cache::count_atom, const int count) -> bool {
+            base_.set_max_count(static_cast<size_t>(count));
+            return true;
+        },
+
+        [=](undo_atom) -> result<utility::JsonStore> {
+            auto i = base_.undo();
+            if (i)
+                return *i;
+            return make_error(xstudio_error::error, "No history");
+        },
+
+        [=](undo_atom, const utility::sys_time_duration &duration)
+            -> result<std::vector<utility::JsonStore>> {
+            auto peek = base_.peek_undo();
+
+            if (peek) {
+                auto result = std::vector<utility::JsonStore>();
+                while (true) {
+                    auto next_peek = base_.peek_undo();
+                    if (next_peek and *next_peek >= (*peek) - duration) {
+                        peek   = next_peek;
+                        auto i = base_.undo();
+                        if (i) {
+                            result.push_back(*i);
+                        }
+                    } else
+                        break;
                 }
-                return false;
-            },
+                return result;
+            }
 
-            [=](utility::serialise_atom) -> utility::JsonStore {
-                utility::JsonStore jsn;
-                jsn["base"] = base_.serialise();
-                return jsn;
-            }};
-    }
+            return make_error(xstudio_error::error, "No history");
+        },
 
 
-    template <typename V> void HistoryActor<V>::init() {
-        print_on_create(this, "HistoryActor");
-        print_on_exit(this, "HistoryActor");
-    }
+        [=](redo_atom, const utility::sys_time_duration &duration)
+            -> result<std::vector<utility::JsonStore>> {
+            auto peek = base_.peek_redo();
 
-    template <typename K, typename V> class HistoryMapActor : public caf::event_based_actor {
-      public:
-        HistoryMapActor(caf::actor_config &cfg, const utility::JsonStore &jsn);
-        HistoryMapActor(
-            caf::actor_config &cfg, const utility::Uuid &uuid = utility::Uuid::generate());
-
-        const char *name() const override { return NAME.c_str(); }
-
-      private:
-        inline static const std::string NAME = "HistoryActor";
-        void init();
-        caf::message_handler message_handler();
-
-        caf::behavior make_behavior() override {
-            return message_handler().or_else(base_.container_message_handler(this));
-        }
-
-      private:
-        caf::behavior behavior_;
-        HistoryMap<K, V> base_;
-    };
-
-    template <typename K, typename V>
-    HistoryMapActor<K, V>::HistoryMapActor(
-        caf::actor_config &cfg, const utility::JsonStore &jsn)
-        : caf::event_based_actor(cfg), base_(static_cast<utility::JsonStore>(jsn["base"])) {
-
-        init();
-    }
-
-    template <typename K, typename V>
-    HistoryMapActor<K, V>::HistoryMapActor(caf::actor_config &cfg, const utility::Uuid &uuid)
-        : caf::event_based_actor(cfg) {
-        base_.set_uuid(uuid);
-
-        init();
-    }
-
-    template <typename K, typename V>
-    caf::message_handler HistoryMapActor<K, V>::message_handler() {
-        return caf::message_handler{
-            [=](plugin_manager::enable_atom) -> bool { return base_.enabled(); },
-
-            [=](plugin_manager::enable_atom, const bool enabled) -> bool {
-                base_.set_enabled(enabled);
-                return true;
-            },
-
-            [=](utility::clear_atom) -> bool {
-                base_.clear();
-                return true;
-            },
-
-            [=](media_cache::count_atom) -> int { return static_cast<int>(base_.count()); },
-
-            [=](media_cache::count_atom, const int count) -> bool {
-                base_.set_max_count(static_cast<size_t>(count));
-                return true;
-            },
-
-            [=](undo_atom) -> result<V> {
-                auto i = base_.undo();
-                if (i)
-                    return *i;
-                return make_error(xstudio_error::error, "No history");
-            },
-
-            [=](redo_atom) -> result<V> {
-                auto i = base_.redo();
-                if (i)
-                    return *i;
-                return make_error(xstudio_error::error, "No history");
-            },
-
-            [=](undo_atom, const K &key) -> result<V> {
-                auto i = base_.undo(key);
-                if (i)
-                    return *i;
-                return make_error(xstudio_error::error, "No history");
-            },
-
-            [=](redo_atom, const K &key) -> result<V> {
-                auto i = base_.redo(key);
-                if (i)
-                    return *i;
-                return make_error(xstudio_error::error, "No history");
-            },
-
-            [=](log_atom, const K &key, const V &value) -> bool {
-                if (base_.enabled()) {
-                    base_.push(key, value);
-                    return true;
+            if (peek) {
+                auto result = std::vector<utility::JsonStore>();
+                while (true) {
+                    auto next_peek = base_.peek_redo();
+                    if (next_peek and *next_peek >= (*peek) - duration) {
+                        peek   = next_peek;
+                        auto i = base_.redo();
+                        if (i) {
+                            result.push_back(*i);
+                        }
+                    } else
+                        break;
                 }
-                return false;
-            },
+                return result;
+            }
 
-            [=](utility::serialise_atom) -> utility::JsonStore {
-                utility::JsonStore jsn;
-                jsn["base"] = base_.serialise();
-                return jsn;
-            }};
-    }
+            return make_error(xstudio_error::error, "No history");
+        },
 
 
-    template <typename K, typename V> void HistoryMapActor<K, V>::init() {
-        print_on_create(this, "HistoryActor");
-        print_on_exit(this, "HistoryActor");
-    }
+        [=](redo_atom) -> result<utility::JsonStore> {
+            auto i = base_.redo();
+            if (i)
+                return *i;
+            return make_error(xstudio_error::error, "No history");
+        },
 
-    template <>
-    caf::message_handler
-    HistoryMapActor<utility::sys_time_point, utility::JsonStore>::message_handler() {
-        return caf::message_handler{
-            [=](plugin_manager::enable_atom) -> bool { return base_.enabled(); },
+        [=](undo_atom, const utility::sys_time_point &key) -> result<utility::JsonStore> {
+            auto i = base_.undo(key);
+            if (i)
+                return *i;
+            return make_error(xstudio_error::error, "No history");
+        },
 
-            [=](plugin_manager::enable_atom, const bool enabled) -> bool {
-                base_.set_enabled(enabled);
+        [=](redo_atom, const utility::sys_time_point &key) -> result<utility::JsonStore> {
+            auto i = base_.redo(key);
+            if (i)
+                return *i;
+            return make_error(xstudio_error::error, "No history");
+        },
+
+        [=](log_atom,
+            const utility::sys_time_point &key,
+            const utility::JsonStore &value) -> bool {
+            if (base_.enabled()) {
+                base_.push(key, value);
                 return true;
-            },
+            }
+            return false;
+        },
 
-            [=](utility::clear_atom) -> bool {
-                base_.clear();
-                return true;
-            },
-
-            [=](media_cache::count_atom) -> int { return static_cast<int>(base_.count()); },
-
-            [=](media_cache::count_atom, const int count) -> bool {
-                base_.set_max_count(static_cast<size_t>(count));
-                return true;
-            },
-
-            [=](undo_atom) -> result<utility::JsonStore> {
-                auto i = base_.undo();
-                if (i)
-                    return *i;
-                return make_error(xstudio_error::error, "No history");
-            },
-
-            [=](undo_atom, const utility::sys_time_duration &duration)
-                -> result<std::vector<utility::JsonStore>> {
-                auto peek = base_.peek_undo();
-
-                if (peek) {
-                    auto result = std::vector<utility::JsonStore>();
-                    while (true) {
-                        auto next_peek = base_.peek_undo();
-                        if (next_peek and *next_peek >= (*peek) - duration) {
-                            peek   = next_peek;
-                            auto i = base_.undo();
-                            if (i) {
-                                result.push_back(*i);
-                            }
-                        } else
-                            break;
-                    }
-                    return result;
-                }
-
-                return make_error(xstudio_error::error, "No history");
-            },
+        [=](utility::serialise_atom) -> utility::JsonStore {
+            utility::JsonStore jsn;
+            jsn["base"] = base_.serialise();
+            return jsn;
+        }};
+}
 
 
-            [=](redo_atom, const utility::sys_time_duration &duration)
-                -> result<std::vector<utility::JsonStore>> {
-                auto peek = base_.peek_redo();
-
-                if (peek) {
-                    auto result = std::vector<utility::JsonStore>();
-                    while (true) {
-                        auto next_peek = base_.peek_redo();
-                        if (next_peek and *next_peek >= (*peek) - duration) {
-                            peek   = next_peek;
-                            auto i = base_.redo();
-                            if (i) {
-                                result.push_back(*i);
-                            }
-                        } else
-                            break;
-                    }
-                    return result;
-                }
-
-                return make_error(xstudio_error::error, "No history");
-            },
+template <> void HistoryMapActor<utility::sys_time_point, utility::JsonStore>::init() {
+    print_on_create(this, "HistoryActor");
+    print_on_exit(this, "HistoryActor");
+}
 
 
-            [=](redo_atom) -> result<utility::JsonStore> {
-                auto i = base_.redo();
-                if (i)
-                    return *i;
-                return make_error(xstudio_error::error, "No history");
-            },
-
-            [=](undo_atom, const utility::sys_time_point &key) -> result<utility::JsonStore> {
-                auto i = base_.undo(key);
-                if (i)
-                    return *i;
-                return make_error(xstudio_error::error, "No history");
-            },
-
-            [=](redo_atom, const utility::sys_time_point &key) -> result<utility::JsonStore> {
-                auto i = base_.redo(key);
-                if (i)
-                    return *i;
-                return make_error(xstudio_error::error, "No history");
-            },
-
-            [=](log_atom,
-                const utility::sys_time_point &key,
-                const utility::JsonStore &value) -> bool {
-                if (base_.enabled()) {
-                    base_.push(key, value);
-                    return true;
-                }
-                return false;
-            },
-
-            [=](utility::serialise_atom) -> utility::JsonStore {
-                utility::JsonStore jsn;
-                jsn["base"] = base_.serialise();
-                return jsn;
-            }};
-    }
-
-
-    template <> void HistoryMapActor<utility::sys_time_point, utility::JsonStore>::init() {
-        print_on_create(this, "HistoryActor");
-        print_on_exit(this, "HistoryActor");
-    }
-
-
-} // namespace history
-} // namespace xstudio
+} // namespace xstudio::history
