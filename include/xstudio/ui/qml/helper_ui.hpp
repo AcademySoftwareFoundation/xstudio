@@ -21,6 +21,7 @@ CAF_PUSH_WARNINGS
 #include <QClipboard>
 #include <QCursor>
 #include <QDesktopServices>
+#include <QDir>
 #include <QImage>
 #include <QPixmap>
 #include <QItemSelection>
@@ -508,7 +509,14 @@ class HELPER_QML_EXPORT Helpers : public QObject {
         uris.push_front("-R");
         return startDetachedProcess("open", uris);
 #elif defined(_WIN32)
-        return false;
+        // explorer.exe /select supports only one target per invocation
+        // (unlike macOS `open -R` and Linux ShowItems, which take a list).
+        // Reveal just the first URL.
+        if (urls.isEmpty())
+            return false;
+        QString nativePath = QDir::toNativeSeparators(pathFromURL(urls.first()));
+        QString cmd        = "/select," + nativePath;
+        return startDetachedProcess("explorer.exe", {cmd});
 #else
         auto arguments = QStringList(
             {"--session",
@@ -598,7 +606,18 @@ class HELPER_QML_EXPORT Helpers : public QObject {
 
     Q_INVOKABLE [[nodiscard]] QString pathFromURL(const QUrl &url) const {
 #ifdef _WIN32
-        return url.toString();
+        // xstudio constructs file://localhost//<drive>:/...  which
+        // QUrl::toLocalFile() interprets as a UNC \\localhost\<drive>:\...
+        // path. Drop the localhost authority and the extra leading slash,
+        // then let Qt do the conversion.
+        if (url.host() == QStringLiteral("localhost")) {
+            QUrl u(url);
+            u.setHost(QString());
+            if (u.path().startsWith(QStringLiteral("//")))
+                u.setPath(u.path().mid(1));
+            return u.toLocalFile();
+        }
+        return url.toLocalFile();
 #else
         return url.path().replace("//", "/");
 #endif

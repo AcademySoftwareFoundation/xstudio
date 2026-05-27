@@ -292,6 +292,8 @@ XsWindow {
             } else if (!with_hashes) {
                 path = ext[1] + "####." + ext[2]
                 outputAudioFile.text = ext[1] + "aiff"
+            } else if (with_hashes) {
+                outputAudioFile.text = ext[1] + "aiff"
             }
         }
         
