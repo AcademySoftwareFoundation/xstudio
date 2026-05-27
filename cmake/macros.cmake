@@ -207,6 +207,7 @@ macro(default_plugin_options name)
 		add_custom_command(
 				TARGET ${PROJECT_NAME}
 				POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/share/xstudio/plugin"
 				COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${PROJECT_NAME}>" "${CMAKE_BINARY_DIR}/share/xstudio/plugin"
 		)
 	endif()
