@@ -43,10 +43,6 @@ target_link_libraries(plugin_test
 		xstudio::utility
 		CAF::core
 )
-set_target_properties(${name}
-    PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/plugin"
-)
 set_target_properties(plugin_test
 	PROPERTIES
 	LINK_DEPENDS_NO_SHARED true

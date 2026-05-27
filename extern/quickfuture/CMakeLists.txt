@@ -24,6 +24,13 @@ if(APPLE)
         PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/PlugIns/xstudio/qml/QuickFuture"
     )
+elseif(WIN32)
+    # On Windows for SHARED libs, RUNTIME_OUTPUT_DIRECTORY controls the .dll.
+    # qmldir declares `plugin quickfuture` so the .dll must be co-located with
+    # qmldir in the module directory at runtime.
+    set_target_properties(quickfuture
+        PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/share/xstudio/plugin/qml/QuickFuture")
 else()
     set_target_properties(quickfuture
         PROPERTIES
@@ -49,6 +56,8 @@ set(QML_FUTURE_FILES
 
 if (APPLE)
     set(QML_DEST_DIR ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/PlugIns/xstudio/qml/QuickFuture)
+elseif (WIN32)
+    set(QML_DEST_DIR ${CMAKE_BINARY_DIR}/share/xstudio/plugin/qml/QuickFuture)
 else()
     set(QML_DEST_DIR ${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickFuture)
 endif()
