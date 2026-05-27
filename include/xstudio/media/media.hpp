@@ -268,7 +268,8 @@ class AVFrameID {
         const utility::Uuid &clip_uuid          = utility::Uuid(),
         const MediaType media_type              = MT_IMAGE,
         const utility::Timecode time_code       = utility::Timecode(),
-        const Imath::M44f &transform            = Imath::M44f())
+        const Imath::M44f &transform            = Imath::M44f(),
+        const bool is_containerised_encoding    = true)
         : uri_(uri),
           frame_(frame),
           key_(key_format, uri, frame, stream_id, mod_timestamp, rate),
@@ -288,6 +289,7 @@ class AVFrameID {
         md->clip_uuid_         = clip_uuid;
         md->media_type_        = media_type;
         md->transform_         = transform;
+        md->is_containerised_encoding_ = is_containerised_encoding;
         fixed_media_data_.reset(md);
     }
 
@@ -341,6 +343,7 @@ class AVFrameID {
     [[nodiscard]] const Imath::M44f &transform_matrix() const {
         return fixed_media_data_->transform_;
     }
+    [[nodiscard]] bool is_containerised_encoding() const { return fixed_media_data_->is_containerised_encoding_; }
 
     [[nodiscard]] utility::UuidActor media_actor() const {
         return utility::UuidActor(media_uuid(), caf::actor_cast<caf::actor>(media_addr()));
@@ -376,6 +379,7 @@ class AVFrameID {
         utility::Uuid clip_uuid_;
         MediaType media_type_;
         Imath::M44f transform_;
+        bool is_containerised_encoding_;
     };
 
     std::shared_ptr<const FixedMediaData> fixed_media_data_;

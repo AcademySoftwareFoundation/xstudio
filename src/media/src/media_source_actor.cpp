@@ -1641,7 +1641,8 @@ void MediaSourceActor::get_media_pointers_for_frames(
                         clip_uuid,
                         media_type,
                         timecode,
-                        stream_tform * base_.transform() * parent_tform);
+                        stream_tform * base_.transform() * parent_tform,
+                        media_ref.container());
                 }
 
                 result.emplace_back(new media::AVFrameID(
