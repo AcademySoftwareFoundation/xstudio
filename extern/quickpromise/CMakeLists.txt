@@ -61,6 +61,8 @@ add_custom_target(COPY_PROMISE_QML)
 
 if (APPLE)
     set(QML_DEST_DIR ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/PlugIns/xstudio/qml/QuickPromise)
+elseif (WIN32)
+    set(QML_DEST_DIR ${CMAKE_BINARY_DIR}/share/xstudio/plugin/qml/QuickPromise)
 else()
     set(QML_DEST_DIR ${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickPromise)
 endif()

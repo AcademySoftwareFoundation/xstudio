@@ -116,6 +116,7 @@ if(WIN32)
 	get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)
 	get_filename_component(_qt_bin_dir "${_qmake_executable}" DIRECTORY)
 	file(TO_NATIVE_PATH "${_qt_bin_dir}" _qt_bin_dir)
+	file(TO_NATIVE_PATH "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin" _vcpkg_bin_dir)
 	configure_file(run_xstudio.bat.in ${CMAKE_BINARY_DIR}/run_xstudio.bat @ONLY)
 
 elseif(APPLE)

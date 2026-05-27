@@ -190,6 +190,17 @@ macro(default_plugin_options name)
 		#		${CMAKE_INSTALL_PREFIX}/xstudio.bin.app/Contents/Resources/share/xstudio/plugin/lib${name}.dylib
 		#	)
 
+	elseif(WIN32)
+		# On Windows for SHARED libs, RUNTIME_OUTPUT_DIRECTORY controls the .dll
+		# (LIBRARY_OUTPUT_DIRECTORY only controls the .lib import library).
+		# Build the .dll directly at the final location so the .pdb sits next to
+		# it — debuggers resolve symbols without ambiguity, and no POST_BUILD copy
+		# is needed.
+		set_target_properties(${name}
+	    	PROPERTIES
+	    	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/share/xstudio/plugin"
+		)
+
 	else()
 		set_target_properties(${name}
 	    	PROPERTIES
@@ -209,12 +220,9 @@ macro(default_plugin_options name)
 		# We don't want the vcpkg install because it forces dependences; we just want the plugin.
 		_install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION share/xstudio/plugin)
 
-		#For interactive debugging, we want only the output dll to be copied to the build plugins folder.
-		add_custom_command(
-				TARGET ${PROJECT_NAME}
-				POST_BUILD
-				COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${PROJECT_NAME}>" "${CMAKE_BINARY_DIR}/share/xstudio/plugin"
-		)
+		# Note: default_plugin_options sets RUNTIME_OUTPUT_DIRECTORY to
+		# ${CMAKE_BINARY_DIR}/share/xstudio/plugin on Windows, so the .dll is
+		# already linked at the final dev-tree location. No POST_BUILD copy needed.
 	endif()
 
 endmacro()
@@ -380,9 +388,15 @@ macro(add_python_plugin NAME)
 
 	else()
 
-		add_custom_command(TARGET COPY_PY_PLUGIN_${NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E
-            copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/${NAME} ${CMAKE_BINARY_DIR}/bin/plugin-python/${NAME})
+		if (WIN32)
+			add_custom_command(TARGET COPY_PY_PLUGIN_${NAME} POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E
+				copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/${NAME} ${CMAKE_BINARY_DIR}/share/xstudio/plugin-python/${NAME})
+		else()
+			add_custom_command(TARGET COPY_PY_PLUGIN_${NAME} POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E
+				copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/${NAME} ${CMAKE_BINARY_DIR}/bin/plugin-python/${NAME})
+		endif()
 
 	endif()
 
@@ -491,10 +505,17 @@ macro(add_resource name path target resource_type)
 
 	else()
 
-    	add_custom_command(TARGET ${target} POST_BUILD
+		if (WIN32)
+    		add_custom_command(TARGET ${target} POST_BUILD
+                   BYPRODUCTS ${CMAKE_BINARY_DIR}/share/xstudio/${resource_type}/${name}
+                   COMMAND ${CMAKE_COMMAND} -E copy ${path}/${name}
+                                                    ${CMAKE_BINARY_DIR}/share/xstudio/${resource_type}/${name})
+		else()
+    		add_custom_command(TARGET ${target} POST_BUILD
                    BYPRODUCTS ${CMAKE_BINARY_DIR}/bin/${resource_type}/${name}
                    COMMAND ${CMAKE_COMMAND} -E copy ${path}/${name}
                                                     ${CMAKE_BINARY_DIR}/bin/${resource_type}/${name})
+		endif()
 
 	    if(INSTALL_XSTUDIO)
 			install(FILES
@@ -556,9 +577,15 @@ macro(add_font name path target)
 
 	else()
 
-    	add_custom_command(TARGET ${target} POST_BUILD
+		if (WIN32)
+    		add_custom_command(TARGET ${target} POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy ${path}/${name}
+                                                    ${CMAKE_BINARY_DIR}/share/xstudio/fonts/${name})
+		else()
+    		add_custom_command(TARGET ${target} POST_BUILD
                    COMMAND ${CMAKE_COMMAND} -E copy ${path}/${name}
                                                     ${CMAKE_BINARY_DIR}/bin/fonts/${name})
+		endif()
 
 	    if(INSTALL_XSTUDIO)
 			install(FILES

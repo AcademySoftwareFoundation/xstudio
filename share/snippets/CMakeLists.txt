@@ -2,11 +2,16 @@
 set(snippets)
 
 macro(add_snip name)
-  add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/bin/snippets/${name}
+  if (WIN32)
+    set(_snip_dest ${CMAKE_BINARY_DIR}/share/xstudio/snippets/${name})
+  else()
+    set(_snip_dest ${CMAKE_BINARY_DIR}/bin/snippets/${name})
+  endif()
+  add_custom_command(OUTPUT ${_snip_dest}
                    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/${name}
-                                                    ${CMAKE_BINARY_DIR}/bin/snippets/${name}
+                                                    ${_snip_dest}
                    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${name})
-  list(APPEND snippets ${CMAKE_BINARY_DIR}/bin/snippets/${name})
+  list(APPEND snippets ${_snip_dest})
 endmacro()
 
 add_snip(Demo/print_status.py)
