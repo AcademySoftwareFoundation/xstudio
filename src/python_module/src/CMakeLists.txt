@@ -39,6 +39,13 @@ if (APPLE)
 	# Our install commands will copy the entire python3.X folder into the app bundle
 	# when making the re-locatable .app structure
 	set(OUTPUT_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib/${PYTHONVP}/site-packages/xstudio/core")
+elseif (WIN32)
+	# Build the .pyd directly into the dev-tree mirror of its install location
+	# (build/bin/python3/Lib/site-packages/xstudio/core/). The matching
+	# install(TARGETS) rule below, which is target-based, picks the .pyd up
+	# from wherever LIBRARY_OUTPUT_DIRECTORY put it. No POST_BUILD copy, 
+	# .pdb co-located with the binary so the debugger resolves symbols cleanly.
+	set(OUTPUT_DIR "${CMAKE_BINARY_DIR}/bin/python3/Lib/site-packages/xstudio/core")
 else()
 	set(OUTPUT_DIR "${CMAKE_BINARY_DIR}/bin/python/lib/${PYTHONVP}/site-packages/xstudio/core")
 endif()

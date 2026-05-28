@@ -38,21 +38,34 @@ else()
     configure_file(${VERSION_PY_IN} ${VERSION_PY} @ONLY)
 
     if (WIN32)
-        # This will install the xstudio python module to the VCPKG python distribution
-        # Later at install time, the whole python dist is added to the xstudio package
-        # and hence we get the xstudio python module where we need it.
-        add_custom_command(OUTPUT ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio/api
-                    COMMAND ${Python_EXECUTABLE}
-                    ARGS -m pip install .
-                    DEPENDS __pybind_xstudio ${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in)
+        # Stage the xstudio Python package directly into the dev-tree mirror of
+        # the install layout. Runtime PYTHONHOME is build/bin/python3 in dev
+        # (set up by src/embedded_python/src/CMakeLists.txt) and
+        # <prefix>/bin/python3 at install, Python's standard site-discovery
+        # resolves `import xstudio` from there.
+        #
+        # Replaces a previous `python -m pip install .` invocation that
+        # implicitly mutated vcpkg's tools/python3/Lib/site-packages, then
+        # relied on `install(DIRECTORY tools/python3 ...)` to propagate xstudio 
+        # into the installer.  Now the build-tree stage is explicit and the 
+        # install rule below is explicit.
+        # cmake -E copy_directory_if_different is incremental — only changed
+        # .py files are copied on rebuilds.
+        set(WIN_PYTHON_SITE "${CMAKE_BINARY_DIR}/bin/python3/Lib/site-packages/xstudio")
+        add_custom_command(OUTPUT ${WIN_PYTHON_SITE}/__init__.py
+                    COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
+                        ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio
+                        ${WIN_PYTHON_SITE}
+                    DEPENDS ${DEPS} ${VERSION_PY}
+                    COMMENT "Staging xstudio Python package to ${WIN_PYTHON_SITE}")
+        add_custom_target(python_module ALL DEPENDS __pybind_xstudio ${WIN_PYTHON_SITE}/__init__.py)
     else()
         add_custom_command(OUTPUT ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio/api
                     COMMAND ${Python_EXECUTABLE}
                     ARGS setup.py install --old-and-unmanageable --prefix=${OUTPUT}
                     DEPENDS __pybind_xstudio ${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in)
+        add_custom_target(python_module ALL DEPENDS __pybind_xstudio ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio/api)
     endif()
-
-    add_custom_target(python_module ALL DEPENDS __pybind_xstudio ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio/api)
 
 endif()
 
@@ -63,6 +76,15 @@ if(NOT APPLE)
         if (NOT WIN32)
             install(DIRECTORY ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio
                 DESTINATION lib/python/)
+        else()
+            # Install the staged xstudio Python package to its final install
+            # location. WIN_PYTHON_SITE is set above to
+            # ${CMAKE_BINARY_DIR}/bin/python3/Lib/site-packages/xstudio.
+            # Previously no explicit Windows install rule existed for the
+            # xstudio .py files — they reached the installer only as a
+            # side-effect of `pip install .` mutating vcpkg's tree.
+            install(DIRECTORY ${WIN_PYTHON_SITE}
+                DESTINATION bin/python3/Lib/site-packages)
         endif()
 
         if(WIN32)
