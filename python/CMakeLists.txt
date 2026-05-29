@@ -29,6 +29,25 @@ if(APPLE)
     # Here we copy the entire python installation into Frameworks
     install(DIRECTORY ${VCPKG_LOCATION}/lib/${PYTHONVP} DESTINATION ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Frameworks/lib/)
 
+elseif(WIN32)
+
+    # On Windows, `setup.py install --prefix=C:/...` mangles the absolute path
+    # (drive letter gets stripped, rest treated as relative to CWD). Copy the
+    # source package directly into site-packages alongside the .pyd target's
+    # LIBRARY_OUTPUT_DIRECTORY output, giving one merged package dir.
+    set(OUTPUT "${CMAKE_BINARY_DIR}/bin/python")
+
+    configure_file(${VERSION_PY_IN} ${VERSION_PY_OUT} @ONLY)
+    configure_file(${VERSION_PY_IN} ${VERSION_PY} @ONLY)
+
+    add_custom_command(OUTPUT ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio/api
+                    COMMAND ${CMAKE_COMMAND} -E copy_directory
+                        ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio
+                        ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio
+                    DEPENDS __pybind_xstudio ${DEPS})
+
+    add_custom_target(python_module ALL DEPENDS __pybind_xstudio ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio/api)
+
 else()
 
     set(OUTPUT "${CMAKE_BINARY_DIR}/bin/python")

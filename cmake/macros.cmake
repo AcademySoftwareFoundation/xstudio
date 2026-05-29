@@ -515,15 +515,9 @@ macro(add_preference name path target)
 
 	else()
 
-		if (WIN32)
-    		add_custom_command(TARGET ${target} POST_BUILD
-                   COMMAND ${CMAKE_COMMAND} -E copy ${path}/${name}
-                                                    ${CMAKE_BINARY_DIR}/share/xstudio/preference/${name})
-		else()
-    		add_custom_command(TARGET ${target} POST_BUILD
+		add_custom_command(TARGET ${target} POST_BUILD
                    COMMAND ${CMAKE_COMMAND} -E copy ${path}/${name}
                                                     ${CMAKE_BINARY_DIR}/bin/preference/${name})
-		endif()
 
 	    if(INSTALL_XSTUDIO)
 			install(FILES
