@@ -370,6 +370,10 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::bookmark, associate_bookmark_atom);
     ADD_ATOM(xstudio::bookmark, bookmark_change_atom);
     ADD_ATOM(xstudio::bookmark, render_annotations_atom);
+    ADD_ATOM(xstudio::bookmark, add_annotation_atom);
+    ADD_ATOM(xstudio::bookmark, get_annotation_atom);
+    ADD_ATOM(xstudio::bookmark, annotation_data_atom);
+    ADD_ATOM(xstudio::bookmark, build_annotation_atom);
 
     ADD_ATOM(xstudio::history, undo_atom);
     ADD_ATOM(xstudio::history, redo_atom);
