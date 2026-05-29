@@ -1298,6 +1298,16 @@ void AnnotationsCore::broadcast_live_stroke(
         user_id,
         stroke_completed)
         .send(live_edit_event_group_);
+
+    // Python-accessible simplified event: AnnotationBasePtr is not Python-bound,
+    // so broadcast (event_atom, annotation_data_atom, user_id, stroke_completed)
+    // via plugin_events_ so Python plugins can detect pen-up / mid-stroke events.
+    mail(
+        utility::event_atom_v,
+        annotation_data_atom_v,
+        user_id,
+        stroke_completed)
+        .send(plugin_events_group());
 }
 
 void AnnotationsCore::broadcast_live_laser_stroke(
