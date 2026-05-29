@@ -82,6 +82,9 @@ if(NOT APPLE)
         if (NOT WIN32)
             install(DIRECTORY ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio
                 DESTINATION lib/python/)
+        else()
+            install(DIRECTORY ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio
+                DESTINATION bin/python3/Lib/site-packages)
         endif()
 
         if(WIN32)
@@ -102,6 +105,10 @@ if(NOT APPLE)
                 DESTINATION bin)
         endif()
      endif()
+endif()
+
+if(WIN32)
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio DESTINATION python FILES_MATCHING PATTERN "*.py")
 endif()
 
 # to run python tests we need xstudio and python.
