@@ -38,6 +38,14 @@ else()
     add_library(quickpromise SHARED)
 endif()
 
+# On Windows the DLL must be next to the QML files for Qt to load the plugin.
+# (Install puts it at bin/ separately, see below.)
+if(WIN32)
+    set_target_properties(quickpromise
+        PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickPromise")
+endif()
+
 target_link_libraries(quickpromise PRIVATE Qt6::Core Qt6::Quick)
 
 # Add resource and header files to the library
