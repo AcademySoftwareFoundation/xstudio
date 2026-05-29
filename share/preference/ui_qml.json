@@ -302,68 +302,6 @@
 									"children": [
 										{
 											"child_dividers": [
-												0.7480857726369179
-											],
-											"children": [
-												{
-													"child_dividers": [
-														0.5203144803298188
-													],
-													"children": [
-														{
-															"children": [
-																{
-																	"tab_view": "Viewport"
-																}
-															],
-															"current_tab": 0
-														},
-														{
-															"children": [
-																{
-																	"tab_view": "File System Browser"
-																}
-															],
-															"current_tab": 0
-														}
-													],
-													"split_horizontal": false
-												},
-												{
-													"child_dividers": [
-														0.41838003743649943
-													],
-													"children": [
-														{
-															"children": [
-																{
-																	"tab_view": "Playlists"
-																}
-															],
-															"current_tab": 0
-														},
-														{
-															"children": [
-																{
-																	"tab_view": "Media"
-																}
-															],
-															"current_tab": 0
-														}
-													],
-													"split_horizontal": false
-												}
-											],
-											"split_horizontal": true
-										}
-									],
-									"enabled": true,
-									"layout_name": "Browse"
-								},
-								{
-									"children": [
-										{
-											"child_dividers": [
 												0.23581066790640562
 											],
 											"children": [
@@ -388,19 +326,6 @@
 																		"cellSize": 218,
 																		"scope": "Stream",
 																		"viewType": "list"
-																	}
-																},
-																{
-																	"tab_view": "Shot History",
-																	"user_data": {
-																		"scope": "Stream"
-																	}
-																},
-																{
-																	"tab_view": "Notes History",
-																	"user_data": {
-																		"scope": "Shot",
-																		"type": "Client"
 																	}
 																}
 															],
@@ -435,7 +360,7 @@
 									"children": [
 										{
 											"child_dividers": [
-												0.2476724978421641
+												0.2552899333055581
 											],
 											"children": [
 												{
@@ -478,45 +403,26 @@
 												},
 												{
 													"child_dividers": [
-														0.5853181443453789
+														0.6308910610120455
 													],
 													"children": [
 														{
-															"child_dividers": [
-																0.6252765361290133
-															],
 															"children": [
 																{
-																	"children": [
-																		{
-																			"tab_view": "Viewport",
-																			"user_data": {
-																				"dock_widgets_model": [
-																					[
-																						"Annotate",
-																						false,
-																						"left"
-																					]
-																				],
-																				"infoBarVisible": false
-																			}
-																		}
-																	],
-																	"current_tab": 0
-																},
-																{
-																	"children": [
-																		{
-																			"tab_view": "Shot History"
-																		},
-																		{
-																			"tab_view": "Notes History"
-																		}
-																	],
-																	"current_tab": 1
+																	"tab_view": "Viewport",
+																	"user_data": {
+																		"dock_widgets_model": [
+																			[
+																				"Annotate",
+																				false,
+																				"left"
+																			]
+																		],
+																		"infoBarVisible": false
+																	}
 																}
 															],
-															"split_horizontal": true
+															"current_tab": 0
 														},
 														{
 															"children": [
@@ -637,68 +543,6 @@
 									"children": [
 										{
 											"child_dividers": [
-												0.7480857726369179
-											],
-											"children": [
-												{
-													"child_dividers": [
-														0.5203144803298188
-													],
-													"children": [
-														{
-															"children": [
-																{
-																	"tab_view": "Viewport"
-																}
-															],
-															"current_tab": 0
-														},
-														{
-															"children": [
-																{
-																	"tab_view": "File System Browser"
-																}
-															],
-															"current_tab": 0
-														}
-													],
-													"split_horizontal": false
-												},
-												{
-													"child_dividers": [
-														0.41838003743649943
-													],
-													"children": [
-														{
-															"children": [
-																{
-																	"tab_view": "Playlists"
-																}
-															],
-															"current_tab": 0
-														},
-														{
-															"children": [
-																{
-																	"tab_view": "Media"
-																}
-															],
-															"current_tab": 0
-														}
-													],
-													"split_horizontal": false
-												}
-											],
-											"split_horizontal": true
-										}
-									],
-									"enabled": true,
-									"layout_name": "Browse"
-								},
-								{
-									"children": [
-										{
-											"child_dividers": [
 												0.23581066790640562
 											],
 											"children": [
@@ -723,19 +567,6 @@
 																		"cellSize": 218,
 																		"scope": "Stream",
 																		"viewType": "list"
-																	}
-																},
-																{
-																	"tab_view": "Shot History",
-																	"user_data": {
-																		"scope": "Stream"
-																	}
-																},
-																{
-																	"tab_view": "Notes History",
-																	"user_data": {
-																		"scope": "Shot",
-																		"type": "Client"
 																	}
 																}
 															],
@@ -770,7 +601,7 @@
 									"children": [
 										{
 											"child_dividers": [
-												0.2476724978421641
+												0.2552899333055581
 											],
 											"children": [
 												{
@@ -813,45 +644,26 @@
 												},
 												{
 													"child_dividers": [
-														0.5853181443453789
+														0.6308910610120455
 													],
 													"children": [
 														{
-															"child_dividers": [
-																0.6252765361290133
-															],
 															"children": [
 																{
-																	"children": [
-																		{
-																			"tab_view": "Viewport",
-																			"user_data": {
-																				"dock_widgets_model": [
-																					[
-																						"Annotate",
-																						false,
-																						"left"
-																					]
-																				],
-																				"infoBarVisible": false
-																			}
-																		}
-																	],
-																	"current_tab": 0
-																},
-																{
-																	"children": [
-																		{
-																			"tab_view": "Shot History"
-																		},
-																		{
-																			"tab_view": "Notes History"
-																		}
-																	],
-																	"current_tab": 1
+																	"tab_view": "Viewport",
+																	"user_data": {
+																		"dock_widgets_model": [
+																			[
+																				"Annotate",
+																				false,
+																				"left"
+																			]
+																		],
+																		"infoBarVisible": false
+																	}
 																}
 															],
-															"split_horizontal": true
+															"current_tab": 0
 														},
 														{
 															"children": [
