@@ -177,7 +177,7 @@ class XStudioHostInterface:
 
         self.connection.api.session.viewed_container = target_playlist
         target_playlist.playhead_selection.set_selection([media.uuid])
-        playlist.playhead.playing = True
+        target_playlist.playhead.playing = True
 
     def replace_current_media(self, path):
         """
