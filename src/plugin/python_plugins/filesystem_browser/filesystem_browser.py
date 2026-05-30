@@ -154,10 +154,13 @@ class XStudioHostInterface:
         Args:
             path (str): The path to the file or sequence to load.
         """
-        target_playlist = self.connection.api.session.inspected_container
+        try:
+            target_playlist = self.connection.api.session.inspected_container
+        except Exception:
+            target_playlist = None
         if not target_playlist:
             target_playlist = self.connection.api.session.create_playlist("File System Imports")
-            
+
         for m in target_playlist.media:
             try:
                 if m.metadata.get("/fs_browser/import_path") == path:
