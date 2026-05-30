@@ -161,6 +161,11 @@ class XStudioHostInterface:
         if not target_playlist:
             target_playlist = self.connection.api.session.create_playlist("File System Imports")
 
+        try:
+            is_timeline = target_playlist.type == "Timeline"
+        except Exception:
+            is_timeline = False
+
         for m in target_playlist.media:
             try:
                 if m.metadata.get("/fs_browser/import_path") == path:
@@ -169,11 +174,13 @@ class XStudioHostInterface:
             except:
                 pass
 
-        seq_path = self._format_sequence_path(path) if fileseq_available else None
-        if seq_path:
-            media = target_playlist.add_media(seq_path)
+        add_path = (self._format_sequence_path(path) if fileseq_available else None) or path
+
+        if is_timeline:
+            media = target_playlist.parent_playlist.add_media(add_path)
+            target_playlist.add_media(media)
         else:
-            media = target_playlist.add_media(path)
+            media = target_playlist.add_media(add_path)
 
         self.connection.api.session.viewed_container = target_playlist
         target_playlist.playhead_selection.set_selection([media.uuid])
