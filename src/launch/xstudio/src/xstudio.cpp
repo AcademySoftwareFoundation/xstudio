@@ -1093,13 +1093,13 @@ struct Launcher {
                         auto remote = request_receive_wait<caf::actor>(
                             *self,
                             connecting,
-                            std::chrono::seconds(2),
+                            std::chrono::seconds(3),
                             caf::connect_atom_v,
                             host,
                             port);
 
                         auto auth = request_receive_wait<caf::actor>(
-                            *self, remote, std::chrono::seconds(2), authenticate_atom_v);
+                            *self, remote, std::chrono::seconds(3), authenticate_atom_v);
 
                         spdlog::info("Connected to session '{}' at {}:{}", name, host, port);
                         return auth;
