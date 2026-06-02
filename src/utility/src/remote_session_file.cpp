@@ -6,6 +6,13 @@
 #include <limits>
 #include <regex>
 
+#ifdef _WIN32
+#include <windows.h>
+#elif defined(__APPLE__)
+#include <csignal>
+#include <cerrno>
+#endif
+
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/remote_session_file.hpp"
@@ -44,7 +51,21 @@ RemoteSessionFile::RemoteSessionFile(const std::string &file_path) {
 
     // test pid if host is local.
     if (host_ == "localhost" and pid_) {
-        if (not exists(fs::path(fmt::format("/proc/{}", pid_)))) {
+        bool alive = false;
+#ifdef _WIN32
+        HANDLE h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid_);
+        if (h) {
+            DWORD exit_code = 0;
+            alive = GetExitCodeProcess(h, &exit_code) && exit_code == STILL_ACTIVE;
+            CloseHandle(h);
+        }
+#elif defined(__APPLE__)
+        // POSIX signal 0 doesn't deliver a signal, just checks existence.
+        alive = (kill(pid_, 0) == 0) || (errno == EPERM);
+#else
+        alive = exists(fs::path(fmt::format("/proc/{}", pid_)));
+#endif
+        if (not alive) {
             remove(filepath());
             throw std::runtime_error("Invalid remote session file, process dead. " + file_name);
         }
