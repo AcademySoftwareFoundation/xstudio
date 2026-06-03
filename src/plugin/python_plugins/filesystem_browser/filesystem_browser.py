@@ -159,7 +159,7 @@ class XStudioHostInterface:
         except Exception:
             target_playlist = None
         if not target_playlist:
-            target_playlist = self.connection.api.session.create_playlist("File System Imports")
+            _, target_playlist = self.connection.api.session.create_playlist("File System Imports")
 
         try:
             is_timeline = target_playlist.type == "Timeline"
