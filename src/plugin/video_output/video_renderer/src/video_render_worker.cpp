@@ -333,12 +333,23 @@ VideoRenderWorker::VideoRenderWorker(
     render_format_ = video_render_bit_depth_.find("16") == 0 ? viewport::ImageFormat::RGBA_16
                                                              : viewport::ImageFormat::RGBA_8;
 
+#ifdef _WIN32
+    // On Windows, drive-letter paths (Z:/foo) parse as URIs with scheme=Z,
+    // and uri_to_posix_path would then drop the drive. Only treat the input
+    // as a URI if it actually contains "://".
+    const bool is_out_uri   = output_file_path_.find("://") != std::string::npos;
+    const bool is_audio_uri = output_audio_path_.find("://") != std::string::npos;
+#else
+    // compiles away
+    const bool is_out_uri   = true;
+    const bool is_audio_uri = true;
+#endif
     auto out_uri = caf::make_uri(output_file_path_);
-    if (out_uri) {
+    if (out_uri && is_out_uri) {
         output_file_path_ = utility::uri_to_posix_path(*out_uri);
     }
     out_uri = caf::make_uri(output_audio_path_);
-    if (out_uri) {
+    if (out_uri && is_audio_uri) {
         output_audio_path_ = utility::uri_to_posix_path(*out_uri);
     }
 
