@@ -233,7 +233,7 @@ class PluginBase(ModuleBase):
             self.playhead_subscriptions = []
 
         subscription_id = self.connection.link.add_message_callback(
-            event_group, callback_method
+            event_group, callback_method, playhead
             )
 
         self.playhead_subscriptions.append(subscription_id)

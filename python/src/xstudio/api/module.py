@@ -392,7 +392,7 @@ class ModuleBase(ActorConnection, metaclass=ModuleMeta):
             raise Exception("Actor has no event group.")
 
         return self.connection.link.add_message_callback(
-            event_group, callback_method
+            event_group, callback_method, event_source.remote
             )
 
     def unsubscribe_from_event_group(self, uuid):
