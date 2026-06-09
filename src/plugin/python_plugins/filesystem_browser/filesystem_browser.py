@@ -122,6 +122,7 @@ class XStudioHostInterface:
             seq_path = self._format_sequence_path(path)
             return playlist.add_media(seq_path if seq_path else path)
         except Exception as e:
+            import traceback
             _dbg (traceback.format_exc())
             _dbg(f"Add media error: {e}")
             return None
