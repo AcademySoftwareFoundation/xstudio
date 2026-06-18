@@ -410,6 +410,12 @@ ApplicationWindow {
     }
     property alias file_functions: file_functions
 
+    XsPreference {
+        id: __media_flags
+        path: "/core/session/media_flags"
+    }
+    property alias flagColours: __media_flags.value
+
     ColumnLayout {
 
         anchors.fill: parent

@@ -328,20 +328,16 @@ Item {
         )
     }
 
+    function setColour(indexes, idx) {
+        indexes.forEach(
+            function (item, index) {
+                theSessionData.set(item, flagColours[idx].colour, "flagColourRole")
+            }
+        )
+    }
 
     function cycleColour(indexes) {
-        let colours = [
-            "#FFFF0000",
-            "#FF00FF00",
-            "#FF0000FF",
-            "#FFFFFF00",
-            "#FFFFA500",
-            "#FF800080",
-            "#FF000000",
-            "#FFFFFFFF",
-            "#00000000",
-        ]
-
+        var colours = flagColours.map(obj => Object.values(obj)[0])
         indexes.forEach(
             function (item, index) {
                 let current = theSessionData.get(item, "flagColourRole")
