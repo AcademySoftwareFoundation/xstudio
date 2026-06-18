@@ -983,17 +983,8 @@ Rectangle {
         onActivated: {
             let clipIndex = theSessionData.getTimelineClipIndex(timeline_items.rootIndex, timelinePlayhead.logicalFrame);
             if(clipIndex.valid) {
-                let colours = [
-                    "#FFFF0000",
-                    "#FF00FF00",
-                    "#FF0000FF",
-                    "#FFFFFF00",
-                    "#FFFFA500",
-                    "#FF800080",
-                    "#FF000000",
-                    "#FFFFFFFF",
-                    "",
-                ]
+                let colours = flagColours.map(obj => Object.values(obj)[0])
+                colours[0] = ""
                 let current = theSessionData.get(clipIndex, "flagColourRole")
                 let cind = colours.indexOf(current)
                 if(cind == -1 || cind == colours.length-1)
