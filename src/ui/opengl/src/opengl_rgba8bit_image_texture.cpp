@@ -43,13 +43,13 @@ bool GLBlindRGBA8bitTex::resize(const size_t required_size_bytes) {
             return false;
         }
 
-#ifdef __OPENGL_4_1__
         if (mapped_address_) {
+#ifdef __OPENGL_4_1__
             glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pixel_buf_object_id_);
             glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+#endif
             mapped_address_ = nullptr;
         }
-#endif
 
         glDeleteTextures(1, &tex_id_);
         glDeleteBuffers(1, &pixel_buf_object_id_);
@@ -133,7 +133,8 @@ uint8_t *GLBlindRGBA8bitTex::map_buffer_for_upload(const size_t buffer_size) {
         tex_width_ * tex_height_ * bytes_per_pixel_,
         nullptr,
         GL_DYNAMIC_DRAW);
-    return (uint8_t *)glMapNamedBuffer(pixel_buf_object_id_, GL_WRITE_ONLY);
+    mapped_address_ = (uint8_t *)glMapNamedBuffer(pixel_buf_object_id_, GL_WRITE_ONLY);
+    return mapped_address_;
 #endif
 }
 
@@ -150,10 +151,10 @@ void GLBlindRGBA8bitTex::__bind(int tex_index, Imath::V2i &dims) {
 
         // now the texture data is transferred (on the GPU).
         // Assumption is that this is fast.
+        mapped_address_ = nullptr;
 #ifdef __OPENGL_4_1__
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pixel_buf_object_id_);
         bool r          = glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
-        mapped_address_ = nullptr;
 #else
         glUnmapNamedBuffer(pixel_buf_object_id_);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pixel_buf_object_id_);
