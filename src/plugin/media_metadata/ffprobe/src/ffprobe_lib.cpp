@@ -775,11 +775,6 @@ std::shared_ptr<MediaFile> FFProbe::open_file(const std::string &path) {
         if (scan_all_pmts_set)
             av_dict_set(&format_opts, "scan_all_pmts", nullptr, AV_DICT_MATCH_CASE);
 
-        // what is this even doing ?
-        if ((t = av_dict_get(format_opts, "", nullptr, AV_DICT_IGNORE_SUFFIX))) {
-            throw std::runtime_error("Option scan_all_pmts not found.");
-        }
-
         {
             AVDictionary **opts  = init_find_stream_opts(result->fmt_ctx, codec_opts);
             auto orig_nb_streams = result->fmt_ctx->nb_streams;
