@@ -97,8 +97,15 @@ RowLayout {
         }
 
         TapHandler {
-            acceptedButtons: Qt.RightButton
-            onTapped: (eventPoint) => pathContextMenu.showMenu(parent, eventPoint.position.x, eventPoint.position.y)
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onTapped: (eventPoint, button) => {
+                if (button == Qt.RightButton) {
+                    pathContextMenu.showMenu(parent, eventPoint.position.x, eventPoint.position.y)
+                } else if (tapCount == 3) {
+                    // Make sure the path field retains focus when triple clicking.
+                    pathField.forceActiveFocus()
+                }
+            }
         }
 
         XsPopupMenu {
@@ -270,6 +277,7 @@ RowLayout {
     
     XsPrimaryButton {
 
+        id: historyBtn
         Layout.preferredHeight: XsStyleSheet.primaryButtonStdHeight
         Layout.preferredWidth: 32
         

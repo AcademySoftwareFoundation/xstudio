@@ -40,6 +40,7 @@ Rectangle {
             onTextChanged: {
                 filterField = text
                 refreshFiltering()
+                sendCommand({"action": "change_path", "path": current_path_attr.value});
             }
             hint: "Filter String..."
         }
