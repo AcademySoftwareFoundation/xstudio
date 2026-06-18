@@ -666,7 +666,8 @@ xstudio::utility::scan_posix_path(const std::string &path, const int depth) {
     fs::path p(path);
 
     try {
-        if (fs::is_directory(p)) {
+        std::error_code ec;
+        if (fs::is_directory(p, ec)) {
             // read content.
             try {
                 std::vector<std::string> files;
@@ -699,7 +700,7 @@ xstudio::utility::scan_posix_path(const std::string &path, const int depth) {
             } catch (const std::exception &e) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
             }
-        } else if (fs::is_regular_file(p)) {
+        } else if (fs::is_regular_file(p, ec)) {
             items.emplace_back(std::make_pair(posix_path_to_uri(path), FrameList()));
         } else {
 
