@@ -312,4 +312,19 @@ XsHotkeyArea {
         onActivated: theSessionData.rescanMedia(mediaSelectionModel.selectedIndexes)
         componentName: "Media List"
     }
+
+    // add hotkeys for setting flag colours
+    Repeater {
+        model: flagColours.length
+        Item {
+            XsHotkey {
+                sequence: "Ctrl+Alt+" + index
+                name: "Set flag #" + index + ": " + flagColours[index].name
+                description: "Set flag #" + index + ": " + flagColours[index].name
+                context: hotkey_area.context
+                onActivated: media_list_functions.setColour(mediaSelectionModel.selectedIndexes, index)
+                componentName: "Media List"
+            }
+        }
+    }
 }
