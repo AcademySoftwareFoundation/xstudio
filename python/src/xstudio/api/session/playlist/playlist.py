@@ -20,6 +20,7 @@ from xstudio.api.auxiliary import NotificationHandler
 from xstudio.api.auxiliary.json_store import JsonStoreHandler
 
 import json
+from pathlib import Path
 
 class Playlist(Container, NotificationHandler, JsonStoreHandler):
     """Playlist object."""
@@ -127,12 +128,13 @@ class Playlist(Container, NotificationHandler, JsonStoreHandler):
             result = self.connection.request_receive(self.remote, add_media_atom(), path, False, Uuid())[0]
         else:
             ppp = parse_posix_path(path)
+            name = Path(path).name.split(".", 1)[0] # this is to match what happens internally with a URI above
 
             if not str(ppp[1]) and frame_list is None:
-                result = self.connection.request_receive(self.remote, add_media_atom(), path, ppp[0], Uuid())[0]
+                result = self.connection.request_receive(self.remote, add_media_atom(), name, ppp[0], Uuid())[0]
             else:
                 result = self.connection.request_receive(
-                    self.remote, add_media_atom(), path, ppp[0], ppp[1] if frame_list is None else frame_list, Uuid()
+                    self.remote, add_media_atom(), name, ppp[0], ppp[1] if frame_list is None else frame_list, Uuid()
                 )[0]
 
         return Media(self.connection, result.actor, result.uuid)

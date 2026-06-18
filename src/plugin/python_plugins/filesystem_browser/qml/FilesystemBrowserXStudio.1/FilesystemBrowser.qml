@@ -29,7 +29,6 @@ Item {
     property var selectedItemsUrls: []
     property var selectedItemsPaths: []
     property var underMouseIndex: -1
-    property var dragVisItem: undefined
 
     onSelectedItemsChanged: {        
         var v = []
@@ -85,24 +84,14 @@ Item {
 
             if (!selectedItems.includes(index)) {
                 selectedItems = [index]
-            }
-            if (selectedItems.length == 1) {
+
                 var item = viewMode === 3 ? flatThumbnailModel[index] : visibleTreeList[index]
-                if (!item.data.is_folder) {
+                if (item.type != "header" && !item.data.is_folder) {
                     pendingPreviewPath = item.path
                     previewTimer.restart()
                 }
             }
         }
-
-    }
-
-    XsDragDropHandler {
-
-        id: drag_drop_handler
-        dragSourceName: "External URIS"
-        dragData: root.selectedItemsUrls
-
     }
 
     XsGradientRectangle{
@@ -315,6 +304,7 @@ Item {
         onValueChanged: {
             currentFilterTime = value || "Any"
             refreshFiltering()
+            sendCommand({"action": "change_path", "path": current_path_attr.value});
         }
         Component.onCompleted: {
              currentFilterTime = value || "Any"
@@ -328,6 +318,7 @@ Item {
         onValueChanged: {
              currentFilterVersion = value || "All Versions"
              refreshFiltering()
+             sendCommand({"action": "change_path", "path": current_path_attr.value});
         }
         Component.onCompleted: {
              currentFilterVersion = value || "All Versions"
@@ -956,31 +947,29 @@ Item {
                     propagateComposedEvents: true
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                     hoverEnabled: true
-                
-                    onPositionChanged: (mouse)=> {
-                        if (pressed && mouse.buttons == Qt.LeftButton) {
-                            var pt = mapToItem(root, mouse.x, mouse.y)
-                            drag_drop_handler.doDrag(pt.x, pt.y)
-                        }
-                    }
-                
-                    onReleased: (mouse)=> {
-                        if (underMouseIndex != -1 && mouse.button === Qt.LeftButton && mouse.modifiers == Qt.NoModifier && !drag_drop_handler.dragging) {    
-                            selectedItems = []
-                            selectItem(underMouseIndex, 0)
-                        } else {
-                            var pt = mapToItem(root, mouse.x, mouse.y)
-                            drag_drop_handler.endDrag(pt.x, pt.y)
-                        }
-                    }
 
                     onPressed: (mouse) => {
-                        if (underMouseIndex != -1) {
-                            dragVisItem = fileListView.visible ? fileListView.itemAtIndex(underMouseIndex) : thumbFlickable.thumbs.itemAt(underMouseIndex)
-                        }
-                        drag_drop_handler.startDrag(mouseX, mouseY, dragVisItem)
-                        if (underMouseIndex != -1 && mouse.button === Qt.LeftButton) {
-                            selectItem(underMouseIndex, mouse.modifiers == Qt.ShiftModifier ? 1 : mouse.modifiers == Qt.ControlModifier ? 2 : 0)
+                        if (mouse.button === Qt.LeftButton) {
+                            if (underMouseIndex != -1) {
+                                selectItem(underMouseIndex, mouse.modifiers == Qt.ShiftModifier ? 1 : mouse.modifiers == Qt.ControlModifier ? 2 : 0)
+                            } else {
+                                previewTimer.stop()
+                                isPreviewMode = false
+                                sendCommand({"action": "preview_file", "path": ""})
+                                selectedItems = []
+                            }
+                        } else if (mouse.button === Qt.RightButton) {
+                            if (underMouseIndex != -1) {
+                                if (!selectedItems.includes(underMouseIndex))
+                                    selectItem(underMouseIndex, 0)
+
+                                let clickedItemPath = root.viewMode === 3 ? flatThumbnailModel[underMouseIndex].path : visibleTreeList[underMouseIndex].path
+                                thumbContextMenu.selectedPaths = root.selectedItemsPaths
+                                thumbContextMenu.itemPath = clickedItemPath
+                                thumbContextMenu.showMenu(
+                                    mouseArea,
+                                    mouse.x, mouse.y);
+                            }
                         }
                     }
 
@@ -994,21 +983,35 @@ Item {
                     }
 
                     onClicked: (mouse) => {
-                        if (mouse.button === Qt.RightButton && underMouseIndex != -1) {
-                            let clickedItemPath = root.viewMode === 3 ? flatThumbnailModel[underMouseIndex].path : visibleTreeList[underMouseIndex].path
-                            thumbContextMenu.selectedPaths = root.selectedItemsPaths
-                            thumbContextMenu.itemPath = clickedItemPath
-                            thumbContextMenu.showMenu(
-                                mouseArea,
-                                mouse.x, mouse.y);
+                        if (mouse.button === Qt.LeftButton && mouse.modifiers == Qt.NoModifier && underMouseIndex != -1) {
+                            selectedItems = []
+                            selectItem(underMouseIndex, 0)
                         }
                     }
-                
+
+                    DragHandler {
+                        id: dragHandler
+                        target: null
+
+                        onActiveChanged: {
+                            if (active && underMouseIndex != -1) {
+                                previewTimer.stop()
+                                isPreviewMode = false
+                                dragProxy.grabToImage(function(result) {
+                                    let d = root.selectedItemsPaths.map(p => encodeURIComponent(p))
+                                    dragProxy.Drag.mimeData = {"text/plain": d.join("\n")}
+                                    dragProxy.Drag.imageSource = result.url
+                                    dragProxy.Drag.active = true
+                                })
+                            } else {
+                                dragProxy.Drag.active = false
+                            }
+                        }
+                    }                                
+                                
                     FSFileContextMenu {
                         id: thumbContextMenu
                     }
-                        
-                    
                 }
 
                 // Nothing found message
@@ -1066,6 +1069,52 @@ Item {
 
         }
     }
+
+    Item {
+        id: dragProxy
+        property var dragItem: underMouseIndex === -1 ? null : (
+            root.viewMode === 3 ? thumbFlickable.thumbs.itemAt(underMouseIndex) : fileListView.itemAtIndex(underMouseIndex))
+        property int dragCount: selectedItems.length
+
+        width: dragItem ? Math.min(dragItem.width, 300) : 0
+        height: dragItem ? Math.max(dragItem.height, 64) : 0
+        visible: false
+        z: 100
+
+        Drag.dragType: Drag.Automatic
+        Drag.supportedActions: Qt.CopyAction
+        Drag.hotSpot.x: width/2
+        Drag.hotSpot.y: height/2
+
+        ShaderEffectSource {
+            width: parent.width
+            height: parent.height
+            sourceRect.width: width
+            sourceRect.height: height
+            sourceItem: parent.dragItem
+            opacity: 0.65
+        }
+
+        // Count badge
+        Rectangle {
+            x: parent.width / 2 + 20
+            y: parent.height / 2 - 20
+            width: dragProxy.dragCount > 1 ? 22 : 0
+            height: 22
+            radius: 11
+            color: "#e05a00"
+            clip: true
+
+            Text {
+                anchors.centerIn: parent
+                text: dragProxy.dragCount
+                color: "#ffffff"
+                font.pixelSize: 10; font.weight: Font.Bold
+            }
+        }
+    }
+
+    property alias dragProxy: dragProxy
 
     property alias thumbToolTip: thumbToolTip
     XsToolTip {
