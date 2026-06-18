@@ -3,6 +3,7 @@
 
 from xstudio.plugin import PluginBase
 from xstudio.core import JsonStore, FrameList, add_media_atom, Uuid
+from xstudio.core import KeyboardModifier
 import os
 from enum import Enum
 import sys
@@ -121,6 +122,7 @@ class XStudioHostInterface:
             seq_path = self._format_sequence_path(path)
             return playlist.add_media(seq_path if seq_path else path)
         except Exception as e:
+            import traceback
             _dbg (traceback.format_exc())
             _dbg(f"Add media error: {e}")
             return None
@@ -160,6 +162,8 @@ class XStudioHostInterface:
             target_playlist = None
         if not target_playlist:
             _, target_playlist = self.connection.api.session.create_playlist("File System Imports")
+            self.connection.api.session.inspected_container = target_playlist
+            
 
         try:
             is_timeline = target_playlist.type == "Timeline"
@@ -328,39 +332,15 @@ class FilesystemBrowserPlugin(PluginBase):
         )
         self.command_attr.expose_in_ui_attrs_group("Filesystem Browser")
         
-        # Action to toggle the panel
-        self.toggle_action_uuid = "2669e4a3-7186-4556-9818-80949437b018"
-        
         self.toggle_browser_action = self.register_hotkey(
             self.toggle_browser, # hotkey_callback
             "B", # default_keycode
-            0, # default_modifier
+            KeyboardModifier.MetaModifier,
             "Show Filesystem Browser",
             "Toggles the Filesystem Browser panel",
             False, # auto_repeat
             "FilesystemBrowser", # component
             "Window" # context
-        )
-        
-        # Menu item triggers this action
-        # Removed manual callback to rely on hotkey_uuid linkage 
-        # which should toggle the panel automatically if registered correctly.
-        self.insert_menu_item(
-            "main menu bar",
-            "Filesystem Browser",
-            "View|Panels",
-            0.0,
-            hotkey_uuid=self.toggle_browser_action,
-            callback=self.toggle_browser_from_menu
-        )
-
-        # Add menu item to open as floating window
-        self.insert_menu_item(
-            "main menu bar",
-            "Browser Open",
-            "Plugins",
-            0.1,
-            callback=self.open_floating_browser
         )
         
         # Register the panel, passing the action
@@ -372,8 +352,8 @@ class FilesystemBrowserPlugin(PluginBase):
             }
             """,
             10.0, # Position in menu
-            "", # No icon = Standard Panel (Docked)
-            -1.0,
+            "qrc:/icons/folder.svg", # No icon = Standard Panel (Docked)
+            5.0,
             self.toggle_browser_action # Pass the action UUID
         )
         
@@ -640,33 +620,6 @@ class FilesystemBrowserPlugin(PluginBase):
         if not val: return set()
         return set(item.strip() for item in val.split(',') if item.strip())
         
-    def toggle_browser_from_menu(self, menu_item=None, user_data=None):
-        # Wrapper for menu callback
-        # Since we are now a standard dockable panel, the user should use View -> Panels -> Filesystem Browser
-        # or rely on the hotkey's default action if it maps to the view.
-        # We'll just log here.
-        _dbg("Menu item clicked. The Filesystem Browser is available in the Panels menu.")
-        self.toggle_browser(None, "Menu Click")
-
-    def open_floating_browser(self):
-        # Create a floating window containing the FilesystemBrowser component
-        qml = """
-        import QtQuick.Window 2.15
-        import QtQuick.Controls 2.15
-        
-        Window {
-            width: 900
-            height: 600
-            visible: true
-            title: "Filesystem Browser"
-            
-            FilesystemBrowser {
-                anchors.fill: parent
-            }
-        }
-        """
-        self.create_qml_item(qml)
-
     def toggle_browser(self, converting, context):
         _dbg(f"Toggling Filesystem Browser (Action Triggered). Context: {context}")
         # We can also verify visibility here if possible, but the Model handles it.
