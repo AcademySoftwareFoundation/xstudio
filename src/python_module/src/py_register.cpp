@@ -327,6 +327,7 @@ void register_bookmark_detail_class(py::module &m, const std::string &name) {
         .def_readwrite("author", &bookmark::BookmarkDetail::author_)
         .def_readwrite("owner", &bookmark::BookmarkDetail::owner_)
         .def_readwrite("note", &bookmark::BookmarkDetail::note_)
+        .def_readwrite("subject", &bookmark::BookmarkDetail::subject_)
         .def_readwrite("created", &bookmark::BookmarkDetail::created_)
         .def_readonly("has_note", &bookmark::BookmarkDetail::has_note_)
         .def_readonly("has_annotation", &bookmark::BookmarkDetail::has_annotation_);
