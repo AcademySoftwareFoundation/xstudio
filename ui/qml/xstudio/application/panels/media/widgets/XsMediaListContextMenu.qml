@@ -270,6 +270,16 @@ XsPopupMenu {
         panelContext: btnMenu.panelContext
     }
 
+    XsMenuModelItem {
+        menuPath: "Copy To Clipboard"
+        text: "Selected Media Names"
+        menuItemPosition: 3
+        menuModelName: btnMenu.menu_model_name
+        hotkeyUuid: hotkey_area.media_name_to_clipboard_hotkey.uuid
+        onActivated: media_list_functions.copyMediaNamesToClipboard()
+        panelContext: btnMenu.panelContext
+    }
+
     Repeater {
         model: DelegateModel {
             model:columns_root_model

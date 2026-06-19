@@ -22,6 +22,10 @@ XsPopupMenu {
               new_name
             );
         }
+
+        // When hitting Return within the dialog instead of pressing the "Add" button the
+        // keyboard focus is in limbo, so force it back to the the timeline
+        theTimeline.forceActiveFocus()
     }
 
     function createTracks(items, video=true) {
@@ -56,6 +60,7 @@ XsPopupMenu {
         menuItemPosition: 1
         menuModelName: timelineMenu.menu_model_name
         panelContext: timelineMenu.panelContext
+        hotkeyUuid: add_marker_hotkey.uuid
         onActivated: {
             dialogHelpers.textInputDialog(
                 timelineMenu.addMarker,
@@ -64,7 +69,16 @@ XsPopupMenu {
                 "Marker",
                 ["Cancel", "Add"])
         }
-    }
+        onHotkeyActivated: {
+           if (theTimeline.have_timeline && isPlayheadActive)
+               dialogHelpers.textInputDialog(
+                   timelineMenu.addMarker,
+                   "Add Marker",
+                   "Enter a name.",
+                   "Marker",
+                   ["Cancel", "Add"])
+        }
+   }
 
    XsMenuModelItem {
         text: qsTr("Hide Markers")

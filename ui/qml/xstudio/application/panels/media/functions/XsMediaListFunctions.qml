@@ -84,6 +84,17 @@ Item {
         clipboard.text = "xstudio -l '" + filenames.join("' '") +"'"
     }
 
+    function copyMediaNamesToClipboard() {
+        let result = []
+        mediaSelectionModel.selectedIndexes.forEach(
+            (element) => {
+                result.push(element.model.get(element, "nameRole"))
+            }
+        )
+
+        clipboard.text = result.join("\n")
+    }
+
     function copyFilePathsToClipboard() {
         let result = mediaSelectionModel.getSelectedMediaUrl("pathShakeRole")
         for(let i =0;i<result.length;i++) {
