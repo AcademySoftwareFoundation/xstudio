@@ -1298,11 +1298,32 @@ void AnnotationsCore::make_bookmark_for_annotations(
 
     bookmark::BookmarkDetail detail;
     detail.uuid_ = bm_id;
-    std::string note_name =
-        fs::path(utility::uri_to_posix_path(frame_id.uri())).stem().string();
-    if (note_name.find(".") != std::string::npos) {
-        note_name = std::string(note_name, 0, note_name.find("."));
+
+    caf::scoped_actor sys{system()};
+    std::string media_name;
+    std::string media_path;
+
+    try {
+        media_name = request_receive<std::string>(
+            *sys, frame_id.media_actor(), utility::name_atom_v);
+        media_path = utility::uri_to_posix_path(frame_id.uri());
+    } catch (...) {
+        // pass
     }
+
+    // If the media actor's name is not empty and is different from the media's
+    // path then assume it should be used for the name of the annotation's note.
+    // Otherwise extract the first portion of the path's filename.
+    std::string note_name;
+    if (! media_name.empty() && media_name != media_path) {
+        note_name = media_name;
+    } else {
+        note_name = fs::path(media_path).stem().string();
+        if (note_name.find(".") != std::string::npos) {
+            note_name = std::string(note_name, 0, note_name.find("."));
+        }
+    }
+
     detail.category_ = note_category_->value();
     detail.colour_   = note_colour_->value();
 
