@@ -232,13 +232,25 @@ std::string Hotkey::hotkey_sequence() const {
         r = "Shift+" + r;
     }
     if ((modifiers_ & MetaModifier) == MetaModifier) {
+#ifdef __apple__
+        r = "Ctrl+" + r;
+#else
         r = "Meta+" + r;
+#endif
     }
     if ((modifiers_ & AltModifier) == AltModifier) {
+#ifdef __apple__
+        r = "Opt+" + r;
+#else
         r = "Alt+" + r;
+#endif
     }
     if ((modifiers_ & ControlModifier) == ControlModifier) {
+#ifdef __apple__
+        r = "Cmd+" + r;
+#else
         r = "Ctrl+" + r;
+#endif
     }
     return r;
 }
@@ -269,7 +281,7 @@ void Hotkey::sequence_to_key_and_modifier(
             }
         }
     }
-    if (keycode == -1) {
+    if (keycode == -1 and not modifier) {
         throw std::runtime_error(
             fmt::format("Unable to identify key name in hotkey sequence '{}'", sequence)
                 .c_str());
@@ -306,7 +318,7 @@ void Hotkey::sequence_to_key_and_modifier(
             }
         }
     }
-    if (keycode == -1) {
+    if (keycode == -1 and not modifier) {
         std::string ss;
         for (const auto &s : seq) {
             if (!ss.empty()) {
@@ -315,6 +327,6 @@ void Hotkey::sequence_to_key_and_modifier(
             ss += s;
         }
         throw std::runtime_error(
-            fmt::format("Unable to identify key name in hotkey sequence \"{}\"", ss).c_str());
+            fmt::format("Unable to identify key name in hotkey sequence '{}'", ss).c_str());
     }
 }
