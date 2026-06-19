@@ -27,20 +27,6 @@ XsPopupMenu {
 
     ****************************************************************/
 
-    Clipboard {
-      id: clipboard
-    }
-
-    XsPreference {
-        id: sessionLinkPrefix
-        path: "/core/session/session_link_prefix"
-    }
-
-    XsPreference {
-        id: sessionRate
-        path: "/core/session/media_rate"
-    }
-
     Component.onCompleted: {
         // make sure the 'Add' sub-menu appears in the correct place
         helpers.setMenuPathPosition("Select", "media_list_menu_", 10)
@@ -280,14 +266,7 @@ XsPopupMenu {
                     menuItemPosition: index
                     menuModelName: btnMenu.menu_model_name
                     panelContext: btnMenu.panelContext
-                    onActivated: {
-                        let data = []
-                        for( let i=0;i<mediaSelectionModel.selectedIndexes.length; i++) {
-                            var fields = theSessionData.get(mediaSelectionModel.selectedIndexes[i], "mediaDisplayInfoRole")
-                            data.push(fields[index])
-                        }
-                        clipboard.text = data.join("\n")
-                    }
+                    onActivated: media_list_functions.copyColumnToClipboard(index)
                 }
             }
         }

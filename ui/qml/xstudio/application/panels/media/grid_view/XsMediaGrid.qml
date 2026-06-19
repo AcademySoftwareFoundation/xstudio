@@ -194,6 +194,7 @@ XsGridView {
                 // are these indeces from the same list as our list here?
                 if (data.length && data[0].parent == mediaListModelDataRoot) {
                     // do a move rows
+                    beforeMoveContentY = contentY
                     theSessionData.moveRows(
                         data,
                         dragTargetIndex.row,
@@ -254,6 +255,19 @@ XsGridView {
             }
         }
 
+    }
+
+    // When we do a moveRows, the list view resets contentY to zero. Annoying.
+    // So here we try and preserve the scrolled position in that case
+    property real beforeMoveContentY: 0
+    onContentYChanged: {
+        if (contentY == 0) {
+            // check if this is a reset we want to undo
+            if (beforeMoveContentY != 0) {
+                contentY = beforeMoveContentY
+                beforeMoveContentY = 0
+            }
+        }
     }
 
     property var autoScrollVelocity: 200
