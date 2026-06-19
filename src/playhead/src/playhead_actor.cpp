@@ -853,11 +853,12 @@ void PlayheadActor::init() {
             auto rp = make_response_promise<AudioBufPtr>();
             // Fill the provided buffer with audio samples, starting at the playhead timeline
             // timepoint 'tp'. Used by VideoRenderPlugin, for example.
-            // 'frame_for_frame' means we get audio samples for the frame at the 
+            // 'frame_for_frame' means we get audio samples for the frame at the
             // current playhead position and then re-sample to match the number
-            // of samples in 'buffer_to_fill'. 
+            // of samples in 'buffer_to_fill'.
             if (audio_playhead_) {
-                rp.delegate(audio_playhead_, audio_buffer_atom_v, tp, buffer_to_fill, frame_for_frame);
+                rp.delegate(
+                    audio_playhead_, audio_buffer_atom_v, tp, buffer_to_fill, frame_for_frame);
             } else {
                 rp.deliver(buffer_to_fill);
             }
@@ -1006,7 +1007,7 @@ void PlayheadActor::init() {
             return next_step_timepoint;
         },
 
-        [=](step_atom, const int step_frames) -> result <timebase::flicks> {
+        [=](step_atom, const int step_frames) -> result<timebase::flicks> {
             // we get the key playhead to work out what step_frames are
             // in terms of flicks, and adjust our position
 

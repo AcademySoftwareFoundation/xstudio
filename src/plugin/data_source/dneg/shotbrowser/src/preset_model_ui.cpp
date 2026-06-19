@@ -1123,6 +1123,8 @@ QObject *ShotBrowserPresetModel::termModel(
 
     if ((term == "Author" or term == "Recipient"))
         term = "User";
+    else if (term == "Has Note Type")
+        term = "Note Type";
     else if (term == "Disable Global")
         term += "-" + StdFromQString(entity);
 

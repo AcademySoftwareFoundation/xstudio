@@ -40,7 +40,10 @@ DropArea {
         } else {
             if (dragItem) {
                 drag_proxy.grabToImage(function(result) {
-                    helpers.setOverrideCursor(result)
+                    // extra check because grabToImage is async.
+                    if (dragging) {                        
+                        helpers.setOverrideCursor(result)
+                    }
                 })
             } else {
                 helpers.setOverrideCursor("Qt.DragMoveCursor")

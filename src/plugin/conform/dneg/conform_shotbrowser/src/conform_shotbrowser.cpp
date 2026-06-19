@@ -788,7 +788,8 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                     // from check clip metadata (FEAT ANIM)
                     if (not is_valid and not found_project.empty()) {
                         auto cm = i.prop(); // DNEG_MEDIA_STALK_DNUUID ?
-                        if (cm.contains("media_stalk_dnuuid")) {
+                        if (cm.contains("media_stalk_dnuuid") or
+                            cm.contains("DNEG_MEDIA_STALK_DNUUID")) {
                             project = found_project;
 
                             cut_start = i.trimmed_frame_start().frames();

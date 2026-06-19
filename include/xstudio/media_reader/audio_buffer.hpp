@@ -58,7 +58,7 @@ class AudioBuffer : public Buffer {
     }*/
 
     void stretch_samples(const uint64_t new_num_samples);
-    
+
     void
     set_new_sample_rate(const uint64_t new_sample_rate, const timebase::flicks &exact_duration);
 

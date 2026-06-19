@@ -642,7 +642,7 @@ caf::message_handler Module::message_handler() {
 
              } catch (std::exception &e) {
 
-                std::cerr << e.what() << "\n";
+                 std::cerr << e.what() << "\n";
                  return caf::make_error(xstudio_error::error, e.what());
              }
          },

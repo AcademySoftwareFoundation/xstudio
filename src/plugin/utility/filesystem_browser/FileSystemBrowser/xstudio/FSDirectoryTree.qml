@@ -9,7 +9,6 @@ import "."
 // Tree Container
 Rectangle {
 
-    SplitView.preferredWidth: showDirectoryTree ? 250 : 30
     SplitView.minimumWidth: showDirectoryTree ? 150 : 30
     SplitView.maximumWidth: showDirectoryTree ? 1000 : 30
     color: XsStyleSheet.panelBgColor

@@ -535,7 +535,7 @@ void ViewportFrameQueueActor::append_overlays_data(
                 add_layout_data(image_set_with_colour_data);
             },
             [=](caf::error &err) mutable {
-                spdlog::warn("B {} {}", __PRETTY_FUNCTION__, to_string(err));
+                spdlog::debug("B {} {}", __PRETTY_FUNCTION__, to_string(err));
                 add_layout_data(foo);
             });
 }

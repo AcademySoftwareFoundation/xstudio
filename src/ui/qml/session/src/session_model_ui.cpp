@@ -797,8 +797,10 @@ void SessionModel::receivedData(
                     // if media status has changed it may be because the MediaReference on a
                     // MediaSourceActor has changed. We may need to re-generate the thumbnail
                     // if we already have one.
-                    if (auto type = j.value("type", ""); type == "Media" && j.count("actor") and not j.at("actor").is_null()) {
-                        if (auto p = media_thumbnails_.find(QStringFromStd(j.at("actor"))); p != media_thumbnails_.end())
+                    if (auto type = j.value("type", "");
+                        type == "Media" && j.count("actor") and not j.at("actor").is_null()) {
+                        if (auto p = media_thumbnails_.find(QStringFromStd(j.at("actor")));
+                            p != media_thumbnails_.end())
                             media_thumbnails_.erase(p);
 
                         emit dataChanged(

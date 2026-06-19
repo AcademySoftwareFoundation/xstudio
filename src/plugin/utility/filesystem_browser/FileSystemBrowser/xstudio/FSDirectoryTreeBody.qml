@@ -24,6 +24,22 @@ Item {
     // Auto-expand logic
     property string pendingExpandPath: ""
     property bool isSyncing: false
+    readonly property string pathSep: Qt.platform.os === "windows" ? "\\" : "/"
+    property bool wasClicked: false
+
+    Timer {
+        id: clickResetTimer
+        interval: 1000
+        running: false
+        repeat: false
+        onTriggered: treeRoot.wasClicked = false
+    }
+    onWasClickedChanged: {
+        if (wasClicked) {
+            clickResetTimer.start();
+        }
+    }
+
 
     function getPathDepth(p) {
         if (!p || p === "/") return 0;
@@ -42,6 +58,11 @@ Item {
             isSyncing = true;
             syncToPath();
         }
+    }
+
+    function stripTrailingPathSeparator(p) {
+        p = p.endsWith(pathSep) ? p.slice(0, -pathSep.length) : p
+        return p;
     }
 
     function syncToPath() {
@@ -73,21 +94,25 @@ Item {
         }
         
         if (deepestIndex !== -1) {
-            var node = treeModel.get(deepestIndex);
-            
-            if (node.path === pendingExpandPath) {
+
+            var node = treeModel.get(deepestIndex);            
+            if (stripTrailingPathSeparator(node.path) === stripTrailingPathSeparator(pendingExpandPath)) {
                 // We reached the target!
                 treeView.currentIndex = deepestIndex;
                 pendingExpandPath = "";
                 isSyncing = false;
                 // Ensure visible
-                treeView.positionViewAtIndex(deepestIndex, ListView.Visible);
+                if (!wasClicked) { // Don't auto-scroll if user just clicked to navigate
+                    treeView.positionViewAtIndex(deepestIndex, ListView.Center);
+                }
                 // Also expand to show children as requested
                 if (!node.expanded) {
                     // Actually - we don't want to auto expand
                     // expandNode(deepestIndex);
                 }
+
             } else {
+                
                 // We need to go deeper. Expand this node if not expanded.
                 if (!node.expanded) {
                     expandNode(deepestIndex);
@@ -281,7 +306,7 @@ Item {
                     "path": d.path,
                     "level": parentLevel + 1,
                     "expanded": false,
-                    "hasChildren": true, 
+                    "hasChildren": d.has_subdir, 
                     "isLoading": false
                 });
             }
@@ -400,7 +425,7 @@ Item {
 
                 Rectangle {
                     anchors.fill: parent
-                    color: (model.path === treeRoot.currentPath) ? XsStyleSheet.accentColor : isHovered ? XsStyleSheet.hintColor : "transparent"
+                    color: (stripTrailingPathSeparator(model.path) === stripTrailingPathSeparator(treeRoot.currentPath)) ? XsStyleSheet.accentColor : isHovered ? XsStyleSheet.hintColor : "transparent"
                     opacity: 0.33
                 }
                 
@@ -414,6 +439,7 @@ Item {
                     onClicked: (mouse) => {
                         if (mouse.button === Qt.LeftButton) {
                             sendCommand({"action": "change_path", "path": model.path});
+                            wasClicked = true;
                         } else if (mouse.button === Qt.RightButton) {
                             treeContextMenu.path = model.path;
                             treeContextMenu.showMenu(msgMouse, mouse.x, mouse.y);
@@ -439,6 +465,7 @@ Item {
                         imgSrc: "qrc:/icons/chevron_right.svg"
                         rotation: model.expanded ? 90 : 0
                         Behavior on rotation {NumberAnimation{duration: 150 }}
+                        visible: model.hasChildren // Show expander if we know there are subdirs, or if we don't know yet (optimistic)
                         onClicked: {
                             if (model.expanded) {
                                 collapseNode(index);
@@ -446,6 +473,10 @@ Item {
                                 expandNode(index);
                             }
                         }
+                    }
+
+                    Item {
+                        Layout.preferredWidth: model.hasChildren ? 0 : 20 // Align with expander space if no children
                     }
                     
                     // Folder Icon

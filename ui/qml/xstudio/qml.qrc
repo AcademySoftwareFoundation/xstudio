@@ -369,6 +369,7 @@
 		<file alias="home.svg">assets/icons/home.svg</file>
 		<file alias="history.svg">assets/icons/history.svg</file>
 		<file alias="image.svg">assets/icons/image.svg</file>
+		<file alias="imagesmode.svg">assets/icons/imagesmode.svg</file>
 		<file alias="info.svg">assets/icons/info.svg</file>
 		<file alias="ink_pen.svg">assets/icons/ink_pen.svg</file>
 		<file alias="input.svg">assets/icons/input.svg</file>
@@ -384,6 +385,7 @@
 		<file alias="link.svg">assets/icons/link.svg</file>
 		<file alias="list.svg">assets/icons/list.svg</file>
 		<file alias="list_alt.svg">assets/icons/list_alt.svg</file>
+		<file alias="list_alt2.svg">assets/icons/list_alt2.svg</file>
 		<file alias="list_default.svg">assets/icons/list_default.svg</file>
 		<file alias="list_group.svg">assets/icons/list_group.svg</file>
 		<file alias="list_shotgun.svg">assets/icons/list_shotgun.svg</file>

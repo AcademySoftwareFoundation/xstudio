@@ -4,7 +4,4 @@ add_python_plugin(on_screen_version_name)
 add_python_plugin(viewport_field_chart)
 add_python_plugin(annotations_exporter)
 add_python_plugin(basic_viewport_mask)
-if (NOT WIN32)
-    # this feature needs a little more work on Win platform
-    add_python_plugin(filesystem_browser)
-endif()
+add_python_plugin(utility)

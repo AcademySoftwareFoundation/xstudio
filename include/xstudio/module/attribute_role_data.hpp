@@ -241,7 +241,8 @@ class AttributeData {
             rt = true;
         } else {
             std::stringstream msg;
-            msg << "Attribute role data is type " << data_.type().name() << " doesn't match incoming data.";
+            msg << "Attribute role data is type " << data_.type().name()
+                << " doesn't match incoming data.";
             throw std::runtime_error(msg.str().c_str());
         }
         return rt;

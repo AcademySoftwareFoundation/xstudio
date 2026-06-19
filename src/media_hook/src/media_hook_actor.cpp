@@ -186,8 +186,11 @@ MediaHookWorkerActor::MediaHookWorkerActor(caf::actor_config &cfg)
                                                     anon_mail(json_store::merge_json_atom_v, c)
                                                         .send(media_source);
                                                     if (c.count("colour_pipeline")) {
-                                                        if(c["colour_pipeline"].is_null())
-                                                            spdlog::error("{} {}", __PRETTY_FUNCTION__, c["colour_pipeline"].dump(2));
+                                                        if (c["colour_pipeline"].is_null())
+                                                            spdlog::error(
+                                                                "{} {}",
+                                                                __PRETTY_FUNCTION__,
+                                                                c["colour_pipeline"].dump(2));
                                                         anon_mail(
                                                             colour_pipeline::
                                                                 set_colour_pipe_params_atom_v,

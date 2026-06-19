@@ -207,6 +207,7 @@ class ModuleBase(ActorConnection, metaclass=ModuleMeta):
         self.menu_item_ids = []
         self.hotkey_callbacks = {}
         self._uuid = None
+        self.message_handler_id = None
 
         for attr_uuid in attr_uuids:
             attr_wrapper = ModuleAttribute(
@@ -221,9 +222,14 @@ class ModuleBase(ActorConnection, metaclass=ModuleMeta):
         # this call gets the event group for Module attribute change events
         remote_event_group = self.connection.request_receive(self.remote, get_event_group_atom(), True)[0]
 
-        self.connection.link.add_message_callback(
+        self.message_handler_id = self.connection.link.add_message_callback(
             remote_event_group, self.message_handler
             )
+
+    def cleanup_message_handler(self):
+        if self.message_handler_id is not None:
+            self.connection.link.remove_message_callback(self.message_handler_id)
+            self.message_handler_id = None
 
     def connect_to_ui(self):
         """Call this method to 'activate' the plugin and forward live data about

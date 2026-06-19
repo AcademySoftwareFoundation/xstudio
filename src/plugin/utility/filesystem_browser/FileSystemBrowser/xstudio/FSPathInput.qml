@@ -12,6 +12,7 @@ import ".."
 RowLayout {
 
     spacing: 1
+    property var completionList: []
     
     XsPrimaryButton {
         
@@ -202,6 +203,7 @@ RowLayout {
                         text = completionList[completionListView.currentIndex];
                         // Reset selection
                         completionListView.currentIndex = 0;
+                        sendCommand({"action": "complete_path", "path": pathField.text})
                 }
             }
             // ENTER / RETURN
@@ -301,7 +303,7 @@ RowLayout {
             padding: 0
             
             onClosed: {
-                historyBtn.lastCloseTime = Date.now()
+                //historyBtn.lastCloseTime = Date.now()
             }
             
             closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside

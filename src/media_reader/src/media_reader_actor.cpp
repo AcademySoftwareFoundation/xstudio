@@ -155,7 +155,8 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
             max_source_count_ =
                 preference_value<size_t>(js, "/core/media_reader/max_source_count");
             max_source_age_ = preference_value<size_t>(js, "/core/media_reader/max_source_age");
-            max_num_inflight_requests_ = preference_value<size_t>(js, "/core/media_reader/read_threads_per_source");
+            max_num_inflight_requests_ =
+                preference_value<size_t>(js, "/core/media_reader/read_threads_per_source");
         } catch (...) {
         }
 
@@ -658,12 +659,11 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
                 .send(this);
         },
 
-        [=](do_precache_work_atom) { 
-            
+        [=](do_precache_work_atom) {
             // do_precache returns false if we have hit our limit on the number of
             // in-flight image read requests.
-            while(do_precache()) {} 
-
+            while (do_precache()) {
+            }
         },
 
         [=](utility::uuid_atom) -> Uuid { return uuid_; });
@@ -917,7 +917,7 @@ bool GlobalMediaReaderActor::do_precache() {
                     "Failed preserve buffer {} {}", to_string(mptr->key()), to_string(err));
             });
     return true;
-}   
+}
 
 void GlobalMediaReaderActor::keep_cache_hot(
     const media::MediaKey &new_entry,

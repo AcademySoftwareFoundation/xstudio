@@ -608,27 +608,35 @@ void ShotBrowserEngine::populateCaches() {
 }
 
 QFuture<QUrl> ShotBrowserEngine::remapCachePathFuture(const QPersistentModelIndex &index) {
-    //get source actor.
-    auto source_actor = actorFromString( system(), StdFromQString(index.data(SessionModel::Roles::actorRole).toString()));
+    // get source actor.
+    auto source_actor = actorFromString(
+        system(), StdFromQString(index.data(SessionModel::Roles::actorRole).toString()));
     auto source_uuid = UuidFromQUuid(index.data(SessionModel::Roles::actorUuidRole).toUuid());
-    auto media_actor = actorFromString( system(), StdFromQString(index.parent().data(SessionModel::Roles::actorRole).toString()));
+    auto media_actor = actorFromString(
+        system(),
+        StdFromQString(index.parent().data(SessionModel::Roles::actorRole).toString()));
     auto path = index.data(SessionModel::Roles::pathRole).toUrl();
     // get shotgrid metadata..
     auto site = std::string("mum");
     try {
         scoped_actor sys{system()};
-        site = request_receive<utility::JsonStore>(*sys, media_actor, json_store::get_json_atom_v, utility::Uuid(), std::string("/metadata/shotgun/version/attributes/sg_location"));
-    } catch(const std::exception &err) {
+        site = request_receive<utility::JsonStore>(
+            *sys,
+            media_actor,
+            json_store::get_json_atom_v,
+            utility::Uuid(),
+            std::string("/metadata/shotgun/version/attributes/sg_location"));
+    } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
 
     return QtConcurrent::run([=]() {
-        const auto orig = uri_to_posix_path(UriFromQUrl(path), false);
+        const auto orig          = uri_to_posix_path(UriFromQUrl(path), false);
         static const auto pathre = std::regex(R"(^/jobs/(([^/]+)/.+)$)");
         std::cmatch m;
 
-        if(std::regex_match(orig.c_str(), m, pathre) and m[2] != site) {
-            const auto npath = std::string("/jobs/")  + site + "/" +  std::string(m[1]);
+        if (std::regex_match(orig.c_str(), m, pathre) and m[2] != site) {
+            const auto npath = std::string("/jobs/") + site + "/" + std::string(m[1]);
 
             // remap path to cache.
             utility::add_remap_file_path(orig, npath);
@@ -637,7 +645,8 @@ QFuture<QUrl> ShotBrowserEngine::remapCachePathFuture(const QPersistentModelInde
             auto socket = new QUdpSocket();
             QByteArray data;
             data.append(std::string("read|") + npath);
-            socket->writeDatagram(data, QHostInfo::fromName("globalnfscache").addresses().front(), 8081);
+            socket->writeDatagram(
+                data, QHostInfo::fromName("globalnfscache").addresses().front(), 8081);
             socket->deleteLater();
 
             // trigger re-evaluation of source detail..

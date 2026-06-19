@@ -190,8 +190,8 @@ XsPopupMenu {
 
     XsMenuModelItem {
         text: "Cycle Media Colour"
-        menuPath: ""
-        menuItemPosition: 2.1
+        menuPath: "Media Settings"
+        menuItemPosition: -0.5
         menuModelName: btnMenu.menu_model_name
         onActivated: media_list_functions.cycleColour(mediaSelectionModel.selectedIndexes)
         panelContext: btnMenu.panelContext

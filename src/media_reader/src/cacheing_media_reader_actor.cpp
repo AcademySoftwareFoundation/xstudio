@@ -102,7 +102,8 @@ CachingMediaReaderActor::CachingMediaReaderActor(
 
         int worker_count = 1;
         try {
-            worker_count = preference_value<int>(js, "/core/media_reader/read_threads_per_source");
+            worker_count =
+                preference_value<int>(js, "/core/media_reader/read_threads_per_source");
         } catch (const std::exception &e) {
             spdlog::warn("Failed to get read_threads_per_source preference: {}", e.what());
         }
@@ -110,22 +111,28 @@ CachingMediaReaderActor::CachingMediaReaderActor(
         auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
         scoped_actor sys{system()};
 
-        precache_workers_.push_back(request_receive<caf::actor>(
-            *sys, pm, plugin_manager::spawn_plugin_atom_v, media_reader_plugin_uuid, js));
+        precache_workers_.push_back(
+            request_receive<caf::actor>(
+                *sys, pm, plugin_manager::spawn_plugin_atom_v, media_reader_plugin_uuid, js));
         link_to(precache_workers_.back());
         // here's a crucial optimisation. For some media readers, like EXR, we
-        // can get a big speed increase by spawning multiple reader actors to 
+        // can get a big speed increase by spawning multiple reader actors to
         // read different frames in parallel. For others, like ffmpeg, it's much
         // more efficient to use a single reader and request frames sequentially
         // because common motion based video codecs like h264 are designed to
         // decode frames in a stream, of course.
-        const bool prefers_sequential_reads = request_receive<bool>(
-            *sys, precache_workers_.back(), utility::detail_atom_v);
+        const bool prefers_sequential_reads =
+            request_receive<bool>(*sys, precache_workers_.back(), utility::detail_atom_v);
 
         if (!prefers_sequential_reads) {
             for (int i = 1; i < worker_count; ++i) {
-                precache_workers_.push_back(request_receive<caf::actor>(
-                    *sys, pm, plugin_manager::spawn_plugin_atom_v, media_reader_plugin_uuid, js));
+                precache_workers_.push_back(
+                    request_receive<caf::actor>(
+                        *sys,
+                        pm,
+                        plugin_manager::spawn_plugin_atom_v,
+                        media_reader_plugin_uuid,
+                        js));
                 link_to(precache_workers_.back());
             }
         }

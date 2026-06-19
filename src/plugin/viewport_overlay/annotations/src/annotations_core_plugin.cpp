@@ -154,13 +154,23 @@ void AnnotationsCore::receive_annotation_data(const utility::JsonStore &d) {
     if (event == "PaintStart") {
         start_stroke_or_shape(payload, user_edit_data);
         modify_stroke_or_shape(payload, user_edit_data);
-        broadcast_live_stroke(user_edit_data, user_id);
+        if (user_edit_data->item_type == Canvas::ItemType::Laser)
+            broadcast_live_laser_stroke(user_id);
+        else
+            broadcast_live_stroke(user_edit_data, user_id);
     } else if (event == "PaintPoint") {
         modify_stroke_or_shape(payload, user_edit_data);
-        broadcast_live_stroke(user_edit_data, user_id);
+        if (user_edit_data->item_type == Canvas::ItemType::Laser)
+            broadcast_live_laser_stroke(user_id);
+        else
+            broadcast_live_stroke(user_edit_data, user_id);
     } else if (event == "PaintEnd") {
-        broadcast_live_stroke(user_edit_data, user_id, true);
-        push_live_edit_to_bookmark(user_edit_data);
+        if (user_edit_data->item_type == Canvas::ItemType::Laser) {
+            broadcast_live_laser_stroke(user_id, true);
+        } else {
+            broadcast_live_stroke(user_edit_data, user_id, true);
+            push_live_edit_to_bookmark(user_edit_data);
+        }
         user_edit_data->item_type = Canvas::ItemType::None;
     } else if (event == "CaptionStartEdit") {
         start_editing_existing_caption(payload, user_edit_data);
@@ -181,8 +191,12 @@ void AnnotationsCore::receive_annotation_data(const utility::JsonStore &d) {
     } else if (event == "CaptionPointerHover") {
         caption_hover(payload, user_edit_data);
     } else if (event == "ToolChanged") {
-        dropper_active_ = (payload.value("tool", "") == "Colour Picker");
         clear_live_caption(user_edit_data);
+        if (user_edit_data->item_type == Canvas::ItemType::Laser &&
+            !user_edit_data->laser_strokes.empty()) {
+            broadcast_live_laser_stroke(user_id, true);
+            user_edit_data->item_type = Canvas::ItemType::None;
+        }
     } else if (event == "PaintUndo") {
         undo(user_edit_data);
     } else if (event == "PaintRedo") {
@@ -193,22 +207,6 @@ void AnnotationsCore::receive_annotation_data(const utility::JsonStore &d) {
         hide_all_drawings_ = true;
     } else if (event == "ShowDrawings") {
         hide_all_drawings_ = false;
-    } else if (event == "HideViewportVisibility") {
-        const std::string vp = payload.value("viewport", "");
-        if (!vp.empty()) {
-            user_hidden_per_viewport_[vp] = true;
-            if (hide_all_per_viewport_.find(vp) != hide_all_per_viewport_.end()) {
-                *(hide_all_per_viewport_[vp]) = true;
-            }
-        }
-    } else if (event == "ShowViewportVisibility") {
-        const std::string vp = payload.value("viewport", "");
-        if (!vp.empty()) {
-            user_hidden_per_viewport_[vp] = false;
-            if (hide_all_per_viewport_.find(vp) != hide_all_per_viewport_.end()) {
-                *(hide_all_per_viewport_[vp]) = false;
-            }
-        }
     } else if (event == "SetDisplayMode") {
 
         if (payload.value("display_mode", "Only When Paused") == "Only When Paused") {
@@ -354,6 +352,12 @@ void AnnotationsCore::start_stroke_or_shape(
 
     if (user_edit_data->live_stroke && payload.contains("id")) {
         user_edit_data->live_stroke->set_id(payload["id"].get<std::string>());
+    } else if (
+        user_edit_data->item_type == Canvas::ItemType::Laser &&
+        !user_edit_data->laser_strokes.empty()) {
+        const std::string id = payload.contains("id") ? payload["id"].get<std::string>()
+                                                      : to_string(utility::Uuid::generate());
+        user_edit_data->laser_strokes.back()->set_id(id);
     }
 }
 
@@ -1136,7 +1140,6 @@ void AnnotationsCore::images_going_on_screen(
         hide_all_per_viewport_[viewport_name] = new std::atomic_bool(false);
     }
     *(hide_all_per_viewport_[viewport_name]) =
-        (!dropper_active_ && user_hidden_per_viewport_[viewport_name]) ||
         (show_annotations_during_playback_ ? false : playhead_playing);
 
     // what if a new image is going on screen, and we have an active edit going
@@ -1145,8 +1148,12 @@ void AnnotationsCore::images_going_on_screen(
     bool images_went_off_the_screen = false;
     auto p                          = live_edit_data_.begin();
     while (p != live_edit_data_.end()) {
+        // Keep entries that still own fading laser strokes — they are
+        // viewport overlays unrelated to the annotated image, and must
+        // outlive frame changes until fully faded.
         if (p->second->viewport_name == viewport_name &&
-            p->second->item_type != Canvas::ItemType::Laser) {
+            p->second->item_type != Canvas::ItemType::Laser &&
+            p->second->laser_strokes.empty()) {
             bool still_on_screen = false;
             for (int i = 0; i < images->num_onscreen_images(); ++i) {
 
@@ -1287,6 +1294,29 @@ void AnnotationsCore::broadcast_live_stroke(
     mail(
         utility::event_atom_v,
         annotation_data_atom_v,
+        AnnotationBasePtr(anno),
+        user_id,
+        stroke_completed)
+        .send(live_edit_event_group_);
+}
+
+void AnnotationsCore::broadcast_live_laser_stroke(
+    const utility::Uuid &user_id, const bool stroke_completed) {
+
+    auto p = live_edit_data_.find(user_id);
+    if (p == live_edit_data_.end())
+        return;
+    const auto &user_edit_data = p->second;
+    if (user_edit_data->item_type != Canvas::ItemType::Laser ||
+        user_edit_data->laser_strokes.empty())
+        return;
+
+    Annotation *anno = new Annotation();
+    anno->canvas().append_item(*(user_edit_data->laser_strokes.back()));
+
+    mail(
+        utility::event_atom_v,
+        laser_stroke_atom_v,
         AnnotationBasePtr(anno),
         user_id,
         stroke_completed)
@@ -1541,15 +1571,17 @@ void AnnotationsCore::fade_all_laser_strokes() {
 
     int n = 0;
     for (auto &p : live_edit_data_) {
-        auto q = p.second->laser_strokes.begin();
-        while (q != p.second->laser_strokes.end()) {
-
-            // we only erase old laser strokes if the user isn't holding the poiner
-            // down (in Laser mode)
-            bool erase = p.second->item_type != Canvas::ItemType::Laser;
-            erase &= (*q)->fade(0.01f);
-            if (erase) {
-                q = p.second->laser_strokes.erase(q);
+        bool drawing  = p.second->item_type == Canvas::ItemType::Laser;
+        auto &strokes = p.second->laser_strokes;
+        auto q        = strokes.begin();
+        while (q != strokes.end()) {
+            bool fully_faded = (*q)->fade(0.01f);
+            // Only the back element while drawing must be preserved — it's
+            // the active stroke and erasing it would invalidate the back()
+            // reference used by modify_stroke_or_shape.
+            bool is_active = drawing && (std::next(q) == strokes.end());
+            if (fully_faded && !is_active) {
+                q = strokes.erase(q);
             } else {
                 n++;
                 q++;

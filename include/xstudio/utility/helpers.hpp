@@ -317,7 +317,8 @@ void print_on_exit(
 
 // std::string filemanager_show_uris(const std::vector<caf::uri> &uris);
 
-caf::uri posix_path_to_uri(const std::string &path, const bool abspath = false, const bool remap = true);
+caf::uri
+posix_path_to_uri(const std::string &path, const bool abspath = false, const bool remap = true);
 
 caf::uri
 parse_cli_posix_path(const std::string &path, FrameList &frame_list, const bool scan = false);
@@ -355,7 +356,7 @@ std::string uri_decode(const std::string &eString);
 // this is WRONG on purpose, as caf::uri are buggy.
 // the path component needs to be escaped, even when it's a file::
 std::string uri_encode(const std::string &s);
-std::string uri_to_posix_path(const caf::uri &uri, const bool remap=true);
+std::string uri_to_posix_path(const caf::uri &uri, const bool remap = true);
 
 // can only get signature for posix urls..
 inline std::array<uint8_t, 16> get_signature(const caf::uri &uri) {
@@ -673,9 +674,9 @@ void add_remap_file_path(const std::string &from, const std::string &to);
 //    ]
 void setup_filepath_remap_regex(const utility::JsonStore &);
 
-    // MD5 hash of a byte buffer. Returns the 16-byte digest.
-    // Uses OpenSSL EVP API on OpenSSL >= 1.1.0 and falls back to the legacy
-    // MD5_* API on older versions.
-    std::array<unsigned char, 16> md5_hash(const void *data, std::size_t size);
+// MD5 hash of a byte buffer. Returns the 16-byte digest.
+// Uses OpenSSL EVP API on OpenSSL >= 1.1.0 and falls back to the legacy
+// MD5_* API on older versions.
+std::array<unsigned char, 16> md5_hash(const void *data, std::size_t size);
 
 } // namespace xstudio::utility

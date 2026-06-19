@@ -27,6 +27,5 @@ Rectangle {
         font.pixelSize: 14
     }
     property bool isHovered: underMouseIndex === index
-    function mouseMove(x, y) {}
 
 }

@@ -155,28 +155,34 @@ std::string make_hex_string(
 }
 
 template <typename T>
-inline std::string join_as_string(const std::vector<T> &items, const std::string &separator) {
+inline std::string join_as_string(
+    const std::vector<T> &items, const std::string &separator, const bool skip_empty = false) {
     std::string result;
-    if (!items.empty()) {
-        result = to_string(items[0]);
-        if (items.size() > 1) {
-            for (size_t i = 1; i < items.size(); i++)
-                result += separator + to_string(items[i]);
-        }
+
+    for (const auto &i : items) {
+        const auto i_as_string = to_string(i);
+        if (skip_empty and i_as_string.empty())
+            continue;
+        if (not result.empty())
+            result += separator;
+        result += i_as_string;
     }
 
     return result;
 }
 
-inline std::string
-join_as_string(const std::vector<std::string> &items, const std::string &separator) {
+inline std::string join_as_string(
+    const std::vector<std::string> &items,
+    const std::string &separator,
+    const bool skip_empty = false) {
     std::string result;
-    if (!items.empty()) {
-        result = items[0];
-        if (items.size() > 1) {
-            for (size_t i = 1; i < items.size(); i++)
-                result += separator + items[i];
-        }
+
+    for (const auto &i : items) {
+        if (skip_empty and i.empty())
+            continue;
+        if (not result.empty())
+            result += separator;
+        result += i;
     }
 
     return result;

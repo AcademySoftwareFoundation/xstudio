@@ -181,7 +181,8 @@ static ui::viewport::GPUShaderPtr
 OpenEXRMediaReader::OpenEXRMediaReader(const utility::JsonStore &prefs)
     : MediaReader("OpenEXR", prefs) {
 
-    Imf::setGlobalThreadCount(std::min(std::max(4, int(std::thread::hardware_concurrency()) - 2), 16));
+    Imf::setGlobalThreadCount(
+        std::min(std::max(4, int(std::thread::hardware_concurrency()) - 2), 16));
     max_exr_overscan_percent_ = 5.0f;
     readers_per_source_       = 1;
 

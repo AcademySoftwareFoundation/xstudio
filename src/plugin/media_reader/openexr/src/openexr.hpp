@@ -20,9 +20,7 @@ class OpenEXRMediaReader : public MediaReader {
     [[nodiscard]] uint8_t maximum_readers(const caf::uri &) const override {
         return readers_per_source_;
     }
-    [[nodiscard]] bool prefer_sequential_access() const override {
-        return false;
-    }
+    [[nodiscard]] bool prefer_sequential_access() const override { return false; }
 
     static constexpr bool is_available() { return false; }
 
