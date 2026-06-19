@@ -13,6 +13,20 @@ RowLayout {
     property var borderSize: 4
     property var unbound: JSON.stringify(regularKeys) === JSON.stringify([""])
     
+    function platformLabel(modifier) {
+        if (Qt.platform.os === "osx") {
+            if (modifier == "Control")
+                return "Command"
+            else if (modifier == "Meta")
+                return "Control"
+            else if (modifier == "Alt")
+                return "Option"
+            else
+                return modifier
+        }
+        return modifier
+    }
+
     Rectangle {
         Layout.preferredWidth: textField.width + borderSize*2
         Layout.preferredHeight: textField.height + borderSize*2
@@ -55,7 +69,7 @@ RowLayout {
                 XsText {
                     id: textField
                     anchors.centerIn: parent
-                    text: modelData
+                    text: platformLabel(modelData)
                     font.family: XsStyleSheet.fixedWidthFontFamily
                     font.bold: true
                     font.pixelSize: fontSize
