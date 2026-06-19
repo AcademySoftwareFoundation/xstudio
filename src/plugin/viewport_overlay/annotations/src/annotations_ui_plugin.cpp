@@ -648,6 +648,43 @@ void AnnotationsUI::redo(const std::string viewport_name) {
 
 bool AnnotationsUI::pointer_event(const ui::PointerEvent &e) {
 
+    if (e.modifiers() & ui::ShiftModifier) {
+        // user is holding shift key ... forward pointer events to the current
+        // playhead so that frame scrubbing can occur
+
+        if (e.type() == ui::EventType::ButtonDown && e.buttons() == ui::Signature::Button::Left) {
+            set_viewport_cursor("");
+        } else if (e.type() == ui::EventType::ButtonRelease) {
+            if (current_tool() != Text) {
+                set_viewport_cursor("Qt.CrossCursor");
+            } else {
+                set_viewport_cursor("Qt.IBeamCursor");
+            }
+        }
+
+        const std::string &viewport_name = e.context();
+
+        // get the 'global_playhead_events_actor' which keeps track of playehads
+        // and viewports
+        auto playhead_events_actor =
+            system().registry().template get<caf::actor>(global_playhead_events_actor);
+
+        // get the playhead for the given viewport
+        mail(viewport_playhead_atom_v, viewport_name).request(playhead_events_actor, infinite).then(
+            [=](caf::actor playhead) {
+                // forward the pointer event to the playhead so it can do
+                // the frame scrubbing
+                if (playhead) {
+                    anon_mail(ui::keypress_monitor::mouse_event_atom_v, e).send(playhead);
+                }
+            },
+            [=](caf::error &err) {
+                spdlog::warn("AnnotationsUI failed to forward pointer event to playhead: {}",
+                             to_string(err));
+            });
+        return false;
+    }
+
     if (current_tool() == None)
         return false;
 
@@ -807,7 +844,13 @@ void AnnotationsUI::viewport_dockable_widget_activated(std::string &widget_name)
 void AnnotationsUI::viewport_dockable_widget_deactivated(std::string &widget_name) {
 
     if (widget_name == "Annotate") {
-        active_tool_->set_value("None");
+        // if the active tool is the Laser, then keep it active so
+        // it can continue to be used without the widget visible
+        if (active_tool_->value() == tool_name(Laser)) {
+            last_tool_ = Laser;
+        } else {
+            active_tool_->set_value("None");
+        }
     }
 }
 
