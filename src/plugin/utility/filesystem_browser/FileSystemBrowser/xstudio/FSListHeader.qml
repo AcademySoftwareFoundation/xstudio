@@ -50,21 +50,6 @@ Rectangle{
         }
     }
 
-
-    RowLayout{ 
-        
-        id: titleBar
-        width: parent.width
-        height: parent.height
-        spacing: 0
-
-        Repeater{
-            id: repeater
-            model: columns_model
-        }
-
-    }
-
     MouseArea {
         id: mouseArea
         anchors.fill: parent
@@ -122,5 +107,18 @@ Rectangle{
 
     }
 
+    RowLayout{ 
+        
+        id: titleBar
+        width: parent.width
+        height: parent.height
+        spacing: 0
+
+        Repeater{
+            id: repeater
+            model: columns_model
+        }
+
+    }
 
 }

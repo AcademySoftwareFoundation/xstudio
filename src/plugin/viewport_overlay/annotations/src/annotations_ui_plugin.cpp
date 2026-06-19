@@ -190,6 +190,11 @@ AnnotationsUI::AnnotationsUI(caf::actor_config &cfg, const utility::JsonStore &i
     display_mode_attribute_->expose_in_ui_attrs_group("annotations_tool_draw_mode");
     display_mode_attribute_->set_preference_path("/plugin/annotations/display_mode");
 
+    // keep laser tool active when toolbar is hidden preference
+    keep_laser_active_ = add_boolean_attribute(
+        "Keep Laser Active", "Keep Laser Active", false);
+    keep_laser_active_->set_preference_path("/plugin/annotations/keep_laser_active");
+
     // setting the active tool to -1 disables drawing via 'attribute_changed'
     attribute_changed(active_tool_->uuid(), module::Attribute::Value);
 
@@ -311,14 +316,14 @@ void AnnotationsUI::attribute_changed(const utility::Uuid &attribute_uuid, const
                 redo(viewport);
             } else if (action == "HideVisibility") {
                 annotations_visible_->set_value(false);
+                colour_picker_hide_drawings_->set_value(true, false);
                 utility::JsonStore payload;
-                payload["viewport"] = viewport;
-                send_event("HideViewportVisibility", payload);
+                send_event("HideDrawings", payload);
             } else if (action == "ShowVisibility") {
                 annotations_visible_->set_value(true);
+                colour_picker_hide_drawings_->set_value(false, false);
                 utility::JsonStore payload;
-                payload["viewport"] = viewport;
-                send_event("ShowViewportVisibility", payload);
+                send_event("ShowDrawings", payload);
             }
 
             action_attribute_->set_role_data(
@@ -383,11 +388,13 @@ void AnnotationsUI::attribute_changed(const utility::Uuid &attribute_uuid, const
 
         if (colour_picker_hide_drawings_->value()) {
 
+            annotations_visible_->set_value(false, false);
             utility::JsonStore payload;
             send_event("HideDrawings", payload);
 
         } else {
 
+            annotations_visible_->set_value(true, false);
             utility::JsonStore payload;
             send_event("ShowDrawings", payload);
         }
@@ -846,9 +853,7 @@ void AnnotationsUI::viewport_dockable_widget_deactivated(std::string &widget_nam
     if (widget_name == "Annotate") {
         // if the active tool is the Laser, then keep it active so
         // it can continue to be used without the widget visible
-        if (active_tool_->value() == tool_name(Laser)) {
-            last_tool_ = Laser;
-        } else {
+        if (!(keep_laser_active_->value() && active_tool_->value() == tool_name(Laser))) {
             active_tool_->set_value("None");
         }
     }

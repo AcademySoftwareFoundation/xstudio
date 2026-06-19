@@ -38,14 +38,18 @@ Rectangle {
             Layout.fillHeight: true
             isExpanded: false
             onTextChanged: {
-                filterField = text
-                refreshFiltering()
-                sendCommand({"action": "change_path", "path": current_path_attr.value});
+                scanResultsModel.searchString = text
             }
-            hint: "Filter String..."
+            hint: "Filter String ..."
         }
 
-        
+        XsPrimaryButton {
+            Layout.fillHeight: true
+            visible: searching_attr.value === true
+            text: "Stop Scan"
+            onClicked: sendCommand({"action": "stop_scan"})
+        }
+
         // Progress Bar (Left - fills remaining space)
         ProgressBar {
 
@@ -83,21 +87,18 @@ Rectangle {
         }
 
         // Preview Indicator
-        Rectangle {
-            Layout.preferredWidth: 60
-            Layout.preferredHeight: 18
+        XsPrimaryButton {
+            Layout.preferredWidth: 80
+            Layout.fillHeight: true
             Layout.alignment: Qt.AlignVCenter
-            color: "transparent"
-            
-            XsText {
-                anchors.centerIn: parent
-                text: "Preview"
-                color: isPreviewMode ? "#66ff66" : "#444444"
-                font.pixelSize: 10
-                font.bold: isPreviewMode
+            text: "Previewing"
+            enabled: previewing
+            onClicked: {
+                sendCommand({"action": "stop_preview"})
             }
+            isActive: previewing
         }
-
+            
         // Divider (Vertical line)
         Rectangle {
             Layout.preferredWidth: 1
@@ -117,6 +118,7 @@ Rectangle {
 
                     Layout.preferredWidth: 32
                     Layout.fillHeight: true
+                    visible: index != 2 // hiding 'group' view for now
 
                     isActive: viewMode === index
                     imgSrc: modelData

@@ -244,7 +244,7 @@ void OpenGLViewportCompositeRenderer::render_difference(
     params["monochrome"]      = mode_params.value("monochrome", true);
     params["boost"]           = mode_params.value("boost", 0.0f);
     params["screen"]          = mode_params.value("screen", false);
-    params["image_aspect"]    = mode_params.value("image_aspect", 9.0f/16.0f);
+    params["image_aspect"]    = mode_params.value("image_aspect", 9.0f / 16.0f);
 
     // set the active tex IDs for our texture targets
     glActiveTexture(GL_TEXTURE10);
@@ -358,7 +358,7 @@ void CompositeViewportLayout::do_layout(
             layout_data.custom_layout_data_["screen"] = true;
         }
         layout_data.layout_aspect_ = image_layout_aspect(image_set->onscreen_image(wipeA));
-        layout_data.custom_layout_data_["image_aspect"] = 1.0f/layout_data.layout_aspect_;
+        layout_data.custom_layout_data_["image_aspect"] = 1.0f / layout_data.layout_aspect_;
 
 
     } else {

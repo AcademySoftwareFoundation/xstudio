@@ -28,9 +28,7 @@ class FFMpegMediaReader : public MediaReader {
     [[nodiscard]] uint8_t maximum_readers(const caf::uri &) const override {
         return readers_per_source_;
     }
-    [[nodiscard]] bool prefer_sequential_access() const override {
-        return true;
-    }
+    [[nodiscard]] bool prefer_sequential_access() const override { return true; }
     [[nodiscard]] bool can_decode_audio() const override { return true; }
     std::shared_ptr<thumbnail::ThumbnailBuffer>
     thumbnail(const media::AVFrameID &mptr, const size_t thumb_size) override;

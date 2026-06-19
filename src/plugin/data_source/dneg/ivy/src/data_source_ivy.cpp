@@ -53,24 +53,24 @@ const auto GetVersionIvyUuid =
 // }
 
 namespace {
-    bool server_path_or_local(const caf::uri &uri) {
-        // this is unmapped.
-        auto result = true;
-        const auto path = to_string(uri);
-        const static auto hostname =  get_host_name();
-        const static auto hostname_re = std::regex(R"(^file:.+?/hosts/([^/]+)/.+$)");
-        std::cmatch m;
+bool server_path_or_local(const caf::uri &uri) {
+    // this is unmapped.
+    auto result                   = true;
+    const auto path               = to_string(uri);
+    const static auto hostname    = get_host_name();
+    const static auto hostname_re = std::regex(R"(^file:.+?/hosts/([^/]+)/.+$)");
+    std::cmatch m;
 
-        if (std::regex_match(path.c_str(), m, hostname_re)) {
-            if(m[1] != hostname) {
-                result = false;
-                spdlog::warn("Leaf skipped, unsafe path {}", path);
-            }
+    if (std::regex_match(path.c_str(), m, hostname_re)) {
+        if (m[1] != hostname) {
+            result = false;
+            spdlog::warn("Leaf skipped, unsafe path {}", path);
         }
-
-        return result;
     }
+
+    return result;
 }
+} // namespace
 
 class IvyMediaWorker : public caf::event_based_actor {
   public:
@@ -309,7 +309,7 @@ template <typename T> caf::message_handler IvyDataSourceActor<T>::message_handle
                             }
                         } catch (const std::exception &err) {
                             spdlog::warn(
-                                "{} Invalid drop data {}", __PRETTY_FUNCTION__, err.what());
+                                "{} {} {}", __PRETTY_FUNCTION__, err.what(), response.body);
                             rp.deliver(make_error(xstudio_error::error, err.what()));
                         }
                     },
@@ -622,8 +622,12 @@ void IvyMediaWorker::add_media_source(
         auto name = jsn.at("name").get<std::string>();
 
         if (jsn.at("version").at("kind").at("name") == "Audio") {
-            auto label = std::string();
-            auto type  = std::string();
+            auto label     = std::string();
+            auto type      = std::string();
+            auto actor     = std::string();
+            auto character = std::string();
+            auto language  = std::string();
+
             for (const auto &nt : jsn.at("version").at("name_tags")) {
                 if (nt.at("name") == "label") {
                     label = nt.at("value");
@@ -631,10 +635,18 @@ void IvyMediaWorker::add_media_source(
                 } else if (nt.at("name") == "type") {
                     type = nt.at("value");
                     name = type;
+                } else if (nt.at("name") == "actor") {
+                    actor = nt.at("value");
+                } else if (nt.at("name") == "character") {
+                    character = nt.at("value");
+                } else if (nt.at("name") == "language") {
+                    language = nt.at("value");
                 }
             }
 
-            if (not label.empty() and not type.empty()) {
+            if (not actor.empty() or not character.empty() or not language.empty()) {
+                name = join_as_string({type, actor, character, language, label}, "-", true);
+            } else if (not label.empty() and not type.empty()) {
                 name = label + "-" + type;
             } else if (
                 use_stalk_name_for_audio_sources && jsn.at("version").contains("name") &&
@@ -1013,7 +1025,7 @@ void IvyDataSourceActor<T>::get_version(
                         rp.deliver(jsn);
                     }
                 } catch (const std::exception &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, err.what(), response.body);
                     rp.deliver(make_error(xstudio_error::error, err.what()));
                 }
             },
@@ -1573,7 +1585,7 @@ void IvyDataSourceActor<T>::pipequery(
                     auto jsn = nlohmann::json::parse(response.body);
                     rp.deliver(JsonStore(jsn));
                 } catch (const std::exception &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, err.what(), response.body);
                     rp.deliver(make_error(xstudio_error::error, err.what()));
                 }
             },

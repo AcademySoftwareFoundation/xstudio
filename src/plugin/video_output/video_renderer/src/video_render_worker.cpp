@@ -638,7 +638,7 @@ void VideoRenderWorker::continue_render_loop() {
         anon_mail(playhead::step_atom_v).send(caf::actor_cast<caf::actor>(this));
 
         int cp = int(round(
-            timebase::to_seconds(playhead_position_- start_position_) * 100.0 /
+            timebase::to_seconds(playhead_position_ - start_position_) * 100.0 /
             timebase::to_seconds(end_position_ - start_position_)));
         if (cp != percent_complete_) {
             percent_complete_ = cp;
@@ -1032,12 +1032,11 @@ void VideoRenderWorker::render_step() {
                         // num_audio_samples_delivered_ which has to keep up with
                         // playhead_position_ according to soundcard sample rate
                         audio_stream_position_ += frame_rate_;
-                        auto microsecs =
-                            std::chrono::duration_cast<std::chrono::microseconds>(
-                                audio_stream_position_)
-                                .count() -
-                            (num_audio_samples_delivered_ * 1000000) /
-                                int64_t(soundcard_sample_rate_);
+                        auto microsecs = std::chrono::duration_cast<std::chrono::microseconds>(
+                                             audio_stream_position_)
+                                             .count() -
+                                         (num_audio_samples_delivered_ * 1000000) /
+                                             int64_t(soundcard_sample_rate_);
 
                         const int64_t num_samples =
                             microsecs * int64_t(soundcard_sample_rate_) / 1000000;
@@ -1084,19 +1083,17 @@ void VideoRenderWorker::render_step() {
 
                         // advance the playhead position to the next frame
                         waiting_for_buffers_ = false;
-                        playhead_position_ = new_playhead_position;
+                        playhead_position_   = new_playhead_position;
                         continue_render_loop();
                     }
                 },
                 [=](caf::error &err) mutable {
                     update_status(
                         fmt::format(
-                            "Failed with error: {} {}",
-                            __PRETTY_FUNCTION__,
-                            to_string(err)),
+                            "Failed with error: {} {}", __PRETTY_FUNCTION__, to_string(err)),
                         Failed);
                 });
-        };
+    };
 
 
     // we've asked ourselves to do a render step, but the last render
@@ -1118,8 +1115,8 @@ void VideoRenderWorker::render_step() {
             .then(
                 [=](timebase::flicks new_position) {
                     if (!starting_render_loop_ && new_position <= playhead_position_) {
-                        // this might happen if the playhead has gone all the 
-                        // way through the frame range and wrapped around 
+                        // this might happen if the playhead has gone all the
+                        // way through the frame range and wrapped around
                         // to the start frame. Therefore, force end of the
                         // render loop
                         playhead_position_ = end_position_ + timebase::flicks(1);
@@ -1145,7 +1142,7 @@ void VideoRenderWorker::render_step() {
             .then(
                 [=](bool) {
                     // playhead position is incremented by frame_rate_
-                    render_to_image_step(playhead_position_+frame_rate_);
+                    render_to_image_step(playhead_position_ + frame_rate_);
                 },
                 [=](caf::error &err) mutable {
                     update_status(
@@ -1153,7 +1150,6 @@ void VideoRenderWorker::render_step() {
                             "Failed with error: {} {}", __PRETTY_FUNCTION__, to_string(err)),
                         Failed);
                 });
-
     }
 }
 

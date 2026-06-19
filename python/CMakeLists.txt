@@ -67,7 +67,7 @@ else()
     else()
         add_custom_command(OUTPUT ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio/api
                     COMMAND ${Python_EXECUTABLE}
-                    ARGS setup.py install --old-and-unmanageable --prefix=${OUTPUT}
+                    ARGS -m pip install . --prefix=${OUTPUT}
                     DEPENDS __pybind_xstudio ${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in)
     endif()
 

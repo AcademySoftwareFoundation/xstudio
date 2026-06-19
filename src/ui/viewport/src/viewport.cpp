@@ -941,14 +941,10 @@ void Viewport::revert_fit_zoom_to_previous(const bool synced) {
 
 void Viewport::switch_mirror_mode() {
 
-    if (mirror_mode_->value() == "Off")
-        mirror_mode_->set_value("Mirror Horizontally");
-    else if (mirror_mode_->value() == "Mirror Horizontally")
-        mirror_mode_->set_value("Mirror Vertically");
-    else if (mirror_mode_->value() == "Mirror Vertically")
-        mirror_mode_->set_value("Mirror Both");
-    else
+    if (mirror_mode_->value() != "Off")
         mirror_mode_->set_value("Off");
+    else
+        mirror_mode_->set_value("Mirror Horizontally");
 }
 
 Imath::V4f Viewport::normalised_pointer_position() const {
@@ -1231,7 +1227,8 @@ caf::message_handler Viewport::message_handler() {
                 },
 
                 [=](utility::event_atom, viewport_playhead_atom, caf::actor playhead) {
-                    // this comes from the global playhead actor when the global selected playhead changes.
+                    // this comes from the global playhead actor when the global selected
+                    // playhead changes.
                     if (sync_to_main_viewport_->value()) {
                         set_playhead(playhead);
                     }

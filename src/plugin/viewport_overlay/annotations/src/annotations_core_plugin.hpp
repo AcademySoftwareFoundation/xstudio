@@ -144,6 +144,9 @@ class AnnotationsCore : public plugin::StandardPlugin {
         const utility::Uuid &user_id,
         const bool stroke_completed = false);
 
+    void broadcast_live_laser_stroke(
+        const utility::Uuid &user_id, const bool stroke_completed = false);
+
     void start_cursor_blink();
 
     void fade_all_laser_strokes();
@@ -198,12 +201,10 @@ class AnnotationsCore : public plugin::StandardPlugin {
     bool laser_stroke_animation_{false};
     bool cursor_blinking_{false};
     bool show_annotations_during_playback_{false};
-    bool dropper_active_{false};
     std::atomic_bool hide_all_drawings_{false};
     std::atomic_bool cursor_blink_;
     std::map<std::string, std::atomic_int *> hide_strokes_per_viewport_;
     std::map<std::string, std::atomic_bool *> hide_all_per_viewport_;
-    std::map<std::string, bool> user_hidden_per_viewport_;
     caf::actor live_edit_event_group_;
     utility::Uuid current_edited_annotation_uuid_;
 

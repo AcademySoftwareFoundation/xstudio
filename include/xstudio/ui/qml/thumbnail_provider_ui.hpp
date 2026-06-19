@@ -84,7 +84,6 @@ class ThumbnailResponse : public QQuickImageResponse {
             auto [i, e] = watcher_.result();
 
             if (not e.isEmpty()) {
-                qDebug() << e;
                 error_ = "Thumbnail does not exist 2.";
                 bad_thumbs_.insert(id_, QDateTime::currentDateTime());
             } else {

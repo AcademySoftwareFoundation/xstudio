@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Sam Richards
 
 from xstudio.plugin import PluginBase
-from xstudio.core import JsonStore, FrameList, add_media_atom, Uuid
+from xstudio.core import JsonStore, FrameList, add_media_atom, Uuid, event_atom
 from xstudio.core import KeyboardModifier
 import os
 from enum import Enum
@@ -14,6 +14,7 @@ import subprocess
 import shutil
 import pathlib
 import atexit
+import traceback
 class HostApp(Enum):
     generic = 1
     xstudio = 2
@@ -40,6 +41,18 @@ def _dbg(*msg):
             _f.flush()
     except Exception:
         pass
+
+def get_windows_drives():
+    """Return a list of available drive letters on Windows."""
+    if sys.platform != "win32":
+        return []
+    drives = []
+    from ctypes import windll
+    bitmask = windll.kernel32.GetLogicalDrives()
+    for letter in range(26):
+        if bitmask & (1 << letter):
+            drives.append(f"{chr(65 + letter)}:/")
+    return drives
 
 # PySide6 dependency removed
 # from PySide6.QtCore import QObject, Signal, Qt
@@ -68,6 +81,7 @@ class XStudioHostInterface:
         self.connection = connection
         self.plugin = plugin
         self.preview_playlist = None
+        self.previously_viewed_container = None
 
     def _resolve_active_playlist(self):
         """
@@ -107,7 +121,7 @@ class XStudioHostInterface:
             return f"{seq.dirname()}{seq.basename()}{brace_padding}{seq.extension()}={seq.frameRange()}"
         except Exception: return None
 
-    def _add_media_to_playlist(self, playlist, path):
+    def _add_media_to_playlist(self, playlist, path, before_uuid=Uuid()):
         """
         Adds a file or sequence to the given playlist. Formats the path as a sequence if applicable.
 
@@ -120,7 +134,7 @@ class XStudioHostInterface:
         """
         try:
             seq_path = self._format_sequence_path(path)
-            return playlist.add_media(seq_path if seq_path else path)
+            return playlist.add_media(seq_path if seq_path else path, before_uuid=before_uuid)
         except Exception as e:
             import traceback
             _dbg (traceback.format_exc())
@@ -190,64 +204,72 @@ class XStudioHostInterface:
         target_playlist.playhead_selection.set_selection([media.uuid])
         target_playlist.playhead.playing = True
 
-    def replace_current_media(self, path):
-        """
-        Replaces the currently selected/playing media in the active playlist with the new source.
-
-        Args:
-            path (str): The new file path to insert into the playlist in place of the old one.
-        """
-        try:
-            playlist = self._resolve_active_playlist()
-            if not playlist: return
-            self.connection.api.session.set_on_screen_source(playlist)
-            new_media = self._add_media_to_playlist(playlist, path)
-            if not new_media: return
-            items_to_remove = []
-            if hasattr(playlist, 'playhead_selection'):
-                current_selection = playlist.playhead_selection.selected_sources
-                if current_selection: items_to_remove = current_selection
-
-            if hasattr(playlist, 'playhead_selection'):
-                playlist.playhead_selection.set_selection([new_media.uuid])
-
-            if items_to_remove:
-                try: playlist.move_media(new_media, before=items_to_remove[0].uuid)
-                except Exception: pass
-
-            for m in items_to_remove:
-                try: playlist.remove_media(m)
-                except Exception: pass
-
-            if hasattr(playlist, 'playhead'):
-                playlist.playhead.playing = True
-
-        except Exception as e: _dbg(f"Replace error: {e}")
-
-    def compare_with_current_media(self, path):
+    def compare_with_current_media(self, paths):
         """
         Adds the specified media to the current selection, and puts the playhead into A/B compare mode.
 
         Args:
-            path (str): The new media file path to compare.
+            paths (list): The new media file paths to compare.
         """
         try:
             playlist = self._resolve_active_playlist()
             if not playlist: return
             self.connection.api.session.set_on_screen_source(playlist)
-            new_media = self._add_media_to_playlist(playlist, path)
+            new_media = []
+            for path in paths:
+                m = self._add_media_to_playlist(playlist, path)
+                if m:
+                    new_media.append(m)
             if not new_media: return
             new_selection = []
             if hasattr(playlist, 'playhead_selection'):
                 for m in playlist.playhead_selection.selected_sources:
                     new_selection.append(m.uuid)
-            new_selection.append(new_media.uuid)
+            for m in new_media:
+                new_selection.append(m.uuid)
             if hasattr(playlist, 'playhead_selection'):
                 playlist.playhead_selection.set_selection(new_selection)
             if hasattr(playlist, 'playhead'):
                 playlist.playhead.compare_mode = "A/B"
                 playlist.playhead.playing = True
         except Exception as e: _dbg(f"Compare error: {e}")
+
+    def replace_current_media(self, paths):
+        """
+        Replaces the currently selected/playing media in the active playlist with the new source(s).
+
+        Args:
+            paths (list): The new media file paths to insert into the playlist in place of the old one.
+        """
+        try:
+            playlist = self._resolve_active_playlist()
+            if not playlist: return
+            self.connection.api.session.set_on_screen_source(playlist)
+            new_media = []
+            items_to_remove = []
+            if hasattr(playlist, 'playhead_selection'):
+                current_selection = playlist.playhead_selection.selected_sources
+                if current_selection: items_to_remove = current_selection
+
+            if hasattr(playlist, 'playhead_selection'):
+                new_selection = [m.uuid for m in new_media]
+                playlist.playhead_selection.set_selection(new_selection)
+
+            for path in paths:
+                m = self._add_media_to_playlist(playlist, path, before_uuid=items_to_remove[0].uuid if items_to_remove else Uuid())
+                if m:
+                    new_media.append(m)
+            if not new_media: return
+
+            if items_to_remove:
+                for m in items_to_remove:
+                    try: playlist.remove_media(m)
+                    except Exception: pass
+
+            if hasattr(playlist, 'playhead'):
+                playlist.playhead.playing = True
+
+        except Exception as e: _dbg(f"Replace error: {e}")
 
     def append_media(self, paths):
         """
@@ -264,6 +286,20 @@ class XStudioHostInterface:
                 self._add_media_to_playlist(playlist, path)
         except Exception as e: _dbg(f"Append error: {e}")
 
+    def add_to_new_playlist(self, paths):
+        """
+        Add a piece of media to a new playlist without altering 
+        the playhead's current playback mode or selection.
+
+        Args:
+            paths (list): The media file paths to append.
+        """
+        try:
+            target_playlist = self.connection.api.session.create_playlist("")[1]
+            for path in paths:
+                self._add_media_to_playlist(target_playlist, path)
+        except Exception as e: _dbg(f"Append error: {e}")
+
     def preview_media(self, path):
         """
         Creates or utilizes a hidden 'Preview' playlist to temporarily view an item. 
@@ -271,25 +307,38 @@ class XStudioHostInterface:
         Args:
             path (str): The media file path to preview.
         """
+
+        if self.connection.api.session.viewed_container != self.preview_playlist:
+            self.previously_viewed_container = self.connection.api.session.viewed_container
+
         if not self.preview_playlist:
-            self.preview_playlist = self.connection.api.session.create_hidden_playlist("Preview")
+            self.preview_playlist = self.connection.api.session.create_hidden_playlist("File Browser Preview")
 
         self.preview_playlist.clear()
         media = self._add_media_to_playlist(self.preview_playlist, path)
         if not media: return
 
+        self.plugin.preview_media_uuid.set_value(str(media.uuid))
+
         self.connection.api.session.viewed_container = self.preview_playlist
         self.preview_playlist.playhead_selection.set_selection([media.uuid])
         self.preview_playlist.playhead.playing = True
 
+    def stop_preview(self):
+        """
+        Stops the preview by clearing the 'Preview' playlist and resetting the viewed container.
+        """
+        if self.connection.api.session.viewed_container.uuid == self.preview_playlist.uuid and self.previously_viewed_container:
+            self.connection.api.session.viewed_container = self.previously_viewed_container
+            self.plugin.preview_media_uuid.set_value("")
+            self.preview_playlist.clear()
 
 class FilesystemBrowserPlugin(PluginBase):
     def __init__(self, connection):
         PluginBase.__init__(
             self,
             connection,
-            "File System Browser",
-            qml_folder="qml/FilesystemBrowserXStudio.1" if HOST_APP == HostApp.xstudio else "qml/FilesystemBrowserGeneric.1"
+            "File Browser"
         )
         # Initialize the host application interface (xStudio concrete implementation)
         self.host = XStudioHostInterface(self.connection, self)
@@ -332,6 +381,17 @@ class FilesystemBrowserPlugin(PluginBase):
         )
         self.command_attr.expose_in_ui_attrs_group("Filesystem Browser")
         
+        self.preview_media_uuid = self.add_attribute(
+            "preview_media_uuid",
+            "",
+            {"title": "preview_media_uuid"},
+            register_as_preference=False
+        )
+        self.preview_media_uuid.expose_in_ui_attrs_group("Filesystem Browser")
+
+        # Action to toggle the panel
+        self.toggle_action_uuid = "2669e4a3-7186-4556-9818-80949437b018"
+
         self.toggle_browser_action = self.register_hotkey(
             self.toggle_browser, # hotkey_callback
             "B", # default_keycode
@@ -345,9 +405,10 @@ class FilesystemBrowserPlugin(PluginBase):
         
         # Register the panel, passing the action
         self.register_ui_panel_qml(
-            "File System Browser",
+            "File Browser",
             """
-            FilesystemBrowser {
+            import FileSystemBrowser 1.0
+            FileSystemBrowser {
                 anchors.fill: parent
             }
             """,
@@ -428,6 +489,22 @@ class FilesystemBrowserPlugin(PluginBase):
         )
         self.view_mode_attr.expose_in_ui_attrs_group("Filesystem Browser")
 
+        self.directory_tree_width = self.add_attribute(
+            "directory_tree_width",
+            300,
+            {},
+            register_as_preference=True
+        )
+        self.directory_tree_width.expose_in_ui_attrs_group("Filesystem Browser Settings")
+
+        self.directory_tree_visible = self.add_attribute(
+            "directory_tree_visible",
+            True,
+            {},
+            register_as_preference=True
+        )
+        self.directory_tree_visible.expose_in_ui_attrs_group("Filesystem Browser Settings")
+
         # New: Scan Required flag (for manual scan mode)
         self.scan_required_attr = self.add_attribute(
             "scan_required",
@@ -467,6 +544,22 @@ class FilesystemBrowserPlugin(PluginBase):
             register_as_preference=True
         )
         self.filter_version_attr.expose_in_ui_attrs_group(["Filesystem Browser", "Filter Terms"])
+
+        self.sort_role = self.add_attribute(
+            "Sort Role",
+            "name",
+            {},
+            register_as_preference=True
+        )
+        self.sort_role.expose_in_ui_attrs_group(["Filesystem Browser Settings"])
+
+        self.sort_ascending_attr = self.add_attribute(
+            "Sort Ascending",
+            True,
+            {},
+            register_as_preference=True
+        )
+        self.sort_ascending_attr.expose_in_ui_attrs_group(["Filesystem Browser Settings"])
 
         # History and Pinned Attributes
         self.history_attr = self.add_attribute(
@@ -599,6 +692,11 @@ class FilesystemBrowserPlugin(PluginBase):
         # Build the QML command dispatch table
         self._command_handlers = self._build_command_handlers()
 
+        self.results_backend_receiver = None
+        for plugin_detail in self.connection.api.plugin_manager.plugin_detail:
+            if plugin_detail.name() == "Scan Results Middleman":
+                self.results_backend_receiver = connection.api.plugin_manager.get_plugin_instance(plugin_detail.uuid())
+
         # Initial search
         self.start_search(self.current_path_attr.value())
 
@@ -703,6 +801,19 @@ class FilesystemBrowserPlugin(PluginBase):
             self.current_path_attr.set_value(str(path.parent.absolute()))
             self.start_search(self.current_path_attr.value())
 
+        def _cmd_stop_scan(data):
+            self.cancel_search = True
+            if hasattr(self, 'scanner'):
+                self.scanner.stop()
+            if self.search_thread and self.search_thread.is_alive():
+                self.search_thread.join()
+            self.searching_attr.set_value(False)
+            self.progress_attr.set_value("0")
+            with self.results_lock:
+                self.current_scan_results = []
+            self.scanned_attr.set_value("0")
+            self.scanned_dirs_attr.set_value("[]")
+
         def _cmd_force_scan(data):
             path = data.get("path")
             if path:
@@ -712,24 +823,40 @@ class FilesystemBrowserPlugin(PluginBase):
             else:
                 self.start_search(self.current_path_attr.value(), force=True, depth=20)
 
+        def _scan_single(data):
+            path = data.get("path")
+            if path and os.path.exists(path):
+                self.start_search(path, force=True, depth=1, refresh=False)
+
+        def _load_paths(data):
+            paths = data.get("paths", [])
+            for p in paths:
+                self.load_file(p)
+
         return {
             "change_path":              _cmd_change_path,
             "load_file":                lambda d: self.load_file(d.get("path")),
+            "load_files":               lambda d: [self.load_file(p) for p in d.get("paths", [])],
             "preview_file":             lambda d: self.host.preview_media(d.get("path")),
             "request_browser":          lambda d: self._open_browser_dialog(self.current_path_attr.value()),
             "complete_path":            lambda d: self.compute_completions(d.get("path", "")),
             "replace_current_media":    lambda d: self.host.replace_current_media(d.get("path")),
-            "compare_with_current_media": lambda d: self.host.compare_with_current_media(d.get("path")),
+            "compare_with_current_media": lambda d: self.host.compare_with_current_media(d.get("paths")),
             "append_media":             lambda d: self.host.append_media(d.get("paths")),
+            "replace_current_media":    lambda d: self.host.replace_current_media(d.get("paths")),
+            "add_to_new_playlist":      lambda d: self.host.add_to_new_playlist(d.get("paths")),
             "set_attribute":            _cmd_set_attribute,
             "copy_path":                _cmd_copy_path,
             "reveal_in_finder":         _cmd_reveal_in_finder,
             "add_pin":                  lambda d: self._add_pin(d.get("name"), d.get("path")),
             "remove_pin":               lambda d: self._remove_pin(d.get("path")),
             "force_scan":               _cmd_force_scan,
+            "stop_scan":                _cmd_stop_scan,
+            "stop_preview":             lambda d: self.host.stop_preview(),
             "go_to_parent_folder":      _cmd_go_to_parent,
             "get_subdirs":              lambda d: self._get_subdirs(d.get("path")),
             "request_thumbnail":        lambda d: self.thumbnail_generator(d.get("path")),
+            "scan_single":              _scan_single
         }
 
     def attribute_changed(self, attribute, role):
@@ -758,8 +885,7 @@ class FilesystemBrowserPlugin(PluginBase):
                 traceback.print_exc()
                 
         elif attribute.uuid in (self.filter_time_attr.uuid, self.filter_version_attr.uuid):
-            if role == AttributeRole.Value:
-                self._on_filter_changed(attribute, role)
+            pass
         elif attribute.uuid == self.depth_limit_attr.uuid:
             if role == AttributeRole.Value:
                 # Recursion limit changed, re-scan
@@ -791,22 +917,24 @@ class FilesystemBrowserPlugin(PluginBase):
             self.current_scan_results = []
         self.scanned_attr.set_value("0") 
         self.scanned_dirs_attr.set_value("[]")
-        
-        self.apply_filters()
-        
+                
         if self.search_thread and self.search_thread.is_alive():
             self.cancel_search = True
             if hasattr(self, 'scanner'):
                 self.scanner.stop()
             self.search_thread.join()
 
-    def start_search(self, start_path, force=False, depth=None):
+    def start_search(self, start_path, force=False, depth=None, refresh=True):
         """
         Start the file search in a separate thread.
         If force=False and depth <= 4, skip auto-scan and ask user to confirm.
         """
         if not start_path:
             return
+
+        # Reset message to backend receiver
+        if refresh:
+            self.connection.send(self.results_backend_receiver, event_atom(), True)
 
         # Check path depth
         norm_path = os.path.normpath(start_path)
@@ -864,20 +992,31 @@ class FilesystemBrowserPlugin(PluginBase):
         self.scanned_dirs_cache = []
         self.scanned_dirs_attr.set_value("[]")
         self.last_update = 0
+        self.last_progress_update = 0
         
-        def progress_callback(results, info):
+        def progress_callback(results, scanned_dir, index_path_in_tree, info):
+
+            import json
+
+
+            if scanned_dir != "":
+                if self.results_backend_receiver:
+                    self.connection.send(self.results_backend_receiver, event_atom(), scanned_dir, index_path_in_tree==[], json.dumps(results))
+
             scanned = info.get("scanned", 0)
             phase = info.get("phase", "")
             progress = info.get("progress", 0)
             new_dirs = info.get("scanned_dirs", [])
             
-            biased_progress = pow(progress / 100.0, 2.0)*100
-            self.progress_attr.set_value(str(biased_progress))
-            self.scanned_attr.set_value(str(scanned))
+            now_p = time.time()
+            if now_p - self.last_progress_update >= 0.5:
+                self.last_progress_update = now_p
+                biased_progress = pow(progress / 100.0, 2.0)*100
+                self.progress_attr.set_value(str(biased_progress))
+                self.scanned_attr.set_value(str(scanned))
             
             if new_dirs:
                 self.scanned_dirs_cache.extend(new_dirs)
-                import json
                 self.scanned_dirs_attr.set_value(json.dumps(self.scanned_dirs_cache))
 
             if results and phase == "scanning":
@@ -887,7 +1026,6 @@ class FilesystemBrowserPlugin(PluginBase):
                     self.last_update = now
                     with self.results_lock:
                         self.current_scan_results.extend(self.pending_scan_results)
-                    self.apply_filters()
                     self.pending_scan_results = []
 
             if phase == "complete":
@@ -901,7 +1039,6 @@ class FilesystemBrowserPlugin(PluginBase):
 
             with self.results_lock:
                 self.current_scan_results = results        
-            self.apply_filters()
             
             _dbg(f"Search finished, found {len(results)} items")
             
@@ -1008,7 +1145,10 @@ class FilesystemBrowserPlugin(PluginBase):
         """Fetch subdirectories for the given path and update attribute."""
         result = {"path": path, "dirs": []}
         try:
-            if os.path.exists(path) and os.path.isdir(path):
+            if path == "/" and sys.platform == "win32":
+                drivenames = get_windows_drives()
+                result["dirs"] = [{"name": d, "path": d, "has_subdir": True} for d in drivenames]
+            elif os.path.exists(path) and os.path.isdir(path):
                 dirs = []
                 with os.scandir(path) as it:
                     for entry in it:
@@ -1021,9 +1161,20 @@ class FilesystemBrowserPlugin(PluginBase):
                             continue
                             
                         if entry.is_dir():
+                            # Does this hit performance of the tree? 
+                            has_subdir = False
+                            try:
+                                with os.scandir(entry.path) as sub_it:
+                                    for sub_entry in sub_it:
+                                        if sub_entry.is_dir():
+                                            has_subdir = True
+                                            break
+                            except Exception:
+                                pass
                             dirs.append({
                                 "name": entry.name,
-                                "path": entry.path
+                                "path": entry.path,
+                                "has_subdir": has_subdir
                             })
                 # Sort alphabetically
                 dirs.sort(key=lambda x: x["name"].lower())
@@ -1046,108 +1197,6 @@ class FilesystemBrowserPlugin(PluginBase):
             self.start_search(path)
             return
         self.host.load_media(path)
-
-    def apply_filters(self):
-        """Re-run filtering logic on the current results cache."""
-        try:
-            with self.results_lock:
-                 results = list(self.current_scan_results)
-            
-            # Offload heavy filtering if list is huge? 
-            # For now, do it in main thread or worker? 
-            # Safe to do in main thread if count < 100k?
-            # Better to spawn a thread if we want UI responsiveness.
-            
-            # Doing it synchronously for now, but catching errors
-            self._apply_filters_logic(results)
-        except Exception as e:
-            _dbg(f"Error applying filters: {e}")
-
-    def _apply_filters_logic(self, results):
-        import os
-        # Use cached values if available (from worker), else fetch live (UI update)
-        if hasattr(self, 'cached_filter_time'):
-            filter_time = self.cached_filter_time
-        else:
-            filter_time = self.filter_time_attr.value() if hasattr(self, 'filter_time_attr') else "Any"
-
-        if hasattr(self, 'cached_filter_version'):
-            filter_version = self.cached_filter_version
-        else:
-            filter_version = self.filter_version_attr.value() if hasattr(self, 'filter_version_attr') else "All Versions"
-
-        _dbg(f"Applying filters: Time={filter_time}, Version={filter_version}, Count={len(results)}")
-
-        # Separate directories and files
-        dirs = []
-        files = []
-        for r in results:
-            if r.get("is_folder") or r.get("type") == "Folder":
-                dirs.append(r)
-            else:
-                files.append(r)
-
-        # 1. Apply Time Filter (to files only?)
-        # User wants to see directories "even if there isnt data in them".
-        # So we probably shouldn't filter directories by time unless requested.
-        # Let's Apply Time Filter ONLY to files for now.
-        if filter_time != "Any":
-            now = time.time()
-            cutoff = 0
-            if filter_time == "Last 1 day":
-                cutoff = now - 86400
-            elif filter_time == "Last 2 days":
-                cutoff = now - 2 * 86400
-            elif filter_time == "Last 1 week":
-                cutoff = now - 7 * 86400
-            elif filter_time == "Last 1 month":
-                cutoff = now - 30 * 86400
-            
-            if cutoff > 0:
-                files = [r for r in files if r.get("date", 0) >= cutoff]
-
-        # 2. Apply Version Filter with Grouping (Files only)
-        grouped_results = {}
-        for r in files:
-            grp = r.get("version_group")
-            if grp:
-                grouped_results.setdefault(grp, []).append(r)
-            else:
-                grouped_results.setdefault(id(r), [r])
-        
-        filtered_files = []
-        
-        for grp, items in grouped_results.items():
-            if len(items) <= 1:
-                filtered_files.extend(items)
-                continue
-                
-            items.sort(key=lambda x: x.get("version", 0), reverse=True)
-            
-            if filter_version == "Latest Version":
-                filtered_files.extend(items[:1])
-            elif filter_version == "Latest 2 Versions":
-                filtered_files.extend(items[:2])
-            else:
-                filtered_files.extend(items)
-        
-
-        # Combine: Keep all discovered directories to facilitate browsing,
-        # and combine with filtered files.
-        final_results = dirs + filtered_files
-        
-        # Resort by name for display
-        final_results.sort(key=lambda x: x["name"])
-
-        # Serialize
-        # json_str = json.dumps(final_results)        
-        self.files_attr.set_value(json.dumps(final_results))
-
-    def _on_filter_changed(self, attribute, role):
-        from xstudio.core import AttributeRole
-        if role == AttributeRole.Value:
-            # Re-apply filters on cached results
-            threading.Thread(target=self.apply_filters).start()
 
     def _add_to_history(self, path):
         try:

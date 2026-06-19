@@ -236,6 +236,11 @@ class DNegMediaHook : public MediaHook {
             // check for ivy timeline_range
             try {
                 const static auto tcp = json::json_pointer("/metadata/ivy/file/timeline_range");
+                const static auto tcs =
+                    json::json_pointer("/metadata/shotgun/version/attributes/frame_range");
+                const static auto stt =
+                    json::json_pointer("/metadata/shotgun/version/attributes/sg_twig_type");
+
                 if (jsn.contains(tcp) and jsn.at(tcp).is_string()) {
 
                     // Let's try and work out if there is a slate frame.
@@ -276,7 +281,16 @@ class DNegMediaHook : public MediaHook {
                             changed = true;
                         }
                     }
+                } else if (
+                    jsn.contains(stt) and jsn.at(stt) == "audio" and jsn.contains(tcs) and
+                    jsn.at(tcs).is_string()) {
+                    auto ifr = FrameList(jsn.at(tcs).get<std::string>());
+                    result.set_timecode(
+                        result.timecode() +
+                        (ifr.start() - static_cast<int>(result.timecode().total_frames())));
+                    changed = true;
                 }
+
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
             }
@@ -364,7 +378,7 @@ class DNegMediaHook : public MediaHook {
 
         const std::string path = to_string(uri);
         // don't remap path, or regex won't work.
-        auto ppath             = uri_to_posix_path(uri, false);
+        auto ppath = uri_to_posix_path(uri, false);
 
 
         // utility::JsonStore j(R"(

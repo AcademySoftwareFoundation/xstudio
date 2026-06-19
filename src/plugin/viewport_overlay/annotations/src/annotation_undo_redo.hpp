@@ -8,7 +8,7 @@ namespace xstudio::ui::viewport {
 class UndoableAction {
 
   public:
-    UndoableAction() = default;
+    UndoableAction()          = default;
     virtual ~UndoableAction() = default;
 
     virtual bool redo(Annotation **annotation) = 0;

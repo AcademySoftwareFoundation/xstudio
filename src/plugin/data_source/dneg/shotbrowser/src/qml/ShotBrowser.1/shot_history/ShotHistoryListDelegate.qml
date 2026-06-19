@@ -38,6 +38,7 @@ Rectangle{ id: frame
     required property string authorRole
     required property string thumbRole
     required property string clientFilenameRole
+    required property string clientVersionRole
     required property string projectRole
     required property int idRole
     required property string entityRole
@@ -61,7 +62,10 @@ Rectangle{ id: frame
 
     property bool isPlaylist: false
 
-    property bool isHovered: mArea.containsMouse || versionArrowBtn.hovered || sec1.playerMA.containsMouse
+    property bool compactMode: false
+
+
+    property bool isHovered: mArea.containsMouse || versionArrowBtn.hovered || sec1.playerMA.containsMouse || iconState.containsMouse
 
     signal playMovie(path: var)
 
@@ -162,11 +166,104 @@ Rectangle{ id: frame
 
             spacing: itemSpacing
 
-            Rectangle{ id: shotTitle
+            RowLayout{
+                Layout.fillWidth: true
+                Layout.minimumHeight: XsStyleSheet.widgetStdHeight
+                spacing: itemSpacing
+                visible: compactMode
+
+                ShotHistoryTextRow{
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+
+                    textDiv.leftPadding: panelPadding
+                    textDiv.horizontalAlignment: Text.AlignLeft
+                    textDiv.font.pixelSize: XsStyleSheet.fontSize * 1.1
+                    textDiv.font.bold: true
+                    textDiv.elide: Text.ElideMiddle
+                    text: nameRole
+                }
+
+                ShotHistoryTextRow{
+                    Layout.minimumWidth: XsStyleSheet.widgetStdHeight * 2
+                    Layout.fillHeight: true
+                    visible: clientVersionRole > 0
+
+                    textDiv.leftPadding: panelPadding
+                    textDiv.horizontalAlignment: Text.AlignLeft
+                    textDiv.font.pixelSize: XsStyleSheet.fontSize * 1.1
+                    textDiv.font.bold: true
+                    textDiv.opacity: 0.5
+                    textDiv.elide: Text.ElideMiddle
+                    text: "v"+ (""+clientVersionRole).padStart(4, "0")
+                }
+
+                MouseArea {
+                    id: iconState
+                    Layout.minimumWidth: XsStyleSheet.widgetStdHeight * 3
+                    Layout.fillHeight: true
+                    hoverEnabled: true
+
+                    Row {
+                        spacing: itemSpacing
+                        anchors.fill: parent
+
+                        XsPrimaryButton{
+                            property bool hasNotes: noteCountRole <= 0 ? false : true
+                            text: "N"
+                            y:1
+                            width: (parent.width/3)-itemSpacing
+                            height: parent.height-itemSpacing
+                            font.pixelSize: textSize*1.2
+                            font.weight: hasNotes? Font.Bold:Font.Medium
+                            isUnClickable: true
+                            isActiveViaIndicator: false
+                            textDiv.color: hasNotes? XsStyleSheet.primaryTextColor : XsStyleSheet.hintColor
+                            enabled: false
+                            bgDiv.opacity: enabled? 1.0 : 0.5
+                            isActive: hasNotes
+                        }
+                        XsPrimaryButton{
+                            property bool hasDailies: submittedToDailiesRole === undefined ? false :true
+                            text: "D" //dalies
+                            y:1
+                            width: (parent.width/3)-itemSpacing
+                            height: parent.height-itemSpacing
+                            font.pixelSize: textSize*1.2
+                            font.weight: hasDailies? Font.Bold:Font.Medium
+                            isUnClickable: true
+                            isActiveViaIndicator: false
+                            textDiv.color: hasDailies? XsStyleSheet.primaryTextColor : XsStyleSheet.hintColor
+                            enabled: false
+                            bgDiv.opacity: enabled? 1.0 : 0.5
+                            isActive: hasDailies
+                        }
+                        XsPrimaryButton{
+                            property bool hasClient: dateSubmittedToClientRole === undefined ? false : true
+                            text: "C" //client
+                            width: (parent.width/3)-itemSpacing
+                            y:1
+                            height: parent.height-itemSpacing
+                            font.pixelSize: textSize*1.2
+                            font.weight: hasClient? Font.Bold:Font.Medium
+                            isUnClickable: true
+                            isActiveViaIndicator: false
+                            textDiv.color: hasClient? XsStyleSheet.primaryTextColor : XsStyleSheet.hintColor
+                            enabled: false
+                            bgDiv.opacity: enabled? 1.0 : 0.5
+                            isActive: hasClient
+                        }
+                    }
+                }
+            }
+
+            Rectangle{
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.preferredHeight: XsStyleSheet.widgetStdHeight
                 color: XsStyleSheet.widgetBgNormalColor
+
+                visible: !compactMode
 
                 XsText{
                     anchors.fill: parent
@@ -177,6 +274,7 @@ Rectangle{ id: frame
                     leftPadding: panelPadding
                 }
                 XsText{
+
                     anchors.fill: parent
                     horizontalAlignment: Text.AlignRight
                     text: clientFilenameRole ? clientFilenameRole : ""
@@ -192,22 +290,26 @@ Rectangle{ id: frame
                 Layout.preferredHeight: (XsStyleSheet.widgetStdHeight * rowCount) + (spacing * (rowCount-1))
                 spacing: itemSpacing
                 x: spacing
+                visible: !compactMode
 
                 property int rowCount: 3
 
-                ShotHistorySection1{ id: sec1
+                ShotHistorySection1{
+                    id: sec1
                     Layout.minimumWidth: 154
                     Layout.preferredWidth: 154
                     Layout.fillHeight: true
                 }
 
-                ShotHistorySection2{ id: sec2
+                ShotHistorySection2{
+                    id: sec2
                     Layout.fillWidth: true
                     Layout.minimumWidth: 115
                     Layout.fillHeight: true
                 }
 
-                ShotHistorySection3{ id: sec3
+                ShotHistorySection3{
+                    id: sec3
                     Layout.minimumWidth: 157
                     Layout.preferredWidth: 157
                     Layout.fillHeight: true

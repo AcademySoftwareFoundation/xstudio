@@ -20,18 +20,15 @@ OnionSkinPlugin::OnionSkinPlugin(
 
     frames_before_ = add_integer_attribute("Frames Before", "Before", 3, 0, 20);
     add_hud_settings_attribute(frames_before_);
-    frames_before_->set_tool_tip(
-        "Maximum frame distance to look back for annotations");
+    frames_before_->set_tool_tip("Maximum frame distance to look back for annotations");
     frames_before_->set_redraw_viewport_on_change(true);
 
     frames_after_ = add_integer_attribute("Frames After", "After", 3, 0, 20);
     add_hud_settings_attribute(frames_after_);
-    frames_after_->set_tool_tip(
-        "Maximum frame distance to look ahead for annotations");
+    frames_after_->set_tool_tip("Maximum frame distance to look ahead for annotations");
     frames_after_->set_redraw_viewport_on_change(true);
 
-    base_opacity_ =
-        add_float_attribute("Base Opacity", "Opacity", 0.4f, 0.05f, 1.0f, 0.05f);
+    base_opacity_ = add_float_attribute("Base Opacity", "Opacity", 0.4f, 0.05f, 1.0f, 0.05f);
     add_hud_settings_attribute(base_opacity_);
     base_opacity_->set_tool_tip("Opacity of the nearest neighboring annotation");
     base_opacity_->set_redraw_viewport_on_change(true);
@@ -43,8 +40,8 @@ OnionSkinPlugin::OnionSkinPlugin(
         "Multiplier applied per frame step further from current frame");
     opacity_falloff_->set_redraw_viewport_on_change(true);
 
-    use_original_colours_ = add_boolean_attribute(
-        "Use Original Colours", "Orig Colours", false);
+    use_original_colours_ =
+        add_boolean_attribute("Use Original Colours", "Orig Colours", false);
     add_hud_settings_attribute(use_original_colours_);
     use_original_colours_->set_tool_tip(
         "When enabled, keep annotation colours and only reduce opacity. "
@@ -71,7 +68,8 @@ OnionSkinPlugin::OnionSkinPlugin(
     frames_after_->set_preference_path("/plugin/annotation_onion_skin/frames_after");
     base_opacity_->set_preference_path("/plugin/annotation_onion_skin/base_opacity");
     opacity_falloff_->set_preference_path("/plugin/annotation_onion_skin/opacity_falloff");
-    use_original_colours_->set_preference_path("/plugin/annotation_onion_skin/use_original_colours");
+    use_original_colours_->set_preference_path(
+        "/plugin/annotation_onion_skin/use_original_colours");
     past_tint_->set_preference_path("/plugin/annotation_onion_skin/past_tint");
     future_tint_->set_preference_path("/plugin/annotation_onion_skin/future_tint");
 }
@@ -91,14 +89,14 @@ utility::BlindDataObjectPtr OnionSkinPlugin::onscreen_render_data(
     if (!visible() || !image)
         return {};
 
-    const int current_frame   = image.playhead_logical_frame();
-    const int range_before    = static_cast<int>(frames_before_->value());
-    const int range_after     = static_cast<int>(frames_after_->value());
-    const float base_opac     = base_opacity_->value();
-    const float falloff       = opacity_falloff_->value();
-    const bool orig_colours   = use_original_colours_->value();
-    const auto &prev_colour   = past_tint_->value();
-    const auto &next_colour   = future_tint_->value();
+    const int current_frame = image.playhead_logical_frame();
+    const int range_before  = static_cast<int>(frames_before_->value());
+    const int range_after   = static_cast<int>(frames_after_->value());
+    const float base_opac   = base_opacity_->value();
+    const float falloff     = opacity_falloff_->value();
+    const bool orig_colours = use_original_colours_->value();
+    const auto &prev_colour = past_tint_->value();
+    const auto &next_colour = future_tint_->value();
 
     if (range_before == 0 && range_after == 0)
         return {};
@@ -119,8 +117,7 @@ utility::BlindDataObjectPtr OnionSkinPlugin::onscreen_render_data(
             bool changed = (it->second.size() != frame_bookmarks.size());
             if (!changed) {
                 for (size_t i = 0; i < it->second.size(); ++i) {
-                    if (it->second[i]->detail_.uuid_ !=
-                        frame_bookmarks[i]->detail_.uuid_) {
+                    if (it->second[i]->detail_.uuid_ != frame_bookmarks[i]->detail_.uuid_) {
                         changed = true;
                         break;
                     }
@@ -152,7 +149,8 @@ utility::BlindDataObjectPtr OnionSkinPlugin::onscreen_render_data(
         return {c.r * tint.r, c.g * tint.g, c.b * tint.b};
     };
 
-    auto make_canvas_copy = [&](const ui::canvas::Canvas &src, float opacity,
+    auto make_canvas_copy = [&](const ui::canvas::Canvas &src,
+                                float opacity,
                                 const utility::ColourTriplet &tint,
                                 bool keep_original) -> ui::canvas::Canvas {
         ui::canvas::Canvas out(src);
@@ -236,14 +234,13 @@ utility::BlindDataObjectPtr OnionSkinPlugin::onscreen_render_data(
                 for (const auto &bm : it->second) {
                     if (!bm || !bm->annotation_ || !bm->annotation_->user_data())
                         continue;
-                    const auto *canvas = static_cast<const ui::canvas::Canvas *>(
-                        bm->annotation_->user_data());
+                    const auto *canvas =
+                        static_cast<const ui::canvas::Canvas *>(bm->annotation_->user_data());
                     if (!canvas || canvas->empty())
                         continue;
                     if (current_annotations.count(canvas))
                         continue;
-                    candidates.push_back(
-                        {canvas, dist, compute_opacity(dist), next_colour});
+                    candidates.push_back({canvas, dist, compute_opacity(dist), next_colour});
                     break;
                 }
                 ++it;
@@ -255,8 +252,9 @@ utility::BlindDataObjectPtr OnionSkinPlugin::onscreen_render_data(
         return {};
 
     // Render farthest first so closest onion skin draws on top.
-    std::sort(candidates.begin(), candidates.end(),
-              [](const auto &a, const auto &b) { return a.abs_distance > b.abs_distance; });
+    std::sort(candidates.begin(), candidates.end(), [](const auto &a, const auto &b) {
+        return a.abs_distance > b.abs_distance;
+    });
 
     std::vector<ui::canvas::Canvas> canvases;
     canvases.reserve(candidates.size());
