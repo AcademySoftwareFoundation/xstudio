@@ -19,7 +19,7 @@ Item {
 	onSourceChanged: {
 		if(enableBuffering) {
 			if(delay && !updateTimer.running) {
-				console.log(delay, updateTimer.running)
+				//console.log(delay, updateTimer.running)
                 updateTimer.start()
 			}
 		}

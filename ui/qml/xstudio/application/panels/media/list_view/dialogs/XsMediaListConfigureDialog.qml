@@ -86,7 +86,7 @@ metadata with media that isn't from your pipeline.`
         ListElement { detail_item: "Frame Range - MediaSource (Image)"}
     }
 
-    property var model_index: columns_model.index(-1, -1)
+    property var model_index: columns_model.rootIndex
 
     XsModelProperty {
         id: __column_title
@@ -447,13 +447,14 @@ metadata with media that isn't from your pipeline.`
             }
 
             XsLabel {
+                id: lbl3
                 Layout.alignment: Qt.AlignVCenter|Qt.AlignRight
                 text: "Format Expression : "
                 horizontalAlignment: Text.AlignRight
                 visible: advanced.checked
                 XsToolTip{
                     text: regex_tooltip
-                    visible: hovered
+                    visible: lbl3.hovered
                 }
             }
 
@@ -477,7 +478,7 @@ metadata with media that isn't from your pipeline.`
             }
 
             XsSimpleButton {
-
+                id: backup_btn
                 text: model_index.model.rowCount(model_index) ? qsTr("Configure Backup") : qsTr("Add Backup")
                 Layout.alignment: Qt.AlignVCenter|Qt.AlignLeft
                 Layout.preferredHeight: XsStyleSheet.widgetStdHeight
@@ -494,7 +495,7 @@ metadata with media that isn't from your pipeline.`
                 }
                 XsToolTip{
                     text: backup_tooltip
-                    visible: hovered
+                    visible: backup_btn.hovered
                 }
 
             }

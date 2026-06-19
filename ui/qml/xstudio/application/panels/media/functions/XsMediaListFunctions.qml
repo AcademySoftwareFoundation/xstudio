@@ -8,6 +8,11 @@ import xStudio 1.0
 
 Item {
     XsPreference {
+        id: sessionLinkPrefix
+        path: "/core/session/session_link_prefix"
+    }
+
+    XsPreference {
         id: sessionRate
         path: "/core/session/media_rate"
     }
@@ -105,6 +110,15 @@ Item {
             encodeURIComponent(currentPlayhead.compareMode)+"&playlist=" +
             name + prefix +
             filenames.join(prefix)
+    }
+
+    function copyColumnToClipboard(column) {
+        let data = []
+        for( let i=0;i<mediaSelectionModel.selectedIndexes.length; i++) {
+            var fields = theSessionData.get(mediaSelectionModel.selectedIndexes[i], "mediaDisplayInfoRole")
+            data.push(fields[column])
+        }
+        clipboard.text = data.join("\n")
     }
 
     function setMediaAspect() {
@@ -363,12 +377,15 @@ Item {
         for(let i =0; i<indexes.length; ++i)
             to_remove.push(indexes[i].row)
 
-        to_remove = to_remove.sort(function(a,b){return a-b})
+        to_remove = to_remove.sort(function(a,b){return b-a})
 
         while(select_row == -1 && to_remove.length) {
-            select_row = to_remove[0] - 1
+            select_row = to_remove[0] + 1
             to_remove.shift()
         }
+
+        if (select_row == indexes.length)
+            select_row = -1
 
         return parent.model.index(select_row, 0, parent)
     }
@@ -452,7 +469,7 @@ Item {
             last_row = Math.max(mediaSelectionModel.selectedIndexes[i].row, last_row)
         }
         let parent = mediaSelectionModel.selectedIndexes[0].parent;
-        if (last_row > 0 && parent.model.rowCount(parent) > (last_row+1)) {
+        if (last_row >= 0 && parent.model.rowCount(parent) > (last_row+1)) {
             mediaSelectionModel.select(
                 parent.model.index(last_row+1, 0, parent),
                 ItemSelectionModel.Select

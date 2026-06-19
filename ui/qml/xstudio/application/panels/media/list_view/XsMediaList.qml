@@ -285,9 +285,12 @@ XsListView {
     // So here we try and preserve the scrolled position in that case
     property real beforeMoveContentY: 0
     onContentYChanged: {
-        if(beforeMoveContentY != 0){
-            contentY = beforeMoveContentY
-            beforeMoveContentY = 0
+        if (contentY == 0) {
+            // check if this is a reset we want to undo
+            if (beforeMoveContentY != 0) {
+                contentY = beforeMoveContentY
+                beforeMoveContentY = 0
+            }
         }
     }
 

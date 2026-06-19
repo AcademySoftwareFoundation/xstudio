@@ -384,7 +384,7 @@ Item{
         if (context_menu_loader.item == undefined) {
             context_menu_loader.sourceComponent = contextMenuComponent
         }
-        context_menu_loader.item.hoveredButton = Qt.binding(function() { return parentWidget.hovered })
+        //context_menu_loader.item.hoveredButton = Qt.binding(function() { return parentWidget.hovered })
         context_menu_loader.item.visible = true
         context_menu_loader.item.showMenu(
             parentWidget,
