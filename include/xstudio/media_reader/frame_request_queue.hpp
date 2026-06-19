@@ -83,8 +83,9 @@ class FrameRequestQueue {
      *   @brief Get the next ordered frame request
      *
      */
-    std::optional<FrameRequest>
-    pop_request(const std::map<utility::Uuid, int> &exclude_playheads, const size_t max_num_inflight_requests);
+    std::optional<FrameRequest> pop_request(
+        const std::map<utility::Uuid, int> &exclude_playheads,
+        const size_t max_num_inflight_requests);
 
     /**
      *   @brief Add a request to the queue

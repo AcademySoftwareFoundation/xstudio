@@ -7,12 +7,12 @@ import xStudio 1.0
 import ".."
 import "."
 
-XsListView {
+Flickable {
 
     id: fileListView
-    visible: root.viewMode !== 3
     focus: visible
     onVisibleChanged: { if (visible) forceActiveFocus() }
+    contentHeight: rootGroup.height
 
     Keys.onLeftPressed: (event) => {
         if (currentIndex > 0) currentIndex--
@@ -33,7 +33,6 @@ XsListView {
                 if (md.isFolder) {
                     sendCommand({"action": "change_path", "path": md.path})
                 } else {
-                    isPreviewMode = false
                     sendCommand({"action": "load_file", "path": md.path})
                 }
             }
@@ -45,29 +44,51 @@ XsListView {
         visible: fileListView.height < fileListView.contentHeight
     }
 
-    onCurrentIndexChanged: {
+    /*onCurrentIndexChanged: {
         if (activeFocus && currentItem) {
             if (!currentItem.isItemFolder) {
                 root.pendingPreviewPath = currentItem.itemPath
                 previewTimer.restart()
             }
         }
-    }
+    }*/
     
     clip: true
-    model: visibleTreeList
+    //model: scanResultsModel
     
     flickableDirection: Flickable.HorizontalAndVerticalFlick
     boundsBehavior: Flickable.StopAtBounds
         
-    delegate: FSListItem {
+    property var aRootIndex: scanResultsModel.rootIndex
+
+    FSDirectoryGroup {
+        id: rootGroup
         width: fileListView.width
-        isItemFolder: modelData.isFolder
-        itemPath: modelData.path
-        property int index: model.index
+        thumbsModelIndex: aRootIndex
+        thumbsModel: scanResultsModel
+        property var is_folder: true
+        property var name: ""
+        property var frames: ""
+        property var owner: ""
+        property var date_string: ""
+        property var size_str: ""
+        property var version: ""
+        property var is_expanded: true
     }
 
-    property var yMin: 0
+    function getItemAtIndex(index) {
+        let d = 0
+        let p = index
+        while (p.valid) {
+            p = p.parent
+            d++
+        }
+        return rootGroup.getItemAtIndex(index, d-1)
+    }
+
+    property var yMin: contentY - originY
+    property var windowBottom: yMin-60
+    property var windowTop: yMin + height + 60
 
     // When the user is scrolling we delay update of the windowBottom/windowTop 
     // properties until scrolling has stopped for 200ms, to avoid excessive 
@@ -85,8 +106,16 @@ XsListView {
     property var mousePositionInFlickArea: Qt.point(mousePosition.x, mousePosition.y + yMin) // adjust for header height
     onMousePositionChanged: {
         if (!visible) return
-        var index = fileListView.indexAt(mousePositionInFlickArea.x, mousePositionInFlickArea.y)
-        underMouseIndex = index
+
+        
+        let newIdx = scanResultsModel.indexAtVisibleRow(mousePositionInFlickArea.y/XsStyleSheet.widgetStdHeight)
+        if (newIdx != underMouseIndex) {
+            underMouseIndex = newIdx
+        }
+
+        // rootGroup.mouseMove(Qt.point(mousePositionInFlickArea.x, mousePositionInFlickArea.y-rootGroup.y))
+        //var index = fileListView.indexAt(mousePositionInFlickArea.x, mousePositionInFlickArea.y)
+        //underMouseIndex = index
     }
 
 }

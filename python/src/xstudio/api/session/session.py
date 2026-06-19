@@ -102,6 +102,8 @@ class Session(Container, NotificationHandler):
         """
 
         result = self.connection.request_receive(self.remote, viewport_active_media_container_atom())[0]
+        if not result.actor:
+            return None
         c = Container(self.connection, result.actor)
 
         if c.type == "Timeline":
@@ -232,7 +234,7 @@ class Session(Container, NotificationHandler):
 
     def create_hidden_playlist(self, name="Hidden Playlist"):
         """Create hidden playlist. This playlist can be used to put transient
-        media on screen (e.g. preview mode of File System Browser plugin). The
+        media on screen (e.g. preview mode of File Browser plugin). The
         playlist is not added to the session and is not visible in the playlists
         interface and is not serialised into the session file.
 

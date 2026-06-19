@@ -26,6 +26,7 @@ ShotBrowserResultModel::ShotBrowserResultModel(QObject *parent) : JSONTreeModel(
              "authorRole",
              "clientFilenameRole",
              "clientNoteRole",
+             "clientVersionRole",
              // "clientStagesRole",
              // "clientStagesCurrentRole",
              "contentRole",
@@ -321,10 +322,10 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
                 result = QDateTime::fromString(
                     QStringFromStd(j.at("attributes").at("sg_submit_dailies_mtl")),
                     Qt::ISODate);
-            // else if (not j.at("attributes").at("sg_submit_dailies_van").is_null())
-            //     result = QDateTime::fromString(
-            //         QStringFromStd(j.at("attributes").at("sg_submit_dailies_van")),
-            //         Qt::ISODate);
+            else if (not j.at("attributes").at("sg_submit_dailies_syd").is_null())
+                result = QDateTime::fromString(
+                    QStringFromStd(j.at("attributes").at("sg_submit_dailies_syd")),
+                    Qt::ISODate);
             else if (not j.at("attributes").at("sg_submit_dailies_mum").is_null())
                 result = QDateTime::fromString(
                     QStringFromStd(j.at("attributes").at("sg_submit_dailies_mum")),
@@ -433,6 +434,10 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
 
         case Roles::clientFilenameRole:
             result = QString::fromStdString(j.at("attributes").value("sg_client_filename", ""));
+            break;
+
+        case Roles::clientVersionRole:
+            result = j.at("attributes").value("sg_client_version", 0);
             break;
 
         case Roles::textFilterRole: {

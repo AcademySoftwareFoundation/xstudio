@@ -2102,7 +2102,7 @@ void ShotBrowser::do_add_media_sources_from_ivy(
                             .then(
                                 [=](bool got_media_detail) mutable {
                                     // if (got_media_detail)
-                                        good_sources->push_back(source);
+                                    good_sources->push_back(source);
                                     // else
                                     //     send_exit(
                                     //         source.actor(), caf::exit_reason::user_shutdown);

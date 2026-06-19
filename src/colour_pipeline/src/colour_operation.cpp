@@ -115,7 +115,7 @@ void ColourOpPlugin::onscreen_source_colour_metadata_merge(
             .then(
                 [=](utility::JsonStore params) {
                     params.merge(additional_colour_params);
-                    if(params.is_null())
+                    if (params.is_null())
                         spdlog::error("BAD");
                     mail(colour_pipeline::set_colour_pipe_params_atom_v, params)
                         .request(on_screen_source_.actor(), infinite)

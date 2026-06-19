@@ -97,19 +97,25 @@ class MediaSourceActor : public caf::event_based_actor {
         const caf::uri &_uri,
         const utility::FrameList &frame_list,
         const utility::FrameRate &rate = utility::FrameRate(timebase::k_flicks_24fps),
-        const utility::Uuid &uuid      = utility::Uuid());
+        const utility::Uuid &uuid      = utility::Uuid(),
+        const utility::JsonStore &initial_json =
+            utility::JsonStore(R"({"colour_pipeline": {}})"_json));
     MediaSourceActor(
         caf::actor_config &cfg,
         const std::string &name,
         const std::string &reader,
         const utility::MediaReference &media_reference,
-        const utility::Uuid &uuid = utility::Uuid());
+        const utility::Uuid &uuid = utility::Uuid(),
+        const utility::JsonStore &initial_json =
+            utility::JsonStore(R"({"colour_pipeline": {}})"_json));
     MediaSourceActor(
         caf::actor_config &cfg,
         const std::string &name        = "Unnamed",
         const caf::uri &_uri           = caf::uri(),
         const utility::FrameRate &rate = utility::FrameRate(timebase::k_flicks_24fps),
-        const utility::Uuid &uuid      = utility::Uuid());
+        const utility::Uuid &uuid      = utility::Uuid(),
+        const utility::JsonStore &initial_json =
+            utility::JsonStore(R"({"colour_pipeline": {}})"_json));
     MediaSourceActor(caf::actor_config &cfg, const utility::JsonStore &jsn);
     ~MediaSourceActor() override = default;
 

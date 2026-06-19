@@ -57,7 +57,7 @@ class CachingMediaReaderActor : public caf::event_based_actor {
     bool urgent_worker_busy_ = {false};
 
     caf::actor pick_precache_worker() {
-        auto r = precache_workers_[next_precache_worker_];
+        auto r                = precache_workers_[next_precache_worker_];
         next_precache_worker_ = (next_precache_worker_ + 1) % precache_workers_.size();
         return r;
     }

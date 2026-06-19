@@ -16,9 +16,8 @@ void OnionSkinRenderer::render_image_overlay(
     const float device_pixel_ratio,
     const xstudio::media_reader::ImageBufPtr &frame) {
 
-    auto blind = frame.plugin_blind_data(OnionSkinPlugin::PLUGIN_UUID);
-    const auto *render_data =
-        dynamic_cast<const OnionSkinRenderData *>(blind.get());
+    auto blind              = frame.plugin_blind_data(OnionSkinPlugin::PLUGIN_UUID);
+    const auto *render_data = dynamic_cast<const OnionSkinRenderData *>(blind.get());
     if (!render_data || render_data->canvases.empty())
         return;
 

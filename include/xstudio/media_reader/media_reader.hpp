@@ -142,7 +142,8 @@ namespace media_reader {
                     // this allows the cacheing m,edia reader actor to find out if
                     // it can spawn multiple readers to read a given source in parallel or not.
                     // For example, EXR benefits from multiple readers while ffmpeg does not
-                    // because motion compressed video formats are not well served by multiple readers.
+                    // because motion compressed video formats are not well served by multiple
+                    // readers.
                     return media_reader_.prefer_sequential_access();
                 },
 
@@ -208,19 +209,20 @@ namespace media_reader {
                 [=](media_reader::get_thumbnail_atom,
                     media::AVFrameID mptr,
                     const size_t thumb_size) -> result<thumbnail::ThumbnailBufferPtr> {
-
                     try {
 
                         if (mptr.stream_id() == "auto video") {
-                            // special case where we don't have a full Media object but 
-                            // need a thumbnail (FileBrowser plugin, for example). We 
+                            // special case where we don't have a full Media object but
+                            // need a thumbnail (FileBrowser plugin, for example). We
                             // must pick the middle frame for the stream and the first
                             // video stream in the set.
-                            const auto stream_details = media_reader_.detail(mptr.uri()).streams_;
+                            const auto stream_details =
+                                media_reader_.detail(mptr.uri()).streams_;
                             for (const auto &sd : stream_details) {
                                 if (sd.media_type_ == media::MediaType::MT_IMAGE) {
-                                    mptr = media::AVFrameID(mptr.uri(), 
-                                        sd.duration_.frames()/2,
+                                    mptr = media::AVFrameID(
+                                        mptr.uri(),
+                                        sd.duration_.frames() / 2,
                                         mptr.first_frame(),
                                         mptr.frame_status(),
                                         0,

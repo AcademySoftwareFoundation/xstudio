@@ -689,19 +689,17 @@ caf::message_handler SessionActor::message_handler() {
         },
 
         [=](add_playlist_atom atom, const std::string name, const bool hidden) -> UuidActor {
-
             // special 'hidden' playlist that isn't part of the session structure.
             // This can be used to make a temporary playlist to preview stuff in the
             // xSTUDIO viewport without adding to the full session
             const auto uuid = utility::Uuid::generate();
-            auto actor = spawn<playlist::PlaylistActor>(
-                name, uuid, caf::actor_cast<caf::actor>(this));
+            auto actor =
+                spawn<playlist::PlaylistActor>(name, uuid, caf::actor_cast<caf::actor>(this));
             hidden_playlists_[uuid] = actor;
             anon_mail(media_rate_atom_v, base_.media_rate()).send(actor);
             anon_mail(playhead::playhead_rate_atom_v, base_.playhead_rate()).send(actor);
             link_to(actor);
             return UuidActor(uuid, actor);
-
         },
 
         [=](add_playlist_atom, caf::actor actor, const Uuid &uuid_before, const bool into)

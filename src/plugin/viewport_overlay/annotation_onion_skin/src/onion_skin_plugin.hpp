@@ -20,8 +20,7 @@ namespace ui {
             inline static const utility::Uuid PLUGIN_UUID{
                 "b7e3a1c0-5d4f-4e8b-9a2c-1f6d8e0b3c5a"};
 
-            OnionSkinPlugin(
-                caf::actor_config &cfg, const utility::JsonStore &init_settings);
+            OnionSkinPlugin(caf::actor_config &cfg, const utility::JsonStore &init_settings);
 
             ~OnionSkinPlugin() override = default;
 

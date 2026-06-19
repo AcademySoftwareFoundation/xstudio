@@ -248,7 +248,7 @@ XsHotkeyArea {
     XsHotkey {
         id: cycle_colour_hotkey
         context: hotkey_area.context
-        sequence:  "SHIFT+C"
+        sequence:  "Shift+C"
         name: "Cycle Media Colour"
         description: "Cycle Selected Media Colour"
         onActivated: media_list_functions.cycleColour(mediaSelectionModel.selectedIndexes)

@@ -302,8 +302,9 @@ void AnnotationsRenderer::render_viewport_overlay(
     const float viewport_du_dpixel,
     const float device_pixel_ratio) {
 
-    if (hide_all_ || *hide_per_viewport_)
-        return;
+    // Laser strokes are intentionally drawn regardless of the Display Mode
+    // (Always / Only When Paused) and the user-visibility toggles — they
+    // are transient pointing aids and must always be visible while drawn.
 
     if (on_screen_frames) {
 

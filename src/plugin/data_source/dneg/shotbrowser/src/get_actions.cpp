@@ -74,12 +74,12 @@ void ShotBrowser::find_shot(
     if (shot_cache_.count(shot_id)) {
         rp.deliver(shot_cache_.at(shot_id));
     } else if (auto cache = engine().get_cache(QueryEngine::cache_name("shot", project_id));
-             cache) {
+               cache) {
         // find shot in cache
         for (const auto &i : *cache) {
             const auto &id = i.at("id");
 
-            if(not shot_cache_.count(id))
+            if (not shot_cache_.count(id))
                 shot_cache_[id] = i;
 
             if (id == shot_id) {
@@ -1628,11 +1628,12 @@ void ShotBrowser::get_data_shot(
                                 auto cache_key = QueryEngine::cache_name(type, project_id);
 
                                 // inject metadata for dnshottags..
-                                // auto shot_tag_key = QueryEngine::cache_name("ShotManifestTag",
+                                // auto shot_tag_key =
+                                // QueryEngine::cache_name("ShotManifestTag",
                                 // i.at(shot_id_ptr)); engine().set_cache(shot_tag_key,
                                 // i.at(value_ptr));
                                 for (auto it = total.begin(); it != total.end(); ++it) {
-                                    const auto &id =  it->at("id");
+                                    const auto &id = it->at("id");
 
                                     auto value = engine().get_cache(
                                         QueryEngine::cache_name("ShotManifestTag", id));
@@ -1641,7 +1642,7 @@ void ShotBrowser::get_data_shot(
                                         (*it)["attributes"]["sg_custom_entity29"] = *value;
 
                                     // add to shot cache..
-                                    if(not shot_cache_.count(id))
+                                    if (not shot_cache_.count(id))
                                         shot_cache_[id] = *it;
                                 }
 

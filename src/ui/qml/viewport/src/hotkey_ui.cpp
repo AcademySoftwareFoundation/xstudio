@@ -417,14 +417,15 @@ void HotkeyUI::componentComplete() {
 
 void HotkeyUI::registerHotkey() {
 
-    // if (sequence_.isNull() || name_.isNull() || component_name_.isNull() || context_.isNull()) {
+    // if (sequence_.isNull() || name_.isNull() || component_name_.isNull() ||
+    // context_.isNull()) {
     //     // not ready, some properties not set (yet)
     //     return;
     // }
     int key = 0;
     int mod = 0;
 
-    if (QKeySequence seq(sequence_) ; seq.count() == 1) {
+    if (QKeySequence seq(sequence_); seq.count() == 1) {
         mod = 0;
         if ((seq[0].toCombined() & Qt::ShiftModifier) == Qt::ShiftModifier) {
             mod |= KeyboardModifier::ShiftModifier;
@@ -461,8 +462,7 @@ void HotkeyUI::registerHotkey() {
 
     emit uuidChanged();
 
-    anon_mail(ui::keypress_monitor::register_hotkey_atom_v, hk)
-        .send(keypress_event_manager);
+    anon_mail(ui::keypress_monitor::register_hotkey_atom_v, hk).send(keypress_event_manager);
 }
 
 HotkeyReferenceUI::HotkeyReferenceUI(QObject *parent) : QMLActor(parent) {

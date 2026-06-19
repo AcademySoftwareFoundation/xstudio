@@ -142,7 +142,7 @@ class ShotBrowserEngine : public QMLActor {
         return getIvyVersionFuture(project, stalk).result();
     }
 
-    QFuture<QUrl> remapCachePathFuture(const QPersistentModelIndex &sourceIndex) ;
+    QFuture<QUrl> remapCachePathFuture(const QPersistentModelIndex &sourceIndex);
 
     QFuture<QUrl> getSequencePathFuture(
         const QStringList &preferred, const QString &project, const QUuid &stalk);
