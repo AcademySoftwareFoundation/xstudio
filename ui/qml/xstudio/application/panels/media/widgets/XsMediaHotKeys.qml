@@ -36,6 +36,7 @@ XsHotkeyArea {
 
     property alias file_name_to_clipboard_hotkey: file_name_to_clipboard_hotkey
     property alias file_path_to_clipboard_hotkey: file_path_to_clipboard_hotkey
+    property alias media_name_to_clipboard_hotkey: media_name_to_clipboard_hotkey
     property alias quickview_to_clipboard_hotkey: quickview_to_clipboard_hotkey
 
     property alias add_to_new_playlist_context_hotkey: add_to_new_playlist_context_hotkey
@@ -101,10 +102,20 @@ XsHotkeyArea {
     XsHotkey {
         id: file_path_to_clipboard_hotkey
         name: "Copy File Path To Clipboard"
+        sequence: "Ctrl+C"
         description: "Copy Selected File Paths To Clipboard"
         context: hotkey_area.context
         componentName: "Media List"
         onActivated: media_list_functions.copyFilePathsToClipboard()
+    }
+
+    XsHotkey {
+        id: media_name_to_clipboard_hotkey
+        name: "Copy Media Name To Clipboard"
+        description: "Copy Selected Media Names To Clipboard"
+        context: hotkey_area.context
+        componentName: "Media List"
+        onActivated: media_list_functions.copyMediaNamesToClipboard()
     }
 
     XsHotkey {
@@ -200,6 +211,7 @@ XsHotkeyArea {
     XsHotkey {
         id: add_from_clipboard_hotkey
         name: "Add From Clipboard"
+        sequence: "Ctrl+V"
         description: "Add Media From Clipboard"
         context: hotkey_area.context
         componentName: "Media List"
@@ -233,17 +245,6 @@ XsHotkeyArea {
         componentName: "Media List"
         onActivated: media_list_functions.selectAllOffline()
     }
-
-    XsHotkey {
-        id: paste_hotkey
-        sequence: "Ctrl+V"
-        name: "Paste From Clipboard"
-        description: "Paste Clipboard Content into Media List"
-        context: hotkey_area.context
-        componentName: "Media List"
-        onActivated: file_functions.addMediaFromClipboard()
-    }
-
 
     XsHotkey {
         id: cycle_colour_hotkey
