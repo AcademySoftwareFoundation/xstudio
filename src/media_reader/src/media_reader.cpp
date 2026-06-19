@@ -175,8 +175,7 @@ template <typename T> void typed_resample(AudioBuffer &in, const size_t out_samp
     in.set_buf_data(new_buffer);
 }
 
-void AudioBuffer::stretch_samples(
-    const uint64_t num_samples) {
+void AudioBuffer::stretch_samples(const uint64_t num_samples) {
 
     if (sample_format() == audio::SampleFormat::UINT8) {
         typed_resample<uint8_t>(*this, num_samples);
@@ -193,7 +192,6 @@ void AudioBuffer::stretch_samples(
     }
 
     num_samples_ = num_samples;
-
 }
 
 void AudioBuffer::set_new_sample_rate(

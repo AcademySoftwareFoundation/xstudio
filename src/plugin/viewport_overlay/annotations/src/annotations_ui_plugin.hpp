@@ -170,6 +170,7 @@ class AnnotationsUI : public plugin::StandardPlugin {
     module::BooleanAttribute *colour_picker_take_average_{nullptr};
     module::BooleanAttribute *colour_picker_take_show_magnifier_{nullptr};
     module::BooleanAttribute *colour_picker_hide_drawings_{nullptr};
+    module::BooleanAttribute *keep_laser_active_{nullptr};
 
     module::IntegerAttribute *burn_softness_{nullptr};
     module::IntegerAttribute *burn_size_{nullptr};

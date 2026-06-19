@@ -61,6 +61,7 @@ class ShotBrowserResultModel : public JSONTreeModel {
         authorRole,
         clientFilenameRole,
         clientNoteRole,
+        clientVersionRole,
         // clientStagesRole,
         // clientStagesCurrentRole,
         contentRole,

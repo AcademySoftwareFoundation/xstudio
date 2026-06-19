@@ -78,10 +78,10 @@ HTTPWorker::HTTPWorker(
             const std::string &body,
             const std::string &content_type) -> result<httplib::Response> {
 
-            #ifdef LOG_CALLS
-                spdlog::stopwatch sw;
-                spdlog::info("http_delete_atom {}", path);
-            #endif
+#ifdef LOG_CALLS
+            spdlog::stopwatch sw;
+            spdlog::info("http_delete_atom {}", path);
+#endif
 
             try {
                 httplib::Client cli(scheme_host_port.c_str());
@@ -99,9 +99,9 @@ HTTPWorker::HTTPWorker(
                 if (res.error() != httplib::Error::Success)
                     return make_error(hce::rest_error, get_error_string(res.error()));
 
-                #ifdef LOG_CALLS
-                    spdlog::info("http_delete_atom {} {:.3f}", path, sw);
-                #endif
+#ifdef LOG_CALLS
+                spdlog::info("http_delete_atom {} {:.3f}", path, sw);
+#endif
 
                 if (res)
                     return *res;
@@ -141,10 +141,10 @@ HTTPWorker::HTTPWorker(
             const httplib::Headers &headers,
             const httplib::Params &params) -> result<httplib::Response> {
 
-            #ifdef LOG_CALLS
-                spdlog::stopwatch sw;
-                spdlog::info("http_get_atom {}", path);
-            #endif
+#ifdef LOG_CALLS
+            spdlog::stopwatch sw;
+            spdlog::info("http_get_atom {}", path);
+#endif
 
             try {
                 httplib::Client cli(scheme_host_port.c_str());
@@ -171,9 +171,9 @@ HTTPWorker::HTTPWorker(
                     return make_error(hce::rest_error, error);
                 }
 
-                #ifdef LOG_CALLS
-                    spdlog::info("http_get_atom {} {:.3f}", path, sw);
-                #endif
+#ifdef LOG_CALLS
+                spdlog::info("http_get_atom {} {:.3f}", path, sw);
+#endif
 
                 if (result)
                     return *result;
@@ -215,10 +215,10 @@ HTTPWorker::HTTPWorker(
             const std::string &body,
             const std::string &content_type) -> result<httplib::Response> {
 
-            #ifdef LOG_CALLS
-                spdlog::stopwatch sw;
-                spdlog::info("http_post_atom {}", path);
-            #endif
+#ifdef LOG_CALLS
+            spdlog::stopwatch sw;
+            spdlog::info("http_post_atom {}", path);
+#endif
 
             try {
                 httplib::Client cli(scheme_host_port.c_str());
@@ -236,9 +236,9 @@ HTTPWorker::HTTPWorker(
                 if (res.error() != httplib::Error::Success)
                     return make_error(hce::rest_error, get_error_string(res.error()));
 
-                #ifdef LOG_CALLS
-                    spdlog::info("http_post_atom {} {:.3f}", path, sw);
-                #endif
+#ifdef LOG_CALLS
+                spdlog::info("http_post_atom {} {:.3f}", path, sw);
+#endif
 
                 if (res)
                     return *res;
@@ -281,10 +281,10 @@ HTTPWorker::HTTPWorker(
             const std::string &body,
             const std::string &content_type) -> result<httplib::Response> {
 
-            #ifdef LOG_CALLS
-                spdlog::stopwatch sw;
-                spdlog::info("http_put_atom {}", path);
-            #endif
+#ifdef LOG_CALLS
+            spdlog::stopwatch sw;
+            spdlog::info("http_put_atom {}", path);
+#endif
 
             try {
                 httplib::Client cli(scheme_host_port.c_str());
@@ -308,9 +308,9 @@ HTTPWorker::HTTPWorker(
                 if (res.error() != httplib::Error::Success)
                     return make_error(hce::rest_error, get_error_string(res.error()));
 
-                #ifdef LOG_CALLS
-                    spdlog::info("http_put_atom {} {:.3f}", path, sw);
-                #endif
+#ifdef LOG_CALLS
+                spdlog::info("http_put_atom {} {:.3f}", path, sw);
+#endif
 
                 if (res)
                     return *res;

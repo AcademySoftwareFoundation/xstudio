@@ -50,7 +50,9 @@ MediaSourceActor::MediaSourceActor(caf::actor_config &cfg, const JsonStore &jsn)
     : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn["base"])), parent_() {
     if (not jsn.count("store") or jsn["store"].is_null()) {
         json_store_ = spawn<json_store::JsonStoreActor>(
-            utility::Uuid::generate(), utility::JsonStore(R"({"colour_pipeline": {}})"_json), std::chrono::milliseconds(50));
+            utility::Uuid::generate(),
+            utility::JsonStore(R"({"colour_pipeline": {}})"_json),
+            std::chrono::milliseconds(50));
     } else {
         json_store_ = spawn<json_store::JsonStoreActor>(
             utility::Uuid::generate(),
@@ -99,13 +101,14 @@ MediaSourceActor::MediaSourceActor(
     const caf::uri &_uri,
     const FrameList &frame_list,
     const utility::FrameRate &rate,
-    const utility::Uuid &uuid)
+    const utility::Uuid &uuid,
+    const utility::JsonStore &initial_json)
     : caf::event_based_actor(cfg), base_(name, _uri, frame_list), parent_() {
     if (not uuid.is_null())
         base_.set_uuid(uuid);
 
     json_store_ = spawn<json_store::JsonStoreActor>(
-        utility::Uuid::generate(), utility::JsonStore(R"({"colour_pipeline": {}})"_json), std::chrono::milliseconds(50));
+        utility::Uuid::generate(), initial_json, std::chrono::milliseconds(50));
     link_to(json_store_);
     join_event_group(this, json_store_);
 
@@ -122,12 +125,13 @@ MediaSourceActor::MediaSourceActor(
     const std::string &name,
     const caf::uri &_uri,
     const utility::FrameRate &rate,
-    const utility::Uuid &uuid)
+    const utility::Uuid &uuid,
+    const utility::JsonStore &initial_json)
     : caf::event_based_actor(cfg), base_(name, _uri), parent_() {
     if (not uuid.is_null())
         base_.set_uuid(uuid);
     json_store_ = spawn<json_store::JsonStoreActor>(
-        utility::Uuid::generate(), utility::JsonStore(R"({"colour_pipeline": {}})"_json), std::chrono::milliseconds(50));
+        utility::Uuid::generate(), initial_json, std::chrono::milliseconds(50));
     link_to(json_store_);
     join_event_group(this, json_store_);
 
@@ -143,13 +147,15 @@ MediaSourceActor::MediaSourceActor(
     const std::string &name,
     const std::string &reader,
     const utility::MediaReference &media_reference,
-    const utility::Uuid &uuid)
+    const utility::Uuid &uuid,
+    const utility::JsonStore &initial_json)
+
     : caf::event_based_actor(cfg), base_(name, media_reference), parent_() {
     if (not uuid.is_null())
         base_.set_uuid(uuid);
     base_.set_reader(reader);
     json_store_ = spawn<json_store::JsonStoreActor>(
-        utility::Uuid::generate(), utility::JsonStore(R"({"colour_pipeline": {}})"_json), std::chrono::milliseconds(50));
+        utility::Uuid::generate(), initial_json, std::chrono::milliseconds(50));
     link_to(json_store_);
     join_event_group(this, json_store_);
 
@@ -747,7 +753,6 @@ caf::message_handler MediaSourceActor::message_handler() {
             return mail(media_reference_atom_v, mr, false)
                 .delegate(caf::actor_cast<caf::actor>(this));
         },
-
 
 
         [=](media_reference_atom, MediaReference mr, bool force_change_signal) -> result<bool> {

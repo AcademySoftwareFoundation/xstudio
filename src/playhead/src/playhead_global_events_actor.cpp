@@ -175,7 +175,8 @@ void PlayheadGlobalEventsActor::init() {
             // playhead - i.e. the playhead that is being viewed by non-quickview
             // viewports. SessionModel::setCurrentPlayheadFromPlaylist does this for example.
             for (auto &p : viewports_) {
-                anon_mail(utility::event_atom_v, ui::viewport::viewport_playhead_atom_v, playhead)
+                anon_mail(
+                    utility::event_atom_v, ui::viewport::viewport_playhead_atom_v, playhead)
                     .send(p.second.viewport);
             }
             global_active_playhead_ = playhead;

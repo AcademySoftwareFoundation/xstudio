@@ -779,12 +779,12 @@ void SubPlayhead::init() {
             // side. 'copy_audio_sample' then takes care of copying the samples from
             // each of those 3 buffers from the reader into buffer_to_fill
 
-            auto rp     = make_response_promise<AudioBufPtr>();
+            auto rp = make_response_promise<AudioBufPtr>();
 
             if (frame_for_frame) {
 
                 // this is here to support the 'Re-speed' option in the video
-                // renderer where the media rate != render FPS 
+                // renderer where the media rate != render FPS
 
                 // In this case a source video frame may be 1/24 seconds, but the
                 // output video frame may be 1/60 seconds, say. We therefore need
@@ -799,14 +799,15 @@ void SubPlayhead::init() {
 
                 // make an audio buffer that matches the current frame duration
                 // and fill it with samples
-                auto intermediate =
-                            media_reader::AudioBufPtr(new media_reader::AudioBuffer());
+                auto intermediate = media_reader::AudioBufPtr(new media_reader::AudioBuffer());
 
                 intermediate->allocate(
-                    buffer_to_fill->sample_rate(),    // match sample rate to the one requested
-                    2,                                // num channels
-                    int64_t(timebase::to_seconds(frame_period)*double(buffer_to_fill->sample_rate())),               // samples
-                    audio::SampleFormat::INT16 // format
+                    buffer_to_fill->sample_rate(), // match sample rate to the one requested
+                    2,                             // num channels
+                    int64_t(
+                        timebase::to_seconds(frame_period) *
+                        double(buffer_to_fill->sample_rate())), // samples
+                    audio::SampleFormat::INT16                  // format
                 );
                 mail(audio_buffer_atom_v, frame_pts, intermediate, false)
                     .request(caf::actor_cast<caf::actor>(this), std::chrono::seconds(20))
@@ -814,7 +815,8 @@ void SubPlayhead::init() {
 
                         [=](AudioBufPtr audio_buffer) mutable {
                             audio_buffer->stretch_samples(buffer_to_fill->num_samples());
-                            // now we stretch the audio samples from 'audio_buffer' into 'buffer_to_fill'
+                            // now we stretch the audio samples from 'audio_buffer' into
+                            // 'buffer_to_fill'
                             rp.deliver(audio_buffer);
                         },
                         [=](const error &err) mutable {
@@ -834,7 +836,7 @@ void SubPlayhead::init() {
                         rp.deliver(buffer_to_fill);
                 };
 
-                // we fetch 2 audio frames either side of current frame to 
+                // we fetch 2 audio frames either side of current frame to
                 // ensure we have all the audio required to fill 'buffer_to_fill'
                 // whose duration may not align with the frame period of the current video frame
                 for (int i = -2; i <= 2; ++i) {

@@ -126,18 +126,18 @@ class VideoRenderWorker : public caf::event_based_actor {
     const std::string renderer_plugin_actor_address_;
     timebase::flicks start_position_, playhead_position_, end_position_;
     timebase::flicks audio_stream_position_ = timebase::k_flicks_zero_seconds;
-    int audio_bufs_in_flight_            = {0};
-    int video_bufs_in_flight_            = {0};
-    const int max_frames_in_flight_      = 32;
-    bool ffmpeg_process_running_         = {false};
-    bool waiting_for_buffers_            = {false};
-    bool completing_                     = {false};
-    bool starting_render_loop_           = {true};
-    int soundcard_sample_rate_           = {48000};
-    int percent_complete_                = {-1};
-    int64_t num_audio_samples_delivered_ = {0};
-    RenderStatus status_                 = {Queued};
-    int start_frame_                     = {1};
+    int audio_bufs_in_flight_               = {0};
+    int video_bufs_in_flight_               = {0};
+    const int max_frames_in_flight_         = 32;
+    bool ffmpeg_process_running_            = {false};
+    bool waiting_for_buffers_               = {false};
+    bool completing_                        = {false};
+    bool starting_render_loop_              = {true};
+    int soundcard_sample_rate_              = {48000};
+    int percent_complete_                   = {-1};
+    int64_t num_audio_samples_delivered_    = {0};
+    RenderStatus status_                    = {Queued};
+    int start_frame_                        = {1};
 };
 
 } // namespace xstudio::video_render_plugin_1_0

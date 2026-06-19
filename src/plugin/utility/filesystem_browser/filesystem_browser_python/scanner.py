@@ -6,6 +6,8 @@ import re
 import threading
 import queue
 import time
+import pathlib
+from datetime import datetime
 try:
     import pwd
 except ImportError:
@@ -56,15 +58,15 @@ class FileScanner:
     def scan(self, start_path, callback=None):
         """
         Scans from start_path using BFS and weighted progress.
-        callback(results, progress_info) is called periodically.
+        callback(results, scanned_dir, progress_info) is called periodically.
         """
         self.cancel_event.clear()
         
         from collections import deque
         from concurrent.futures import wait, FIRST_COMPLETED
 
-        # Queue of (path, weight, depth)
-        queue = deque([(start_path, 1.0, 0)])
+        # Queue of (path, weight, depth, index_path_in_tree)
+        queue = deque([(start_path, 1.0, 0, [])])
         
         # Futures set
         futures = set()
@@ -83,20 +85,21 @@ class FileScanner:
         # Helper to schedule
         def schedule_next():
             while queue and len(futures) < self.max_workers:
-                path, weight, depth = queue.popleft()
+                path, weight, depth, index_path_in_tree = queue.popleft()
                 # Submit task
-                futures.add(self.executor.submit(self._scan_and_process_worker, path, start_path, weight, depth))
+                futures.add(self.executor.submit(self._scan_and_process_worker, path, start_path, weight, depth, index_path_in_tree))
 
         schedule_next()
-        
+                
         while (futures or queue) and not self.cancel_event.is_set():
+
             # Wait for some work to complete
             done, _ = wait(futures, timeout=0.05, return_when=FIRST_COMPLETED)
             
             for f in done:
                 futures.remove(f)
                 try:
-                    subdirs, items, weight, depth, scanned_path = f.result()
+                    subdirs, items, weight, depth, scanned_path, index_path_in_tree = f.result()
                     
                     # Accumulate results
                     if items:
@@ -105,19 +108,20 @@ class FileScanner:
                     
                     recent_scanned_dirs.append(scanned_path)
                         
-                    if callback and items:
+                    if callback:
                         # Send partial results
                         # Note: We send empty list for items here if we want to batch them? 
                         # Original code sent items immediately.
-                        callback(items, {"scanned": scanned_count, "progress": total_progress * 100, "phase": "scanning", "scanned_dirs": []})
+                        callback(items, scanned_path, index_path_in_tree, {"scanned": scanned_count, "progress": total_progress * 100, "phase": "scanning", "scanned_dirs": []})
                     
                     # Distribute weight or complete it
                     # print ("Scanned: {}, Depth: {}, Subdirs: {} = {}".format(scanned_path, depth, subdirs, self.max_depth))
                     if subdirs and depth < self.max_depth:
                         if len(subdirs) > 0:
+                            subdirs = sorted(subdirs) # Sort for consistent order
                             child_weight = weight / len(subdirs)
-                            for d in subdirs:
-                                queue.append((d, child_weight, depth + 1))
+                            for i, d in enumerate(subdirs):
+                                queue.append((d, child_weight, depth + 1, index_path_in_tree + [i]))
                     else:
                         # Leaf node (in terms of dirs or recursion limit), this weight is done
                         total_progress += weight
@@ -131,7 +135,7 @@ class FileScanner:
             # Periodic Progress update
             if time.time() - last_update > 0.2:
                  if callback:
-                     callback([], {
+                     callback([], "", [], {
                          "scanned": scanned_count, 
                          "progress": min(100, int(total_progress * 100)), 
                          "phase": "scanning",
@@ -147,11 +151,11 @@ class FileScanner:
             
         # Final update
         if callback:
-            callback([], {"scanned": scanned_count, "progress": 100, "phase": "complete", "scanned_dirs": list(recent_scanned_dirs)})
+            callback([], "", [], {"scanned": scanned_count, "progress": 100, "phase": "complete", "scanned_dirs": list(recent_scanned_dirs)})
             
         return all_items
 
-    def _scan_and_process_worker(self, path, root_path, weight, depth):
+    def _scan_and_process_worker(self, path, root_path, weight, depth, index_path_in_tree):
         """
         Scans a directory, processes files therein, returns (subdirs, items, weight, depth, path).
         """
@@ -175,7 +179,7 @@ class FileScanner:
                                 raw_files.append((entry.path, entry.name, entry.stat(), True)) # True for is_dir
                             except OSError:
                                 pass
-                    elif entry.is_file():
+                    elif entry.is_file() and not entry.name.startswith('.'):
                         ext = os.path.splitext(entry.name)[1].lower()
                         if ext in self.extensions:
                             try:
@@ -186,8 +190,8 @@ class FileScanner:
             pass
             
         # Process files immediately
-        items = self._process_files(raw_files, root_path)
-        return subdirs, items, weight, depth, path
+        items = self._process_files(raw_files, root_path, depth)
+        return subdirs, items, weight, depth, path, index_path_in_tree
 
     def _resolve_sequence_frame(self, seq):
         """Given a fileseq, return (concrete_file_path, frame_number).
@@ -203,7 +207,32 @@ class FileScanner:
             pass
         return path
 
-    def _process_files(self, raw_files, start_path):
+    @staticmethod
+    def _format_sequence_path(seq):
+        """
+        Converts a fileseq path string into the specific URI formatting xStudio demands 
+        for loading image sequences (e.g. `/dir/prefix{:04d}.ext=1001-1050`).
+
+        Args:
+            path (str): The raw file path or fileseq string.
+        
+        Returns:
+            str | None: The formatted sequence path, or None if fileseq is unavailable or it's a single file.
+        """
+        if len(seq) <= 1: return None
+        pad_str = seq.padding()
+        if pad_str and pad_str.startswith("%"):
+            import re
+            m = re.search(r"%(0(\d+))?d", pad_str)
+            pad_len = int(m.group(2)) if m and m.group(2) else 0
+        elif pad_str:
+            pad_len = pad_str.count('#') * 4 + pad_str.count('@')
+        else:
+            pad_len = 0
+        brace_padding = f"{{:0{pad_len}d}}" if pad_len > 0 else "{:d}"
+        return f"{seq.dirname()}{seq.basename()}{brace_padding}{seq.extension()}={seq.frameRange()}"
+
+    def _process_files(self, raw_files, start_path, depth):
         """
         raw_files: list of (full_path, basename, stat_obj, is_dir)
         """
@@ -215,13 +244,13 @@ class FileScanner:
         # Split into sequence candidates and singles
         for p, name, st, is_dir in raw_files:
             if is_dir:
-                 final_items.append(self._make_item(p, name, st, start_path, is_directory=True))
+                 final_items.append(self._make_item(p, name, st, start_path, is_directory=True, depth=depth))
                  continue
                  
             ext = os.path.splitext(name)[1].lower()
             if ext in self.non_sequence_extensions:
                 # Treat strictly as single file
-                final_items.append(self._make_item(p, name, st, start_path))
+                final_items.append(self._make_item(p, name, st, start_path, depth=depth))
             else:
                 sequence_candidate_paths.append(p)
             
@@ -241,7 +270,7 @@ class FileScanner:
              for p in sequence_candidate_paths:
                  info = path_map.get(p)
                  if info:
-                    final_items.append(self._make_item(p, info[0], info[1], start_path))
+                    final_items.append(self._make_item(p, info[0], info[1], start_path, depth=depth))
 
         for seq in sequences:
             # Check if we should explode this sequence (if it's actually versioned files matching config)
@@ -265,7 +294,7 @@ class FileScanner:
                  str_p = str(seq[0])
                  info = path_map.get(str_p)
                  if info:
-                     final_items.append(self._make_item(str_p, info[0], info[1], start_path))
+                     final_items.append(self._make_item(str_p, info[0], info[1], start_path, depth=depth))
                  continue
 
             # It's a sequence
@@ -311,9 +340,21 @@ class FileScanner:
             # fileseq.FileSequence string conversion gives the sequence string (path-#.ext).
             # We want that as 'path'?
             # xstudio expects 'path' to be loadable.
+
+            match = self.version_regex.search(name)
+            if match:
+                span = match.span()
+                prefix = name[:span[0]]
+                suffix = name[span[1]:]
+                version_stream_key = prefix + suffix
+            else:
+                version_stream_key = name
+
+            
+
             item = {
                 "name": name,
-                "path": str(seq), # Sequence string path
+                "path": self._format_sequence_path(seq), # Sequence string path
                 "relpath": os.path.relpath(first_path, start_path), # Relative path of ONE file? Or sequence?
                 # relpath is used for tree building.
                 # If we use first_path, detailed logic might split it.
@@ -329,10 +370,13 @@ class FileScanner:
                 "size": total_size,
                 "size_str": self.format_size_str(total_size),
                 "date": max_mtime,
+                "date_string": datetime.fromtimestamp(max_mtime).strftime("%Y-%m-%d %H:%M:%S"),
                 "owner": owner,
                 "extension": seq.extension(),
                 "is_sequence": True,
-                "is_folder": False
+                "is_folder": False,
+                "version_stream_key": version_stream_key,
+                "depth": depth
             }
             # Fix relpath to be based on the abstract sequence path if possible?
             # actually `str(seq)` gives the sequence path.
@@ -343,21 +387,37 @@ class FileScanner:
 
         return self._group_versions(final_items)
 
-    def _make_item(self, path, name, st, start_path, is_directory=False):
+    def _make_item(self, path, name, st, start_path, is_directory=False, depth=0):
+        p = pathlib.Path(path)
+
+        match = self.version_regex.search(name)
+        if match:
+            span = match.span()
+            prefix = name[:span[0]]
+            suffix = name[span[1]:]
+            version_stream_key = prefix + suffix
+        else:
+            version_stream_key = name
+
         return {
             "name": name,
             "path": path,
+            "stem": p.stem,
+            "ext": p.suffix,
             "relpath": os.path.relpath(path, start_path),
             "type": "Folder" if is_directory else "File",
             "frames": "" if is_directory else "1",
             "size": 0 if is_directory else st.st_size,
             "size_str": "" if is_directory else self.format_size_str(st.st_size),
             "date": st.st_mtime,
+            "date_string": datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
             "owner": self.get_owner(st.st_uid),
             "extension": "" if is_directory else os.path.splitext(name)[1],
             "is_sequence": False,
             "is_folder": is_directory,
-            "thumbnailFrame": path if not is_directory else None
+            "thumbnailFrame": path if not is_directory else None,
+            "depth": depth,
+            "version_stream_key": version_stream_key
         }
 
     def _group_versions(self, items):

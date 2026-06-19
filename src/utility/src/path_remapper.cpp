@@ -5,60 +5,56 @@
 
 namespace xstudio::utility {
 
-std::string PathRemapper::forwards(const std::string &path) {
-	return remap(path, true);
-}
+std::string PathRemapper::forwards(const std::string &path) { return remap(path, true); }
 
-std::string PathRemapper::backwards(const std::string &path) {
-	return remap(path, false);
-}
+std::string PathRemapper::backwards(const std::string &path) { return remap(path, false); }
 
 std::string PathRemapper::remap(const std::string &path, const bool forward) {
 
-	std::scoped_lock lock(mutex_);
+    std::scoped_lock lock(mutex_);
 
-	const auto &remap = (forward ? forward_regex_ : backward_regex_);
-	auto p = path;
+    const auto &remap = (forward ? forward_regex_ : backward_regex_);
+    auto p            = path;
 
-	// are we in danger of flip / flopping forever ?
-	if(forward) {
-		auto it = forward_map_.find(p);
-		while(it != std::end(forward_map_) and p != it->second) {
-			p = it->second;
-			it = forward_map_.find(p);
-		}
-	}
+    // are we in danger of flip / flopping forever ?
+    if (forward) {
+        auto it = forward_map_.find(p);
+        while (it != std::end(forward_map_) and p != it->second) {
+            p  = it->second;
+            it = forward_map_.find(p);
+        }
+    }
 
     for (const auto &r : remap) {
         p = std::regex_replace(p, r.first, r.second);
     }
 
-	// are we in danger of flip / flopping forever ?
-	if(not forward) {
-		auto it = backward_map_.find(p);
-		while(it != std::end(backward_map_) and p != it->second) {
-			p = it->second;
-			it = backward_map_.find(p);
-		}
-	}
+    // are we in danger of flip / flopping forever ?
+    if (not forward) {
+        auto it = backward_map_.find(p);
+        while (it != std::end(backward_map_) and p != it->second) {
+            p  = it->second;
+            it = backward_map_.find(p);
+        }
+    }
 
     // if(p != path) {
     // 	spdlog::warn("remap forward {} {} -> {}", forward, path, p);
     // }
 
-	return p;
+    return p;
 }
 
 void PathRemapper::add_path_mapping(const std::string &from, const std::string &to) {
-	// spdlog::warn("add_path_mapping {} -> {}", from, to);
-	std::scoped_lock lock(mutex_);
-	forward_map_.emplace(std::make_pair(from, to));
-	backward_map_.emplace(std::make_pair(to, from));
+    // spdlog::warn("add_path_mapping {} -> {}", from, to);
+    std::scoped_lock lock(mutex_);
+    forward_map_.emplace(std::make_pair(from, to));
+    backward_map_.emplace(std::make_pair(to, from));
 }
 
 
 void PathRemapper::configure(const utility::JsonStore &jsn) {
-	std::scoped_lock lock(mutex_);
+    std::scoped_lock lock(mutex_);
     try {
         if (!jsn.is_object())
             throw std::runtime_error("Json should be a dict");
@@ -98,5 +94,4 @@ void PathRemapper::configure(const utility::JsonStore &jsn) {
     }
 }
 
-}
-
+} // namespace xstudio::utility

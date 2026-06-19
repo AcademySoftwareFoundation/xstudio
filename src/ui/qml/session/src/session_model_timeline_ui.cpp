@@ -659,7 +659,8 @@ QVariantList SessionModel::getAllContainerMediaFPS(const QModelIndex &tindex) {
 
         for (auto &m : media) {
             try {
-                auto rate = request_receive<utility::FrameRate>(*sys, m.actor(), utility::rate_atom_v, media::MT_IMAGE);
+                auto rate = request_receive<utility::FrameRate>(
+                    *sys, m.actor(), utility::rate_atom_v, media::MT_IMAGE);
                 result.push_back(rate.to_fps());
             } catch (const std::exception &err) {
                 result.push_back(QVariant());

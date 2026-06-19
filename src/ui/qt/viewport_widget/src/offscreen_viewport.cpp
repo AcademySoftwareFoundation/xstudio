@@ -696,7 +696,18 @@ void OffscreenViewport::setPlayhead(const QString &playheadAddress) {
     try {
 
         scoped_actor sys{as_actor()->home_system()};
-        auto playhead_actor = qml::actorFromQString(as_actor()->home_system(), playheadAddress);
+        caf::actor playhead_actor;
+
+        if (!playheadAddress.isEmpty()) {
+            playhead_actor = qml::actorFromQString(as_actor()->home_system(), playheadAddress);
+        } else {
+            // use current active playhead
+            auto playhead_events_actor =
+                system().registry().template get<caf::actor>(global_playhead_events_actor);
+
+            playhead_actor = utility::request_receive<caf::actor>(
+                *sys, playhead_events_actor, viewport_playhead_atom_v);
+        }
 
         if (playhead_actor) {
             xstudio_viewport_->set_playhead(playhead_actor);

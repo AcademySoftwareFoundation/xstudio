@@ -16,9 +16,7 @@ class OIIOMediaReader : public MediaReader {
 
     ImageBufPtr image(const media::AVFrameID &mptr) override;
 
-    [[nodiscard]] bool prefer_sequential_access() const override {
-        return false;
-    }
+    [[nodiscard]] bool prefer_sequential_access() const override { return false; }
 
     MRCertainty
     supported(const caf::uri &uri, const std::array<uint8_t, 16> &signature) override;

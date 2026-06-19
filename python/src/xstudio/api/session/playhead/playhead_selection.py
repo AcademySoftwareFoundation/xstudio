@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-from xstudio.core import monitored_atom, Uuid, MT_IMAGE, MT_AUDIO
+from xstudio.core import monitored_atom, Uuid, MT_IMAGE, MT_AUDIO, VectorUuid
 from xstudio.core import move_atom, remove_atom, actor, select_all_media_atom
 from xstudio.core import select_media_atom, get_selected_sources_atom
 
@@ -67,9 +67,7 @@ class PlayheadSelection(Container):
         Returns:
             success(bool): Selection set.
         """
-        self.connection.request_receive(self.remote, select_media_atom())
-        for media_uuid in media_uuids:
-            self.connection.request_receive(self.remote, select_media_atom(), media_uuid)
+        self.connection.request_receive(self.remote, select_media_atom(), VectorUuid(media_uuids))
         return True
 
     def insert(self, media, before=Uuid(), media_type=MT_IMAGE):

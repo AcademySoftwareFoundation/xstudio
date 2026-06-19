@@ -50,11 +50,11 @@ namespace fs = std::filesystem;
 // }
 
 namespace {
-    std::set<std::string> supported_extensions_;
-    std::mutex supported_extensions_mutex;
-    std::set<std::string> warned_undefined_envvars_;
-    std::mutex warned_undefined_envvars_mutex;
-    static PathRemapper s_remapper;
+std::set<std::string> supported_extensions_;
+std::mutex supported_extensions_mutex;
+std::set<std::string> warned_undefined_envvars_;
+std::mutex warned_undefined_envvars_mutex;
+static PathRemapper s_remapper;
 } // namespace
 
 void xstudio::utility::add_supported_extensions(const std::vector<std::string> &values) {
@@ -88,7 +88,7 @@ void xstudio::utility::add_remap_file_path(const std::string &from, const std::s
     s_remapper.add_path_mapping(from, to);
 }
 
-std::string xstudio::utility::forward_remap_file_path (const std::string &path) {
+std::string xstudio::utility::forward_remap_file_path(const std::string &path) {
     return s_remapper.forwards(path);
 }
 
@@ -565,7 +565,8 @@ caf::uri xstudio::utility::parse_cli_posix_path(
     return uri;
 }
 
-caf::uri xstudio::utility::posix_path_to_uri(const std::string &path, const bool abspath, const bool remap) {
+caf::uri xstudio::utility::posix_path_to_uri(
+    const std::string &path, const bool abspath, const bool remap) {
 
     auto p = path;
 
@@ -583,7 +584,7 @@ caf::uri xstudio::utility::posix_path_to_uri(const std::string &path, const bool
 #endif
     }
 
-    if(remap)
+    if (remap)
         p = reverse_remap_file_path(p);
 
     // spdlog::warn("posix_path_to_uri: {} -> {}", path, p);
@@ -965,8 +966,7 @@ std::string xstudio::utility::xstudio_resources_dir(const std::string &append_pa
 #endif
 }
 
-std::array<unsigned char, 16>
-xstudio::utility::md5_hash(const void *data, std::size_t size) {
+std::array<unsigned char, 16> xstudio::utility::md5_hash(const void *data, std::size_t size) {
     std::array<unsigned char, 16> hash{};
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();

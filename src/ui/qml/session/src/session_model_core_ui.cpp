@@ -1301,7 +1301,7 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
             case thumbnailURLRole:
                 if (j.count("thumbnail_url") and j.at("thumbnail_url") != value) {
                     j["thumbnail_url"] = value;
-                    result            = true;
+                    result             = true;
                 }
                 break;
 
