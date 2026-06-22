@@ -6,6 +6,8 @@ cmake_policy(VERSION 3.26)
 set(XSTUDIO_GLOBAL_VERSION "1.3.0" CACHE STRING "Version string")
 set(XSTUDIO_GLOBAL_NAME xStudio)
 
+# Uncomment and modify as required to do MacOS builds that support historic versions
+# of MacOS
 # set(CMAKE_OSX_DEPLOYMENT_TARGET "14.5" CACHE STRING "Minimum OS X deployment version" FORCE)
 
 project(${XSTUDIO_GLOBAL_NAME} VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
