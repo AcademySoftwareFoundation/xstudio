@@ -31,6 +31,9 @@ Item {
 
     property var previewing: previewMediaUuid != helpers.QVariantFromUuidString("") ? previewMediaUuid == currentPlayhead.mediaUuid : false
 
+    # uri requires triple slash before drive letter on Windows, since this is the root.
+    property var thumbSrcRoot: Qt.platform.os === "windows" ? "image://thumbnail/file:///" : "image://thumbnail/file://"
+
     FileSystemBrowserScanResultsModel {
         id: __scanResultsModel
         viewMode: root.viewMode
