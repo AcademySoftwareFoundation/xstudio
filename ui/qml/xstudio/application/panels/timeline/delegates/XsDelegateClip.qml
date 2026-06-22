@@ -188,14 +188,14 @@ RowLayout {
 	    	updateMediaIndex()
 	    }
 
-	    onDraggingStarted: {
+	    onDraggingStarted: (mode)=> {
 	    	control.draggingStarted(modelIndex(), control, mode)
 	    	isDragging = true
 	    }
 		onDragging: control.dragging(modelIndex(), control, mode, x / scaleX, y / scaleY / config.itemHeight)
 		onDoubleTapped: control.doubleTapped(control, mode)
 		onTapped: control.tapped(button, x, y, modifiers, control)
-		onDraggingStopped: {
+		onDraggingStopped: (mode)=> {
 			control.draggingStopped(modelIndex(), control, mode)
 	    	isDragging = false
 		}
