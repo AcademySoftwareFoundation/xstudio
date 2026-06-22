@@ -733,7 +733,7 @@ Rectangle {
         theSessionData.set(index, name, "nameRole")
     }
 
-    function splitClips(indexes, frame=timelinePlayhead.logicalFrame) {
+    function splitClips(indexes=[], frame=timelinePlayhead.logicalFrame) {
         if(!indexes.length) {
             let cind = theSessionData.getTimelineClipIndex(timeline_items.rootIndex, timelinePlayhead.logicalFrame)
             if(cind.valid)
@@ -1325,6 +1325,16 @@ Rectangle {
             else
                 updateItemSelectionHorizontal(1,-1)
         }
+    }
+
+    XsHotkey {
+        id: split_clips_hotkey
+        context: "any"
+        sequence:  "Meta+S"
+        name: "Split Clip"
+        description: "Split timeline clip at current frame"
+        onActivated: splitClips()
+        componentName: "Timeline"
     }
 
     XsHotkey {
