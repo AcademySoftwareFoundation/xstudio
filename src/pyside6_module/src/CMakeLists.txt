@@ -166,11 +166,6 @@ set(PYTHONVP "python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}")
 
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME})
 
-if(UNIX)
-	# shiboken does some function type casting that GCC doesn't like
-	target_compile_options(${PROJECT_NAME} PRIVATE -Wno-cast-function-type)
-endif()
-
 if(INSTALL_XSTUDIO)
 	set_target_properties(
 		${PROJECT_NAME}

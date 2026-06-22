@@ -216,8 +216,7 @@ class RenderPipeActor : public caf::event_based_actor {
             }
         }
 
-        if (write(output_file_desc_, reinterpret_cast<const char *>(data), size) !=
-            static_cast<int>(size)) {
+        if (write(output_file_desc_, reinterpret_cast<const char *>(data), size) != size) {
 
             throw std::runtime_error(
                 fmt::format(
@@ -284,7 +283,6 @@ VideoRenderWorker::VideoRenderWorker(
     const int in_point,
     const int out_point,
     const utility::FrameRate &frame_rate,
-    const bool frame_for_frame,
     const std::string &video_codec_opts,
     const std::string &video_render_bit_depth,
     const std::string &audio_codec_opts,
@@ -305,7 +303,6 @@ VideoRenderWorker::VideoRenderWorker(
       in_point_(in_point),
       out_point_(out_point),
       frame_rate_(frame_rate),
-      frame_for_frame_(frame_for_frame),
       video_codec_opts_(video_codec_opts),
       video_render_bit_depth_(video_render_bit_depth),
       audio_codec_opts_(audio_codec_opts),
@@ -333,23 +330,12 @@ VideoRenderWorker::VideoRenderWorker(
     render_format_ = video_render_bit_depth_.find("16") == 0 ? viewport::ImageFormat::RGBA_16
                                                              : viewport::ImageFormat::RGBA_8;
 
-#ifdef _WIN32
-    // On Windows, drive-letter paths (Z:/foo) parse as URIs with scheme=Z,
-    // and uri_to_posix_path would then drop the drive. Only treat the input
-    // as a URI if it actually contains "://".
-    const bool is_out_uri   = output_file_path_.find("://") != std::string::npos;
-    const bool is_audio_uri = output_audio_path_.find("://") != std::string::npos;
-#else
-    // compiles away
-    const bool is_out_uri   = true;
-    const bool is_audio_uri = true;
-#endif
     auto out_uri = caf::make_uri(output_file_path_);
-    if (out_uri && is_out_uri) {
+    if (out_uri) {
         output_file_path_ = utility::uri_to_posix_path(*out_uri);
     }
     out_uri = caf::make_uri(output_audio_path_);
-    if (out_uri && is_audio_uri) {
+    if (out_uri) {
         output_audio_path_ = utility::uri_to_posix_path(*out_uri);
     }
 
@@ -520,12 +506,7 @@ void VideoRenderWorker::start_render_task() {
 
                     playhead_ = playhead.actor();
 
-
                     scoped_actor sys{system()};
-
-                    // disable playhead loop range
-                    anon_mail(playhead::use_loop_range_atom_v, false).send(playhead_);
-
                     const auto type = utility::request_receive<std::string>(
                         *sys, renderable_, utility::type_atom_v);
 
@@ -542,16 +523,14 @@ void VideoRenderWorker::start_render_task() {
                         *sys, playhead_, playhead::duration_flicks_atom_v, true);
 
                     if (in_point_ == -1) {
-                        start_position_ = timebase::flicks(0);
+                        playhead_position_ = timebase::flicks(0);
                     } else {
-                        start_position_ = utility::request_receive<timebase::flicks>(
+                        playhead_position_ = utility::request_receive<timebase::flicks>(
                             *sys,
                             playhead_,
                             playhead::logical_frame_to_flicks_atom_v,
                             in_point_);
                     }
-
-                    playhead_position_ = start_position_;
 
                     if (out_point_ == -1) {
                         end_position_ = dur;
@@ -638,10 +617,12 @@ void VideoRenderWorker::continue_render_loop() {
         anon_mail(playhead::step_atom_v).send(caf::actor_cast<caf::actor>(this));
 
         int cp = int(round(
-            timebase::to_seconds(playhead_position_ - start_position_) * 100.0 /
-            timebase::to_seconds(end_position_ - start_position_)));
+            timebase::to_seconds(playhead_position_) * 100.0 /
+            timebase::to_seconds(end_position_)));
         if (cp != percent_complete_) {
-            percent_complete_ = cp;
+            percent_complete_ = int(round(
+                timebase::to_seconds(playhead_position_) * 100.0 /
+                timebase::to_seconds(end_position_)));
             update_status(fmt::format("In Progress ({}%)", percent_complete_));
         }
     }
@@ -728,7 +709,7 @@ void VideoRenderWorker::start_ffmpeg_process() {
         fmt::format("\\\\.\\pipe\\xSTUDIO_Pipe_{}.yuv", to_string(job_uuid_));
 
     HANDLE video_pipe = open_named_pipe(output_yuv_filename_);
-    HANDLE audio_pipe = nullptr;
+    HANDLE audio_pipe = NULL;
 
     if (!audio_codec_opts_.empty()) {
         output_audio_filename_ =
@@ -999,103 +980,6 @@ void VideoRenderWorker::render_step() {
         return;
     }
 
-    auto render_to_image_step = [=](const timebase::flicks new_playhead_position) {
-        // render the viewport to an image buffer
-        mail(
-            viewport::render_viewport_to_image_atom_v,
-            resolution_.x,
-            resolution_.y,
-            render_format_)
-            .request(offscreen_viewport_, infinite)
-            .then(
-                [=](const media_reader::ImageBufPtr &image) {
-                    if (render_format_ == viewport::ImageFormat::RGBA_16) {
-                        flop_rgba_image<uint16_t>(image);
-                    } else {
-                        flop_rgba_image<uint8_t>(image);
-                    }
-
-                    // send the image to ffmpeg
-                    encode_frame(image);
-
-                    if (audio_out_pipe_) {
-
-                        // now make an empty audio buffer - we send this to the playhead
-                        // to fill with samples.
-                        auto audio_buffer =
-                            media_reader::AudioBufPtr(new media_reader::AudioBuffer());
-
-                        // calculate duration of audio we need - in order to avoid
-                        // losing samples due to rounding (playhead position is in
-                        // timebase::flicks, whereas soundcard sample rate might not
-                        // factor into flicks exactly), our reference is
-                        // num_audio_samples_delivered_ which has to keep up with
-                        // playhead_position_ according to soundcard sample rate
-                        audio_stream_position_ += frame_rate_;
-                        auto microsecs = std::chrono::duration_cast<std::chrono::microseconds>(
-                                             audio_stream_position_)
-                                             .count() -
-                                         (num_audio_samples_delivered_ * 1000000) /
-                                             int64_t(soundcard_sample_rate_);
-
-                        const int64_t num_samples =
-                            microsecs * int64_t(soundcard_sample_rate_) / 1000000;
-
-                        audio_buffer->allocate(
-                            soundcard_sample_rate_,    // sample rate
-                            2,                         // num channels
-                            num_samples,               // samples
-                            audio::SampleFormat::INT16 // format
-                        );
-                        memset(audio_buffer->buffer(), 0, audio_buffer->size());
-
-                        num_audio_samples_delivered_ += num_samples;
-
-                        // now request an audio buffer corresponding to the duration of
-                        // the video frame
-                        mail(
-                            playhead::audio_buffer_atom_v,
-                            playhead_position_,
-                            audio_buffer,
-                            frame_for_frame_)
-                            .request(playhead_, infinite)
-                            .then(
-                                [=](const media_reader::AudioBufPtr &audio_buf) {
-                                    waiting_for_buffers_ = false;
-
-                                    // advance the playhead position to the next frame
-                                    playhead_position_ = new_playhead_position;
-
-                                    // send the audio to ffmpeg
-                                    encode_audio(audio_buf);
-                                    continue_render_loop();
-                                },
-                                [=](caf::error &err) mutable {
-                                    update_status(
-                                        fmt::format(
-                                            "Failed with error: {} {}",
-                                            __PRETTY_FUNCTION__,
-                                            to_string(err)),
-                                        Failed);
-                                });
-
-                    } else {
-
-                        // advance the playhead position to the next frame
-                        waiting_for_buffers_ = false;
-                        playhead_position_   = new_playhead_position;
-                        continue_render_loop();
-                    }
-                },
-                [=](caf::error &err) mutable {
-                    update_status(
-                        fmt::format(
-                            "Failed with error: {} {}", __PRETTY_FUNCTION__, to_string(err)),
-                        Failed);
-                });
-    };
-
-
     // we've asked ourselves to do a render step, but the last render
     // step has not completed (i.e. the image and/or audio buffers requested
     // below last time we entered this function haven't been received yet).
@@ -1106,51 +990,112 @@ void VideoRenderWorker::render_step() {
         return;
 
     waiting_for_buffers_ = true;
+    // set playhead position
+    mail(playhead::jump_atom_v, playhead_position_)
+        .request(playhead_, infinite)
+        .then(
+            [=](bool) {
+                // now render the viewport to an image buffer
+                mail(
+                    viewport::render_viewport_to_image_atom_v,
+                    resolution_.x,
+                    resolution_.y,
+                    render_format_)
+                    .request(offscreen_viewport_, infinite)
+                    .then(
+                        [=](const media_reader::ImageBufPtr &image) {
+                            if (render_format_ == viewport::ImageFormat::RGBA_16) {
+                                flop_rgba_image<uint16_t>(image);
+                            } else {
+                                flop_rgba_image<uint8_t>(image);
+                            }
 
-    if (frame_for_frame_) {
+                            // send the image to ffmpeg
+                            encode_frame(image);
 
-        // step forward one frame (unless this is the first frame of the render).
-        mail(playhead::step_atom_v, starting_render_loop_ ? int(0) : int(1))
-            .request(playhead_, infinite)
-            .then(
-                [=](timebase::flicks new_position) {
-                    if (!starting_render_loop_ && new_position <= playhead_position_) {
-                        // this might happen if the playhead has gone all the
-                        // way through the frame range and wrapped around
-                        // to the start frame. Therefore, force end of the
-                        // render loop
-                        playhead_position_ = end_position_ + timebase::flicks(1);
-                        continue_render_loop();
-                    } else {
-                        if (starting_render_loop_) {
-                            starting_render_loop_ = false;
-                        }
-                        render_to_image_step(new_position);
-                    }
-                },
-                [=](caf::error &err) mutable {
-                    update_status(
-                        fmt::format(
-                            "Failed with error: {} {}", __PRETTY_FUNCTION__, to_string(err)),
-                        Failed);
-                });
-    } else {
+                            if (audio_out_pipe_) {
 
-        // set playhead position to the new position
-        mail(playhead::jump_atom_v, playhead_position_)
-            .request(playhead_, infinite)
-            .then(
-                [=](bool) {
-                    // playhead position is incremented by frame_rate_
-                    render_to_image_step(playhead_position_ + frame_rate_);
-                },
-                [=](caf::error &err) mutable {
-                    update_status(
-                        fmt::format(
-                            "Failed with error: {} {}", __PRETTY_FUNCTION__, to_string(err)),
-                        Failed);
-                });
-    }
+                                // now make an empty audio buffer - we send this to the playhead
+                                // to fill with samples.
+                                auto audio_buffer =
+                                    media_reader::AudioBufPtr(new media_reader::AudioBuffer());
+
+                                // calculate duration of audio we need - in order to avoid
+                                // losing samples due to rounding (playhead position is in
+                                // timebase::flicks, whereas soundcard sample rate might not
+                                // factor into flicks exactly), our reference is
+                                // num_audio_samples_delivered_ which has to keep up with
+                                // playhead_position_ according to soundcard sample rate
+                                auto p_plus = playhead_position_ + frame_rate_;
+                                auto microsecs =
+                                    std::chrono::duration_cast<std::chrono::microseconds>(
+                                        p_plus)
+                                        .count() -
+                                    (num_audio_samples_delivered_ * 1000000) /
+                                        int64_t(soundcard_sample_rate_);
+                                const int64_t num_samples =
+                                    microsecs * int64_t(soundcard_sample_rate_) / 1000000;
+
+                                audio_buffer->allocate(
+                                    soundcard_sample_rate_,    // sample rate
+                                    2,                         // num channels
+                                    num_samples,               // samples
+                                    audio::SampleFormat::INT16 // format
+                                );
+                                memset(audio_buffer->buffer(), 0, audio_buffer->size());
+
+                                num_audio_samples_delivered_ += num_samples;
+
+                                // now request an audio buffer corresponding to the duration of
+                                // the video frame
+                                mail(
+                                    playhead::audio_buffer_atom_v,
+                                    playhead_position_,
+                                    audio_buffer)
+                                    .request(playhead_, infinite)
+                                    .then(
+                                        [=](const media_reader::AudioBufPtr &audio_buf) {
+                                            waiting_for_buffers_ = false;
+
+                                            // advance the playhead position to the next frame
+                                            playhead_position_ += frame_rate_;
+
+                                            // send the audio to ffmpeg
+                                            encode_audio(audio_buf);
+                                            continue_render_loop();
+                                        },
+                                        [=](caf::error &err) mutable {
+                                            update_status(
+                                                fmt::format(
+                                                    "Failed with error: {} {}",
+                                                    __PRETTY_FUNCTION__,
+                                                    to_string(err)),
+                                                Failed);
+                                        });
+
+                            } else {
+
+                                // advance the playhead position to the next frame
+                                waiting_for_buffers_ = false;
+                                playhead_position_ += frame_rate_;
+                                continue_render_loop();
+                            }
+                        },
+                        [=](caf::error &err) mutable {
+                            update_status(
+                                fmt::format(
+                                    "Failed with error: {} {}",
+                                    __PRETTY_FUNCTION__,
+                                    to_string(err)),
+                                Failed);
+                        });
+            },
+            [=](caf::error &err) mutable {
+                update_status(
+                    fmt::format(
+                        "Failed with error: {} {}", __PRETTY_FUNCTION__, to_string(err)),
+                    Failed);
+            });
 }
 
 void VideoRenderWorker::add_output_to_session() {

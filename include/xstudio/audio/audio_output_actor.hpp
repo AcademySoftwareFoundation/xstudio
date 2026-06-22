@@ -16,7 +16,9 @@ class AudioOutputDeviceActor : public caf::event_based_actor {
         caf::actor samples_actor,
         std::shared_ptr<AudioOutputDevice> output_device)
         : caf::event_based_actor(cfg),
-          audio_samples_actor_(std::move(samples_actor)),
+          playing_(false),
+          waiting_for_samples_(false),
+          audio_samples_actor_(samples_actor),
           output_device_(output_device) {
 
         // spdlog::debug("Created {} {}", "AudioOutputDeviceActor", OutputClassType::name());
@@ -124,6 +126,7 @@ class AudioOutputDeviceActor : public caf::event_based_actor {
 
                 waiting_for_samples_ = true;
 
+                auto tt = utility::clock::now();
                 mail(
                     get_samples_for_soundcard_atom_v,
                     num_samps_soundcard_wants,
@@ -155,18 +158,17 @@ class AudioOutputDeviceActor : public caf::event_based_actor {
 
     caf::behavior make_behavior() override { return behavior_; }
 
-    [[nodiscard]] const char *name() const override { return name_.c_str(); }
-
-
-  private:
-    caf::behavior behavior_;
-    bool playing_{false};
-    bool waiting_for_samples_{false};
-    caf::actor audio_samples_actor_;
-    std::string name_;
+    const char *name() const override { return name_.c_str(); }
 
   protected:
     std::shared_ptr<AudioOutputDevice> output_device_;
+
+  private:
+    caf::behavior behavior_;
+    std::string name_;
+    bool playing_;
+    caf::actor audio_samples_actor_;
+    bool waiting_for_samples_;
 };
 
 class AudioOutputActor : public caf::event_based_actor, AudioOutputControl {
@@ -234,7 +236,7 @@ class GlobalAudioOutputActor : public caf::event_based_actor, module::Module {
         const std::string &context,
         const std::string &window) override;
 
-    [[nodiscard]] const char *name() const override {
+    const char *name() const override {
         return dynamic_cast<const module::Module *>(this)->name().c_str();
     }
 

@@ -22,11 +22,9 @@ using namespace std::chrono_literals;
 UIModelData::UIModelData(
     QObject *parent,
     const std::string &model_name,
-    const std::string data_preference_path,
+    const std::string &data_preference_path,
     const std::vector<std::string> &role_names)
-    : super(parent),
-      model_name_(model_name),
-      data_preference_path_(std::move(data_preference_path)) {
+    : super(parent), model_name_(model_name), data_preference_path_(data_preference_path) {
 
     init(CafSystemObject::get_actor_system());
 
@@ -281,7 +279,7 @@ bool UIModelData::setData(const QModelIndex &index, const QVariant &value, int r
         }
 
     } catch (const std::exception &err) {
-        // auto id = role - Roles::LASTROLE;
+        auto id = role - Roles::LASTROLE;
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
 
@@ -369,7 +367,7 @@ bool UIModelData::moveRows(
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         result = false;
     }
-    return result;
+    return false;
 }
 
 bool UIModelData::insertRows(int row, int count, const QModelIndex &parent) {
@@ -588,7 +586,7 @@ QVariant ViewsModelData::view_qml_source(QString view_name) {
     if (idx.isValid()) {
         return get(idx, "view_qml_source");
     }
-    return {};
+    return QVariant();
 }
 
 PopoutWindowsData::PopoutWindowsData(QObject *parent) : UIModelData(parent) {
@@ -781,8 +779,7 @@ void PanelsModel::split_panel(QModelIndex panel_index, bool horizontal_split) {
     const int insertion_row = panel_index.row();
 
     QVariant h = get(parentNode, "split_horizontal");
-    if (!h.isNull() && QMetaType::canConvert(h.metaType(), QMetaType(QMetaType::Bool)) &&
-        h.toBool() == horizontal_split) {
+    if (!h.isNull() && h.canConvert(QMetaType::Bool) && h.toBool() == horizontal_split) {
 
         // parent splitter is of type matching the type of split we want
         // so we need to insert a new panel.
@@ -898,14 +895,14 @@ MenuModelItem::MenuModelItem(QObject *parent) : super(parent) {
     init(CafSystemObject::get_actor_system());
 }
 
-// MenuModelItem::~MenuModelItem() {
+MenuModelItem::~MenuModelItem() {
 
-//     // TODO: Big optimisations required. Printing debug out here shows that
-//     // many of these are created and destroyed when xstudio starts up. Something
-//     // is not working the way we want!
-//     // std::cerr << "OUT " << to_string(as_actor()) << " " << StdFromQString(menu_name_) <<
-//     // "\n";
-// }
+    // TODO: Big optimisations required. Printing debug out here shows that
+    // many of these are created and destroyed when xstudio starts up. Something
+    // is not working the way we want!
+    // std::cerr << "OUT " << to_string(as_actor()) << " " << StdFromQString(menu_name_) <<
+    // "\n";
+}
 
 void MenuModelItem::init(caf::actor_system &system) {
     super::init(system);

@@ -206,7 +206,7 @@ QModelIndex SessionModel::getContainerIndex(const QModelIndex &index) const {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
 
-    return {};
+    return QModelIndex();
 }
 
 Q_INVOKABLE void SessionModel::purgePlaylist(const QModelIndex &index) {
@@ -269,16 +269,6 @@ void SessionModel::updateViewportCurrentMediaContainerIndexFromBackend() {
         if (r != current_playhead_owner_index_) {
             current_playhead_owner_index_ = r;
             emit viewportCurrentMediaContainerIndexChanged();
-        }
-
-        auto playhead_events_actor =
-            system().registry().template get<caf::actor>(global_playhead_events_actor);
-        auto playhead = request_receive<caf::actor>(
-            *sys, playhead_events_actor, ui::viewport::viewport_playhead_atom_v);
-        if (playhead) {
-            on_screen_playhead_uuid_ = QUuidFromUuid(
-                request_receive<utility::Uuid>(*sys, playhead, utility::uuid_atom_v));
-            emit onScreenPlayheadUuidChanged();
         }
 
     } catch (const std::exception &e) {
@@ -467,6 +457,19 @@ void SessionModel::setSessionActorAddr(const QString &addr) {
             // from the session backend actor
             updateCurrentMediaContainerIndexFromBackend();
             updateViewportCurrentMediaContainerIndexFromBackend();
+
+            try {
+                auto playhead_events_actor =
+                    system().registry().template get<caf::actor>(global_playhead_events_actor);
+                auto playhead = request_receive<caf::actor>(
+                    *sys, playhead_events_actor, ui::viewport::viewport_playhead_atom_v);
+                if (playhead) {
+                    on_screen_playhead_uuid_ = QUuidFromUuid(
+                        request_receive<utility::Uuid>(*sys, playhead, utility::uuid_atom_v));
+                    emit onScreenPlayheadUuidChanged();
+                }
+            } catch (...) {
+            }
 
             // join bookmark events
             if (session_actor_) {
@@ -826,7 +829,7 @@ QFuture<QList<QUuid>> SessionModel::handleContainerIdDropFuture(
         scoped_actor sys{system()};
         QList<QUuid> results;
         UuidActorVector new_media;
-        // auto proposedAction = proposedAction_;
+        auto proposedAction = proposedAction_;
 
         try {
             // spdlog::warn(
@@ -845,7 +848,7 @@ QFuture<QList<QUuid>> SessionModel::handleContainerIdDropFuture(
 
                 auto cind = searchRecursive(QUuid::fromString(QStringFromStd(i)), idRole);
                 if (cind.isValid()) {
-                    // const auto &cij = indexToData(cind);
+                    const auto &cij = indexToData(cind);
                     // spdlog::info("{}", cij.dump(2));
                     auto item        = UuidFromQUuid(cind.data(containerUuidRole).toUuid());
                     auto parent_uuid = Uuid();
@@ -862,7 +865,7 @@ QFuture<QList<QUuid>> SessionModel::handleContainerIdDropFuture(
                         if (valid_index) {
                             // Moving or copying container to existing playlist, possibly
                             // itself.
-                            // const auto &ij = indexToData(index);
+                            const auto &ij = indexToData(index);
                             // spdlog::info("{}", ij.dump(2));
                             target_uuid = UuidFromQUuid(index.data(containerUuidRole).toUuid());
                             auto target_actor_uuid =
@@ -926,7 +929,7 @@ QFuture<QList<QUuid>> SessionModel::handleContainerIdDropFuture(
                         if (i.second == target_parent_uuid) {
                             // spdlog::warn("move");
                             // moving inside parent.
-                            std::ignore = request_receive<bool>(
+                            auto new_item = request_receive<bool>(
                                 *sys,
                                 target_parent_actor,
                                 playlist::move_container_atom_v,
@@ -957,7 +960,7 @@ QFuture<QList<QUuid>> SessionModel::handleUriListDropFuture(
         scoped_actor sys{system()};
         QList<QUuid> results;
         UuidActorVector new_media;
-        // auto proposedAction = proposedAction_;
+        auto proposedAction = proposedAction_;
 
         try {
             // spdlog::warn(
@@ -1012,7 +1015,7 @@ QFuture<QList<QUuid>> SessionModel::handleUriListDropFuture(
                 if (target) {
                     for (const auto &path : jdrop.at("text/uri-list")) {
                         auto path_string = path.get<std::string>();
-                        auto uri         = caf::make_uri(uri_encode(url_clean(path_string)));
+                        auto uri         = caf::make_uri(url_clean(path_string));
 
                         if (uri) {
                             // uri maybe timeline...
@@ -1111,7 +1114,7 @@ QFuture<QList<QUuid>> SessionModel::handleOtherDropFuture(
         scoped_actor sys{system()};
         QList<QUuid> results;
         UuidActorVector new_media;
-        // auto proposedAction = proposedAction_;
+        auto proposedAction = proposedAction_;
 
         try {
             // spdlog::warn(
@@ -1684,7 +1687,7 @@ void SessionModel::setViewportCurrentMediaContainerIndex(const QModelIndex &inde
             auto cactor = actorFromQString(system(), index.data(actorRole).toString());
 
             // This is the 'viewed' playlist
-            // const bool viewed = true;
+            const bool viewed = true;
 
             scoped_actor sys{system()};
             request_receive<bool>(

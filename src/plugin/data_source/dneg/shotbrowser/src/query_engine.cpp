@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#include <openssl/md5.h>
+
 #include "definitions.hpp"
 #include "query_engine.hpp"
 #include "xstudio/atoms.hpp"
@@ -44,7 +46,6 @@ QueryEngine::QueryEngine() {
     set_cache(cache_name("Partial Render"), BoolTermValues);
     set_cache(cache_name("Has Contents"), BoolTermValues);
     set_cache(cache_name("Has Notes"), BoolTermValues);
-    set_cache(cache_name("Include Deleted"), BoolTermValues);
     set_cache(cache_name("Is Hero"), BoolTermValues);
     set_cache(cache_name("Viewable"), BoolTermValues);
     set_cache(cache_name("Latest Version"), BoolTermValues);
@@ -116,7 +117,7 @@ std::optional<nlohmann::json>
 QueryEngine::find_by_id(const utility::Uuid &uuid, const utility::JsonStore &presets) {
     if (presets.is_object()) {
         if (presets.count("id") && presets.at("id").get<utility::Uuid>() == uuid)
-            return nlohmann::json(presets.ref());
+            return presets;
         else {
             if (presets.count("children")) {
                 for (const auto &i : presets.at("children")) {
@@ -159,7 +160,12 @@ std::string QueryEngine::checksum(const utility::JsonStore &data) {
     else
         dump = data.dump(2);
 
-    auto hash = utility::md5_hash(dump.c_str(), dump.size());
+    std::array<unsigned char, MD5_DIGEST_LENGTH> hash;
+
+    MD5_CTX md5;
+    MD5_Init(&md5);
+    MD5_Update(&md5, dump.c_str(), dump.size());
+    MD5_Final(hash.data(), &md5);
 
     std::stringstream ss;
 
@@ -855,7 +861,6 @@ shotgun_client::FilterBy QueryEngine::terms_to_query(
     const JsonStore &terms,
     const int project_id,
     const std::string &entity,
-    const utility::JsonStore &context,
     const utility::JsonStore &lookup,
     const bool and_mode,
     const bool initial) {
@@ -866,13 +871,14 @@ shotgun_client::FilterBy QueryEngine::terms_to_query(
         // add terms we always want.
         result.emplace_back(Number("project.Project.id").is(project_id));
 
-        if (not context.value("include_deleted", false)) {
-            if (entity == "Playlists") {
-                result.emplace_back(Text("sg_status").is_not("arc"));
-            } else if (entity == "Versions") {
-                result.emplace_back(Text("sg_deleted").is_null());
-            } else if (entity == "Notes") {
-            }
+        if (entity == "Playlists") {
+            result.emplace_back(Text("sg_status").is_not("arc"));
+        } else if (entity == "Versions") {
+            result.emplace_back(Text("sg_deleted").is_null());
+            // result.emplace_back(FilterBy().Or(
+            //     Text("sg_path_to_movie").is_not_null(),
+            //     Text("sg_path_to_frames").is_not_null()));
+        } else if (entity == "Notes") {
         }
     } else if (not and_mode) {
         result = FilterBy(BoolOperator::OR);
@@ -881,13 +887,7 @@ shotgun_client::FilterBy QueryEngine::terms_to_query(
     for (const auto &i : terms) {
         if (i.at("term") == "Operator") {
             result.emplace_back(terms_to_query(
-                i.at("children"),
-                project_id,
-                entity,
-                context,
-                lookup,
-                i.at("value") == "And",
-                false));
+                i.at("children"), project_id, entity, lookup, i.at("value") == "And", false));
         } else {
             try {
                 add_term_to_filter(entity, i, project_id, lookup, &result);
@@ -941,8 +941,8 @@ void QueryEngine::replace_with_env(
     const static std::regex env_regex(R"(\$\{.+?\})");
 
     if (value.is_string()) {
-        auto s = value.get<std::string>();
-        // auto done    = false;
+        auto s       = value.get<std::string>();
+        auto done    = false;
         auto env_end = std::sregex_iterator();
 
         while (true) {
@@ -1011,8 +1011,6 @@ utility::JsonStore QueryEngine::preprocess_terms(
                 query["fields"] = NoteFields;
             else if (entity == "Playlists")
                 query["fields"] = PlaylistFields;
-
-            query["context"]["include_deleted"] = false;
         }
 
         // duplicate term if array.
@@ -1060,8 +1058,6 @@ utility::JsonStore QueryEngine::preprocess_terms(
                         query["project_id"] =
                             resolve_query_value("Project", linkvalue, lookup).get<int>();
                 }
-            } else if (term == "Include Deleted") {
-                query["context"]["include_deleted"] = i.at("value") == "True";
             } else if (term == "Preferred Visual") {
                 query["context"]["visual_source"].push_back(i.at("value").get<std::string>());
             } else if (term == "Preferred Audio") {
@@ -1259,8 +1255,7 @@ utility::JsonStore QueryEngine::build_query(
     // }
 
     try {
-        query["query"] =
-            terms_to_query(preprocessed, query["project_id"], entity, query["context"], lookup);
+        query["query"] = terms_to_query(preprocessed, query["project_id"], entity, lookup);
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         throw;
@@ -1667,11 +1662,6 @@ void QueryEngine::add_version_term_to_filter(
             qry->push_back(Text("sg_latest").is("Yes"));
         else
             throw XStudioError("Invalid query term " + term + " " + value);
-    } else if (term == "Has Note Type") {
-        if (negated)
-            qry->push_back(Text("notes.Note.sg_note_type").is_not(value));
-        else
-            qry->push_back(Text("notes.Note.sg_note_type").is(value));
     } else if (term == "Is Hero") {
         if (value == "False")
             qry->push_back(Checkbox("sg_is_hero").is(false));
@@ -1780,7 +1770,7 @@ void QueryEngine::add_version_term_to_filter(
                     DateTime("sg_submit_dailies").is_not_null(),
                     DateTime("sg_submit_dailies_chn").is_not_null(),
                     DateTime("sg_submit_dailies_mtl").is_not_null(),
-                    DateTime("sg_submit_dailies_syd").is_not_null(),
+                    // DateTime("sg_submit_dailies_van").is_not_null(),
                     DateTime("sg_submit_dailies_mum").is_not_null()));
         } else if (value == "Any") {
             qry->push_back(
@@ -1789,7 +1779,7 @@ void QueryEngine::add_version_term_to_filter(
                     DateTime("sg_submit_dailies").is_not_null(),
                     DateTime("sg_submit_dailies_chn").is_not_null(),
                     DateTime("sg_submit_dailies_mtl").is_not_null(),
-                    DateTime("sg_submit_dailies_syd").is_not_null(),
+                    // DateTime("sg_submit_dailies_van").is_not_null(),
                     DateTime("sg_submit_dailies_mum").is_not_null()));
         }
     } else if (term == "Sent To Client") {
@@ -1806,7 +1796,7 @@ void QueryEngine::add_version_term_to_filter(
                     DateTime("sg_submit_dailies").is_null(),
                     DateTime("sg_submit_dailies_chn").is_null(),
                     DateTime("sg_submit_dailies_mtl").is_null(),
-                    DateTime("sg_submit_dailies_syd").is_null(),
+                    // DateTime("sg_submit_dailies_van").is_null(),
                     DateTime("sg_submit_dailies_mum").is_null()));
         else if (value == "True")
             qry->push_back(
@@ -1814,7 +1804,7 @@ void QueryEngine::add_version_term_to_filter(
                     DateTime("sg_submit_dailies").is_not_null(),
                     DateTime("sg_submit_dailies_chn").is_not_null(),
                     DateTime("sg_submit_dailies_mtl").is_not_null(),
-                    DateTime("sg_submit_dailies_syd").is_not_null(),
+                    // DateTime("sg_submit_dailies_van").is_not_null(),
                     DateTime("sg_submit_dailies_mum").is_not_null()));
         else
             throw XStudioError("Invalid query term " + term + " " + value);
@@ -2171,14 +2161,14 @@ std::string QueryEngine::cache_name_auto(const std::string &type, const int proj
 
 std::optional<utility::JsonStore> QueryEngine::get_cache(const std::string &key) const {
     if (cache_.count(key))
-        return utility::JsonStore(cache_.at(key));
+        return cache_.at(key);
 
     return {};
 }
 
 std::optional<utility::JsonStore> QueryEngine::get_lookup(const std::string &key) const {
     if (lookup_.count(key))
-        return utility::JsonStore(lookup_.at(key));
+        return lookup_.at(key);
 
     return {};
 }
@@ -2406,7 +2396,7 @@ JsonStore QueryEngine::data_from_field(const JsonStore &data) {
         result.push_back(field);
     }
 
-    return {result};
+    return JsonStore(result);
 }
 
 std::vector<std::string> QueryEngine::get_sequence_name(
@@ -2505,8 +2495,6 @@ utility::JsonStore QueryEngine::get_livelink_value(
         } else if (term == "Entity") {
 
             if (metadata.contains(json::json_pointer("/metadata/shotgun/version")) and
-                metadata.contains(
-                    json::json_pointer("/metadata/shotgun/version/relationships/entity")) and
                 not metadata.contains(
                     json::json_pointer("/metadata/clip/metadata/external/DNeg/shot"))) {
                 auto type = metadata.at(

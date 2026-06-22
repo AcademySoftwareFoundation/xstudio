@@ -10,7 +10,6 @@ import xStudio 1.0
 import xstudio.qml.models 1.0
 import xstudio.qml.helpers 1.0
 import SessionSnapshots 1.0
-import xstudio.qml.clipboard 1.0
 
 import "."
 
@@ -25,10 +24,6 @@ XsMenuItemNew {
 	property var name: "Snapshots"
 	property var hotkey_sequence: undefined
 	property var action_idx
-
-	Clipboard {
-		id: clipboard
-	}
 
 	function saveSnapshot(snapshot_name, button) {
 
@@ -103,10 +98,9 @@ XsMenuItemNew {
 				loader.sourceComponent = new_snapshot_folder_dlg
 				loader.item.visible = true
 
+
 			} else if (action_type == "SNAPSHOT_SAVE") {
 				file_functions.saveSessionAs(path)
-			} else if (action_type == "SNAPSHOT_COPY_PATH") {
-				clipboard.text = helpers.pathFromURL(path)
 			} else if (action_type == "SNAPSHOT_SAVE_SELECTED") {
 				file_functions.saveSelectionAs(path)
 			} else if (action_type == "SNAPSHOT_SAVEAS") {

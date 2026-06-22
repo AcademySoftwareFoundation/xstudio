@@ -37,7 +37,7 @@ Future::Future(QObject *parent) : QObject(parent)
 void Future::registerType(int typeId, VariantWrapperBase* wrapper)
 {
     if (m_wrappers.contains(typeId)) {
-        qWarning() << QString("QuickFuture::registerType:It is already registered:%1").arg(QMetaType(typeId).name());
+        qWarning() << QString("QuickFuture::registerType:It is already registered:%1").arg(QMetaType::typeName(typeId));
         return;
     }
 
@@ -86,7 +86,7 @@ void Future::setEngine(QQmlEngine *engine)
 bool Future::isFinished(const QVariant &future)
 {
     if (!m_wrappers.contains(typeId(future))) {
-        qWarning() << QString("Future: Can not handle input data type: %1").arg(future.typeName());
+        qWarning() << QString("Future: Can not handle input data type: %1").arg(QMetaType::typeName(future.type()));
         return false;
     }
 
@@ -97,7 +97,7 @@ bool Future::isFinished(const QVariant &future)
 bool Future::isRunning(const QVariant &future)
 {
     if (!m_wrappers.contains(typeId(future))) {
-        qWarning() << QString("Future: Can not handle input data type: %1").arg(future.typeName());
+        qWarning() << QString("Future: Can not handle input data type: %1").arg(QMetaType::typeName(future.type()));
         return false;
     }
 
@@ -108,7 +108,7 @@ bool Future::isRunning(const QVariant &future)
 bool Future::isCanceled(const QVariant &future)
 {
     if (!m_wrappers.contains(typeId(future))) {
-        qWarning() << QString("Future.isCanceled: Can not handle input data type: %1").arg(future.typeName());
+        qWarning() << QString("Future.isCanceled: Can not handle input data type: %1").arg(QMetaType::typeName(future.type()));
         return false;
     }
 
@@ -119,7 +119,7 @@ bool Future::isCanceled(const QVariant &future)
 int Future::progressValue(const QVariant &future)
 {
     if (!m_wrappers.contains(typeId(future))) {
-        qWarning() << QString("Future.progressValue: Can not handle input data type: %1").arg(future.typeName());
+        qWarning() << QString("Future.progressValue: Can not handle input data type: %1").arg(QMetaType::typeName(future.type()));
         return false;
     }
 
@@ -130,7 +130,7 @@ int Future::progressValue(const QVariant &future)
 int Future::progressMinimum(const QVariant &future)
 {
     if (!m_wrappers.contains(typeId(future))) {
-        qWarning() << QString("Future.progressMinimum: Can not handle input data type: %1").arg(future.typeName());
+        qWarning() << QString("Future.progressMinimum: Can not handle input data type: %1").arg(QMetaType::typeName(future.type()));
         return false;
     }
 
@@ -141,7 +141,7 @@ int Future::progressMinimum(const QVariant &future)
 int Future::progressMaximum(const QVariant &future)
 {
     if (!m_wrappers.contains(typeId(future))) {
-        qWarning() << QString("Future.progressMaximum: Can not handle input data type: %1").arg(future.typeName());
+        qWarning() << QString("Future.progressMaximum: Can not handle input data type: %1").arg(QMetaType::typeName(future.type()));
         return false;
     }
 
@@ -154,7 +154,7 @@ void Future::onFinished(const QVariant &future, QJSValue func, QJSValue owner)
     Q_UNUSED(owner);
 
     if (!m_wrappers.contains(typeId(future))) {
-        qWarning() << QString("Future: Can not handle input data type: %1").arg(future.typeName());
+        qWarning() << QString("Future: Can not handle input data type: %1").arg(QMetaType::typeName(future.type()));
         return;
     }
     VariantWrapperBase* wrapper = m_wrappers[typeId(future)];
@@ -164,7 +164,7 @@ void Future::onFinished(const QVariant &future, QJSValue func, QJSValue owner)
 void Future::onCanceled(const QVariant &future, QJSValue func, QJSValue owner)
 {
     if (!m_wrappers.contains(typeId(future))) {
-        qWarning() << QString("Future: Can not handle input data type: %1").arg(QMetaType(static_cast<int>(future.typeId())).name());
+        qWarning() << QString("Future: Can not handle input data type: %1").arg(QMetaType::typeName(static_cast<int>(future.type())));
         return;
     }
     VariantWrapperBase* wrapper = m_wrappers[typeId(future)];
@@ -174,7 +174,7 @@ void Future::onCanceled(const QVariant &future, QJSValue func, QJSValue owner)
 void Future::onProgressValueChanged(const QVariant &future, QJSValue func)
 {
     if (!m_wrappers.contains(typeId(future))) {
-        qWarning() << QString("Future.onProgressValueChanged: Can not handle input data type: %1").arg(future.typeName());
+        qWarning() << QString("Future.onProgressValueChanged: Can not handle input data type: %1").arg(QMetaType::typeName(future.type()));
         return;
     }
     VariantWrapperBase* wrapper = m_wrappers[typeId(future)];
@@ -185,7 +185,7 @@ QVariant Future::result(const QVariant &future)
 {
     QVariant res;
     if (!m_wrappers.contains(typeId(future))) {
-        qWarning() << QString("Future: Can not handle input data type: %1").arg(future.typeName());
+        qWarning() << QString("Future: Can not handle input data type: %1").arg(QMetaType::typeName(future.type()));
         return res;
     }
 
@@ -197,7 +197,7 @@ QVariant Future::results(const QVariant &future)
 {
     QVariant res;
     if (!m_wrappers.contains(typeId(future))) {
-        qWarning() << QString("Future: Can not handle input data type: %1").arg(future.typeName());
+        qWarning() << QString("Future: Can not handle input data type: %1").arg(QMetaType::typeName(future.type()));
         return res;
     }
 
@@ -223,7 +223,7 @@ QJSValue Future::promise(QJSValue future)
 void Future::sync(const QVariant &future, const QString &propertyInFuture, QObject *target, const QString &propertyInTarget)
 {
     if (!m_wrappers.contains(typeId(future))) {
-        qWarning() << QString("Future: Can not handle input data type: %1").arg(future.typeName());
+        qWarning() << QString("Future: Can not handle input data type: %1").arg(QMetaType::typeName(future.type()));
         return;
     }
 

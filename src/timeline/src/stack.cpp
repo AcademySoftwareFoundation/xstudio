@@ -45,5 +45,5 @@ Stack Stack::duplicate() const {
     jsn["container"] = dup_container.serialise();
     jsn["item"]      = dup_item.serialise(1);
 
-    return {jsn};
+    return Stack(jsn);
 }

@@ -205,14 +205,14 @@ QUrl StudioUI::userDocsUrl() const {
     std::string docs_index = utility::xstudio_resources_dir("docs/index.html");
     if (docs_index.find("/") == 0)
         docs_index.erase(docs_index.begin());
-    return {QString(tr("file:///")) + QStringFromStd(docs_index)};
+    return QUrl(QString(tr("file:///")) + QStringFromStd(docs_index));
 }
 
 QUrl StudioUI::apiDocsUrl() const {
     std::string docs_index = utility::xstudio_resources_dir("docs/api/index.html");
     if (docs_index.find("/") == 0)
         docs_index.erase(docs_index.begin());
-    return {QString(tr("file:///")) + QStringFromStd(docs_index)};
+    return QUrl(QString(tr("file:///")) + QStringFromStd(docs_index));
 }
 
 QUrl StudioUI::releaseDocsUrl() const {
@@ -220,14 +220,14 @@ QUrl StudioUI::releaseDocsUrl() const {
         utility::xstudio_resources_dir("docs/user_docs/release_notes/index.html");
     if (docs_index.find("/") == 0)
         docs_index.erase(docs_index.begin());
-    return {QString(tr("file:///")) + QStringFromStd(docs_index)};
+    return QUrl(QString(tr("file:///")) + QStringFromStd(docs_index));
 }
 
 QUrl StudioUI::docsSectionUrl(const QString &section) const {
     std::string docs_index = utility::xstudio_resources_dir(StdFromQString(section));
     if (docs_index.find("/") == 0)
         docs_index.erase(docs_index.begin());
-    return {QString(tr("file:///")) + QStringFromStd(docs_index)};
+    return QUrl(QString(tr("file:///")) + QStringFromStd(docs_index));
 }
 
 void StudioUI::newSession(const QString &name) {
@@ -493,9 +493,9 @@ QString StudioUI::renderScreenShotToDisk(
             height);
 
     } catch (std::exception &e) {
-        return {e.what()};
+        return QString(e.what());
     }
-    return {};
+    return QString();
 }
 
 QString StudioUI::renderScreenShotToClipboard(const int width, const int height) {
@@ -512,9 +512,9 @@ QString StudioUI::renderScreenShotToClipboard(const int width, const int height)
             height);
 
     } catch (std::exception &e) {
-        return {e.what()};
+        return QString(e.what());
     }
-    return {};
+    return QString();
 }
 
 void StudioUI::setupSnapshotViewport(const QString &playhead_addr) {

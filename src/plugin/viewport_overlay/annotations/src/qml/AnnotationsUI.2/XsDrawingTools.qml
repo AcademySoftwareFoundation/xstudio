@@ -58,11 +58,6 @@ Item {
         attributeTitle: "Active Tool"
         model: annotations_model_data
     }
-    XsAttributeValue {
-        id: action_attr
-        attributeTitle: "action_attribute"
-        model: annotations_model_data
-    }
 
     property alias currentTool: active_tool.value
     property alias toolChoices: tool_types_choices.value
@@ -71,7 +66,6 @@ Item {
     property var current_tool_properties
 
     onCurrentToolChanged: {
-        action_attr.value = ["ShowVisibility", view.name]
 
         if(currentTool === "Draw") 
         {
@@ -100,14 +94,6 @@ Item {
         else if (currentTool === "Colour Picker") 
         {
             current_tool_properties = colour_pick_properties
-        }        
-        else if(currentTool === "Burn")
-        {
-            current_tool_properties = burn_tool_properties
-        }
-        else if(currentTool === "Dodge")
-        {
-            current_tool_properties = dodge_tool_properties
         }
     }
     
@@ -160,20 +146,6 @@ Item {
     Component {
         id: colour_pick_properties
         XsColourPick {
-            root: drawDialog
-        }
-    }
-
-    Component {
-        id: burn_tool_properties
-        XsBurnToolProperties {
-            root: drawDialog
-        }
-    }
-
-    Component {
-        id: dodge_tool_properties
-        XsDodgeToolProperties {
             root: drawDialog
         }
     }

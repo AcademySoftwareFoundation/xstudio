@@ -440,12 +440,12 @@ int SessionModel::getPreviousTimelineClipFrame(
                     fuuid = ri.back()->first.uuid();
 
                 for (auto it = ri.rbegin(); it != ri.rend(); ++it) {
-                    if ((fuuid.is_null() and *it) or (not fuuid.is_null() and not*it) or
+                    if ((fuuid.is_null() and *it) or (not fuuid.is_null() and not *it) or
                         (not fuuid.is_null() and *it and fuuid != (*it)->first.uuid())
 
                     ) {
                         // handle at front of clip..
-                        if (frame == static_cast<int>(diff / item.rate().to_flicks())) {
+                        if (frame == diff / item.rate().to_flicks()) {
                             auto prev = std::next(it, 1);
                             if (prev != ri.rend()) {
                                 fuuid = Uuid();
@@ -594,7 +594,7 @@ QModelIndex SessionModel::getTimelineIndex(const QModelIndex &index) const {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
 
-    return {};
+    return QModelIndex();
 }
 
 QVariantList SessionModel::getTimelineExportTypes() const {
@@ -618,7 +618,7 @@ QVariant SessionModel::getTimelineFullRangeAndLoopRangeAndFPS(const QModelIndex 
         auto tactor = actorFromIndex(tindex);
         if (!tactor) {
             spdlog::warn("{} Index is not a timeline object.", __PRETTY_FUNCTION__);
-            return {};
+            return QVariant();
         }
         caf::scoped_actor sys(system());
         auto playhead =
@@ -638,35 +638,6 @@ QVariant SessionModel::getTimelineFullRangeAndLoopRangeAndFPS(const QModelIndex 
         v.push_back(int(loop_end));
         v.push_back(rate.to_fps());
         result = v;
-    } catch (const std::exception &err) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-    }
-    return result;
-}
-
-QVariantList SessionModel::getAllContainerMediaFPS(const QModelIndex &tindex) {
-
-    QVariantList result;
-    try {
-        auto tactor = actorFromIndex(tindex);
-        if (!tactor) {
-            spdlog::warn("{} Index is not a timeline object.", __PRETTY_FUNCTION__);
-            return {};
-        }
-        caf::scoped_actor sys(system());
-        auto media =
-            request_receive<utility::UuidActorVector>(*sys, tactor, playlist::get_media_atom_v);
-
-        for (auto &m : media) {
-            try {
-                auto rate = request_receive<utility::FrameRate>(
-                    *sys, m.actor(), utility::rate_atom_v, media::MT_IMAGE);
-                result.push_back(rate.to_fps());
-            } catch (const std::exception &err) {
-                result.push_back(QVariant());
-            }
-        }
-
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
@@ -715,7 +686,7 @@ QModelIndex SessionModel::getTimelineTrackIndex(const QModelIndex &index) const 
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
 
-    return {};
+    return QModelIndex();
 }
 
 
@@ -1721,9 +1692,9 @@ QFuture<QList<QUuid>> SessionModel::handleTimelineIdDropFuture(
     return QtConcurrent::run([=]() {
         scoped_actor sys{system()};
         QList<QUuid> results;
-        // auto proposedAction = proposedAction_;
+        auto proposedAction = proposedAction_;
 
-        // auto dropIndex = index;
+        auto dropIndex = index;
 
         // UuidActorVector new_media;
 
@@ -2088,18 +2059,18 @@ QModelIndexList SessionModel::modifyItemSelectionVertical(
                 auto max_a = rowCount(stack_index) - 1;
                 auto max_v = max_a;
 
-                // auto has_audio = false;
-                // auto has_video = false;
+                auto has_audio = false;
+                auto has_video = false;
 
                 //  find bounds..
                 for (auto i = 0; i < rowCount(stack_index); i++) {
                     auto i_type = index(i, 0, stack_index).data(typeRole);
                     if (i_type == "Video Track") {
-                        // has_video = true;
-                        max_v = i;
-                        min_a = i + 1;
+                        has_video = true;
+                        max_v     = i;
+                        min_a     = i + 1;
                     } else {
-                        // has_audio = true;
+                        has_audio = true;
                         break;
                     }
                 }
@@ -2107,16 +2078,16 @@ QModelIndexList SessionModel::modifyItemSelectionVertical(
                 auto video_selection_boxes = std::list<timeline::Box>();
                 auto audio_selection_boxes = std::list<timeline::Box>();
 
-                // auto print_boxes = [](const std::list<timeline::Box> &boxes) {
-                //     for (const auto &i : boxes) {
-                //         spdlog::warn(
-                //             "l {} t {} r {} b {}",
-                //             i.first.first,
-                //             i.first.second,
-                //             i.second.first,
-                //             i.second.second);
-                //     }
-                // };
+                auto print_boxes = [](const std::list<timeline::Box> &boxes) {
+                    for (const auto &i : boxes) {
+                        spdlog::warn(
+                            "l {} t {} r {} b {}",
+                            i.first.first,
+                            i.first.second,
+                            i.second.first,
+                            i.second.second);
+                    }
+                };
 
                 for (const auto &i : items) {
                     if (getTimelineTrackIndex(i).data(typeRole) == "Video Track")
@@ -2127,11 +2098,10 @@ QModelIndexList SessionModel::modifyItemSelectionVertical(
                             *(titem.box(UuidFromQUuid(i.data(idRole).toUuid()))));
                 }
 
-                // auto sort_track_start = [](const timeline::Box &a, const timeline::Box &b) {
-                //     return a.first.second < b.first.second or
-                //            (a.first.second == b.first.second and a.first.first <
-                //            b.first.first);
-                // };
+                auto sort_track_start = [](const timeline::Box &a, const timeline::Box &b) {
+                    return a.first.second < b.first.second or
+                           (a.first.second == b.first.second and a.first.first < b.first.first);
+                };
 
                 auto sort_start_track = [](const timeline::Box &a, const timeline::Box &b) {
                     return a.first.first < b.first.first or

@@ -676,7 +676,7 @@ void StackActor::add_item(const UuidActor &ua) {
 
     try {
         auto grp    = request_receive<caf::actor>(*sys, ua.actor(), get_event_group_atom_v);
-        std::ignore = request_receive<bool>(*sys, grp, broadcast::join_broadcast_atom_v, this);
+        auto joined = request_receive<bool>(*sys, grp, broadcast::join_broadcast_atom_v, this);
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }

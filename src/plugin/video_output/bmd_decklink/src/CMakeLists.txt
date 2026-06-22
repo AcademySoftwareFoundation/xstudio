@@ -4,7 +4,7 @@
 #
 ###############################################################
 
-project(blackmagic_decklink VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
+project(blackmagic_decklink VERSION 0.1.0 LANGUAGES CXX)
 
 if (WIN32)
 	add_subdirectory(extern/win)
@@ -75,10 +75,10 @@ file(GLOB QML_SOURCES RELATIVE ${CMAKE_CURRENT_LIST_DIR} BlackmagicSDI/*.qml)
 qt_add_qml_module(${PROJECT_NAME}
     URI BlackmagicSDI
 	VERSION 1.0
-	NO_GENERATE_PLUGIN_SOURCE
-	NO_PLUGIN_OPTIONAL
+	NO_GENERATE_PLUGIN_SOURCE 
+	NO_PLUGIN_OPTIONAL 
 	RESOURCE_PREFIX /
-	PLUGIN_TARGET ${PROJECT_NAME}
+	PLUGIN_TARGET ${PROJECT_NAME}	
 	QML_FILES
 		BlackmagicSDI/DecklinkSettingsHorizontalWidget.qml
 		BlackmagicSDI/DecklinkMultichoiceSetting.qml

@@ -34,7 +34,7 @@ void copy_audio_samples(
 
 SubPlayhead::SubPlayhead(
     caf::actor_config &cfg,
-    const std::string name,
+    const std::string &name,
     utility::UuidActor source,
     caf::actor parent,
     const int index,
@@ -46,22 +46,22 @@ SubPlayhead::SubPlayhead(
     const media::MediaType media_type,
     const utility::Uuid &uuid)
     : caf::event_based_actor(cfg),
-      name_(std::move(name)),
-      uuid_(uuid),
-      sub_playhead_index_(index),
-      source_is_timeline_(source_is_timeline),
+      name_(name),
       source_(std::move(source)),
       parent_(std::move(parent)),
+      sub_playhead_index_(index),
+      source_is_timeline_(source_is_timeline),
       loop_in_point_(loop_in_point),
       loop_out_point_(loop_out_point),
       time_source_mode_(time_source_mode),
       override_frame_rate_(override_frame_rate),
-      media_type_(media_type) {
+      media_type_(media_type),
+      uuid_(uuid) {
 
     init();
 }
 
-// SubPlayhead::~SubPlayhead() {}
+SubPlayhead::~SubPlayhead() {}
 
 void SubPlayhead::on_exit() {
     parent_ = caf::actor();
@@ -764,8 +764,7 @@ void SubPlayhead::init() {
 
         [=](audio_buffer_atom,
             const timebase::flicks buffer_pts,
-            AudioBufPtr buffer_to_fill,
-            const bool frame_for_frame) -> result<AudioBufPtr> {
+            AudioBufPtr buffer_to_fill) -> result<AudioBufPtr> {
             // here a request is made for an audio buffer corresponding to a precise
             // timepoint in the playhead timeline and with number of samples corresponding
             // to duration. See VideoRenderPlugin, which uses this for an accurate
@@ -779,97 +778,45 @@ void SubPlayhead::init() {
             // side. 'copy_audio_sample' then takes care of copying the samples from
             // each of those 3 buffers from the reader into buffer_to_fill
 
-            auto rp = make_response_promise<AudioBufPtr>();
+            auto rp     = make_response_promise<AudioBufPtr>();
+            auto rcount = std::make_shared<int>(0);
 
-            if (frame_for_frame) {
+            auto check_and_deliver = [=]() mutable {
+                (*rcount)++;
+                if (*rcount == 3)
+                    rp.deliver(buffer_to_fill);
+            };
 
-                // this is here to support the 'Re-speed' option in the video
-                // renderer where the media rate != render FPS
-
-                // In this case a source video frame may be 1/24 seconds, but the
-                // output video frame may be 1/60 seconds, say. We therefore need
-                // to get the corresponding audio samples for the frame and stretch/squash
-                // them to account for the new duration. This results in a pitch
-                // change, of course. xSTUDIO doesn't have the capavbility to
-                // do proper time-stretching of audio.
+            for (int i = -1; i <= 1; ++i) {
 
                 timebase::flicks frame_period, frame_pts;
                 std::shared_ptr<const media::AVFrameID> frame =
-                    get_frame(buffer_pts, frame_period, frame_pts, 0);
+                    get_frame(buffer_pts, frame_period, frame_pts, i);
 
-                // make an audio buffer that matches the current frame duration
-                // and fill it with samples
-                auto intermediate = media_reader::AudioBufPtr(new media_reader::AudioBuffer());
+                if (!frame) {
 
-                intermediate->allocate(
-                    buffer_to_fill->sample_rate(), // match sample rate to the one requested
-                    2,                             // num channels
-                    int64_t(
-                        timebase::to_seconds(frame_period) *
-                        double(buffer_to_fill->sample_rate())), // samples
-                    audio::SampleFormat::INT16                  // format
-                );
-                mail(audio_buffer_atom_v, frame_pts, intermediate, false)
-                    .request(caf::actor_cast<caf::actor>(this), std::chrono::seconds(20))
+                    check_and_deliver();
+                    continue;
+                }
+
+                mail(media_reader::get_audio_atom_v, *(frame.get()), false, uuid_)
+                    .request(pre_reader_, std::chrono::seconds(20))
                     .then(
 
-                        [=](AudioBufPtr audio_buffer) mutable {
-                            audio_buffer->stretch_samples(buffer_to_fill->num_samples());
-                            // now we stretch the audio samples from 'audio_buffer' into
-                            // 'buffer_to_fill'
-                            rp.deliver(audio_buffer);
+                        [=](const AudioBufPtr &audio_buffer) mutable {
+                            if (audio_buffer) {
+                                copy_audio_samples<int16_t>(
+                                    buffer_to_fill, buffer_pts, audio_buffer, frame_pts);
+                            }
+
+                            check_and_deliver();
                         },
                         [=](const error &err) mutable {
                             spdlog::critical(
                                 "SubPlayhead buffer read timeout for frame {}",
                                 to_string(frame->key()));
-                            rp.deliver(err);
+                            check_and_deliver();
                         });
-
-            } else {
-
-                auto rcount = std::make_shared<int>(0);
-
-                auto check_and_deliver = [=]() mutable {
-                    (*rcount)++;
-                    if (*rcount == 5)
-                        rp.deliver(buffer_to_fill);
-                };
-
-                // we fetch 2 audio frames either side of current frame to
-                // ensure we have all the audio required to fill 'buffer_to_fill'
-                // whose duration may not align with the frame period of the current video frame
-                for (int i = -2; i <= 2; ++i) {
-
-                    timebase::flicks frame_period, frame_pts;
-                    std::shared_ptr<const media::AVFrameID> frame =
-                        get_frame(buffer_pts, frame_period, frame_pts, i);
-
-                    if (!frame) {
-
-                        check_and_deliver();
-                        continue;
-                    }
-
-                    mail(media_reader::get_audio_atom_v, *(frame.get()), false, uuid_)
-                        .request(pre_reader_, std::chrono::seconds(20))
-                        .then(
-
-                            [=](const AudioBufPtr &audio_buffer) mutable {
-                                if (audio_buffer) {
-                                    copy_audio_samples<int16_t>(
-                                        buffer_to_fill, buffer_pts, audio_buffer, frame_pts);
-                                }
-
-                                check_and_deliver();
-                            },
-                            [=](const error &err) mutable {
-                                spdlog::critical(
-                                    "SubPlayhead buffer read timeout for frame {}",
-                                    to_string(frame->key()));
-                                check_and_deliver();
-                            });
-                }
             }
 
             return rp;
@@ -1242,9 +1189,6 @@ void SubPlayhead::broadcast_image_frame(
     std::shared_ptr<const media::AVFrameID> frame_media_pointer,
     const bool playing,
     const timebase::flicks timeline_pts) {
-
-    if (!pre_reader_)
-        return;
 
     if (waiting_for_next_frame_) {
         // we have entered this function, trying to get an up-to-date frame to
@@ -1670,6 +1614,9 @@ void SubPlayhead::make_static_precache_request(
     // by just sending an empty request to the pre-reader
     if (start_precache) {
 
+#pragma message                                                                                \
+    "This needs fixing - for now, hardcoding fetch max 2048 frames for idle precache"
+
         media::AVFrameIDsAndTimePoints requests;
         get_lookahead_frame_pointers(
             requests, 2048, true
@@ -1960,13 +1907,14 @@ std::shared_ptr<const media::AVFrameID> SubPlayhead::get_frame(
         // and give the others values something valid ???
         frame_period = timebase::k_flicks_zero_seconds;
         timeline_pts = timebase::k_flicks_zero_seconds;
-        return {};
+        return std::shared_ptr<media::AVFrameID>();
     }
 
     timebase::flicks t = std::min(last_frame_->first, std::max(first_frame_->first, time));
 
     // get the frame to be show *after* time point t and decrement to get our
     // frame.
+    auto tt    = utility::clock::now();
     auto frame = current_frame_iterator(t);
 
     while (step_frames < 0 && frame != first_frame_) {

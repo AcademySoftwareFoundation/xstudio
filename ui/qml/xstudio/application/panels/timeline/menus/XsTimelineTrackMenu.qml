@@ -53,8 +53,7 @@ XsPopupMenu {
         menuItemPosition: 0.5
         menuModelName: timelineMenu.menu_model_name
         panelContext: timelineMenu.panelContext
-        hotkeyUuid: theTimeline.select_none_hotkey.uuid
-        onActivated: theTimeline.selectNone()
+        onActivated: timelineSelection.select(helpers.createItemSelection([]), ItemSelectionModel.ClearAndSelect)
     }
 
     XsMenuModelItem {
@@ -152,16 +151,32 @@ XsPopupMenu {
         text: qsTr("Rename Track...")
         menuPath: ""
         menuItemPosition: 2
-        hotkeyUuid: theTimeline.rename_tracks_hotkey.uuid
         menuModelName: timelineMenu.menu_model_name
-        onActivated: theTimeline.renameTracks()
+        property var currentIndex: null
+        onActivated: {
+            let indexes = timelineSelection.selectedIndexes
+            for(let i=0;i<indexes.length; i++) {
+                currentIndex = indexes[i]
+                dialogHelpers.textInputDialog(
+                    acceptResult,
+                    "Rename Track",
+                    "Enter Track Name.",
+                    theSessionData.get(indexes[i], "nameRole"),
+                    ["Cancel", "Rename"])
+            }
+        }
+
+        function acceptResult(new_name, button) {
+            if (button == "Rename") {
+                theTimeline.setItemName(currentIndex, new_name)
+            }
+        }
         panelContext: timelineMenu.panelContext
     }
 
     XsMenuModelItem {
         text: qsTr("Duplicate Tracks")
         menuPath: ""
-        hotkeyUuid: theTimeline.duplicate_tracks_hotkey.uuid
         menuItemPosition: 4
         menuModelName: timelineMenu.menu_model_name
         onActivated: theTimeline.duplicateTracks(timelineSelection.selectedIndexes)
@@ -173,7 +188,6 @@ XsPopupMenu {
         menuPath: ""
         menuItemPosition: 6
         menuModelName: timelineMenu.menu_model_name
-        hotkeyUuid: theTimeline.flatten_tracks_hotkey.uuid
         onActivated: {
             theSessionData.bakeTimelineItems(timelineSelection.selectedIndexes)
             theTimeline.deleteItems(timelineSelection.selectedIndexes)
@@ -186,7 +200,6 @@ XsPopupMenu {
         menuPath: ""
         menuItemPosition: 8
         menuModelName: timelineMenu.menu_model_name
-        hotkeyUuid: theTimeline.insert_track_above_hotkey.uuid
         onActivated: theTimeline.insertTrackAbove(timelineSelection.selectedIndexes)
         panelContext: timelineMenu.panelContext
     }
@@ -279,7 +292,6 @@ XsPopupMenu {
         menuModelName: timelineMenu.menu_model_name
         onActivated: theTimeline.moveItems(timelineSelection.selectedIndexes, -1)
         panelContext: timelineMenu.panelContext
-        hotkeyUuid: theTimeline.move_track_up_hotkey.uuid
     }
 
     XsMenuModelItem {
@@ -289,7 +301,6 @@ XsPopupMenu {
         menuModelName: timelineMenu.menu_model_name
         onActivated: theTimeline.moveItems(timelineSelection.selectedIndexes, 1)
         panelContext: timelineMenu.panelContext
-        hotkeyUuid: theTimeline.move_track_down_hotkey.uuid
     }
 
     XsMenuModelItem {
@@ -325,7 +336,6 @@ XsPopupMenu {
     XsMenuModelItem {
         text: qsTr("Remove Selected Tracks")
         menuPath: ""
-        hotkeyUuid: theTimeline.remove_items_hotkey.uuid
         menuItemPosition: 36
         menuModelName: timelineMenu.menu_model_name
         onActivated: theTimeline.deleteItems(timelineSelection.selectedIndexes)

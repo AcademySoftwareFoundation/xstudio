@@ -9,7 +9,7 @@ namespace xstudio::ui::tesslator {
 struct TessellationVertex {
 
     TessellationVertex(TessellationVertex *n0, const Imath::V2f *pos, TessellationVertex *n1)
-        : n0_(n0), n1_(n1), pos_(pos) {}
+        : n0_(n0), pos_(pos), n1_(n1) {}
     TessellationVertex() = default;
 
     TessellationVertex *n0_{nullptr};
@@ -151,6 +151,7 @@ bool get_shape_winding_direction(
     std::vector<Imath::V2f>::iterator leftmost;
     float leftmost_vtx_pos = std::numeric_limits<float>::max();
 
+    int idx = 0;
     for (auto i = shape_outline_begin; i != shape_outline_end; i++) {
 
         const float vtx_x_pos = (*i).x;
@@ -158,6 +159,7 @@ bool get_shape_winding_direction(
             leftmost         = i;
             leftmost_vtx_pos = vtx_x_pos;
         }
+        idx++;
     }
 
     {
@@ -311,8 +313,8 @@ inline float distToLine(
     if (pt.y > bdbmax.y && (pt.y - bdbmax.y) > r)
         return 1e6f;
 
-    // float t = (pt.x - line_bg.x) * (line_end.x - line_bg.x) +
-    //           (pt.y - line_bg.y) * (line_end.y - line_bg.y);
+    float t = (pt.x - line_bg.x) * (line_end.x - line_bg.x) +
+              (pt.y - line_bg.y) * (line_end.y - line_bg.y);
 
     const Imath::V2f a = pt - line_bg;
     const Imath::V2f L = (line_end - line_bg);
@@ -359,8 +361,8 @@ void make_glyph_sdf(
 
     const float x_norm = float(buffer_width) / (bdb_top_right.x - bdb_bottom_left.x);
     const float y_norm = float(buffer_height) / (bdb_top_right.y - bdb_bottom_left.y);
-    // const float norm_x = 1.0f / x_norm;
-    // const float norm_y = 1.0f / y_norm;
+    const float norm_x = 1.0f / x_norm;
+    const float norm_y = 1.0f / y_norm;
 
     {
 
@@ -447,7 +449,7 @@ void make_glyph_sdf(
 
             Imath::V2f pixel_position(0.5f, 0.5f);
             float *buf_ptr = buffer.data();
-            bool parity    = false;
+            bool parity;
             for (int y = 0; y < buffer_height; ++y) {
                 pixel_position.x = 0.5f;
                 for (int x = 0; x < buffer_width; ++x) {

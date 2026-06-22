@@ -29,10 +29,16 @@ long DecklinkAudioOutputDevice::desired_samples() {
 }
 
 long DecklinkAudioOutputDevice::latency_microseconds() {
+    if (!bmd_output_) {
+        return 0;
+    }
     return (bmd_output_->num_samples_in_buffer() * 1000000) / sample_rate_;
 }
 
 bool DecklinkAudioOutputDevice::push_samples(const void *sample_data, const long num_samples) {
+    if (!bmd_output_) {
+        return false;
+    }
     bmd_output_->receive_samples_from_xstudio((int16_t *)sample_data, num_samples);
     return true;
 }

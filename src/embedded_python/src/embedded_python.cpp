@@ -81,18 +81,9 @@ void EmbeddedPython::setup() {
 #else
             // Win32 python home setup. Not 100% sure about this, I can't find any docs on how
             // python should be packaged with an application that embeds python.
-            // XSTUDIO_PYTHONHOME overrides the derived path; used by dev launchers
-            // where the install-layout assumption (xstudio_root/../../bin/python3)
-            // doesn't hold.
-            auto xstudio_pythonhome = get_env("XSTUDIO_PYTHONHOME");
-            auto p                  = xstudio_pythonhome
-                                          ? fs::path(*xstudio_pythonhome)
-                                          : fs::path(
-                                                fs::path(utility::xstudio_root())
-                                                    .parent_path()
-                                                    .parent_path()
-                                                    .string() +
-                                                "\\bin\\python3");
+            auto p = fs::path(
+                fs::path(utility::xstudio_root()).parent_path().parent_path().string() +
+                "\\bin\\python3");
             PyConfig_SetBytesString(&config, &config.home, p.string().data());
             /*std::string xstudio_python_path;
             auto pythonpath_env = get_env("PYTHONPATH");
@@ -268,7 +259,7 @@ utility::Uuid EmbeddedPython::create_session(const bool interactive) {
         return u;
     }
 
-    return {};
+    return utility::Uuid();
 }
 
 bool EmbeddedPython::remove_session(const utility::Uuid &session_uuid) {
@@ -288,8 +279,8 @@ bool EmbeddedPython::input_session(
         std::string clean_input = rtrim(input);
         py::object scope        = py::module::import("__main__").attr("__dict__");
         py::exec(
-            "xstudio_sessions['" + to_string(session_uuid) + R"('].interact_more(""")" +
-                clean_input + R"("""))",
+            "xstudio_sessions['" + to_string(session_uuid) + "'].interact_more(\"\"\"" +
+                clean_input + "\"\"\")",
             scope);
         return true;
     } else if (session_uuid.is_null()) {

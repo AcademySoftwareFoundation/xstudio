@@ -60,7 +60,7 @@ Clip Clip::duplicate() const {
     jsn["item"]                 = dup_item.serialise();
     jsn["overriden_media_rate"] = overridden_media_rate_;
 
-    return {jsn};
+    return Clip(jsn);
 }
 
 utility::JsonStore Clip::serialise() const {

@@ -14,7 +14,7 @@ using namespace caf;
 
 ThumbnailCacheActor::ThumbnailCacheActor(
     caf::actor_config &cfg, const size_t max_size, const size_t max_count)
-    : caf::event_based_actor(cfg) {
+    : caf::event_based_actor(cfg), update_pending_(false) {
     print_on_exit(this, "ThumbnailCacheActor");
 
     cache_.set_max_size(max_size);

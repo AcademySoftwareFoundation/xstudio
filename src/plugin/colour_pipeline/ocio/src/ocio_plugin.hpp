@@ -90,7 +90,7 @@ class OCIOColourPipeline : public ColourPipeline {
         const utility::Uuid &source_uuid,
         const utility::JsonStore &src_colour_mgmt_metadata) override;
 
-    [[nodiscard]] utility::JsonStore get_display_and_view_options_for_media(
+    utility::JsonStore get_display_and_view_options_for_media(
         const utility::JsonStore &media_source_colour_metadata) const override;
 
 
@@ -114,9 +114,7 @@ class OCIOColourPipeline : public ColourPipeline {
     caf::message_handler message_handler_extensions() override;
 
   private:
-    std::string view_for_source(
-        const utility::JsonStore &src_colour_mgmt_metadata,
-        const bool check_shared_settings = true) const;
+    std::string view_for_source(const utility::JsonStore &src_colour_mgmt_metadata) const;
 
     void stored_per_config_display_view(
         const utility::JsonStore &src_colour_mgmt_metadata,

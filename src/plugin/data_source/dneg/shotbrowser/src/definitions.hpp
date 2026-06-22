@@ -179,7 +179,6 @@ const auto VersionFields = std::vector<std::string>(
      // "notes",
      "project",
      "sg_client_filename",
-     "sg_client_version",
      "sg_client_send_stage",
      "sg_comp_in",
      "sg_comp_out",
@@ -211,7 +210,7 @@ const auto VersionFields = std::vector<std::string>(
      "sg_submit_dailies_chn",
      "sg_submit_dailies_mtl",
      "sg_submit_dailies_mum",
-     "sg_submit_dailies_syd",
+     // "sg_submit_dailies_van",
      "sg_transfix_map",
      "sg_twig_name",
      "sg_twig_type",
@@ -287,21 +286,18 @@ const auto AssetFields = std::vector<std::string>(
 const auto HumanUserFields =
     std::vector<std::string>({"name", "id", "login", "sg_department", "sg_login_allowed"});
 
-// sg_current_stage ?
-
 const auto SequenceShotFields = std::vector<std::string>(
     {"id",
      "code",
-     "sg_asset_type",
-     "sg_current_stage",
-     "sg_dnbreakdown_assemblies",
-     "sg_dnbreakdown_envprop_variants",
      "sg_dnuuid",
-     "sg_hero_shot",
-     "sg_primary_shot_location",
      "sg_shot_type",
+     "sg_asset_type",
      "sg_status_list",
      "sg_unit",
+     "sg_hero_shot",
+     "sg_primary_shot_location",
+     "sg_dnbreakdown_envprop_variants",
+     "sg_dnbreakdown_assemblies",
      "tags"});
 
 const auto ShotFields = std::vector<std::string>(
@@ -309,21 +305,19 @@ const auto ShotFields = std::vector<std::string>(
      "custom_entity20_sg_shots_custom_entity20s",
      "id",
      "project",
-     "sg_asset_type",
-     "sg_current_stage",
      "sg_comp_range",
      "sg_current_stage",
      "sg_cut_order",
      "sg_cut_range",
-     "sg_dnbreakdown_assemblies",
-     "sg_dnbreakdown_envprop_variants",
      "sg_dnuuid",
+     "sg_shot_type",
+     "sg_asset_type",
+     "sg_status_list",
      "sg_hero_focal_length",
      "sg_hero_shot",
-     "sg_primary_shot_location",
-     "sg_shot_type",
-     "sg_status_list",
      "sg_unit",
+     "sg_dnbreakdown_envprop_variants",
+     "sg_dnbreakdown_assemblies",
      "tags"});
 
 const std::string shotbrowser_datasource_registry{"SHOTBROWSER"};

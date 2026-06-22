@@ -27,7 +27,7 @@ Item {
 
         flatColor: topColor
         topColor: isActive ? XsStyleSheet.accentColor : XsStyleSheet.controlColour
-        bottomColor: isActive ? XsStyleSheet.accentColor : XsStyleSheet.widgetBgNormalColor
+        bottomColor: isActive ? XsStyleSheet.accentColor : "#1AFFFFFF"
     }
 
     TextMetrics {

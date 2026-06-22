@@ -719,7 +719,7 @@ caf::message_handler SubsetActor::message_handler() {
                     .then(
                         [=](const utility::JsonStore &media_display_info) mutable {
                             if (media_display_info.is_array()) {
-                                for (size_t i = 0; i < media_display_info.size(); ++i) {
+                                for (int i = 0; i < media_display_info.size(); ++i) {
                                     std::string data = media_display_info[i].dump();
                                     if (utility::to_lower(data).find(filter_string_lower) !=
                                         std::string::npos) {
@@ -942,7 +942,7 @@ void SubsetActor::sort_by_media_display_info(
                     auto sort_key = nlohmann::json(fmt::format("ZZZZZZ{}", idx));
 
                     if (media_display_info.is_array() &&
-                        sort_column_index < static_cast<int>(media_display_info.size())) {
+                        sort_column_index < media_display_info.size()) {
                         sort_key = media_display_info[sort_column_index];
                     }
 

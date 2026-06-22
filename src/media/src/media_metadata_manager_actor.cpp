@@ -104,7 +104,7 @@ GlobalMetadataManager::GlobalMetadataManager(caf::actor_config &cfg)
                        << "\n";
                     throw std::runtime_error(ss.str().c_str());
                 }
-                // auto &j                    = node->data();
+                auto &j                    = node->data();
                 utility::JsonTree new_node = json_to_tree(data, "children");
                 *node                      = new_node;
                 config_updated();

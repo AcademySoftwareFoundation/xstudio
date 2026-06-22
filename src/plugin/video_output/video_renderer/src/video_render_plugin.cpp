@@ -100,7 +100,7 @@ VideoRenderPlugin::VideoRenderPlugin(
     );
 
     register_main_menu_bar_widget(
-        R"(
+        R"(            
             import VideoRenderer 1.0
             VideoRendererStatusIndicator {}
         )",
@@ -181,7 +181,6 @@ caf::message_handler VideoRenderPlugin::message_handler_extensions() {
                     const int in_point,
                     const int out_point,
                     const utility::FrameRate &frame_rate,
-                    const bool frame_for_frame,
                     const std::string &video_codec_opts,
                     const std::string &video_render_bit_depth,
                     const std::string &audio_codec_opts,
@@ -207,7 +206,6 @@ caf::message_handler VideoRenderPlugin::message_handler_extensions() {
                                         in_point,
                                         out_point,
                                         frame_rate,
-                                        frame_for_frame,
                                         video_codec_opts,
                                         video_render_bit_depth,
                                         audio_codec_opts,
@@ -286,7 +284,7 @@ void VideoRenderPlugin::menu_item_activated(
 
         create_qml_item(R"(
             import VideoRenderer 1.0
-            VideoRendererDialog {}
+            VideoRendererDialog {}        
             )");
     }
 }
@@ -540,7 +538,7 @@ utility::JsonStore VideoRenderPlugin::qml_item_callback(
         }
         return result;
 
-    } else if (callback_data.is_array() && callback_data.size() == 18) {
+    } else if (callback_data.is_array() && callback_data.size() == 17) {
 
         if (!offscreen_viewport_) {
             // we don't yet have an offscreen viewport ... this needs to be created
@@ -574,7 +572,6 @@ utility::JsonStore VideoRenderPlugin::qml_item_callback(
             int in_point;
             int out_point;
             double fr;
-            bool frame_for_frame;
             std::string video_codec_opts;
             std::string video_render_bit_depth;
             std::string audio_codec_opts;
@@ -595,7 +592,6 @@ utility::JsonStore VideoRenderPlugin::qml_item_callback(
                 in_point,
                 out_point,
                 fr,
-                frame_for_frame,
                 video_codec_opts,
                 video_render_bit_depth,
                 audio_codec_opts,
@@ -617,7 +613,6 @@ utility::JsonStore VideoRenderPlugin::qml_item_callback(
                 in_point,
                 out_point,
                 frame_rate,
-                frame_for_frame,
                 video_codec_opts,
                 video_render_bit_depth,
                 audio_codec_opts,
@@ -745,7 +740,6 @@ utility::Uuid VideoRenderPlugin::create_render_job(
     const int in_point,
     const int out_point,
     const utility::FrameRate &frame_rate,
-    const bool frame_for_frame,
     const std::string &video_codec_opts,
     const std::string &video_render_bit_depth,
     const std::string &audio_codec_opts,
@@ -769,7 +763,6 @@ utility::Uuid VideoRenderPlugin::create_render_job(
         in_point,
         out_point,
         frame_rate,
-        frame_for_frame,
         video_codec_opts,
         video_render_bit_depth,
         audio_codec_opts,
@@ -809,7 +802,7 @@ utility::Uuid VideoRenderPlugin::create_render_job(
     return job_id;
 }
 
-// VideoRenderPlugin::~VideoRenderPlugin() {}
+VideoRenderPlugin::~VideoRenderPlugin() {}
 
 extern "C" {
 plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {

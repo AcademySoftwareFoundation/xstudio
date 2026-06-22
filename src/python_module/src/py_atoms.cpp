@@ -370,10 +370,6 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::bookmark, associate_bookmark_atom);
     ADD_ATOM(xstudio::bookmark, bookmark_change_atom);
     ADD_ATOM(xstudio::bookmark, render_annotations_atom);
-    ADD_ATOM(xstudio::bookmark, add_annotation_atom);
-    ADD_ATOM(xstudio::bookmark, get_annotation_atom);
-    ADD_ATOM(xstudio::bookmark, annotation_data_atom);
-    ADD_ATOM(xstudio::bookmark, build_annotation_atom);
 
     ADD_ATOM(xstudio::history, undo_atom);
     ADD_ATOM(xstudio::history, redo_atom);
@@ -388,7 +384,6 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::ui::viewport, annotation_atom);
     ADD_ATOM(xstudio::ui::viewport, active_viewport_atom);
     ADD_ATOM(xstudio::ui::viewport, render_viewport_to_image_atom);
-    ADD_ATOM(xstudio::ui::viewport, viewport_mask_atom);
 
     ADD_ATOM(xstudio::ui, show_message_box_atom);
     ADD_ATOM(xstudio::ui, open_quickview_window_atom);

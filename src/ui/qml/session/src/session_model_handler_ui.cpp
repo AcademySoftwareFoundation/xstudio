@@ -318,7 +318,7 @@ void SessionModel::init(caf::actor_system &_system) {
                     if (index.isValid()) {
                         try {
                             // request update of containers.
-                            // const nlohmann::json &j = indexToData(index);
+                            const nlohmann::json &j = indexToData(index);
                             emit mediaAdded(index);
 
                             index = SessionModel::index(0, 0, index);
@@ -836,7 +836,10 @@ void SessionModel::init(caf::actor_system &_system) {
 
                     // request update of containers.
                     try {
+                        const nlohmann::json &j = indexToData(index);
+
                         index = SessionModel::index(0, 0, index);
+
 
                         if (index.isValid()) {
                             const nlohmann::json &jj = indexToData(index);

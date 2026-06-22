@@ -43,7 +43,7 @@ class TextureTransferWorker {
 
     ~TextureTransferWorker() {
 
-        for ([[maybe_unused]] const auto &t : threads_) {
+        for (auto &t : threads_) {
             // when any thread picks up an empty job it exits its loop
             add_job(GLDoubleBufferedTexture::GLBlindTexturePtr());
         }
@@ -84,7 +84,7 @@ class TextureTransferWorker {
     }
 
     void run() {
-        while (true) {
+        while (1) {
 
             // this blocks until there is something in queue for us
             GLDoubleBufferedTexture::GLBlindTexturePtr tex = get_job();

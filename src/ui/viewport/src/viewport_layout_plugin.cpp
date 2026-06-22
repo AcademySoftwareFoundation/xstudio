@@ -410,7 +410,7 @@ ViewportLayoutManager::ViewportLayoutManager(caf::actor_config &cfg)
     spawn_plugins();
 }
 
-// ViewportLayoutManager::~ViewportLayoutManager() {}
+ViewportLayoutManager::~ViewportLayoutManager() {}
 
 void ViewportLayoutManager::on_exit() {
     system().registry().erase(viewport_layouts_manager);

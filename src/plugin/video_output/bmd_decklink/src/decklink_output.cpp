@@ -36,8 +36,8 @@ static LogBot s_logBot;
 
 class TimeLogger {
   public:
-    TimeLogger(const std::string label)
-        : label_(std::move(label)), start_time_(std::chrono::high_resolution_clock::now()) {}
+    TimeLogger(const std::string &label)
+        : label_(label), start_time_(std::chrono::high_resolution_clock::now()) {}
     ~TimeLogger() {
         s_logBot.log(
             label_,
@@ -66,7 +66,7 @@ void DecklinkOutput::check_decklink_installation() {
     bool drivers_found = false;
     if (bundleURL) {
         CFBundleRef bundle = CFBundleCreate(kCFAllocatorDefault, bundleURL);
-        drivers_found      = (bundle != nullptr);
+        drivers_found      = (bundle != NULL);
         if (bundle)
             CFRelease(bundle);
         CFRelease(bundleURL);
@@ -81,11 +81,11 @@ void DecklinkOutput::check_decklink_installation() {
         return;
     }
 #else // Windows
-    IDeckLinkIterator *pDLIterator = nullptr;
+    IDeckLinkIterator *pDLIterator = NULL;
     HRESULT result;
     result = CoCreateInstance(
         CLSID_CDeckLinkIterator,
-        nullptr,
+        NULL,
         CLSCTX_ALL,
         IID_IDeckLinkIterator,
         (void **)&pDLIterator);
@@ -97,7 +97,7 @@ void DecklinkOutput::check_decklink_installation() {
     /*IDeckLink*	deckLink = nullptr;
     if (pDLIterator->Next(&deckLink) != S_OK)
     {
-        if (deckLink != nullptr)
+        if (deckLink != NULL)
         {
             deckLink->Release();
         } else {
@@ -108,31 +108,34 @@ void DecklinkOutput::check_decklink_installation() {
 }
 
 DecklinkOutput::DecklinkOutput(BMDecklinkPlugin *decklink_xstudio_plugin)
-    : decklink_xstudio_plugin_(decklink_xstudio_plugin) {
+    : pFrameBuf(NULL),
+      decklink_interface_(NULL),
+      decklink_output_interface_(NULL),
+      decklink_xstudio_plugin_(decklink_xstudio_plugin) {
 
-    init_decklink();
+    is_available_ = init_decklink();
 }
 
 DecklinkOutput::~DecklinkOutput() {
 
-    if (decklink_output_interface_ != nullptr) {
+    if (decklink_output_interface_ != NULL) {
 
         spdlog::info("Stopping Decklink output loop.");
 
-        decklink_output_interface_->StopScheduledPlayback(0, nullptr, 0);
+        decklink_output_interface_->StopScheduledPlayback(0, NULL, 0);
         decklink_output_interface_->DisableVideoOutput();
         decklink_output_interface_->DisableAudioOutput();
 
         decklink_output_interface_->Release();
     }
-    if (decklink_interface_ != nullptr) {
+    if (decklink_interface_ != NULL) {
         decklink_interface_->Release();
     }
-    if (output_callback_ != nullptr) {
+    if (output_callback_ != NULL) {
         output_callback_->Release();
     }
 
-    if (frame_converter_ != nullptr) {
+    if (frame_converter_ != NULL) {
         frame_converter_->Release();
     }
 
@@ -143,7 +146,7 @@ DecklinkOutput::~DecklinkOutput() {
 }
 
 void DecklinkOutput::set_preroll() {
-    IDeckLinkMutableVideoFrame *decklink_video_frame = nullptr;
+    IDeckLinkMutableVideoFrame *decklink_video_frame = NULL;
 
     // Set 3 frame preroll
     try {
@@ -184,7 +187,7 @@ void DecklinkOutput::set_preroll() {
              * DeckLink API.
              */
             decklink_video_frame->Release();
-            decklink_video_frame = nullptr;
+            decklink_video_frame = NULL;
 
             uiTotalFrames++;
         }
@@ -192,7 +195,7 @@ void DecklinkOutput::set_preroll() {
 
         if (decklink_video_frame) {
             decklink_video_frame->Release();
-            decklink_video_frame = nullptr;
+            decklink_video_frame = NULL;
         }
         report_error(e.what());
     }
@@ -241,7 +244,7 @@ void DecklinkOutput::make_intermediate_frame() {
 bool DecklinkOutput::init_decklink() {
     bool bSuccess = false;
 
-    IDeckLinkIterator *decklink_iterator = nullptr;
+    IDeckLinkIterator *decklink_iterator = NULL;
 
     try {
 
@@ -249,7 +252,7 @@ bool DecklinkOutput::init_decklink() {
         HRESULT result;
         result = CoCreateInstance(
             CLSID_CDeckLinkIterator,
-            nullptr,
+            NULL,
             CLSCTX_ALL,
             IID_IDeckLinkIterator,
             (void **)&decklink_iterator);
@@ -262,7 +265,7 @@ bool DecklinkOutput::init_decklink() {
 #else
         decklink_iterator = CreateDeckLinkIteratorInstance();
 #endif
-        if (decklink_iterator == nullptr) {
+        if (decklink_iterator == NULL) {
             throw std::runtime_error(
                 "This plugin requires the DeckLink drivers installed. Please install the "
                 "Blackmagic DeckLink drivers to use the features of this plugin.");
@@ -280,7 +283,7 @@ bool DecklinkOutput::init_decklink() {
         }
 
         output_callback_ = new AVOutputCallback(this);
-        if (output_callback_ == nullptr)
+        if (output_callback_ == NULL)
             throw std::runtime_error("Failed to create Video Output Callback.");
 
         if (decklink_output_interface_->SetScheduledFrameCompletionCallback(output_callback_) !=
@@ -295,7 +298,7 @@ bool DecklinkOutput::init_decklink() {
         // conversion of video frame.
         result = CoCreateInstance(
             CLSID_CDeckLinkVideoConversion,
-            nullptr,
+            NULL,
             CLSCTX_ALL,
             IID_IDeckLinkVideoConversion,
             (void **)&frame_converter_);
@@ -316,26 +319,27 @@ bool DecklinkOutput::init_decklink() {
 
     } catch (std::exception &e) {
 
+        std::cerr << "DecklinkOutput::init_decklink() failed: " << e.what() << "\n";
+
         report_error(e.what());
 
-        if (decklink_output_interface_ != nullptr) {
+        if (decklink_output_interface_ != NULL) {
             decklink_output_interface_->Release();
-            decklink_output_interface_ = nullptr;
+            decklink_output_interface_ = NULL;
         }
-        if (decklink_interface_ != nullptr) {
+        if (decklink_interface_ != NULL) {
             decklink_interface_->Release();
-            decklink_interface_ = nullptr;
+            decklink_interface_ = NULL;
         }
-        if (output_callback_ != nullptr) {
+        if (output_callback_ != NULL) {
             output_callback_->Release();
-            output_callback_ = nullptr;
+            output_callback_ = NULL;
         }
 
-        if (decklink_iterator != nullptr) {
+        if (decklink_iterator != NULL) {
             decklink_iterator->Release();
-            decklink_iterator = nullptr;
+            decklink_iterator = NULL;
         }
-        throw;
     }
 
 
@@ -344,8 +348,8 @@ bool DecklinkOutput::init_decklink() {
 
 void DecklinkOutput::query_display_modes() {
 
-    IDeckLinkDisplayModeIterator *display_mode_iterator = nullptr;
-    IDeckLinkDisplayMode *display_mode                  = nullptr;
+    IDeckLinkDisplayModeIterator *display_mode_iterator = NULL;
+    IDeckLinkDisplayMode *display_mode                  = NULL;
 
     try {
 
@@ -390,12 +394,12 @@ void DecklinkOutput::query_display_modes() {
 
     if (display_mode) {
         display_mode->Release();
-        display_mode = nullptr;
+        display_mode = NULL;
     }
 
     if (display_mode_iterator) {
         display_mode_iterator->Release();
-        display_mode_iterator = nullptr;
+        display_mode_iterator = NULL;
     }
 }
 
@@ -427,10 +431,14 @@ bool DecklinkOutput::start_sdi_output() {
 
     bool bSuccess = false;
 
-    IDeckLinkDisplayModeIterator *display_mode_iterator = nullptr;
-    IDeckLinkDisplayMode *display_mode                  = nullptr;
+    IDeckLinkDisplayModeIterator *display_mode_iterator = NULL;
+    IDeckLinkDisplayMode *display_mode                  = NULL;
 
     try {
+
+        if (!decklink_output_interface_) {
+            throw std::runtime_error("No DeckLink device is available.");
+        }
 
         bool mode_matched = false;
         // Get first avaliable video mode for Output
@@ -504,12 +512,12 @@ bool DecklinkOutput::start_sdi_output() {
 
     if (display_mode) {
         display_mode->Release();
-        display_mode = nullptr;
+        display_mode = NULL;
     }
 
     if (display_mode_iterator) {
         display_mode_iterator->Release();
-        display_mode_iterator = nullptr;
+        display_mode_iterator = NULL;
     }
 
     return bSuccess;
@@ -528,14 +536,16 @@ bool DecklinkOutput::stop_sdi_output(const std::string &error_message) {
 
     spdlog::info("Stopping Decklink output loop. {}", error_message);
 
-    decklink_output_interface_->StopScheduledPlayback(0, nullptr, 0);
-    decklink_output_interface_->DisableVideoOutput();
-    decklink_output_interface_->DisableAudioOutput();
+    if (decklink_output_interface_) {
+        decklink_output_interface_->StopScheduledPlayback(0, NULL, 0);
+        decklink_output_interface_->DisableVideoOutput();
+        decklink_output_interface_->DisableAudioOutput();
+    }
 
     mutex_.lock();
 
     free(pFrameBuf);
-    pFrameBuf = nullptr;
+    pFrameBuf = NULL;
 
     mutex_.unlock();
 
@@ -561,32 +571,32 @@ void DecklinkOutput::incoming_frame(const media_reader::ImageBufPtr &incoming) {
 }
 
 namespace {
-// void multithreadMemCopy(void *_dst, void *_src, size_t buf_size, const int n_threads) {
+void multithreadMemCopy(void *_dst, void *_src, size_t buf_size, const int n_threads) {
 
-//     // Note: my instinct tells me that spawning threads for
-//     // every copy operation (which might happen 60 times a second)
-//     // is not efficient but it seems that having a threadpool doesn't
-//     // make any real difference, the overhead of thread creation
-//     // is tiny.
-//     std::vector<std::thread> memcpy_threads;
-//     size_t step = ((buf_size / n_threads) / 4096) * 4096;
+    // Note: my instinct tells me that spawning threads for
+    // every copy operation (which might happen 60 times a second)
+    // is not efficient but it seems that having a threadpool doesn't
+    // make any real difference, the overhead of thread creation
+    // is tiny.
+    std::vector<std::thread> memcpy_threads;
+    size_t step = ((buf_size / n_threads) / 4096) * 4096;
 
-//     uint8_t *dst = (uint8_t *)_dst;
-//     uint8_t *src = (uint8_t *)_src;
+    uint8_t *dst = (uint8_t *)_dst;
+    uint8_t *src = (uint8_t *)_src;
 
-//     for (int i = 0; i < n_threads; ++i) {
-//         memcpy_threads.emplace_back(memcpy, dst, src, std::min(buf_size, step));
-//         dst += step;
-//         src += step;
-//         buf_size -= step;
-//     }
+    for (int i = 0; i < n_threads; ++i) {
+        memcpy_threads.emplace_back(memcpy, dst, src, std::min(buf_size, step));
+        dst += step;
+        src += step;
+        buf_size -= step;
+    }
 
-//     // ensure any threads still running to copy data to this texture are done
-//     for (auto &t : memcpy_threads) {
-//         if (t.joinable())
-//             t.join();
-//     }
-// }
+    // ensure any threads still running to copy data to this texture are done
+    for (auto &t : memcpy_threads) {
+        if (t.joinable())
+            t.join();
+    }
+}
 
 } // namespace
 
@@ -635,9 +645,9 @@ void DecklinkOutput::fill_decklink_video_frame(IDeckLinkVideoFrame *decklink_vid
     // completes well inside/ that period)
     decklink_xstudio_plugin_->video_frame_consumed(utility::clock::now());
 
-    // static auto tp = utility::clock::now();
-    // auto tp1       = utility::clock::now();
-    // tp             = tp1;
+    static auto tp = utility::clock::now();
+    auto tp1       = utility::clock::now();
+    tp             = tp1;
 
     mutex_.lock();
 
@@ -651,10 +661,9 @@ void DecklinkOutput::fill_decklink_video_frame(IDeckLinkVideoFrame *decklink_vid
 
     if (the_frame) {
 
-        // auto tp = utility::clock::now();
+        auto tp = utility::clock::now();
 
-        if (the_frame->size() >=
-            static_cast<size_t>(decklink_video_frame->GetRowBytes() * frame_height_)) {
+        if (the_frame->size() >= decklink_video_frame->GetRowBytes() * frame_height_) {
 
             int xstudio_buf_pixel_format = the_frame->params().value("pixel_format", 0);
 
@@ -905,6 +914,9 @@ long DecklinkOutput::num_samples_in_buffer() {
     // note this method is called by the xstudio audio output thread
     // Have to assume that GetBufferedAudioSampleFrameCount is not thread safe. BMD SDK
     // does not tell us otherwise
+    if (!decklink_output_interface_) {
+        return 0;
+    }
     std::unique_lock lk0(bmd_mutex_);
     uint32_t prerollAudioSampleCount;
     if (decklink_output_interface_->GetBufferedAudioSampleFrameCount(
@@ -916,6 +928,12 @@ long DecklinkOutput::num_samples_in_buffer() {
 
 // Note, I have not yet understood the significance of the preroll flag
 void DecklinkOutput::copy_audio_samples_to_decklink_buffer(const bool /*preroll*/) {
+
+    if (!decklink_output_interface_) {
+        fetch_more_samples_from_xstudio_ = true;
+        audio_samples_cv_.notify_one();
+        return;
+    }
 
     std::unique_lock lk0(bmd_mutex_);
 
@@ -973,7 +991,7 @@ void DecklinkOutput::copy_audio_samples_to_decklink_buffer(const bool /*preroll*
 AVOutputCallback::AVOutputCallback(DecklinkOutput *pOwner) { owner_ = pOwner; }
 
 HRESULT AVOutputCallback::QueryInterface(REFIID /*iid*/, LPVOID *ppv) {
-    *ppv = nullptr;
+    *ppv = NULL;
     return E_NOINTERFACE;
 }
 

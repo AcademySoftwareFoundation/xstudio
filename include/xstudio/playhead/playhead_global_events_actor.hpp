@@ -12,42 +12,44 @@
 #include "xstudio/utility/timecode.hpp"
 #include "xstudio/utility/uuid.hpp"
 
-namespace xstudio::playhead {
+namespace xstudio {
+namespace playhead {
 
-class PlayheadGlobalEventsActor : public caf::event_based_actor {
-  public:
-    PlayheadGlobalEventsActor(caf::actor_config &cfg);
+    class PlayheadGlobalEventsActor : public caf::event_based_actor {
+      public:
+        PlayheadGlobalEventsActor(caf::actor_config &cfg);
 
-    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
+        const char *name() const override { return NAME.c_str(); }
 
-    inline static caf::message_handler default_event_handler() {
-        return {
-            [=](utility::event_atom, ui::viewport::viewport_playhead_atom, caf::actor) {},
-            [=](utility::event_atom, show_atom, const media_reader::ImageBufPtr &) {}};
-    }
+        inline static caf::message_handler default_event_handler() {
+            return {
+                [=](utility::event_atom, ui::viewport::viewport_playhead_atom, caf::actor) {},
+                [=](utility::event_atom, show_atom, const media_reader::ImageBufPtr &) {}};
+        }
 
-  private:
-    inline static const std::string NAME = "PlayheadGlobalEventsActor";
+      private:
+        inline static const std::string NAME = "PlayheadGlobalEventsActor";
 
-    void init();
+        void init();
 
-    caf::behavior make_behavior() override { return behavior_; }
+        caf::behavior make_behavior() override { return behavior_; }
 
-  protected:
-    void on_exit() override;
-    void monitor_it(const caf::actor &actor);
+      protected:
+        void on_exit() override;
+        void monitor_it(const caf::actor &actor);
 
-    caf::behavior behavior_;
-    caf::actor event_group_;
-    // caf::actor fine_grain_events_group_;
-    caf::actor global_active_playhead_;
-    struct ViewportAndPlayhead {
-        caf::actor viewport;
-        caf::actor playhead;
-        std::string window_id;
-        Imath::M44f projection_matrix;
+        caf::behavior behavior_;
+        caf::actor event_group_;
+        // caf::actor fine_grain_events_group_;
+        caf::actor global_active_playhead_;
+        struct ViewportAndPlayhead {
+            caf::actor viewport;
+            caf::actor playhead;
+            std::string window_id;
+            Imath::M44f projection_matrix;
+        };
+        std::map<std::string, ViewportAndPlayhead> viewports_;
+        std::map<caf::actor_addr, caf::disposable> monitor_;
     };
-    std::map<std::string, ViewportAndPlayhead> viewports_;
-    std::map<caf::actor_addr, caf::disposable> monitor_;
-};
-} // namespace xstudio::playhead
+} // namespace playhead
+} // namespace xstudio

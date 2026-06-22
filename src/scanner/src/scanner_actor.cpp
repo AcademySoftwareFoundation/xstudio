@@ -2,6 +2,7 @@
 #include <caf/policy/select_all.hpp>
 #include <caf/actor_registry.hpp>
 #include <filesystem>
+#include <openssl/md5.h>
 #include <iostream>
 #include <iomanip>
 #include <sstream>
@@ -73,6 +74,8 @@ uintmax_t get_file_size(const std::string &path) {
 }
 
 std::string get_checksum(const std::string &path) {
+    std::array<unsigned char, MD5_DIGEST_LENGTH> hash;
+
     // read first and last 1k..
     std::string buf(2048, ' ');
     // open file..
@@ -97,10 +100,13 @@ std::string get_checksum(const std::string &path) {
 
     } catch (const std::exception &err) {
         spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, path, err.what());
-        return {};
+        return std::string();
     }
 
-    auto hash = utility::md5_hash(buf.c_str(), buf.size());
+    MD5_CTX md5;
+    MD5_Init(&md5);
+    MD5_Update(&md5, buf.c_str(), buf.size());
+    MD5_Final(hash.data(), &md5);
 
     std::stringstream ss;
 

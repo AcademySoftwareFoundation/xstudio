@@ -21,148 +21,153 @@ CAF_POP_WARNINGS
 
 #include <xstudio/ui/mouse.hpp>
 
-namespace xstudio::ui {
+namespace xstudio {
+namespace ui {
 
-namespace qt {
-    class OffscreenViewport;
-}
+    namespace qt {
+        class OffscreenViewport;
+    }
 
-namespace qml {
+    namespace qml {
 
-    class QMLViewportRenderer;
+        class QMLViewportRenderer;
 
-    class VIEWPORT_QML_EXPORT QMLViewport : public QQuickItem {
-        Q_OBJECT
+        class VIEWPORT_QML_EXPORT QMLViewport : public QQuickItem {
+            Q_OBJECT
 
-        Q_PROPERTY(QPointF mousePosition READ mousePosition NOTIFY mousePositionChanged)
-        Q_PROPERTY(
-            QVariantList imageBoundariesInViewport READ imageBoundariesInViewport NOTIFY
-                imageBoundariesInViewportChanged)
-        Q_PROPERTY(
-            QVariantList imageResolutions READ imageResolutions NOTIFY imageResolutionsChanged)
-        Q_PROPERTY(QString name READ name NOTIFY nameChanged)
-        Q_PROPERTY(QUuid playheadUuid READ playheadUuid NOTIFY playheadUuidChanged)
-        Q_PROPERTY(bool hasPlayhead READ hasPlayhead NOTIFY playheadUuidChanged)
-        Q_PROPERTY(
-            bool isQuickview READ isQuickview WRITE setIsQuickview NOTIFY isQuickviewChanged)
-        Q_PROPERTY(
-            bool hasOverlays READ hasOverlays WRITE setHasOverlays NOTIFY hasOverlaysChanged)
+            Q_PROPERTY(QPointF mousePosition READ mousePosition NOTIFY mousePositionChanged)
+            Q_PROPERTY(
+                QVariantList imageBoundariesInViewport READ imageBoundariesInViewport NOTIFY
+                    imageBoundariesInViewportChanged)
+            Q_PROPERTY(
+                QVariantList imageResolutions READ imageResolutions NOTIFY
+                    imageResolutionsChanged)
+            Q_PROPERTY(QString name READ name NOTIFY nameChanged)
+            Q_PROPERTY(QUuid playheadUuid READ playheadUuid NOTIFY playheadUuidChanged)
+            Q_PROPERTY(bool hasPlayhead READ hasPlayhead NOTIFY playheadUuidChanged)
+            Q_PROPERTY(
+                bool isQuickview READ isQuickview WRITE setIsQuickview NOTIFY
+                    isQuickviewChanged)
+            Q_PROPERTY(
+                bool hasOverlays READ hasOverlays WRITE setHasOverlays NOTIFY
+                    hasOverlaysChanged)
 
-      public:
-        QMLViewport(QQuickItem *parent = nullptr);
-        ~QMLViewport() override;
+          public:
+            QMLViewport(QQuickItem *parent = nullptr);
+            virtual ~QMLViewport();
 
-        [[nodiscard]] QUuid playheadUuid() const { return playhead_uuid_; }
-        [[nodiscard]] QString name() const;
-        [[nodiscard]] QPointF mousePosition() const { return mouse_position; }
-        [[nodiscard]] bool hasPlayhead() const { return !playhead_uuid_.isNull(); }
-        [[nodiscard]] bool isQuickview() const { return is_quickview_; }
-        [[nodiscard]] bool hasOverlays() const { return has_overlays_; }
+            [[nodiscard]] QUuid playheadUuid() const { return playhead_uuid_; }
+            [[nodiscard]] QString name() const;
+            [[nodiscard]] QPointF mousePosition() const { return mouse_position; }
+            [[nodiscard]] bool hasPlayhead() const { return !playhead_uuid_.isNull(); }
+            [[nodiscard]] bool isQuickview() const { return is_quickview_; }
+            [[nodiscard]] bool hasOverlays() const { return has_overlays_; }
 
-        QMLViewportRenderer *viewportActor() { return renderer_actor; }
-        void deleteRendererActor();
+            QMLViewportRenderer *viewportActor() { return renderer_actor; }
+            void deleteRendererActor();
 
-        void setPlayheadUuid(const QUuid &uuid) {
-            if (uuid != playhead_uuid_) {
-                playhead_uuid_ = uuid;
-                emit playheadUuidChanged();
+            void setPlayheadUuid(const QUuid &uuid) {
+                if (uuid != playhead_uuid_) {
+                    playhead_uuid_ = uuid;
+                    emit playheadUuidChanged();
+                }
             }
-        }
 
-        void setIsQuickview(const bool isQuickView);
-        void setHasOverlays(const bool hasOverlays);
+            void setIsQuickview(const bool isQuickView);
+            void setHasOverlays(const bool hasOverlays);
 
-      protected:
-        void hoverEnterEvent(QHoverEvent *event) override;
-        void hoverLeaveEvent(QHoverEvent *event) override;
-        void mousePressEvent(QMouseEvent *event) override;
-        void mouseReleaseEvent(QMouseEvent *event) override;
-        void hoverMoveEvent(QHoverEvent *event) override;
-        void mouseMoveEvent(QMouseEvent *event) override;
-        void wheelEvent(QWheelEvent *event) override;
-        void mouseDoubleClickEvent(QMouseEvent *event) override;
-        bool event(QEvent *event) override;
-        void keyPressEvent(QKeyEvent *event) override;
-        void keyReleaseEvent(QKeyEvent *event) override;
+          protected:
+            void hoverEnterEvent(QHoverEvent *event) override;
+            void hoverLeaveEvent(QHoverEvent *event) override;
+            void mousePressEvent(QMouseEvent *event) override;
+            void mouseReleaseEvent(QMouseEvent *event) override;
+            void hoverMoveEvent(QHoverEvent *event) override;
+            void mouseMoveEvent(QMouseEvent *event) override;
+            void wheelEvent(QWheelEvent *event) override;
+            void mouseDoubleClickEvent(QMouseEvent *event) override;
+            bool event(QEvent *event) override;
+            void keyPressEvent(QKeyEvent *event) override;
+            void keyReleaseEvent(QKeyEvent *event) override;
 
-      private:
-        bool isSynthFromTabletEvent(QMouseEvent *event);
+          private:
+            bool isSynthFromTabletEvent(QMouseEvent *event);
 
-      public slots:
+          public slots:
 
-        void sync();
-        void cleanup();
-        void handleScreenChanged(QScreen *screen);
+            void sync();
+            void cleanup();
+            void handleScreenChanged(QScreen *screen);
 
-        void hideCursor();
-        void showCursor();
-        QVariantList imageResolutions();
-        QVariantList imageBoundariesInViewport();
-        void sendResetShortcut();
-        void setOverrideCursor(
-            const QString &name,
-            const int size     = 24,
-            const int x_offset = -1,
-            const int y_offset = -1);
-        void setOverrideCursor(const Qt::CursorShape cname);
-        void setPlayhead(const QString actorAddress);
-        void reset();
-        QString playheadActorAddress();
-        void onVisibleChanged();
-        void quickViewFromPath(const QString &path_or_uri);
+            void hideCursor();
+            void showCursor();
+            QVariantList imageResolutions();
+            QVariantList imageBoundariesInViewport();
+            void sendResetShortcut();
+            void setOverrideCursor(
+                const QString &name,
+                const int size     = 24,
+                const int x_offset = -1,
+                const int y_offset = -1);
+            void setOverrideCursor(const Qt::CursorShape cname);
+            void setPlayhead(const QString actorAddress);
+            void reset();
+            QString playheadActorAddress();
+            void onVisibleChanged();
+            void quickViewFromPath(const QString &path_or_uri);
 
-      private slots:
+          private slots:
 
-        void handleWindowChanged(QQuickWindow *win);
+            void handleWindowChanged(QQuickWindow *win);
 
-      signals:
+          signals:
 
-        void mouseRelease(Qt::MouseButtons buttons);
-        void mouseDoubleClick(
-            QPointF position, Qt::MouseButtons buttons, Qt::KeyboardModifiers modifiers);
-        void
-        mousePress(QPointF position, Qt::MouseButtons buttons, Qt::KeyboardModifiers modifiers);
-        void mousePositionChanged(
-            QPointF position, Qt::MouseButtons buttons, Qt::KeyboardModifiers modifiers);
-        void mousePressScreenPixels(
-            QPointF position, Qt::MouseButtons buttons, Qt::KeyboardModifiers modifiers);
+            void mouseRelease(Qt::MouseButtons buttons);
+            void mouseDoubleClick(
+                QPointF position, Qt::MouseButtons buttons, Qt::KeyboardModifiers modifiers);
+            void mousePress(
+                QPointF position, Qt::MouseButtons buttons, Qt::KeyboardModifiers modifiers);
+            void mousePositionChanged(
+                QPointF position, Qt::MouseButtons buttons, Qt::KeyboardModifiers modifiers);
+            void mousePressScreenPixels(
+                QPointF position, Qt::MouseButtons buttons, Qt::KeyboardModifiers modifiers);
 
-        void imageBoundariesInViewportChanged();
-        void imageResolutionsChanged();
-        void doSnapshot(QString, QString, int, int, bool);
-        void nameChanged();
-        void
-        quickViewSource(QStringList mediaActors, QString compareMode, int in_pt, int out_pt);
-        void quickViewBackendRequest(QStringList mediaActors, QString compareMode);
-        void quickViewBackendRequestWithSize(
-            QStringList mediaActors, QString compareMode, QPoint position, QSize size);
-        void snapshotRequestResult(QString resultMessage);
-        void pointerEntered();
-        void pointerExited();
-        void playheadUuidChanged();
-        void isQuickviewChanged();
-        void hasOverlaysChanged();
+            void imageBoundariesInViewportChanged();
+            void imageResolutionsChanged();
+            void doSnapshot(QString, QString, int, int, bool);
+            void nameChanged();
+            void quickViewSource(
+                QStringList mediaActors, QString compareMode, int in_pt, int out_pt);
+            void quickViewBackendRequest(QStringList mediaActors, QString compareMode);
+            void quickViewBackendRequestWithSize(
+                QStringList mediaActors, QString compareMode, QPoint position, QSize size);
+            void snapshotRequestResult(QString resultMessage);
+            void pointerEntered();
+            void pointerExited();
+            void playheadUuidChanged();
+            void isQuickviewChanged();
+            void hasOverlaysChanged();
 
-      private:
-        void releaseResources() override;
+          private:
+            void releaseResources() override;
 
-        void sendPointerEvent(EventType t, QMouseEvent *event, int force_modifiers = 0);
-        void sendPointerEvent(QHoverEvent *event);
+            void sendPointerEvent(EventType t, QMouseEvent *event, int force_modifiers = 0);
+            void sendPointerEvent(QHoverEvent *event);
 
-        QQuickWindow *m_window = {nullptr};
-        QMLViewportRenderer *renderer_actor{nullptr};
+            QQuickWindow *m_window = {nullptr};
+            QMLViewportRenderer *renderer_actor{nullptr};
 
-        bool connected_{false};
-        QCursor cursor_;
-        bool cursor_hidden{false};
-        QPointF mouse_position;
-        bool is_quick_viewer_ = {false};
-        QUuid playhead_uuid_;
-        bool is_quickview_ = {false};
-        bool has_overlays_ = {true};
+            bool connected_{false};
+            QCursor cursor_;
+            bool cursor_hidden{false};
+            QPointF mouse_position;
+            bool is_quick_viewer_ = {false};
+            QUuid playhead_uuid_;
+            bool is_quickview_ = {false};
+            bool has_overlays_ = {true};
 
-        caf::actor keypress_monitor_;
-    };
+            caf::actor keypress_monitor_;
+        };
 
-} // namespace qml
-} // namespace xstudio::ui
+    } // namespace qml
+} // namespace ui
+} // namespace xstudio

@@ -12,27 +12,6 @@
 using namespace xstudio;
 using namespace xstudio::utility;
 
-namespace {
-bool server_path_or_local(const caf::uri &uri) {
-    // this is unmapped.
-    auto result                   = true;
-    const auto path               = to_string(uri);
-    const static auto hostname    = get_host_name();
-    const static auto hostname_re = std::regex(R"(^file:.+?/hosts/([^/]+)/.+$)");
-    std::cmatch m;
-
-    if (std::regex_match(path.c_str(), m, hostname_re)) {
-        if (m[1] != hostname) {
-            result = false;
-            spdlog::warn("Media skipped, unsafe path {}", path);
-        }
-    }
-
-    return result;
-}
-} // namespace
-
-
 void MediaWorker::add_media_step_1(
     caf::typed_response_promise<bool> rp,
     caf::actor media,
@@ -141,12 +120,7 @@ void MediaWorker::add_media_step_3(
                                 }
                             },
                             [=](const error &err) mutable {
-                                spdlog::warn(
-                                    "B {} {} {} {}",
-                                    __PRETTY_FUNCTION__,
-                                    to_string(err),
-                                    shotreq.dump(2),
-                                    to_string(caf::actor_cast<caf::actor>(data_source_)));
+                                spdlog::warn("B {} {}", __PRETTY_FUNCTION__, to_string(err));
                             });
                 } catch (const std::exception &err) {
                     spdlog::warn("C {} {}", __PRETTY_FUNCTION__, err.what());
@@ -160,7 +134,7 @@ void MediaWorker::add_media_step_3(
 
 
 MediaWorker::MediaWorker(caf::actor_config &cfg, const caf::actor_addr source)
-    : caf::event_based_actor(cfg), data_source_(std::move(source)) {
+    : data_source_(std::move(source)), caf::event_based_actor(cfg) {
 
     // for each input we spawn one media item with upto two media sources.
 
@@ -180,33 +154,21 @@ MediaWorker::MediaWorker(caf::actor_config &cfg, const caf::actor_addr source)
                     // it may contain slate, which needs trimming..
                     // SLOW do we want to be offsetting the movie ?
                     // if we keep this code is needs threading..
-                    auto uri = posix_path_to_uri(jsn.at("attributes").at("sg_path_to_movie"));
+                    auto uri = posix_path_to_uri(jsn["attributes"]["sg_path_to_movie"]);
+                    const auto source_uuid = Uuid::generate();
+                    auto source            = spawn<media::MediaSourceActor>(
+                        "SG Movie", uri, media_rate, source_uuid);
 
-                    if (server_path_or_local(uri)) {
-                        const auto source_uuid = Uuid::generate();
-                        // this might be audio... Or someother thing..
-                        auto source_jsn = utility::JsonStore(
-                            R"({"colour_pipeline": {}, "metadata": {"shotgun":{"version":{}}}})"_json);
-                        source_jsn["metadata"]["shotgun"]["version"] = jsn;
-
-                        auto source = spawn<media::MediaSourceActor>(
-                            "SG Movie", uri, media_rate, source_uuid, source_jsn);
-
-                        mail(media::acquire_media_detail_atom_v, media_rate)
-                            .request(source, infinite)
-                            .then(
-                                [=](bool) mutable {
-                                    rp.deliver(UuidActor(source_uuid, source));
-                                },
-                                [=](error &err) mutable {
-                                    // even though there is an error, we want the broken media
-                                    // source added so the user can see it in the UI (and its
-                                    // error state)
-                                    rp.deliver(UuidActor(source_uuid, source));
-                                });
-                    } else {
-                        rp.deliver(UuidActor());
-                    }
+                    mail(media::acquire_media_detail_atom_v, media_rate)
+                        .request(source, infinite)
+                        .then(
+                            [=](bool) mutable { rp.deliver(UuidActor(source_uuid, source)); },
+                            [=](error &err) mutable {
+                                // even though there is an error, we want the broken media
+                                // source added so the user can see it in the UI (and its error
+                                // state)
+                                rp.deliver(UuidActor(source_uuid, source));
+                            });
 
                 } else {
                     rp.deliver(UuidActor());
@@ -225,51 +187,39 @@ MediaWorker::MediaWorker(caf::actor_config &cfg, const caf::actor_addr source)
             auto rp = make_response_promise<UuidActor>();
             try {
                 if (not jsn.at("attributes").at("sg_path_to_frames").is_null()) {
+                    FrameList frame_list;
+                    caf::uri uri;
 
-                    if (auto test_uri =
-                            posix_path_to_uri(jsn.at("attributes").at("sg_path_to_frames"));
-                        server_path_or_local(test_uri)) {
-                        FrameList frame_list;
-                        caf::uri uri;
-
-                        if (jsn.at("attributes").at("frame_range").is_null()) {
-                            // no frame range specified..
-                            // try and aquire from filesystem..
-                            uri = parse_cli_posix_path(
-                                jsn.at("attributes").at("sg_path_to_frames"), frame_list, true);
-                        } else {
-                            frame_list = FrameList(jsn.at("attributes")
-                                                       .at("frame_range")
-                                                       .template get<std::string>());
-                            uri        = parse_cli_posix_path(
-                                jsn.at("attributes").at("sg_path_to_frames"),
-                                frame_list,
-                                false);
-                        }
-
-                        const auto source_uuid = Uuid::generate();
-                        auto source =
-                            frame_list.empty()
-                                ? spawn<media::MediaSourceActor>(
-                                      "SG Frames", uri, media_rate, source_uuid)
-                                : spawn<media::MediaSourceActor>(
-                                      "SG Frames", uri, frame_list, media_rate, source_uuid);
-
-                        mail(media::acquire_media_detail_atom_v, media_rate)
-                            .request(source, infinite)
-                            .then(
-                                [=](bool) mutable {
-                                    rp.deliver(UuidActor(source_uuid, source));
-                                },
-                                [=](error &err) mutable {
-                                    // even though there is an error, we want the broken media
-                                    // source added so the user can see it in the UI (and its
-                                    // error state)
-                                    rp.deliver(UuidActor(source_uuid, source));
-                                });
+                    if (jsn.at("attributes").at("frame_range").is_null()) {
+                        // no frame range specified..
+                        // try and aquire from filesystem..
+                        uri = parse_cli_posix_path(
+                            jsn.at("attributes").at("sg_path_to_frames"), frame_list, true);
                     } else {
-                        rp.deliver(UuidActor());
+                        frame_list = FrameList(
+                            jsn.at("attributes").at("frame_range").template get<std::string>());
+                        uri = parse_cli_posix_path(
+                            jsn.at("attributes").at("sg_path_to_frames"), frame_list, false);
                     }
+
+                    const auto source_uuid = Uuid::generate();
+                    auto source =
+                        frame_list.empty()
+                            ? spawn<media::MediaSourceActor>(
+                                  "SG Frames", uri, media_rate, source_uuid)
+                            : spawn<media::MediaSourceActor>(
+                                  "SG Frames", uri, frame_list, media_rate, source_uuid);
+
+                    mail(media::acquire_media_detail_atom_v, media_rate)
+                        .request(source, infinite)
+                        .then(
+                            [=](bool) mutable { rp.deliver(UuidActor(source_uuid, source)); },
+                            [=](error &err) mutable {
+                                // even though there is an error, we want the broken media
+                                // source added so the user can see it in the UI (and its error
+                                // state)
+                                rp.deliver(UuidActor(source_uuid, source));
+                            });
                 } else {
                     rp.deliver(UuidActor());
                 }

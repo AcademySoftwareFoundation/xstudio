@@ -44,5 +44,5 @@ Timeline Timeline::duplicate() const {
     jsn["item"]      = dup_item.serialise(1);
     jsn["media"]     = media_list_.serialise();
 
-    return {jsn};
+    return Timeline(jsn);
 }

@@ -2,7 +2,6 @@
 
 from xstudio.plugin.plugin_base import PluginBase
 from xstudio.plugin.hud_plugin import HUDPlugin
-from xstudio.plugin.mask_plugin import MaskPlugin
 from xstudio.plugin.viewport_layout_plugin import ViewportLayoutPlugin
 
 # WIP

@@ -19,6 +19,7 @@ namespace detail {
 #include "xstudio/atoms.hpp"
 #include "xstudio/bookmark/bookmark.hpp"
 #include "xstudio/global/global_actor.hpp"
+#include "xstudio/global/xstudio_actor_system.hpp"
 #include "xstudio/global_store/global_store.hpp"
 #include "xstudio/timeline/clip_actor.hpp"
 #include "xstudio/timeline/track_actor.hpp"
@@ -31,7 +32,6 @@ namespace detail {
 #include "xstudio/media_reader/image_buffer.hpp"
 #include "xstudio/shotgun_client/shotgun_client.hpp"
 #include "xstudio/thumbnail/thumbnail.hpp"
-#include "xstudio/ui/viewport/mask.hpp"
 
 using namespace xstudio;
 
@@ -142,10 +142,6 @@ CafActorSystem::CafActorSystem() {
     // caf_config config{6, const_cast<char **>(args)};
     const char *args[] = {
         "xstudio",
-
-        // "--caf.logger.file.verbosity=debug",
-        // "--caf.logger.file.format=%r|%c|%p|%a|%t|%M|%F:%L|%m%n"
-
         "--caf.scheduler.max-threads=128",
         "--caf.scheduler.policy=sharing",
         "--caf.logger.console.verbosity=warn"};
@@ -187,7 +183,7 @@ caf::actor CafActorSystem::__global_actor(
         if (prefs.is_null()) {
             utility::JsonStore basic_prefs;
             if (!global_store::load_preferences(basic_prefs)) {
-                return {};
+                return caf::actor();
             }
             global_actor_ =
                 self->spawn<global::GlobalActor>(basic_prefs, embedded_python, read_only);

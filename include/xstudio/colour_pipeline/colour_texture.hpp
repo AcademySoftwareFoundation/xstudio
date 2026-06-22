@@ -3,21 +3,24 @@
 
 #include <string>
 
-namespace xstudio::colour_pipeline {
+namespace xstudio {
 
-// Quick and dirty placeholder for OpenGL texture descriptor
-// representing an already existing and created texture.
-// Probably should use some structure directly from core xStudio
-// if already available or create otherwise.
+namespace colour_pipeline {
 
-enum ColourTextureTarget {
-    TEXTURE_2D,
-};
+    // Quick and dirty placeholder for OpenGL texture descriptor
+    // representing an already existing and created texture.
+    // Probably should use some structure directly from core xStudio
+    // if already available or create otherwise.
 
-struct ColourTexture {
-    std::string name;
-    ColourTextureTarget target;
-    unsigned int id;
-};
+    enum ColourTextureTarget {
+        TEXTURE_2D,
+    };
 
-} // namespace xstudio::colour_pipeline
+    struct ColourTexture {
+        std::string name;
+        ColourTextureTarget target;
+        unsigned int id;
+    };
+
+} // namespace colour_pipeline
+} // namespace xstudio

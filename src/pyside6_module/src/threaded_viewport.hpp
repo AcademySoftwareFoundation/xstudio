@@ -8,9 +8,13 @@
 #include <QThread>
 
 // Forward declaration
-namespace xstudio::ui::qt {
-class ViewportGLWidget;
-}
+namespace xstudio {
+namespace ui {
+    namespace qt {
+        class ViewportGLWidget;
+    }
+} // namespace ui
+} // namespace xstudio
 
 class Thread;
 

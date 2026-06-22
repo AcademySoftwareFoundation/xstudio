@@ -7,120 +7,123 @@ namespace media_reader {
     class ImageBufferSet;
 }
 
-namespace ui::viewport {
-
-    /**
-     *  @brief ViewportFrameQueueActor class.
-     *
-     *  @details
-     *   This class receives frame buffers from the playhead ready for display in
-     *   the viewport. It allows frames to be received at almost any rate and at
-     *   any time which is important for accurate syncing of what is on screen with
-     *   the playhead position. Meanwhile, the viewport, whose caf::messages
-     *   are generally handled (for Qt apps) within the main UI event loop, will
-     *   ask this class to tell it which frame buffers it should be uploading/displaying
-     *   whenever the viewport is drawing itself. The reason for doing it this way
-     *   is that caf messages processed by Qt mixin actors can get out of order or
-     *   arrive late if the Qt event loop is heavily loaded (for example doing expensive
-     *   ui redraws). Using this actor we can preserve the integrity of the
-     * instantaneous queue of frame buffers that are ready to be drawn to the screen.
-     */
-    class ViewportFrameQueueActor : public caf::event_based_actor {
-      public:
-        ViewportFrameQueueActor(
-            caf::actor_config &cfg,
-            caf::actor viewport,
-            std::map<utility::Uuid, caf::actor> overlay_actors,
-            const std::string viewport_name,
-            caf::actor colour_pipeline);
-
-        ~ViewportFrameQueueActor() override = default;
-
-        void on_exit() override;
-
-      private:
-        caf::behavior make_behavior() override { return behavior_; }
+namespace ui {
+    namespace viewport {
 
         /**
-         *  @brief Receive frame buffer and colour pipeline data for drawing to screen.
+         *  @brief ViewportFrameQueueActor class.
          *
-         *  @details Image data and colour pipeline data are passed to the viewport via
-         *  this function. The ImageBufPtr when_to_display_ member indicates when the
-         *  frame should be drawn.
+         *  @details
+         *   This class receives frame buffers from the playhead ready for display in
+         *   the viewport. It allows frames to be received at almost any rate and at
+         *   any time which is important for accurate syncing of what is on screen with
+         *   the playhead position. Meanwhile, the viewport, whose caf::messages
+         *   are generally handled (for Qt apps) within the main UI event loop, will
+         *   ask this class to tell it which frame buffers it should be uploading/displaying
+         *   whenever the viewport is drawing itself. The reason for doing it this way
+         *   is that caf messages processed by Qt mixin actors can get out of order or
+         *   arrive late if the Qt event loop is heavily loaded (for example doing expensive
+         *   ui redraws). Using this actor we can preserve the integrity of the
+         * instantaneous queue of frame buffers that are ready to be drawn to the screen.
          */
-        virtual void queue_image_buffer_for_drawing(
-            media_reader::ImageBufPtr &buf, const utility::Uuid &playhead_id);
+        class ViewportFrameQueueActor : public caf::event_based_actor {
+          public:
+            ViewportFrameQueueActor(
+                caf::actor_config &cfg,
+                caf::actor viewport,
+                std::map<utility::Uuid, caf::actor> overlay_actors,
+                const std::string &viewport_name,
+                caf::actor colour_pipeline);
+
+            ~ViewportFrameQueueActor() override;
+
+            void on_exit() override;
+
+          private:
+            caf::behavior make_behavior() override { return behavior_; }
+
+            caf::disposable monitor_;
+
+            caf::behavior behavior_;
+
+            utility::UuidActor playhead_;
+            utility::Uuid current_key_sub_playhead_id_, previous_key_sub_playhead_id_;
+            /**
+             *  @brief Receive frame buffer and colour pipeline data for drawing to screen.
+             *
+             *  @details Image data and colour pipeline data are passed to the viewport via
+             *  this function. The ImageBufPtr when_to_display_ member indicates when the
+             *  frame should be drawn.
+             */
+            virtual void queue_image_buffer_for_drawing(
+                media_reader::ImageBufPtr &buf, const utility::Uuid &playhead_id);
 
 
-        void get_frames_for_display_sync(
-            caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp);
+            void get_frames_for_display_sync(
+                caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp);
 
-        void get_frames_for_display(
-            caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp,
-            const utility::time_point &when_going_on_screen = utility::time_point());
+            void get_frames_for_display(
+                caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp,
+                const utility::time_point &when_going_on_screen = utility::time_point());
 
-        void clear_images_from_old_playheads();
+            void clear_images_from_old_playheads();
 
-        void append_overlays_data(
-            caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp,
-            media_reader::ImageBufDisplaySet *result);
+            void append_overlays_data(
+                caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp,
+                media_reader::ImageBufDisplaySet *result);
 
-        typedef std::map<timebase::flicks, media_reader::ImageBufPtr> OrderedImagesToDraw;
+            typedef std::map<timebase::flicks, media_reader::ImageBufPtr> OrderedImagesToDraw;
 
-        media_reader::ImageBufPtr
-        get_least_old_image_in_set(const OrderedImagesToDraw &image_set);
+            media_reader::ImageBufPtr
+            get_least_old_image_in_set(const OrderedImagesToDraw &image_set);
 
-        void drop_old_frames(const utility::time_point out_of_date_threshold);
+            void drop_old_frames(const utility::time_point out_of_date_threshold);
 
-        [[nodiscard]] timebase::flicks compute_video_refresh() const;
+            timebase::flicks compute_video_refresh() const;
 
-        utility::time_point next_video_refresh(const timebase::flicks &video_refresh_period);
+            utility::time_point
+            next_video_refresh(const timebase::flicks &video_refresh_period);
 
-        timebase::flicks predicted_playhead_position_at_next_video_refresh();
+            timebase::flicks predicted_playhead_position_at_next_video_refresh();
 
-        timebase::flicks predicted_playhead_position(const utility::time_point &when);
+            timebase::flicks predicted_playhead_position(const utility::time_point &when);
 
-        [[nodiscard]] std::chrono::microseconds average_video_refresh_period() const;
+            std::chrono::microseconds average_video_refresh_period() const;
 
-        caf::typed_response_promise<bool>
-        set_playhead(utility::UuidActor playhead, const bool prefetch_inital_image);
+            caf::typed_response_promise<bool>
+            set_playhead(utility::UuidActor playhead, const bool prefetch_inital_image);
 
-        caf::actor viewport_;
-        std::map<utility::Uuid, caf::actor> viewport_overlay_plugins_;
-        const std::string viewport_name_;
-        caf::actor colour_pipeline_;
+            bool playing_          = {false};
+            bool playing_forwards_ = {true};
 
-        caf::disposable monitor_;
+            std::map<utility::Uuid, caf::actor> viewport_overlay_plugins_;
 
-        caf::behavior behavior_;
+            const std::string viewport_name_;
+            caf::actor colour_pipeline_;
 
-        utility::UuidActor playhead_;
-        utility::Uuid current_key_sub_playhead_id_, previous_key_sub_playhead_id_;
+            std::map<utility::Uuid, OrderedImagesToDraw> frames_to_draw_per_playhead_;
 
-        bool playing_          = {false};
-        bool playing_forwards_ = {true};
+            struct ViewportRefreshData {
+                std::deque<utility::time_point> refresh_history_;
+                timebase::flicks refresh_rate_hint_ = timebase::k_flicks_zero_seconds;
+                utility::time_point last_video_refresh_;
+            } video_refresh_data_;
 
-        std::map<utility::Uuid, OrderedImagesToDraw> frames_to_draw_per_playhead_;
+            timebase::flicks playhead_vid_sync_phase_adjust_ = timebase::k_flicks_zero_seconds;
+            utility::time_point last_playhead_switch_tp_;
+            utility::time_point last_playhead_set_tp_;
+            std::set<utility::Uuid> deleted_playheads_;
+            utility::UuidVector sub_playhead_ids_;
+            utility::time_point last_predicted_video_refresh_;
 
-        struct ViewportRefreshData {
-            std::deque<utility::time_point> refresh_history_;
-            timebase::flicks refresh_rate_hint_ = timebase::k_flicks_zero_seconds;
-            utility::time_point last_video_refresh_;
-        } video_refresh_data_;
+            playhead::AssemblyMode playhead_mode_;
+            caf::actor viewport_layout_manager_;
+            caf::actor viewport_;
+            std::string viewport_layout_mode_name_;
 
-        timebase::flicks playhead_vid_sync_phase_adjust_ = timebase::k_flicks_zero_seconds;
-        utility::time_point last_playhead_switch_tp_;
-        utility::time_point last_playhead_set_tp_;
-        std::set<utility::Uuid> deleted_playheads_;
-        utility::UuidVector sub_playhead_ids_;
-        utility::time_point last_predicted_video_refresh_;
+            double playhead_velocity_ = {1.0};
+        };
 
-        playhead::AssemblyMode playhead_mode_;
-        caf::actor viewport_layout_manager_;
-        std::string viewport_layout_mode_name_;
-
-        double playhead_velocity_ = {1.0};
-    };
-
-} // namespace ui::viewport
+    } // namespace viewport
+} // namespace ui
 } // namespace xstudio

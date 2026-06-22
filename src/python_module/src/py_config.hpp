@@ -225,6 +225,7 @@ class py_config : public caf::actor_system_config {
             // Awkward! PyBind chucks an error if you try to cast a python int
             // (which is actually a long or long long) to a C int if the python
             // int value > INT_MAX.
+            long foo  = 12412;
             int64_t a = PyLong_AsLong(x.ptr());
             int b     = int(a);
             if (a != int64_t(b)) {

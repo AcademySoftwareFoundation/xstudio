@@ -191,7 +191,7 @@ class OCIOEngineActor : public caf::event_based_actor, OCIOEngine {
 
     caf::behavior make_behavior() override { return behavior_; }
 
-    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
+    const char *name() const override { return NAME.c_str(); }
 
   private:
     inline static const std::string NAME = "OCIOEngineActor";

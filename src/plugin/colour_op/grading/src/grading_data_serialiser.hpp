@@ -4,27 +4,29 @@
 #include "xstudio/plugin_manager/plugin_base.hpp"
 #include "grading_data.h"
 
-namespace xstudio::ui::viewport {
+namespace xstudio {
+namespace ui {
+    namespace viewport {
 
-class GradingDataSerialiser {
+        class GradingDataSerialiser {
 
-  public:
-    GradingDataSerialiser() = default;
+          public:
+            GradingDataSerialiser() = default;
 
-    static utility::JsonStore serialise(const GradingData *);
-    static void deserialise(GradingData *, const utility::JsonStore &);
+            static utility::JsonStore serialise(const GradingData *);
+            static void deserialise(GradingData *, const utility::JsonStore &);
 
-    virtual void _serialise(const GradingData *, nlohmann::json &) const = 0;
-    virtual void _deserialise(GradingData *, const nlohmann::json &)     = 0;
+            virtual void _serialise(const GradingData *, nlohmann::json &) const = 0;
+            virtual void _deserialise(GradingData *, const nlohmann::json &)     = 0;
 
-    static void register_serialiser(
-        const unsigned char maj_ver,
-        const unsigned char minor_ver,
-        std::shared_ptr<GradingDataSerialiser> sptr);
+            static void register_serialiser(
+                const unsigned char maj_ver,
+                const unsigned char minor_ver,
+                std::shared_ptr<GradingDataSerialiser> sptr);
 
-  private:
-    static std::map<long, std::shared_ptr<GradingDataSerialiser>> serialisers;
-};
+          private:
+            static std::map<long, std::shared_ptr<GradingDataSerialiser>> serialisers;
+        };
 
 #define RegisterGradingDataSerialiser(serialiser_class, v_maj, v_min)                          \
     class serialiser_class##_register_cls {                                                    \
@@ -36,4 +38,6 @@ class GradingDataSerialiser {
     };                                                                                         \
     serialiser_class##_register_cls serialiser_class##_serialiser_register_rinst;
 
-} // namespace xstudio::ui::viewport
+    } // end namespace viewport
+} // end namespace ui
+} // end namespace xstudio

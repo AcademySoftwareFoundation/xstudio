@@ -50,18 +50,6 @@ Rectangle {
     property alias contract_previous_hotkey: contract_previous_hotkey
     property alias contract_both_hotkey: contract_both_hotkey
 
-    property alias select_none_hotkey: select_none_hotkey
-    property alias rename_tracks_hotkey: rename_tracks_hotkey
-    property alias duplicate_tracks_hotkey: duplicate_tracks_hotkey
-    property alias flatten_tracks_hotkey: flatten_tracks_hotkey
-    property alias insert_track_above_hotkey: insert_track_above_hotkey
-    property alias move_track_up_hotkey: move_track_up_hotkey
-    property alias move_track_down_hotkey: move_track_down_hotkey
-    property alias remove_items_hotkey: remove_items_hotkey
-
-
-
-
     // property bool selectionIsLocked: false
     // property bool selectionIsEnabled: false
     property bool loopSelection: false
@@ -983,8 +971,17 @@ Rectangle {
         onActivated: {
             let clipIndex = theSessionData.getTimelineClipIndex(timeline_items.rootIndex, timelinePlayhead.logicalFrame);
             if(clipIndex.valid) {
-                let colours = flagColours.map(obj => Object.values(obj)[0])
-                colours[0] = ""
+                let colours = [
+                    "#FFFF0000",
+                    "#FF00FF00",
+                    "#FF0000FF",
+                    "#FFFFFF00",
+                    "#FFFFA500",
+                    "#FF800080",
+                    "#FF000000",
+                    "#FFFFFFFF",
+                    "",
+                ]
                 let current = theSessionData.get(clipIndex, "flagColourRole")
                 let cind = colours.indexOf(current)
                 if(cind == -1 || cind == colours.length-1)
@@ -1064,137 +1061,6 @@ Rectangle {
             ), ItemSelectionModel.ClearAndSelect)
     }
 
-    function selectNone() {
-        timelineSelection.select(helpers.createItemSelection([]), ItemSelectionModel.ClearAndSelect)
-    }
-
-    function renameTracks() {
-        let indexes = timelineSelection.selectedIndexes
-        for(let i=0;i<indexes.length; i++) {
-            dialogHelpers.textInputDialog(
-                function(new_name, button) {
-                    if (button == "Rename") {
-                        setItemName(indexes[i], new_name)
-                    }},
-                "Rename Track",
-                "Enter Track Name.",
-                theSessionData.get(indexes[i], "nameRole"),
-                ["Cancel", "Rename"])
-        }
-    }
-
-    XsHotkey {
-        id: remove_items_hotkey
-        context: hotkey_area_id
-        name: "Remove Selected Items"
-        description: "Remove Selected Items"
-        onActivated: theTimeline.deleteItems(timelineSelection.selectedIndexes)
-        componentName: "Timeline"
-    }
-
-    XsHotkey {
-        id: move_track_up_hotkey
-        context: hotkey_area_id
-        name: "Move Tracks Up"
-        description: "Move Tracks Up"
-        onActivated: moveItems(timelineSelection.selectedIndexes, -1)
-        componentName: "Timeline"
-    }
-
-    XsHotkey {
-        id: move_track_down_hotkey
-        context: hotkey_area_id
-        name: "Move Tracks Down"
-        description: "Move Tracks Down"
-        onActivated: moveItems(timelineSelection.selectedIndexes, 1)
-        componentName: "Timeline"
-    }
-
-
-    XsHotkey {
-        id: disable_items_hotkey
-        context: hotkey_area_id
-        name: "Disable Items"
-        description: "Disable Selected Items"
-        onActivated: enableItems(timelineSelection.selectedIndexes, false)
-        componentName: "Timeline"
-    }
-
-    XsHotkey {
-        id: enable_items_hotkey
-        context: hotkey_area_id
-        name: "Enable Items"
-        description: "Enable Selected Items"
-        onActivated: enableItems(timelineSelection.selectedIndexes, true)
-        componentName: "Timeline"
-    }
-
-    XsHotkey {
-        id: lock_items_hotkey
-        context: hotkey_area_id
-        name: "Lock Items"
-        description: "Lock Selected Items"
-        onActivated: lockItems(timelineSelection.selectedIndexes, true)
-        componentName: "Timeline"
-    }
-
-    XsHotkey {
-        id: unlock_items_hotkey
-        context: hotkey_area_id
-        name: "Unlock Items"
-        description: "Unlock Selected Items"
-        onActivated: lockItems(timelineSelection.selectedIndexes, false)
-        componentName: "Timeline"
-    }
-
-    XsHotkey {
-        id: flatten_tracks_hotkey
-        context: hotkey_area_id
-        name: "Flatten Tracks"
-        description: "Flatten Selected Tracks"
-        onActivated: {
-            theSessionData.bakeTimelineItems(timelineSelection.selectedIndexes)
-            theTimeline.deleteItems(timelineSelection.selectedIndexes)
-        }
-        componentName: "Timeline"
-    }
-
-    XsHotkey {
-        id: insert_track_above_hotkey
-        context: hotkey_area_id
-        name: "Insert Track Above"
-        description: "Insert Track Above"
-        onActivated: insertTrackAbove(timelineSelection.selectedIndexes)
-        componentName: "Timeline"
-    }
-
-    XsHotkey {
-        id: duplicate_tracks_hotkey
-        context: hotkey_area_id
-        name: "Duplicate Tracks"
-        description: "Duplicate Selected Tracks"
-        onActivated: duplicateTracks(timelineSelection.selectedIndexes)
-        componentName: "Timeline"
-    }
-
-    XsHotkey {
-        id: rename_tracks_hotkey
-        context: hotkey_area_id
-        name: "Rename Tracks"
-        description: "Rename Selected Tracks"
-        onActivated: renameTracks()
-        componentName: "Timeline"
-    }
-
-    XsHotkey {
-        id: select_none_hotkey
-        context: hotkey_area_id
-        name: "Clear Selection"
-        description: "Clear Selection"
-        onActivated: selectNone()
-        componentName: "Timeline"
-    }
-
     XsHotkey {
         id: select_up_hotkey
         context: hotkey_area_id
@@ -1202,24 +1068,6 @@ Rectangle {
         name: "Move Selection Up"
         description: "Move Selection Up"
         onActivated: updateItemSelectionVertical(1,-1)
-        componentName: "Timeline"
-    }
-
-    XsHotkey {
-        id: add_video_track_hotkey
-        context: hotkey_area_id
-        name: "Add Video Track"
-        description: "Add Video Track"
-        onActivated: addTrack("Video Track")
-        componentName: "Timeline"
-    }
-
-    XsHotkey {
-        id: add_audio_track_hotkey
-        context: hotkey_area_id
-        name: "Add Audio Track"
-        description: "Add Audio Track"
-        onActivated: addTrack("Audio Track")
         componentName: "Timeline"
     }
 
@@ -1299,7 +1147,7 @@ Rectangle {
     // "timeline"
     XsHotkeyReference {
         id: select_next_hotkey
-        hotkeyName: "Jump to next media/clip"
+        hotkeyName: "Move Forwards through media/clips"
         // Because the Playhead also watches this hotkey, we want to exclusively
         // grab it if the timeline is active
         exclusive: theTimeline.have_timeline && isPlayheadActive
@@ -1316,7 +1164,7 @@ Rectangle {
     // See note above
     XsHotkeyReference {
         id: select_previous_hotkey
-        hotkeyName: "Jump to previous media/clip"
+        hotkeyName: "Move backwards through media/clips"
         exclusive: theTimeline.have_timeline && isPlayheadActive
         onActivated: {
             if(!timeline.timelineSelection.selectedIndexes.length) {
@@ -1551,43 +1399,6 @@ Rectangle {
             property var initialValue: 0
             property real minScaleX: 0
 
-            function wheelDelta(pixelDelta, angleDelta) {
-                return pixelDelta !== 0 ? pixelDelta : angleDelta
-            }
-
-            function scrollTimelineHorizontally(deltaX) {
-                let stackItem = list_view.itemAtIndex(0)
-                if(
-                    !stackItem ||
-                    Math.abs(deltaX) < 1 ||
-                    stackItem.scrollbar.size >= 1.0 ||
-                    stackItem.scrollbar.width <= 0
-                ) {
-                    return false
-                }
-
-                let positionDelta = (stackItem.scrollbar.size / stackItem.scrollbar.width) * deltaX
-                stackItem.jumpToPosition(stackItem.currentPosition() + positionDelta)
-                return true
-            }
-
-            function scrollTimelineVertically(deltaY) {
-                if(
-                    hovered == null ||
-                    Math.abs(deltaY) < 1 ||
-                    !["Video Track", "Audio Track", "Gap", "Clip"].includes(hovered.itemTypeRole)
-                ) {
-                    return false
-                }
-
-                if(["Video Track", "Audio Track"].includes(hovered.itemTypeRole))
-                    hovered.parentLV.flick(0, deltaY > 0 ? 500 : -500)
-                else if(["Gap", "Clip"].includes(hovered.itemTypeRole))
-                    hovered.parentLV.parentLV.flick(0, deltaY > 0 ? 500 : -500)
-
-                return true
-            }
-
             Rectangle {
                 id: region
                 visible: ma.isRegionSelection
@@ -1797,18 +1608,16 @@ Rectangle {
             }
 
             onWheel: wheel => {
-                let deltaX = wheelDelta(wheel.pixelDelta.x, wheel.angleDelta.x)
-                let deltaY = wheelDelta(wheel.pixelDelta.y, wheel.angleDelta.y)
 
                 // maintain position as we zoom..
                 if(wheel.modifiers == Qt.ShiftModifier) {
                     // wheel.angleDelta.y always return 0 on MacOS laptops
                     // when SHIFT is pressed and a mouse wheel is used, but in
                     // that case the x component is updating and usable.
-                    let zoomDelta = deltaY == 0 ? deltaX : deltaY
+                    let deltaY = wheel.angleDelta.y == 0 ? wheel.angleDelta.x : wheel.angleDelta.y
                     // Limit the scale to keep it within a usable range and
                     // avoid a negative scaleY value.
-                    if(zoomDelta > 1) {
+                    if(deltaY > 1) {
                         scaleY = Math.min(2.0, scaleY + 0.2)
                     } else {
                         scaleY = Math.max(0.6, scaleY - 0.2)
@@ -1816,8 +1625,7 @@ Rectangle {
                     wheel.accepted = true
                 } else if(wheel.modifiers == Qt.ControlModifier) {
                     let tmp = scaleX
-                    let zoomDelta = deltaY == 0 ? deltaX : deltaY
-                    if(zoomDelta > 1) {
+                    if(wheel.angleDelta.y > 1) {
                         tmp += 0.2
                     } else {
                         tmp -= 0.2
@@ -1825,9 +1633,11 @@ Rectangle {
                     scaleX = Math.max((list_view.width - trackHeaderWidth) / theSessionData.timelineRect([timeline_items.rootIndex]).width, tmp)
                     list_view.itemAtIndex(0).jumpToFrame(timelinePlayhead.logicalFrame, ListView.Center)
                     wheel.accepted = true
-                } else if(Math.abs(deltaX) > Math.abs(deltaY)) {
-                    wheel.accepted = scrollTimelineHorizontally(deltaX)
-                } else if(scrollTimelineVertically(deltaY)) {
+                } else if(hovered != null && ["Video Track", "Audio Track","Gap","Clip"].includes(hovered.itemTypeRole)) {
+                    if(["Video Track", "Audio Track"].includes(hovered.itemTypeRole))
+                        hovered.parentLV.flick(0, wheel.angleDelta.y > 1 ? 500 : -500)
+                    else if(["Gap", "Clip"].includes(hovered.itemTypeRole))
+                        hovered.parentLV.parentLV.flick(0, wheel.angleDelta.y > 1 ? 500 : -500)
                     wheel.accepted = true
                 } else {
                     wheel.accepted = false

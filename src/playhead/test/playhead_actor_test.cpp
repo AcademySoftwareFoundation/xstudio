@@ -90,9 +90,9 @@ TEST(PlayheadActorTest, Test) {
     auto media3_uuid = request_receive_wait<Uuid>(
         *(f.self), media_3, std::chrono::milliseconds(1000), uuid_atom_v);
 
-    f.self->mail(add_media_atom_v, media_1, Uuid()).send(playlist);
-    f.self->mail(add_media_atom_v, media_2, Uuid()).send(playlist);
-    f.self->mail(add_media_atom_v, media_3, Uuid()).send(playlist);
+    f.self->send(playlist, add_media_atom_v, media_1, Uuid());
+    f.self->send(playlist, add_media_atom_v, media_2, Uuid());
+    f.self->send(playlist, add_media_atom_v, media_3, Uuid());
 
     using namespace std::chrono_literals;
 
@@ -161,7 +161,7 @@ TEST(PlayheadActorTest, Test) {
 
         // step 10 frames forwards
         for (int i = 0; i < 10; ++i) {
-            f.self->mail(playhead::step_atom_v, 1).send(playhead);
+            f.self->send(playhead, playhead::step_atom_v, 1);
         }
 
         std::this_thread::sleep_for(100ms);
@@ -185,7 +185,7 @@ TEST(PlayheadActorTest, Test) {
             true);
 
         // set reverse
-        f.self->mail(playhead::play_forward_atom_v, false).send(playhead);
+        f.self->send(playhead, playhead::play_forward_atom_v, false);
 
         EXPECT_EQ(
             request_receive_wait<bool>(
@@ -197,7 +197,7 @@ TEST(PlayheadActorTest, Test) {
 
         // step 5 frames backweards
         for (int i = 0; i < 5; ++i)
-            f.self->mail(playhead::step_atom_v, -1).send(playhead);
+            f.self->send(playhead, playhead::step_atom_v, -1);
         EXPECT_EQ(
             request_receive_wait<int>(
                 *(f.self),
@@ -207,10 +207,10 @@ TEST(PlayheadActorTest, Test) {
             5);
 
         // play for 1 second
-        f.self->mail(playhead::play_forward_atom_v, true).send(playhead);
-        f.self->mail(playhead::play_atom_v, true).send(playhead);
+        f.self->send(playhead, playhead::play_forward_atom_v, true);
+        f.self->send(playhead, playhead::play_atom_v, true);
         std::this_thread::sleep_for(1s);
-        f.self->mail(playhead::play_atom_v, false).send(playhead);
+        f.self->send(playhead, playhead::play_atom_v, false);
 
         // started on frame 5, play 5 more frames at 24fps, then 10 frames at 60fps, then
         // remainder of the 1 second at 24fps
@@ -227,10 +227,10 @@ TEST(PlayheadActorTest, Test) {
             1);
 
         // play backwards for 1 second
-        f.self->mail(playhead::play_forward_atom_v, false).send(playhead);
-        f.self->mail(playhead::play_atom_v, true).send(playhead);
+        f.self->send(playhead, playhead::play_forward_atom_v, false);
+        f.self->send(playhead, playhead::play_atom_v, true);
         std::this_thread::sleep_for(1s);
-        f.self->mail(playhead::play_atom_v, false).send(playhead);
+        f.self->send(playhead, playhead::play_atom_v, false);
         std::this_thread::sleep_for(100ms); // wait for last frame to flush
 
         EXPECT_NEAR(
@@ -250,7 +250,7 @@ TEST(PlayheadActorTest, Test) {
                 std::chrono::milliseconds(1000),
                 playhead::use_loop_range_atom_v),
             false);
-        f.self->mail(playhead::use_loop_range_atom_v, true).send(playhead);
+        f.self->send(playhead, playhead::use_loop_range_atom_v, true);
 
         EXPECT_EQ(
             request_receive_wait<bool>(
@@ -260,7 +260,7 @@ TEST(PlayheadActorTest, Test) {
                 playhead::use_loop_range_atom_v),
             true);
 
-        f.self->mail(playhead::simple_loop_start_atom_v, 50).send(playhead);
+        f.self->send(playhead, playhead::simple_loop_start_atom_v, 50);
         std::this_thread::sleep_for(10ms);
         EXPECT_EQ(
             request_receive_wait<int>(
@@ -279,7 +279,7 @@ TEST(PlayheadActorTest, Test) {
                 playhead::logical_frame_atom_v),
             50);
 
-        f.self->mail(playhead::simple_loop_end_atom_v, 80).send(playhead);
+        f.self->send(playhead, playhead::simple_loop_end_atom_v, 80);
         std::this_thread::sleep_for(10ms);
         EXPECT_EQ(
             request_receive_wait<int>(
@@ -289,7 +289,7 @@ TEST(PlayheadActorTest, Test) {
                 playhead::simple_loop_end_atom_v),
             80);
 
-        f.self->mail(playhead::simple_loop_end_atom_v, 40).send(playhead);
+        f.self->send(playhead, playhead::simple_loop_end_atom_v, 40);
         std::this_thread::sleep_for(10ms);
         EXPECT_EQ(
             request_receive_wait<int>(
@@ -307,10 +307,10 @@ TEST(PlayheadActorTest, Test) {
             40);
 
         // set 24 frame range
-        f.self->mail(playhead::play_forward_atom_v, true).send(playhead);
-        f.self->mail(playhead::simple_loop_end_atom_v, 74).send(playhead);
-        f.self->mail(playhead::simple_loop_start_atom_v, 50).send(playhead);
-        f.self->mail(playhead::jump_atom_v, (int)62).send(playhead);
+        f.self->send(playhead, playhead::play_forward_atom_v, true);
+        f.self->send(playhead, playhead::simple_loop_end_atom_v, 74);
+        f.self->send(playhead, playhead::simple_loop_start_atom_v, 50);
+        f.self->send(playhead, playhead::jump_atom_v, (int)62);
         std::this_thread::sleep_for(10ms);
 
         EXPECT_EQ(
@@ -336,9 +336,9 @@ TEST(PlayheadActorTest, Test) {
             62);
 
         // play for 1 second, should lopp back to same position
-        f.self->mail(playhead::play_atom_v, true).send(playhead);
+        f.self->send(playhead, playhead::play_atom_v, true);
         std::this_thread::sleep_for(1s);
-        f.self->mail(playhead::play_atom_v, false).send(playhead);
+        f.self->send(playhead, playhead::play_atom_v, false);
         EXPECT_NEAR(
             request_receive_wait<int>(
                 *(f.self),

@@ -25,7 +25,3 @@ There are two contribution agreement types, one for individuals contributing ind
 ## Coding Conventions
 
 Please follow the coding style accross the various file types in the project as best you can. While we have strived to maintain a consistent formatting to the code you may find there are differing styles thanks to the various authors and their natural preferences. We suggest you do your best to follow what's already there but we will not impose a strict style on new code in PRs. We do periodically run clang auto formatting across the C++ components of the codebase. Clang formatting rules are defined in the .clang-tidy and .clang-format files in the root.
-
-## Git Workflow
-
-Please only submit pull requests on the 'develop' branch. The 'main' branch is reserved for updates from the 'develop' branch only.

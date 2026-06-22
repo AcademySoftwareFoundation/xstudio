@@ -6,7 +6,6 @@
 
 #include "py_config.hpp"
 #include "xstudio/atoms.hpp"
-#include "xstudio/ui/viewport/mask.hpp"
 
 namespace caf::python {
 
@@ -44,7 +43,5 @@ void py_config::add_types() {
     add_cpp<std::vector<xstudio::utility::Uuid>>(
         "VectorUuid", "std::vector<xstudio::utility::Uuid>", nullptr);
     add_cpp<std::vector<actor>>("VectorActor", "std::vector<caf::actor>", nullptr);
-    add_cpp<std::vector<xstudio::ui::viewport::Mask>>(
-        "VectorMask", "std::vector<xstudio::ui::viewport::Mask>", nullptr);
 }
 } // namespace caf::python

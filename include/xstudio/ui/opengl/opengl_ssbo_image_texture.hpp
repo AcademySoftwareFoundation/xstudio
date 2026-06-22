@@ -12,30 +12,34 @@
 
 // #define USE_SSBO
 
-namespace xstudio::ui::opengl {
+namespace xstudio {
+namespace ui {
+    namespace opengl {
 
-class GLSsboTex : public GLBlindTex {
+        class GLSsboTex : public GLBlindTex {
 
-  public:
-    GLSsboTex() = default;
-    virtual ~GLSsboTex();
+          public:
+            GLSsboTex() = default;
+            virtual ~GLSsboTex();
 
-    uint8_t *map_buffer_for_upload(const size_t buffer_size) override;
-    void __bind(int /*tex_index*/, Imath::V2i & /*dims*/) override;
+            uint8_t *map_buffer_for_upload(const size_t buffer_size) override;
+            void __bind(int /*tex_index*/, Imath::V2i & /*dims*/) override;
 
-  private:
-    void compute_size(const size_t required_size_bytes);
-    void pixel_upload();
-    void wait_on_upload();
+          private:
+            void compute_size(const size_t required_size_bytes);
+            void pixel_upload();
+            void wait_on_upload();
 
-    GLuint ssbo_id_         = {0};
-    GLuint bytes_per_pixel_ = 4;
+            GLuint ssbo_id_         = {0};
+            GLuint bytes_per_pixel_ = 4;
 
-    [[nodiscard]] size_t tex_size_bytes() const override { return tex_data_size_; }
+            [[nodiscard]] size_t tex_size_bytes() const override { return tex_data_size_; }
 
-    size_t tex_data_size_ = {0};
-};
+            size_t tex_data_size_ = {0};
+        };
 
-} // namespace xstudio::ui::opengl
+    } // namespace opengl
+} // namespace ui
+} // namespace xstudio
 
 #endif

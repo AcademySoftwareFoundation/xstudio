@@ -215,11 +215,10 @@ class BOOKMARK_QML_EXPORT BookmarkModel : public caf::mixin::actor_object<JSONTr
     [[nodiscard]] QFuture<QString>
     getJSONFuture(const QModelIndex &index, const QString &path) const;
 
-    Q_INVOKABLE [[nodiscard]] QVariant
-    getJSONObject(const QModelIndex &index, const QString &path) const {
+    Q_INVOKABLE QVariant getJSONObject(const QModelIndex &index, const QString &path) const {
         return getJSONObjectFuture(index, path).result();
     }
-    Q_INVOKABLE [[nodiscard]] QFuture<QVariant>
+    Q_INVOKABLE QFuture<QVariant>
     getJSONObjectFuture(const QModelIndex &index, const QString &path) const;
 
   signals:
@@ -227,15 +226,14 @@ class BOOKMARK_QML_EXPORT BookmarkModel : public caf::mixin::actor_object<JSONTr
     void lengthChanged();
 
   public:
-    [[nodiscard]] caf::actor_system &system() const { return self()->home_system(); };
+    caf::actor_system &system() const { return self()->home_system(); };
 
   private:
-    [[nodiscard]] QVector<int> getRoleChanges(
+    QVector<int> getRoleChanges(
         const bookmark::BookmarkDetail &ood, const bookmark::BookmarkDetail &nbd) const;
     nlohmann::json jsonFromBookmarks();
-    [[nodiscard]] bookmark::BookmarkDetail getDetail(const caf::actor &actor) const;
-    [[nodiscard]] nlohmann::json
-    createJsonFromDetail(const bookmark::BookmarkDetail &detail) const;
+    bookmark::BookmarkDetail getDetail(const caf::actor &actor) const;
+    nlohmann::json createJsonFromDetail(const bookmark::BookmarkDetail &detail) const;
     void sendDetail(const bookmark::BookmarkDetail &detail) const;
 
   private:

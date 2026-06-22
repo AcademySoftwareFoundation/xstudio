@@ -160,7 +160,7 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
     Q_INVOKABLE void
     mergeRows(const QModelIndexList &indexes, const QString &name = "Combined Playlist");
 
-    Q_INVOKABLE [[nodiscard]] QString getNextName(const QString &nameTemplate) const;
+    Q_INVOKABLE QString getNextName(const QString &nameTemplate) const;
 
     Q_INVOKABLE void setSessionSelection(const QModelIndexList &indexes) const;
 
@@ -192,10 +192,10 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
 
     Q_INVOKABLE bool replaceTimelineTrack(const QModelIndex &src, const QModelIndex &dst);
 
-    Q_INVOKABLE [[nodiscard]] QRect timelineRect(const QModelIndexList &indexes) const;
+    Q_INVOKABLE QRect timelineRect(const QModelIndexList &indexes) const;
 
-    Q_INVOKABLE [[nodiscard]] QModelIndex getTimelineIndex(const QModelIndex &index) const;
-    Q_INVOKABLE [[nodiscard]] QModelIndex getTimelineTrackIndex(const QModelIndex &index) const;
+    Q_INVOKABLE QModelIndex getTimelineIndex(const QModelIndex &index) const;
+    Q_INVOKABLE QModelIndex getTimelineTrackIndex(const QModelIndex &index) const;
 
     Q_INVOKABLE QModelIndex
     getTimelineClipIndex(const QModelIndex &timelineIndex, const int frame);
@@ -252,7 +252,7 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
     Q_INVOKABLE QVariantList boundaryFramesInTimeline(const QModelIndexList &indexes);
 
 
-    Q_INVOKABLE [[nodiscard]] QModelIndexList getIndexesByName(
+    Q_INVOKABLE QModelIndexList getIndexesByName(
         const QModelIndex &idx, const QString &name, const QString &type = "") const;
 
     Q_INVOKABLE QModelIndexList modifyItemSelectionHorizontal(
@@ -312,15 +312,14 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
     Q_INVOKABLE bool
     alignTimelineItems(const QModelIndexList &indexes, const bool align_right = true);
 
-    Q_INVOKABLE [[nodiscard]] QFuture<bool> exportOTIO(
+    Q_INVOKABLE QFuture<bool> exportOTIO(
         const QModelIndex &timeline,
         const QUrl &path,
         const QString &type   = "otio_json",
         const QString &schema = "");
-    Q_INVOKABLE [[nodiscard]] QVariantList getTimelineExportTypes() const;
+    Q_INVOKABLE QVariantList getTimelineExportTypes() const;
 
     Q_INVOKABLE QVariant getTimelineFullRangeAndLoopRangeAndFPS(const QModelIndex &index);
-    Q_INVOKABLE QVariantList getAllContainerMediaFPS(const QModelIndex &index);
 
     // end timeline operations
 
@@ -477,8 +476,8 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
         const QModelIndexList &indexes, const QUrl &path, const bool looseMatch = false);
     Q_INVOKABLE void decomposeMedia(const QModelIndexList &indexes);
     Q_INVOKABLE void rescanMedia(const QModelIndexList &indexes);
-    Q_INVOKABLE [[nodiscard]] QModelIndex getPlaylistIndex(const QModelIndex &index) const;
-    Q_INVOKABLE [[nodiscard]] QModelIndex getContainerIndex(const QModelIndex &index) const;
+    Q_INVOKABLE QModelIndex getPlaylistIndex(const QModelIndex &index) const;
+    Q_INVOKABLE QModelIndex getContainerIndex(const QModelIndex &index) const;
 
     Q_INVOKABLE QFuture<bool> undoFuture(const QModelIndex &index);
     Q_INVOKABLE QFuture<bool> redoFuture(const QModelIndex &index);
@@ -523,7 +522,7 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
     void makeTimelineSelection(QModelIndex timeline, QModelIndexList items);
 
   public:
-    [[nodiscard]] caf::actor_system &system() const { return self()->home_system(); }
+    caf::actor_system &system() const { return self()->home_system(); }
     static nlohmann::json createEntry(const nlohmann::json &update = R"({})"_json);
 
   protected:
@@ -549,8 +548,8 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
     //     const int hits) const;
 
   private:
-    [[nodiscard]] bool isChildOf(const QModelIndex &parent, const QModelIndex &child) const;
-    [[nodiscard]] int depthOfChild(const QModelIndex &parent, const QModelIndex &child) const;
+    bool isChildOf(const QModelIndex &parent, const QModelIndex &child) const;
+    int depthOfChild(const QModelIndex &parent, const QModelIndex &child) const;
 
     void triggerMediaStatusChange(const QModelIndex &index);
 
@@ -608,8 +607,7 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
         const nlohmann::json &data,
         const int role) const;
 
-    [[nodiscard]] caf::actor
-    actorFromIndex(const QModelIndex &index, const bool try_parent = false) const;
+    caf::actor actorFromIndex(const QModelIndex &index, const bool try_parent = false) const;
     utility::Uuid actorUuidFromIndex(const QModelIndex &index, const bool try_parent = false);
     utility::Uuid
     containerUuidFromIndex(const QModelIndex &index, const bool try_parent = false);
@@ -683,7 +681,7 @@ class SESSION_QML_EXPORT MediaListFilterModel : public QSortFilterProxyModel {
 
     MediaListFilterModel(QObject *parent = nullptr);
 
-    [[nodiscard]] const QString &searchString() const { return search_string_; }
+    const QString &searchString() const { return search_string_; }
 
     void setSearchString(const QString &ss) {
         if (ss != search_string_) {

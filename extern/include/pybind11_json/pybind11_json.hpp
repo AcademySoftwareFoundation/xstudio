@@ -9,7 +9,6 @@
 #ifndef PYBIND11_JSON_HPP
 #define PYBIND11_JSON_HPP
 
-#include <set>
 #include <string>
 #include <vector>
 
@@ -32,17 +31,17 @@ namespace pyjson
         {
             return py::bool_(j.get<bool>());
         }
-        else if (j.is_number_unsigned())
+        else if (j.is_number())
         {
-            return py::int_(j.get<nl::json::number_unsigned_t>());
-        }
-        else if (j.is_number_integer())
-        {
-            return py::int_(j.get<nl::json::number_integer_t>());
-        }
-        else if (j.is_number_float())
-        {
-            return py::float_(j.get<double>());
+            double number = j.get<double>();
+            if (number == std::floor(number))
+            {
+                return py::int_(j.get<long>());
+            }
+            else
+            {
+                return py::float_(number);
+            }
         }
         else if (j.is_string())
         {
@@ -50,12 +49,12 @@ namespace pyjson
         }
         else if (j.is_array())
         {
-            py::list obj(j.size());
-            for (std::size_t i = 0; i < j.size(); i++)
+            py::list obj;
+            for (const auto& el : j)
             {
-                obj[i] = from_json(j[i]);
+                obj.append(from_json(el));
             }
-            return obj;
+            return std::move(obj);
         }
         else // Object
         {
@@ -64,11 +63,11 @@ namespace pyjson
             {
                 obj[py::str(it.key())] = from_json(it.value());
             }
-            return obj;
+            return std::move(obj);
         }
     }
 
-    inline nl::json to_json(const py::handle& obj, std::set<const PyObject*>& refs)
+    inline nl::json to_json(const py::handle& obj)
     {
         if (obj.ptr() == nullptr || obj.is_none())
         {
@@ -80,38 +79,11 @@ namespace pyjson
         }
         if (py::isinstance<py::int_>(obj))
         {
-            try
-            {
-                nl::json::number_integer_t s = obj.cast<nl::json::number_integer_t>();
-                if (py::int_(s).equal(obj))
-                {
-                    return s;
-                }
-            }
-            catch (...)
-            {
-            }
-            try
-            {
-                nl::json::number_unsigned_t u = obj.cast<nl::json::number_unsigned_t>();
-                if (py::int_(u).equal(obj))
-                {
-                    return u;
-                }
-            }
-            catch (...)
-            {
-            }
-            throw std::runtime_error("to_json received an integer out of range for both nl::json::number_integer_t and nl::json::number_unsigned_t type: " + py::repr(obj).cast<std::string>());
+            return obj.cast<long>();
         }
         if (py::isinstance<py::float_>(obj))
         {
             return obj.cast<double>();
-        }
-        if (py::isinstance<py::bytes>(obj))
-        {
-            py::module base64 = py::module::import("base64");
-            return base64.attr("b64encode")(obj).attr("decode")("utf-8").cast<std::string>();
         }
         if (py::isinstance<py::str>(obj))
         {
@@ -119,48 +91,24 @@ namespace pyjson
         }
         if (py::isinstance<py::tuple>(obj) || py::isinstance<py::list>(obj))
         {
-            auto insert_ret = refs.insert(obj.ptr());
-            if (!insert_ret.second) {
-                throw std::runtime_error("Circular reference detected");
-            }
-
             auto out = nl::json::array();
-            for (const py::handle value : obj)
+            for (const py::handle& value : obj)
             {
-                out.push_back(to_json(value, refs));
+                out.push_back(to_json(value));
             }
-
-            refs.erase(insert_ret.first);
-
             return out;
         }
         if (py::isinstance<py::dict>(obj))
         {
-            auto insert_ret = refs.insert(obj.ptr());
-            if (!insert_ret.second) {
-                throw std::runtime_error("Circular reference detected");
-            }
-
             auto out = nl::json::object();
-            for (const py::handle key : obj)
+            for (const py::handle& key : obj)
             {
-                out[py::str(key).cast<std::string>()] = to_json(obj[key], refs);
+                out[py::str(key).cast<std::string>()] = to_json(obj[key]);
             }
-
-            refs.erase(insert_ret.first);
-
             return out;
         }
-
         throw std::runtime_error("to_json not implemented for this type of object: " + py::repr(obj).cast<std::string>());
     }
-
-    inline nl::json to_json(const py::handle& obj)
-    {
-        std::set<const PyObject*> refs;
-        return to_json(obj, refs);
-    }
-
 }
 
 // nlohmann_json serializers
@@ -226,8 +174,7 @@ namespace pybind11
 
             bool load(handle src, bool)
             {
-                try
-                {
+                try {
                     value = pyjson::to_json(src);
                     return true;
                 }

@@ -239,7 +239,7 @@ void ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
 
 
             try {
-                for (const auto &tag : src.at(2)) {
+                for (const auto tag : src.at(2)) {
                     try {
                         if (not tag.at("relationships").at("sg_link").at("data").is_null()) {
                             auto tag_type =
@@ -967,12 +967,11 @@ QModelIndex ShotBrowserSequenceFilterModel::searchRecursive(
         smodel->searchRecursive(value, role, mapToSource(parent), start, depth));
 }
 
+
 QVariant ShotBrowserSequenceModel::data(const QModelIndex &index, int role) const {
     auto result                     = QVariant();
     const static auto sg_asset_name = json::json_pointer("/attributes/sg_asset_name");
     const static auto sg_hero       = json::json_pointer("/attributes/sg_hero_shot");
-    const static auto sg_current_stage_name =
-        json::json_pointer("/relationships/sg_current_stage/data/name");
 
     try {
         const auto &j = indexToData(index);
@@ -995,19 +994,6 @@ QVariant ShotBrowserSequenceModel::data(const QModelIndex &index, int role) cons
             if (j.contains(sg_hero))
                 result = j.at(sg_hero).get<bool>();
             break;
-
-        case Roles::clientStagesCurrentRole:
-            // return index of current role.
-            if (j.contains(sg_current_stage_name)) {
-                result = QStringFromStd(j.at(sg_current_stage_name));
-            } else {
-                result = QStringFromStd("STAGE-NA");
-            }
-            // if(auto s = value_or(j.at("attributes"), i, std::string("na")); not(s == "na" or
-            // s == "cmpt"))
-            //     break;
-            break;
-
 
         case Roles::manifestRole: {
             if (j.contains("shot_manifest_tags")) {

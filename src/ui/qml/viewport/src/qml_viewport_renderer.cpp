@@ -12,15 +12,16 @@ using namespace xstudio::ui::qml;
 using namespace xstudio::ui::viewport;
 using namespace xstudio;
 
-// namespace {
-// static int ctt = 0;
-// } // namespace
+namespace {
+static int ctt = 0;
+} // namespace
 
 
 // N.B. we don't pass in 'parent' as the parent of the base class. The owner
 // of this class must schedule its destruction directly rather than rely on
 // Qt object child destruction.
-QMLViewportRenderer::QMLViewportRenderer(QObject *parent) : QMLActor(nullptr) {
+QMLViewportRenderer::QMLViewportRenderer(QObject *parent)
+    : QMLActor(nullptr), m_window(nullptr) {
 
     viewport_qml_item_ = dynamic_cast<QMLViewport *>(parent);
     init_system();
@@ -185,6 +186,7 @@ void QMLViewportRenderer::make_xstudio_viewport() {
     // main (active) playhead but rather is playing something completely different.
     // In this case 'is_quick_viewer_' is true but m_window->objectName() is
     // "xstudio_main_window".
+
     if (is_quick_viewer_ && m_window->objectName() == "xstudio_main_window") {
         static std::atomic<int> ct = 0;
         int i                      = ct;

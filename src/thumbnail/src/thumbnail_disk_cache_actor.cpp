@@ -90,7 +90,7 @@ class ThumbGenMiddleman : public caf::event_based_actor {
     ThumbGenMiddleman(caf::actor_config &cfg);
     ~ThumbGenMiddleman() override = default;
 
-    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
+    const char *name() const override { return NAME.c_str(); }
 
   private:
     inline static const std::string NAME = "ThumbGenMiddleman";
@@ -283,7 +283,7 @@ ThumbnailBufferPtr TDCHelperActor::decode_thumb(const std::vector<std::byte> &bu
         while (decompressInfo->output_scanline < result->height()) {
             ::jpeg_read_scanlines(decompressInfo.get(), reinterpret_cast<JSAMPARRAY>(&mono), 1);
 
-            for (size_t i = 0; i < result->width(); i++) {
+            for (auto i = 0; i < result->width(); i++) {
                 p[i * 3] = p[(i * 3) + 1] = p[(i * 3) + 2] =
                     static_cast<std::byte>(*(mono + i));
             }

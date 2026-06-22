@@ -19,7 +19,7 @@ namespace fs = std::filesystem;
 std::string GetLastErrorAsString() {
     DWORD errorMessageID = GetLastError();
     if (errorMessageID == 0)
-        return {}; // No error message has been recorded
+        return std::string(); // No error message has been recorded
 
     LPSTR messageBuffer = nullptr;
     size_t size         = FormatMessageA(

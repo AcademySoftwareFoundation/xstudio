@@ -3,7 +3,6 @@
 #include <stdlib.h>
 
 #if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
-#include <intrin.h>
 #include <immintrin.h>
 #define XSTUDIO_HAS_PEXT 1
 #define XSTUDIO_HAS_SSSE3 1
@@ -45,7 +44,7 @@ static inline bool cpu_has_bmi2() {
 #if defined(__GNUC__) || defined(__clang__)
     // Works on x86/x64 with GCC/Clang
     return __builtin_cpu_supports("bmi2");
-#elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
+#elif defined(_MSC_VER)
     int regs[4] = {0, 0, 0, 0};
     __cpuidex(regs, 7, 0); // leaf 7, subleaf 0
     // EBX bit 8 = BMI2
@@ -63,7 +62,7 @@ static inline bool cpu_has_ssse3() {
     }
 #if defined(__GNUC__) || defined(__clang__)
     return __builtin_cpu_supports("ssse3");
-#elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
+#elif defined(_MSC_VER)
     int regs[4] = {0, 0, 0, 0};
     __cpuid(regs, 1); // leaf 1
     // ECX bit 9 = SSSE3
@@ -315,8 +314,8 @@ void RGBA16_to_12bitRGBLE::doit() {
     // bit gathering efficiently. If not we fall back to a manual bit extraction loop
     // which is slower but still real-time on modern CPUs.
     // BTW I did this, not an LLM!
-    auto src = reinterpret_cast<uint64_t *>(_src);
-    auto dst = reinterpret_cast<uint64_t *>(_dst);
+    uint64_t *src = reinterpret_cast<uint64_t *>(_src);
+    uint64_t *dst = reinterpret_cast<uint64_t *>(_dst);
 #if XSTUDIO_HAS_PEXT
     if (__has_bmi2) {
         while (n >= 16) {
@@ -419,11 +418,11 @@ void RGBA16_to_12bitRGBLE::doit() {
 
 void RGBA16_to_12bitRGB::doit() {
 
-    auto _mdst = (uint32_t *)_dst;
-    size_t mn  = (n * 9) / 8;
+    uint32_t *_mdst = (uint32_t *)_dst;
+    size_t mn       = (n * 9) / 8;
 
-    auto src = reinterpret_cast<uint64_t *>(_src);
-    auto dst = reinterpret_cast<uint64_t *>(_dst);
+    uint64_t *src = reinterpret_cast<uint64_t *>(_src);
+    uint64_t *dst = reinterpret_cast<uint64_t *>(_dst);
     if (__has_bmi2) {
 #if XSTUDIO_HAS_PEXT
         while (n >= 16) {

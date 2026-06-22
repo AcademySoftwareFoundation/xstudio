@@ -7,8 +7,6 @@ import xStudio 1.0
 import xstudio.qml.helpers 1.0
 import xstudio.qml.models 1.0
 import "./menus"
-import "./widgets"
-import "./functions"
 
 Item{
     id: panel
@@ -31,21 +29,6 @@ Item{
                 showContextMenu(mouseX, mouseY, ma)
             }
         }
-    }
-
-    /**************************************************************
-    HotKeys
-    ****************************************************************/
-    XsPlaylistFunctions {
-        id: playlist_functions
-    }
-
-    XsPlaylistHotKeys {
-        id: hotkey_area
-    }
-
-    XsFocusRemover {
-        target: hotkey_area
     }
 
     XsModelProperty {

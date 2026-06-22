@@ -28,12 +28,12 @@ using namespace xstudio;
 namespace {
 
 static Uuid myshader_uuid{"52141ad7-0eeb-4b80-8881-b62cfecbf9f1"};
-static Uuid myshader_transparent_uuid{"44c43077-1614-41f4-b32d-adaaef293cfe"};
 static Uuid s_plugin_uuid{"4a1db5da-610a-4f41-917d-fd7016948ead"};
 
 static std::string myshader{R"(
 #version 330 core
 uniform int width;
+uniform int bytes_per_channel;
 
 // forward declaration
 uvec4 get_image_data_4bytes(int byte_address);
@@ -46,26 +46,8 @@ vec4 fetch_rgba_pixel(ivec2 image_coord)
 }
 )"};
 
-static std::string myshader_transparent{R"(
-#version 330 core
-uniform int width;
-
-// forward declaration
-uvec4 get_image_data_4bytes(int byte_address);
-
-vec4 fetch_rgba_pixel(ivec2 image_coord)
-{
-    int address = (image_coord.x + image_coord.y * width) * 4;
-    uvec4 c = get_image_data_4bytes(address);
-    return vec4(float(c.x)/255.0f,float(c.y)/255.0f,float(c.z)/255.0f,float(c.w)/255.0f);
-}
-)"};
-
 static ui::viewport::GPUShaderPtr
     pdf_shader(new ui::opengl::OpenGLShader(myshader_uuid, myshader));
-
-static ui::viewport::GPUShaderPtr pdf_shader_transparent(
-    new ui::opengl::OpenGLShader(myshader_transparent_uuid, myshader_transparent));
 
 } // namespace
 
@@ -123,18 +105,7 @@ media::MediaDetail PDFMediaReader::detail(const caf::uri &uri) const {
         media::StreamDetail(
             utility::FrameRateDuration(
                 frame_count, FrameRate(timebase::k_flicks_one_twenty_fourth_of_second)),
-            "Pages RGB",
-            media::MT_IMAGE,
-            "{0}@{1}/{2},{3}",
-            Imath::V2i(width, height),
-            1.0f,
-            0));
-
-    streams.emplace_back(
-        media::StreamDetail(
-            utility::FrameRateDuration(
-                frame_count, FrameRate(timebase::k_flicks_one_twenty_fourth_of_second)),
-            "Pages RGBA",
+            "Pages",
             media::MT_IMAGE,
             "{0}@{1}/{2},{3}",
             Imath::V2i(width, height),
@@ -162,49 +133,26 @@ ImageBufPtr PDFMediaReader::image(const media::AVFrameID &mptr) {
             cache_[mptr.uri()] = pdf;
     }
 
-    const auto stream_id = mptr.stream_id();
-
     auto point_size = pdf->pagePointSize(mptr.frame());
     auto width      = points_to_pixels(point_size.width());
     auto height     = points_to_pixels(point_size.height());
+    auto image = pdf->render(mptr.frame(), QSize(width, height), QPdfDocumentRenderOptions());
 
-    if (stream_id == "Pages RGB") {
-        auto image =
-            pdf->render(mptr.frame(), QSize(width, height), QPdfDocumentRenderOptions());
+    image.convertTo(QImage::Format_RGB888);
 
-        image.convertTo(QImage::Format_RGB888);
+    JsonStore jsn;
+    jsn["bytes_per_channel"] = 3;
+    jsn["width"]             = width;
+    jsn["height"]            = height;
 
-        JsonStore jsn;
-        jsn["width"]  = width;
-        jsn["height"] = height;
+    buf.reset(new ImageBuffer(myshader_uuid, jsn));
+    buf->allocate(width * height * 3);
+    buf->set_shader(pdf_shader);
+    buf->set_image_dimensions(Imath::V2i(width, height));
 
-        buf.reset(new ImageBuffer(myshader_uuid, jsn));
-        buf->allocate(width * height * 3);
-        buf->set_shader(pdf_shader);
-        buf->set_image_dimensions(Imath::V2i(width, height));
+    byte *buffer = buf->buffer();
 
-        byte *buffer = buf->buffer();
-
-        std::memcpy((char *)buffer, image.constBits(), width * height * 3);
-    } else {
-        auto image =
-            pdf->render(mptr.frame(), QSize(width, height), QPdfDocumentRenderOptions());
-
-        image.convertTo(QImage::Format_RGBA8888);
-
-        JsonStore jsn;
-        jsn["width"]  = width;
-        jsn["height"] = height;
-
-        buf.reset(new ImageBuffer(myshader_transparent_uuid, jsn));
-        buf->allocate(width * height * 4);
-        buf->set_shader(pdf_shader_transparent);
-        buf->set_image_dimensions(Imath::V2i(width, height));
-
-        byte *buffer = buf->buffer();
-
-        std::memcpy((char *)buffer, image.constBits(), width * height * 4);
-    }
+    std::memcpy((char *)buffer, image.constBits(), width * height * 3);
 
     return buf;
 }

@@ -8,7 +8,6 @@ target_link_libraries(plugin_manager_test
 		xstudio::json_store
 		xstudio::global_store
 		xstudio::media
-		xstudio::global
 		${GTEST_LDFLAGS}
 )
 target_compile_definitions(plugin_manager_test

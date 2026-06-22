@@ -28,8 +28,8 @@ else()
 endif()
 
 SET(EXTRAMOC
-	# "${ROOT_DIR}/include/xstudio/ui/qml/thumbnail_provider_ui.hpp"
-	# "${ROOT_DIR}/include/xstudio/ui/qml/shotgun_provider_ui.hpp"
+	"${ROOT_DIR}/include/xstudio/ui/qml/thumbnail_provider_ui.hpp"
+	"${ROOT_DIR}/include/xstudio/ui/qml/shotgun_provider_ui.hpp"
 	"${ROOT_DIR}/include/xstudio/ui/qml/QTreeModelToTableModel.hpp"
 	"${ROOT_DIR}/include/xstudio/ui/qml/json_tree_model_ui.hpp"
 	"${ROOT_DIR}/include/xstudio/ui/qml/model_data_ui.hpp"

@@ -15,56 +15,58 @@
 #include "xstudio/utility/uuid.hpp"
 
 
-namespace xstudio::embedded_python {
-namespace py = pybind11;
+namespace xstudio {
+namespace embedded_python {
+    namespace py = pybind11;
 
-class EmbeddedPythonActor;
+    class EmbeddedPythonActor;
 
-class DLL_PUBLIC EmbeddedPython : public utility::Container {
-  public:
-    EmbeddedPython(
-        const std::string &name = "EmbeddedPython", EmbeddedPythonActor *parent = nullptr);
-    EmbeddedPython(const utility::JsonStore &jsn, EmbeddedPythonActor *parent = nullptr);
+    class DLL_PUBLIC EmbeddedPython : public utility::Container {
+      public:
+        EmbeddedPython(
+            const std::string &name = "EmbeddedPython", EmbeddedPythonActor *parent = nullptr);
+        EmbeddedPython(const utility::JsonStore &jsn, EmbeddedPythonActor *parent = nullptr);
 
-    ~EmbeddedPython() override;
+        ~EmbeddedPython() override;
 
-    [[nodiscard]] utility::JsonStore serialise() const override;
-    [[nodiscard]] bool enabled() const { return Py_IsInitialized(); }
+        [[nodiscard]] utility::JsonStore serialise() const override;
+        [[nodiscard]] bool enabled() const { return Py_IsInitialized(); }
 
-    void setup();
+        void setup();
 
-    void hello() const;
-    void exec(const std::string &pystring) const;
-    void eval_file(const std::string &pyfile) const;
-    [[nodiscard]] nlohmann::json eval(const std::string &pystring) const;
-    [[nodiscard]] nlohmann::json
-    eval(const std::string &pystring, const nlohmann::json &locals) const;
+        void hello() const;
+        void exec(const std::string &pystring) const;
+        void eval_file(const std::string &pyfile) const;
+        [[nodiscard]] nlohmann::json eval(const std::string &pystring) const;
+        [[nodiscard]] nlohmann::json
+        eval(const std::string &pystring, const nlohmann::json &locals) const;
 
-    [[nodiscard]] nlohmann::json eval_locals(const std::string &pystring) const;
-    [[nodiscard]] nlohmann::json
-    eval_locals(const std::string &pystring, const nlohmann::json &locals) const;
+        [[nodiscard]] nlohmann::json eval_locals(const std::string &pystring) const;
+        [[nodiscard]] nlohmann::json
+        eval_locals(const std::string &pystring, const nlohmann::json &locals) const;
 
-    bool connect(const int port);
-    bool connect(caf::actor actor);
-    void disconnect();
+        bool connect(const int port);
+        bool connect(caf::actor actor);
+        void disconnect();
 
-    utility::Uuid create_session(const bool interactive);
-    bool remove_session(const utility::Uuid &session_uuid);
-    bool input_session(const utility::Uuid &session_uuid, const std::string &input);
-    bool input_ctrl_c_session(const utility::Uuid &session_uuid);
+        utility::Uuid create_session(const bool interactive);
+        bool remove_session(const utility::Uuid &session_uuid);
+        bool input_session(const utility::Uuid &session_uuid, const std::string &input);
+        bool input_ctrl_c_session(const utility::Uuid &session_uuid);
 
-    void finalize();
+        void finalize();
 
-  private:
-    // py::function cb_;
-    std::map<utility::Uuid, py::object> plugin_registry_;
+      private:
+        // py::function cb_;
+        std::map<utility::Uuid, py::object> plugin_registry_;
 
-    EmbeddedPythonActor *parent_;
+        EmbeddedPythonActor *parent_;
 
-    inline static EmbeddedPython *s_instance_ = nullptr;
-    std::set<utility::Uuid> sessions_;
-    bool inited_{false};
-    bool setup_{false};
-    // std::map<utility::Uuid, std::pair<py::object, py::object>> sessions_;
-};
-} // namespace xstudio::embedded_python
+        inline static EmbeddedPython *s_instance_ = nullptr;
+        std::set<utility::Uuid> sessions_;
+        bool inited_{false};
+        bool setup_{false};
+        // std::map<utility::Uuid, std::pair<py::object, py::object>> sessions_;
+    };
+} // namespace embedded_python
+} // namespace xstudio

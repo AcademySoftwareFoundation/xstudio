@@ -60,9 +60,17 @@ Item{
         target: hotkey_area
     }
 
+    property var select_all_hotkey: hotkey_area.select_all_hotkey
+    property var deselect_all_hotkey: hotkey_area.deselect_all_hotkey
+    property alias delete_selected: hotkey_area.delete_selected_hotkey
+    property alias reload_selected_media_hotkey: hotkey_area.reload_selected_media_hotkey
+    property alias cycle_colour_hotkey: hotkey_area.cycle_colour_hotkey
+
+
     XsGradientRectangle{
         anchors.fill: parent
     }
+
 
     XsMediaListColumnsModel {
         id: columns_root_model
@@ -121,6 +129,22 @@ Item{
     XsMediaListFunctions {
         id: media_list_functions
     }
+    property var selectAll: media_list_functions.selectAll
+    property var selectAllOffline: media_list_functions.selectAllOffline
+    property var invertSelection: media_list_functions.invertSelection
+    property var selectFlagged: media_list_functions.selectFlagged
+    property var selectAllAdjusted: media_list_functions.selectAllAdjusted
+    property var deselectAll: media_list_functions.deselectAll
+    property var mediaIndexAfterRemoved: media_list_functions.mediaIndexAfterRemoved
+    property var deleteSelected: media_list_functions.deleteSelected
+    property var deleteOffline: media_list_functions.deleteOffline
+    property var selectUp: media_list_functions.selectUp
+    property var cycleColour: media_list_functions.cycleColour
+    property var selectDown: media_list_functions.selectDown
+    property var cycleSelection: media_list_functions.cycleSelection
+    property var addToNewSequence: media_list_functions.addToNewSequence
+    property var addToNewSubset: media_list_functions.addToNewSubset
+    property var addToNewContactSheet: media_list_functions.addToNewContactSheet
 
     Loader {
         id: menu_loader_plus

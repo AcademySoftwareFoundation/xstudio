@@ -44,7 +44,6 @@ Item {
         onActivated: ShotBrowserHelpers.syncPlaylistFromShotGrid(
             helpers.QUuidFromUuidString(inspectedMediaSetProperties.values.actorUuidRole), true
         )
-        componentName: "ShotBrowser"
     }
 
     XsMenuModelItem {
@@ -105,47 +104,6 @@ Item {
         menuItemPosition: 261
         menuModelName: "media_list_menu_"
         onActivated: ShotBrowserHelpers.downloadMovies(menuContext.mediaSelection)
-    }
-
-    XsMenuModelItem {
-        text: "movie_dneg"
-        menuPath: "Quick Cache"
-        menuItemPosition: 1
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.useCache(menuContext.mediaSelection, text)
-    }
-
-    XsMenuModelItem {
-        text: "client_movie"
-        menuPath: "Quick Cache"
-        menuItemPosition: 2
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.useCache(menuContext.mediaSelection, text)
-    }
-
-    XsMenuModelItem {
-        text: "review_proxy_1"
-        menuPath: "Quick Cache"
-        menuItemPosition: 3
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.useCache(menuContext.mediaSelection, text)
-    }
-
-    XsMenuModelItem {
-        text: "review_proxy_2"
-        menuPath: "Quick Cache"
-        menuItemPosition: 4
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.useCache(menuContext.mediaSelection, text)
-    }
-
-   XsMenuModelItem {
-        text: "main_proxy0"
-        menuPath: "Quick Cache"
-        menuItemPosition: 5
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.useCache(menuContext.mediaSelection, text)
-        Component.onCompleted: setMenuPathPosition("Quick Cache", 262)
     }
 
     XsMenuModelItem {

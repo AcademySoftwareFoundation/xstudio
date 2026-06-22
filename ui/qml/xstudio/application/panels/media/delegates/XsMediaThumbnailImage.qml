@@ -34,6 +34,7 @@ Rectangle{
         fill: true
     }
 
+
     XsIcon{
 
         id: play_image

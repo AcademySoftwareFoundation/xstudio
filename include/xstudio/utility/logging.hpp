@@ -51,27 +51,34 @@
 #endif
 
 
-namespace xstudio::utility {
-
+namespace xstudio {
 /*!
- *  \addtogroup utility
+ *  \addtogroup xstudio
  *  @{
  */
+namespace utility {
+
+    /*!
+     *  \addtogroup utility
+     *  @{
+     */
 
 
-/*! Start logger
+    /*! Start logger
 
-  \param lvl - logging level
-  \param logfile - optional file to log to
+      \param lvl - logging level
+      \param logfile - optional file to log to
 
-*/
-void start_logger(
-    const spdlog::level::level_enum lvl = spdlog::level::info, const std::string &logfile = "");
+    */
+    void start_logger(
+        const spdlog::level::level_enum lvl = spdlog::level::info,
+        const std::string &logfile          = "");
 
 
-//! Stop logger
-void stop_logger();
+    //! Stop logger
+    void stop_logger();
+    /*! @} End of Doxygen UIDataModels*/
+
+} // namespace utility
 /*! @} End of Doxygen UIDataModels*/
-
-} // namespace xstudio::utility
-/*! @} End of Doxygen UIDataModels*/
+} // namespace xstudio

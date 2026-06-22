@@ -123,9 +123,9 @@ QString xstudio::ui::qml::getThumbnailURL(
 nlohmann::json xstudio::ui::qml::qvariant_to_json(const QVariant &var) {
 
     if (not var.isValid())
-        return {};
+        return nlohmann::json();
 
-    switch (QMetaType::Type(var.typeId())) {
+    switch (QMetaType::Type(var.type())) {
     case QMetaType::Bool:
         return nlohmann::json(var.toBool());
         break;
@@ -196,7 +196,7 @@ nlohmann::json xstudio::ui::qml::qvariant_to_json(const QVariant &var) {
         throw std::runtime_error(err.toStdString().c_str());
     } break;
     }
-    return {};
+    return nlohmann::json();
 }
 
 QVariant xstudio::ui::qml::json_to_qvariant(const nlohmann::json &json) {
@@ -245,7 +245,7 @@ QVariant xstudio::ui::qml::json_to_qvariant(const nlohmann::json &json) {
         }
         return QVariant(m);
     } else if (json.is_null()) {
-        return {};
+        return QVariant();
     }
     throw std::runtime_error("Unknown json type, no conversion to QVariant");
 }
@@ -275,7 +275,6 @@ bool KeyEventsItem::event(QEvent *event) {
             anon_mail(
                 ui::keypress_monitor::key_down_atom_v,
                 key_event->key(),
-                StdFromQString(key_event->text()),
                 context_,
                 window_name_,
                 key_event->isAutoRepeat())
@@ -312,7 +311,7 @@ bool KeyEventsItem::grabFocus() {
     while (c) {
         QObject *cobj = c->contextObject();
         if (cobj) {
-            auto win = dynamic_cast<QQuickWindow *>(cobj);
+            QQuickWindow *win = dynamic_cast<QQuickWindow *>(cobj);
             if (win && win->activeFocusItem()) {
                 if (win->activeFocusItem()->objectName() == QString("XsSearchBar")) {
                     return false;
@@ -379,13 +378,13 @@ QString ClipboardProxy::html() const {
     if (md and md->hasHtml())
         return md->html();
 
-    return {};
+    return QString();
 }
 
 QVariant ClipboardProxy::data() const {
     auto md = QGuiApplication::clipboard()->mimeData();
     if (not md)
-        return {};
+        return QVariant();
 
     QVariantMap results;
     for (const auto &fmt : md->formats()) {
@@ -393,7 +392,7 @@ QVariant ClipboardProxy::data() const {
             results.insert(fmt, md->text());
         } else if (fmt == "text/uri-list") {
             QVariantList url_list;
-            for (const auto &url : md->urls())
+            for (const auto url : md->urls())
                 url_list.append(url);
             results.insert(fmt, url_list);
         } else {
@@ -464,77 +463,58 @@ QModelIndexList Helpers::getParentIndexes(const QModelIndexList &l) const {
 #include <QtDBus/QtDBus>
 #endif
 
-QFuture<bool> Helpers::inhibitScreenSaverFuture(const bool inhibit) const {
+void Helpers::inhibitScreenSaver(const bool inhibit) const {
     // quint32 screensaver_cookie_{0};
 
     spdlog::debug("inhibitScreenSaver {}", inhibit);
-    auto future = QFuture<bool>();
 
 #ifdef __linux__
-    try {
-        future = QtConcurrent::run([=]() {
-            auto result = false;
+    const int MAX_SERVICES = 1;
 
-            const int MAX_SERVICES = 1;
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    if (bus.isConnected()) {
+        QString services[MAX_SERVICES] = {
+            "org.freedesktop.ScreenSaver",
+            // "org.gnome.SessionManager"
+        };
+        QString paths[MAX_SERVICES] = {
+            "/org/freedesktop/ScreenSaver",
+            // "/org/gnome/SessionManager"
+        };
 
-            QDBusConnection bus = QDBusConnection::sessionBus();
-            if (bus.isConnected()) {
-                QString services[MAX_SERVICES] = {
-                    "org.freedesktop.ScreenSaver",
-                    // "org.gnome.SessionManager"
-                };
-                QString paths[MAX_SERVICES] = {
-                    "/org/freedesktop/ScreenSaver",
-                    // "/org/gnome/SessionManager"
-                };
+        static quint32 cookies[2] = {0, 0};
 
-                static quint32 cookies[2] = {0, 0};
+        for (int i = 0; i < MAX_SERVICES; i++) {
+            QDBusInterface screenSaverInterface(services[i], paths[i], services[i], bus);
 
-                for (int i = 0; i < MAX_SERVICES; i++) {
-                    QDBusInterface screenSaverInterface(
-                        services[i], paths[i], services[i], bus);
+            if (!screenSaverInterface.isValid())
+                continue;
 
-                    if (!screenSaverInterface.isValid())
-                        continue;
+            QDBusReply<uint> reply;
 
-                    QDBusReply<uint> reply;
+            if (inhibit)
+                reply = screenSaverInterface.call("Inhibit", "xStudio", "Playing");
+            else if (cookies[i]) {
+                reply      = screenSaverInterface.call("UnInhibit", cookies[i]);
+                cookies[i] = 0;
+            }
 
-                    if (inhibit) {
-                        reply  = screenSaverInterface.call("Inhibit", "xStudio", "Playing");
-                        result = true;
-                    } else if (cookies[i]) {
-                        reply      = screenSaverInterface.call("UnInhibit", cookies[i]);
-                        cookies[i] = 0;
-                        result     = true;
-                    }
-
-                    if (inhibit) {
-                        if (reply.isValid())
-                            cookies[i] = reply.value();
-                        else {
-                            QDBusError error = reply.error();
-                            spdlog::warn(
-                                "{} {} {}",
-                                __PRETTY_FUNCTION__,
-                                StdFromQString(error.message()),
-                                StdFromQString(error.name()));
-                        }
-                    }
+            if (inhibit) {
+                if (reply.isValid())
+                    cookies[i] = reply.value();
+                else {
+                    QDBusError error = reply.error();
+                    spdlog::warn(
+                        "{} {} {}",
+                        __PRETTY_FUNCTION__,
+                        StdFromQString(error.message()),
+                        StdFromQString(error.name()));
                 }
             }
-            return result;
-        });
-
-    } catch (const std::exception &err) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-        future = QtConcurrent::run([=]() {
-            auto result = false;
-            return result;
-        });
+        }
     }
 
 #endif
-    return future;
 }
 
 QVariant Helpers::python_callback(
@@ -565,7 +545,7 @@ QVariant Helpers::python_callback(
         return QVariant(QString::fromLatin1(b.data()));
     }
 
-    return {};
+    return QVariant();
 }
 
 bool Helpers::startDetachedProcess(
@@ -621,7 +601,7 @@ QFuture<QVariant> Helpers::pythonAsyncCallback(
         } catch (std::exception &e) {
             spdlog::critical("{} {}", __PRETTY_FUNCTION__, e.what());
         }
-        return {};
+        return QVariant();
     });
 }
 
@@ -648,7 +628,7 @@ QVariant Helpers::pluginCallback(const QUuid &plugin_uuid, const QVariant cb_dat
         spdlog::critical("{} {}", __PRETTY_FUNCTION__, e.what());
     }
 
-    return {};
+    return QVariant();
 }
 
 void Helpers::moduleCallback(const QString &module_actor, const QVariant cb_data) {

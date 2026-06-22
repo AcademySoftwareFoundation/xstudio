@@ -37,6 +37,11 @@ XsPopupMenu {
     }
 
     XsPreference {
+        id: chunkSize
+        path: "/ui/qml/contactsheet_chunk_size"
+    }
+
+    XsPreference {
         id: sessionRate
         path: "/core/session/media_rate"
     }
@@ -73,8 +78,8 @@ XsPopupMenu {
         menuPath: "Select"
         menuItemPosition: 3
         menuModelName: btnMenu.menu_model_name
-        hotkeyUuid: hotkey_area.select_all_hotkey.uuid
-        onActivated: media_list_functions.selectAll()
+        hotkeyUuid: select_all_hotkey.uuid
+        onActivated: selectAll()
         panelContext: btnMenu.panelContext
     }
 
@@ -83,9 +88,8 @@ XsPopupMenu {
         menuItemType: "button"
         menuPath: "Select"
         menuItemPosition: 3.2
-        hotkeyUuid: hotkey_area.select_offline_hotkey.uuid
         menuModelName: btnMenu.menu_model_name
-        onActivated: media_list_functions.selectAllOffline()
+        onActivated: selectAllOffline()
         panelContext: btnMenu.panelContext
     }
 
@@ -94,9 +98,8 @@ XsPopupMenu {
         menuItemType: "button"
         menuPath: "Select"
         menuItemPosition: 3.3
-        hotkeyUuid: hotkey_area.select_adjusted_hotkey.uuid
         menuModelName: btnMenu.menu_model_name
-        onActivated: media_list_functions.selectAllAdjusted()
+        onActivated: selectAllAdjusted()
         panelContext: btnMenu.panelContext
     }
 
@@ -105,9 +108,8 @@ XsPopupMenu {
         menuItemType: "button"
         menuPath: "Select"
         menuItemPosition: 3.4
-        hotkeyUuid: hotkey_area.invert_selection_hotkey.uuid
         menuModelName: btnMenu.menu_model_name
-        onActivated: media_list_functions.invertSelection()
+        onActivated: invertSelection()
         panelContext: btnMenu.panelContext
     }
 
@@ -117,7 +119,7 @@ XsPopupMenu {
         menuModelName: btnMenu.menu_model_name
         menuPath: "Select"
         menuPosition: 3.5
-        onFlagSet: media_list_functions.selectFlagged(flag)
+        onFlagSet: selectFlagged(flag)
     }
 
     XsMenuModelItem {
@@ -125,8 +127,23 @@ XsPopupMenu {
         menuPath: "Add Media To"
         menuItemPosition: 1
         menuModelName: btnMenu.menu_model_name
-        onActivated: media_list_functions.addtoNewPlaylistContext()
-        hotkeyUuid: hotkey_area.add_to_new_playlist_context_hotkey.uuid
+        onActivated: {
+            dialogHelpers.textInputDialog(
+                function(name, button) {
+                    if(button == "Move Media") {
+                        let pl = theSessionData.createPlaylist(name)
+                        theSessionData.moveRows(mediaSelectionModel.selectedIndexes, 0, pl)
+                    } else if(button == "Copy Media") {
+                        let pl = theSessionData.createPlaylist(name)
+                        theSessionData.copyRows(mediaSelectionModel.selectedIndexes, 0, pl)
+                    }
+                },
+                "Add To New Playlist",
+                "Enter New Playlist Name",
+                theSessionData.getNextName("Playlist {}"),
+                ["Cancel", "Move Media", "Copy Media"])
+        }
+
         panelContext: btnMenu.panelContext
     }
 
@@ -136,8 +153,18 @@ XsPopupMenu {
         menuPath: "Add Media To"
         menuItemPosition: 2
         menuModelName: btnMenu.menu_model_name
-        hotkeyUuid: hotkey_area.add_to_new_subset_hotkey.uuid
-        onActivated: media_list_functions.addToNewSubsetDialog()
+        onActivated: {
+            dialogHelpers.textInputDialog(
+                function(name, button) {
+                    if(button == "Add Media") {
+                        addToNewSubset(name)
+                    }
+                },
+                "Add To New Subset",
+                "Enter New Subset Name",
+                theSessionData.getNextName("Subset {}"),
+                ["Cancel", "Add Media"])
+        }
         panelContext: btnMenu.panelContext
     }
 
@@ -147,8 +174,18 @@ XsPopupMenu {
         menuItemPosition: 3
         menuModelName: btnMenu.menu_model_name
         panelContext: btnMenu.panelContext
-        onActivated: media_list_functions.addToNewContactSheetDialog()
-        hotkeyUuid: hotkey_area.add_to_new_contact_sheet_hotkey.uuid
+        onActivated: {
+            dialogHelpers.textInputDialog(
+                function(name, button) {
+                    if(button == "Add Media") {
+                        addToNewContactSheet(name)
+                    }
+                },
+                "Add To New Contact Sheet",
+                "Enter New Contact Sheet Name",
+                theSessionData.getNextName("Contact Sheet {}"),
+                ["Cancel", "Add Media"])
+        }
     }
 
     XsMenuModelItem {
@@ -157,8 +194,23 @@ XsPopupMenu {
         menuItemPosition: 3.5
         menuModelName: btnMenu.menu_model_name
         panelContext: btnMenu.panelContext
-        onActivated: media_list_functions.addToNewContactSheetsDialog()
-        hotkeyUuid: hotkey_area.add_to_new_contact_sheets_hotkey.uuid
+        onActivated: {
+            dialogHelpers.contactSheetDialog(
+                function(name, count, button) {
+                    if(button == "Add Media") {
+                        let icount = parseInt(count);
+                        if(chunkSize.value != icount)
+                            chunkSize.value = icount;
+
+                        addToNewContactSheet(name, icount);
+                    }
+                },
+                "Add To New Contact Sheets",
+                "Enter New Contact Sheets Name",
+                "Contact Sheet {}",
+                chunkSize.value,
+                ["Cancel", "Add Media"])
+        }
     }
 
     XsMenuModelItem {
@@ -166,8 +218,29 @@ XsPopupMenu {
         menuPath: "Add Media To"
         menuItemPosition: 4
         menuModelName: btnMenu.menu_model_name
-        onActivated: media_list_functions.addToNewSequenceDialog()
-        hotkeyUuid: hotkey_area.add_to_new_sequence_hotkey.uuid
+        onActivated: {
+            let rate = sessionRate.value
+
+            if(mediaSelectionModel.selectedIndexes.length) {
+                let actoruuid = theSessionData.get(mediaSelectionModel.selectedIndexes[0], "imageActorUuidRole")
+                let image_source = theSessionData.searchRecursive(actoruuid, "actorUuidRole", mediaSelectionModel.selectedIndexes[0])
+                if (image_source.valid) {
+                    rate = theSessionData.get(image_source, "rateFPSStringRole")
+                }
+            }
+
+            dialogHelpers.sequenceInputDialog(
+                function(name, fps, button) {
+                    if(button == "Add Media") {
+                        addToNewSequence(name, fps)
+                    }
+                },
+                "Add To New Sequence",
+                "New Sequence",
+                theSessionData.getNextName("Sequence {}"),
+                ["Cancel", "Add Media"],
+                rate)
+        }
         panelContext: btnMenu.panelContext
     }
 
@@ -190,12 +263,12 @@ XsPopupMenu {
 
     XsMenuModelItem {
         text: "Cycle Media Colour"
-        menuPath: "Media Settings"
-        menuItemPosition: -0.5
+        menuPath: ""
+        menuItemPosition: 2.1
         menuModelName: btnMenu.menu_model_name
-        onActivated: media_list_functions.cycleColour(mediaSelectionModel.selectedIndexes)
+        onActivated: cycleColour(mediaSelectionModel.selectedIndexes)
         panelContext: btnMenu.panelContext
-        hotkeyUuid: hotkey_area.cycle_colour_hotkey.uuid
+        hotkeyUuid: cycle_colour_hotkey.uuid
     }
     // XsMenuModelItem {
     //     text: "TEST"
@@ -235,8 +308,18 @@ XsPopupMenu {
         menuPath: "Media Actions"
         menuItemPosition: 50
         menuModelName: btnMenu.menu_model_name
-        onActivated: media_list_functions.duplicate()
-        hotkeyUuid: hotkey_area.duplicate_media_hotkey.uuid
+        onActivated: {
+            let items = []
+
+            for(let i=0;i<mediaSelectionModel.selectedIndexes.length;++i)
+                items.push(helpers.makePersistent(mediaSelectionModel.selectedIndexes[i]))
+
+            items.forEach(
+                (item) => {
+                    item.model.duplicateRows(item.row, 1, item.parent)
+                }
+            )
+        }
         panelContext: btnMenu.panelContext
     }
 
@@ -244,7 +327,6 @@ XsPopupMenu {
         text: "On Disk..."
         menuPath: "Reveal Source"
         menuItemPosition: 1
-        hotkeyUuid: hotkey_area.reveal_media_on_disk_hotkey.uuid
         menuModelName: btnMenu.menu_model_name
         onActivated: helpers.showURIS(mediaSelectionModel.getSelectedMediaUrl())
         panelContext: btnMenu.panelContext
@@ -255,8 +337,14 @@ XsPopupMenu {
         text: "Selected File Names"
         menuItemPosition: 1
         menuModelName: btnMenu.menu_model_name
-        onActivated: media_list_functions.copyFileNamesToClipboard()
-        hotkeyUuid: hotkey_area.file_name_to_clipboard_hotkey.uuid
+        onActivated: {
+            let result = mediaSelectionModel.getSelectedMediaUrl("pathShakeRole")
+            for(let i =0;i<result.length;i++) {
+                result[i] = helpers.pathFromURL(result[i])
+                result[i] = result[i].substr(result[i].lastIndexOf("/")+1)
+            }
+            clipboard.text = result.join("\n")
+        }
         panelContext: btnMenu.panelContext
     }
 
@@ -265,8 +353,15 @@ XsPopupMenu {
         text: "Selected File Paths"
         menuItemPosition: 2
         menuModelName: btnMenu.menu_model_name
-        hotkeyUuid: hotkey_area.file_path_to_clipboard_hotkey.uuid
-        onActivated: media_list_functions.copyFilePathsToClipboard()
+
+        onActivated: {
+            let result = mediaSelectionModel.getSelectedMediaUrl("pathShakeRole")
+            for(let i =0;i<result.length;i++) {
+                result[i] = helpers.pathFromURL(result[i])
+            }
+
+            clipboard.text = result.join("\n")
+        }
         panelContext: btnMenu.panelContext
     }
 
@@ -274,33 +369,44 @@ XsPopupMenu {
         model: DelegateModel {
             model:columns_root_model
             delegate: Item {
-                XsMenuModelItem {
-                    text: ["Image", "Notes"].includes(title) ? "" : title
-                    menuPath: "Copy To Clipboard|Selected Column"
-                    menuItemPosition: index
-                    menuModelName: btnMenu.menu_model_name
-                    panelContext: btnMenu.panelContext
-                    onActivated: {
-                        let data = []
-                        for( let i=0;i<mediaSelectionModel.selectedIndexes.length; i++) {
-                            var fields = theSessionData.get(mediaSelectionModel.selectedIndexes[i], "mediaDisplayInfoRole")
-                            data.push(fields[index])
-                        }
-                        clipboard.text = data.join("\n")
+            XsMenuModelItem {
+                text: ["Image", "Notes"].includes(title) ? "" : title
+                menuPath: "Copy To Clipboard|Selected Column"
+                menuItemPosition: index
+                menuModelName: btnMenu.menu_model_name
+                panelContext: btnMenu.panelContext
+                onActivated: {
+                    let data = []
+                    for( let i=0;i<mediaSelectionModel.selectedIndexes.length; i++) {
+                        var fields = theSessionData.get(mediaSelectionModel.selectedIndexes[i], "mediaDisplayInfoRole")
+                        data.push(fields[index])
                     }
+                    clipboard.text = data.join("\n")
                 }
             }
         }
+        }
     }
+
+
 
     XsMenuModelItem {
         menuPath: "Copy To Clipboard"
         text: "QuickView Shell Command"
         menuItemPosition: 3.5
         menuModelName: btnMenu.menu_model_name
-        onActivated: media_list_functions.copyQuickViewToClipboard()
-        hotkeyUuid: hotkey_area.quickview_to_clipboard_hotkey.uuid
+        onActivated: {
+            let filenames = mediaSelectionModel.getSelectedMediaUrl("pathShakeRole")
+
+            for(let i =0;i<filenames.length;i++) {
+                filenames[i] = helpers.pathFromURL(filenames[i])
+            }
+
+            clipboard.text = "xstudio -l '" + filenames.join("' '") +"'"
+        }
+
         panelContext: btnMenu.panelContext
+
     }
 
     XsMenuModelItem {
@@ -308,8 +414,20 @@ XsPopupMenu {
         text: "Email Link"
         menuItemPosition: 4
         menuModelName: btnMenu.menu_model_name
-        onActivated: media_list_functions.copyEmailLinkToClipboard()
-        hotkeyUuid: hotkey_area.emaillink_to_clipboard_hotkey.uuid
+        onActivated: {
+            let name = encodeURIComponent(inspectedMediaSetProperties.values.nameRole)
+            let prefix = "&" + name + "_media="
+            let filenames = mediaSelectionModel.getSelectedMediaUrl()
+            for(let i =0;i<filenames.length;i++) {
+                filenames[i] = helpers.pathFromURL(filenames[i])
+            }
+
+            clipboard.text = sessionLinkPrefix.value + "xstudio://add_media?compare="+
+                encodeURIComponent(currentPlayhead.compareMode)+"&playlist=" +
+                name + prefix +
+                filenames.join(prefix)
+        }
+
         panelContext: btnMenu.panelContext
     }
 
@@ -326,8 +444,21 @@ XsPopupMenu {
         menuPath: ""
         menuItemPosition: 90
         menuModelName: btnMenu.menu_model_name
-        onActivated: media_list_functions.openInQuickView()
-        hotkeyUuid: hotkey_area.open_in_quickview_hotkey.uuid
+        onActivated: {
+            if (mediaSelectionModel.selectedIndexes.length > 8) {
+                dialogHelpers.errorDialogFunc(
+                    "Warning",
+                    "The quick view feature is limited to a selection of 8 or fewer media items!"
+                    )
+                return;
+            }
+            for (var i in mediaSelectionModel.selectedIndexes) {
+                let idx = mediaSelectionModel.selectedIndexes[i]
+                var actor = theSessionData.get(idx, "actorRole")
+                quick_view_launcher.launchQuickViewer([actor], "Off", -1, -1)
+            }
+
+        }
         panelContext: btnMenu.panelContext
     }
 
@@ -359,7 +490,9 @@ XsPopupMenu {
         menuPath: "Media Actions|Print"
         menuItemPosition: 1
         menuModelName: btnMenu.menu_model_name
-        onActivated: console.log(theSessionData.getJSON(mediaSelectionModel.selectedIndexes[0],""))
+        onActivated: {
+            console.log(theSessionData.getJSON(mediaSelectionModel.selectedIndexes[0],""))
+        }
         panelContext: btnMenu.panelContext
     }
 
@@ -368,7 +501,9 @@ XsPopupMenu {
         menuPath: "Media Actions|Print"
         menuItemPosition: 1
         menuModelName: btnMenu.menu_model_name
-        onActivated: console.log(theSessionData.getJSON(mediaSelectionModel.getSourceIndex(mediaSelectionModel.selectedIndexes[0]),""))
+        onActivated: {
+            console.log(theSessionData.getJSON(mediaSelectionModel.getSourceIndex(mediaSelectionModel.selectedIndexes[0]),""))
+        }
         panelContext: btnMenu.panelContext
     }
 
@@ -378,7 +513,9 @@ XsPopupMenu {
         menuPath: "Media Actions|Print"
         menuItemPosition: 2
         menuModelName: btnMenu.menu_model_name
-        onActivated: console.log(theSessionData.get(mediaSelectionModel.selectedIndexes[0], "jsonTextRole"))
+        onActivated: {
+            console.log(theSessionData.get(mediaSelectionModel.selectedIndexes[0], "jsonTextRole"))
+        }
         panelContext: btnMenu.panelContext
     }
 
@@ -407,9 +544,28 @@ XsPopupMenu {
         menuPath: "Media Settings"
         menuItemPosition: 2
         menuModelName: btnMenu.menu_model_name
-        onActivated: media_list_functions.setMediaFPS()
+        onActivated: {
+            let mi = mediaSelectionModel.selectedIndexes[0]
+            let ms = theSessionData.searchRecursive(theSessionData.get(mi, "imageActorUuidRole"), "actorUuidRole", mi)
+
+            dialogHelpers.numberInputDialog(
+                function(new_rate, button) {
+                    if(button == "Set Rate") {
+                        mediaSelectionModel.selectedIndexes.forEach(
+                            (element) => {
+                                let mi = theSessionData.searchRecursive(theSessionData.get(element, "imageActorUuidRole"), "actorUuidRole", element)
+                                mi.model.set(mi, new_rate, "rateFPSRole")
+                            }
+                        )
+                    }
+                },
+                "Set Media Rate",
+                "Enter New Media Rate",
+                 mi.model.get(ms, "rateFPSRole"),
+                ["Cancel", "Set Rate"])
+
+        }
         panelContext: btnMenu.panelContext
-        hotkeyUuid: hotkey_area.set_media_fps_hotkey.uuid
     }
 
     XsMenuModelItem {
@@ -417,8 +573,27 @@ XsPopupMenu {
         menuPath: "Media Settings"
         menuItemPosition: 3
         menuModelName: btnMenu.menu_model_name
-        hotkeyUuid: hotkey_area.set_media_aspect_hotkey.uuid
-        onActivated: media_list_functions.setMediaAspect()
+        onActivated: {
+            let mi = mediaSelectionModel.selectedIndexes[0]
+            let ms = theSessionData.searchRecursive(theSessionData.get(mi, "imageActorUuidRole"), "actorUuidRole", mi)
+
+            dialogHelpers.numberInputDialog(
+                function(new_pixel_aspect, button) {
+                    if(button == "Set Pixel Aspect") {
+                        mediaSelectionModel.selectedIndexes.forEach(
+                            (element) => {
+                                let mi = theSessionData.searchRecursive(theSessionData.get(element, "imageActorUuidRole"), "actorUuidRole", element)
+                                mi.model.set(mi, parseFloat(new_pixel_aspect), "pixelAspectRole")
+                            }
+                        )
+                    }
+                },
+                "Set Pixel Aspect Ratio",
+                "Enter new pixel aspect ratio to apply to selected media",
+                 mi.model.get(ms, "pixelAspectRole"),
+                ["Cancel", "Set Pixel Aspect"])
+
+        }
         panelContext: btnMenu.panelContext
     }
 
@@ -427,6 +602,16 @@ XsPopupMenu {
         index: mediaSelectionModel.selectedIndexes.length ? mediaSelectionModel.selectedIndexes[0] : undefined
     }
     property var currentMediaRotation: selectedMediaProperties.values.rotationRole
+
+    function setMediaRotation(rotation, button) {
+        if (button == "Cancel") return
+        var rot = typeof rotation === "string" ? parseFloat(rotation) : rotation
+        mediaSelectionModel.selectedIndexes.forEach(
+                (element) => {
+                    element.model.set(element, rot, "rotationRole")
+                }
+            )
+    }
 
     property var rotations: [0.0, 90.0, 180.0, -90.0]
     Repeater {
@@ -439,7 +624,9 @@ XsPopupMenu {
                 menuItemType: "toggle"
                 menuModelName: btnMenu.menu_model_name
                 isChecked: modelData == currentMediaRotation
-                onActivated: media_list_functions.setMediaRotation(modelData)
+                onActivated: {
+                    setMediaRotation(modelData)
+                }
                 panelContext: btnMenu.panelContext
             }
         }
@@ -452,7 +639,7 @@ XsPopupMenu {
         menuModelName: btnMenu.menu_model_name
         onActivated: {
             dialogHelpers.numberInputDialog(
-                media_list_functions.setMediaRotation,
+                setMediaRotation,
                 "Set Custom Rotation",
                 "Enter new pixel rotation (in degrees) to apply to selected media",
                 currentMediaRotation,
@@ -475,7 +662,15 @@ XsPopupMenu {
         menuPath: "Media Actions"
         menuItemPosition: 70
         menuModelName: btnMenu.menu_model_name
-        onActivated: media_list_functions.relinkMedia(false)
+        onActivated: {
+           dialogHelpers.showFolderDialog(
+                function(path, chaserFunc) {
+                    if(path)
+                        theSessionData.relinkMedia(mediaSelectionModel.selectedIndexes, path)
+                },
+                file_functions.defaultSessionFolder(),
+                "Relink media files")
+        }
         panelContext: btnMenu.panelContext
     }
 
@@ -484,7 +679,15 @@ XsPopupMenu {
         menuPath: "Media Actions"
         menuItemPosition: 71
         menuModelName: btnMenu.menu_model_name
-        onActivated: media_list_functions.relinkMedia(true)
+        onActivated: {
+           dialogHelpers.showFolderDialog(
+                function(path, chaserFunc) {
+                    if(path)
+                        theSessionData.relinkMedia(mediaSelectionModel.selectedIndexes, path, true)
+                },
+                file_functions.defaultSessionFolder(),
+                "Relink media files")
+        }
         panelContext: btnMenu.panelContext
     }
 
@@ -513,7 +716,7 @@ XsPopupMenu {
         menuModelName: btnMenu.menu_model_name
         onActivated: theSessionData.rescanMedia(mediaSelectionModel.selectedIndexes)
         panelContext: btnMenu.panelContext
-        hotkeyUuid: hotkey_area.reload_selected_media_hotkey.uuid
+        hotkeyUuid: reload_selected_media_hotkey.uuid
     }
 
     Repeater {
@@ -543,8 +746,10 @@ XsPopupMenu {
         menuPath: ""
         menuItemPosition: 2010
         menuModelName: btnMenu.menu_model_name
-        hotkeyUuid: hotkey_area.delete_selected_hotkey.uuid
-        onActivated: media_list_functions.deleteSelected()
+        hotkeyUuid: delete_selected.uuid
+        onActivated: {
+            deleteSelected()
+        }
         panelContext: btnMenu.panelContext
     }
 }

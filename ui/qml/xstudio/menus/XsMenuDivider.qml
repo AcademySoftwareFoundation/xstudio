@@ -5,10 +5,8 @@ import xStudio 1.0
 
 Item {
 
-    id: root
     property int minWidth: rlayout.implicitWidth
-    implicitHeight: text ? 30 : XsStyleSheet.menuPadding*2 + XsStyleSheet.menuDividerHeight
-    property var text: name ? name : ""
+    implicitHeight: name ? 30 : XsStyleSheet.menuPadding*2 + XsStyleSheet.menuDividerHeight
 
     function hideSubMenus() {}
 
@@ -26,9 +24,9 @@ Item {
 
         XsText {
             id: labelDiv
-            Layout.leftMargin: root.text ? 4 : 0
-            Layout.rightMargin: root.text ? 4 : 0
-            text: root.text
+            Layout.leftMargin: text ? 4 : 0
+            Layout.rightMargin: text ? 4 : 0
+            text: name ? name : ""
             horizontalAlignment: Qt.AlignHCenter
             verticalAlignment: Qt.AlignVCenter
             color: XsStyleSheet.primaryTextColor

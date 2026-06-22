@@ -14,7 +14,7 @@ class ConformWorkerActor : public caf::event_based_actor {
     ~ConformWorkerActor() override = default;
 
     caf::behavior make_behavior() override { return behavior_; }
-    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
+    const char *name() const override { return NAME.c_str(); }
 
   private:
     void process_request(
@@ -38,7 +38,6 @@ class ConformWorkerActor : public caf::event_based_actor {
     void conform_to_media(
         caf::typed_response_promise<ConformReply> rp,
         const std::string &conform_task,
-        const utility::JsonStore &metadata,
         const utility::JsonStore &conform_operations,
         const utility::UuidActor &playlist,
         const utility::UuidActor &container,
@@ -122,7 +121,7 @@ class ConformManagerActor : public caf::event_based_actor, public module::Module
     }
 
     void on_exit() override;
-    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
+    const char *name() const override { return NAME.c_str(); }
 
   protected:
     caf::message_handler message_handler_;

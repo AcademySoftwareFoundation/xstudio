@@ -69,37 +69,9 @@ class ViewportFlagIndicatorPlugin(HUDPlugin):
             register_as_preference=True 
             )
 
-        # add an attribute to control the position of the indicator
-        self.x_offset = self.add_attribute(
-            "X Offset",
-            0.0,
-            {
-                "float_scrub_min": -200.0, 
-                "float_scrub_max": 200.0,
-                "float_scrub_step": 1.0,
-                "float_display_decimals": 0
-            },
-            register_as_preference=True 
-            )
-
-        # add an attribute to control the position of the indicator
-        self.y_offset = self.add_attribute(
-            "Y Offset",
-            0.0,
-            {
-                "float_scrub_min": -200.0, 
-                "float_scrub_max": 200.0,
-                "float_scrub_step": 1.0,
-                "float_display_decimals": 0
-            },
-            register_as_preference=True 
-            )
-
-        # here we add the attribute sto a named 'group'. In the qml code, we can
+        # here we add the attribute to a named 'group'. In the qml code, we can
         # get to the attribute data using the 'XsModuleData' item and telling
         # it which group we want to attach to.
-        self.y_offset.expose_in_ui_attrs_group("vp_flag_indicator")
-        self.x_offset.expose_in_ui_attrs_group("vp_flag_indicator")
         self.indicator_size.expose_in_ui_attrs_group("vp_flag_indicator")
         self.indicator_size.set_tool_tip("Set the size of the indicator in pixels")
         self.indicator_size.set_redraw_viewport_on_change(True)
@@ -107,8 +79,6 @@ class ViewportFlagIndicatorPlugin(HUDPlugin):
         # this call will mean xstudio can add a slider for the indicator size
         # attribute to the settings panel for the plugin
         self.add_hud_settings_attribute(self.indicator_size)
-        self.add_hud_settings_attribute(self.x_offset)
-        self.add_hud_settings_attribute(self.y_offset)
 
         # here we provide the QML code to instance the item that will draw
         # the overlay graphics

@@ -16,131 +16,136 @@ CAF_POP_WARNINGS
 // include CMake auto-generated export hpp
 #include "xstudio/ui/qml/viewport_qml_export.h"
 
-namespace xstudio::ui::qml {
+namespace xstudio {
+namespace ui {
+    namespace qml {
 
-class QMLViewport;
+        class QMLViewport;
 
-class VIEWPORT_QML_EXPORT QMLViewportRenderer : public QMLActor {
-    Q_OBJECT
+        class VIEWPORT_QML_EXPORT QMLViewportRenderer : public QMLActor {
+            Q_OBJECT
 
-  public:
-    QMLViewportRenderer(QObject *owner);
-    ~QMLViewportRenderer() override;
+          public:
+            QMLViewportRenderer(QObject *owner);
+            virtual ~QMLViewportRenderer();
 
-    void setWindow(QQuickWindow *window);
+            void setWindow(QQuickWindow *window);
 
-    void setSceneCoordinates(
-        const QPointF topleft,
-        const QPointF topright,
-        const QPointF bottomright,
-        const QPointF bottomleft,
-        const QSize sceneSize,
-        const float devicePixelRatio);
+            void setSceneCoordinates(
+                const QPointF topleft,
+                const QPointF topright,
+                const QPointF bottomright,
+                const QPointF bottomleft,
+                const QSize sceneSize,
+                const float devicePixelRatio);
 
-    void prepareRenderData();
+            void prepareRenderData();
 
-    void init_system();
-    void join_playhead(caf::actor group) {
-        scoped_actor sys{system()};
-        try {
-            utility::request_receive<bool>(
-                *sys, group, broadcast::join_broadcast_atom_v, as_actor());
-        } catch (const std::exception &err) {
-            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-        }
-    }
-    void leave_playhead(caf::actor group) {
-        scoped_actor sys{system()};
-        try {
-            utility::request_receive<bool>(
-                *sys, group, broadcast::leave_broadcast_atom_v, as_actor());
-        } catch (const std::exception &err) {
-            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-        }
-    }
+            void init_system();
+            void join_playhead(caf::actor group) {
+                scoped_actor sys{system()};
+                try {
+                    utility::request_receive<bool>(
+                        *sys, group, broadcast::join_broadcast_atom_v, as_actor());
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                }
+            }
+            void leave_playhead(caf::actor group) {
+                scoped_actor sys{system()};
+                try {
+                    utility::request_receive<bool>(
+                        *sys, group, broadcast::leave_broadcast_atom_v, as_actor());
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                }
+            }
 
-    void set_playhead(caf::actor playhead);
+            void set_playhead(caf::actor playhead);
 
-    [[nodiscard]] QVariantList imageResolutions() const;
-    [[nodiscard]] QVariantList imageBoundariesInViewport() const;
-    [[nodiscard]] caf::actor playhead() {
-        return xstudio_viewport_ ? xstudio_viewport_->playhead() : caf::actor();
-    }
-    bool pointerEvent(const PointerEvent &e);
-    void setScreenInfos(
-        QString name,
-        QString model,
-        QString manufacturer,
-        QString serialNumber,
-        double refresh_rate);
+            [[nodiscard]] QVariantList imageResolutions() const;
+            [[nodiscard]] QVariantList imageBoundariesInViewport() const;
+            [[nodiscard]] caf::actor playhead() {
+                return xstudio_viewport_ ? xstudio_viewport_->playhead() : caf::actor();
+            }
+            bool pointerEvent(const PointerEvent &e);
+            void setScreenInfos(
+                QString name,
+                QString model,
+                QString manufacturer,
+                QString serialNumber,
+                double refresh_rate);
 
-    [[nodiscard]] QString name() const {
-        return xstudio_viewport_ ? QStringFromStd(xstudio_viewport_->name())
-                                 : QString("Not Yet");
-    }
+            [[nodiscard]] QString name() const {
+                return xstudio_viewport_ ? QStringFromStd(xstudio_viewport_->name())
+                                         : QString("Not Yet");
+            }
 
-    [[nodiscard]] std::string std_name() const {
-        return xstudio_viewport_ ? xstudio_viewport_->name() : "not yet";
-    }
+            [[nodiscard]] std::string std_name() const {
+                return xstudio_viewport_ ? xstudio_viewport_->name() : "not yet";
+            }
 
-    void setIsQuickViewer(const bool is_quick_viewer);
-    void setHasOverlays(const bool has_overlays);
-    void visibleChanged(const bool is_visible);
-    void quickViewFromPath(const QString &path_or_uri);
+            void setIsQuickViewer(const bool is_quick_viewer);
+            void setHasOverlays(const bool has_overlays);
+            void visibleChanged(const bool is_visible);
+            void quickViewFromPath(const QString &path_or_uri);
 
-  public slots:
+          public slots:
 
-    void init_renderer();
-    void paint();
-    void frameSwapped();
-    void quickViewSource(QStringList mediaActors, QString compareMode, int in_pt, int out_pt);
-    void reset();
+            void init_renderer();
+            void paint();
+            void frameSwapped();
+            void quickViewSource(
+                QStringList mediaActors, QString compareMode, int in_pt, int out_pt);
+            void reset();
 
-  signals:
+          signals:
 
-    void fpsChanged(QString);
-    void exposureChanged(float);
-    void translationChanged();
-    void resolutionsChanged();
-    void doRedraw();
-    void doSnapshot(QString, QString, int, int, bool);
-    void quickViewBackendRequest(QStringList mediaActors, QString compareMode);
-    void quickViewBackendRequestWithSize(
-        QStringList mediaActors, QString compareMode, QPoint position, QSize size);
-    void snapshotRequestResult(QString resultMessage);
+            void fpsChanged(QString);
+            void exposureChanged(float);
+            void translationChanged();
+            void resolutionsChanged();
+            void doRedraw();
+            void doSnapshot(QString, QString, int, int, bool);
+            void quickViewBackendRequest(QStringList mediaActors, QString compareMode);
+            void quickViewBackendRequestWithSize(
+                QStringList mediaActors, QString compareMode, QPoint position, QSize size);
+            void snapshotRequestResult(QString resultMessage);
 
-  private:
-    void receive_change_notification(viewport::Viewport::ChangeCallbackId id);
-    void make_xstudio_viewport();
-    void set_depth(const float depth);
+          private:
+            void receive_change_notification(viewport::Viewport::ChangeCallbackId id);
+            void make_xstudio_viewport();
+            void set_depth(const float depth);
 
-    QQuickWindow *m_window                    = {nullptr};
-    ui::viewport::Viewport *xstudio_viewport_ = {nullptr};
-    ui::viewport::ScreenInfo screen_info_;
-    bool init_done{false};
-    QString fps_expression_;
-    class QMLViewport *viewport_qml_item_;
-    bool is_quick_viewer_ = {false};
-    bool has_overlays_    = {true};
+            QQuickWindow *m_window;
+            ui::viewport::Viewport *xstudio_viewport_ = nullptr;
+            ui::viewport::ScreenInfo screen_info_;
+            bool init_done{false};
+            QString fps_expression_;
+            class QMLViewport *viewport_qml_item_;
+            bool is_quick_viewer_ = {false};
+            bool has_overlays_    = {true};
 
-    caf::actor viewport_update_group;
-    caf::actor playhead_group_;
-    caf::actor playhead_events_;
-    caf::actor fps_monitor_;
-    caf::actor keypress_monitor_;
+            caf::actor viewport_update_group;
+            caf::actor playhead_group_;
+            caf::actor playhead_events_;
+            caf::actor fps_monitor_;
+            caf::actor keypress_monitor_;
 
-    struct ViewportCoords {
-        QPointF corners[4];
-        QSize size;
-        float devicePixelRatio;
-        bool
-        set(const QPointF &,
-            const QPointF &,
-            const QPointF &,
-            const QPointF &,
-            const QSize &,
-            const float);
-    } viewport_coords_;
-};
+            struct ViewportCoords {
+                QPointF corners[4];
+                QSize size;
+                float devicePixelRatio;
+                bool
+                set(const QPointF &,
+                    const QPointF &,
+                    const QPointF &,
+                    const QPointF &,
+                    const QSize &,
+                    const float);
+            } viewport_coords_;
+        };
 
-} // namespace xstudio::ui::qml
+    } // namespace qml
+} // namespace ui
+} // namespace xstudio

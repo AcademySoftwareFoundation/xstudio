@@ -49,8 +49,6 @@ XsWindow {
 
             }
 
-            framerates_match = checkIfFrameRatesMatch()
-
         }
     }
 
@@ -71,31 +69,6 @@ XsWindow {
             }
         }
 
-    }
-
-    property var framerates_match: true
-
-    function checkIfFrameRatesMatch() {
-
-        // ugly! If the timeline frame rate, or the frame rate of the media 
-        // in the playlist to be rendered doesn't match the user selected frame rate, 
-        // then we want to show the 'Re-speed' checkbox
-
-        let user_fps = parseFloat(frame_rate.currentText)
-        if (theSessionData.get(itemToRender, "typeRole") == "Timeline") {
-            if (Math.abs(user_fps - fps_best_guess) > 0.01) {
-                return false
-            } else {
-                return true
-            }
-        } else {
-            var fps_per_media = theSessionData.getAllContainerMediaFPS(itemToRender)
-            for (let i = 0; i < fps_per_media.length; ++i) {
-                let fps = fps_per_media[i];
-                if (Math.abs(user_fps - fps) > 0.01) return false
-            }
-        }
-        return true
     }
 
     property int start_frame: 0
@@ -198,7 +171,7 @@ XsWindow {
         attributeTitle: "frame_rate"
         model: video_render_attrs
     }
-    property alias frame_rate_attr: __frame_rate_attr.value
+    property alias rame_rate_attr: __frame_rate_attr.value
 
     XsAttributeValue {
         id: __resolution_options
@@ -291,8 +264,6 @@ XsWindow {
                 outputAudioFile.text = with_frame_num[1] + "aiff"
             } else if (!with_hashes) {
                 path = ext[1] + "####." + ext[2]
-                outputAudioFile.text = ext[1] + "aiff"
-            } else if (with_hashes) {
                 outputAudioFile.text = ext[1] + "aiff"
             }
         }
@@ -625,50 +596,11 @@ XsWindow {
                 Layout.preferredHeight: widgetHeight
                 enabled: !isFrameBased
                 function get_rate() {
-                    frame_rate_attr = currentText
+                    rame_rate_attr = currentText
                     return parseFloat(currentText)
                 }
                 onModelChanged: {
-                    currentIndex = model.indexOf(frame_rate_attr)
-                }
-                onCurrentTextChanged: {
-                    framerates_match = checkIfFrameRatesMatch()
-                }
-                onAccepted: {
-                    var v = parseFloat(editText)
-                    if (v && !isNaN(v)) {
-                        for (var i = 0; i < frame_rates.length; ++i) {
-                            var vv = parseFloat(frame_rates[i])
-                            if (vv == v) {
-                                // already have this rate
-                                return
-                            }
-                        }
-                        frame_rate_attr = ""+v
-                        var frs = frame_rates
-                        frs.push(editText)
-                        frame_rates = frs
-                        currentIndex = frs.length-1
-                    }
-                }
-            }
-
-            XsText {
-                text: "Re-speed"
-                Layout.alignment: Qt.AlignRight
-                visible: !framerates_match
-            }
-
-            XsCheckBox {
-                id: re_speed
-                Layout.alignment: Qt.AlignLeft
-                Layout.preferredHeight: widgetHeight
-                checked: true
-                visible: !framerates_match
-                XsToolTip {
-                    text: "Check if you want 1:1 mapping of FRAMES from the source media/timeline and the output video. If you have media that is 24fps, for example, and your render frame rate is 48fps then you would check this option if you wanted the result to play at double speed. Not checking it means that the frames will be doubled to maintain the original real-time duration of the media. Note that the re-speed option can result in re-pitching of audio in the output render."
-                    visible: re_speed.hovered
-                    maxWidth: dialog.width*2/3
+                    currentIndex = model.indexOf(rame_rate_attr)
                 }
             }
 
@@ -881,7 +813,6 @@ XsWindow {
                         inPoint.text != "--" ? parseInt(inPoint.text) : -1,
                         outPoint.text != "--" ? parseInt(outPoint.text) : -1,
                         frame_rate.get_rate(),
-                        framerates_match ? false : re_speed.checked,
                         vid_codec_opts.get_codec_options()[0],
                         vid_codec_opts.get_bit_depth(),
                         render_audio ? vid_codec_opts.get_codec_options()[1] : "",

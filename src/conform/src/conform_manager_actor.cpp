@@ -184,7 +184,6 @@ ConformWorkerActor::ConformWorkerActor(caf::actor_config &cfg) : caf::event_base
 
         [=](conform_atom,
             const std::string &conform_task,
-            const utility::JsonStore &metadata,
             const utility::JsonStore &conform_operations,
             const UuidActor &playlist,
             const UuidActor &container,
@@ -197,7 +196,6 @@ ConformWorkerActor::ConformWorkerActor(caf::actor_config &cfg) : caf::event_base
             conform_to_media(
                 rp,
                 conform_task,
-                metadata,
                 conform_operations,
                 playlist,
                 container,
@@ -606,9 +604,7 @@ void ConformWorkerActor::process_request(
                                             trackit = tracks.begin();
                                             std::next(trackit, tracks.size() - 1);
                                             if (track_to_use <
-                                                static_cast<int>(
-                                                    result.request_.template_tracks_.size()) -
-                                                    1)
+                                                result.request_.template_tracks_.size() - 1)
                                                 track_to_use++;
                                         }
 
@@ -820,7 +816,6 @@ void ConformWorkerActor::prepare_sequence(
 void ConformWorkerActor::conform_to_media(
     caf::typed_response_promise<ConformReply> rp,
     const std::string &conform_task,
-    const utility::JsonStore &metadata,
     const utility::JsonStore &conform_operations,
     const UuidActor &playlist,
     const UuidActor &container,
@@ -850,9 +845,8 @@ void ConformWorkerActor::conform_to_media(
         }
 
         if (rp.pending()) {
-            auto crequest           = ConformRequest(playlist, container, item_type, ritems);
-            crequest.operations_    = conform_operations;
-            crequest.task_metadata_ = metadata;
+            auto crequest        = ConformRequest(playlist, container, item_type, ritems);
+            crequest.operations_ = conform_operations;
             conform_step_get_playlist_json(rp, conform_task, crequest);
         }
     }
@@ -1499,7 +1493,7 @@ void ConformWorkerActor::find_matched(
 }
 
 ConformManagerActor::ConformManagerActor(caf::actor_config &cfg, const utility::Uuid uuid)
-    : caf::event_based_actor(cfg), module::Module("ConformManager"), uuid_(std::move(uuid)) {
+    : caf::event_based_actor(cfg), uuid_(std::move(uuid)), module::Module("ConformManager") {
     spdlog::debug("Created ConformManagerActor.");
     print_on_exit(this, "ConformManagerActor");
 
@@ -1536,8 +1530,8 @@ ConformManagerActor::ConformManagerActor(caf::actor_config &cfg, const utility::
 
     data_.set_origin(true);
     data_.bind_send_event_func([&](auto &&PH1, auto &&PH2) {
-        auto event = JsonStore(std::forward<decltype(PH1)>(PH1));
-        // auto undo_redo = std::forward<decltype(PH2)>(PH2);
+        auto event     = JsonStore(std::forward<decltype(PH1)>(PH1));
+        auto undo_redo = std::forward<decltype(PH2)>(PH2);
 
         mail(utility::event_atom_v, json_store::sync_atom_v, data_uuid_, event)
             .send(event_group_);
@@ -1607,7 +1601,6 @@ caf::message_handler ConformManagerActor::message_handler_extensions() {
 
         [=](conform_atom,
             const std::string &conform_task,
-            const utility::JsonStore &metadata,
             const utility::JsonStore &conform_operations,
             const UuidActor &playlist,
             const UuidActor &container,
@@ -1617,7 +1610,6 @@ caf::message_handler ConformManagerActor::message_handler_extensions() {
             return mail(
                        conform_atom_v,
                        conform_task,
-                       metadata,
                        conform_operations,
                        playlist,
                        container,

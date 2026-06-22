@@ -7,9 +7,6 @@
 				"description": "List of output resolution options for video renderer",
 				"value": [
 					"1920x1080 (HD)",
-					["640x360 (360p)", false],
-					["1024x576 (1k)", false],
-					["1280x720 (720p)", false],
 					["1920x1080 (HD)", false],
 					["3840x2160 (UHD)", false],
 					["2048x1080 (DCI 2K)", false],

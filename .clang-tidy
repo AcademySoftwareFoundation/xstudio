@@ -1,8 +1,8 @@
 ---
-Checks:          '-*,modernize-*,-modernize-use-trailing-return-type,-modernize-use-using,clang-diagnostic-gnu-include-next,-clang-diagnostic-unused-command-line-argument'
+Checks:          '-*,modernize-*,-modernize-use-trailing-return-type,-modernize-use-using,clang-diagnostic-gnu-include-next,readability-identifier-naming*'
 WarningsAsErrors: ''
 HeaderFilterRegex: '/xstudio/include/.*'
-ExcludeHeaderFilterRegex: '/opt/.*'
+AnalyzeTemporaryDtors: false
 FormatStyle:     none
 User:            al
 CheckOptions:
@@ -34,3 +34,5 @@ CheckOptions:
     value:           "_"
 
 ...
+
+

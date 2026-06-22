@@ -34,7 +34,7 @@ class CafResponse : public QObject {
         const std::string &role_name,
         QThreadPool *pool);
 
-    ~CafResponse() override = default;
+    ~CafResponse();
 
   private:
     void handleStarted();

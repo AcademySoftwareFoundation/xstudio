@@ -27,7 +27,7 @@ class Notification {
         const float progress_maximum               = 100.0,
         const std::chrono::milliseconds expires_in = std::chrono::minutes(10),
         caf::event_based_actor *host               = nullptr,
-        const caf::actor destination               = caf::actor())
+        const caf::actor &destination              = caf::actor())
         : text_(std::move(text)),
           type_(type),
           progress_(progress),
@@ -35,7 +35,7 @@ class Notification {
           progress_maximum_(progress_maximum),
           expires_in_(std::move(expires_in)),
           host_(host),
-          destination_(std::move(destination)) {
+          destination_(destination) {
         send();
     }
 
@@ -74,7 +74,7 @@ class Notification {
     }
 
     static Notification ProcessingNotification(const std::string text) {
-        return {text, NT_PROCESSING};
+        return Notification(text, NT_PROCESSING);
     }
 
     static Notification ProgressRangeNotification(
@@ -223,13 +223,13 @@ class Notification {
 
   private:
     Uuid uuid_{Uuid::generate()};
-    std::string text_;
+    std::chrono::milliseconds expires_in_;
     utility::sys_time_point expires_;
-    NotificationType type_{NT_INFO};
-    float progress_{0.0};
     float progress_minimum_{0.0};
     float progress_maximum_{100.0};
-    std::chrono::milliseconds expires_in_;
+    float progress_{0.0};
+    std::string text_;
+    NotificationType type_{NT_INFO};
     caf::event_based_actor *host_{nullptr};
     caf::actor destination_;
 };
@@ -249,7 +249,7 @@ class NotificationHandler {
     bool remove_notification(const Uuid &uuid);
     bool update_progress(const Uuid &uuid, const float value);
     bool add_update_notification(const Notification &notification);
-    [[nodiscard]] utility::sys_time_point next_expire() const;
+    utility::sys_time_point next_expire() const;
     caf::event_based_actor *actor_{nullptr};
     caf::actor event_group_;
 

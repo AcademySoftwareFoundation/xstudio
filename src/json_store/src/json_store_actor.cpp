@@ -40,7 +40,11 @@ JsonStoreActor::JsonStoreActor(
     const Uuid &uuid,
     const JsonStore &json,
     const std::chrono::milliseconds &delay)
-    : caf::event_based_actor(cfg), json_store_(json), uuid_(uuid), broadcast_delay_(delay) {
+    : caf::event_based_actor(cfg),
+      json_store_(json),
+      uuid_(uuid),
+      update_pending_(false),
+      broadcast_delay_(delay) {
     if (uuid_.is_null())
         uuid_.generate_in_place();
 

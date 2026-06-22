@@ -62,8 +62,8 @@ ImageBufPtr make_blank_image() {
     buf->set_image_dimensions(Imath::V2i(width, height));
 
     std::array<uint8_t, 4> c = {16, 16, 16};
-    size_t i                 = 0;
-    auto b                   = (uint8_t *)buf->buffer();
+    int i                    = 0;
+    uint8_t *b               = (uint8_t *)buf->buffer();
     while (i < size) {
         if (((i / 16) & 1) == (i / (192 * 16) & 1)) {
             b[0] = c[0];
@@ -98,45 +98,14 @@ CachingMediaReaderActor::CachingMediaReaderActor(
     {
         auto prefs = GlobalStoreHelper(system());
         JsonStore js;
-        std::ignore = prefs.get_group(js);
-
-        int worker_count = 1;
-        try {
-            worker_count =
-                preference_value<int>(js, "/core/media_reader/read_threads_per_source");
-        } catch (const std::exception &e) {
-            spdlog::warn("Failed to get read_threads_per_source preference: {}", e.what());
-        }
+        prefs.get_group(js);
 
         auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
         scoped_actor sys{system()};
 
-        precache_workers_.push_back(
-            request_receive<caf::actor>(
-                *sys, pm, plugin_manager::spawn_plugin_atom_v, media_reader_plugin_uuid, js));
-        link_to(precache_workers_.back());
-        // here's a crucial optimisation. For some media readers, like EXR, we
-        // can get a big speed increase by spawning multiple reader actors to
-        // read different frames in parallel. For others, like ffmpeg, it's much
-        // more efficient to use a single reader and request frames sequentially
-        // because common motion based video codecs like h264 are designed to
-        // decode frames in a stream, of course.
-        const bool prefers_sequential_reads =
-            request_receive<bool>(*sys, precache_workers_.back(), utility::detail_atom_v);
-
-        if (!prefers_sequential_reads) {
-            for (int i = 1; i < worker_count; ++i) {
-                precache_workers_.push_back(
-                    request_receive<caf::actor>(
-                        *sys,
-                        pm,
-                        plugin_manager::spawn_plugin_atom_v,
-                        media_reader_plugin_uuid,
-                        js));
-                link_to(precache_workers_.back());
-            }
-        }
-
+        precache_worker_ = request_receive<caf::actor>(
+            *sys, pm, plugin_manager::spawn_plugin_atom_v, media_reader_plugin_uuid, js);
+        link_to(precache_worker_);
         urgent_worker_ = request_receive<caf::actor>(
             *sys, pm, plugin_manager::spawn_plugin_atom_v, media_reader_plugin_uuid, js);
         link_to(urgent_worker_);
@@ -276,7 +245,7 @@ CachingMediaReaderActor::CachingMediaReaderActor(
             // of this image buffer
             auto rp = make_response_promise<media_reader::ImageBufPtr>();
             mail(get_image_atom_v, mptr)
-                .request(pick_precache_worker(), infinite)
+                .request(precache_worker_, infinite)
                 .then(
                     [=](media_reader::ImageBufPtr &buf) mutable { rp.deliver(buf); },
                     [=](const caf::error &err) mutable {
@@ -291,7 +260,7 @@ CachingMediaReaderActor::CachingMediaReaderActor(
             // of this image buffer
             auto rp = make_response_promise<media_reader::AudioBufPtr>();
             mail(get_audio_atom_v, mptr)
-                .request(pick_precache_worker(), infinite)
+                .request(precache_worker_, infinite)
                 .then(
                     [=](media_reader::AudioBufPtr buf) mutable { rp.deliver(buf); },
                     [=](const caf::error &err) mutable { rp.deliver(err); });

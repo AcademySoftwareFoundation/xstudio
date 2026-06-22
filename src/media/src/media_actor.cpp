@@ -1747,7 +1747,7 @@ void MediaActor::auto_set_current_source(
         [=](const std::set<utility::Uuid> &valid_media_sources_for_media_type) mutable {
             if (base_.current(media_type).is_null()) {
 
-                // bool changed = false;
+                bool changed = false;
                 for (auto source_uuid : base_.media_sources()) {
 
                     if (valid_media_sources_for_media_type.find(source_uuid) !=
@@ -1794,12 +1794,12 @@ void MediaActor::auto_set_current_source(
                             sources_matching_media_type->insert(source_uuid);
 
                         (*count)--;
-                        if (not*count)
+                        if (not *count)
                             auto_set_sources_mt(*sources_matching_media_type);
                     },
                     [=](caf::error err) mutable {
                         (*count)--;
-                        if (not*count)
+                        if (not *count)
                             auto_set_sources_mt(*sources_matching_media_type);
                     });
 

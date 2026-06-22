@@ -49,5 +49,5 @@ Gap Gap::duplicate() const {
     jsn["container"] = dup_container.serialise();
     jsn["item"]      = dup_item.serialise();
 
-    return {jsn};
+    return Gap(jsn);
 }

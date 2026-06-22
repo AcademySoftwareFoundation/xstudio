@@ -10,304 +10,304 @@
 #include "xstudio/utility/blind_data.hpp"
 #include <caf/all.hpp>
 
-namespace xstudio::plugin {
+namespace xstudio {
+namespace plugin {
 
-class GPUPreDrawHook {
+    class GPUPreDrawHook {
 
-  public:
-    /* Plugins can provide this class to allow a way to execute any GPU
-    draw/compute functions *before* the viewport is drawn to the screen.
-    Note that 'image' is a non-const reference and as-such the colour
-    pipeline data object ptr that is a member of ImageBufPtr can be
-    overwritten with new data that the plugin (if it's a ColourOP) can
-    access at draw time (like LUTS & texture). Similiarly ViewportOverlay
-    plugins could use this to do pixel analysis and put the result into
-    texture data. This could be useful for doing waveform overlays, for
-    example.
+      public:
+        /* Plugins can provide this class to allow a way to execute any GPU
+        draw/compute functions *before* the viewport is drawn to the screen.
+        Note that 'image' is a non-const reference and as-such the colour
+        pipeline data object ptr that is a member of ImageBufPtr can be
+        overwritten with new data that the plugin (if it's a ColourOP) can
+        access at draw time (like LUTS & texture). Similiarly ViewportOverlay
+        plugins could use this to do pixel analysis and put the result into
+        texture data. This could be useful for doing waveform overlays, for
+        example.
 
-    The post_viewport_draw_gpu_hook will be called when the viewport
-    render is complete and the graphics context is still valid. This allows
-    video output plugins to grab framebuffers for encoding to video streams,
-    for example.
+        The post_viewport_draw_gpu_hook will be called when the viewport
+        render is complete and the graphics context is still valid. This allows
+        video output plugins to grab framebuffers for encoding to video streams,
+        for example.
 
-    Note that plugins can add their own data to media via the bookmarks
-    system which will then be available here at draw time as metadata on
-    the ImageBufPtr we receive here. */
+        Note that plugins can add their own data to media via the bookmarks
+        system which will then be available here at draw time as metadata on
+        the ImageBufPtr we receive here. */
 
-    virtual void pre_viewport_draw_gpu_hook(
-        const Imath::M44f &transform_window_to_viewport_space,
-        const Imath::M44f &transform_viewport_to_image_space,
-        const float viewport_du_dpixel,
-        xstudio::media_reader::ImageBufPtr &image) {}
+        virtual void pre_viewport_draw_gpu_hook(
+            const Imath::M44f &transform_window_to_viewport_space,
+            const Imath::M44f &transform_viewport_to_image_space,
+            const float viewport_du_dpixel,
+            xstudio::media_reader::ImageBufPtr &image) {}
 
-    virtual void post_viewport_draw_gpu_hook(
-        uint32_t tex_id,
-        uint32_t fbo_id,
-        const media_reader::ImageBufDisplaySetPtr &on_screen_frames,
-        const Imath::M44f &image_transform_matrix) {}
-};
+        virtual void post_viewport_draw_gpu_hook(
+            uint32_t tex_id,
+            uint32_t fbo_id,
+            const media_reader::ImageBufDisplaySetPtr &on_screen_frames,
+            const Imath::M44f &image_transform_matrix) {}
+    };
 
-typedef std::shared_ptr<GPUPreDrawHook> GPUPreDrawHookPtr;
+    typedef std::shared_ptr<GPUPreDrawHook> GPUPreDrawHookPtr;
 
-class ViewportOverlayRenderer {
+    class ViewportOverlayRenderer {
 
-  public:
-    enum RenderPass { BeforeImage, AfterImage };
+      public:
+        enum RenderPass { BeforeImage, AfterImage };
 
-    /* An overlay can render before the image is rendered - the
-    image is then plotted with an 'Under' blend operation. This
-    allows for alpha blending on a black background. Alternatively
-    the overlay can render ontop of the image, after it is drawn.*/
-    virtual void render_image_overlay(
-        const Imath::M44f &transform_window_to_viewport_space,
-        const Imath::M44f &transform_viewport_to_image_space,
-        const float viewport_du_dpixel,
-        const float device_pixel_ratio,
-        const xstudio::media_reader::ImageBufPtr &frame) {};
+        /* An overlay can render before the image is rendered - the
+        image is then plotted with an 'Under' blend operation. This
+        allows for alpha blending on a black background. Alternatively
+        the overlay can render ontop of the image, after it is drawn.*/
+        virtual void render_image_overlay(
+            const Imath::M44f &transform_window_to_viewport_space,
+            const Imath::M44f &transform_viewport_to_image_space,
+            const float viewport_du_dpixel,
+            const float device_pixel_ratio,
+            const xstudio::media_reader::ImageBufPtr &frame) {};
 
-    /* An overlay can render visuals to the viewport without an associated
-    image via this method. */
-    virtual void render_viewport_overlay(
-        const Imath::M44f &transform_window_to_viewport_space,
-        const Imath::M44f &transform_viewport_to_normalised_coords,
-        const media_reader::ImageBufDisplaySetPtr &on_screen_frames,
-        const float viewport_du_dpixel,
-        const float device_pixel_ratio) {};
+        /* An overlay can render visuals to the viewport without an associated
+        image via this method. */
+        virtual void render_viewport_overlay(
+            const Imath::M44f &transform_window_to_viewport_space,
+            const Imath::M44f &transform_viewport_to_normalised_coords,
+            const media_reader::ImageBufDisplaySetPtr &on_screen_frames,
+            const float viewport_du_dpixel,
+            const float device_pixel_ratio) {};
 
-    [[nodiscard]] virtual RenderPass preferred_render_pass() const { return AfterImage; }
+        [[nodiscard]] virtual RenderPass preferred_render_pass() const { return AfterImage; }
 
-    [[nodiscard]] virtual float stack_order() const { return 0.0f; }
-};
+        virtual float stack_order() const { return 0.0f; }
+    };
 
-typedef std::shared_ptr<ViewportOverlayRenderer> ViewportOverlayRendererPtr;
+    typedef std::shared_ptr<ViewportOverlayRenderer> ViewportOverlayRendererPtr;
 
-class StandardPlugin : public caf::event_based_actor, public module::Module {
+    class StandardPlugin : public caf::event_based_actor, public module::Module {
 
-  public:
-    StandardPlugin(
-        caf::actor_config &cfg, std::string name, const utility::JsonStore &init_settings);
+      public:
+        StandardPlugin(
+            caf::actor_config &cfg, std::string name, const utility::JsonStore &init_settings);
 
-    ~StandardPlugin() override = default;
+        ~StandardPlugin() override = default;
 
-    caf::behavior make_behavior() override {
-        set_parent_actor_addr(actor_cast<caf::actor_addr>(this));
-        return message_handler_extensions().or_else(
-            message_handler_.or_else(module::Module::message_handler()));
-    }
+        caf::behavior make_behavior() override {
+            set_parent_actor_addr(actor_cast<caf::actor_addr>(this));
+            return message_handler_extensions().or_else(
+                message_handler_.or_else(module::Module::message_handler()));
+        }
 
-    [[nodiscard]] const char *name() const override {
-        return dynamic_cast<const module::Module *>(this)->name().c_str();
-    }
-
-
-  protected:
-    void on_exit() override;
-
-    virtual caf::message_handler message_handler_extensions() { return {}; }
-
-    caf::message_handler message_handler_;
-
-    // Reimplement this function to attach custom data (based on BlindDataObject
-    // class) to an inidividual image. When your plugin executes per-image custom
-    // overlay render via its ViewportOverlayRenderer at draw time, the
-    // custom overlay data can be retrieved from the image. See
-    // annotations plugin for a rederence example
-    [[nodiscard]] virtual utility::BlindDataObjectPtr onscreen_render_data(
-        const media_reader::ImageBufPtr & /*image*/,
-        const std::string & /*viewport_name*/,
-        const utility::Uuid &playhead_uuid,
-        const bool is_hero_image,
-        const bool images_are_in_grid_layout) const {
-        return {};
-    }
-
-    // Reimplement this function to attach custom data (based on BlindDataObject
-    // class) to a whole image set. When the viewport is re-drawn you will
-    // be able to execute custom overlay render code via your custom
-    // ViewportOverlayRenderer to do overlay graphics on the entire viewport.
-    [[nodiscard]] virtual utility::BlindDataObjectPtr onscreen_render_data(
-        const media_reader::ImageBufDisplaySetPtr & /*image_set*/,
-        const std::string & /*viewport_name*/,
-        const utility::Uuid & /*playhead_uuid*/) const {
-        return {};
-    }
-
-    // reimpliment this function to receive the image buffer(s) that are
-    // currently being displayed on the given viewport
-    virtual void images_going_on_screen(
-        const media_reader::ImageBufDisplaySetPtr & /*image_set*/,
-        const std::string /*viewport_name*/,
-        const bool /*playhead_playing*/
-    ) {}
-
-    virtual ViewportOverlayRendererPtr make_overlay_renderer(const std::string &viewport_name) {
-        return {};
-    }
-
-    // Override this and return your own subclass of GPUPreDrawHook to allow
-    // arbitrary GPU rendering (e.g. when in the viewport OpenGL context)
-    virtual GPUPreDrawHookPtr make_pre_draw_gpu_hook(const std::string &viewport_name) {
-        return {};
-    }
-
-    // reimplement this function in an annotations plugin to return your
-    // custom annotation class, based on bookmark::AnnotationBase base class.
-    virtual bookmark::AnnotationBasePtr build_annotation(const utility::JsonStore &anno_data) {
-        return {};
-    }
-
-    // reimplement this function to get a list of frame IDs of media that
-    // is going to be going on screen in the near future during playtback.
-    // This gives the opportunity to do asynchronous fetching of data from
-    // media or media sources before it's needed at draw time.
-    virtual void media_due_on_screen_soon(const media::AVFrameIDsAndTimePoints &) {}
-
-    /* Function signature for on screen annotation change - reimplement to
-    receive this event. Call join_playhead_events() to activate. */
-    virtual void on_screen_media_changed(
-        caf::actor,                      // media item actor
-        const utility::MediaReference &, // media reference
-        const utility::JsonStore &       // colour params
-    ) {}
-
-    /* Function signature for on screen annotation change - reimplement to
-    receive this event. Call join_playhead_events() to activate. */
-    virtual void on_screen_media_changed(
-        caf::actor media,
-        caf::actor media_source,
-        const std::string &viewport_name,
-        const int playhead_idx,
-        const bool is_main_playhead) {}
-
-    /* Function signature for current playhead playing status change - reimplement to
-    receive this event */
-    virtual void on_playhead_playing_changed(
-        const bool // is playing
-    ) {}
-
-    /* Reimplement to receive this notification telling us when the playhead driving a given
-    named viewport has changed */
-    virtual void
-    viewport_playhead_changed(const std::string &viewport_name, caf::actor playhead) {}
+        const char *name() const override {
+            return dynamic_cast<const module::Module *>(this)->name().c_str();
+        }
 
 
-    /* Use this function to define the qml code that draws information over the xstudio
-    viewport. See basic_viewport_masking and pixel_probe plugin examples. */
-    void qml_viewport_overlay_code(const std::string &code);
+      protected:
+        void on_exit() override;
 
-    /* Use this function to create a new bookmark on the given frame (as
-    per frame_details). See annotations_tool.cpp for example useage. */
-    utility::Uuid create_bookmark_on_frame(
-        const media::AVFrameID &frame_details,
-        const std::string &bookmark_subject,
-        const bookmark::BookmarkDetail &detail,
-        const bool bookmark_entire_duration = false);
+        virtual caf::message_handler message_handler_extensions() {
+            return caf::message_handler();
+        }
 
-    /* Use this function to create a new bookmark on the current (on screen) frame
-    of for the entire duration for the media currently showing on the given named
-    viewport. */
-    utility::Uuid create_bookmark_on_current_media(
-        const std::string &viewport_name,
-        const std::string &bookmark_subject,
-        const bookmark::BookmarkDetail &detail,
-        const bool bookmark_entire_duratio = false);
+        caf::message_handler message_handler_;
 
-    /* Call this function to turn off any other tools that have direct, interactive
-    drawing in the viewport. This will allow your drawing plugin to exclusively
-    do interactive drawing. */
-    void cancel_other_drawing_tools();
+        // Reimplement this function to attach custom data (based on BlindDataObject
+        // class) to an inidividual image. When your plugin executes per-image custom
+        // overlay render via its ViewportOverlayRenderer at draw time, the
+        // custom overlay data can be retrieved from the image. See
+        // annotations plugin for a rederence example
+        virtual utility::BlindDataObjectPtr onscreen_render_data(
+            const media_reader::ImageBufPtr & /*image*/,
+            const std::string & /*viewport_name*/,
+            const utility::Uuid &playhead_uuid,
+            const bool is_hero_image,
+            const bool images_are_in_grid_layout) const {
+            return utility::BlindDataObjectPtr();
+        }
 
-    /* Override this function and take necessary action to disable any interactive
-    (e.g.) drawing state of your plugin. */
-    virtual void turn_off_overlay_interaction() {}
+        // Reimplement this function to attach custom data (based on BlindDataObject
+        // class) to a whole image set. When the viewport is re-drawn you will
+        // be able to execute custom overlay render code via your custom
+        // ViewportOverlayRenderer to do overlay graphics on the entire viewport.
+        virtual utility::BlindDataObjectPtr onscreen_render_data(
+            const media_reader::ImageBufDisplaySetPtr & /*image_set*/,
+            const std::string & /*viewport_name*/,
+            const utility::Uuid & /*playhead_uuid*/) const {
+            return utility::BlindDataObjectPtr();
+        }
 
-    utility::UuidList get_bookmarks_on_current_media(const std::string &viewport_name);
-    bookmark::BookmarkDetail get_bookmark_detail(const utility::Uuid &bookmark_id);
-    bookmark::AnnotationBasePtr get_bookmark_annotation(const utility::Uuid &bookmark_id);
+        // reimpliment this function to receive the image buffer(s) that are
+        // currently being displayed on the given viewport
+        virtual void images_going_on_screen(
+            const media_reader::ImageBufDisplaySetPtr & /*image_set*/,
+            const std::string /*viewport_name*/,
+            const bool /*playhead_playing*/
+        ) {}
 
-    /* Call this function to update the annotation data attached to the
-    given bookmark */
-    void update_bookmark_annotation(
-        const utility::Uuid bookmark_id,
-        bookmark::AnnotationBasePtr annotation_data,
-        const bool annotation_is_empty);
+        virtual ViewportOverlayRendererPtr
+        make_overlay_renderer(const std::string &viewport_name) {
+            return ViewportOverlayRendererPtr();
+        }
 
-    void update_bookmark_detail(
-        const utility::Uuid bookmark_id, const bookmark::BookmarkDetail &bmd);
+        // Override this and return your own subclass of GPUPreDrawHook to allow
+        // arbitrary GPU rendering (e.g. when in the viewport OpenGL context)
+        virtual GPUPreDrawHookPtr make_pre_draw_gpu_hook(const std::string &viewport_name) {
+            return GPUPreDrawHookPtr();
+        }
 
-    void remove_bookmark(const utility::Uuid &bookmark_id, const bool only_if_empty = false);
+        // reimplement this function in an annotations plugin to return your
+        // custom annotation class, based on bookmark::AnnotationBase base class.
+        virtual bookmark::AnnotationBasePtr
+        build_annotation(const utility::JsonStore &anno_data) {
+            return bookmark::AnnotationBasePtr();
+        }
 
-    /* Get the (unique) name of the current, active viewport in xSTUDIO's
-    main UI window. */
-    [[nodiscard]] std::string active_viewport_name() const;
+        // reimplement this function to get a list of frame IDs of media that
+        // is going to be going on screen in the near future during playtback.
+        // This gives the opportunity to do asynchronous fetching of data from
+        // media or media sources before it's needed at draw time.
+        virtual void media_due_on_screen_soon(const media::AVFrameIDsAndTimePoints &) {}
 
-    /* set playback state for playhead attached to the named viewport */
-    void start_stop_playback(const std::string viewport_name, bool play);
+        /* Function signature for on screen annotation change - reimplement to
+        receive this event. Call join_playhead_events() to activate. */
+        virtual void on_screen_media_changed(
+            caf::actor,                      // media item actor
+            const utility::MediaReference &, // media reference
+            const utility::JsonStore &       // colour params
+        ) {}
 
-    /* set the cursor (mouse pointer) shape for all viewports. An empty
-    string will return to defaul (arrow) pointer. See XsViewport.qml
-    for possible cursor names - the are simply stringified versions of the
-    Qt cursorshape enumerator. For example "Qt.WaitCursor" would be a
-    valid cursor name. If you have an image resource declared in a qrc
-    file this can also be used for fully custom cursor. To see an example
-    string-search for 'magnifier_cursor' in the xstudio code base.*/
-    void set_viewport_cursor(
-        const std::string cusor_name,
-        const int size     = 24,
-        const int x_offset = -1,
-        const int y_offset = -1);
+        /* Function signature for current playhead playing status change - reimplement to
+        receive this event */
+        virtual void on_playhead_playing_changed(
+            const bool // is playing
+        ) {}
 
-    /* Call this function to start listening to events related to the
-    current global (active) playhead. This must be called if you want to
-    make use of the on_screen_frame_changed, on_screen_media_changed and
-    on_playhead_playing_changed callbacks. */
-    void listen_to_playhead_events(const bool listen = true);
-
-    /* Access the plugin events group to broadcast events to other entities
-    that may want to interact with the plugin*/
-    caf::actor &plugin_events_group() { return plugin_events_; }
-    typedef std::function<void(
-        const utility::Uuid &attr_id, const int role_id, const utility::JsonStore &role_data)>
-        AttributeChangedFunction;
-
-    /* Use this method to get notification of changes to the data of the
-    named attribute belonging to the provided module actor. The last
-    argument should be a lambda function with the signature
-
-    Returns the  uuid of the attribute being watched. */
-    utility::Uuid watch_attribute(
-        caf::actor module, const std::string &attribute_name, AttributeChangedFunction fn);
-
-    /* Use this method to unwatch any attributes previously watched belonging
-    to the given module actor */
-    void unwatch_attributes(caf::actor module);
-
-  private:
-    // re-implement to receive callback when the on-screen media changes. To
-    void on_screen_media_changed(caf::actor media) override;
-
-    void session_changed(caf::actor session);
-
-    void current_viewed_playhead_changed(caf::actor playhead);
-
-    void join_studio_events();
-
-    void __images_going_on_screen(
-        const media_reader::ImageBufDisplaySetPtr &image_set,
-        const std::string viewport_name,
-        const bool playhead_playing);
-
-    caf::actor_addr active_viewport_playhead_;
-    caf::actor_addr playhead_media_events_group_;
-    caf::actor bookmark_manager_;
-    caf::actor playhead_events_actor_;
-    caf::actor plugin_events_;
-    bool joined_playhead_events_ = {false};
-    std::map<std::string, utility::Uuid> last_source_uuid_;
-    std::map<utility::Uuid, AttributeChangedFunction> watched_attr_event_handlers_;
-
-    module::BooleanAttribute *viewport_overlay_qml_code_ = nullptr;
-};
+        /* Reimplement to receive this notification telling us when the playhead driving a given
+        named viewport has changed */
+        virtual void
+        viewport_playhead_changed(const std::string &viewport_name, caf::actor playhead) {}
 
 
-} // namespace xstudio::plugin
+        /* Use this function to define the qml code that draws information over the xstudio
+        viewport. See basic_viewport_masking and pixel_probe plugin examples. */
+        void qml_viewport_overlay_code(const std::string &code);
+
+        /* Use this function to create a new bookmark on the given frame (as
+        per frame_details). See annotations_tool.cpp for example useage. */
+        utility::Uuid create_bookmark_on_frame(
+            const media::AVFrameID &frame_details,
+            const std::string &bookmark_subject,
+            const bookmark::BookmarkDetail &detail,
+            const bool bookmark_entire_duration = false);
+
+        /* Use this function to create a new bookmark on the current (on screen) frame
+        of for the entire duration for the media currently showing on the given named
+        viewport. */
+        utility::Uuid create_bookmark_on_current_media(
+            const std::string &viewport_name,
+            const std::string &bookmark_subject,
+            const bookmark::BookmarkDetail &detail,
+            const bool bookmark_entire_duratio = false);
+
+        /* Call this function to turn off any other tools that have direct, interactive
+        drawing in the viewport. This will allow your drawing plugin to exclusively
+        do interactive drawing. */
+        void cancel_other_drawing_tools();
+
+        /* Override this function and take necessary action to disable any interactive
+        (e.g.) drawing state of your plugin. */
+        virtual void turn_off_overlay_interaction() {}
+
+        utility::UuidList get_bookmarks_on_current_media(const std::string &viewport_name);
+        bookmark::BookmarkDetail get_bookmark_detail(const utility::Uuid &bookmark_id);
+        bookmark::AnnotationBasePtr get_bookmark_annotation(const utility::Uuid &bookmark_id);
+
+        /* Call this function to update the annotation data attached to the
+        given bookmark */
+        void update_bookmark_annotation(
+            const utility::Uuid bookmark_id,
+            bookmark::AnnotationBasePtr annotation_data,
+            const bool annotation_is_empty);
+
+        void update_bookmark_detail(
+            const utility::Uuid bookmark_id, const bookmark::BookmarkDetail &bmd);
+
+        void
+        remove_bookmark(const utility::Uuid &bookmark_id, const bool only_if_empty = false);
+
+        /* Get the (unique) name of the current, active viewport in xSTUDIO's
+        main UI window. */
+        std::string active_viewport_name() const;
+
+        /* set playback state for playhead attached to the named viewport */
+        void start_stop_playback(const std::string viewport_name, bool play);
+
+        /* set the cursor (mouse pointer) shape for all viewports. An empty
+        string will return to defaul (arrow) pointer. See XsViewport.qml
+        for possible cursor names - the are simply stringified versions of the
+        Qt cursorshape enumerator. For example "Qt.WaitCursor" would be a
+        valid cursor name. If you have an image resource declared in a qrc
+        file this can also be used for fully custom cursor. To see an example
+        string-search for 'magnifier_cursor' in the xstudio code base.*/
+        void set_viewport_cursor(
+            const std::string cusor_name,
+            const int size     = 24,
+            const int x_offset = -1,
+            const int y_offset = -1);
+
+        /* Call this function to start listening to events related to the
+        current global (active) playhead. This must be called if you want to
+        make use of the on_screen_frame_changed, on_screen_media_changed and
+        on_playhead_playing_changed callbacks. */
+        void listen_to_playhead_events(const bool listen = true);
+
+        /* Access the plugin events group to broadcast events to other entities
+        that may want to interact with the plugin*/
+        caf::actor &plugin_events_group() { return plugin_events_; }
+        typedef std::function<void(
+            const utility::Uuid &attr_id,
+            const int role_id,
+            const utility::JsonStore &role_data)>
+            AttributeChangedFunction;
+
+        /* Use this method to get notification of changes to the data of the
+        named attribute belonging to the provided module actor. The last
+        argument should be a lambda function with the signature
+
+        Returns the  uuid of the attribute being watched. */
+        utility::Uuid watch_attribute(
+            caf::actor module, const std::string &attribute_name, AttributeChangedFunction fn);
+
+        /* Use this method to unwatch any attributes previously watched belonging
+        to the given module actor */
+        void unwatch_attributes(caf::actor module);
+
+      private:
+        // re-implement to receive callback when the on-screen media changes. To
+        void on_screen_media_changed(caf::actor media) override;
+
+        void session_changed(caf::actor session);
+
+        void current_viewed_playhead_changed(caf::actor playhead);
+
+        void join_studio_events();
+
+        void __images_going_on_screen(
+            const media_reader::ImageBufDisplaySetPtr &image_set,
+            const std::string viewport_name,
+            const bool playhead_playing);
+
+        caf::actor_addr active_viewport_playhead_;
+        caf::actor_addr playhead_media_events_group_;
+        caf::actor bookmark_manager_;
+        caf::actor playhead_events_actor_;
+        caf::actor plugin_events_;
+        bool joined_playhead_events_ = {false};
+        std::map<std::string, utility::Uuid> last_source_uuid_;
+        std::map<utility::Uuid, AttributeChangedFunction> watched_attr_event_handlers_;
+
+        module::BooleanAttribute *viewport_overlay_qml_code_ = nullptr;
+    };
+
+
+} // namespace plugin
+} // namespace xstudio
