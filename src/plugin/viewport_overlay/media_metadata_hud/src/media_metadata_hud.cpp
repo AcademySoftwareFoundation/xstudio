@@ -80,6 +80,10 @@ void MediaMetadataRenderer::render_image_overlay(
     const auto viewport_width  = (float)gl_viewport[2];
     const auto viewport_height = (float)gl_viewport[3];
 
+    // don't render if the viewport is small (ie. for thumbnails)
+    if (viewport_width < 300.0f)
+        return;
+
     if (display_settings_ != data->display_settings_) {
 
         display_settings_ = data->display_settings_;
