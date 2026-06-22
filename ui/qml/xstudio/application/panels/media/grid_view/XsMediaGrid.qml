@@ -55,6 +55,18 @@ XsGridView {
 
         // what row is the on-screen media?
         var row = mediaListModelData.getRowWithMatchingRoleData(onScreenMediaUuid, "actorUuidRole")
+
+        return autoScrollToRow(row)
+    }
+
+    function autoScrollToSelectedMedia() {
+        if (visible && mediaSelectionModel.selectedIndexes.length) {
+            var row = mediaSelectionModel.selectedIndexes[0].row
+            return autoScrollToRow(row)
+        }
+    }
+
+    function autoScrollToRow(row) {
         if (row == -1) return
 
         var num_cols = Math.floor(width/cellWidth) > 0 ? Math.floor(width/cellWidth) : 1
@@ -66,7 +78,14 @@ XsGridView {
 
         autoScrollAnimator.to = Math.max(originY, Math.min(mid - mediaList.height/2, mediaList.contentHeight - mediaList.height))
         autoScrollAnimator.running = true
+    }
 
+    Connections {
+        target: panel
+        enabled: visible
+        function onFrameSelectedMedia() {
+            autoScrollToSelectedMedia()
+        }
     }
 
     XsLabel {
@@ -300,5 +319,9 @@ XsGridView {
         function run() {
             if (!running && mediaList.contentY > originY) start()
         }
+    }
+
+    XsMediaScrollKeeper {
+        prefix: "G"
     }
 }
