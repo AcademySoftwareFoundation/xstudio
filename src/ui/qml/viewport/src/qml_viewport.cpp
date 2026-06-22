@@ -123,7 +123,7 @@ Signature::PointerType qtPointerTypeToOurs(QPointingDevice::PointerType qt_point
 QMLViewport::QMLViewport(QQuickItem *parent) : QQuickItem(parent), cursor_(Qt::ArrowCursor) {
 
     connect(this, &QQuickItem::windowChanged, this, &QMLViewport::handleWindowChanged);
-    static int index = 0;
+    // static int index = 0;
 
     renderer_actor = new QMLViewportRenderer(this);
 
@@ -473,6 +473,7 @@ bool QMLViewport::event(QEvent *event) {
             anon_mail(
                 ui::keypress_monitor::key_down_atom_v,
                 key_event->key(),
+                StdFromQString(key_event->text()),
                 renderer_actor ? renderer_actor->std_name() : "",
                 StdFromQString(m_window->objectName()),
                 key_event->isAutoRepeat())
@@ -518,10 +519,10 @@ void QMLViewport::wheelEvent(QWheelEvent *event) {
     PointerEvent ev(
         EventType::MouseWheel,
         static_cast<Signature::Button>((int)event->buttons()),
-        event->position().x(),
-        event->position().y(),
-        width(),  // FIXME should be width, but this function appears to never be called.
-        height(), // FIXME should be height
+        int(round(float(event->position().x()) * window()->effectiveDevicePixelRatio())),
+        int(round(float(event->position().y()) * window()->effectiveDevicePixelRatio())),
+        int(round(float(width()) * window()->effectiveDevicePixelRatio())),
+        int(round(float(height()) * window()->effectiveDevicePixelRatio())),
         qtModifierToOurs(event->modifiers()),
         renderer_actor ? renderer_actor->std_name() : "",
         std::make_pair(event->angleDelta().rx(), event->angleDelta().ry()),
@@ -640,7 +641,7 @@ QString QMLViewport::playheadActorAddress() {
 
     if (renderer_actor)
         return actorToQString(CafSystemObject::get_actor_system(), renderer_actor->playhead());
-    return QString();
+    return {};
 }
 
 void QMLViewport::onVisibleChanged() {
@@ -655,7 +656,7 @@ QVariantList QMLViewport::imageResolutions() {
 QVariantList QMLViewport::imageBoundariesInViewport() {
     if (renderer_actor)
         return renderer_actor->imageBoundariesInViewport();
-    return QVariantList();
+    return {};
 }
 
 void QMLViewport::quickViewFromPath(const QString &path_or_uri) {

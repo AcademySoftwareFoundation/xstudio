@@ -164,6 +164,34 @@
                         "path": "/plugin/data_source/shotbrowser/browser/popout",
                         "value": {}
                     },
+                    "stages": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "json",
+                        "default_value": {},
+                        "description": "Stage names and colours.",
+                        "path": "/plugin/data_source/shotbrowser/browser/stages",
+                        "value": {
+                            "STAGE-NA": {"colour": "transparent"},
+                            "STAGE-00": {"colour": "WHITE"},
+                            "STAGE-01": {"colour": "YELLOW"},
+                            "STAGE-02": {"colour": "ORANGE"},
+                            "STAGE-03": {"colour": "PINK"},
+                            "STAGE-04": {"colour": "VIOLET"},
+                            "STAGE-05": {"colour": "CYAN"},
+                            "STAGE-06": {"colour": "GREEN"},
+                            "STAGE 00": {"colour": "WHITE"},
+                            "STAGE 01": {"colour": "YELLOW"},
+                            "STAGE 02": {"colour": "ORANGE"},
+                            "STAGE 03": {"colour": "PINK"},
+                            "STAGE 04": {"colour": "VIOLET"},
+                            "STAGE 05": {"colour": "CYAN"},
+                            "STAGE 06": {"colour": "GREEN"},
+                            "STAGE-CMPT": {"colour": "LIGHT-BLUE"}
+                        }
+                    },
+
                     "pipestep": {
                         "context": [
                             "PLUGIN"

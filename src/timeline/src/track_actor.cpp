@@ -786,7 +786,7 @@ void TrackActor::add_item(const UuidActor &ua) {
 
     try {
         auto grp    = request_receive<caf::actor>(*sys, ua.actor(), get_event_group_atom_v);
-        auto joined = request_receive<bool>(*sys, grp, broadcast::join_broadcast_atom_v, this);
+        std::ignore = request_receive<bool>(*sys, grp, broadcast::join_broadcast_atom_v, this);
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
@@ -1314,7 +1314,7 @@ void TrackActor::move_items_at_frame(
     auto overwrite_self_start = dest_frame > frame and dest_frame < frame + duration;
     auto overwrite_self_end =
         dest_frame + duration > frame and dest_frame + duration < frame + duration;
-    auto overwrite_self = overwrite_self_start or overwrite_self_end;
+    // auto overwrite_self = overwrite_self_start or overwrite_self_end;
 
     if (frame_ == dest_frame_) {
         return rp.deliver(make_error(xstudio_error::error, "Invalid start frame"));

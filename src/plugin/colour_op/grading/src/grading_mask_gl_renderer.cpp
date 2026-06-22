@@ -17,8 +17,8 @@ using namespace xstudio::ui::opengl;
 using namespace xstudio::ui::viewport;
 
 
-GradingMaskRenderer::GradingMaskRenderer(const std::string &viewport_name)
-    : viewport_name_(viewport_name) {
+GradingMaskRenderer::GradingMaskRenderer(const std::string viewport_name)
+    : viewport_name_(std::move(viewport_name)) {
 
     canvas_renderer_.reset(new ui::opengl::OpenGLCanvasRenderer());
 }

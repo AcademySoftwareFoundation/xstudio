@@ -20,30 +20,14 @@ XsPopupMenu {
     // XsMenuModelItem instance.
     property var panelContext: helpers.contextPanel(plusMenu)
 
-    XsPreference {
-        id: chunkSize
-        path: "/ui/qml/contactsheet_chunk_size"
-    }
-
-    XsPreference {
-        id: sessionRate
-        path: "/core/session/media_rate"
-    }
-
     XsMenuModelItem {
         text: "Add To New Playlist"
+        hotkeyUuid: hotkey_area.add_to_new_playlist_hotkey.uuid
         menuItemType: "button"
         menuPath: ""
         menuItemPosition: 1
         menuModelName: plusMenu.menu_model_name
-        onActivated: {
-            dialogHelpers.textInputDialog(
-                plusMenu.addPlaylist,
-                "Add Playlist",
-                "Enter a name for the new playlist.",
-                theSessionData.getNextName("Playlist {}"),
-                ["Cancel", "Add"])
-        }
+        onActivated: media_list_functions.addToNewPlaylistDialog()
         panelContext: plusMenu.panelContext
     }
 
@@ -53,14 +37,8 @@ XsPopupMenu {
         menuPath: ""
         menuItemPosition: 2
         menuModelName: plusMenu.menu_model_name
-        onActivated: {
-            dialogHelpers.textInputDialog(
-                plusMenu.addSubset,
-                "Add Subset",
-                "Enter a name for the new subset.",
-                theSessionData.getNextName("Subset {}"),
-                ["Cancel", "Add"])
-        }
+        hotkeyUuid: hotkey_area.add_to_new_subset_hotkey.uuid
+        onActivated: media_list_functions.addToNewSubsetDialog()
         panelContext: plusMenu.panelContext
     }
 
@@ -70,25 +48,9 @@ XsPopupMenu {
         menuPath: ""
         menuItemPosition: 3
         menuModelName: plusMenu.menu_model_name
-        onActivated: {
-            let rate = sessionRate.value
-
-            if(mediaSelectionModel.selectedIndexes.length) {
-                let actoruuid = theSessionData.get(mediaSelectionModel.selectedIndexes[0], "imageActorUuidRole")
-                let image_source = theSessionData.searchRecursive(actoruuid, "actorUuidRole", mediaSelectionModel.selectedIndexes[0])
-                if (image_source.valid) {
-                    rate = theSessionData.get(image_source, "rateFPSStringRole")
-                }
-            }
-            dialogHelpers.sequenceInputDialog(
-                plusMenu.addTimeline,
-                "Add Sequence",
-                "New Sequence",
-                theSessionData.getNextName("Sequence {}"),
-                ["Cancel", "Add"],
-                rate)
-        }
+        onActivated: media_list_functions.addToNewSequenceDialog()
         panelContext: plusMenu.panelContext
+        hotkeyUuid: hotkey_area.add_to_new_sequence_hotkey.uuid
     }
 
     XsMenuModelItem {
@@ -97,14 +59,8 @@ XsPopupMenu {
         menuPath: ""
         menuItemPosition: 3
         menuModelName: plusMenu.menu_model_name
-        onActivated: {
-            dialogHelpers.textInputDialog(
-                plusMenu.addContactSheet,
-                "Add Contact Sheet",
-                "Enter New Contact Sheet Name.",
-                theSessionData.getNextName("Contact Sheet {}"),
-                ["Cancel", "Add"])
-        }
+        onActivated: media_list_functions.addToNewContactSheetDialog()
+        hotkeyUuid: hotkey_area.add_to_new_contact_sheet_hotkey.uuid
         panelContext: plusMenu.panelContext
     }
 
@@ -114,26 +70,9 @@ XsPopupMenu {
         menuItemPosition: 3.5
         menuModelName: plusMenu.menu_model_name
         panelContext: plusMenu.panelContext
-        onActivated: {
-            dialogHelpers.contactSheetDialog(
-                function(name, count, button) {
-                    if(button == "Add") {
-                        let icount = parseInt(count);
-                        if(chunkSize.value != icount)
-                            chunkSize.value = icount;
-
-                        addToNewContactSheet(name, icount);
-                    }
-                },
-                "Add Contact Sheets",
-                "Enter New Contact Sheets Name",
-                "Contact Sheet {}",
-                chunkSize.value,
-                ["Cancel", "Add"])
-        }
+        onActivated: media_list_functions.addToNewContactSheetsDialog()
+        hotkeyUuid: hotkey_area.add_to_new_contact_sheets_hotkey.uuid
     }
-
-
 
     XsMenuModelItem {
         menuItemType: "divider"
@@ -148,42 +87,17 @@ XsPopupMenu {
         menuPath: ""
         menuItemPosition: 5
         menuModelName: plusMenu.menu_model_name
-        onActivated: {
-            file_functions.loadMedia(undefined)
-        }
+        onActivated: file_functions.loadMedia(undefined)
         panelContext: plusMenu.panelContext
+        hotkeyUuid: hotkey_area.add_media_hotkey.uuid
     }
 
     XsMenuModelItem {
         text: "Add Media From Clipboard"
         menuPath: ""
         menuItemPosition: 6
+        hotkeyUuid: hotkey_area.add_from_clipboard_hotkey.uuid
         menuModelName: plusMenu.menu_model_name
         onActivated: file_functions.addMediaFromClipboard()
-    }
-
-    function addPlaylist(new_name, button) {
-        if (button == "Add") {
-            let pl = theSessionData.createPlaylist(new_name)
-            theSessionData.copyRows(mediaSelectionModel.selectedIndexes, 0, pl)
-        }
-    }
-
-    function addSubset(new_name, button) {
-        if (button == "Add") {
-            addToNewSubset(new_name)
-        }
-    }
-
-    function addContactSheet(new_name, button) {
-        if (button == "Add") {
-            addToNewContactSheet(new_name)
-        }
-    }
-
-    function addTimeline(new_name, fps, button) {
-        if (button == "Add") {
-            addToNewSequence(new_name, fps)
-        }
     }
 }

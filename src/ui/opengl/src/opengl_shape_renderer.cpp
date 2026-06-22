@@ -35,11 +35,11 @@ const char *vertex_shader = R"(
 const char *frag_shader = R"(
     #version 410
 
-    // We plot all the shapes in the fragment shader in one hit, using a 
-    // sign-distance-function approach so for each fragment we iterate over 
+    // We plot all the shapes in the fragment shader in one hit, using a
+    // sign-distance-function approach so for each fragment we iterate over
     // all shapes and compute the distance to the shape boundary.
     // In order to use this approach we pack all the data about each shape (
-    // including the polygon points for polygons) into texture data and unpack 
+    // including the polygon points for polygons) into texture data and unpack
     // here in the shader routine
     uniform sampler1D shapesData;
 
@@ -48,11 +48,11 @@ const char *frag_shader = R"(
     in vec2 coords;
     out vec4 color;
 
-    int getShapeDataIntVal(int idx) {    
+    int getShapeDataIntVal(int idx) {
         return int(texelFetch(shapesData, idx, 0).r);
     }
 
-    float getShapeDataFloatVal(int idx) {    
+    float getShapeDataFloatVal(int idx) {
         return texelFetch(shapesData, idx, 0).r;
     }
 
@@ -105,7 +105,7 @@ const char *frag_shader = R"(
         vec2 pq1 = v1 - e1*clamp( dot(v1,e1)/dot(e1,e1), 0.0, 1.0 );
         vec2 pq2 = v2 - e2*clamp( dot(v2,e2)/dot(e2,e2), 0.0, 1.0 );
         vec2 pq3 = v3 - e3*clamp( dot(v3,e3)/dot(e3,e3), 0.0, 1.0 );
-        
+
         vec2 ds = min( min( vec2( dot( pq0, pq0 ), v0.x*e0.y-v0.y*e0.x ),
                             vec2( dot( pq1, pq1 ), v1.x*e1.y-v1.y*e1.x )),
                     min( vec2( dot( pq2, pq2 ), v2.x*e2.y-v2.y*e2.x ),
@@ -202,7 +202,7 @@ const char *frag_shader = R"(
     }
 
     vec4 evaluate_quad(int idx, vec4 in_colour) {
-            
+
         vec4 color = getShapeDataVec4(idx);
         idx += 4;
         float softness = getShapeDataFloatVal(idx);
@@ -219,7 +219,7 @@ const char *frag_shader = R"(
         idx += 2;
         vec2 br = getShapeDataVec2(idx);
         idx += 2;
-        
+
         float d = sdQuad(coords, bl, tl, tr, br) * invert;
 
         // When shape is inverted, add softness to the current distance
@@ -588,7 +588,7 @@ const char *frag_shader = R"(
         vec2 pq1 = v1 - e1*clamp( dot(v1,e1)/dot(e1,e1), 0.0, 1.0 );
         vec2 pq2 = v2 - e2*clamp( dot(v2,e2)/dot(e2,e2), 0.0, 1.0 );
         vec2 pq3 = v3 - e3*clamp( dot(v3,e3)/dot(e3,e3), 0.0, 1.0 );
-        
+
         vec2 ds = min( min( vec2( dot( pq0, pq0 ), v0.x*e0.y-v0.y*e0.x ),
                             vec2( dot( pq1, pq1 ), v1.x*e1.y-v1.y*e1.x )),
                     min( vec2( dot( pq2, pq2 ), v2.x*e2.y-v2.y*e2.x ),
@@ -745,6 +745,9 @@ struct GLPoint {
 
 
 // Use to debug memory layout issues
+#ifdef __GNUC__
+void dump_mem_layout(GLuint prog_obj) __attribute__((unused));
+#endif
 void dump_mem_layout(GLuint prog_obj) {
     // C++
 
@@ -849,7 +852,7 @@ void dump_mem_layout(GLuint prog_obj) {
             var_names[i] = var_name.data();
         }
 
-        for (int i = 0; i < offsets.size(); ++i) {
+        for (size_t i = 0; i < offsets.size(); ++i) {
             std::cout << var_names[i] << " offset is " << offsets[i] << "\n";
         }
     }
@@ -924,7 +927,7 @@ void OpenGLShapeRenderer::render_shapes(
     shader_params["polygons_count"] = polygons.size();
 
     std::vector<GLQuad> gl_quads;
-    for (int i = 0; i < quads.size(); ++i) {
+    for (size_t i = 0; i < quads.size(); ++i) {
         gl_quads.push_back({
             {quads[i].colour.r, quads[i].colour.g, quads[i].colour.b, 1.0f},
             {quads[i].tl.x, quads[i].tl.y},
@@ -938,7 +941,7 @@ void OpenGLShapeRenderer::render_shapes(
     }
 
     std::vector<GLEllipse> gl_ellipses;
-    for (int i = 0; i < ellipses.size(); ++i) {
+    for (size_t i = 0; i < ellipses.size(); ++i) {
         gl_ellipses.push_back({
             {ellipses[i].colour.r, ellipses[i].colour.g, ellipses[i].colour.b, 1.0f},
             {ellipses[i].center.x, ellipses[i].center.y},
@@ -952,7 +955,7 @@ void OpenGLShapeRenderer::render_shapes(
 
     std::vector<GLPolygon> gl_polygons;
     std::vector<GLPoint> gl_points;
-    for (int i = 0; i < polygons.size(); ++i) {
+    for (size_t i = 0; i < polygons.size(); ++i) {
         gl_polygons.push_back({
             {polygons[i].colour.r, polygons[i].colour.g, polygons[i].colour.b, 1.0f},
             (unsigned int)gl_points.size(),
@@ -961,14 +964,14 @@ void OpenGLShapeRenderer::render_shapes(
             polygons[i].softness / 500.0f,
             polygons[i].invert ? -1.f : 1.f,
         });
-        for (int j = 0; j < polygons[i].points.size(); ++j) {
+        for (size_t j = 0; j < polygons[i].points.size(); ++j) {
             gl_points.push_back({{polygons[i].points[j].x, polygons[i].points[j].y}});
         }
     }
 
     upload_ssbo(gl_quads, gl_ellipses, gl_polygons, gl_points);
 
-    for (int i = 0; i < 4; ++i) {
+    for (size_t i = 0; i < 4; ++i) {
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo_id_[i]);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, i + 1, ssbo_id_[i]);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);

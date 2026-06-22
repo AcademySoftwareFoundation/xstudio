@@ -18,94 +18,95 @@
 // for collision? use above to decide which plugin to use.. The worker actor should wrap the
 // underlying class.
 
-namespace xstudio {
-namespace media_reader {
+namespace xstudio::media_reader {
 
-    class GlobalMediaReaderActor : public caf::event_based_actor {
-      public:
-        GlobalMediaReaderActor(
-            caf::actor_config &cfg, const utility::Uuid &uuid = utility::Uuid::generate());
-        ~GlobalMediaReaderActor() override = default;
+class GlobalMediaReaderActor : public caf::event_based_actor {
+  public:
+    GlobalMediaReaderActor(
+        caf::actor_config &cfg, const utility::Uuid &uuid = utility::Uuid::generate());
+    ~GlobalMediaReaderActor() override = default;
 
-        caf::behavior make_behavior() override { return behavior_; }
-        void on_exit() override;
-        const char *name() const override { return NAME.c_str(); }
+    caf::behavior make_behavior() override { return behavior_; }
+    void on_exit() override;
+    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
 
-      private:
-        inline static const std::string NAME = "GlobalMediaReaderActor";
+  private:
+    inline static const std::string NAME = "GlobalMediaReaderActor";
 
-        void prune_readers();
-        bool prune_reader(const std::string &key);
+    void prune_readers();
+    bool prune_reader(const std::string &key);
 
-        std::optional<caf::actor>
-        check_cached_reader(const std::string &key, const bool preserve = true);
-        caf::actor add_reader(
-            const caf::actor &reader, const std::string &key, const bool preserve = true);
-        std::string reader_key(const caf::uri &_uri, const caf::actor_addr &_key) const;
-        caf::actor get_reader(
-            const caf::uri &_uri, const caf::actor_addr &_key, const std::string &hint = "");
-        void do_precache();
+    std::optional<caf::actor>
+    check_cached_reader(const std::string &key, const bool preserve = true);
+    caf::actor
+    add_reader(const caf::actor &reader, const std::string &key, const bool preserve = true);
+    [[nodiscard]] std::string
+    reader_key(const caf::uri &_uri, const caf::actor_addr &_key) const;
+    caf::actor
+    get_reader(const caf::uri &_uri, const caf::actor_addr &_key, const std::string &hint = "");
+    bool do_precache();
 
-        void keep_cache_hot(
-            const media::MediaKey &new_entry,
-            const utility::time_point &tp,
-            const utility::Uuid &playhead_uuid);
+    void keep_cache_hot(
+        const media::MediaKey &new_entry,
+        const utility::time_point &tp,
+        const utility::Uuid &playhead_uuid);
 
-        void read_and_cache_image(
-            caf::actor reader,
-            const FrameRequest fr,
-            const utility::time_point cache_out_of_date_threshold,
-            const bool is_background_cache);
+    void read_and_cache_image(
+        caf::actor reader,
+        const FrameRequest fr,
+        const utility::time_point cache_out_of_date_threshold,
+        const bool is_background_cache);
 
-        void read_and_cache_audio(
-            caf::actor reader,
-            const FrameRequest fr,
-            const utility::time_point cache_out_of_date_threshold,
-            const bool is_background_cache);
+    void read_and_cache_audio(
+        caf::actor reader,
+        const FrameRequest fr,
+        const utility::time_point cache_out_of_date_threshold,
+        const bool is_background_cache);
 
-        void continue_precacheing();
+    void continue_precacheing();
 
-        void mark_playhead_waiting_for_precache_result(const utility::Uuid &playhead_uuid);
+    void mark_playhead_waiting_for_precache_result(const utility::Uuid &playhead_uuid);
 
-        void mark_playhead_received_precache_result(const utility::Uuid &playhead_uuid);
+    void mark_playhead_received_precache_result(const utility::Uuid &playhead_uuid);
 
-        void send_error_to_source(const caf::actor_addr &addr, const caf::error &err);
+    void send_error_to_source(const caf::actor_addr &addr, const caf::error &err);
 
-        void process_get_media_detail_queue();
+    void process_get_media_detail_queue();
 
-      private:
-        caf::actor pool_;
-        caf::actor image_cache_;
-        caf::actor audio_cache_;
-        caf::behavior behavior_;
-        utility::Uuid uuid_;
-        std::map<std::string, caf::actor> readers_;
-        std::map<std::string, utility::time_point> reader_access_;
-        std::map<utility::Uuid, std::vector<std::pair<media::MediaKey, utility::time_point>>>
-            background_cached_frames_;
-        std::map<utility::Uuid, utility::time_point> background_cached_ref_timepoint_;
+  private:
+    caf::actor pool_;
+    caf::actor image_cache_;
+    caf::actor audio_cache_;
+    caf::behavior behavior_;
+    utility::Uuid uuid_;
+    std::map<std::string, caf::actor> readers_;
+    std::map<std::string, utility::time_point> reader_access_;
+    std::map<utility::Uuid, std::vector<std::pair<media::MediaKey, utility::time_point>>>
+        background_cached_frames_;
+    std::map<utility::Uuid, utility::time_point> background_cached_ref_timepoint_;
 
-        std::map<utility::Uuid, int> playheads_with_precache_requests_in_flight_;
+    std::map<utility::Uuid, int> playheads_with_precache_requests_in_flight_;
 
-        std::vector<caf::actor> plugins_;
-        std::map<std::string, utility::Uuid> plugins_map_;
+    std::vector<caf::actor> plugins_;
+    std::map<std::string, utility::Uuid> plugins_map_;
 
-        size_t max_source_count_;
-        size_t max_source_age_;
+    size_t max_source_count_{256};
+    size_t max_source_age_{600};
+    size_t max_num_inflight_requests_{1};
+    size_t num_inflight_requests_{0};
 
-        FrameRequestQueue playback_precache_request_queue_;
-        FrameRequestQueue background_precache_request_queue_;
+    FrameRequestQueue playback_precache_request_queue_;
+    FrameRequestQueue background_precache_request_queue_;
 
-        struct ImmediateFrameRequest {
-            media::AVFrameID mptr;
-            caf::actor playhead;
-            utility::Uuid playhead_uuid;
-            utility::time_point tp;
-            timebase::flicks playhead_position;
-        };
-        std::map<std::string, std::vector<std::shared_ptr<ImmediateFrameRequest>>>
-            immediate_frame_requests_;
+    struct ImmediateFrameRequest {
+        media::AVFrameID mptr;
+        caf::actor playhead;
+        utility::Uuid playhead_uuid;
+        utility::time_point tp;
+        timebase::flicks playhead_position;
     };
+    std::map<std::string, std::vector<std::shared_ptr<ImmediateFrameRequest>>>
+        immediate_frame_requests_;
+};
 
-} // namespace media_reader
-} // namespace xstudio
+} // namespace xstudio::media_reader

@@ -172,7 +172,7 @@ size_t OCIOColourPipeline::fast_colour_transform_hash(const media::AVFrameID &me
     if (!global_settings_.colour_bypass) {
 
         const utility::JsonStore &src_colour_mgmt_metadata = media_ptr.params();
-        const std::string view = view_for_source(src_colour_mgmt_metadata);
+        const std::string view = view_for_source(src_colour_mgmt_metadata, false);
 
         hash = m_engine_.compute_hash(
             media_ptr.params(),
@@ -376,7 +376,7 @@ void OCIOColourPipeline::hotkey_pressed(
         if (v != view_hotkeys_.end()) {
             const auto &views = display_views_[display_->value()];
             int idx           = v->second - 1;
-            if (idx >= 0 and idx < views.size()) {
+            if (idx >= 0 and idx < static_cast<int>(views.size())) {
                 const auto &new_view = views[idx];
                 if (new_view != view_->value()) {
                     view_->set_value(new_view);
@@ -614,8 +614,9 @@ void OCIOColourPipeline::connect_to_viewport(
         .send(global_controls_);
 }
 
-std::string
-OCIOColourPipeline::view_for_source(const utility::JsonStore &src_colour_mgmt_metadata) const {
+std::string OCIOColourPipeline::view_for_source(
+    const utility::JsonStore &src_colour_mgmt_metadata,
+    const bool check_shared_settings) const {
 
     const std::string untonemapped_view =
         src_colour_mgmt_metadata.get_or("untonemapped_view", std::string(""));
@@ -634,10 +635,12 @@ OCIOColourPipeline::view_for_source(const utility::JsonStore &src_colour_mgmt_me
         view = override_view;
     } else if (!force_global_view_ && !global_settings_.global_view) {
         view = m_engine_.automatic_view(src_colour_mgmt_metadata);
-    } else {
+    } else if (check_shared_settings) {
         std::string _display, _view;
         stored_per_config_display_view(src_colour_mgmt_metadata, _display, _view);
         view = !_view.empty() ? _view : m_engine_.default_view(src_colour_mgmt_metadata);
+    } else {
+        view = view_->value();
     }
 
     return view;
@@ -810,8 +813,6 @@ void OCIOColourPipeline::populate_ui(const utility::JsonStore &src_colour_mgmt_m
 
     if (current_config_name_ != config_name) {
 
-        current_config_name_ = config_name;
-
         // Config has changed, so update views and displays
         std::vector<std::string> all_colourspaces;
         std::vector<std::string> displays;
@@ -827,6 +828,8 @@ void OCIOColourPipeline::populate_ui(const utility::JsonStore &src_colour_mgmt_m
 
         // Update with per config saved settings, if any
         stored_per_config_display_view(src_colour_mgmt_metadata, display, view);
+
+        current_config_name_ = config_name;
 
         if (std::find(displays.begin(), displays.end(), display) == displays.end()) {
             display = detect_display(
@@ -854,7 +857,11 @@ void OCIOColourPipeline::populate_ui(const utility::JsonStore &src_colour_mgmt_m
 
         update_untonemapped(src_colour_mgmt_metadata);
 
-        synchronize_attribute(view_->uuid(), module::Attribute::Value, true);
+        // Note (Ted): Commenting out this line, because if view is set to
+        // 'un-tone-mapped' because the current media is not colour-managed then
+        // this is stored in the shared settings actor as the USER's chosen view
+        // for this particular OCIO config, which we do not want.
+        // synchronize_attribute(view_->uuid(), module::Attribute::Value, true);
     }
 }
 
@@ -915,7 +922,7 @@ void OCIOColourPipeline::update_media_metadata(
             *sys, session, media::get_media_source_atom_v, media_uuid);
 
         if (media_source_actor) {
-            auto colour_data = utility::request_receive<bool>(
+            std::ignore = utility::request_receive<bool>(
                 *sys,
                 media_source_actor,
                 json_store::set_json_atom_v,

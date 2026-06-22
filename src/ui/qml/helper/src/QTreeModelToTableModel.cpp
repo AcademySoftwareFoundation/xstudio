@@ -97,7 +97,7 @@ void QTreeModelToTableModel::setRootIndex(const QModelIndex &idx) {
     // points to has been deleted from the source model.
     // In this case, we don't want to return here but continue to rebuild the
     // model.
-    if (m_rootIndex == idx && m_rootIndex.isValid() || !length())
+    if ((m_rootIndex == idx && m_rootIndex.isValid()) || !length())
         return;
 
     if (m_model)
@@ -612,7 +612,7 @@ int QTreeModelToTableModel::lastChildIndex(const QModelIndex &index) const {
     QModelIndex parent = index;
     QModelIndex nextSiblingIndex;
 
-    int firstIndex;
+    int firstIndex = 0;
 
     while (parent.isValid() and m_expandedItems.contains(parent)) {
         // last child of parent
@@ -1027,23 +1027,23 @@ void QTreeModelToTableModel::modelRowsMoved(
 }
 
 void QTreeModelToTableModel::dump() const {
-    if (!m_model)
-        return;
-    int count = m_items.size();
-    if (count == 0)
-        return;
-    int countWidth = floor(log10(double(count))) + 1;
-    // qInfo() << "Dumping" << this;
-    for (int i = 0; i < count; i++) {
-        const TreeItem &item = m_items.at(i);
-        bool hasChildren     = m_model->hasChildren(item.index);
-        int children         = m_model->rowCount(item.index);
-        // qInfo().noquote().nospace()
-        //         << QStringLiteral("%1 ").arg(i, countWidth) << QString(4 * item.depth,
-        //         QChar::fromLatin1('.'))
-        //         << QLatin1String(!hasChildren ? ".. " : item.expanded ? " v " : " > ")
-        //         << item.index << children;
-    }
+    // if (!m_model)
+    //     return;
+    // int count = m_items.size();
+    // if (count == 0)
+    //     return;
+    // int countWidth = floor(log10(double(count))) + 1;
+    // // qInfo() << "Dumping" << this;
+    // for (int i = 0; i < count; i++) {
+    //     const TreeItem &item = m_items.at(i);
+    //     // bool hasChildren     = m_model->hasChildren(item.index);
+    //     // int children         = m_model->rowCount(item.index);
+    //     // qInfo().noquote().nospace()
+    //     //         << QStringLiteral("%1 ").arg(i, countWidth) << QString(4 * item.depth,
+    //     //         QChar::fromLatin1('.'))
+    //     //         << QLatin1String(!hasChildren ? ".. " : item.expanded ? " v " : " > ")
+    //     //         << item.index << children;
+    // }
 }
 
 bool QTreeModelToTableModel::testConsistency(bool dumpOnFail) const {

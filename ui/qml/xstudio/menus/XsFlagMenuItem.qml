@@ -66,7 +66,7 @@ Item {
             width: XsStyleSheet.menuCheckboxSize
             height: XsStyleSheet.menuCheckboxSize
             radius: width/2
-            color: user_data
+            color: user_data || "transparent"
 
         }
 

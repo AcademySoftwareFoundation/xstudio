@@ -13,6 +13,8 @@
         <file alias="draw_shape_line.svg">icons/horizontal_rule.svg</file>
         <file alias="draw_color_pick.svg">icons/colorize.svg</file>
         <file alias="draw_color_check.svg">icons/check.svg</file>
+        <file alias="draw_burn.svg">icons/burn.svg</file>
+        <file alias="draw_dodge.svg">icons/dodge.svg</file>        
         <file alias="undo.svg">icons/undo.svg</file>
         <file alias="redo.svg">icons/redo.svg</file>
         <file alias="delete.svg">icons/delete.svg</file>

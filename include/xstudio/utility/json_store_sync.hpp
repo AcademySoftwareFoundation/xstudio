@@ -80,7 +80,7 @@ class JsonStoreSync : protected JsonStore {
         SendEventFunc;
 
     JsonStoreSync(nlohmann::json json = R"({"children":[]})"_json);
-    virtual ~JsonStoreSync() = default;
+    ~JsonStoreSync() override = default;
 
     void bind_send_event_func(SendEventFunc fs);
 
@@ -108,7 +108,7 @@ class JsonStoreSync : protected JsonStore {
     void remove_rows(const int row, const int count, const std::string &parent = "");
     void remove_row(const nlohmann::json::json_pointer &jptr);
 
-    bool
+    [[nodiscard]] bool
     row_parent(const nlohmann::json::json_pointer &jptr, int &row, std::string &parent) const;
 
     void
@@ -136,7 +136,7 @@ class JsonStoreSync : protected JsonStore {
 
     void reset_data(const nlohmann::json &data);
 
-    std::vector<nlohmann::json::json_pointer> find(
+    [[nodiscard]] std::vector<nlohmann::json::json_pointer> find(
         const std::string &key,
         const std::optional<nlohmann::json> value  = {},
         const int max_find_count                   = -1,
@@ -144,7 +144,7 @@ class JsonStoreSync : protected JsonStore {
         const nlohmann::json::json_pointer &parent = nlohmann::json::json_pointer(),
         const int row                              = 0) const;
 
-    std::optional<nlohmann::json::json_pointer> find_first(
+    [[nodiscard]] std::optional<nlohmann::json::json_pointer> find_first(
         const std::string &key,
         const std::optional<nlohmann::json> value  = {},
         const int prune_depth                      = -1,
@@ -153,14 +153,15 @@ class JsonStoreSync : protected JsonStore {
 
     using JsonStore::dump;
 
-    nlohmann::json::const_reference at(size_type idx) const;
-    nlohmann::json::const_reference at(const nlohmann::json::json_pointer &ptr) const;
-    nlohmann::json::const_reference
+    [[nodiscard]] nlohmann::json::const_reference at(size_type idx) const;
+    [[nodiscard]] nlohmann::json::const_reference
+    at(const nlohmann::json::json_pointer &ptr) const;
+    [[nodiscard]] nlohmann::json::const_reference
     at(const typename nlohmann::json::object_t::key_type &key) const;
 
     // template<typename KeyType>
     // const_reference at(KeyType&& key) const;
-    const nlohmann::json &as_json() const;
+    [[nodiscard]] const nlohmann::json &as_json() const;
 
     [[nodiscard]] bool origin() const { return origin_; }
     void set_origin(const bool origin) { origin_ = origin; }

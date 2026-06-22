@@ -3,7 +3,7 @@ find_package(fmt REQUIRED)
 find_package(Imath REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(ZLIB REQUIRED)
-# find_package(OpenSSL)
+find_package(OpenSSL REQUIRED)
 
 if(WIN32)
 	# Not Required
@@ -21,7 +21,6 @@ SET(LINK_DEPS
 	spdlog::spdlog
 	fmt::fmt
 	ZLIB::ZLIB
-    # OpenSSL::SSL
 )
 
 SET(STATIC_LINK_DEPS
@@ -31,7 +30,6 @@ SET(STATIC_LINK_DEPS
 	spdlog::spdlog
 	fmt::fmt
 	ZLIB::ZLIB
-    # OpenSSL::SSL
 )
 
 if(APPLE)
@@ -49,3 +47,10 @@ else()
 endif()
 
 create_component_static(utility ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}" "${STATIC_LINK_DEPS}")
+
+# OpenSSL is an implementation detail of md5_hash — keep it off the public link
+# interface so downstream consumers (plugins) don't need to find_package(OpenSSL).
+if(INSTALL_XSTUDIO)
+	target_link_libraries(utility PRIVATE OpenSSL::Crypto)
+endif()
+target_link_libraries(utility_static PRIVATE OpenSSL::Crypto)

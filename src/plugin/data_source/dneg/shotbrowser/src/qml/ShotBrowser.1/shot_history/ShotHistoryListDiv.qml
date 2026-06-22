@@ -6,11 +6,12 @@ import QtQuick.Controls.Basic
 import xStudio 1.0
 import ShotBrowser 1.0
 
-XsListView { 
+XsListView {
     id: list
     spacing: panelPadding
     property int rightSpacing: list.height < list.contentHeight ? 12 : 0
     Behavior on rightSpacing {NumberAnimation {duration: 150}}
+    property bool compactMode: false
 
     property alias delegateModel: chooserModel
 
@@ -72,10 +73,11 @@ XsListView {
         model: dataModel
         delegate: ShotHistoryListDelegate{
             width: list.width - rightSpacing
-            height: XsStyleSheet.widgetStdHeight * 4
+            height: compactMode ? XsStyleSheet.widgetStdHeight+2 : (XsStyleSheet.widgetStdHeight + 1) *  4
             delegateModel: chooserModel
             popupMenu: resultPopup
             onPlayMovie: (path) => list.playMovie(path)
+            compactMode: list.compactMode
         }
     }
 

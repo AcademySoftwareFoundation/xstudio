@@ -71,7 +71,7 @@ namespace media_reader {
         thumbnail(const media::AVFrameID &mptr, const size_t thumb_size);
         [[nodiscard]] virtual media::MediaDetail detail(const caf::uri &uri) const;
         [[nodiscard]] virtual uint8_t maximum_readers(const caf::uri &uri) const;
-        [[nodiscard]] virtual bool prefer_sequential_access(const caf::uri &uri) const;
+        [[nodiscard]] virtual bool prefer_sequential_access() const;
         [[nodiscard]] virtual bool can_decode_audio() const;
         [[nodiscard]] virtual bool can_do_partial_frames() const;
         [[nodiscard]] virtual utility::Uuid plugin_uuid() const = 0;
@@ -81,7 +81,7 @@ namespace media_reader {
 
         virtual MRCertainty
         supported(const caf::uri &uri, const std::array<uint8_t, 16> &signature);
-        virtual std::vector<std::string> supported_extensions() const {
+        [[nodiscard]] virtual std::vector<std::string> supported_extensions() const {
             return std::vector<std::string>();
         }
 
@@ -91,7 +91,7 @@ namespace media_reader {
             const utility::JsonStore &pixel_unpack_uniforms,
             const Imath::V2i &pixel_location,
             const std::vector<Imath::V2i> &extra_pixel_locationss) {
-            return PixelInfo(pixel_location);
+            return {pixel_location};
         }
         const std::string name_;
     };
@@ -137,6 +137,15 @@ namespace media_reader {
             behavior_.assign(
                 [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
                 [=](utility::name_atom) -> std::string { return media_reader_.name(); },
+
+                [=](utility::detail_atom) -> bool {
+                    // this allows the cacheing m,edia reader actor to find out if
+                    // it can spawn multiple readers to read a given source in parallel or not.
+                    // For example, EXR benefits from multiple readers while ffmpeg does not
+                    // because motion compressed video formats are not well served by multiple
+                    // readers.
+                    return media_reader_.prefer_sequential_access();
+                },
 
                 [=](get_audio_atom, const media::AVFrameID &mptr) -> result<AudioBufPtr> {
                     AudioBufPtr mb;
@@ -198,9 +207,33 @@ namespace media_reader {
                 },
 
                 [=](media_reader::get_thumbnail_atom,
-                    const media::AVFrameID &mptr,
+                    media::AVFrameID mptr,
                     const size_t thumb_size) -> result<thumbnail::ThumbnailBufferPtr> {
                     try {
+
+                        if (mptr.stream_id() == "auto video") {
+                            // special case where we don't have a full Media object but
+                            // need a thumbnail (FileBrowser plugin, for example). We
+                            // must pick the middle frame for the stream and the first
+                            // video stream in the set.
+                            const auto stream_details =
+                                media_reader_.detail(mptr.uri()).streams_;
+                            for (const auto &sd : stream_details) {
+                                if (sd.media_type_ == media::MediaType::MT_IMAGE) {
+                                    mptr = media::AVFrameID(
+                                        mptr.uri(),
+                                        sd.duration_.frames() / 2,
+                                        mptr.first_frame(),
+                                        mptr.frame_status(),
+                                        0,
+                                        mptr.pixel_aspect(),
+                                        sd.duration_.rate(),
+                                        sd.name_);
+                                    break;
+                                }
+                            }
+                        }
+
                         return media_reader_.thumbnail(mptr, thumb_size);
                     } catch (const media_missing_error &e) {
                         return make_error(media::media_error::missing, e.what());

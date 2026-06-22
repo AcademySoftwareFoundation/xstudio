@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>xSTUDIO Build Guides &mdash; xStudio 1.2.0 documentation</title>
+  <title>xSTUDIO Build Guides &mdash; xStudio 1.3.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=eafc0fe6" />
@@ -16,7 +16,7 @@
   
         <script src="../../_static/jquery.js?v=5d32c60e"></script>
         <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=6efca38a"></script>
+        <script src="../../_static/documentation_options.js?v=1f29e9d3"></script>
         <script src="../../_static/doctools.js?v=888ff710"></script>
         <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
@@ -40,7 +40,7 @@
             xStudio
           </a>
               <div class="version">
-                1.2.0
+                1.3.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -55,7 +55,8 @@
 <li class="toctree-l1 current"><a class="reference internal" href="../index.html">xSTUDIO Reference</a><ul class="current">
 <li class="toctree-l2 current"><a class="current reference internal" href="#">xSTUDIO Build Guides</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#post-production-studios-and-other-organisations">Post Production Studios and Other Organisations</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#individual-users">Individual Users</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#individual-users">Individual Users</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#choosing-a-guide">Choosing a guide</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="macos.html">MacOS (Intel/ARM)</a></li>
 <li class="toctree-l4"><a class="reference internal" href="windows.html">Windows 10/11</a></li>
 <li class="toctree-l4"><a class="reference internal" href="linux_generic.html">Linux Generic Guide</a></li>
@@ -109,6 +110,11 @@
 <h2>Individual Users<a class="headerlink" href="#individual-users" title="Link to this heading"></a></h2>
 <p><strong>For non-technical individuals we have made it as simple as possible to build xSTUDIO. Try following the appropriate step-by-step guide from the list below.</strong></p>
 <p>If you have any <strong>questions</strong> reach out on the ASWF Slack in the <a class="reference external" href="https://academysoftwarefdn.slack.com/archives/C07RGJW6MLZ">#ori-xstudio-discussion</a> .</p>
+</section>
+<section id="choosing-a-guide">
+<h2>Choosing a guide<a class="headerlink" href="#choosing-a-guide" title="Link to this heading"></a></h2>
+<p>The <strong>macOS</strong>, <strong>Windows</strong> and <strong>Linux Generic</strong> guides all use the same approach: xSTUDIO’s dependencies are built and managed automatically by <a class="reference external" href="https://vcpkg.io">vcpkg</a>, so the only things you need to install by hand are a compiler toolchain, CMake, git and the Qt SDK. These are the <strong>recommended</strong> paths — they work on any reasonably recent distro and require the least manual setup.</p>
+<p>The <strong>Rocky Linux 9.1</strong>, <strong>Ubuntu 22.04</strong> and <strong>CentOS 7</strong> guides take a different, more advanced approach: instead of using vcpkg, they resolve xSTUDIO’s dependencies from each distro’s native package manager (and build a handful of libraries from source when no suitable package exists). This gives a tighter integration with the host system but is significantly more work and more fragile — package names and versions drift over time, and any mismatch against the VFX Reference Platform requires manual intervention. These guides are intended for users who specifically want a native-package build, or whose target distro matches one of the three and who are comfortable troubleshooting package issues. If you just want xSTUDIO to build on a Linux machine, prefer <strong>Linux Generic</strong>.</p>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="macos.html">MacOS (Intel/ARM)</a></li>

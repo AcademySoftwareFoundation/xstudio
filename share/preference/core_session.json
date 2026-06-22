@@ -40,13 +40,15 @@
 				"category": "General",
 				"display_name": "Partial Sequence Behaviour",
 				"options": ["Insert Blank Frames", "Hold Frames", "Skip Missing Frames"]
-			},	
+			},
 			"compression": {
 				"path": "/core/session/compression",
 				"default_value": false,
-				"description": "Compress sessions.",
 				"value": false,
 				"datatype": "bool",
+				"category": "General",
+				"display_name": "Compress Session Files",
+				"description": "Use ZIP compression when saving sessions, reduces file size substantially.",
 				"context": ["APPLICATION"]
 			},
 			"quickview_all_incoming_media": {

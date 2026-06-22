@@ -13,436 +13,433 @@ CAF_POP_WARNINGS
 #include "xstudio/shotgun_client/shotgun_client.hpp"
 #include "xstudio/utility/json_store.hpp"
 
-namespace xstudio {
-// using namespace shotgun_client;
-namespace ui::qml {
+namespace xstudio::ui::qml {
 
-    // dumping ground for termModels
-    class ShotBrowserListModel : public JSONTreeModel {
-        Q_OBJECT
+// dumping ground for termModels
+class ShotBrowserListModel : public JSONTreeModel {
+    Q_OBJECT
 
-      public:
-        const static inline std::vector<std::string> RoleNames = {
-            "createdRole",
-            "completionLocationRole",
-            "descriptionRole",
-            "divisionRole",
-            "hiddenRole",
-            "nameRole",
-            "parentHiddenRole",
-            "projectStatusRole",
-            "sgTypeRole",
-            "statusRole",
-            "subtypeRole",
-            "typeRole",
-            "unitRole"};
+  public:
+    const static inline std::vector<std::string> RoleNames = {
+        "createdRole",
+        "completionLocationRole",
+        "descriptionRole",
+        "divisionRole",
+        "hiddenRole",
+        "nameRole",
+        "parentHiddenRole",
+        "projectStatusRole",
+        "sgTypeRole",
+        "statusRole",
+        "subtypeRole",
+        "typeRole",
+        "unitRole"};
 
-        enum Roles {
-            createdRole = JSONTreeModel::Roles::LASTROLE,
-            completionLocationRole,
-            descriptionRole,
-            divisionRole,
-            hiddenRole,
-            nameRole,
-            parentHiddenRole,
-            projectStatusRole,
-            sgTypeRole,
-            statusRole,
-            subtypeRole,
-            typeRole,
-            unitRole,
-            LASTROLE
-        };
-
-        ShotBrowserListModel(QObject *parent = nullptr) : JSONTreeModel(parent) {
-            setRoleNames(RoleNames);
-        }
-
-        [[nodiscard]] QVariant
-        data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
-
-        Q_INVOKABLE [[nodiscard]] QVariant getHidden() const;
-
-        Q_INVOKABLE void setHidden(const QVariant &fdata);
-
-        bool setData(
-            const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
-
-      private:
-        nlohmann::json get_hidden(const QModelIndex &index = QModelIndex()) const;
-        void set_hidden(
-            const std::map<std::string, std::set<int>> &fmap,
-            const QModelIndex &pindex = QModelIndex());
+    enum Roles {
+        createdRole = JSONTreeModel::Roles::LASTROLE,
+        completionLocationRole,
+        descriptionRole,
+        divisionRole,
+        hiddenRole,
+        nameRole,
+        parentHiddenRole,
+        projectStatusRole,
+        sgTypeRole,
+        statusRole,
+        subtypeRole,
+        typeRole,
+        unitRole,
+        LASTROLE
     };
 
-    class ShotBrowserSequenceModel : public ShotBrowserListModel {
-        Q_OBJECT
+    ShotBrowserListModel(QObject *parent = nullptr) : JSONTreeModel(parent) {
+        setRoleNames(RoleNames);
+    }
 
-        Q_PROPERTY(QStringList types READ types WRITE setTypes NOTIFY typesChanged)
-        Q_PROPERTY(QVariant tags READ tags WRITE setTags NOTIFY tagsChanged)
+    [[nodiscard]] QVariant
+    data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 
-        Q_PROPERTY(
-            QStringList assetTags READ assetTags WRITE setAssetTags NOTIFY assetTagsChanged)
+    Q_INVOKABLE [[nodiscard]] QVariant getHidden() const;
 
-        Q_PROPERTY(
-            QStringList shotManifestTags READ shotManifestTags WRITE setShotManifestTags NOTIFY
-                shotManifestTagsChanged)
+    Q_INVOKABLE void setHidden(const QVariant &fdata);
+
+    bool
+    setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
+
+  private:
+    nlohmann::json get_hidden(const QModelIndex &index = QModelIndex()) const;
+    void set_hidden(
+        const std::map<std::string, std::set<int>> &fmap,
+        const QModelIndex &pindex = QModelIndex());
+};
+
+class ShotBrowserSequenceModel : public ShotBrowserListModel {
+    Q_OBJECT
+
+    Q_PROPERTY(QStringList types READ types WRITE setTypes NOTIFY typesChanged)
+    Q_PROPERTY(QVariant tags READ tags WRITE setTags NOTIFY tagsChanged)
+
+    Q_PROPERTY(QStringList assetTags READ assetTags WRITE setAssetTags NOTIFY assetTagsChanged)
+
+    Q_PROPERTY(
+        QStringList shotManifestTags READ shotManifestTags WRITE setShotManifestTags NOTIFY
+            shotManifestTagsChanged)
 
 
-      public:
-        const static inline std::vector<std::string> RoleNames = {
-            "assetNameRole", "heroRole", "manifestRole", "tagRole", "variantRole"};
+  public:
+    const static inline std::vector<std::string> RoleNames = {
+        "assetNameRole",
+        "clientStagesCurrentRole",
+        "heroRole",
+        "manifestRole",
+        "tagRole",
+        "variantRole"};
 
-        enum Roles {
-            assetNameRole = ShotBrowserListModel::Roles::LASTROLE,
-            heroRole,
-            manifestRole,
-            tagRole,
-            variantRole
-        };
-
-        ShotBrowserSequenceModel(QObject *parent = nullptr) : ShotBrowserListModel(parent) {
-            auto roles = ShotBrowserListModel::RoleNames;
-            roles.insert(roles.end(), RoleNames.begin(), RoleNames.end());
-            setRoleNames(roles);
-        }
-
-
-        void setTypes(const QStringList &value) {
-            if (types_ != value) {
-                types_ = value;
-                emit typesChanged();
-            }
-        }
-
-        void setAssetTags(const QStringList &value) {
-            if (asset_tags_ != value) {
-                asset_tags_ = value;
-
-                // spdlog::warn("AT {}", asset_tags_.size());
-                // for(const auto &i: asset_tags_)
-                //     spdlog::warn("AT {}", StdFromQString(i));
-
-                emit assetTagsChanged();
-            }
-        }
-
-        void setShotManifestTags(const QStringList &value) {
-            if (shot_manifest_tags_ != value) {
-                shot_manifest_tags_ = value;
-
-                // spdlog::warn("SMY {}", shot_manifest_tags_.size());
-
-                // for(const auto &i: shot_manifest_tags_)
-                //     spdlog::warn("SMY {}", StdFromQString(i));
-
-                emit shotManifestTagsChanged();
-            }
-        }
-
-        void setTags(const QVariant &value);
-
-        void flatToTree(const nlohmann::json &src);
-        void flatToAssetTree(const nlohmann::json &src);
-
-        [[nodiscard]] QVariant
-        data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
-
-        [[nodiscard]] QStringList shotManifestTags() const { return shot_manifest_tags_; }
-        [[nodiscard]] QStringList assetTags() const { return asset_tags_; }
-
-        [[nodiscard]] QStringList types() const { return types_; }
-        [[nodiscard]] QVariant tags() const { return tags_; }
-
-        Q_INVOKABLE [[nodiscard]] QString nameFromTag(const QString &tag) const;
-
-      signals:
-        void typesChanged();
-        void tagsChanged();
-        void shotManifestTagsChanged();
-        void assetTagsChanged();
-
-      private:
-        static nlohmann::json sortByNameAndType(const nlohmann::json &json);
-        void dataChangedRecursive(const QModelIndex &parent, const QVector<int> &roles);
-
-        QStringList types_{};
-        QVariant tags_;
-        QStringList shot_manifest_tags_{};
-        QStringList asset_tags_{};
-
-        std::map<std::string, int> tag_lookup_;
-
-        std::map<std::string, std::string> name_lookup_;
+    enum Roles {
+        assetNameRole = ShotBrowserListModel::Roles::LASTROLE,
+        clientStagesCurrentRole,
+        heroRole,
+        manifestRole,
+        tagRole,
+        variantRole
     };
 
-
-    // manifestFilter
-    // {
-    // "OR": [],
-    // "AND": [],
-    // "NOT": []
-    // }
-
-    class ShotBrowserSequenceFilterModel : public QSortFilterProxyModel {
-        Q_OBJECT
-
-        Q_PROPERTY(
-            QStringList hideStatus READ hideStatus WRITE setHideStatus NOTIFY hideStatusChanged)
-
-        Q_PROPERTY(bool hideEmpty READ hideEmpty WRITE setHideEmpty NOTIFY hideEmptyChanged)
-        Q_PROPERTY(bool showHidden READ showHidden WRITE setShowHidden NOTIFY showHiddenChanged)
-
-        Q_PROPERTY(
-            QVariantList unitFilter READ unitFilter WRITE setUnitFilter NOTIFY
-                unitFilterChanged)
-
-        Q_PROPERTY(
-            QVariantList typeFilter READ typeFilter WRITE setTypeFilter NOTIFY
-                typeFilterChanged)
-
-        Q_PROPERTY(
-            QVariantList locationFilter READ locationFilter WRITE setLocationFilter NOTIFY
-                locationFilterChanged)
-
-        Q_PROPERTY(
-            QVariant manifestFilter READ manifestFilter WRITE setManifestFilter NOTIFY
-                manifestFilterChanged)
+    ShotBrowserSequenceModel(QObject *parent = nullptr) : ShotBrowserListModel(parent) {
+        auto roles = ShotBrowserListModel::RoleNames;
+        roles.insert(roles.end(), RoleNames.begin(), RoleNames.end());
+        setRoleNames(roles);
+    }
 
 
-        QML_NAMED_ELEMENT("ShotBrowserSequenceFilterModel")
-
-      public:
-        ShotBrowserSequenceFilterModel(QObject *parent = nullptr)
-            : QSortFilterProxyModel(parent) {}
-
-        Q_INVOKABLE [[nodiscard]] QVariant
-        get(const QModelIndex &item, const QString &role = "display") const;
-
-        Q_INVOKABLE [[nodiscard]] bool
-        set(const QModelIndex &item, const QVariant &value, const QString &role = "display");
-
-        Q_INVOKABLE QModelIndex searchRecursive(
-            const QVariant &value,
-            const QString &role       = "display",
-            const QModelIndex &parent = QModelIndex(),
-            const int start           = 0,
-            const int depth           = -1);
-
-        [[nodiscard]] bool hideEmpty() const { return hide_empty_; }
-        [[nodiscard]] bool showHidden() const { return show_hidden_; }
-
-        [[nodiscard]] QStringList hideStatus() const;
-        [[nodiscard]] QVariantList unitFilter() const { return filter_unit_; }
-        [[nodiscard]] QVariantList typeFilter() const { return filter_type_; }
-        [[nodiscard]] QVariantList locationFilter() const { return filter_location_; }
-        [[nodiscard]] QVariant manifestFilter() const { return filter_manifest_; }
-
-        void setHideStatus(const QStringList &value);
-
-        void setHideEmpty(const bool value) {
-            if (hide_empty_ != value) {
-                hide_empty_ = value;
-                emit hideEmptyChanged();
-                invalidateFilter();
-                emit filterChanged();
-            }
+    void setTypes(const QStringList &value) {
+        if (types_ != value) {
+            types_ = value;
+            emit typesChanged();
         }
+    }
 
-        void setShowHidden(const bool value) {
-            if (show_hidden_ != value) {
-                show_hidden_ = value;
-                emit showHiddenChanged();
-                invalidateFilter();
-                emit filterChanged();
-            }
+    void setAssetTags(const QStringList &value) {
+        if (asset_tags_ != value) {
+            asset_tags_ = value;
+
+            // spdlog::warn("AT {}", asset_tags_.size());
+            // for(const auto &i: asset_tags_)
+            //     spdlog::warn("AT {}", StdFromQString(i));
+
+            emit assetTagsChanged();
         }
+    }
 
-        void setManifestFilter(const QVariant &value);
+    void setShotManifestTags(const QStringList &value) {
+        if (shot_manifest_tags_ != value) {
+            shot_manifest_tags_ = value;
 
-        void setUnitFilter(const QVariantList &filter) {
-            if (filter_unit_ != filter) {
-                filter_unit_ = filter;
-                filter_unit_set_.clear();
-                for (const auto &i : filter_unit_)
-                    filter_unit_set_.insert(i.toString());
+            // spdlog::warn("SMY {}", shot_manifest_tags_.size());
 
-                emit unitFilterChanged();
-                invalidateFilter();
-                emit filterChanged();
-            }
+            // for(const auto &i: shot_manifest_tags_)
+            //     spdlog::warn("SMY {}", StdFromQString(i));
+
+            emit shotManifestTagsChanged();
         }
+    }
 
-        void setTypeFilter(const QVariantList &filter) {
-            if (filter_type_ != filter) {
-                filter_type_ = filter;
+    void setTags(const QVariant &value);
 
-                filter_type_set_.clear();
-                for (const auto &i : filter_type_)
-                    filter_type_set_.insert(i.toString());
+    void flatToTree(const nlohmann::json &src);
+    void flatToAssetTree(const nlohmann::json &src);
 
-                emit typeFilterChanged();
-                invalidateFilter();
-                emit filterChanged();
-            }
+    [[nodiscard]] QVariant
+    data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+
+    [[nodiscard]] QStringList shotManifestTags() const { return shot_manifest_tags_; }
+    [[nodiscard]] QStringList assetTags() const { return asset_tags_; }
+
+    [[nodiscard]] QStringList types() const { return types_; }
+    [[nodiscard]] QVariant tags() const { return tags_; }
+
+    Q_INVOKABLE [[nodiscard]] QString nameFromTag(const QString &tag) const;
+
+  signals:
+    void typesChanged();
+    void tagsChanged();
+    void shotManifestTagsChanged();
+    void assetTagsChanged();
+
+  private:
+    static nlohmann::json sortByNameAndType(const nlohmann::json &json);
+    void dataChangedRecursive(const QModelIndex &parent, const QVector<int> &roles);
+
+    QStringList types_{};
+    QVariant tags_;
+    QStringList shot_manifest_tags_{};
+    QStringList asset_tags_{};
+
+    std::map<std::string, int> tag_lookup_;
+
+    std::map<std::string, std::string> name_lookup_;
+};
+
+
+// manifestFilter
+// {
+// "OR": [],
+// "AND": [],
+// "NOT": []
+// }
+
+class ShotBrowserSequenceFilterModel : public QSortFilterProxyModel {
+    Q_OBJECT
+
+    Q_PROPERTY(
+        QStringList hideStatus READ hideStatus WRITE setHideStatus NOTIFY hideStatusChanged)
+
+    Q_PROPERTY(bool hideEmpty READ hideEmpty WRITE setHideEmpty NOTIFY hideEmptyChanged)
+    Q_PROPERTY(bool showHidden READ showHidden WRITE setShowHidden NOTIFY showHiddenChanged)
+
+    Q_PROPERTY(
+        QVariantList unitFilter READ unitFilter WRITE setUnitFilter NOTIFY unitFilterChanged)
+
+    Q_PROPERTY(
+        QVariantList typeFilter READ typeFilter WRITE setTypeFilter NOTIFY typeFilterChanged)
+
+    Q_PROPERTY(
+        QVariantList locationFilter READ locationFilter WRITE setLocationFilter NOTIFY
+            locationFilterChanged)
+
+    Q_PROPERTY(
+        QVariant manifestFilter READ manifestFilter WRITE setManifestFilter NOTIFY
+            manifestFilterChanged)
+
+
+    QML_NAMED_ELEMENT("ShotBrowserSequenceFilterModel")
+
+  public:
+    ShotBrowserSequenceFilterModel(QObject *parent = nullptr) : QSortFilterProxyModel(parent) {}
+
+    Q_INVOKABLE [[nodiscard]] QVariant
+    get(const QModelIndex &item, const QString &role = "display") const;
+
+    Q_INVOKABLE [[nodiscard]] bool
+    set(const QModelIndex &item, const QVariant &value, const QString &role = "display");
+
+    Q_INVOKABLE QModelIndex searchRecursive(
+        const QVariant &value,
+        const QString &role       = "display",
+        const QModelIndex &parent = QModelIndex(),
+        const int start           = 0,
+        const int depth           = -1);
+
+    [[nodiscard]] bool hideEmpty() const { return hide_empty_; }
+    [[nodiscard]] bool showHidden() const { return show_hidden_; }
+
+    [[nodiscard]] QStringList hideStatus() const;
+    [[nodiscard]] QVariantList unitFilter() const { return filter_unit_; }
+    [[nodiscard]] QVariantList typeFilter() const { return filter_type_; }
+    [[nodiscard]] QVariantList locationFilter() const { return filter_location_; }
+    [[nodiscard]] QVariant manifestFilter() const { return filter_manifest_; }
+
+    void setHideStatus(const QStringList &value);
+
+    void setHideEmpty(const bool value) {
+        if (hide_empty_ != value) {
+            hide_empty_ = value;
+            emit hideEmptyChanged();
+            invalidateFilter();
+            emit filterChanged();
         }
+    }
 
-        void setLocationFilter(const QVariantList &filter) {
-            if (filter_location_ != filter) {
-                filter_location_ = filter;
-
-                filter_location_set_.clear();
-                for (const auto &i : filter_location_)
-                    filter_location_set_.insert(i.toString());
-
-                emit locationFilterChanged();
-                invalidateFilter();
-                emit filterChanged();
-            }
+    void setShowHidden(const bool value) {
+        if (show_hidden_ != value) {
+            show_hidden_ = value;
+            emit showHiddenChanged();
+            invalidateFilter();
+            emit filterChanged();
         }
+    }
 
-      signals:
-        void hideStatusChanged();
-        void showHiddenChanged();
-        void unitFilterChanged();
-        void typeFilterChanged();
-        void locationFilterChanged();
-        void hideEmptyChanged();
-        void filterChanged();
-        void manifestFilterChanged();
+    void setManifestFilter(const QVariant &value);
 
-      protected:
-        [[nodiscard]] bool
-        filterAcceptsRow(int source_row, const QModelIndex &source_parent) const override;
+    void setUnitFilter(const QVariantList &filter) {
+        if (filter_unit_ != filter) {
+            filter_unit_ = filter;
+            filter_unit_set_.clear();
+            for (const auto &i : filter_unit_)
+                filter_unit_set_.insert(i.toString());
 
-      private:
-        std::set<QString> hide_status_;
-
-        std::set<QString> filter_type_set_;
-        std::set<QString> filter_unit_set_;
-        std::set<QString> filter_location_set_;
-
-        QVariantList filter_unit_;
-        QVariantList filter_type_;
-        QVariantList filter_location_;
-        QVariant filter_manifest_ = mapFromValue(R"({})"_json);
-
-        QSet<QString> not_in_;
-        QSet<QString> and_in_;
-        QSet<QString> or_in_;
-
-        bool variant_tag_{false};
-        bool tag_{false};
-
-        bool hide_empty_{false};
-        bool show_hidden_{true};
-    };
-
-
-    class ShotBrowserFilterModel : public QSortFilterProxyModel {
-        Q_OBJECT
-
-        Q_PROPERTY(int length READ length NOTIFY lengthChanged)
-        Q_PROPERTY(int count READ length NOTIFY lengthChanged)
-
-        Q_PROPERTY(
-            QVariantList divisionFilter READ divisionFilter WRITE setDivisionFilter NOTIFY
-                divisionFilterChanged)
-
-        Q_PROPERTY(
-            QVariantList projectStatusFilter READ projectStatusFilter WRITE
-                setProjectStatusFilter NOTIFY projectStatusFilterChanged)
-
-        Q_PROPERTY(
-            QItemSelection selectionFilter READ selectionFilter WRITE setSelectionFilter NOTIFY
-                selectionFilterChanged)
-
-      public:
-        ShotBrowserFilterModel(QObject *parent = nullptr) : QSortFilterProxyModel(parent) {
-            connect(
-                this,
-                &QAbstractListModel::rowsInserted,
-                this,
-                &ShotBrowserFilterModel::lengthChanged);
-            connect(
-                this,
-                &QAbstractListModel::modelReset,
-                this,
-                &ShotBrowserFilterModel::lengthChanged);
-            connect(
-                this,
-                &QAbstractListModel::rowsRemoved,
-                this,
-                &ShotBrowserFilterModel::lengthChanged);
+            emit unitFilterChanged();
+            invalidateFilter();
+            emit filterChanged();
         }
+    }
 
-        Q_INVOKABLE [[nodiscard]] QVariant
-        get(const QModelIndex &item, const QString &role = "display") const;
+    void setTypeFilter(const QVariantList &filter) {
+        if (filter_type_ != filter) {
+            filter_type_ = filter;
 
-        Q_INVOKABLE [[nodiscard]] bool
-        set(const QModelIndex &item, const QVariant &value, const QString &role = "display");
+            filter_type_set_.clear();
+            for (const auto &i : filter_type_)
+                filter_type_set_.insert(i.toString());
 
-        [[nodiscard]] int length() const { return rowCount(); }
-
-        Q_INVOKABLE QModelIndex searchRecursive(
-            const QVariant &value,
-            const QString &role       = "display",
-            const QModelIndex &parent = QModelIndex(),
-            const int start           = 0,
-            const int depth           = -1);
-
-
-        [[nodiscard]] QItemSelection selectionFilter() const { return selection_filter_; }
-        [[nodiscard]] QVariantList divisionFilter() const { return filter_division_; }
-        [[nodiscard]] QVariantList projectStatusFilter() const {
-            return filter_project_status_;
+            emit typeFilterChanged();
+            invalidateFilter();
+            emit filterChanged();
         }
+    }
 
-        void setSelectionFilter(const QItemSelection &selection) {
-            if (selection_filter_ != selection) {
-                selection_filter_ = selection;
-                emit selectionFilterChanged();
-                invalidateFilter();
-                // setDynamicSortFilter(false);
-                // sort(0, sortOrder());
-                // setDynamicSortFilter(true);
-            }
+    void setLocationFilter(const QVariantList &filter) {
+        if (filter_location_ != filter) {
+            filter_location_ = filter;
+
+            filter_location_set_.clear();
+            for (const auto &i : filter_location_)
+                filter_location_set_.insert(i.toString());
+
+            emit locationFilterChanged();
+            invalidateFilter();
+            emit filterChanged();
         }
+    }
 
-        void setDivisionFilter(const QVariantList &filter) {
-            if (filter_division_ != filter) {
-                filter_division_ = filter;
-                emit divisionFilterChanged();
-                invalidateFilter();
-            }
+  signals:
+    void hideStatusChanged();
+    void showHiddenChanged();
+    void unitFilterChanged();
+    void typeFilterChanged();
+    void locationFilterChanged();
+    void hideEmptyChanged();
+    void filterChanged();
+    void manifestFilterChanged();
+
+  protected:
+    [[nodiscard]] bool
+    filterAcceptsRow(int source_row, const QModelIndex &source_parent) const override;
+
+  private:
+    std::set<QString> hide_status_;
+
+    std::set<QString> filter_type_set_;
+    std::set<QString> filter_unit_set_;
+    std::set<QString> filter_location_set_;
+
+    QVariantList filter_unit_;
+    QVariantList filter_type_;
+    QVariantList filter_location_;
+    QVariant filter_manifest_ = mapFromValue(R"({})"_json);
+
+    QSet<QString> not_in_;
+    QSet<QString> and_in_;
+    QSet<QString> or_in_;
+
+    bool variant_tag_{false};
+    bool tag_{false};
+
+    bool hide_empty_{false};
+    bool show_hidden_{true};
+};
+
+
+class ShotBrowserFilterModel : public QSortFilterProxyModel {
+    Q_OBJECT
+
+    Q_PROPERTY(int length READ length NOTIFY lengthChanged)
+    Q_PROPERTY(int count READ length NOTIFY lengthChanged)
+
+    Q_PROPERTY(
+        QVariantList divisionFilter READ divisionFilter WRITE setDivisionFilter NOTIFY
+            divisionFilterChanged)
+
+    Q_PROPERTY(
+        QVariantList projectStatusFilter READ projectStatusFilter WRITE setProjectStatusFilter
+            NOTIFY projectStatusFilterChanged)
+
+    Q_PROPERTY(
+        QItemSelection selectionFilter READ selectionFilter WRITE setSelectionFilter NOTIFY
+            selectionFilterChanged)
+
+  public:
+    ShotBrowserFilterModel(QObject *parent = nullptr) : QSortFilterProxyModel(parent) {
+        connect(
+            this,
+            &QAbstractListModel::rowsInserted,
+            this,
+            &ShotBrowserFilterModel::lengthChanged);
+        connect(
+            this,
+            &QAbstractListModel::modelReset,
+            this,
+            &ShotBrowserFilterModel::lengthChanged);
+        connect(
+            this,
+            &QAbstractListModel::rowsRemoved,
+            this,
+            &ShotBrowserFilterModel::lengthChanged);
+    }
+
+    Q_INVOKABLE [[nodiscard]] QVariant
+    get(const QModelIndex &item, const QString &role = "display") const;
+
+    Q_INVOKABLE [[nodiscard]] bool
+    set(const QModelIndex &item, const QVariant &value, const QString &role = "display");
+
+    [[nodiscard]] int length() const { return rowCount(); }
+
+    Q_INVOKABLE QModelIndex searchRecursive(
+        const QVariant &value,
+        const QString &role       = "display",
+        const QModelIndex &parent = QModelIndex(),
+        const int start           = 0,
+        const int depth           = -1);
+
+
+    [[nodiscard]] QItemSelection selectionFilter() const { return selection_filter_; }
+    [[nodiscard]] QVariantList divisionFilter() const { return filter_division_; }
+    [[nodiscard]] QVariantList projectStatusFilter() const { return filter_project_status_; }
+
+    void setSelectionFilter(const QItemSelection &selection) {
+        if (selection_filter_ != selection) {
+            selection_filter_ = selection;
+            emit selectionFilterChanged();
+            invalidateFilter();
+            // setDynamicSortFilter(false);
+            // sort(0, sortOrder());
+            // setDynamicSortFilter(true);
         }
+    }
 
-        void setProjectStatusFilter(const QVariantList &filter) {
-            if (filter_project_status_ != filter) {
-                filter_project_status_ = filter;
-                emit projectStatusFilterChanged();
-                invalidateFilter();
-            }
+    void setDivisionFilter(const QVariantList &filter) {
+        if (filter_division_ != filter) {
+            filter_division_ = filter;
+            emit divisionFilterChanged();
+            invalidateFilter();
         }
+    }
 
-      signals:
-        void lengthChanged();
-        void selectionFilterChanged();
-        void divisionFilterChanged();
-        void projectStatusFilterChanged();
+    void setProjectStatusFilter(const QVariantList &filter) {
+        if (filter_project_status_ != filter) {
+            filter_project_status_ = filter;
+            emit projectStatusFilterChanged();
+            invalidateFilter();
+        }
+    }
 
-      protected:
-        [[nodiscard]] bool
-        filterAcceptsRow(int source_row, const QModelIndex &source_parent) const override;
-        // [[nodiscard]] bool
-        // lessThan(const QModelIndex &source_left, const QModelIndex &source_right) const;
+  signals:
+    void lengthChanged();
+    void selectionFilterChanged();
+    void divisionFilterChanged();
+    void projectStatusFilterChanged();
 
-      private:
-        QItemSelection selection_filter_;
-        QVariantList filter_division_;
-        QVariantList filter_project_status_;
-    };
+  protected:
+    [[nodiscard]] bool
+    filterAcceptsRow(int source_row, const QModelIndex &source_parent) const override;
+    // [[nodiscard]] bool
+    // lessThan(const QModelIndex &source_left, const QModelIndex &source_right) const;
+
+  private:
+    QItemSelection selection_filter_;
+    QVariantList filter_division_;
+    QVariantList filter_project_status_;
+};
 
 
-} // namespace ui::qml
-} // namespace xstudio
+} // namespace xstudio::ui::qml

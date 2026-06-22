@@ -16,612 +16,607 @@
 #include "xstudio/utility/timecode.hpp"
 #include "xstudio/utility/uuid.hpp"
 
-namespace xstudio {
-namespace media {
+namespace xstudio::media {
 
-    typedef std::vector<std::pair<int, int>> LogicalFrameRanges;
+typedef std::vector<std::pair<int, int>> LogicalFrameRanges;
 
-    static inline std::map<std::string, PartialSeqBehaviour> partialSeqNameMap = {
-        {"Insert Blank Frames", PS_DONT_HOLD_FRAME},
-        {"Hold Frames", PS_HOLD_FRAME},
-        {"Skip Missing Frames", PS_COLLAPSE_TO_ON_DISK_FRAMES}};
+static inline std::map<std::string, PartialSeqBehaviour> partialSeqNameMap = {
+    {"Insert Blank Frames", PS_DONT_HOLD_FRAME},
+    {"Hold Frames", PS_HOLD_FRAME},
+    {"Skip Missing Frames", PS_COLLAPSE_TO_ON_DISK_FRAMES}};
 
-    MediaType media_type_from_string(const std::string &str);
-    inline std::string to_readable_string(const MediaType mt) {
-        std::string str;
-        switch (mt) {
-        case MT_IMAGE:
-            str = "Image";
-            break;
-        case MT_AUDIO:
-            str = "Audio";
-            break;
-        case MT_THUMBNAIL:
-            str = "Thumbnail";
-            break;
-        }
-        return str;
+MediaType media_type_from_string(const std::string &str);
+inline std::string to_readable_string(const MediaType mt) {
+    std::string str;
+    switch (mt) {
+    case MT_IMAGE:
+        str = "Image";
+        break;
+    case MT_AUDIO:
+        str = "Audio";
+        break;
+    case MT_THUMBNAIL:
+        str = "Thumbnail";
+        break;
+    }
+    return str;
+}
+
+inline std::string to_string(const MediaStatus ms) {
+    std::string str;
+    switch (ms) {
+    case MS_ONLINE:
+        str = "Online";
+        break;
+    case MS_MISSING:
+        str = "Not available on FileSystem";
+        break;
+    case MS_CORRUPT:
+        str = "Corrupt";
+        break;
+    case MS_UNSUPPORTED:
+        str = "Unsupported";
+        break;
+    case MS_UNREADABLE:
+        str = "Unreadable";
+        break;
+    case MS_UNKNOWN:
+        str = "Unknown";
+        break;
+    }
+    return str;
+}
+
+
+class StreamDetail {
+  public:
+    StreamDetail(
+        utility::FrameRateDuration duration = utility::FrameRateDuration(),
+        std::string name                    = "Main",
+        const MediaType media_type          = MT_IMAGE,
+        std::string key_format              = "{0}@{1}/{2},{3}",
+        Imath::V2i resolution               = Imath::V2i(0, 0),
+        float pixel_aspect                  = 1.0f,
+        int index                           = -1)
+        : duration_(std::move(duration)),
+          name_(std::move(name)),
+          media_type_(media_type),
+          key_format_(std::move(key_format)),
+          resolution_(resolution),
+          pixel_aspect_(pixel_aspect),
+          index_(index) {}
+    virtual ~StreamDetail() = default;
+    bool operator==(const StreamDetail &other) const {
+        return (
+            duration_ == other.duration_ and name_ == other.name_ and
+            media_type_ == other.media_type_ and key_format_ == other.key_format_ and
+            resolution_ == other.resolution_ and pixel_aspect_ == other.pixel_aspect_ and
+            index_ == other.index_);
     }
 
-    inline std::string to_string(const MediaStatus ms) {
-        std::string str;
-        switch (ms) {
-        case MS_ONLINE:
-            str = "Online";
-            break;
-        case MS_MISSING:
-            str = "Not available on FileSystem";
-            break;
-        case MS_CORRUPT:
-            str = "Corrupt";
-            break;
-        case MS_UNSUPPORTED:
-            str = "Unsupported";
-            break;
-        case MS_UNREADABLE:
-            str = "Unreadable";
-            break;
-        case MS_UNKNOWN:
-            str = "Unknown";
-            break;
-        }
-        return str;
+    template <class Inspector> friend bool inspect(Inspector &f, StreamDetail &x) {
+        return f.object(x).fields(
+            f.field("dur", x.duration_),
+            f.field("name", x.name_),
+            f.field("mt", x.media_type_),
+            f.field("kf", x.key_format_),
+            f.field("res", x.resolution_),
+            f.field("pa", x.pixel_aspect_),
+            f.field("idx", x.index_));
+    }
+    friend std::string to_string(const StreamDetail &value);
+
+    utility::FrameRateDuration duration_;
+    std::string name_;
+    MediaType media_type_;
+    std::string key_format_;
+    Imath::V2i resolution_;
+    float pixel_aspect_;
+    int index_;
+};
+
+inline std::string to_string(const StreamDetail &v) {
+    return v.name_ + " " + to_readable_string(v.media_type_) + " " + v.key_format_ + " " +
+           to_string(v.duration_) + " " + std::to_string(v.resolution_.x) + "x" +
+           std::to_string(v.resolution_.y) + " " + std::to_string(v.pixel_aspect_);
+}
+
+class MediaDetail {
+  public:
+    MediaDetail(
+        std::string reader                = "",
+        std::vector<StreamDetail> streams = std::vector<StreamDetail>(),
+        const utility::Timecode &timecode = utility::Timecode("00:00:00:00"))
+        : reader_(std::move(reader)), streams_(std::move(streams)), timecode_(timecode) {}
+    virtual ~MediaDetail() = default;
+
+
+    bool operator==(const MediaDetail &other) const {
+        return (
+            reader_ == other.reader_ and timecode_ == other.timecode_ and
+            streams_ == other.streams_);
     }
 
-
-    class StreamDetail {
-      public:
-        StreamDetail(
-            utility::FrameRateDuration duration = utility::FrameRateDuration(),
-            std::string name                    = "Main",
-            const MediaType media_type          = MT_IMAGE,
-            std::string key_format              = "{0}@{1}/{2},{3}",
-            Imath::V2i resolution               = Imath::V2i(0, 0),
-            float pixel_aspect                  = 1.0f,
-            int index                           = -1)
-            : duration_(std::move(duration)),
-              name_(std::move(name)),
-              media_type_(media_type),
-              key_format_(std::move(key_format)),
-              resolution_(resolution),
-              pixel_aspect_(pixel_aspect),
-              index_(index) {}
-        virtual ~StreamDetail() = default;
-        bool operator==(const StreamDetail &other) const {
-            return (
-                duration_ == other.duration_ and name_ == other.name_ and
-                media_type_ == other.media_type_ and key_format_ == other.key_format_ and
-                resolution_ == other.resolution_ and pixel_aspect_ == other.pixel_aspect_ and
-                index_ == other.index_);
-        }
-
-        template <class Inspector> friend bool inspect(Inspector &f, StreamDetail &x) {
-            return f.object(x).fields(
-                f.field("dur", x.duration_),
-                f.field("name", x.name_),
-                f.field("mt", x.media_type_),
-                f.field("kf", x.key_format_),
-                f.field("res", x.resolution_),
-                f.field("pa", x.pixel_aspect_),
-                f.field("idx", x.index_));
-        }
-        friend std::string to_string(const StreamDetail &value);
-
-        utility::FrameRateDuration duration_;
-        std::string name_;
-        MediaType media_type_;
-        std::string key_format_;
-        Imath::V2i resolution_;
-        float pixel_aspect_;
-        int index_;
-    };
-
-    inline std::string to_string(const StreamDetail &v) {
-        return v.name_ + " " + to_readable_string(v.media_type_) + " " + v.key_format_ + " " +
-               to_string(v.duration_) + " " + std::to_string(v.resolution_.x) + "x" +
-               std::to_string(v.resolution_.y) + " " + std::to_string(v.pixel_aspect_);
+    template <class Inspector> friend bool inspect(Inspector &f, MediaDetail &x) {
+        return f.object(x).fields(
+            f.field("reader", x.reader_),
+            f.field("strms", x.streams_),
+            f.field("tc", x.timecode_));
     }
 
-    class MediaDetail {
-      public:
-        MediaDetail(
-            std::string reader                = "",
-            std::vector<StreamDetail> streams = std::vector<StreamDetail>(),
-            const utility::Timecode &timecode = utility::Timecode("00:00:00:00"))
-            : reader_(std::move(reader)), streams_(std::move(streams)), timecode_(timecode) {}
-        virtual ~MediaDetail() = default;
+    std::string reader_;
+    std::vector<StreamDetail> streams_;
+    utility::Timecode timecode_;
+};
 
+class MediaKey : private std::string {
 
-        bool operator==(const MediaDetail &other) const {
-            return (
-                reader_ == other.reader_ and timecode_ == other.timecode_ and
-                streams_ == other.streams_);
-        }
-
-        template <class Inspector> friend bool inspect(Inspector &f, MediaDetail &x) {
-            return f.object(x).fields(
-                f.field("reader", x.reader_),
-                f.field("strms", x.streams_),
-                f.field("tc", x.timecode_));
-        }
-
-        std::string reader_;
-        std::vector<StreamDetail> streams_;
-        utility::Timecode timecode_;
-    };
-
-    class MediaKey : private std::string {
-
-      public:
-        MediaKey()                  = default;
-        MediaKey(const MediaKey &o) = default;
-        MediaKey(const std::string &o);
-        MediaKey(
-            const std::string &key_format,
-            const caf::uri &uri,
-            const int frame,
-            const std::string &stream_id,
-            const size_t mod_timestamp,
-            const utility::FrameRate &rate);
-
-        bool operator!=(const MediaKey &o) const {
-            return (hash_ == o.hash_) ? static_cast<const std::string &>(*this) !=
-                                            static_cast<const std::string &>(o)
-                                      : true;
-        }
-
-        bool operator==(const MediaKey &o) const {
-            return (hash_ == o.hash_) ? static_cast<const std::string &>(*this) ==
-                                            static_cast<const std::string &>(o)
-                                      : false;
-        }
-
-        bool operator<(const MediaKey &o) const {
-            return (hash_ != o.hash_) ? hash_ < o.hash_
-                                      : static_cast<const std::string &>(*this) <
-                                            static_cast<const std::string &>(o);
-        }
-
-        [[nodiscard]] size_t hash() const { return hash_; }
-
-        friend std::string to_string(const MediaKey &value);
-        friend fmt::string_view to_string_view(const MediaKey &value);
-
-        template <class Inspector> friend bool inspect(Inspector &f, MediaKey &x) {
-            return f.object(x).fields(f.field("data", static_cast<std::string &>(x)));
-        }
-
-        bool is_null() const { return empty(); }
-
-      private:
-        size_t hash_;
-    };
-
-    inline std::string to_string(const MediaKey &v) {
-        return static_cast<const std::string>(v);
-    }
-
-    inline fmt::string_view to_string_view(const MediaKey &s) { return {s.data(), s.length()}; }
-
-    typedef std::vector<MediaKey> MediaKeyVector;
-
-    /*inline MediaKey media_key(
+  public:
+    MediaKey()                  = default;
+    MediaKey(const MediaKey &o) = default;
+    MediaKey(const std::string &o);
+    MediaKey(
         const std::string &key_format,
         const caf::uri &uri,
         const int frame,
-        const std::string &stream_id) {
-        return MediaKey(fmt::format(
-            fmt::runtime(key_format),
-            to_string(uri),
-            (frame == std::numeric_limits<int>::min() ? 0 : frame),
-            stream_id));
-    }*/
+        const std::string &stream_id,
+        const size_t mod_timestamp,
+        const utility::FrameRate &rate);
+
+    bool operator!=(const MediaKey &o) const {
+        return (hash_ == o.hash_) ? static_cast<const std::string &>(*this) !=
+                                        static_cast<const std::string &>(o)
+                                  : true;
+    }
+
+    bool operator==(const MediaKey &o) const {
+        return (hash_ == o.hash_) ? static_cast<const std::string &>(*this) ==
+                                        static_cast<const std::string &>(o)
+                                  : false;
+    }
+
+    bool operator<(const MediaKey &o) const {
+        return (hash_ != o.hash_) ? hash_ < o.hash_
+                                  : static_cast<const std::string &>(*this) <
+                                        static_cast<const std::string &>(o);
+    }
+
+    [[nodiscard]] size_t hash() const { return hash_; }
+
+    friend std::string to_string(const MediaKey &value);
+    friend fmt::string_view to_string_view(const MediaKey &value);
+
+    template <class Inspector> friend bool inspect(Inspector &f, MediaKey &x) {
+        return f.object(x).fields(f.field("data", static_cast<std::string &>(x)));
+    }
+
+    [[nodiscard]] bool is_null() const { return empty(); }
+
+  private:
+    size_t hash_;
+};
+
+inline std::string to_string(const MediaKey &v) { return static_cast<const std::string>(v); }
+
+inline fmt::string_view to_string_view(const MediaKey &s) { return {s.data(), s.length()}; }
+
+typedef std::vector<MediaKey> MediaKeyVector;
+
+/*inline MediaKey media_key(
+    const std::string &key_format,
+    const caf::uri &uri,
+    const int frame,
+    const std::string &stream_id) {
+    return MediaKey(fmt::format(
+        fmt::runtime(key_format),
+        to_string(uri),
+        (frame == std::numeric_limits<int>::min() ? 0 : frame),
+        stream_id));
+}*/
 
 
-    // class AVFrameID
-    //
-    // This class contains all detail needed to read a single video/audio frame
-    // into an Image or Audio data buffer. It is used primarily by the playhead,
-    // media reader and media components of xstudio.
-    //
-    // AVFrameIDs are evaluated and stored for each frame in any timeline that
-    // will be played. As such, we use shared_ptr both internally and to manage
-    // instances that are passed around the messaging system to minimise
-    // copy and data footprint
-    class AVFrameID {
-      public:
-        AVFrameID(
-            const AVFrameID &shared,
-            const caf::uri &uri,
-            const int frame,
-            const int key_frame,
-            const std::string &key_format,
-            const FrameStatus frame_status,
-            const size_t mod_timestamp,
-            const utility::Timecode time_code = utility::Timecode())
-            : fixed_media_data_(shared.fixed_media_data_),
-              uri_(uri == shared.fixed_media_data_->fixed_uri_ ? caf::uri() : uri),
-              frame_(frame),
-              key_(
-                  key_format,
-                  uri,
-                  key_frame,
-                  shared.fixed_media_data_->stream_id_,
-                  mod_timestamp,
-                  shared.rate()),
-              frame_status_(frame_status),
-              timecode_(time_code) {}
+// class AVFrameID
+//
+// This class contains all detail needed to read a single video/audio frame
+// into an Image or Audio data buffer. It is used primarily by the playhead,
+// media reader and media components of xstudio.
+//
+// AVFrameIDs are evaluated and stored for each frame in any timeline that
+// will be played. As such, we use shared_ptr both internally and to manage
+// instances that are passed around the messaging system to minimise
+// copy and data footprint
+class AVFrameID {
+  public:
+    AVFrameID(
+        const AVFrameID &shared,
+        const caf::uri &uri,
+        const int frame,
+        const int key_frame,
+        const std::string &key_format,
+        const FrameStatus frame_status,
+        const size_t mod_timestamp,
+        const utility::Timecode time_code = utility::Timecode())
+        : uri_(uri == shared.fixed_media_data_->fixed_uri_ ? caf::uri() : uri),
+          frame_(frame),
+          key_(
+              key_format,
+              uri,
+              key_frame,
+              shared.fixed_media_data_->stream_id_,
+              mod_timestamp,
+              shared.rate()),
+          frame_status_(frame_status),
+          timecode_(time_code),
+          fixed_media_data_(shared.fixed_media_data_) {}
 
-        AVFrameID(
-            const caf::uri &uri              = caf::uri(),
-            const int frame                  = std::numeric_limits<int>::min(),
-            const int first_frame            = std::numeric_limits<int>::min(),
-            const FrameStatus frame_status   = FS_UNKNOWN,
-            const size_t mod_timestamp       = 0,
-            const float pixel_aspect         = 1.0f,
-            const utility::FrameRate rate    = utility::FrameRate(timebase::k_flicks_24fps),
-            const std::string &stream_id     = "",
-            const std::string &key_format    = "{0}@{1}/{2},{3}",
-            std::string reader               = "",
-            const caf::actor_addr media_addr = caf::actor_addr(),
-            const caf::actor_addr media_source_addr = caf::actor_addr(),
-            const utility::JsonStore &params        = utility::JsonStore(),
-            const utility::Uuid &source_uuid        = utility::Uuid(),
-            const utility::Uuid &media_uuid         = utility::Uuid(),
-            const utility::Uuid &clip_uuid          = utility::Uuid(),
-            const MediaType media_type              = MT_IMAGE,
-            const utility::Timecode time_code       = utility::Timecode(),
-            const Imath::M44f &transform            = Imath::M44f())
-            : uri_(uri),
-              frame_(frame),
-              key_(key_format, uri, frame, stream_id, mod_timestamp, rate),
-              frame_status_(frame_status),
-              timecode_(time_code) {
-            FixedMediaData *md     = new FixedMediaData;
-            md->first_frame_       = first_frame;
-            md->pixel_aspect_      = pixel_aspect;
-            md->rate_              = rate;
-            md->stream_id_         = stream_id;
-            md->reader_            = reader;
-            md->media_addr_        = media_addr;
-            md->media_source_addr_ = media_source_addr;
-            md->params_            = params;
-            md->source_uuid_       = source_uuid;
-            md->media_uuid_        = media_uuid;
-            md->clip_uuid_         = clip_uuid;
-            md->media_type_        = media_type;
-            md->transform_         = transform;
-            fixed_media_data_.reset(md);
-        }
+    AVFrameID(
+        const caf::uri &uri                     = caf::uri(),
+        const int frame                         = std::numeric_limits<int>::min(),
+        const int first_frame                   = std::numeric_limits<int>::min(),
+        const FrameStatus frame_status          = FS_UNKNOWN,
+        const size_t mod_timestamp              = 0,
+        const float pixel_aspect                = 1.0f,
+        const utility::FrameRate rate           = utility::FrameRate(timebase::k_flicks_24fps),
+        const std::string &stream_id            = "",
+        const std::string &key_format           = "{0}@{1}/{2},{3}",
+        std::string reader                      = "",
+        const caf::actor_addr media_addr        = caf::actor_addr(),
+        const caf::actor_addr media_source_addr = caf::actor_addr(),
+        const utility::JsonStore &params        = utility::JsonStore(),
+        const utility::Uuid &source_uuid        = utility::Uuid(),
+        const utility::Uuid &media_uuid         = utility::Uuid(),
+        const utility::Uuid &clip_uuid          = utility::Uuid(),
+        const MediaType media_type              = MT_IMAGE,
+        const utility::Timecode time_code       = utility::Timecode(),
+        const Imath::M44f &transform            = Imath::M44f(),
+        const bool is_containerised_encoding    = true)
+        : uri_(uri),
+          frame_(frame),
+          key_(key_format, uri, frame, stream_id, mod_timestamp, rate),
+          frame_status_(frame_status),
+          timecode_(time_code) {
+        auto md                = new FixedMediaData;
+        md->first_frame_       = first_frame;
+        md->pixel_aspect_      = pixel_aspect;
+        md->rate_              = rate;
+        md->stream_id_         = stream_id;
+        md->reader_            = reader;
+        md->media_addr_        = media_addr;
+        md->media_source_addr_ = media_source_addr;
+        md->params_            = params;
+        md->source_uuid_       = source_uuid;
+        md->media_uuid_        = media_uuid;
+        md->clip_uuid_         = clip_uuid;
+        md->media_type_        = media_type;
+        md->transform_         = transform;
+        md->is_containerised_encoding_ = is_containerised_encoding;
+        fixed_media_data_.reset(md);
+    }
 
-        virtual ~AVFrameID() = default;
+    virtual ~AVFrameID() = default;
 
-        AVFrameID(const AVFrameID &o) = default;
+    AVFrameID(const AVFrameID &o) = default;
 
-        [[nodiscard]] bool is_nil() const { return uri().empty(); }
+    [[nodiscard]] bool is_nil() const { return uri().empty(); }
 
-        bool operator==(const AVFrameID &other) const {
-            return (
-                uri_ == other.uri_ and frame_ == other.frame_ and
-                fixed_media_data_ == other.fixed_media_data_ and key_ == other.key_ and
-                timecode_ == other.timecode_ and error_ == other.error_);
-        }
+    bool operator==(const AVFrameID &other) const {
+        return (
+            uri_ == other.uri_ and frame_ == other.frame_ and
+            fixed_media_data_ == other.fixed_media_data_ and key_ == other.key_ and
+            timecode_ == other.timecode_ and error_ == other.error_);
+    }
 
-        bool operator!=(const AVFrameID &other) const { return !(*this == other); }
+    bool operator!=(const AVFrameID &other) const { return !(*this == other); }
 
-        [[nodiscard]] const caf::uri &uri() const {
-            return uri_.empty() ? fixed_media_data_->fixed_uri_ : uri_;
-        }
-        [[nodiscard]] int frame() const { return frame_; }
-        [[nodiscard]] int first_frame() const { return fixed_media_data_->first_frame_; }
-        [[nodiscard]] FrameStatus frame_status() const { return frame_status_; }
-        [[nodiscard]] float pixel_aspect() const { return fixed_media_data_->pixel_aspect_; }
-        [[nodiscard]] const utility::FrameRate &rate() const {
-            return fixed_media_data_->rate_;
-        }
-        [[nodiscard]] const std::string &stream_id() const {
-            return fixed_media_data_->stream_id_;
-        }
-        [[nodiscard]] const MediaKey &key() const { return key_; }
-        [[nodiscard]] const std::string &reader() const { return fixed_media_data_->reader_; }
-        [[nodiscard]] const caf::actor_addr &media_source_addr() const {
-            return fixed_media_data_->media_source_addr_;
-        }
-        [[nodiscard]] const caf::actor_addr &media_addr() const {
-            return fixed_media_data_->media_addr_;
-        }
-        [[nodiscard]] const utility::JsonStore &params() const {
-            return fixed_media_data_->params_;
-        }
-        [[nodiscard]] const utility::Uuid &source_uuid() const {
-            return fixed_media_data_->source_uuid_;
-        }
-        [[nodiscard]] const utility::Uuid &media_uuid() const {
-            return fixed_media_data_->media_uuid_;
-        }
-        [[nodiscard]] const utility::Uuid &clip_uuid() const {
-            return fixed_media_data_->clip_uuid_;
-        }
-        [[nodiscard]] MediaType media_type() const { return fixed_media_data_->media_type_; }
-        [[nodiscard]] const utility::Timecode &timecode() const { return timecode_; }
-        [[nodiscard]] const std::string &error() const { return error_; }
-        [[nodiscard]] const Imath::M44f &transform_matrix() const {
-            return fixed_media_data_->transform_;
-        }
+    [[nodiscard]] const caf::uri &uri() const {
+        return uri_.empty() ? fixed_media_data_->fixed_uri_ : uri_;
+    }
+    [[nodiscard]] int frame() const { return frame_; }
+    [[nodiscard]] int first_frame() const { return fixed_media_data_->first_frame_; }
+    [[nodiscard]] FrameStatus frame_status() const { return frame_status_; }
+    [[nodiscard]] float pixel_aspect() const { return fixed_media_data_->pixel_aspect_; }
+    [[nodiscard]] const utility::FrameRate &rate() const { return fixed_media_data_->rate_; }
+    [[nodiscard]] const std::string &stream_id() const { return fixed_media_data_->stream_id_; }
+    [[nodiscard]] const MediaKey &key() const { return key_; }
+    [[nodiscard]] const std::string &reader() const { return fixed_media_data_->reader_; }
+    [[nodiscard]] const caf::actor_addr &media_source_addr() const {
+        return fixed_media_data_->media_source_addr_;
+    }
+    [[nodiscard]] const caf::actor_addr &media_addr() const {
+        return fixed_media_data_->media_addr_;
+    }
+    [[nodiscard]] const utility::JsonStore &params() const {
+        return fixed_media_data_->params_;
+    }
+    [[nodiscard]] const utility::Uuid &source_uuid() const {
+        return fixed_media_data_->source_uuid_;
+    }
+    [[nodiscard]] const utility::Uuid &media_uuid() const {
+        return fixed_media_data_->media_uuid_;
+    }
+    [[nodiscard]] const utility::Uuid &clip_uuid() const {
+        return fixed_media_data_->clip_uuid_;
+    }
+    [[nodiscard]] MediaType media_type() const { return fixed_media_data_->media_type_; }
+    [[nodiscard]] const utility::Timecode &timecode() const { return timecode_; }
+    [[nodiscard]] const std::string &error() const { return error_; }
+    [[nodiscard]] const Imath::M44f &transform_matrix() const {
+        return fixed_media_data_->transform_;
+    }
+    [[nodiscard]] bool is_containerised_encoding() const { return fixed_media_data_->is_containerised_encoding_; }
 
-        utility::UuidActor media_actor() const {
-            return utility::UuidActor(media_uuid(), caf::actor_cast<caf::actor>(media_addr()));
-        }
+    [[nodiscard]] utility::UuidActor media_actor() const {
+        return utility::UuidActor(media_uuid(), caf::actor_cast<caf::actor>(media_addr()));
+    }
 
-        utility::UuidActor media_source_actor() const {
-            return utility::UuidActor(
-                source_uuid(), caf::actor_cast<caf::actor>(media_source_addr()));
-        }
+    [[nodiscard]] utility::UuidActor media_source_actor() const {
+        return utility::UuidActor(
+            source_uuid(), caf::actor_cast<caf::actor>(media_source_addr()));
+    }
 
-        void set_frame_status(const FrameStatus fs) { frame_status_ = fs; }
+    void set_frame_status(const FrameStatus fs) { frame_status_ = fs; }
 
-      private:
-        caf::uri uri_;
-        int frame_;
-        MediaKey key_;
-        FrameStatus frame_status_;
-        utility::Timecode timecode_;
-        std::string error_;
+  private:
+    caf::uri uri_;
+    int frame_;
+    MediaKey key_;
+    FrameStatus frame_status_;
+    utility::Timecode timecode_;
+    std::string error_;
 
-        struct FixedMediaData {
-            caf::uri fixed_uri_;
-            int first_frame_;
-            float pixel_aspect_;
-            utility::FrameRate rate_;
-            std::string stream_id_;
-            std::string reader_;
-            caf::actor_addr media_source_addr_;
-            caf::actor_addr media_addr_;
-            utility::JsonStore params_;
-            utility::Uuid source_uuid_;
-            utility::Uuid media_uuid_;
-            utility::Uuid clip_uuid_;
-            MediaType media_type_;
-            Imath::M44f transform_;
-        };
-
-        std::shared_ptr<const FixedMediaData> fixed_media_data_;
-    };
-
-    typedef std::pair<utility::time_point, std::shared_ptr<const AVFrameID>>
-        MediaPointerAndTimePoint;
-    typedef std::vector<MediaPointerAndTimePoint> AVFrameIDsAndTimePoints;
-    typedef std::map<timebase::flicks, std::shared_ptr<const AVFrameID>> FrameTimeMap;
-    typedef std::shared_ptr<const std::map<timebase::flicks, std::shared_ptr<const AVFrameID>>>
-        FrameTimeMapPtr;
-    typedef std::tuple<std::string, std::string, uintmax_t> MediaSourceChecksum;
-
-    class Media : public utility::Container {
-      public:
-        Media(const utility::JsonStore &jsn);
-        Media(
-            const std::string &name                   = "",
-            const utility::Uuid &current_image_source = utility::Uuid(),
-            const utility::Uuid &current_audio_source = utility::Uuid());
-        ~Media() override = default;
-
-        void add_media_source(
-            const utility::Uuid &uuid, const utility::Uuid &before_uuid = utility::Uuid());
-        void remove_media_source(const utility::Uuid &uuid);
-
-        /*Sets the media source for the specified media type (video or audio) - if
-        video is specified and there is no current audio, audio source is also set*/
-        bool set_current(const utility::Uuid &uuid, const MediaType mt = MediaType::MT_IMAGE);
-        [[nodiscard]] bool empty() const { return media_sources_.empty(); }
-        [[nodiscard]] utility::Uuid current(const MediaType mt = MediaType::MT_IMAGE) const {
-            switch (mt) {
-            case MediaType::MT_IMAGE:
-                return current_image_source_;
-            case MediaType::MT_AUDIO:
-                return current_audio_source_;
-            case MediaType::MT_THUMBNAIL:
-                return current_thumbnail_source_;
-            default:
-                return utility::Uuid();
-            }
-        }
-        [[nodiscard]] const std::list<utility::Uuid> &media_sources() const {
-            return media_sources_;
-        }
-        [[nodiscard]] Imath::M44f transform() const { return transform_; }
-        [[nodiscard]] utility::JsonStore serialise() const override;
-        void deserialise(const utility::JsonStore &jsn) override;
-        [[nodiscard]] std::string flag() const { return flag_; }
-        void set_flag(const std::string &flag) { flag_ = flag; }
-        [[nodiscard]] std::string flag_text() const { return flag_text_; }
-        void set_flag_text(const std::string &flag_text) { flag_text_ = flag_text; }
-        void set_transform(const Imath::M44f transform) { transform_ = transform; }
-
-      private:
-        // will need extending.., tagging ?
-        utility::Uuid current_image_source_;
-        utility::Uuid current_audio_source_;
-        utility::Uuid current_thumbnail_source_;
-        std::string flag_{"#00000000"};
-        std::string flag_text_{""};
-        std::list<utility::Uuid> media_sources_;
-        Imath::M44f transform_ = {Imath::M44f()};
-    };
-
-    class MediaSource : public utility::Container {
-      public:
-        MediaSource(const utility::JsonStore &jsn);
-        MediaSource(
-            const std::string &name,
-            const caf::uri &_uri,
-            const utility::FrameList &frame_list);
-        MediaSource(const std::string &name, const caf::uri &_uri);
-        MediaSource(const std::string &name, const utility::MediaReference &media_reference);
-        ~MediaSource() override = default;
-
-        [[nodiscard]] utility::JsonStore serialise() const override;
-
-        // Note - although this function takes a stream uuid, we only have one
-        // media reference shared for all streams. Thus we have to assume that
-        // the frame rate and duration of each stream in a source are the same.
-        // This assumption may not be correct, so leaving the argument here for
-        // future if needed.
-        const utility::MediaReference &
-        media_reference(const utility::Uuid &stream_uuid = utility::Uuid()) const {
-            return ref_;
-        }
-
-        void set_media_reference(const utility::MediaReference &ref);
-
-        [[nodiscard]] std::string reader() const { return reader_; }
-        void set_reader(const std::string &reader) { reader_ = reader; }
-
-        [[nodiscard]] utility::Uuid current(const MediaType media_type) const;
-        bool set_current(const MediaType media_type, const utility::Uuid &uuid);
-
-        void add_media_stream(
-            const MediaType media_type,
-            const utility::Uuid &uuid,
-            const utility::Uuid &before_uuid = utility::Uuid());
-        void remove_media_stream(const MediaType media_type, const utility::Uuid &uuid);
-
-        [[nodiscard]] bool empty() const {
-            return audio_streams_.empty() and image_streams_.empty();
-        }
-        void clear();
-
-        void set_media_status(const MediaStatus status) { media_status_ = status; }
-
-        void set_error_detail(const std::string error_detail) { error_detail_ = error_detail; }
-
-        void set_transform(const Imath::M44f transform) { transform_ = transform; }
-
-        void set_partial_seq_behaviour(const PartialSeqBehaviour _partial_seq_behaviour) {
-            partial_seq_behaviour_ = _partial_seq_behaviour;
-        }
-
-        [[nodiscard]] Imath::M44f transform() const { return transform_; }
-        [[nodiscard]] bool has_type(const MediaType media_type) const;
-        [[nodiscard]] MediaStatus media_status() const { return media_status_; }
-        [[nodiscard]] bool online() const { return media_status_ == MediaStatus::MS_ONLINE; }
-        [[nodiscard]] const std::string &error_detail() const { return error_detail_; }
-        [[nodiscard]] PartialSeqBehaviour partial_seq_behaviour() const {
-            return partial_seq_behaviour_;
-        }
-
-        [[nodiscard]] const std::list<utility::Uuid> &streams(const MediaType media_type) const;
-
-        [[nodiscard]] MediaSourceChecksum checksum() const;
-
-        [[nodiscard]] bool set_checksum(const std::pair<std::string, uintmax_t> &checksum) {
-            auto changed = false;
-            if (checksum_ != checksum.first or size_ != checksum.second) {
-                checksum_ = checksum.first;
-                size_     = checksum.second;
-                changed   = true;
-            }
-            return changed;
-        }
-
-      private:
-        utility::MediaReference ref_;
-        Imath::M44f transform_ = {Imath::M44f()};
-
-        PartialSeqBehaviour partial_seq_behaviour_ = {PS_COLLAPSE_TO_ON_DISK_FRAMES};
-        utility::Uuid current_audio_;
-        utility::Uuid current_image_;
-        std::list<utility::Uuid> image_streams_;
-        std::list<utility::Uuid> audio_streams_;
+    struct FixedMediaData {
+        caf::uri fixed_uri_;
+        int first_frame_;
+        float pixel_aspect_;
+        utility::FrameRate rate_;
+        std::string stream_id_;
         std::string reader_;
-        std::string error_detail_;
-        MediaStatus media_status_{MS_ONLINE};
-        uintmax_t size_{0};
-        std::string checksum_;
+        caf::actor_addr media_source_addr_;
+        caf::actor_addr media_addr_;
+        utility::JsonStore params_;
+        utility::Uuid source_uuid_;
+        utility::Uuid media_uuid_;
+        utility::Uuid clip_uuid_;
+        MediaType media_type_;
+        Imath::M44f transform_;
+        bool is_containerised_encoding_;
     };
 
-    class MediaStream : public utility::Container {
-      public:
-        MediaStream(const utility::JsonStore &jsn);
-        MediaStream(const StreamDetail &detail);
+    std::shared_ptr<const FixedMediaData> fixed_media_data_;
+};
 
-        ~MediaStream() override = default;
-        [[nodiscard]] utility::JsonStore serialise() const override;
+typedef std::pair<utility::time_point, std::shared_ptr<const AVFrameID>>
+    MediaPointerAndTimePoint;
+typedef std::vector<MediaPointerAndTimePoint> AVFrameIDsAndTimePoints;
+typedef std::map<timebase::flicks, std::shared_ptr<const AVFrameID>> FrameTimeMap;
+typedef std::shared_ptr<const std::map<timebase::flicks, std::shared_ptr<const AVFrameID>>>
+    FrameTimeMapPtr;
+typedef std::tuple<std::string, std::string, uintmax_t> MediaSourceChecksum;
 
-        [[nodiscard]] std::string key_format() const { return detail_.key_format_; }
-        void set_key_format(const std::string &key_format) { detail_.key_format_ = key_format; }
-        void set_detail(const StreamDetail &detail) {
-            detail_       = detail;
-            detail_.name_ = name();
+class Media : public utility::Container {
+  public:
+    Media(const utility::JsonStore &jsn);
+    Media(
+        const std::string &name                   = "",
+        const utility::Uuid &current_image_source = utility::Uuid(),
+        const utility::Uuid &current_audio_source = utility::Uuid());
+    ~Media() override = default;
+
+    void add_media_source(
+        const utility::Uuid &uuid, const utility::Uuid &before_uuid = utility::Uuid());
+    void remove_media_source(const utility::Uuid &uuid);
+
+    /*Sets the media source for the specified media type (video or audio) - if
+    video is specified and there is no current audio, audio source is also set*/
+    bool set_current(const utility::Uuid &uuid, const MediaType mt = MediaType::MT_IMAGE);
+    [[nodiscard]] bool empty() const { return media_sources_.empty(); }
+    [[nodiscard]] utility::Uuid current(const MediaType mt = MediaType::MT_IMAGE) const {
+        switch (mt) {
+        case MediaType::MT_IMAGE:
+            return current_image_source_;
+        case MediaType::MT_AUDIO:
+            return current_audio_source_;
+        case MediaType::MT_THUMBNAIL:
+            return current_thumbnail_source_;
+        default:
+            return {};
         }
+    }
+    [[nodiscard]] const std::list<utility::Uuid> &media_sources() const {
+        return media_sources_;
+    }
+    [[nodiscard]] Imath::M44f transform() const { return transform_; }
+    [[nodiscard]] utility::JsonStore serialise() const override;
+    void deserialise(const utility::JsonStore &jsn) override;
+    [[nodiscard]] std::string flag() const { return flag_; }
+    void set_flag(const std::string &flag) { flag_ = flag; }
+    [[nodiscard]] std::string flag_text() const { return flag_text_; }
+    void set_flag_text(const std::string &flag_text) { flag_text_ = flag_text; }
+    void set_transform(const Imath::M44f transform) { transform_ = transform; }
 
-        [[nodiscard]] MediaType media_type() const { return detail_.media_type_; }
-        [[nodiscard]] utility::FrameRateDuration duration() const { return detail_.duration_; }
-        [[nodiscard]] Imath::M44f transform() const { return transform_; }
-        const StreamDetail &detail() const { return detail_; }
+  private:
+    // will need extending.., tagging ?
+    utility::Uuid current_image_source_;
+    utility::Uuid current_audio_source_;
+    utility::Uuid current_thumbnail_source_;
+    std::string flag_{"#00000000"};
+    std::string flag_text_{""};
+    std::list<utility::Uuid> media_sources_;
+    Imath::M44f transform_ = {Imath::M44f()};
+};
 
-        void set_transform(const Imath::M44f transform) { transform_ = transform; }
+class MediaSource : public utility::Container {
+  public:
+    MediaSource(const utility::JsonStore &jsn);
+    MediaSource(
+        const std::string &name, const caf::uri &_uri, const utility::FrameList &frame_list);
+    MediaSource(const std::string &name, const caf::uri &_uri);
+    MediaSource(const std::string &name, const utility::MediaReference &media_reference);
+    ~MediaSource() override = default;
 
-      private:
-        StreamDetail detail_;
-        Imath::M44f transform_ = {Imath::M44f()};
-    };
+    [[nodiscard]] utility::JsonStore serialise() const override;
 
-    inline std::shared_ptr<const AVFrameID>
-    make_blank_frame(const utility::FrameRate rate, const MediaType media_type) {
-        utility::JsonStore js;
-        js["BLANK_FRAME"] = true;
-
-        return std::shared_ptr<const AVFrameID>(new AVFrameID(
-            *caf::make_uri("xstudio://blank/?colour=gray"),
-            0,
-            0,
-            FS_UNKNOWN,
-            0,
-            1.0f,
-            rate,
-            "",
-            "{0}@{1}/{2},{3}",
-            "Blank",
-            caf::actor_addr(),
-            caf::actor_addr(),
-            js,
-            utility::Uuid(),
-            utility::Uuid(),
-            utility::Uuid(),
-            media_type));
+    // Note - although this function takes a stream uuid, we only have one
+    // media reference shared for all streams. Thus we have to assume that
+    // the frame rate and duration of each stream in a source are the same.
+    // This assumption may not be correct, so leaving the argument here for
+    // future if needed.
+    [[nodiscard]] const utility::MediaReference &
+    media_reference(const utility::Uuid &stream_uuid = utility::Uuid()) const {
+        return ref_;
     }
 
-    inline std::shared_ptr<const AVFrameID> make_blank_frame(
+    void set_media_reference(const utility::MediaReference &ref);
+
+    [[nodiscard]] std::string reader() const { return reader_; }
+    void set_reader(const std::string &reader) { reader_ = reader; }
+
+    [[nodiscard]] utility::Uuid current(const MediaType media_type) const;
+    bool set_current(const MediaType media_type, const utility::Uuid &uuid);
+
+    void add_media_stream(
         const MediaType media_type,
-        const utility::Uuid media_uuid                = utility::Uuid(),
-        const utility::Uuid source_uuid               = utility::Uuid(),
-        const utility::Uuid clip_uuid                 = utility::Uuid(),
-        const caf::actor_addr media_actor_addr        = caf::actor_addr(),
-        const caf::actor_addr media_source_actor_addr = caf::actor_addr()) {
-        utility::JsonStore js;
-        js["BLANK_FRAME"] = true;
+        const utility::Uuid &uuid,
+        const utility::Uuid &before_uuid = utility::Uuid());
+    void remove_media_stream(const MediaType media_type, const utility::Uuid &uuid);
 
-        return std::shared_ptr<const AVFrameID>(new AVFrameID(
-            *caf::make_uri("xstudio://blank/?colour=gray"),
-            0,
-            0,
-            FS_UNKNOWN,
-            0,
-            1.0f,
-            timebase::k_flicks_24fps,
-            "",
-            "{0}@{1}/{2},{3}",
-            "Blank",
-            media_actor_addr,
-            media_source_actor_addr,
-            js,
-            source_uuid,
-            media_uuid,
-            clip_uuid,
-            media_type));
+    [[nodiscard]] bool empty() const {
+        return audio_streams_.empty() and image_streams_.empty();
     }
-} // namespace media
-} // namespace xstudio
+    void clear();
+
+    void set_media_status(const MediaStatus status) { media_status_ = status; }
+
+    void set_error_detail(const std::string error_detail) { error_detail_ = error_detail; }
+
+    void set_transform(const Imath::M44f transform) { transform_ = transform; }
+
+    void set_partial_seq_behaviour(const PartialSeqBehaviour _partial_seq_behaviour) {
+        partial_seq_behaviour_ = _partial_seq_behaviour;
+    }
+
+    [[nodiscard]] Imath::M44f transform() const { return transform_; }
+    [[nodiscard]] bool has_type(const MediaType media_type) const;
+    [[nodiscard]] MediaStatus media_status() const { return media_status_; }
+    [[nodiscard]] bool online() const { return media_status_ == MediaStatus::MS_ONLINE; }
+    [[nodiscard]] const std::string &error_detail() const { return error_detail_; }
+    [[nodiscard]] PartialSeqBehaviour partial_seq_behaviour() const {
+        return partial_seq_behaviour_;
+    }
+
+    [[nodiscard]] const std::list<utility::Uuid> &streams(const MediaType media_type) const;
+
+    [[nodiscard]] MediaSourceChecksum checksum() const;
+
+    [[nodiscard]] bool set_checksum(const std::pair<std::string, uintmax_t> &checksum) {
+        auto changed = false;
+        if (checksum_ != checksum.first or size_ != checksum.second) {
+            checksum_ = checksum.first;
+            size_     = checksum.second;
+            changed   = true;
+        }
+        return changed;
+    }
+
+  private:
+    utility::MediaReference ref_;
+    Imath::M44f transform_ = {Imath::M44f()};
+
+    PartialSeqBehaviour partial_seq_behaviour_ = {PS_COLLAPSE_TO_ON_DISK_FRAMES};
+    utility::Uuid current_audio_;
+    utility::Uuid current_image_;
+    std::list<utility::Uuid> image_streams_;
+    std::list<utility::Uuid> audio_streams_;
+    std::string reader_;
+    std::string error_detail_;
+    MediaStatus media_status_{MS_ONLINE};
+    uintmax_t size_{0};
+    std::string checksum_;
+};
+
+class MediaStream : public utility::Container {
+  public:
+    MediaStream(const utility::JsonStore &jsn);
+    MediaStream(const StreamDetail &detail);
+
+    ~MediaStream() override = default;
+    [[nodiscard]] utility::JsonStore serialise() const override;
+
+    [[nodiscard]] std::string key_format() const { return detail_.key_format_; }
+    void set_key_format(const std::string &key_format) { detail_.key_format_ = key_format; }
+    void set_detail(const StreamDetail &detail) {
+        detail_       = detail;
+        detail_.name_ = name();
+    }
+
+    [[nodiscard]] MediaType media_type() const { return detail_.media_type_; }
+    [[nodiscard]] utility::FrameRateDuration duration() const { return detail_.duration_; }
+    [[nodiscard]] Imath::M44f transform() const { return transform_; }
+    [[nodiscard]] const StreamDetail &detail() const { return detail_; }
+
+    void set_transform(const Imath::M44f transform) { transform_ = transform; }
+
+  private:
+    StreamDetail detail_;
+    Imath::M44f transform_ = {Imath::M44f()};
+};
+
+inline std::shared_ptr<const AVFrameID>
+make_blank_frame(const utility::FrameRate rate, const MediaType media_type) {
+    utility::JsonStore js;
+    js["BLANK_FRAME"] = true;
+
+    return std::shared_ptr<const AVFrameID>(new AVFrameID(
+        *caf::make_uri("xstudio://blank/?colour=gray"),
+        0,
+        0,
+        FS_UNKNOWN,
+        0,
+        1.0f,
+        rate,
+        "",
+        "{0}@{1}/{2},{3}",
+        "Blank",
+        caf::actor_addr(),
+        caf::actor_addr(),
+        js,
+        utility::Uuid(),
+        utility::Uuid(),
+        utility::Uuid(),
+        media_type));
+}
+
+inline std::shared_ptr<const AVFrameID> make_blank_frame(
+    const MediaType media_type,
+    const utility::Uuid media_uuid                = utility::Uuid(),
+    const utility::Uuid source_uuid               = utility::Uuid(),
+    const utility::Uuid clip_uuid                 = utility::Uuid(),
+    const caf::actor_addr media_actor_addr        = caf::actor_addr(),
+    const caf::actor_addr media_source_actor_addr = caf::actor_addr(),
+    const utility::FrameRate rate = utility::FrameRate(timebase::k_flicks_24fps)) {
+    utility::JsonStore js;
+    js["BLANK_FRAME"] = true;
+
+    return std::shared_ptr<const AVFrameID>(new AVFrameID(
+        *caf::make_uri("xstudio://blank/?colour=gray"),
+        0,
+        0,
+        FS_UNKNOWN,
+        0,
+        1.0f,
+        timebase::k_flicks_24fps,
+        "",
+        "{0}@{1}/{2},{3}",
+        "Blank",
+        media_actor_addr,
+        media_source_actor_addr,
+        js,
+        source_uuid,
+        media_uuid,
+        clip_uuid,
+        media_type));
+}
+} // namespace xstudio::media
 
 namespace std {
 template <> struct hash<xstudio::media::MediaKey> {

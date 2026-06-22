@@ -82,7 +82,7 @@ class EventToPythonThreadLockerActor : public caf::event_based_actor {
             });
     }
 
-    ~EventToPythonThreadLockerActor() = default;
+    ~EventToPythonThreadLockerActor() override = default;
 
     caf::behavior behavior_;
     py_context *context_;
@@ -144,7 +144,14 @@ std::optional<message> py_context::py_build_message(const py::args &xs) {
                     err.what());
                 return {};
             }
-        }
+        } /*else if (type_name == "list") {
+            // special case for lists - can we convert to std::vector<ElemType> ?
+            py::list lst = (*i).cast<py::list>();
+            if (lst.size() > 0) {
+                std::string elem_type_name = PyEval_GetFuncName(lst[0].ptr());
+                type_name = fmt::format("list({})", elem_type_name);
+            }
+        }*/
         auto kvp = bindings().find(type_name);
         if (kvp == bindings().end()) {
             set_py_exception(
@@ -173,7 +180,7 @@ void py_context::py_send(const py::args &xs) {
 caf::actor py_context::py_spawn(const py::args &xs) {
     if (xs.size() < 1) {
         set_py_exception("Too few arguments to call py_spawn");
-        return caf::actor();
+        return {};
     }
     auto i      = xs.begin();
     auto name   = (*i).cast<std::string>();
@@ -182,13 +189,13 @@ caf::actor py_context::py_spawn(const py::args &xs) {
     if (remote)
         return *remote;
     set_py_exception("Failed to spawn actor.");
-    return caf::actor();
+    return {};
 }
 
 caf::actor py_context::py_remote_spawn(const py::args &xs) {
     if (xs.size() < 1) {
         set_py_exception("Too few arguments to call py_remote_spawn");
-        return caf::actor();
+        return {};
     }
     auto i      = xs.begin();
     auto name   = (*i).cast<std::string>();
@@ -198,7 +205,7 @@ caf::actor py_context::py_remote_spawn(const py::args &xs) {
     if (remote)
         return *remote;
     set_py_exception("Failed to spawn remote actor.");
-    return caf::actor();
+    return {};
 }
 
 // void py_context::py_join(const py::args &xs) {
@@ -291,6 +298,11 @@ void py_context::execute_event_callback(
     }
 }
 
+#ifdef __GNUC__ // Check if GCC compiler is being used
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 uint64_t py_context::py_request(const py::args &xs) {
     if (xs.size() < 2) {
         set_py_exception("Too few arguments to call CAF.request");
@@ -299,12 +311,17 @@ uint64_t py_context::py_request(const py::args &xs) {
     auto i    = xs.begin();
     auto dest = (*i).cast<actor>();
     auto msg  = py_build_message(xs);
+
     if (msg) {
         auto reqhan = self_->request(dest, caf::infinite, *msg);
         return reqhan.id().request_id().integer_value();
     }
     return 0;
 }
+
+#ifdef __GNUC__ // Check if GCC compiler is being used
+#pragma GCC diagnostic pop
+#endif
 
 void py_context::py_send_exit(const py::args &xs) {
     if (xs.size() < 1) {

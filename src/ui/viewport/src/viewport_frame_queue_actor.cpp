@@ -19,12 +19,12 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
     caf::actor_config &cfg,
     caf::actor viewport,
     std::map<utility::Uuid, caf::actor> overlay_actors,
-    const std::string &viewport_name,
+    const std::string viewport_name,
     caf::actor colour_pipeline)
     : caf::event_based_actor(cfg),
       viewport_(viewport),
       viewport_overlay_plugins_(std::move(overlay_actors)),
-      viewport_name_(viewport_name),
+      viewport_name_(std::move(viewport_name)),
       colour_pipeline_(colour_pipeline) {
 
     print_on_exit(this, "ViewportFrameQueueActor");
@@ -248,7 +248,7 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
         [=](caf::message) {});
 }
 
-ViewportFrameQueueActor::~ViewportFrameQueueActor() {}
+// ViewportFrameQueueActor::~ViewportFrameQueueActor() {}
 
 void ViewportFrameQueueActor::on_exit() {
     viewport_layout_manager_ = caf::actor();
@@ -260,7 +260,7 @@ xstudio::media_reader::ImageBufPtr ViewportFrameQueueActor::get_least_old_image_
     const OrderedImagesToDraw &frames_queued_for_display) {
 
     if (frames_queued_for_display.empty())
-        return media_reader::ImageBufPtr();
+        return {};
     media_reader::ImageBufPtr least_old_buf;
     auto r        = frames_queued_for_display.begin();
     least_old_buf = r->second;
@@ -535,7 +535,7 @@ void ViewportFrameQueueActor::append_overlays_data(
                 add_layout_data(image_set_with_colour_data);
             },
             [=](caf::error &err) mutable {
-                spdlog::warn("B {} {}", __PRETTY_FUNCTION__, to_string(err));
+                spdlog::debug("B {} {}", __PRETTY_FUNCTION__, to_string(err));
                 add_layout_data(foo);
             });
 }
@@ -688,9 +688,9 @@ ViewportFrameQueueActor::next_video_refresh(const timebase::flicks &video_refres
 
         // average cadence of video refresh (in microseconds)...
         const auto expected_video_refresh_period = average_video_refresh_period();
-        auto p                   = video_refresh_data_.refresh_history_.rbegin();
-        auto now                 = utility::clock::now();
-        auto last_actual_refresh = *p;
+        // auto p                   = video_refresh_data_.refresh_history_.rbegin();
+        auto now = utility::clock::now();
+        // auto last_actual_refresh = *p;
 
         auto next_predicted_refresh =
             last_predicted_video_refresh_ + expected_video_refresh_period;

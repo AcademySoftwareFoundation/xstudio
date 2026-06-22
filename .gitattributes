@@ -1,0 +1,4 @@
+* text=auto
+
+*.patch text eol=lf
+*.diff  text eol=lf

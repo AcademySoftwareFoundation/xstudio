@@ -3,6 +3,7 @@ import QtQuick
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
+import xstudio.qml.viewport 1.0
 
 XsPopupMenu {
 
@@ -18,78 +19,47 @@ XsPopupMenu {
     // XsMenuModelItem instance.
     property var panelContext: helpers.contextPanel(plusMenu)
 
-    XsPreference {
-        id: sessionRate
-        path: "/core/session/media_rate"
-    }
-
-
     XsMenuModelItem {
         text: "Playlist"
         menuItemType: "button"
         menuPath: path
+        hotkeyUuid: hotkey_area.add_playlist_hotkey.uuid
         menuItemPosition: 1
         menuModelName: plusMenu.menu_model_name
-        onActivated: {
-            dialogHelpers.textInputDialog(
-                plusMenu.addPlaylist,
-                "Add Playlist",
-                "Enter a name for the new playlist.",
-                theSessionData.getNextName("Playlist {}"),
-                ["Cancel", "Add"])
-        }
+        onActivated: playlist_functions.addPlaylistChoice()
         panelContext: plusMenu.panelContext
     }
 
     XsMenuModelItem {
         text: "Subset"
         menuItemType: "button"
+        hotkeyUuid: hotkey_area.add_subset_hotkey.uuid
         menuPath: path
         menuItemPosition: 2
         menuModelName: plusMenu.menu_model_name
-        onActivated: {
-            dialogHelpers.textInputDialog(
-                plusMenu.addSubset,
-                "Add Subset",
-                "Enter a name for the new subset.",
-                theSessionData.getNextName("Subset {}"),
-                ["Cancel", "Add"])
-        }
+        onActivated: playlist_functions.addSubsetChoice()
         panelContext: plusMenu.panelContext
     }
 
     XsMenuModelItem {
         text: "Sequence"
         menuItemType: "button"
+        hotkeyUuid: hotkey_area.add_sequence_hotkey.uuid
         menuPath: path
         menuItemPosition: 3
         menuModelName: plusMenu.menu_model_name
-        onActivated: {
-            dialogHelpers.sequenceInputDialog(
-                plusMenu.addTimeline,
-                "Add Sequence",
-                "New Sequence",
-                theSessionData.getNextName("Sequence {}"),
-                ["Cancel", "Add"],
-                sessionRate.value)
-        }
+        onActivated: playlist_functions.addSequenceChoice()
         panelContext: plusMenu.panelContext
     }
 
     XsMenuModelItem {
         text: "Contact Sheet"
         menuItemType: "button"
+        hotkeyUuid: hotkey_area.add_contact_sheet_hotkey.uuid
         menuPath: path
         menuItemPosition: 3
         menuModelName: plusMenu.menu_model_name
-        onActivated: {
-            dialogHelpers.textInputDialog(
-                plusMenu.addContactSheet,
-                "Add Contact Sheet",
-                "Enter a name for the new contact sheet.",
-                theSessionData.getNextName("Contact Sheet {}"),
-                ["Cancel", "Add"])
-        }
+        onActivated: playlist_functions.addContactSheetChoice()
         panelContext: plusMenu.panelContext
     }
 
@@ -104,16 +74,10 @@ XsPopupMenu {
         text: "Divider"
         menuItemType: "button"
         menuPath: path
+        hotkeyUuid: hotkey_area.add_divider_hotkey.uuid
         menuItemPosition: 3.5
         menuModelName: plusMenu.menu_model_name
-        onActivated: {
-            dialogHelpers.textInputDialog(
-                plusMenu.addDivider,
-                "Add Playlist Divider",
-                "Enter a name for the new divider.",
-                theSessionData.getNextName("Divider {}"),
-                ["Cancel", "Add"])
-        }
+        onActivated: playlist_functions.addDividerChoice()
         panelContext: plusMenu.panelContext
     }
 
@@ -121,14 +85,11 @@ XsPopupMenu {
         text: "Dated Divider"
         menuItemType: "button"
         menuPath: path
+        hotkeyUuid: hotkey_area.add_dated_divider_hotkey.uuid
         menuItemPosition: 3.6
         menuModelName: plusMenu.menu_model_name
-        onActivated: theSessionData.createDivider(yyyymmdd("-"))
+        onActivated: playlist_functions.addDatedDivider()
         panelContext: plusMenu.panelContext
-
-        function yyyymmdd(separator="", date=new Date()) {
-            return String(date.getFullYear()) + separator + String(date.getMonth()+1).padStart(2, '0') + separator + String(date.getUTCDate()).padStart(2, '0')
-        }
     }
 
     XsMenuModelItem {
@@ -144,40 +105,8 @@ XsPopupMenu {
         menuPath: path
         menuItemPosition: 5
         menuModelName: plusMenu.menu_model_name
-        onActivated: {
-            file_functions.loadMedia(undefined)
-        }
+        onActivated: file_functions.loadMedia(undefined)
         panelContext: plusMenu.panelContext
+        hotkeyUuid: hotkey_area.add_media_hotkey.uuid
     }
-
-    function addPlaylist(new_name, button) {
-        if (button == "Add") {
-            theSessionData.createPlaylist(new_name)
-        }
-    }
-
-    function addSubset(new_name, button) {
-        if (button == "Add") {
-            theSessionData.createSubItem(new_name, "Subset")
-        }
-    }
-
-    function addContactSheet(new_name, button) {
-        if (button == "Add") {
-            theSessionData.createSubItem(new_name, "ContactSheet")
-        }
-    }
-
-    function addTimeline(new_name, fps, button) {
-        if (button == "Add") {
-            theSessionData.createSubItem(new_name, "Timeline", fps)
-        }
-    }
-
-    function addDivider(new_name, button) {
-        if (button == "Add") {
-            theSessionData.createDivider(new_name)
-        }
-    }
-
 }

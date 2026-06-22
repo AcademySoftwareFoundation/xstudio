@@ -13,7 +13,8 @@
 #include "xstudio/playhead/playhead.hpp"
 #include "xstudio/playlist/playlist.hpp"
 #include "xstudio/ui/mouse.hpp"
-#include "xstudio/utility/caf_helpers.hpp"
+#include "xstudio/ui/mouse.hpp"
+#include "xstudio/ui/viewport/mask.hpp"
 #include "xstudio/utility/container.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/media_reference.hpp"
@@ -53,6 +54,7 @@ extern void register_frame_range_class(py::module &m, const std::string &name);
 extern void register_frame_list_class(py::module &m, const std::string &name);
 extern void register_notification_class(py::module &m, const std::string &name);
 extern void register_stringvec_class(py::module &m, const std::string &name);
+extern void register_mask_class(py::module &m, const std::string &name);
 
 using namespace xstudio;
 
@@ -200,5 +202,8 @@ void py_config::add_messages() {
         "std::vector<xstudio::utility::Notification>",
         "std::vector<xstudio::utility::Notification>",
         nullptr);
+
+    add_message_type<xstudio::ui::viewport::Mask>(
+        "Mask", "xstudio::ui::viewport::Mask", &register_mask_class);
 }
 } // namespace caf::python

@@ -17,10 +17,6 @@ XsWindow {
 
     flags: Qt.platform.os === "windows" ? Qt.Window : Qt.Dialog
 
-    onWidthChanged: {
-        console.log("W", width, height)
-    }
-
     property var widgetHeight: 24
 
     XsModuleData {

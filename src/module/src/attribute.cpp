@@ -11,8 +11,7 @@ using namespace xstudio;
 
 
 Attribute::Attribute(
-    const std::string &title, const std::string &abbr_title, const std::string &type_name)
-    : owner_(nullptr), redraw_viewport_on_change_(false) {
+    const std::string &title, const std::string &abbr_title, const std::string &type_name) {
     role_data_[Enabled].set(true);
     role_data_[Type].set(type_name);
     role_data_[Title].set(title);

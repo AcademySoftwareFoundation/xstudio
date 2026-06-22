@@ -181,9 +181,10 @@ Item{
         // Hold properties that we want to persist between sessions.
         id: prefs
         property string scope: ""
+        property bool compactMode: false
 
         XsStoredPanelProperties {
-            propertyNames: ["scope"]
+            propertyNames: ["scope","compactMode"]
             onPropertiesInitialised: {
                 prefs.initialised = true
                 setIndexFromPreference()
@@ -284,6 +285,8 @@ Item{
 
         ShotHistoryTitleDiv{id: titleDiv
             titleButtonHeight: (XsStyleSheet.widgetStdHeight + 4)
+            compactMode: prefs.compactMode
+            onCompactModeChanged: prefs.compactMode = compactMode
             Layout.fillWidth: true
             Layout.minimumHeight: titleButtonHeight*2
             Layout.maximumHeight: titleButtonHeight*2
@@ -301,6 +304,7 @@ Item{
                 anchors.topMargin: 2
                 anchors.rightMargin: rightSpacing ? 0 : 2
                 anchors.bottomMargin: 2
+                compactMode: prefs.compactMode
             }
         }
 

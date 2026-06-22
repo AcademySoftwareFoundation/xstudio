@@ -162,7 +162,7 @@ class DNegMediaHook : public MediaHook {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         }
 
-        return utility::JsonStore(meta);
+        return {meta};
     }
 
     std::optional<media::MediaDetail>
@@ -236,6 +236,11 @@ class DNegMediaHook : public MediaHook {
             // check for ivy timeline_range
             try {
                 const static auto tcp = json::json_pointer("/metadata/ivy/file/timeline_range");
+                const static auto tcs =
+                    json::json_pointer("/metadata/shotgun/version/attributes/frame_range");
+                const static auto stt =
+                    json::json_pointer("/metadata/shotgun/version/attributes/sg_twig_type");
+
                 if (jsn.contains(tcp) and jsn.at(tcp).is_string()) {
 
                     // Let's try and work out if there is a slate frame.
@@ -250,17 +255,18 @@ class DNegMediaHook : public MediaHook {
                     // hold during movie generation)
                     // The ivy timeline_range DOES NOT INCLUDE SLATE FRAME.
                     const auto ivy_range_duration = (ifr.end() - ifr.start() + 1);
-                    if ((ivy_range_duration + 1) == result.frame_list().count()) {
+                    if ((ivy_range_duration + 1) ==
+                        static_cast<int>(result.frame_list().count())) {
                         // so we're here it must be that this movie has a slate frame
                         // offset ifr start..
                         auto &ifg = ifr.frame_groups();
                         ifg.at(0).set_start(ifg.at(0).start() - 1);
                     }
 
-                    if (result.timecode().total_frames() != ifr.start()) {
+                    if (static_cast<int>(result.timecode().total_frames()) != ifr.start()) {
                         // force range..
                         if (result.frame_list().size() == 1) {
-                            auto before = result.timecode();
+                            // auto before = result.timecode();
                             result.set_timecode(
                                 result.timecode() +
                                 (ifr.start() -
@@ -275,7 +281,16 @@ class DNegMediaHook : public MediaHook {
                             changed = true;
                         }
                     }
+                } else if (
+                    jsn.contains(stt) and jsn.at(stt) == "audio" and jsn.contains(tcs) and
+                    jsn.at(tcs).is_string()) {
+                    auto ifr = FrameList(jsn.at(tcs).get<std::string>());
+                    result.set_timecode(
+                        result.timecode() +
+                        (ifr.start() - static_cast<int>(result.timecode().total_frames())));
+                    changed = true;
                 }
+
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
             }
@@ -362,7 +377,8 @@ class DNegMediaHook : public MediaHook {
             mr.container() or mr.uris().empty() ? mr.uri() : mr.uris()[0].first;
 
         const std::string path = to_string(uri);
-        auto ppath             = uri_to_posix_path(uri);
+        // don't remap path, or regex won't work.
+        auto ppath = uri_to_posix_path(uri, false);
 
 
         // utility::JsonStore j(R"(
@@ -539,6 +555,8 @@ class DNegMediaHook : public MediaHook {
                 input_category = "internal_movie";
             } else if (path.find("/edit_ref/") != std::string::npos) {
                 input_category = "edit_ref";
+            } else if (ext == ".tex") {
+                input_category = "texture_media";
             } else if (linear_ext.find(ext) != linear_ext.end()) {
                 input_category = "linear_media";
             } else if (log_ext.find(ext) != log_ext.end()) {
@@ -590,6 +608,26 @@ class DNegMediaHook : public MediaHook {
                 }
             }
 
+            // Extract bitdepth from tex files for color space assignment
+            // TODO: ColSci
+            // Should rely on color space metadata
+            std::string media_bitdepth;
+
+            if (input_category == "texture_media") {
+
+                try {
+                    const utility::JsonStore &media = metadata.at("metadata").at("media");
+                    for (auto &item : media.items()) {
+                        // Sample the first frame found
+                        if (utility::starts_with(item.key(), "@")) {
+                            media_bitdepth = item.value().at("bit_depth");
+                            break;
+                        }
+                    }
+                } catch (...) {
+                }
+            }
+
             // Note that we prefer using input_colorspace when possible,
             // this maps better to the UI source colour space menu.
 
@@ -625,6 +663,12 @@ class DNegMediaHook : public MediaHook {
                 } else {
                     r["input_display"] = "Rec709";
                     r["input_view"]    = "Film";
+                }
+            } else if (input_category == "texture_media") {
+                if (media_bitdepth.find("float") != std::string::npos) {
+                    r["input_colorspace"] = "scene_linear:linear";
+                } else {
+                    r["input_colorspace"] = "Gamma22:DNEG_sRGB:Film_sRGB";
                 }
             } else if (input_category == "linear_media") {
                 r["input_colorspace"] = "scene_linear:linear";
@@ -722,7 +766,7 @@ class DNegMediaHook : public MediaHook {
                         if (match.size() == 3) {
                             const std::string version = fmt::format(
                                 "{}.{}", std::string(match[1]), std::string(match[2]));
-                            fs_versions[version] = dir_entry.path();
+                            fs_versions[version] = dir_entry.path().string();
                         }
                     }
                 }

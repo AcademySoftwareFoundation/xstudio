@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Linux Generic Guide &mdash; xStudio 1.2.0 documentation</title>
+  <title>Linux Generic Guide &mdash; xStudio 1.3.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=eafc0fe6" />
@@ -16,7 +16,7 @@
   
         <script src="../../_static/jquery.js?v=5d32c60e"></script>
         <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=6efca38a"></script>
+        <script src="../../_static/documentation_options.js?v=1f29e9d3"></script>
         <script src="../../_static/doctools.js?v=888ff710"></script>
         <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
@@ -40,7 +40,7 @@
             xStudio
           </a>
               <div class="version">
-                1.2.0
+                1.3.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -55,7 +55,8 @@
 <li class="toctree-l1 current"><a class="reference internal" href="../index.html">xSTUDIO Reference</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="index.html">xSTUDIO Build Guides</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="index.html#post-production-studios-and-other-organisations">Post Production Studios and Other Organisations</a></li>
-<li class="toctree-l3 current"><a class="reference internal" href="index.html#individual-users">Individual Users</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="index.html#individual-users">Individual Users</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="index.html#choosing-a-guide">Choosing a guide</a><ul class="current">
 <li class="toctree-l4"><a class="reference internal" href="macos.html">MacOS (Intel/ARM)</a></li>
 <li class="toctree-l4"><a class="reference internal" href="windows.html">Windows 10/11</a></li>
 <li class="toctree-l4 current"><a class="current reference internal" href="#">Linux Generic Guide</a></li>
@@ -104,7 +105,14 @@
 <p>xSTUDIO can be built in just a few steps on many Linux distros by employing Microsoft’s ‘vcpkg’ open source package build system. Note that the differences between gcc compiler versions can cause some issues where newer compiler versions are more or less strict about syntax. The developers of xSTUDIO are unable to ensure full compatibility with all compiler variations at this point and it’s up to individuals following these guides to work through any issues encountered. Please do submit pull requests if you hit build problems and find solutions!</p>
 <section id="base-dependencies">
 <h2>Base dependencies<a class="headerlink" href="#base-dependencies" title="Link to this heading"></a></h2>
-<p>We assume that you have some knowledge of development on Linux platforms and have git, gcc &amp; cmake installed on your system.</p>
+<p>We assume that you have some knowledge of development on Linux platforms and have git, gcc and cmake installed on your system. You also need Ninja, which xSTUDIO uses as its CMake generator on all platforms. Install it via your distro’s package manager:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># Rocky / RHEL / Fedora
+sudo dnf install ninja-build
+
+# Ubuntu / Debian
+sudo apt install ninja-build
+</pre></div>
+</div>
 </section>
 <section id="download-and-install-qt-6-5-3-sdk">
 <h2>Download and install Qt 6.5.3 SDK<a class="headerlink" href="#download-and-install-qt-6-5-3-sdk" title="Link to this heading"></a></h2>
@@ -112,10 +120,10 @@
 </section>
 <section id="download-the-vcpkg-repo">
 <h2>Download the VCPKG repo<a class="headerlink" href="#download-the-vcpkg-repo" title="Link to this heading"></a></h2>
-<p>To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo, run the bootstrap script and then switch to a specific git commit before we build xstudio. Run these commands in the Powershell:</p>
+<p>To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo and run the bootstrap script before we build xstudio. Run these commands in a terminal:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/microsoft/vcpkg.git
+git -C vcpkg checkout c2aeddd80357b17592e59ad965d2adf65a19b22f
 ./vcpkg/bootstrap-vcpkg.sh
-git checkout c2aeddd80357b17592e59ad965d2adf65a19b22f
 </pre></div>
 </div>
 </section>
@@ -127,41 +135,49 @@ cd xstudio
 git checkout develop
 </pre></div>
 </div>
-<p>You must run these commands to add the OpenTimelineIO submodule to the tree</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git submodule init
-git submodule update
-git apply cmake/otio_patch.diff
-</pre></div>
-</div>
 </section>
-<section id="modify-the-cmakepresets-json-file">
-<h2>Modify the CMakePresets.json file<a class="headerlink" href="#modify-the-cmakepresets-json-file" title="Link to this heading"></a></h2>
-<p>Open the CMakePresets.json file (which is in the root of the xstudio repo) in a text editor. You must look for the entry “Qt6_DIR” and modify the value that follows it to point to your installation of the Qt SDK. Specifically, you need to point to a directory named ‘Qt6’ which is in a directory named ‘cmake’, which is in a directory named ‘lib’. For example, if user Mary Jane downloaded Qt into her home folder the entry should look like this:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>&quot;Qt6_DIR&quot;: &quot;/home/maryjane/Qt/6.5.3/gcc_64/lib/cmake/Qt6&quot;,
+<section id="tell-cmake-where-qt-is-installed">
+<h2>Tell CMake where Qt is installed<a class="headerlink" href="#tell-cmake-where-qt-is-installed" title="Link to this heading"></a></h2>
+<p>CMake needs to know where your Qt 6.5.3 SDK is installed. Create a <code class="docutils literal notranslate"><span class="pre">CMakeUserPresets.json</span></code> file alongside <code class="docutils literal notranslate"><span class="pre">CMakePresets.json</span></code> in the repo root. This file is gitignored, so your local path won’t be committed. The user preset should have a different name from the tracked preset it inherits from, and add <code class="docutils literal notranslate"><span class="pre">Qt6_DIR</span></code> to <code class="docutils literal notranslate"><span class="pre">cacheVariables</span></code>. For example, if user Mary Jane downloaded Qt into her home folder:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>{
+  &quot;version&quot;: 3,
+  &quot;configurePresets&quot;: [
+    {
+      &quot;name&quot;: &quot;LinuxNinjaReleaseLocal&quot;,
+      &quot;inherits&quot;: &quot;LinuxNinjaRelease&quot;,
+      &quot;cacheVariables&quot;: {
+        &quot;Qt6_DIR&quot;: &quot;/home/maryjane/Qt/6.5.3/gcc_64/lib/cmake/Qt6&quot;
+      }
+    }
+  ]
+}
 </pre></div>
 </div>
+<p>See the <a class="reference external" href="https://cmake.org/cmake/help/latest/manual/cmake-presets.7.html">CMake presets documentation</a> for the full format reference.</p>
 </section>
 <section id="build-xstudio">
 <h2>Build xSTUDIO<a class="headerlink" href="#build-xstudio" title="Link to this heading"></a></h2>
 <p>First, we configure for building. Note that this cmake command <em><strong>may take several hours to complete</strong></em> the first time it is run, though subsequently it will take a few seconds. This is because xSTUDIO’s dependencies (particularly ffmpeg) take a long time to download and build from the source code, which is what VCPKG is doing.</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cmake -B build --preset LinuxRelease
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cmake -B build --preset LinuxNinjaReleaseLocal
 </pre></div>
 </div>
-<p>When this has finished, you can build xSTUDIO with this command (in this case, the –parallel flag is set for a machine with 16 cores as an example).</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cmake --build build --parallel 16
+<p>When this has finished, you can build xSTUDIO with:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cmake --build build
 </pre></div>
 </div>
+<p>RelWithDebInfo and Debug variants are also available — see <a class="reference download internal" download="" href="../../_downloads/320813cbeeb16ba523e52d06672cf078/CMakePresets.json"><span class="xref download myst">CMakePresets.json</span></a> for the full list.</p>
 </section>
 <section id="running-xstudio-in-a-dev-environment">
 <h2>Running xSTUDIO in a dev environment<a class="headerlink" href="#running-xstudio-in-a-dev-environment" title="Link to this heading"></a></h2>
-<p>If the compilation is successfull you will find the xstudio app in ./build/bin/xstudio.bin. To enable the python API, you will need to modify your PYTHONPATH evnironment variable like this, or something similar:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>export PYTHONPATH=$PYTHONPATH:./build/bin/python/lib/python3.10/site-packages
+<p>If the compilation is successful you will find the xstudio app in <code class="docutils literal notranslate"><span class="pre">./build/bin/xstudio.bin</span></code>. To enable the Python API, add the built site-packages directory to your <code class="docutils literal notranslate"><span class="pre">PYTHONPATH</span></code>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>export PYTHONPATH=$PYTHONPATH:$(pwd)/build/bin/python/lib/python3.11/site-packages
 </pre></div>
 </div>
+<p>Run this from the xstudio repository root. The <code class="docutils literal notranslate"><span class="pre">python3.11</span></code> segment tracks whichever Python version vcpkg built — if you change the <code class="docutils literal notranslate"><span class="pre">python3</span></code> pin in <code class="docutils literal notranslate"><span class="pre">vcpkg.json</span></code>, update this path to match.</p>
 </section>
 <section id="installing-xstudio">
 <h2>Installing xSTUDIO<a class="headerlink" href="#installing-xstudio" title="Link to this heading"></a></h2>
-<p>Correct packaging and installation of xstudio and its dependencies across various Linux distros is a problem we are still working on! For now, it is up to individual developers to do an effective installation on their system. You can try running ‘make install’ from the ‘build’ folder. Use -DCMAKE_BUILD_PREFIX={path} to set a test installation location</p>
+<p>Correct packaging and installation of xstudio and its dependencies across various Linux distros is a problem we are still working on! For now, it is up to individual developers to do an effective installation on their system. You can try running <code class="docutils literal notranslate"><span class="pre">cmake</span> <span class="pre">--install</span> <span class="pre">build</span></code> from the repository root. Use -DCMAKE_BUILD_PREFIX={path} to set a test installation location</p>
 </section>
 </section>
 
