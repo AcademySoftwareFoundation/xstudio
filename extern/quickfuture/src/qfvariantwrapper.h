@@ -117,7 +117,7 @@ public:
     virtual inline ~VariantWrapperBase() {
     }
 
-    virtual bool isPaused(const QVariant& v) = 0;
+    virtual bool isSuspended(const QVariant& v) = 0;
     virtual bool isFinished(const QVariant& v) = 0;
     virtual bool isRunning(const QVariant& v) = 0;
     virtual bool isCanceled(const QVariant& v) = 0;
@@ -147,8 +147,8 @@ public:
             res = isFinished(v);
         } else if (name == "isRunning") {
             res = isRunning(v);
-        } else if (name == "isPaused") {
-            res = isPaused(v);
+        } else if (name == "isSuspended") {
+            res = isSuspended(v);
         } else {
             qWarning().noquote() << QString("Future: Unknown property: %1").arg(name);
         }
@@ -213,7 +213,7 @@ public:
 
     QF_WRAPPER_DECL_READ(bool, isRunning)
 
-    QF_WRAPPER_DECL_READ(bool, isPaused)
+    QF_WRAPPER_DECL_READ(bool, isSuspended)
 
     QF_WRAPPER_DECL_READ(bool, isCanceled)
 
@@ -291,7 +291,10 @@ public:
         QFutureWatcher<T> *watcher = new QFutureWatcher<T>();
 
         QObject::connect(watcher, &QFutureWatcherBase::canceled, setProperty);
-        QObject::connect(watcher, &QFutureWatcherBase::paused, setProperty);
+        // deprecated.
+        // QObject::connect(watcher, &QFutureWatcherBase::paused, setProperty);
+
+        QObject::connect(watcher, &QFutureWatcherBase::suspending, setProperty);
         QObject::connect(watcher, &QFutureWatcherBase::resumed, setProperty);
         QObject::connect(watcher, &QFutureWatcherBase::started, setProperty);
 

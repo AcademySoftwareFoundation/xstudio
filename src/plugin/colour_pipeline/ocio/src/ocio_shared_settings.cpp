@@ -322,7 +322,7 @@ caf::message_handler OCIOGlobalControls::message_handler_extensions() {
                             attr_value;
                         user_view_display_settings_attr_->set_role_data(
                             module::Attribute::Value, user_view_display_settings_, false);
-                    } else if (attr_title == "View") {
+                    } else if (attr_title == "View" && sync_with_others) {
                         user_view_display_settings_[ocio_config][attr_title] = attr_value;
                         user_view_display_settings_attr_->set_role_data(
                             module::Attribute::Value, user_view_display_settings_, false);

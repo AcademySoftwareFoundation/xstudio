@@ -44,7 +44,7 @@ class ReaderHelper : public caf::event_based_actor {
         std::map<std::string, utility::Uuid> plugin_map);
     ~ReaderHelper() override = default;
 
-    const char *name() const override { return NAME.c_str(); }
+    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
 
   private:
     inline static const std::string NAME = "ReaderHelper";
@@ -70,8 +70,6 @@ ReaderHelper::ReaderHelper(
             const caf::uri &_uri,
             const std::string &hint) -> result<caf::actor> {
             // spdlog::warn("get_reader_atom {} {}", to_string(_uri),hint);
-            auto tp = utility::clock::now();
-
             // use hint
             if (not hint.empty() and plugin_map_.count(hint)) {
                 auto uuid = plugin_map_[hint];
@@ -142,7 +140,7 @@ ReaderHelper::ReaderHelper(
 
 GlobalMediaReaderActor::GlobalMediaReaderActor(
     caf::actor_config &cfg, const utility::Uuid &uuid)
-    : caf::event_based_actor(cfg), uuid_(uuid), max_source_count_(256), max_source_age_(600) {
+    : caf::event_based_actor(cfg), uuid_(uuid) {
     print_on_exit(this, "GlobalMediaReaderActor");
     spdlog::debug("Created GlobalMediaReaderActor.");
     if (uuid_.is_null())
@@ -157,6 +155,8 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
             max_source_count_ =
                 preference_value<size_t>(js, "/core/media_reader/max_source_count");
             max_source_age_ = preference_value<size_t>(js, "/core/media_reader/max_source_age");
+            max_num_inflight_requests_ =
+                preference_value<size_t>(js, "/core/media_reader/read_threads_per_source");
         } catch (...) {
         }
 
@@ -280,7 +280,6 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
                                 do_read(*reader);
                             } else {
                                 // request new reader instance.
-                                auto tp = utility::clock::now();
                                 mail(get_reader_atom_v, mptr.uri(), mptr.reader())
                                     .request(pool_, infinite)
                                     .then(
@@ -343,7 +342,6 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
                                         });
                             } else {
                                 // request new reader instance.
-                                auto tp = utility::clock::now();
                                 mail(get_reader_atom_v, mptr.uri(), mptr.reader())
                                     .request(pool_, infinite)
                                     .then(
@@ -464,7 +462,6 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
                                     return;
 
                                 // get reader..
-                                auto tp2 = utility::clock::now();
                                 mail(get_reader_atom_v, mptr.uri(), mptr.reader())
                                     .request(pool_, infinite)
                                     .then(
@@ -624,7 +621,6 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
             const media::AVFrameIDsAndTimePoints mptrs,
             const Uuid playhead_uuid) -> result<bool> {
             auto rp = make_response_promise<bool>();
-            auto tt = utility::clock::now();
 
             // we've been told to start background cacheing - this should only happen
             // when playback has halted and the user isn't actively scrubbing the
@@ -663,7 +659,12 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
                 .send(this);
         },
 
-        [=](do_precache_work_atom) { do_precache(); },
+        [=](do_precache_work_atom) {
+            // do_precache returns false if we have hit our limit on the number of
+            // in-flight image read requests.
+            while (do_precache()) {
+            }
+        },
 
         [=](utility::uuid_atom) -> Uuid { return uuid_; });
 }
@@ -704,7 +705,7 @@ caf::actor GlobalMediaReaderActor::get_reader(
     if (cached_reader)
         return *cached_reader;
 
-    return caf::actor();
+    return {};
 }
 
 std::string
@@ -786,7 +787,7 @@ void GlobalMediaReaderActor::prune_readers() {
 
 void GlobalMediaReaderActor::on_exit() { system().registry().erase(media_reader_registry); }
 
-void GlobalMediaReaderActor::do_precache() {
+bool GlobalMediaReaderActor::do_precache() {
 
     // We won't process a new request if there are already precache requests in
     // flight for a given playhead. The reason is the async nature of CAF ...
@@ -795,18 +796,18 @@ void GlobalMediaReaderActor::do_precache() {
     // reading frames is slow) - we would then be in a situation where the CAF
     // mailbox is full of requests to precache frames
     std::optional<FrameRequest> fr = playback_precache_request_queue_.pop_request(
-        playheads_with_precache_requests_in_flight_);
+        playheads_with_precache_requests_in_flight_, max_num_inflight_requests_);
 
     // when putting new images in the cache, images older than this timepoint can
     // be discarded
     bool is_background_cache = false;
     if (not fr) {
-        fr = background_precache_request_queue_.pop_request(
-            playheads_with_precache_requests_in_flight_);
 
+        fr = background_precache_request_queue_.pop_request(
+            playheads_with_precache_requests_in_flight_, max_num_inflight_requests_);
 
         if (not fr) {
-            return; // global reader is saying pre-cache queue for this reader is empty
+            return false; // global reader is saying pre-cache queue for this reader is empty
         }
         is_background_cache = true;
     }
@@ -915,6 +916,7 @@ void GlobalMediaReaderActor::do_precache() {
                 spdlog::warn(
                     "Failed preserve buffer {} {}", to_string(mptr->key()), to_string(err));
             });
+    return true;
 }
 
 void GlobalMediaReaderActor::keep_cache_hot(
@@ -1098,7 +1100,7 @@ void GlobalMediaReaderActor::send_error_to_source(
 
         auto dest = caf::actor_cast<caf::actor>(addr);
         if (dest and err.category() == caf::type_id_v<media::media_error>) {
-            media_error me;
+            media_error me = media_error::missing;
             from_integer(err.code(), me);
             switch (me) {
             case media_error::corrupt:

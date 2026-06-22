@@ -38,6 +38,7 @@ CAF_PUSH_WARNINGS
 #include <QApplication>
 #include <QEvent>
 #include <QDebug>
+#include <QQuickItem>
 CAF_POP_WARNINGS
 
 
@@ -169,7 +170,23 @@ class HELPER_QML_EXPORT QMLActor : public caf::mixin::actor_object<QObject> {
     virtual void init(caf::actor_system &system) { super::init(system); }
 
   public:
-    caf::actor_system &system() const {
+    [[nodiscard]] caf::actor_system &system() const {
+        return const_cast<caf::actor_companion *>(self())->home_system();
+    }
+};
+
+class HELPER_QML_EXPORT QQuickItemActor : public caf::mixin::actor_object<QQuickItem> {
+    Q_OBJECT
+
+  public:
+    using super = caf::mixin::actor_object<QQuickItem>;
+    explicit QQuickItemActor(QQuickItem *parent = nullptr) : super(parent) {}
+
+    virtual ~QQuickItemActor() = default;
+    virtual void init(caf::actor_system &system) { super::init(system); }
+
+  public:
+    [[nodiscard]] caf::actor_system &system() const {
         return const_cast<caf::actor_companion *>(self())->home_system();
     }
 };

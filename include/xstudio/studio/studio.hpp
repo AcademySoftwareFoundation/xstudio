@@ -6,16 +6,14 @@
 #include "xstudio/utility/container.hpp"
 #include "xstudio/utility/json_store.hpp"
 
-namespace xstudio {
-namespace studio {
-    class Studio : public utility::Container {
-      public:
-        Studio(const std::string &name = "Studio");
-        Studio(const utility::JsonStore &jsn);
+namespace xstudio::studio {
+class Studio : public utility::Container {
+  public:
+    Studio(const std::string &name = "Studio");
+    Studio(const utility::JsonStore &jsn);
 
-        ~Studio() override = default;
+    ~Studio() override = default;
 
-        [[nodiscard]] utility::JsonStore serialise() const override;
-    };
-} // namespace studio
-} // namespace xstudio
+    [[nodiscard]] utility::JsonStore serialise() const override;
+};
+} // namespace xstudio::studio

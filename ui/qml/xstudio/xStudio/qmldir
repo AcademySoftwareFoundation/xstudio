@@ -123,6 +123,7 @@ XsAttributesPanel         1.0 ../application/dialogs/XsAttributesPanel.qml
 XsColourDialog            1.0 ../application/dialogs/XsColourDialog.qml
 XsCompareModePref         1.0 ../application/dialogs/preferences/delegates/XsCompareModePref.qml
 XsHotkeysDialog           1.0 ../application/dialogs/hotkeys/XsHotkeysDialog.qml
+XsHotkeySetterDialog      1.0 ../application/dialogs/hotkeys/XsHotkeySetterDialog.qml
 XsJsonPreference          1.0 ../application/dialogs/preferences/delegates/XsJsonPreference.qml
 XsPopup                   1.0 ../dialogs/XsPopup.qml
 XsPreferencesDialog       1.0 ../application/dialogs/preferences/XsPreferencesDialog.qml
@@ -137,6 +138,7 @@ XsNotification            1.0 ../widgets/indicators/XsNotification.qml
 XsProgressBar             1.0 ../widgets/indicators/XsProgressBar.qml
 
 XsLabel                   1.0 ../widgets/indicators/XsLabel.qml
+XsTabButton               1.0 ../widgets/indicators/XsTabButton.qml
 XsText                    1.0 ../widgets/XsText.qml
 XsIntegerAttrControl	  1.0 ../widgets/XsIntegerAttrControl.qml
 XsTextCopyable            1.0 ../widgets/XsTextCopyable.qml
@@ -164,6 +166,7 @@ XsMenuItemToggle          1.0 ../menus/XsMenuItemToggle.qml
 XsMenuItemToggleWithSettings 1.0 ../menus/XsMenuItemToggleWithSettings.qml
 XsPopupMenu               1.0 ../menus/XsPopupMenu.qml
 
+XsTabBar                1.0 ../widgets/layout/XsTabBar.qml
 XsGridView                1.0 ../widgets/layout/XsGridView.qml
 XsIcon                    1.0 ../widgets/indicators/XsIcon.qml
 XsImage                   1.0 ../widgets/indicators/XsImage.qml

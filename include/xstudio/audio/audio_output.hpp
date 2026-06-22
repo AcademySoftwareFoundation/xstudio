@@ -40,8 +40,8 @@ struct ScrubHelper {
             scrub_behaviour_ = ScrubBehaviour::OneFrame;
     }
 
-    timebase::flicks scrub_duration(const utility::FrameRate &media_rate) const;
-    double scrub_duration_secs(const utility::FrameRate &media_rate) const {
+    [[nodiscard]] timebase::flicks scrub_duration(const utility::FrameRate &media_rate) const;
+    [[nodiscard]] double scrub_duration_secs(const utility::FrameRate &media_rate) const {
         return timebase::to_seconds(scrub_duration(media_rate));
     }
 

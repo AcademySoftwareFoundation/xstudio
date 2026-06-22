@@ -128,18 +128,21 @@ caf::uri MediaReference::uri(const FramePadFormat fpf) const {
                 auto str = uri_decode(to_string(uri_));
                 std::cmatch m;
 
-                if (std::regex_match(str.c_str(), m, std::regex(".*\\{:(\\d+)d\\}.*"))) {
-                    auto repstr = std::string(std::min(1, std::stoi(m[1].str())), '#');
-
-                    if (frame_count() == 1) {
+                if (std::regex_match(str.c_str(), m, std::regex(R"(.*\{:(\d+)d\}.*)"))) {
+                    if (frame_count() == 1 and not uris().empty()) {
                         result = uris().front().first;
                     } else {
-                        result = *caf::make_uri(uri_encode(
-                            std::regex_replace(
-                                str,
-                                std::regex("(\\{:\\d+d\\})"),
-                                repstr,
-                                std::regex_constants::format_first_only)));
+                        auto repstr  = std::string(std::min(1, std::stoi(m[1].str())), '#');
+                        auto uri_str = std::regex_replace(
+                            str,
+                            std::regex(R"((\{:\d+d\}))"),
+                            repstr,
+                            std::regex_constants::format_first_only);
+                        auto uri = caf::make_uri(uri_encode(uri_str));
+                        if (uri)
+                            result = *uri;
+                        else
+                            spdlog::warn("{} Invalid URI {}", __PRETTY_FUNCTION__, uri_str);
                     }
                 }
             }
@@ -150,12 +153,17 @@ caf::uri MediaReference::uri(const FramePadFormat fpf) const {
             // file://localhost//tmp/test/test.{:04d}.exr
 
             {
-                result = *caf::make_uri(uri_encode(
-                    std::regex_replace(
-                        uri_decode(to_string(uri_)),
-                        std::regex("\\{:(\\d+d)\\}"),
-                        "%$1",
-                        std::regex_constants::format_first_only)));
+                auto uri_str = std::regex_replace(
+                    uri_decode(to_string(uri_)),
+                    std::regex(R"(\{:(\d+d)\})"),
+                    "%$1",
+                    std::regex_constants::format_first_only);
+
+                auto uri = caf::make_uri(uri_encode(uri_str));
+                if (uri)
+                    result = *uri;
+                else
+                    spdlog::warn("{} Invalid URI {}", __PRETTY_FUNCTION__, uri_str);
             }
             break;
 
@@ -211,11 +219,14 @@ std::optional<caf::uri> MediaReference::uri_from_frame(const int sequence_frame)
         return uri_;
 
     try {
+        auto uri_str =
+            uri_encode(fmt::format(fmt::runtime(uri_decode(to_string(uri_))), sequence_frame));
 
-        auto _uri = caf::make_uri(
-            uri_encode(fmt::format(fmt::runtime(uri_decode(to_string(uri_))), sequence_frame)));
+        auto _uri = caf::make_uri(uri_str);
         if (_uri)
             return *_uri;
+        else
+            spdlog::warn("{} Invalid URI {}", __PRETTY_FUNCTION__, uri_str);
 
     } catch (std::exception &e) {
         spdlog::debug("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -250,7 +261,8 @@ void MediaReference::fill_partial_sequences() {
     }
 }
 
-std::optional<caf::uri> MediaReference::pick_representative_frame(int &file_frame) const {
+std::optional<std::pair<caf::uri, int>> MediaReference::pick_representative_frame(
+    const std::optional<int> &starting_logical_frame) const {
 
     // In the case of retrieving media detail or metadata for a frame
     // based source (i.e. EXRs, jpegs) we want to pick a frame
@@ -260,38 +272,48 @@ std::optional<caf::uri> MediaReference::pick_representative_frame(int &file_fram
     // where the first frame is a slate frame made by a separate
     // tool to the rest of the sequence
 
-    const auto frames = frame_list_.frames();
+    std::pair<caf::uri, int> result;
+    int file_frame      = 0;
+    const auto frames   = frame_list_.frames();
+    auto test_frame_uri = uri(0, file_frame);
 
-    std::optional<caf::uri> test_frame_uri = uri(0, file_frame);
+    if (not test_frame_uri)
+        return {};
 
-    if (frames.empty() or not test_frame_uri)
-        return test_frame_uri;
+    result = std::make_pair(*test_frame_uri, file_frame);
 
-    // Now we search from the middle frame in the frame range (going both backwards
-    // and forwards) until we hit a frame that is on-disk.
+    if (not frames.empty()) {
+        // Now we search from the middle frame in the frame range (going both backwards
+        // and forwards) until we hit a frame that is on-disk.
+        int forward_frame, backward_frame;
 
-    int d = frames.size() / 2;
+        if (starting_logical_frame)
+            forward_frame = backward_frame = *starting_logical_frame;
+        else
+            forward_frame = backward_frame = frames.size() / 2;
 
-    while (d >= 0) {
-        test_frame_uri = uri(d, file_frame);
+        while (backward_frame >= 0 or forward_frame < static_cast<int>(frames.size())) {
 
-        if ((test_frame_uri &&
-             fs::exists(fs::path(utility::uri_to_posix_path(*test_frame_uri)))) ||
-            d == 0) {
-            break;
+            if (auto test_frame_uri = uri(backward_frame, file_frame);
+                test_frame_uri and
+                fs::exists(fs::path(utility::uri_to_posix_path(*test_frame_uri)))) {
+                result = std::make_pair(*test_frame_uri, file_frame);
+                break;
+            }
+
+            if (auto test_frame_uri = uri(forward_frame, file_frame);
+                test_frame_uri and
+                fs::exists(fs::path(utility::uri_to_posix_path(*test_frame_uri)))) {
+                result = std::make_pair(*test_frame_uri, file_frame);
+                break;
+            }
+
+            backward_frame--;
+            forward_frame++;
         }
-
-        test_frame_uri = uri(frames.size() - d, file_frame);
-
-        if (test_frame_uri &&
-            fs::exists(fs::path(utility::uri_to_posix_path(*test_frame_uri)))) {
-            break;
-        }
-
-        d--;
     }
 
-    return test_frame_uri;
+    return result;
 }
 
 

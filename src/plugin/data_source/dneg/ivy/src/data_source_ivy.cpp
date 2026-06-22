@@ -52,12 +52,32 @@ const auto GetVersionIvyUuid =
 //     return root;
 // }
 
+namespace {
+bool server_path_or_local(const caf::uri &uri) {
+    // this is unmapped.
+    auto result                   = true;
+    const auto path               = to_string(uri);
+    const static auto hostname    = get_host_name();
+    const static auto hostname_re = std::regex(R"(^file:.+?/hosts/([^/]+)/.+$)");
+    std::cmatch m;
+
+    if (std::regex_match(path.c_str(), m, hostname_re)) {
+        if (m[1] != hostname) {
+            result = false;
+            spdlog::warn("Leaf skipped, unsafe path {}", path);
+        }
+    }
+
+    return result;
+}
+} // namespace
+
 class IvyMediaWorker : public caf::event_based_actor {
   public:
     IvyMediaWorker(caf::actor_config &cfg, caf::actor ivyactor);
     ~IvyMediaWorker() override = default;
 
-    const char *name() const override { return NAME.c_str(); }
+    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
 
   private:
     inline static const std::string NAME = "IvyMediaWorker";
@@ -289,7 +309,7 @@ template <typename T> caf::message_handler IvyDataSourceActor<T>::message_handle
                             }
                         } catch (const std::exception &err) {
                             spdlog::warn(
-                                "{} Invalid drop data {}", __PRETTY_FUNCTION__, err.what());
+                                "{} {} {}", __PRETTY_FUNCTION__, err.what(), response.body);
                             rp.deliver(make_error(xstudio_error::error, err.what()));
                         }
                     },
@@ -602,8 +622,12 @@ void IvyMediaWorker::add_media_source(
         auto name = jsn.at("name").get<std::string>();
 
         if (jsn.at("version").at("kind").at("name") == "Audio") {
-            auto label = std::string();
-            auto type  = std::string();
+            auto label     = std::string();
+            auto type      = std::string();
+            auto actor     = std::string();
+            auto character = std::string();
+            auto language  = std::string();
+
             for (const auto &nt : jsn.at("version").at("name_tags")) {
                 if (nt.at("name") == "label") {
                     label = nt.at("value");
@@ -611,10 +635,18 @@ void IvyMediaWorker::add_media_source(
                 } else if (nt.at("name") == "type") {
                     type = nt.at("value");
                     name = type;
+                } else if (nt.at("name") == "actor") {
+                    actor = nt.at("value");
+                } else if (nt.at("name") == "character") {
+                    character = nt.at("value");
+                } else if (nt.at("name") == "language") {
+                    language = nt.at("value");
                 }
             }
 
-            if (not label.empty() and not type.empty()) {
+            if (not actor.empty() or not character.empty() or not language.empty()) {
+                name = join_as_string({type, actor, character, language, label}, "-", true);
+            } else if (not label.empty() and not type.empty()) {
                 name = label + "-" + type;
             } else if (
                 use_stalk_name_for_audio_sources && jsn.at("version").contains("name") &&
@@ -653,15 +685,8 @@ void IvyMediaWorker::add_media(
 
     for (const auto &i : jsn.at("files")) {
         // check we want it..
-        if (i.at("type") == "METADATA" or i.at("type") == "THUMBNAIL" or
-            i.at("type") == "SOURCE") {
-
-            // if(i.at("name") == "stats") {
-            //     if(auto fpath = fs::path(i.at("path")); fpath.extension() == ".yaml") {
-            //         load_yaml(i.at("path"));
-            //     }
-            // }
-
+        // let SOURCE in, as it's sometimes useful.
+        if (i.at("type") == "METADATA" or i.at("type") == "THUMBNAIL") {
             (*count)--;
             continue;
         }
@@ -670,7 +695,7 @@ void IvyMediaWorker::add_media(
         FrameList frame_list;
         try {
             auto uri = parse_cli_posix_path(i.at("path"), frame_list, false);
-            if (not is_file_supported(uri)) {
+            if (not is_file_supported(uri) or not server_path_or_local(uri)) {
                 (*count)--;
                 continue;
             }
@@ -1000,7 +1025,7 @@ void IvyDataSourceActor<T>::get_version(
                         rp.deliver(jsn);
                     }
                 } catch (const std::exception &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, err.what(), response.body);
                     rp.deliver(make_error(xstudio_error::error, err.what()));
                 }
             },
@@ -1045,16 +1070,7 @@ void IvyDataSourceActor<T>::ivy_load_version_sources(
                 auto files = JsonStore(R"([])"_json);
                 for (const auto &i : ivy_files) {
                     // check we want it..
-                    if (i.at("type") == "METADATA" or i.at("type") == "THUMBNAIL" or
-                        i.at("type") == "SOURCE") {
-
-                        // if(i.at("name") == "stats") {
-                        //     if(auto fpath = fs::path(i.at("path")); fpath.extension() ==
-                        //     ".yaml") {
-                        //         load_yaml(i.at("path"));
-                        //     }
-                        // }
-
+                    if (i.at("type") == "METADATA" or i.at("type") == "THUMBNAIL") {
                         continue;
                     }
 
@@ -1062,7 +1078,7 @@ void IvyDataSourceActor<T>::ivy_load_version_sources(
                     FrameList frame_list;
                     try {
                         auto uri = parse_cli_posix_path(i.at("path"), frame_list, false);
-                        if (is_file_supported(uri))
+                        if (is_file_supported(uri) and server_path_or_local(uri))
                             files.push_back(i);
                     } catch (const std::exception &err) {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -1072,7 +1088,7 @@ void IvyDataSourceActor<T>::ivy_load_version_sources(
 
                 auto count   = std::make_shared<int>(files.size());
                 auto results = std::make_shared<UuidActorVector>();
-                if (not *count)
+                if (not*count)
                     return rp.deliver(UuidActorVector());
 
                 for (const auto &i : files) {
@@ -1164,7 +1180,7 @@ void IvyDataSourceActor<T>::ivy_load_version(
                             std::make_shared<int>(jsn.at("data").at("versions_by_id").size());
                         auto results = std::make_shared<UuidActorVector>();
 
-                        if (not *count)
+                        if (not*count)
                             return rp.deliver(UuidActorVector());
 
                         for (const auto &i : jsn.at("data").at("versions_by_id")) {
@@ -1253,7 +1269,7 @@ void IvyDataSourceActor<T>::ivy_load_file(
                             std::make_shared<int>(jsn.at("data").at("files_by_id").size());
                         auto results = std::make_shared<UuidActorVector>();
 
-                        if (not *count)
+                        if (not*count)
                             return rp.deliver(UuidActorVector());
 
                         for (const auto &i : jsn.at("data").at("files_by_id")) {
@@ -1569,7 +1585,7 @@ void IvyDataSourceActor<T>::pipequery(
                     auto jsn = nlohmann::json::parse(response.body);
                     rp.deliver(JsonStore(jsn));
                 } catch (const std::exception &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, err.what(), response.body);
                     rp.deliver(make_error(xstudio_error::error, err.what()));
                 }
             },
@@ -1665,8 +1681,7 @@ void IvyDataSourceActor<T>::ivy_load_audio_sources(
                         for (const auto &v : jsn.at("data").at("latest_versions")) {
                             for (const auto &i : v.at("files")) {
                                 // check we want it..
-                                if (i.at("type") == "METADATA" or i.at("type") == "THUMBNAIL" or
-                                    i.at("type") == "SOURCE")
+                                if (i.at("type") == "METADATA" or i.at("type") == "THUMBNAIL")
                                     continue;
 
                                 // need to filter unsupported leafs..
@@ -1675,7 +1690,7 @@ void IvyDataSourceActor<T>::ivy_load_audio_sources(
                                 try {
                                     auto uri =
                                         parse_cli_posix_path(i.at("path"), frame_list, false);
-                                    if (is_file_supported(uri))
+                                    if (is_file_supported(uri) and server_path_or_local(uri))
                                         files.push_back(i);
                                 } catch (const std::exception &err) {
                                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());

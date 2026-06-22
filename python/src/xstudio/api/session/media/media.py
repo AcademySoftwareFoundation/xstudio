@@ -179,7 +179,7 @@ class Media(Container):
         return json.loads(self.connection.request_receive(self.remote, get_json_atom(), Uuid(), path)[0].dump())
 
     def set_metadata(self, data, path):
-        """Get metdata at JSON path
+        """Set metdata at JSON path
 
         Args:
             data(json): JSON Data

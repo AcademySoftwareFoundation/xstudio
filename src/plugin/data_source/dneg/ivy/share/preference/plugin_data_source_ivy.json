@@ -34,9 +34,9 @@
                     "path": "/plugin/data_source/ivy/default_audio_source",
                     "value": "ax",
                     "category": "Pipeline",
-                    "options": ["sfxdx", "sfx", "dx", "mx", "ax", "fullmix"],
+                    "options": ["sfxdx", "sfx", "dx", "mx", "ax", "fullmix", "click"],
                     "display_name": "Default Audio Source (Ivy)"
-                }                
+                }
             }
         }
     }

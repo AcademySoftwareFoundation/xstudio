@@ -1,26 +1,20 @@
 macro(default_compile_options name)
 	target_compile_options(${name}
 		# PRIVATE -fvisibility=hidden
+		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wextra>
+		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wno-unused-function>
+		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wpedantic>
+		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Windows>>:/wd4100>
 		PRIVATE $<$<AND:$<CONFIG:RelWithDebInfo>,$<PLATFORM_ID:Linux>>:-fno-omit-frame-pointer>
 		PRIVATE $<$<AND:$<CONFIG:RelWithDebInfo>,$<PLATFORM_ID:Windows>>:/Oy>
 		PRIVATE $<$<PLATFORM_ID:Darwin>:-Wno-deprecated>
-		PRIVATE $<$<PLATFORM_ID:Linux>:-Wno-deprecated>
-		# PRIVATE $<$<PLATFORM_ID:Linux>:-Wno-deprecated-declarations>
-		# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-variable>
-		# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-but-set-variable>
-		# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-parameter>
-		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wno-unused-function>
-		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wextra>
-		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wextra>
+		PRIVATE $<$<PLATFORM_ID:Linux>:-Wextra>
+		PRIVATE $<$<PLATFORM_ID:Linux>:-Wall>
+		PRIVATE $<$<PLATFORM_ID:Linux>:-Wno-unused-parameter>
+		PRIVATE $<$<PLATFORM_ID:Linux>:-Werror>
 		PRIVATE $<$<PLATFORM_ID:Linux>:-Wfatal-errors> # Stop after first error
-		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wpedantic>
-		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Windows>>:/wd4100>
+		PRIVATE $<$<PLATFORM_ID:Linux>:-Wno-deprecated>
 		PRIVATE $<$<PLATFORM_ID:Windows>:/bigobj>
-		# PRIVATE $<$<CONFIG:Debug>:-Wall>
-		# PRIVATE $<$<CONFIG:Debug>:-Werror>
-		# PRIVATE $<$<CONFIG:Debug>:-Wextra>
-		# PRIVATE $<$<CONFIG:Debug>:-Wpedantic>
-		# PRIVATE ${GTEST_CFLAGS}
 	)
 
 	target_compile_features(${name}
@@ -213,6 +207,7 @@ macro(default_plugin_options name)
 		add_custom_command(
 				TARGET ${PROJECT_NAME}
 				POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/share/xstudio/plugin"
 				COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${PROJECT_NAME}>" "${CMAKE_BINARY_DIR}/share/xstudio/plugin"
 		)
 	endif()
@@ -308,6 +303,7 @@ macro(default_options_qt name)
 		set_target_properties(${name}
 	    	PROPERTIES
 	    	LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/lib"
+	    	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 		)
 		install(TARGETS ${name} EXPORT xstudio
         	LIBRARY DESTINATION share/xstudio/lib)
@@ -520,15 +516,9 @@ macro(add_preference name path target)
 
 	else()
 
-		if (WIN32)
-    		add_custom_command(TARGET ${target} POST_BUILD
-                   COMMAND ${CMAKE_COMMAND} -E copy ${path}/${name}
-                                                    ${CMAKE_BINARY_DIR}/share/xstudio/preference/${name})
-		else()
-    		add_custom_command(TARGET ${target} POST_BUILD
+		add_custom_command(TARGET ${target} POST_BUILD
                    COMMAND ${CMAKE_COMMAND} -E copy ${path}/${name}
                                                     ${CMAKE_BINARY_DIR}/bin/preference/${name})
-		endif()
 
 	    if(INSTALL_XSTUDIO)
 			install(FILES
@@ -581,6 +571,7 @@ macro(create_test PATH DEPS)
 	default_options_gtest(${NAME})
 	target_link_libraries(${NAME}
 		PRIVATE
+		xstudio::global
 		"${DEPS}"
 		${GTEST_LDFLAGS}
 	)

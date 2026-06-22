@@ -125,16 +125,9 @@ class Item(Container):
         """
         colour = self.item.flag()
 
-        colours = {
-            "#FFFF0000": "Red",
-            "#FF00FF00": "Green",
-            "#FF0000FF": "Blue",
-            "#FFFFFF00": "Yellow",
-            "#FFFFA500": "Orange",
-            "#FF800080": "Purple",
-            "#FF000000": "Black",
-            "#FFFFFFFF": "White",
-        }
+        colours = {d["colour"]: d["name"] for d in
+                   self.connection.api.global_store
+                   .value("/core/session/media_flags").get()}
 
         return colours[colour] if colour in colours else colour
 

@@ -154,8 +154,7 @@ void OIIOMediaReader::update_preferences(const utility::JsonStore &prefs) {
 
     try {
         // Set OIIO threading
-        int threads =
-            global_store::preference_value<int>(prefs, "/plugin/media_reader/OIIO/threads");
+        int threads = std::min(std::max(4, int(std::thread::hardware_concurrency()) - 2), 16);
         OIIO::attribute("threads", threads);
     } catch (const std::exception &e) {
     }
@@ -845,7 +844,8 @@ OIIOMediaReader::thumbnail(const media::AVFrameID &mpr, const size_t thumb_size)
 
         // Step 5: Resize the image to thumbnail dimensions.
         OIIO::ImageBuf resized = OIIO::ImageBufAlgo::resize(
-            imagebuf, "", 0, OIIO::ROI(0, thumb_width, 0, thumb_height));
+            imagebuf, OIIO::ImageBufAlgo::KWArgs(), OIIO::ROI(0, thumb_width, 0, thumb_height));
+
         if (resized.has_error()) {
             throw std::runtime_error("OIIO resize error: " + resized.geterror());
         }

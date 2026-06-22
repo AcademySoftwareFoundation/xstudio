@@ -70,19 +70,26 @@ void ShotBrowser::find_shot(
     const int shot_id) {
     // find version from supplied details.
     // check it's not in the cache..
-    if (shot_cache_.count(shot_id))
+
+    if (shot_cache_.count(shot_id)) {
         rp.deliver(shot_cache_.at(shot_id));
-    else if (auto cache = engine().get_cache(QueryEngine::cache_name("shot", project_id));
-             cache) {
+    } else if (auto cache = engine().get_cache(QueryEngine::cache_name("shot", project_id));
+               cache) {
         // find shot in cache
         for (const auto &i : *cache) {
-            if (i.at("id") == shot_id) {
-                shot_cache_[shot_id] = i;
+            const auto &id = i.at("id");
+
+            if (not shot_cache_.count(id))
+                shot_cache_[id] = i;
+
+            if (id == shot_id) {
                 rp.deliver(i);
                 break;
             }
         }
-    } else {
+    }
+
+    if (rp.pending()) {
         if (project_id and
             not engine().get_cache(QueryEngine::cache_name("shotmanifest", project_id))) {
             auto req = JsonStore(
@@ -95,7 +102,6 @@ void ShotBrowser::find_shot(
                     [=](const JsonStore &) mutable { find_shot(rp, project_id, shot_id); },
                     [=](error &err) mutable { rp.deliver(err); });
         } else {
-
             // check for manifest..
             mail(shotgun_entity_atom_v, "Shot", shot_id, extend_fields("Shots", ShotFields))
                 .request(shotgun_, std::chrono::seconds(static_cast<int>(timeout_->value())))
@@ -1584,69 +1590,78 @@ void ShotBrowser::get_data_shot(
                     get_data_shot(rp, type, project_id, page, prev_data);
                 },
                 [=](error &err) mutable { rp.deliver(err); });
-    }
+    } else {
+        auto filter = R"(
+        {
+            "logical_operator": "and",
+            "conditions": [
+                ["project", "is", {"type":"Project", "id":0}],
+                ["sg_status_list", "not_in", ["na", "del"]]
+            ]
+        })"_json;
 
-    auto filter = R"(
-    {
-        "logical_operator": "and",
-        "conditions": [
-            ["project", "is", {"type":"Project", "id":0}],
-            ["sg_status_list", "not_in", ["na", "del"]]
-        ]
-    })"_json;
+        filter["conditions"][0][2]["id"] = project_id;
 
-    filter["conditions"][0][2]["id"] = project_id;
+        mail(
+            shotgun_entity_search_atom_v,
+            "Shots",
+            JsonStore(filter),
+            extend_fields("Shots", ShotFields),
+            std::vector<std::string>({"code"}),
+            page,
+            4999)
+            .request(shotgun_, infinite)
+            .then(
+                [=](const JsonStore &data) mutable {
+                    try {
+                        if (not data.count("data"))
+                            rp.deliver(make_error(xstudio_error::error, data.dump(2)));
+                        else {
+                            spdlog::stopwatch sw;
+                            auto total = prev_data;
+                            total.insert(
+                                total.end(), data.at("data").begin(), data.at("data").end());
 
-    mail(
-        shotgun_entity_search_atom_v,
-        "Shots",
-        JsonStore(filter),
-        extend_fields("Shots", ShotFields),
-        std::vector<std::string>({"code"}),
-        page,
-        4999)
-        .request(shotgun_, infinite)
-        .then(
-            [=](const JsonStore &data) mutable {
-                try {
-                    if (not data.count("data"))
-                        rp.deliver(make_error(xstudio_error::error, data.dump(2)));
-                    else {
-                        auto total = prev_data;
-                        total.insert(
-                            total.end(), data.at("data").begin(), data.at("data").end());
+                            if (data.at("data").size() == 4999) {
+                                get_data_shot(rp, type, project_id, page + 1, total);
+                            } else {
+                                auto cache_key = QueryEngine::cache_name(type, project_id);
 
-                        if (data.at("data").size() == 4999) {
-                            get_data_shot(rp, type, project_id, page + 1, total);
-                        } else {
-                            auto cache_key = QueryEngine::cache_name(type, project_id);
+                                // inject metadata for dnshottags..
+                                // auto shot_tag_key =
+                                // QueryEngine::cache_name("ShotManifestTag",
+                                // i.at(shot_id_ptr)); engine().set_cache(shot_tag_key,
+                                // i.at(value_ptr));
+                                for (auto it = total.begin(); it != total.end(); ++it) {
+                                    const auto &id = it->at("id");
 
-                            // inject metadata for dnshottags..
-                            // auto shot_tag_key = QueryEngine::cache_name("ShotManifestTag",
-                            // i.at(shot_id_ptr)); engine().set_cache(shot_tag_key,
-                            // i.at(value_ptr));
-                            for (auto it = total.begin(); it != total.end(); ++it) {
-                                auto value = engine().get_cache(
-                                    QueryEngine::cache_name("ShotManifestTag", it->at("id")));
-                                if (value)
-                                    (*it)["attributes"]["sg_custom_entity29"] = *value;
+                                    auto value = engine().get_cache(
+                                        QueryEngine::cache_name("ShotManifestTag", id));
+
+                                    if (value)
+                                        (*it)["attributes"]["sg_custom_entity29"] = *value;
+
+                                    // add to shot cache..
+                                    if (not shot_cache_.count(id))
+                                        shot_cache_[id] = *it;
+                                }
+
+                                engine().set_lookup(
+                                    QueryEngine::cache_name("Shot", project_id),
+                                    total,
+                                    engine().lookup());
+                                engine().set_cache(cache_key, total);
+
+                                rp.deliver(*engine().get_cache(cache_key));
                             }
-
-                            engine().set_lookup(
-                                QueryEngine::cache_name("Shot", project_id),
-                                total,
-                                engine().lookup());
-                            engine().set_cache(cache_key, total);
-
-                            rp.deliver(*engine().get_cache(cache_key));
                         }
+                    } catch (const std::exception &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                        rp.deliver(make_error(xstudio_error::error, err.what()));
                     }
-                } catch (const std::exception &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-                    rp.deliver(make_error(xstudio_error::error, err.what()));
-                }
-            },
-            [=](error &err) mutable { rp.deliver(err); });
+                },
+                [=](error &err) mutable { rp.deliver(err); });
+    }
 }
 
 void ShotBrowser::get_data_asset(
@@ -2427,8 +2442,8 @@ void ShotBrowser::get_precache(
 
     // trigger precaching of lookup.
     // we call into ourselves sigh..
-    const auto &lookup         = engine().lookup();
-    const auto &cache          = engine().cache();
+    const auto &lookup = engine().lookup();
+    // const auto &cache          = engine().cache();
     std::set<std::string> need = engine().precache_needed(project_id, lookup);
 
     if (need.empty()) {

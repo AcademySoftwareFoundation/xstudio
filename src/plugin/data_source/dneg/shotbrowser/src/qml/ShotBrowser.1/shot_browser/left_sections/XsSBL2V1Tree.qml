@@ -263,6 +263,25 @@ Item{
             }
 
             XsMenuModelItem {
+                text: "Show Stage"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 0.16
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: prefs.showStage
+                onActivated: prefs.showStage = !prefs.showStage
+            }
+            XsMenuModelItem {
+                text: "Show Stage Colour"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 0.17
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: prefs.showStageColour
+                onActivated: prefs.showStageColour = !prefs.showStageColour
+            }
+
+            XsMenuModelItem {
                 text: "Show Type"
                 menuItemType: "toggle"
                 menuPath: ""
@@ -629,6 +648,8 @@ Item{
                             showManifest: prefs.showManifest
                             showType: prefs.showType
                             showVisibility: prefs.showVisibility
+                            showStage: prefs.showStage
+                            showStageColour: prefs.showStageColour
                         }
                     }
                 }

@@ -15,6 +15,7 @@ import xstudio.qml.helpers 1.0
 XsWindow{
 
     title: "Publish "+notesType+" Notes"
+    id: pubDlg
     property bool isPlaylistNotes: true
     property string notesType: isPlaylistNotes? "Playlist": "Selected Media"
     property string message: "No notes to publish."
@@ -41,6 +42,13 @@ XsWindow{
     property var payload_obj: null
 
     property int notesCount: (payload_obj ? payload_obj["payload"].length : 0)
+
+    onVisibleChanged: {
+        // we need this to fill out the OCIO View combo box with the options
+        // for the current playhead
+        studio.setupSnapshotViewport("")
+    }
+
 
     onProjectIdChanged: ShotBrowserEngine.cacheProject(projectId)
 
@@ -584,6 +592,32 @@ XsWindow{
             }
         }
 
+        RowLayout {
+
+            Layout.preferredHeight: itemHeight
+            Layout.topMargin: itemHeight
+
+            XsLabel {
+                text: "OCIO Display:"
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                Layout.leftMargin: 46
+            }
+
+            XsAttrComboBox {
+                Layout.preferredWidth: 120
+                Layout.preferredHeight: XsStyleSheet.widgetStdHeight
+                attr_title: "Display"
+                attr_model_name: "snapshot_viewport_toolbar"
+            }
+
+            XsInfoButton {
+                Layout.preferredHeight: XsStyleSheet.widgetStdHeight
+                Layout.preferredWidth: XsStyleSheet.widgetStdHeight
+                tooltipText: "If your notes have annotations (draw-overs) a screenshot will be generated and attached to the ShotGrid note. This option allows you to set the OCIO display space that is used for the generated image(s). For example, 'Eizo' space might be preferred as it generally lifts the dark areas. 'sRGB' is a default choice if you're not sure."
+                maxWidth: pubDlg.width*0.7
+            }
+        }
+
         Item{
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -627,7 +661,7 @@ XsWindow{
                     Layout.preferredWidth: parent.width/2
                     Layout.fillHeight: true
                     text: "Publish Notes To SG"
-                    enabled: !invalidPublish
+                    enabled: !(invalidPublish || !notesCount)
                     onClicked: {
                         publishNotes()
                         close()
@@ -640,7 +674,6 @@ XsWindow{
             Layout.fillWidth: true
             Layout.preferredHeight: itemHeight
             Layout.bottomMargin: itemHeight/3
-
 
             XsText{
                 x: 20

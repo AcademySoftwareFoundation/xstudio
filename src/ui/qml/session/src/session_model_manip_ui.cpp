@@ -93,8 +93,8 @@ SessionModel::removeRows(int row, int count, const bool deep, const QModelIndex 
 
 
 bool SessionModel::duplicateRows(int row, int count, const QModelIndex &parent) {
-    auto can_duplicate = false;
-    auto result        = false;
+    // auto can_duplicate = false;
+    auto result = false;
     // spdlog::warn("duplicateRows {} {}", row, count);
 
     std::set<std::string> timeline_types(
@@ -179,7 +179,7 @@ bool SessionModel::duplicateRows(int row, int count, const QModelIndex &parent) 
                                 before,
                                 false)
                                 .send(pactor);
-                            can_duplicate = true;
+                            // can_duplicate = true;
                             emit playlistsChanged();
                         }
                     } else if (j.at("type") == "Media") {
@@ -499,7 +499,7 @@ QModelIndexList SessionModel::insertRows(
                     }
 
                     if (actor) {
-                        nlohmann::json &pj = indexToData(parent);
+                        // nlohmann::json &pj = indexToData(parent);
                         // spdlog::warn("divider parent {}", pj.dump(2));
 
                         if (before.is_null())

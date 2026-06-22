@@ -1,0 +1,1 @@
+from .filesystem_browser import create_plugin_instance

@@ -72,11 +72,11 @@ TEST(AudioActorTest, Test) {
                        playlist::create_playhead_atom_v)
                        .actor();
 
-        f.self->send(playhead, playhead::play_atom_v, true);
+        f.self->mail(playhead::play_atom_v, true).send(playhead);
 
         std::this_thread::sleep_for(3000ms);
 
-        f.self->send(playhead, playhead::play_atom_v, false);
+        f.self->mail(playhead::play_atom_v, false).send(playhead);
         f.self->send_exit(playhead, caf::exit_reason::user_shutdown);
 
     } catch (std::exception &e) {

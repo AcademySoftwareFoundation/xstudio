@@ -9,10 +9,14 @@
 #include "preset_model_ui.hpp"
 #include "definitions.hpp"
 #include "async_request.hpp"
+#include "xstudio/ui/qml/session_model_ui.hpp"
 #include "result_model_ui.hpp"
 
 #include <QProcess>
 #include <QQmlExtensionPlugin>
+#include <QUdpSocket>
+#include <QHostInfo>
+#include <QNetworkDatagram>
 #include <qdebug.h>
 
 using namespace std::chrono_literals;
@@ -602,6 +606,63 @@ void ShotBrowserEngine::populateCaches() {
     getSchemaFieldsFuture("pipeline_status");
     getSchemaFieldsFuture("sequence_status");
 }
+
+QFuture<QUrl> ShotBrowserEngine::remapCachePathFuture(const QPersistentModelIndex &index) {
+    // get source actor.
+    auto source_actor = actorFromString(
+        system(), StdFromQString(index.data(SessionModel::Roles::actorRole).toString()));
+    auto source_uuid = UuidFromQUuid(index.data(SessionModel::Roles::actorUuidRole).toUuid());
+    auto media_actor = actorFromString(
+        system(),
+        StdFromQString(index.parent().data(SessionModel::Roles::actorRole).toString()));
+    auto path = index.data(SessionModel::Roles::pathRole).toUrl();
+    // get shotgrid metadata..
+    auto site = std::string("mum");
+    try {
+        scoped_actor sys{system()};
+        site = request_receive<utility::JsonStore>(
+            *sys,
+            media_actor,
+            json_store::get_json_atom_v,
+            utility::Uuid(),
+            std::string("/metadata/shotgun/version/attributes/sg_location"));
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    return QtConcurrent::run([=]() {
+        const auto orig          = uri_to_posix_path(UriFromQUrl(path), false);
+        static const auto pathre = std::regex(R"(^/jobs/(([^/]+)/.+)$)");
+        std::cmatch m;
+
+        if (std::regex_match(orig.c_str(), m, pathre) and m[2] != site) {
+            const auto npath = std::string("/jobs/") + site + "/" + std::string(m[1]);
+
+            // remap path to cache.
+            utility::add_remap_file_path(orig, npath);
+
+            // trigger remote loading of source by daemon.
+            auto socket = new QUdpSocket();
+            QByteArray data;
+            data.append(std::string("read|") + npath);
+            socket->writeDatagram(
+                data, QHostInfo::fromName("globalnfscache").addresses().front(), 8081);
+            socket->deleteLater();
+
+            // trigger re-evaluation of source detail..
+            anon_mail(media::acquire_media_detail_atom_v, true).send(source_actor);
+            anon_mail(media_hook::get_media_hook_atom_v).send(source_actor);
+
+            // switch current media source ?
+            anon_mail(media::current_media_source_atom_v, source_uuid).send(media_actor);
+
+            return QUrlFromUri(posix_path_to_uri(npath, false, true));
+        }
+
+        return path;
+    });
+}
+
 
 QFuture<QString> ShotBrowserEngine::requestFileTransferFuture(
     const QVariantList &qitems,

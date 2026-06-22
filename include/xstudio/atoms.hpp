@@ -53,6 +53,7 @@ const std::string global_media_metadata_manager_registry{"MEDIAMETADATAMANAGER"}
 const std::string pc_audio_output_registry{"PC_AUDIO_OUTPUT"};
 const std::string viewport_layouts_manager{"GLOBALVIEWPORT_LAYOUTS_MGR"};
 const std::string sync_registry{"SYNC"};
+const std::string mask_renderer_registry{"MASK_RENDERER"};
 
 
 namespace bookmark {
@@ -143,6 +144,7 @@ namespace ui {
     class PointerEvent;
     struct Signature;
     namespace viewport {
+        struct Mask;
         class GPUShader;
         typedef std::shared_ptr<const GPUShader> GPUShaderPtr;
         class ViewportRenderer;
@@ -264,6 +266,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_simple_types, FIRST_CUSTOM_ID)
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::ui::Hotkey))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::ui::PointerEvent))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::ui::Signature))
+    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::ui::viewport::Mask))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::ui::viewport::FitMode))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::ui::viewport::MirrorMode))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::ui::viewport::GPUShaderPtr))
@@ -408,6 +411,8 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_complex_types, FIRST_CUSTOM_ID + 200)
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::utility::Notification>))
 
     CAF_ADD_TYPE_ID(xstudio_complex_types, (xstudio::media::MediaSourceChecksum))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::ui::viewport::Mask>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::vector<xstudio::ui::viewport::Mask>>))
 
 CAF_END_TYPE_ID_BLOCK(xstudio_complex_types)
 
@@ -600,6 +605,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_session_atoms, FIRST_CUSTOM_ID + (200 * 4))
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::bookmark, default_category_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::bookmark, get_annotation_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::bookmark, annotation_data_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::bookmark, laser_stroke_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::bookmark, get_bookmark_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::bookmark, get_bookmarks_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::bookmark, remove_bookmark_atom)
@@ -903,7 +909,8 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_ui_atoms,  FIRST_CUSTOM_ID + (200 * 6))
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, annotation_atom)
 
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui, open_external_atom)
-
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, viewport_reset_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, viewport_mask_atom)
 
 CAF_END_TYPE_ID_BLOCK(xstudio_ui_atoms)
 
@@ -1259,8 +1266,8 @@ class XStudioError : public std::runtime_error {
             error_type_ = xstudio_error_type::caf_error;
     }
 
-    xstudio_error_type type() const { return error_type_; }
-    caf::error caf_error() const { return caf_error_; }
+    [[nodiscard]] xstudio_error_type type() const { return error_type_; }
+    [[nodiscard]] caf::error caf_error() const { return caf_error_; }
 
   private:
     xstudio_error_type error_type_{xstudio_error_type::runtime_error};

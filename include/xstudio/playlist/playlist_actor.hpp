@@ -28,10 +28,10 @@ namespace playlist {
             const utility::Uuid &uuid = utility::Uuid(),
             const caf::actor &session = caf::actor());
 
-        ~PlaylistActor();
+        ~PlaylistActor() override = default;
 
         void on_exit() override;
-        const char *name() const override { return NAME.c_str(); }
+        [[nodiscard]] const char *name() const override { return NAME.c_str(); }
 
         static caf::message_handler default_event_handler();
 

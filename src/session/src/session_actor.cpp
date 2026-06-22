@@ -38,7 +38,7 @@ namespace {
 class SessionIOActor : public caf::event_based_actor {
   public:
     SessionIOActor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {}
-    const char *name() const override { return NAME.c_str(); }
+    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
 
     caf::message_handler message_handler() {
         return caf::message_handler{
@@ -149,7 +149,7 @@ class MediaCopyActor : public caf::event_based_actor {
     ~MediaCopyActor() override = default;
 
     caf::behavior make_behavior() override { return behavior_; }
-    const char *name() const override { return NAME.c_str(); }
+    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
 
   private:
     inline static const std::string NAME = "MediaCopyActor";
@@ -410,7 +410,7 @@ class LoadUrisActor : public caf::event_based_actor {
     ~LoadUrisActor() override = default;
 
     caf::behavior make_behavior() override { return behavior_; }
-    const char *name() const override { return NAME.c_str(); }
+    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
 
   private:
     inline static const std::string NAME = "LoadUrisActor";
@@ -688,6 +688,20 @@ caf::message_handler SessionActor::message_handler() {
             return mail(atom, name, Uuid(), false).delegate(actor_cast<caf::actor>(this));
         },
 
+        [=](add_playlist_atom atom, const std::string name, const bool hidden) -> UuidActor {
+            // special 'hidden' playlist that isn't part of the session structure.
+            // This can be used to make a temporary playlist to preview stuff in the
+            // xSTUDIO viewport without adding to the full session
+            const auto uuid = utility::Uuid::generate();
+            auto actor =
+                spawn<playlist::PlaylistActor>(name, uuid, caf::actor_cast<caf::actor>(this));
+            hidden_playlists_[uuid] = actor;
+            anon_mail(media_rate_atom_v, base_.media_rate()).send(actor);
+            anon_mail(playhead::playhead_rate_atom_v, base_.playhead_rate()).send(actor);
+            link_to(actor);
+            return UuidActor(uuid, actor);
+        },
+
         [=](add_playlist_atom, caf::actor actor, const Uuid &uuid_before, const bool into)
             -> result<std::pair<utility::Uuid, UuidActor>> {
             // try insert as requested, but add to end if it fails.
@@ -796,6 +810,9 @@ caf::message_handler SessionActor::message_handler() {
             // includes subgroups..
             if (playlists_.count(uuid))
                 return playlists_[uuid];
+
+            if (hidden_playlists_.count(uuid))
+                return hidden_playlists_[uuid];
 
             if (not playlists_.empty()) {
                 auto rp = make_response_promise<caf::actor>();
@@ -2048,7 +2065,8 @@ caf::message_handler SessionActor::message_handler() {
             const utility::UuidActor & /*media*/,
             const utility::UuidActor & /*media_source*/,
             const std::string & /*viewport_name*/,
-            const int /*playhead_idx*/) {
+            const int /*playhead_idx*/,
+            const bool /*is_main_playhead*/) {
             // event from 'global_playhead_events_actor'
             // the onscreen media for the given viewport has changed
         }};
@@ -2417,7 +2435,7 @@ std::string SessionActor::get_next_name(const std::string &name_template) const 
             if (uuid)
                 return uuid;
         }
-        return Uuid();
+        return {};
     };
 
     int n = 1;

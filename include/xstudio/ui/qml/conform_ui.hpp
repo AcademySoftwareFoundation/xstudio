@@ -18,84 +18,80 @@ CAF_POP_WARNINGS
 #include "xstudio/ui/qml/helper_ui.hpp"
 #include "xstudio/ui/qml/json_tree_model_ui.hpp"
 
-namespace xstudio {
-namespace ui {
-    namespace qml {
+namespace xstudio::ui::qml {
 
-        class CONFORM_QML_EXPORT ConformEngineUI
-            : public caf::mixin::actor_object<JSONTreeModel> {
-            Q_OBJECT
+class CONFORM_QML_EXPORT ConformEngineUI : public caf::mixin::actor_object<JSONTreeModel> {
+    Q_OBJECT
 
-          public:
-            using super = caf::mixin::actor_object<JSONTreeModel>;
-            enum Roles { nameRole = JSONTreeModel::Roles::LASTROLE };
+  public:
+    using super = caf::mixin::actor_object<JSONTreeModel>;
+    enum Roles { nameRole = JSONTreeModel::Roles::LASTROLE };
 
-            ConformEngineUI(QObject *parent = nullptr);
-            ~ConformEngineUI() override = default;
+    ConformEngineUI(QObject *parent = nullptr);
+    ~ConformEngineUI() override = default;
 
-            void init(caf::actor_system &system);
-            caf::actor_system &system() const {
-                return const_cast<caf::actor_companion *>(self())->home_system();
-            }
+    void init(caf::actor_system &system);
+    [[nodiscard]] caf::actor_system &system() const {
+        return const_cast<caf::actor_companion *>(self())->home_system();
+    }
 
-            [[nodiscard]] QVariant
-            data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+    [[nodiscard]] QVariant
+    data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 
 
-            Q_INVOKABLE QFuture<QList<QUuid>> conformItemsFuture(
-                const QString &task,
-                const QModelIndex &container,
-                const QModelIndex &item,
-                const bool fanOut       = false,
-                const bool removeSource = false,
-                const bool limitResults = false,
-                const bool reuseMedia   = false) const;
+    Q_INVOKABLE [[nodiscard]] QFuture<QList<QUuid>> conformItemsFuture(
+        const QString &task,
+        const QModelIndex &container,
+        const QModelIndex &item,
+        const bool fanOut       = false,
+        const bool removeSource = false,
+        const bool limitResults = false,
+        const bool reuseMedia   = false) const;
 
-            Q_INVOKABLE QFuture<QList<QUuid>> conformToSequenceFuture(
-                const QModelIndex &playlistIndex,
-                const QModelIndexList &mediaIndexes,
-                const QModelIndex &sequenceIndex,
-                const QModelIndex &conformTrackIndex,
-                const bool replace,
-                const QString &newTrackName = "") const;
+    Q_INVOKABLE [[nodiscard]] QFuture<QList<QUuid>> conformToSequenceFuture(
+        const QModelIndex &playlistIndex,
+        const QModelIndexList &mediaIndexes,
+        const QModelIndex &sequenceIndex,
+        const QModelIndex &conformTrackIndex,
+        const bool replace,
+        const QString &newTrackName = "") const;
 
-            Q_INVOKABLE QFuture<QList<QUuid>> conformToNewSequenceFuture(
-                const QModelIndexList &mediaIndexes,
-                const QString &task              = "",
-                const int siblings               = -1,
-                const QModelIndex &playlistIndex = QModelIndex()) const;
+    Q_INVOKABLE [[nodiscard]] QFuture<QList<QUuid>> conformToNewSequenceFuture(
+        const QModelIndexList &mediaIndexes,
+        const QString &task              = "",
+        const int siblings               = -1,
+        const QModelIndex &playlistIndex = QModelIndex()) const;
 
-            Q_INVOKABLE QFuture<bool> conformPrepareSequenceFuture(
-                const QModelIndex &sequenceIndex, const bool onlyCreateConfrom = true) const;
+    Q_INVOKABLE [[nodiscard]] QFuture<bool> conformPrepareSequenceFuture(
+        const QModelIndex &sequenceIndex, const bool onlyCreateConfrom = true) const;
 
-            Q_INVOKABLE QFuture<QList<QUuid>> conformTracksToSequenceFuture(
-                const QModelIndexList &trackIndexes, const QModelIndex &sequenceIndex) const;
+    Q_INVOKABLE [[nodiscard]] QFuture<QList<QUuid>> conformTracksToSequenceFuture(
+        const QModelIndexList &trackIndexes, const QModelIndex &sequenceIndex) const;
 
-            Q_INVOKABLE QFuture<QList<QUuid>> conformFindRelatedFuture(
-                const QString &key,
-                const QModelIndex &clipIndex,
-                const QModelIndex &sequenceIndex) const;
+    Q_INVOKABLE [[nodiscard]] QFuture<QList<QUuid>> conformFindRelatedFuture(
+        const QString &key,
+        const QModelIndex &clipIndex,
+        const QModelIndex &sequenceIndex) const;
 
-          signals:
+  signals:
 
-          private:
-            QFuture<QList<QUuid>> conformItemsFuture(
-                const std::string &task,
-                const utility::UuidActorVector &items,
-                const utility::UuidActor &playlist,
-                const utility::UuidActor &container,
-                const std::string &item_type,
-                const utility::UuidVector &before,
-                const bool removeSource,
-                const bool limitResults                  = false,
-                const bool reuseMedia                    = false,
-                const QPersistentModelIndex &notifyIndex = QPersistentModelIndex(),
-                const QUuid &notifyUuid                  = QUuid()) const;
+  private:
+    [[nodiscard]] QFuture<QList<QUuid>> conformItemsFuture(
+        const std::string &task,
+        const utility::JsonStore &metadata,
+        const utility::UuidActorVector &items,
+        const utility::UuidActor &playlist,
+        const utility::UuidActor &container,
+        const std::string &item_type,
+        const utility::UuidVector &before,
+        const bool removeSource,
+        const bool limitResults                  = false,
+        const bool reuseMedia                    = false,
+        const QPersistentModelIndex &notifyIndex = QPersistentModelIndex(),
+        const QUuid &notifyUuid                  = QUuid()) const;
 
-            utility::Uuid conform_uuid_;
-            caf::actor conform_events_;
-        };
+    utility::Uuid conform_uuid_;
+    caf::actor conform_events_;
+};
 
-    } // namespace qml
-} // namespace ui
-} // namespace xstudio
+} // namespace xstudio::ui::qml

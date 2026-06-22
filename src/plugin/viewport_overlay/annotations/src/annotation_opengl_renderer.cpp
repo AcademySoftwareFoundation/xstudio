@@ -165,16 +165,16 @@ static std::array<Imath::V2f, 38> handles_vertices = {
 } // namespace
 
 AnnotationsRenderer::AnnotationsRenderer(
-    const std::string &viewport_name,
+    const std::string viewport_name,
     std::atomic_bool &cursor_blink,
     std::atomic_bool &hide_all,
     std::atomic_int *hide_strokes,
     std::atomic_bool *hide_all2)
-    : viewport_name_(viewport_name),
+    : viewport_name_(std::move(viewport_name)),
       cursor_blink_(cursor_blink),
       hide_all_(hide_all),
       hide_strokes_(hide_strokes),
-      hide_all_2_(hide_all2) {
+      hide_per_viewport_(hide_all2) {
     canvas_renderer_.reset(new ui::opengl::OpenGLCanvasRenderer());
     texthandle_renderer_.reset(new CaptionHandleRenderer());
 }
@@ -186,7 +186,7 @@ void AnnotationsRenderer::render_image_overlay(
     const float device_pixel_ratio,
     const xstudio::media_reader::ImageBufPtr &frame) {
 
-    if (hide_all_ || *hide_all_2_)
+    if (hide_all_ || *hide_per_viewport_)
         return;
 
     // 'live' annotation edit data (strokes & shapes under construction) is
@@ -204,8 +204,7 @@ void AnnotationsRenderer::render_image_overlay(
 
         // get to annotation data by dynamic casing the annotation_ pointer on
         // the bookmark to our 'Annotation' class.
-        const Annotation *my_annotation =
-            dynamic_cast<const Annotation *>(bookmark->annotation_.get());
+        auto my_annotation = dynamic_cast<const Annotation *>(bookmark->annotation_.get());
 
         bool hide_strokes = false;
         if (*hide_strokes_ == 2 && live_canvas_data &&
@@ -303,8 +302,9 @@ void AnnotationsRenderer::render_viewport_overlay(
     const float viewport_du_dpixel,
     const float device_pixel_ratio) {
 
-    if (hide_all_ || *hide_all_2_)
-        return;
+    // Laser strokes are intentionally drawn regardless of the Display Mode
+    // (Always / Only When Paused) and the user-visibility toggles — they
+    // are transient pointing aids and must always be visible while drawn.
 
     if (on_screen_frames) {
 
@@ -360,7 +360,7 @@ void AnnotationsExtrasRenderer::render_viewport_overlay(
         pixel_patch_.patch_vertex_data().data(),
         GL_STREAM_DRAW);
     // 3. then set our vertex module pointers
-    Imath::V4f *ptr = 0;
+    Imath::V4f *ptr = nullptr;
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 2 * sizeof(Imath::V4f), (void *)ptr);
     ptr += 1;
     glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 2 * sizeof(Imath::V4f), (void *)ptr);
