@@ -1,0 +1,3 @@
+module BasicViewportMask
+
+BasicViewportMaskOverlay 1.0 BasicViewportMaskOverlay.qml

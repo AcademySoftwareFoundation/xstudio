@@ -11,8 +11,6 @@ using namespace xstudio::http_client;
 using namespace xstudio::utility;
 using namespace caf;
 
-// #define LOG_CALLS 1
-
 typedef http_client_error hce;
 
 std::string HTTPWorker::get_error_string(const httplib::Error err) {
@@ -77,12 +75,7 @@ HTTPWorker::HTTPWorker(
             const httplib::Headers &headers,
             const std::string &body,
             const std::string &content_type) -> result<httplib::Response> {
-
-#ifdef LOG_CALLS
-            spdlog::stopwatch sw;
-            spdlog::info("http_delete_atom {}", path);
-#endif
-
+            // spdlog::warn("http_delete_atom {}", path);
             try {
                 httplib::Client cli(scheme_host_port.c_str());
                 cli.set_follow_location(true);
@@ -98,10 +91,6 @@ HTTPWorker::HTTPWorker(
 
                 if (res.error() != httplib::Error::Success)
                     return make_error(hce::rest_error, get_error_string(res.error()));
-
-#ifdef LOG_CALLS
-                spdlog::info("http_delete_atom {} {:.3f}", path, sw);
-#endif
 
                 if (res)
                     return *res;
@@ -140,11 +129,7 @@ HTTPWorker::HTTPWorker(
             const std::string &path,
             const httplib::Headers &headers,
             const httplib::Params &params) -> result<httplib::Response> {
-
-#ifdef LOG_CALLS
-            spdlog::stopwatch sw;
-            spdlog::info("http_get_atom {}", path);
-#endif
+            // spdlog::warn("http_get_atom {}", path);
 
             try {
                 httplib::Client cli(scheme_host_port.c_str());
@@ -170,10 +155,6 @@ HTTPWorker::HTTPWorker(
                     }
                     return make_error(hce::rest_error, error);
                 }
-
-#ifdef LOG_CALLS
-                spdlog::info("http_get_atom {} {:.3f}", path, sw);
-#endif
 
                 if (result)
                     return *result;
@@ -214,11 +195,7 @@ HTTPWorker::HTTPWorker(
             const httplib::Params &params,
             const std::string &body,
             const std::string &content_type) -> result<httplib::Response> {
-
-#ifdef LOG_CALLS
-            spdlog::stopwatch sw;
-            spdlog::info("http_post_atom {}", path);
-#endif
+            // spdlog::warn("http_post_atom {}", path);
 
             try {
                 httplib::Client cli(scheme_host_port.c_str());
@@ -235,10 +212,6 @@ HTTPWorker::HTTPWorker(
 
                 if (res.error() != httplib::Error::Success)
                     return make_error(hce::rest_error, get_error_string(res.error()));
-
-#ifdef LOG_CALLS
-                spdlog::info("http_post_atom {} {:.3f}", path, sw);
-#endif
 
                 if (res)
                     return *res;
@@ -280,11 +253,7 @@ HTTPWorker::HTTPWorker(
             const httplib::Params &params,
             const std::string &body,
             const std::string &content_type) -> result<httplib::Response> {
-
-#ifdef LOG_CALLS
-            spdlog::stopwatch sw;
-            spdlog::info("http_put_atom {}", path);
-#endif
+            // spdlog::warn("http_put_atom {}", path);
 
             try {
                 httplib::Client cli(scheme_host_port.c_str());
@@ -305,16 +274,12 @@ HTTPWorker::HTTPWorker(
                     return cli.Put(param_path.c_str(), headers, body, content_type.c_str());
                 }();
 
+
                 if (res.error() != httplib::Error::Success)
                     return make_error(hce::rest_error, get_error_string(res.error()));
 
-#ifdef LOG_CALLS
-                spdlog::info("http_put_atom {} {:.3f}", path, sw);
-#endif
-
                 if (res)
                     return *res;
-
                 return make_error(hce::connection_error, "Empty response");
             } catch (const std::exception &err) {
                 return make_error(hce::connection_error, err.what());

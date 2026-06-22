@@ -212,7 +212,7 @@ QModelIndex DataModel::parent(const QModelIndex &child) const {
     if (e && e->parent) {
         return createIndex(e->parent->row, e->parent->column, e->parent);
     }
-    return {};
+    return QModelIndex();
 }
 
 QVariant DataModel::data(const QModelIndex &index, int role) const {

@@ -1,0 +1,77 @@
+os:
+  - linux
+
+language: cpp
+
+compiler:
+  - gcc
+  - clang
+
+before_install:
+  # g++4.8.1
+  - if [ "$CXX" == "g++" ]; then sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test; fi
+
+  # clang 3.4
+  - if [ "$CXX" == "clang++" ]; then sudo add-apt-repository -y ppa:h-rayflood/llvm; fi
+
+  - sudo apt-get update -qq
+
+install:
+  # utils
+  - sudo apt-get install -y curl unzip cmake
+
+  # g++4.8
+  - if [ "$CXX" = "g++" ]; then sudo apt-get install -qq gcc-4.8 g++-4.8; fi
+  - if [ "$CXX" = "g++" ]; then sudo rm /usr/bin/gcc /usr/bin/g++; fi
+  - if [ "$CXX" = "g++" ]; then sudo ln -s /usr/bin/gcc-4.8 /usr/bin/gcc; fi
+  - if [ "$CXX" = "g++" ]; then sudo ln -s /usr/bin/g++-4.8 /usr/bin/g++; fi
+
+  # clang 3.4
+  - if [ "$CXX" == "clang++" ]; then sudo apt-get install --allow-unauthenticated -qq clang-3.4; fi
+  - if [ "$CXX" == "clang++" ]; then export CXXFLAGS="-std=c++0x -stdlib=libc++"; fi
+
+  # libc++
+  - if [ "$CXX" == "clang++" ]; then svn co --quiet http://llvm.org/svn/llvm-project/libcxx/trunk libcxx; fi
+
+  - if [ "$CXX" == "clang++" ]; then pushd .; fi
+  - if [ "$CXX" == "clang++" ]; then cd libcxx/lib && bash buildit; fi
+  - if [ "$CXX" == "clang++" ]; then sudo cp ./libc++.so.1.0 /usr/lib/; fi
+  - if [ "$CXX" == "clang++" ]; then sudo mkdir /usr/include/c++/v1; fi
+  - if [ "$CXX" == "clang++" ]; then cd .. && sudo cp -r include/* /usr/include/c++/v1/; fi
+  - if [ "$CXX" == "clang++" ]; then cd /usr/lib && sudo ln -sf libc++.so.1.0 libc++.so; fi
+  - if [ "$CXX" == "clang++" ]; then sudo ln -sf libc++.so.1.0 libc++.so.1 && cd $cwd; fi
+  - if [ "$CXX" == "clang++" ]; then popd; fi
+
+  # libc++abi
+  - if [ "$CXX" == "clang++" ]; then pushd .; fi
+  - if [ "$CXX" == "clang++" ]; then svn co --quiet http://llvm.org/svn/llvm-project/libcxxabi/trunk libcxxabi; fi
+  - if [ "$CXX" == "clang++" ]; then cd libcxxabi/lib && bash buildit; fi
+  - if [ "$CXX" == "clang++" ]; then sudo cp ./libc++abi.so.1.0 /usr/lib/; fi
+  - if [ "$CXX" == "clang++" ]; then cd .. && sudo cp -r include/* /usr/include/c++/v1/; fi
+  - if [ "$CXX" == "clang++" ]; then cd /usr/lib && sudo ln -sf libc++abi.so.1.0 libc++abi.so; fi
+  - if [ "$CXX" == "clang++" ]; then sudo ln -sf libc++abi.so.1.0 libc++abi.so.1 && cd $cwd; fi
+  - if [ "$CXX" == "clang++" ]; then popd; fi
+
+  - if [ "$CXX" == "clang++" ]; then export LDFLAGS="-stdlib=libc++ -lc++abi"; fi
+
+  # Boost
+  - sudo apt-get install -y libboost-all-dev
+
+  # GTest
+  - curl -OL https://googletest.googlecode.com/files/gtest-1.7.0.zip
+  - unzip gtest-1.7.0.zip
+  - cd gtest-1.7.0
+  - cmake .
+  #- if [ "$CXX" = "g++" ]; then cmake .; fi
+  #- if [ "$CXX" == "clang++" ]; then CC=clang CXX=clang++ cmake .; fi
+  - sudo cmake --build .
+  - sudo cp -R ./include /usr
+  - sudo mv libg* /usr/local/lib/
+  - cd -
+
+script:
+  - $CXX --version
+  - cd build
+  - cmake ..
+  - make
+  - ./bin/run_tests

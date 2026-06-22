@@ -14,11 +14,8 @@ using namespace xstudio::shotgun_client;
 using namespace xstudio::data_source;
 using namespace xstudio::ui::qml;
 
-#define REQUEST_BEGIN()                                                                        \
-    auto self_actor = as_actor();                                                              \
-    auto backend    = backend_;                                                                \
-    return QtConcurrent::run([=]() { \
-        if (backend) { \
+#define REQUEST_BEGIN() return QtConcurrent::run([=]() { \
+        if (backend_) { \
             try {
 
 #define REQUEST_END()                                                                          \
@@ -67,23 +64,25 @@ QFuture<QString> ShotBrowserEngine::loadPresetModelFuture() {
 
     scoped_actor sys{system()};
 
-    auto uuids = request_receive<UuidVector>(*sys, backend, json_store::sync_atom_v);
+    auto uuids = request_receive<UuidVector>(*sys, backend_, json_store::sync_atom_v);
 
     // get system presets
     auto request    = JsonStore(GetData);
     request["type"] = "system_preset_model";
     auto data       = R"({"uuid":null, "data":null })"_json;
     data["uuid"]    = uuids[1];
-    data["data"] = request_receive<JsonStore>(*sys, backend, json_store::sync_atom_v, uuids[1]);
-    anon_mail(shotgun_info_atom_v, request, JsonStore(data)).send(self_actor);
+    data["data"] =
+        request_receive<JsonStore>(*sys, backend_, json_store::sync_atom_v, uuids[1]);
+    anon_mail(shotgun_info_atom_v, request, JsonStore(data)).send(as_actor());
 
     // get user presests
     request         = JsonStore(GetData);
     request["type"] = "user_preset_model";
     data            = R"({"uuid":null, "data":null })"_json;
     data["uuid"]    = uuids[0];
-    data["data"] = request_receive<JsonStore>(*sys, backend, json_store::sync_atom_v, uuids[0]);
-    anon_mail(shotgun_info_atom_v, request, JsonStore(data)).send(self_actor);
+    data["data"] =
+        request_receive<JsonStore>(*sys, backend_, json_store::sync_atom_v, uuids[0]);
+    anon_mail(shotgun_info_atom_v, request, JsonStore(data)).send(as_actor());
 
     return QStringFromStd(data.dump());
 
@@ -101,9 +100,9 @@ QFuture<QString> ShotBrowserEngine::getDataFuture(const QString &type, const int
     request["project_id"] = project_id;
 
     auto data = request_receive_wait<JsonStore>(
-        *sys, backend, SHOTGRID_TIMEOUT, get_data_atom_v, request);
+        *sys, backend_, SHOTGRID_TIMEOUT, get_data_atom_v, request);
 
-    anon_mail(shotgun_info_atom_v, request, data).send(self_actor);
+    anon_mail(shotgun_info_atom_v, request, data).send(as_actor());
 
     return QStringFromStd(data.dump());
 
@@ -147,7 +146,7 @@ ShotBrowserEngine::getVersionsFuture(const int project_id, const QVariant &qids)
     // we've got more that 5000 employees....
     auto data = request_receive_wait<JsonStore>(
         *sys,
-        backend,
+        backend_,
         SHOTGRID_TIMEOUT,
         shotgun_entity_search_atom_v,
         "Versions",
@@ -166,7 +165,7 @@ ShotBrowserEngine::getVersionsFuture(const int project_id, const QVariant &qids)
         result_items[i.at("id").get<int>()] = i;
 
     data["data"].clear();
-    for (const auto &i : ids) {
+    for (const auto i : ids) {
         if (result_items.count(i))
             data["data"].push_back(result_items[i]);
     }
@@ -186,7 +185,7 @@ QFuture<QString> ShotBrowserEngine::getPlaylistLinkMediaFuture(const QUuid &play
 
     return QStringFromStd(
         request_receive_wait<JsonStore>(
-            *sys, backend, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req)
+            *sys, backend_, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req)
             .dump());
 
     REQUEST_END()
@@ -201,7 +200,7 @@ QFuture<QString> ShotBrowserEngine::getPlaylistValidMediaCountFuture(const QUuid
 
     return QStringFromStd(
         request_receive_wait<JsonStore>(
-            *sys, backend, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req)
+            *sys, backend_, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req)
             .dump());
 
     REQUEST_END()
@@ -310,7 +309,7 @@ QFuture<QString> ShotBrowserEngine::addVersionsToPlaylistFuture(
     scoped_actor sys{system()};
     auto media = request_receive<UuidActorVector>(
         *sys,
-        backend,
+        backend_,
         playlist::add_media_atom_v,
         JsonStore(mapFromValue(QVariant::fromValue(versions))),
         UuidFromQUuid(playlist),
@@ -335,7 +334,7 @@ QFuture<QString> ShotBrowserEngine::addVersionToPlaylistFuture(
     scoped_actor sys{system()};
     auto media = request_receive<UuidActorVector>(
         *sys,
-        backend,
+        backend_,
         playlist::add_media_atom_v,
         JsonStore(nlohmann::json::parse(StdFromQString(version))),
         UuidFromQUuid(playlist),
@@ -368,7 +367,7 @@ QFuture<QString> ShotBrowserEngine::updateEntityFuture(
 
     auto js = request_receive_wait<JsonStore>(
         *sys,
-        backend,
+        backend_,
         SHOTGRID_TIMEOUT,
         shotgun_update_entity_atom_v,
         StdFromQString(entity),
@@ -394,11 +393,9 @@ QFuture<QString> ShotBrowserEngine::preparePlaylistNotesFuture(
     const bool skip_already_published,
     const QString &defaultType) {
 
-    auto backend = backend_;
-
     return QtConcurrent::run([=]() {
         try {
-            if (backend) {
+            if (backend_) {
                 try {
                     scoped_actor sys{system()};
                     auto req = JsonStore(GetPrepareNotes);
@@ -418,7 +415,7 @@ QFuture<QString> ShotBrowserEngine::preparePlaylistNotesFuture(
                     req["default_type"]           = StdFromQString(defaultType);
 
                     auto js = request_receive_wait<JsonStore>(
-                        *sys, backend, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req);
+                        *sys, backend_, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req);
                     return QStringFromStd(js.dump());
                 } catch (const XStudioError &err) {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -447,7 +444,7 @@ ShotBrowserEngine::pushPlaylistNotesFuture(const QString &notes, const QUuid &pl
     req["payload"]       = JsonStore(nlohmann::json::parse(StdFromQString(notes))["payload"]);
 
     auto js = request_receive_wait<JsonStore>(
-        *sys, backend, SHOTGRID_TIMEOUT, data_source::post_data_atom_v, req);
+        *sys, backend_, SHOTGRID_TIMEOUT, data_source::post_data_atom_v, req);
 
     return QStringFromStd(js.dump());
 
@@ -473,7 +470,7 @@ QFuture<QString> ShotBrowserEngine::createPlaylistFuture(
     req["playlist_type"] = StdFromQString(playlist_type);
 
     auto js = request_receive_wait<JsonStore>(
-        *sys, backend, SHOTGRID_TIMEOUT, data_source::post_data_atom_v, req);
+        *sys, backend_, SHOTGRID_TIMEOUT, data_source::post_data_atom_v, req);
     return QStringFromStd(js.dump());
 
     REQUEST_END()
@@ -488,7 +485,7 @@ ShotBrowserEngine::updatePlaylistVersionsFuture(const QUuid &playlist, const boo
     req["playlist_uuid"] = to_string(UuidFromQUuid(playlist));
     req["append"]        = append;
     auto js              = request_receive_wait<JsonStore>(
-        *sys, backend, SHOTGRID_TIMEOUT, data_source::put_data_atom_v, req);
+        *sys, backend_, SHOTGRID_TIMEOUT, data_source::put_data_atom_v, req);
     return QStringFromStd(js.dump());
 
     REQUEST_END()
@@ -506,7 +503,7 @@ ShotBrowserEngine::refreshPlaylistVersionsFuture(const QUuid &playlist, const bo
     req["playlist_uuid"] = to_string(UuidFromQUuid(playlist));
     req["match_order"]   = matchOrder;
     auto js              = request_receive_wait<JsonStore>(
-        *sys, backend, SHOTGRID_TIMEOUT, data_source::use_data_atom_v, req);
+        *sys, backend_, SHOTGRID_TIMEOUT, data_source::use_data_atom_v, req);
     return QStringFromStd(js.dump());
 
     REQUEST_END()
@@ -529,7 +526,7 @@ QFuture<QString> ShotBrowserEngine::getPlaylistNotesFuture(const int id) {
 
     auto order = request_receive_wait<JsonStore>(
         *sys,
-        backend,
+        backend_,
         SHOTGRID_TIMEOUT,
         shotgun_entity_search_atom_v,
         "Notes",
@@ -551,7 +548,7 @@ QFuture<QString> ShotBrowserEngine::getPlaylistVersionsFuture(const int id) {
 
     auto vers = request_receive_wait<JsonStore>(
         *sys,
-        backend,
+        backend_,
         SHOTGRID_TIMEOUT,
         shotgun_entity_atom_v,
         "Playlists",
@@ -572,7 +569,7 @@ QFuture<QString> ShotBrowserEngine::getPlaylistVersionsFuture(const int id) {
 
     auto order = request_receive_wait<JsonStore>(
         *sys,
-        backend,
+        backend_,
         SHOTGRID_TIMEOUT,
         shotgun_entity_search_atom_v,
         "PlaylistVersionConnection",
@@ -605,7 +602,7 @@ QFuture<QString> ShotBrowserEngine::getPlaylistVersionsFuture(const int id) {
 
         auto js = request_receive_wait<JsonStore>(
             *sys,
-            backend,
+            backend_,
             SHOTGRID_TIMEOUT,
             shotgun_entity_filter_atom_v,
             "Versions",
@@ -657,7 +654,7 @@ QFuture<QString> ShotBrowserEngine::tagEntityFromNameFuture(
     req["tag_name"]  = StdFromQString(tagName);
 
     auto js = request_receive_wait<JsonStore>(
-        *sys, backend, SHOTGRID_TIMEOUT, data_source::post_data_atom_v, req);
+        *sys, backend_, SHOTGRID_TIMEOUT, data_source::post_data_atom_v, req);
 
     return QStringFromStd(js.dump());
 
@@ -679,7 +676,7 @@ QFuture<QString> ShotBrowserEngine::tagEntityFuture(
     req["tag_id"]    = tag_id;
 
     auto js = request_receive_wait<JsonStore>(
-        *sys, backend, SHOTGRID_TIMEOUT, data_source::post_data_atom_v, req);
+        *sys, backend_, SHOTGRID_TIMEOUT, data_source::post_data_atom_v, req);
 
     return QStringFromStd(js.dump());
 
@@ -703,7 +700,7 @@ QFuture<QString> ShotBrowserEngine::renameTagFuture(const int tag_id, const QStr
     }
 
     auto js = request_receive_wait<JsonStore>(
-        *sys, backend, SHOTGRID_TIMEOUT, data_source::post_data_atom_v, req);
+        *sys, backend_, SHOTGRID_TIMEOUT, data_source::post_data_atom_v, req);
 
     // trigger update to get new tag.
     // getReferenceTagsFuture();
@@ -719,7 +716,7 @@ QFuture<QString> ShotBrowserEngine::removeTagFuture(const int tag_id) {
     scoped_actor sys{system()};
 
     auto js = request_receive_wait<JsonStore>(
-        *sys, backend, SHOTGRID_TIMEOUT, shotgun_delete_entity_atom_v, "Tag", tag_id);
+        *sys, backend_, SHOTGRID_TIMEOUT, shotgun_delete_entity_atom_v, "Tag", tag_id);
 
     // trigger update to get new tag.
     // getReferenceTagsFuture();
@@ -743,7 +740,7 @@ QFuture<QString> ShotBrowserEngine::untagEntityFuture(
     req["tag_id"]    = tag_id;
 
     auto js = request_receive_wait<JsonStore>(
-        *sys, backend, SHOTGRID_TIMEOUT, data_source::post_data_atom_v, req);
+        *sys, backend_, SHOTGRID_TIMEOUT, data_source::post_data_atom_v, req);
 
     return QStringFromStd(js.dump());
 
@@ -758,7 +755,7 @@ QFuture<QString> ShotBrowserEngine::createTagFuture(const QString &text) {
     req["value"] = StdFromQString(text);
 
     auto js = request_receive_wait<JsonStore>(
-        *sys, backend, SHOTGRID_TIMEOUT, data_source::post_data_atom_v, req);
+        *sys, backend_, SHOTGRID_TIMEOUT, data_source::post_data_atom_v, req);
 
     // trigger update to get new tag.
     // getReferenceTagsFuture();
@@ -781,7 +778,7 @@ QFuture<QString> ShotBrowserEngine::getEntityFuture(const QString &qentity, cons
 
     return QStringFromStd(
         request_receive_wait<JsonStore>(
-            *sys, backend, SHOTGRID_TIMEOUT, shotgun_entity_atom_v, entity, id, fields)
+            *sys, backend_, SHOTGRID_TIMEOUT, shotgun_entity_atom_v, entity, id, fields)
             .dump());
 
     REQUEST_END()
@@ -796,7 +793,7 @@ QFuture<QString> ShotBrowserEngine::addDownloadToMediaFuture(const QUuid &media)
 
     return QStringFromStd(
         request_receive_wait<JsonStore>(
-            *sys, backend, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req)
+            *sys, backend_, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req)
             .dump());
 
     REQUEST_END()
@@ -811,7 +808,7 @@ QFuture<QVariant> ShotBrowserEngine::refreshMetadataFuture(const QUuid &media) {
 
     return mapFromValue(
         request_receive_wait<JsonStore>(
-            *sys, backend, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req));
+            *sys, backend_, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req));
 
     QVARIANT_REQUEST_END()
 }
@@ -821,11 +818,8 @@ QFuture<QUrl> ShotBrowserEngine::downloadMediaFuture(
     const QString &entity_name,
     const QString &project_name,
     const QString &parent_name) {
-
-    auto backend = backend_;
-
     return QtConcurrent::run([=]() {
-        if (backend) {
+        if (backend_) {
             scoped_actor sys{system()};
             auto req            = JsonStore(GetDownloadMedia);
             req["entity_id"]    = entity_id;
@@ -835,7 +829,7 @@ QFuture<QUrl> ShotBrowserEngine::downloadMediaFuture(
 
             return QUrl(QStringFromStd(
                 request_receive_wait<JsonStore>(
-                    *sys, backend, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req)
+                    *sys, backend_, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req)
                     .get<std::string>()));
         }
         return QUrl();
@@ -847,11 +841,8 @@ QFuture<QUrl> ShotBrowserEngine::downloadImageFuture(
     const QString &entity,
     const QString &entity_name,
     const QString &project_name) {
-
-    auto backend = backend_;
-
     return QtConcurrent::run([=]() {
-        if (backend) {
+        if (backend_) {
             scoped_actor sys{system()};
             auto req = JsonStore(GetDownloadImage);
 
@@ -862,7 +853,7 @@ QFuture<QUrl> ShotBrowserEngine::downloadImageFuture(
 
             return QUrl(QStringFromStd(
                 request_receive_wait<JsonStore>(
-                    *sys, backend, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req)
+                    *sys, backend_, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req)
                     .get<std::string>()));
         }
         return QUrl();

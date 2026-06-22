@@ -1,18 +1,6 @@
 {
 	"core": {
 		"media_reader":{
-			"read_threads_per_source": {
-				"path": "/core/media_reader/read_threads_per_source",
-				"default_value": 8,
-				"description": "Some readers, like EXR reader or OpenImageIO reader (which loads formats like jpeg, tiff), can read multiple frames in parallel which can improve performance when filesystem IO and decompress time are BOTH significant.",
-				"value": 8,
-				"minimum": 1,
-				"maximum": 24,
-				"datatype": "int",
-				"context": ["APPLICATION"],
-				"category": "General",
-				"display_name": "Read threads per source"
-			},
 			"filepath_map_regex_replace": {
 				"path": "/core/media_reader/filepath_map_regex_replace",
 				"default_value": [],

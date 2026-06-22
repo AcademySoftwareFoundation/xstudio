@@ -24,8 +24,6 @@ MouseArea {
     property bool showManifest: false
     property bool showType: false
     property bool showVisibility: false
-    property bool showStage: false
-    property bool showStageColour: false
 
     property var delegateModel: null
     property var selectionModel: null
@@ -79,7 +77,7 @@ MouseArea {
 
                     opacity: ["na", "del", "omt", "omtnto", "omtnwd"].includes(statusRole) ? 0.5 : (heroRole ? 1.0 : 0.8)
 
-                    color: "hld" == statusRole ? "red" : showStageColour && clientStagesCurrentRole != "STAGE-NA" &&  stages[clientStagesCurrentRole] ? stages[clientStagesCurrentRole].colour : XsStyleSheet.primaryTextColor
+                    color: "hld" == statusRole ? "red" : XsStyleSheet.primaryTextColor
 
                     text: nameRole
                     horizontalAlignment: Text.AlignLeft
@@ -97,19 +95,6 @@ MouseArea {
                     visible: showUnit
 
                     text: unitRole  ? unitRole : ""
-                    horizontalAlignment: Text.AlignRight
-                    verticalAlignment: Text.AlignVCenter
-                    font.pixelSize: XsStyleSheet.fontSize*1.2
-                    elide: Text.ElideRight
-                    rightPadding: 8
-                }
-
-                XsText{
-                    Layout.preferredHeight: parent.height
-                    Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                    opacity: 0.5
-                    visible: showStage
-                    text: clientStagesCurrentRole
                     horizontalAlignment: Text.AlignRight
                     verticalAlignment: Text.AlignVCenter
                     font.pixelSize: XsStyleSheet.fontSize*1.2

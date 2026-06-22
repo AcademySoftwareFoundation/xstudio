@@ -26,10 +26,18 @@ class IvyDataSource : public DataSource, public module::Module {
     ~IvyDataSource() override = default;
 
     // handled directly in actor.
-    utility::JsonStore get_data(const utility::JsonStore &) override { return {}; }
-    utility::JsonStore put_data(const utility::JsonStore &) override { return {}; }
-    utility::JsonStore post_data(const utility::JsonStore &) override { return {}; }
-    utility::JsonStore use_data(const utility::JsonStore &) override { return {}; }
+    utility::JsonStore get_data(const utility::JsonStore &) override {
+        return utility::JsonStore();
+    }
+    utility::JsonStore put_data(const utility::JsonStore &) override {
+        return utility::JsonStore();
+    }
+    utility::JsonStore post_data(const utility::JsonStore &) override {
+        return utility::JsonStore();
+    }
+    utility::JsonStore use_data(const utility::JsonStore &) override {
+        return utility::JsonStore();
+    }
 
     std::string url() const { return "http://pipequery"; }
     std::string path() const { return "/v1/graphql"; }

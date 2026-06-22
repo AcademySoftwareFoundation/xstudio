@@ -20,9 +20,6 @@ StandardPlugin::StandardPlugin(
     plugin_events_ = spawn<broadcast::BroadcastActor>(this);
     link_to(plugin_events_);
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-
     set_default_handler(
         [this](caf::scheduled_actor *, caf::message &msg) -> caf::skippable_result {
             spdlog::warn(
@@ -42,8 +39,6 @@ StandardPlugin::StandardPlugin(
             }
             return message{};
         });
-
-#pragma GCC diagnostic pop
 
     message_handler_ = {
 
@@ -159,6 +154,14 @@ StandardPlugin::StandardPlugin(
             current_viewed_playhead_changed(live_playhead);
         },
 
+        [=](utility::event_atom,
+            playhead::show_atom,
+            caf::actor media,
+            caf::actor media_source,
+            const std::string &viewport_name) {
+            // the onscreen media for the given viewport has changed
+            on_screen_media_changed(media);
+        },
         [=](ui::viewport::turn_off_overlay_interaction_atom, const utility::Uuid requester_id) {
             if (requester_id != uuid()) {
                 turn_off_overlay_interaction();
@@ -368,14 +371,14 @@ std::string StandardPlugin::active_viewport_name() const {
             *sys, playhead_events_actor_, ui::viewport::active_viewport_atom_v);
 
         if (!vp)
-            return {};
+            return std::string();
 
         return utility::request_receive<std::string>(*sys, vp, utility::name_atom_v);
 
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
-    return {};
+    return std::string();
 }
 
 void StandardPlugin::start_stop_playback(const std::string viewport_name, bool play) {
@@ -695,7 +698,7 @@ void StandardPlugin::update_bookmark_annotation(
     try {
         auto uuid_actor = utility::request_receive<utility::UuidActor>(
             *sys, bookmark_manager_, bookmark::get_bookmark_atom_v, bookmark_id);
-        std::ignore = utility::request_receive<bool>(
+        auto result = utility::request_receive<bool>(
             *sys, uuid_actor.actor(), bookmark::add_annotation_atom_v, annotation_data);
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -751,7 +754,7 @@ void StandardPlugin::update_bookmark_detail(
     try {
         auto uuid_actor = utility::request_receive<utility::UuidActor>(
             *sys, bookmark_manager_, bookmark::get_bookmark_atom_v, bookmark_id);
-        std::ignore = utility::request_receive<bool>(
+        auto result = utility::request_receive<bool>(
             *sys, uuid_actor.actor(), bookmark::bookmark_detail_atom_v, bmd);
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -772,7 +775,7 @@ void StandardPlugin::remove_bookmark(
                 return;
         }
 
-        std::ignore = utility::request_receive<bool>(
+        utility::request_receive<bool>(
             *sys, bookmark_manager_, bookmark::remove_bookmark_atom_v, bookmark_id);
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());

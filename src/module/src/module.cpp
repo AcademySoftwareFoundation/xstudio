@@ -32,7 +32,7 @@ caf::behavior delayed_resend(caf::event_based_actor *) {
 } // namespace
 
 Module::Module(const std::string name, const utility::Uuid &uuid)
-    : module_uuid_(uuid), name_(std::move(name)) {}
+    : name_(std::move(name)), module_uuid_(uuid) {}
 
 Module::~Module() {
 
@@ -623,13 +623,6 @@ caf::message_handler Module::message_handler() {
 
                  for (const auto &p : attributes_) {
                      if (p->uuid() == attr_uuid) {
-
-                         if (value.is_null() &&
-                             p->role_data_as_json(Attribute::Value).is_null()) {
-                             // attribute role data class currently triggers its 'notify'
-                             // mechanism when setting null to null. Needs a fix.
-                             return false;
-                         }
                          p->set_role_data(Attribute::Value, value);
                          return true;
                      }
@@ -642,7 +635,6 @@ caf::message_handler Module::message_handler() {
 
              } catch (std::exception &e) {
 
-                 std::cerr << e.what() << "\n";
                  return caf::make_error(xstudio_error::error, e.what());
              }
          },
@@ -784,7 +776,7 @@ caf::message_handler Module::message_handler() {
                  }
              }
 
-             if (!key_name.empty() && default_keycode == -1) {
+             if (default_keycode == -1) {
                  std::stringstream ss;
                  ss << "Unkown keyboard key name \"" << key_name << "\"";
                  return make_error(xstudio_error::error, ss.str().c_str());
@@ -932,11 +924,8 @@ caf::message_handler Module::message_handler() {
              const utility::UuidActor &media,
              const utility::UuidActor &media_source,
              const std::string viewport_name,
-             const int playhead_idx,
-             const bool is_main_playhead) {
+             const int playhead_idx) {
              on_screen_media_changed(media, media_source);
-             on_screen_media_changed(
-                 media, media_source, viewport_name, playhead_idx, is_main_playhead);
              anon_mail(
                  utility::event_atom_v,
                  playhead::show_atom_v,
@@ -1030,6 +1019,8 @@ caf::message_handler Module::message_handler() {
 
              try {
                  if (menu_item_data.contains("uuid")) {
+
+                     bool event_used = false;
                      utility::Uuid uuid(menu_item_data["uuid"]);
                      // is the menu item representing a toggle attribute?
                      auto *attr = get_attribute(uuid);
@@ -1040,6 +1031,7 @@ caf::message_handler Module::message_handler() {
                                  attr->set_role_data(
                                      Attribute::Value,
                                      !attr->get_role_data<bool>(Attribute::Value));
+                                 event_used = true;
                              }
                          } catch (...) {
                              // not a bool attr
@@ -1406,7 +1398,7 @@ utility::Uuid Module::register_hotkey(
         spdlog::warn("{} : {} {}", name(), __PRETTY_FUNCTION__, e.what());
     }
 
-    return {};
+    return utility::Uuid();
 }
 
 utility::Uuid Module::register_hotkey(
@@ -1447,7 +1439,7 @@ utility::Uuid Module::register_hotkey(
             name());
     }
 
-    return {};
+    return utility::Uuid();
 }
 
 void Module::remove_hotkey(const utility::Uuid & /*hotkey_uuid*/) {}
@@ -1910,7 +1902,7 @@ utility::Uuid Module::insert_menu_item(
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
-    return {};
+    return utility::Uuid();
 }
 
 utility::Uuid Module::insert_hotkey_into_menu(
@@ -1956,7 +1948,7 @@ utility::Uuid Module::insert_hotkey_into_menu(
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
-    return {};
+    return utility::Uuid();
 }
 
 void Module::remove_all_menu_items(const std::string &menu_model_name) {

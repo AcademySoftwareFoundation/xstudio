@@ -248,7 +248,7 @@ std::string::const_iterator AlphaBitmapFont::viewport_position_to_cursor(
     std::vector<std::string::const_iterator> wrap_points;
     compute_wrap_indeces(wrap_points, text, wrap_width, scale);
 
-    // auto wrap_point = wrap_points.begin();
+    auto wrap_point = wrap_points.begin();
 
     const float line_height = line_spacing * scale * glyph_pixel_size();
 
@@ -497,7 +497,7 @@ Imath::Box2f AlphaBitmapFont::precompute_text_rendering_vertex_layout(
     // deal with horizontal justification
     if (just == JustifyRight) {
         _vv = result.data();
-        for (size_t j = 0; j < line_num_chars.size(); ++j) {
+        for (int j = 0; j < line_num_chars.size(); ++j) {
             const float shift =
                 (align_around_position ? 0 : bounding_box.max.x) - line_widths[j];
             for (int i = 0; i < line_num_chars[j]; ++i) {
@@ -526,7 +526,7 @@ Imath::Box2f AlphaBitmapFont::precompute_text_rendering_vertex_layout(
     } else if (just == JustifyCentre) {
 
         _vv = result.data();
-        for (size_t j = 0; j < line_num_chars.size(); ++j) {
+        for (int j = 0; j < line_num_chars.size(); ++j) {
             const float shift =
                 ((align_around_position ? 0 : bounding_box.max.x) - line_widths[j]) / 2.0f;
             for (int i = 0; i < line_num_chars[j]; ++i) {
@@ -572,7 +572,7 @@ Imath::Box2f AlphaBitmapFont::precompute_text_rendering_vertex_layout(
         bounding_box.max.y += y_shift;
         _vv = result.data();
         _vv++;
-        for (size_t j = 0; j < line_num_chars.size(); ++j) {
+        for (int j = 0; j < line_num_chars.size(); ++j) {
             for (int i = 0; i < line_num_chars[j]; ++i) {
                 (*_vv) = *_vv + y_shift;
                 _vv += 4;
@@ -723,7 +723,7 @@ VectorFont::VectorFont(const std::string &font_path, const float glyph_pixel_siz
                 float(face->glyph->metrics.height) * rescale;
 
             FT_Outline outline = face->glyph->outline;
-            std::ignore        = FT_Outline_Decompose(&outline, &myfuncs, this);
+            int r              = FT_Outline_Decompose(&outline, &myfuncs, this);
 
             glyph_shape_decomposition_complete();
 
@@ -861,7 +861,7 @@ std::shared_ptr<SDFBitmapFont> SDFBitmapFont::font_by_name(const std::string &na
 }
 
 void SDFBitmapFont::generate_atlas(const std::string &font_path, const int glyph_pixel_size) {
-    // auto t0 = xstudio::utility::clock::now();
+    auto t0 = xstudio::utility::clock::now();
 
     // create a vector font to give us outline loops of the shapes that make
     // up each glyph

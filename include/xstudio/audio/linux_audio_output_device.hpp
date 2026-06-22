@@ -6,47 +6,49 @@
 
 #include <pulse/simple.h>
 
-namespace xstudio::audio {
+namespace xstudio {
+namespace audio {
 
-/**
- *  @brief LinuxAudioOutputDevice class, low level interface with audio output
- *
- *  @details
- *   See header for AudioOutputDevice
- */
-class LinuxAudioOutputDevice : public AudioOutputDevice {
-  public:
-    LinuxAudioOutputDevice(const utility::JsonStore &prefs);
+    /**
+     *  @brief LinuxAudioOutputDevice class, low level interface with audio output
+     *
+     *  @details
+     *   See header for AudioOutputDevice
+     */
+    class LinuxAudioOutputDevice : public AudioOutputDevice {
+      public:
+        LinuxAudioOutputDevice(const utility::JsonStore &prefs);
 
-    ~LinuxAudioOutputDevice() override;
+        ~LinuxAudioOutputDevice() override;
 
-    void connect_to_soundcard() override;
+        void connect_to_soundcard() override;
 
-    void disconnect_from_soundcard() override;
+        void disconnect_from_soundcard() override;
 
-    long desired_samples() override;
+        long desired_samples() override;
 
-    bool push_samples(const void *sample_data, const long num_samples) override;
+        bool push_samples(const void *sample_data, const long num_samples) override;
 
-    long latency_microseconds() override;
+        long latency_microseconds() override;
 
-    [[nodiscard]] long sample_rate() const override { return sample_rate_; }
+        [[nodiscard]] long sample_rate() const override { return sample_rate_; }
 
-    [[nodiscard]] int num_channels() const override { return num_channels_; }
+        [[nodiscard]] int num_channels() const override { return num_channels_; }
 
-    [[nodiscard]] SampleFormat sample_format() const override { return sample_format_; }
+        [[nodiscard]] SampleFormat sample_format() const override { return sample_format_; }
 
-    static std::string name() { return "LinuxAudioOutputDevice"; }
+        static std::string name() { return "LinuxAudioOutputDevice"; }
 
-  private:
-    void initialize_sound_card() override {}
+      private:
+        void initialize_sound_card() override {}
 
-    long sample_rate_           = {44100};
-    int num_channels_           = {2};
-    long buffer_size_           = {2048};
-    SampleFormat sample_format_ = {SampleFormat::INT16};
-    pa_simple *playback_handle_ = {nullptr};
-    const utility::JsonStore config_;
-    const utility::JsonStore prefs_;
-};
-} // namespace xstudio::audio
+        long sample_rate_           = {44100};
+        int num_channels_           = {2};
+        long buffer_size_           = {2048};
+        SampleFormat sample_format_ = {SampleFormat::INT16};
+        pa_simple *playback_handle_ = {nullptr};
+        const utility::JsonStore config_;
+        const utility::JsonStore prefs_;
+    };
+} // namespace audio
+} // namespace xstudio

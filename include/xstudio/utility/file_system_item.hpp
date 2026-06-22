@@ -47,9 +47,9 @@ class FileSystemItem : private FileSystemItems {
     FileSystemItem(
         const std::string name, const caf::uri path, FileSystemItemType type = FSIT_DIRECTORY)
         : FileSystemItems(),
-          type_(std::move(type)),
           name_(std::move(name)),
-          path_(std::move(path)) {}
+          path_(std::move(path)),
+          type_(std::move(type)) {}
 
     virtual ~FileSystemItem() = default;
 
@@ -103,7 +103,7 @@ class FileSystemItem : private FileSystemItems {
 
     FileSystemItem *find_by_path(const caf::uri &path);
 
-    [[nodiscard]] utility::JsonStore dump() const;
+    utility::JsonStore dump() const;
 
     // void bind_event_func(FileSystemItemEventFunc fn);
     void bind_ignore_entry_func(FileSystemItemIgnoreFunc fn);

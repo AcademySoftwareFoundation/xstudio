@@ -73,6 +73,12 @@ Item {
         );
     }
 
+    function handleDoubleClick(mouse) {
+        if (activeShape >= 0 && activeShape < repeater.count) {
+            repeater.itemAt(activeShape).handleDoubleClick(mouse);
+        }
+    }
+
     function set_interaction_shape(modelIndex) {
         activeShape = modelIndex
     }
@@ -80,13 +86,11 @@ Item {
 
     XsHotkey {
         sequence: "Escape"
-        name: "Cancel Current Shape"
-        description: "Complete current polygon or unselect current shape, when making a grading mask shape in the grading tool."
+        name: "unselect"
         context: "any"
         onActivated: {
             construction_polygon.item.cleanupPolygon()
         }
-        componentName: "GradingTool"
     }
 
     // indicates the 'current' (hero) image in multi image layours
@@ -110,8 +114,6 @@ Item {
 
         function onMouseRelease(buttons) {
 
-            if (!mask_shapes_visible) return;
-
             if (!attrs.polygon_init) attrs.interacting = false
             construction_polygon.item.mouseReleased(buttons)
             for (var i = 0; i < repeater.count; ++i) {
@@ -122,13 +124,13 @@ Item {
 
         function onMousePress(position, buttons, modifiers) {
 
-            if (!mask_shapes_visible) return;
-
             var im_pos = Qt.point(
                 2.0*(position.x-(imageBox.x+imageBox.width*0.5))/imageBox.width,
                 -2.0*(position.y-(imageBox.y+imageBox.height*0.5))/imageBox.width)
 
             if (construction_polygon.item.mousePressed(im_pos, buttons, modifiers)) return
+
+            if (!mask_shapes_visible) return;
 
             for (var i = 0; i < repeater.count; ++i) {
                 if (repeater.itemAt(i).item.mousePressed(im_pos, buttons, modifiers)) {
@@ -140,8 +142,6 @@ Item {
 
         function onMouseDoubleClick(position, buttons, modifiers) {
 
-            if (!mask_shapes_visible) return;
-
             var im_pos = Qt.point(
                 2.0*(position.x-(imageBox.x+imageBox.width*0.5))/imageBox.width,
                 -2.0*(position.y-(imageBox.y+imageBox.height*0.5))/imageBox.width)
@@ -152,8 +152,6 @@ Item {
         }
 
         function onMousePositionChanged(position, buttons, modifiers) {
-
-            if (!mask_shapes_visible) return;
 
             var im_pos = Qt.point(
                 2.0*(position.x-(imageBox.x+imageBox.width*0.5))/imageBox.width,

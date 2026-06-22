@@ -23,7 +23,7 @@ class JsonStoreHandler {
     virtual caf::message_handler message_handler();
     static caf::message_handler default_event_handler();
 
-    [[nodiscard]] caf::actor json_actor() const { return json_store_; }
+    caf::actor json_actor() const { return json_store_; }
 
   private:
     caf::event_based_actor *actor_{nullptr};

@@ -60,9 +60,6 @@ AVDictionary *filter_codec_opts(
     char prefix = 0;
 
     switch (avs->codecpar->codec_type) {
-    case AVMEDIA_TYPE_UNKNOWN:
-    default:
-        break;
     case AVMEDIA_TYPE_VIDEO:
         prefix = 'v';
         flags |= AV_OPT_FLAG_VIDEO_PARAM;
@@ -79,7 +76,7 @@ AVDictionary *filter_codec_opts(
         break;
     }
 
-    while ((avdt = av_dict_get(opts, "", avdt, AV_DICT_IGNORE_SUFFIX))) {
+    while (avdt = av_dict_get(opts, "", avdt, AV_DICT_IGNORE_SUFFIX)) {
         char *ss = strchr(avdt->key, ':');
 
         if (ss) {
@@ -438,16 +435,16 @@ nlohmann::json populate_stream(AVFormatContext *avfc, int index, MediaStream *is
     result["codec_name"]      = nullptr;
     result["codec_long_name"] = nullptr;
 
-    if ((cd = avcodec_descriptor_get(par->codec_id))) {
+    if (cd = avcodec_descriptor_get(par->codec_id)) {
         result["codec_name"] = cd->name;
         if (cd->long_name)
             result["codec_long_name"] = cd->long_name;
     }
 
     result["profile"] = nullptr;
-    if ((profile = avcodec_profile_name(par->codec_id, par->profile)))
+    if (profile = avcodec_profile_name(par->codec_id, par->profile))
         result["profile"] = profile;
-    else if (par->profile != AV_PROFILE_UNKNOWN) {
+    else if (par->profile != FF_PROFILE_UNKNOWN) {
         result["profile"] = std::to_string(par->profile);
     }
 
@@ -467,9 +464,6 @@ nlohmann::json populate_stream(AVFormatContext *avfc, int index, MediaStream *is
     result["codec_tag"]        = fmt::format("{:#04x}", par->codec_tag);
 
     switch (par->codec_type) {
-    case AVMEDIA_TYPE_UNKNOWN:
-    default:
-        break;
     case AVMEDIA_TYPE_VIDEO: {
         result["width"]  = par->width;
         result["height"] = par->height;
@@ -774,6 +768,11 @@ std::shared_ptr<MediaFile> FFProbe::open_file(const std::string &path) {
 
         if (scan_all_pmts_set)
             av_dict_set(&format_opts, "scan_all_pmts", nullptr, AV_DICT_MATCH_CASE);
+
+        // what is this even doing ?
+        if ((t = av_dict_get(format_opts, "", nullptr, AV_DICT_IGNORE_SUFFIX))) {
+            throw std::runtime_error("Option scan_all_pmts not found.");
+        }
 
         {
             AVDictionary **opts  = init_find_stream_opts(result->fmt_ctx, codec_opts);

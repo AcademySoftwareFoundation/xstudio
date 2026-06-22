@@ -13,74 +13,76 @@
 using namespace xstudio::audio;
 using namespace xstudio::global_store;
 
-namespace xstudio::audio {
-class MacOSAudioOutData {
-  public:
-    MacOSAudioOutData() = default;
+namespace xstudio {
+namespace audio {
+    class MacOSAudioOutData {
+      public:
+        MacOSAudioOutData() = default;
 
-    ~MacOSAudioOutData() {
-        for (auto &b : unused_buffers_) {
-            AudioQueueFreeBuffer(audio_buffer_queue_, b);
-        }
-        AudioQueueDispose(audio_buffer_queue_, true);
-    }
-
-    void start() {
-        if (running_)
-            return;
-        auto r                         = AudioQueueStart(audio_buffer_queue_, nullptr);
-        last_sample_position_in_queue_ = 0;
-        if (r) {
-            throw r;
-        }
-        running_ = true;
-    }
-
-    void stop() {
-        auto r = AudioQueueStop(audio_buffer_queue_, true);
-        if (r) {
-            throw r;
-        }
-        running_ = false;
-    }
-
-    [[nodiscard]] bool running() const { return running_; }
-
-    AudioQueueBufferRef get_buffer_ref(long size) {
-        AudioQueueBufferRef result = nullptr;
-        std::lock_guard l(mutex_);
-        auto b = unused_buffers_.begin();
-        while (b != unused_buffers_.end()) {
-
-            if ((*b)->mAudioDataBytesCapacity >= size) {
-                result = *b;
-                unused_buffers_.erase(b);
-                break;
+        ~MacOSAudioOutData() {
+            for (auto &b : unused_buffers_) {
+                AudioQueueFreeBuffer(audio_buffer_queue_, b);
             }
-            b++;
+            AudioQueueDispose(audio_buffer_queue_, true);
         }
-        if (!result) {
-            // round up size to something sensible, in case we are getting
-            // uneven blocks of audio samples from xstudio AudioControl.
-            // This means buffers are more likely to be re-useable
-            size = ((size / 4096) + 1) * 4096;
-            AudioQueueAllocateBuffer(audio_buffer_queue_, size, &result);
+
+        void start() {
+            if (running_)
+                return;
+            auto r                         = AudioQueueStart(audio_buffer_queue_, nullptr);
+            last_sample_position_in_queue_ = 0;
+            if (r) {
+                throw r;
+            }
+            running_ = true;
         }
-        return result;
-    }
 
-    void reuse_buffer(AudioQueueBufferRef r) {
-        std::lock_guard l(mutex_);
-        unused_buffers_.push_back(r);
-    }
+        void stop() {
+            auto r = AudioQueueStop(audio_buffer_queue_, true);
+            if (r) {
+                throw r;
+            }
+            running_ = false;
+        }
 
-    AudioQueueRef audio_buffer_queue_ = {nullptr};
-    std::mutex mutex_;
-    std::vector<AudioQueueBufferRef> unused_buffers_;
-    Float64 last_sample_position_in_queue_;
-    bool running_ = {false};
-};
-} // namespace xstudio::audio
+        [[nodiscard]] bool running() const { return running_; }
+
+        AudioQueueBufferRef get_buffer_ref(long size) {
+            AudioQueueBufferRef result = nullptr;
+            std::lock_guard l(mutex_);
+            auto b = unused_buffers_.begin();
+            while (b != unused_buffers_.end()) {
+
+                if ((*b)->mAudioDataBytesCapacity >= size) {
+                    result = *b;
+                    unused_buffers_.erase(b);
+                    break;
+                }
+                b++;
+            }
+            if (!result) {
+                // round up size to something sensible, in case we are getting
+                // uneven blocks of audio samples from xstudio AudioControl.
+                // This means buffers are more likely to be re-useable
+                size = ((size / 4096) + 1) * 4096;
+                AudioQueueAllocateBuffer(audio_buffer_queue_, size, &result);
+            }
+            return result;
+        }
+
+        void reuse_buffer(AudioQueueBufferRef r) {
+            std::lock_guard l(mutex_);
+            unused_buffers_.push_back(r);
+        }
+
+        AudioQueueRef audio_buffer_queue_ = {nullptr};
+        std::mutex mutex_;
+        std::vector<AudioQueueBufferRef> unused_buffers_;
+        Float64 last_sample_position_in_queue_;
+        bool running_ = {false};
+    };
+} // namespace audio
+} // namespace xstudio
 
 MacOSAudioOutputDevice::MacOSAudioOutputDevice(const utility::JsonStore &prefs)
     : AudioOutputDevice(), prefs_(prefs) {
@@ -176,8 +178,8 @@ void MacOSAudioOutputDevice::connect_to_soundcard() {
     AudioQueueOutputCallback cb = output_buffer_cb;
     UInt32 flags                = 0;
     AudioQueueRef the_queue;
-    CFRunLoopRef inCallbackRunLoop    = nullptr;
-    CFStringRef inCallbackRunLoopMode = nullptr;
+    CFRunLoopRef inCallbackRunLoop    = NULL;
+    CFStringRef inCallbackRunLoopMode = NULL;
 
     try {
         auto r = AudioQueueNewOutput(

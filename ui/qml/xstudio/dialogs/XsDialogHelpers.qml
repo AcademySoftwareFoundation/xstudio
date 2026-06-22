@@ -258,10 +258,9 @@ Item {
                     popup.response(popup.choices[0], popup.chaser)
                 }
 
-                XsTextEdit {
+                XsText {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    readOnly: true
                     text: body
                     verticalAlignment: Text.AlignVCenter
                     horizontalAlignment: Text.AlignHCenter

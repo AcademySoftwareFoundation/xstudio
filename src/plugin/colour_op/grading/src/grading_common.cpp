@@ -79,7 +79,8 @@ xstudio::ui::viewport::get_active_grades(const xstudio::media_reader::ImageBufPt
     utility::BlindDataObjectPtr blind_data =
         image.plugin_blind_data(utility::Uuid(colour_pipeline::GradingTool::PLUGIN_UUID));
     if (blind_data) {
-        auto render_data = dynamic_cast<const GradingMaskRenderData *>(blind_data.get());
+        const GradingMaskRenderData *render_data =
+            dynamic_cast<const GradingMaskRenderData *>(blind_data.get());
 
         if (render_data) {
             auto blind_uuid = render_data->interaction_grading_data_.bookmark_uuid_;

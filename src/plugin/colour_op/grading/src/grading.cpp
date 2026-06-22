@@ -280,7 +280,7 @@ utility::BlindDataObjectPtr GradingTool::onscreen_render_data(
             return render_data;
         }
     }
-    return {};
+    return utility::BlindDataObjectPtr();
 }
 
 AnnotationBasePtr GradingTool::build_annotation(const utility::JsonStore &data) {
@@ -358,8 +358,6 @@ void GradingTool::on_screen_media_changed(
 
     working_space_->set_value(working_space);
     media_colour_managed_->set_value(!is_unmanaged);
-
-    current_media_actor_ = media_actor;
 
     // Restore previous bookmark selection, if any
     mail(utility::uuid_atom_v)
@@ -439,7 +437,7 @@ void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const i
                 }
 
                 // Export each layer in turn
-                for (const auto &bookmark_uuid : media_actor_grading_bookmarks(media_actor)) {
+                for (const auto &bookmark_uuid : media_actor_bookmarks(media_actor)) {
                     auto detail       = get_bookmark_detail(bookmark_uuid);
                     auto annotation   = get_bookmark_annotation(bookmark_uuid);
                     auto grading_data = dynamic_cast<const GradingData *>(annotation.get());
@@ -529,15 +527,12 @@ void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const i
 
         } else if (grading_action_->value() == "Paste Layer") {
 
-            for (const auto &media_actor : selected_media_actors()) {
-                int startlayerno = media_actor_grading_bookmarks(media_actor).size();
-
-                for (const auto &bookmark : grading_bookmark_buffer_) {
-
-                    media::AVFrameID frame_id = media_actor_frame_id(
-                        media_actor, *bookmark->detail_.logical_start_frame_);
-                    copy_bookmark_on_media(bookmark, frame_id, startlayerno++);
-                }
+            int startlayerno = current_bookmarks_count_;
+            for (const auto &bookmark : grading_bookmark_buffer_) {
+                save_bookmark();
+                grading_data_ = *static_cast<const GradingData *>(bookmark->annotation_.get());
+                create_bookmark(startlayerno++, bookmark->detail_);
+                save_bookmark();
             }
         }
 
@@ -625,7 +620,7 @@ void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const i
 
         // Refresh UI settings according to selected shape
         const int id = mask_selected_shape_->value();
-        if (id >= 0 && id < static_cast<int>(mask_shapes_.size())) {
+        if (id >= 0 && id < mask_shapes_.size()) {
             auto value = mask_shapes_[id]->role_data_as_json(module::Attribute::Value);
             pen_opacity_->set_value(
                 value["opacity"], false); // 2nd flag means we don't get notified
@@ -639,7 +634,7 @@ void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const i
 
         // set softness on current shape
         const int id = mask_selected_shape_->value();
-        if (id >= 0 && id < static_cast<int>(mask_shapes_.size())) {
+        if (id >= 0 && id < mask_shapes_.size()) {
             auto user_data = mask_shapes_[id]->role_data_as_json(module::Attribute::Value);
             user_data["softness"] = pen_softness_->value();
             mask_shapes_[id]->set_role_data(module::Attribute::Value, user_data);
@@ -649,7 +644,7 @@ void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const i
 
         // set opacity on current shape
         const int id = mask_selected_shape_->value();
-        if (id >= 0 && id < static_cast<int>(mask_shapes_.size())) {
+        if (id >= 0 && id < mask_shapes_.size()) {
             auto user_data = mask_shapes_[id]->role_data_as_json(module::Attribute::Value);
             user_data["opacity"] = pen_opacity_->value();
             mask_shapes_[id]->set_role_data(module::Attribute::Value, user_data);
@@ -659,7 +654,7 @@ void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const i
 
         // set invert on current shape
         const int id = mask_selected_shape_->value();
-        if (id >= 0 && id < static_cast<int>(mask_shapes_.size())) {
+        if (id >= 0 && id < mask_shapes_.size()) {
             auto user_data      = mask_shapes_[id]->role_data_as_json(module::Attribute::Value);
             user_data["invert"] = shape_invert_->value();
             mask_shapes_[id]->set_role_data(module::Attribute::Value, user_data);
@@ -921,7 +916,7 @@ void GradingTool::start_ellipse(
 
 void GradingTool::remove_shape(int id) {
 
-    if (id >= 0 && id < static_cast<int>(mask_shapes_.size())) {
+    if (id >= 0 && id < mask_shapes_.size()) {
         auto canvas_id = mask_shapes_[id]->role_data_as_json(module::Attribute::UserData);
         grading_data_.mask().remove_shape(canvas_id);
 
@@ -1199,7 +1194,7 @@ utility::JsonStore GradingTool::media_actor_colour_params(const caf::actor &medi
     return result;
 }
 
-utility::UuidList GradingTool::media_actor_grading_bookmarks(const caf::actor &media_actor) {
+utility::UuidList GradingTool::media_actor_bookmarks(const caf::actor &media_actor) {
 
     utility::UuidList result;
 
@@ -1212,38 +1207,6 @@ utility::UuidList GradingTool::media_actor_grading_bookmarks(const caf::actor &m
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
 
-    result.erase(
-        std::remove_if(
-            result.begin(),
-            result.end(),
-            [this](const auto &bookmark_uuid) {
-                auto annotation   = get_bookmark_annotation(bookmark_uuid);
-                auto grading_data = dynamic_cast<const GradingData *>(annotation.get());
-                return !(grading_data);
-            }),
-        result.end());
-
-    return result;
-}
-
-media::AVFrameID
-GradingTool::media_actor_frame_id(const caf::actor &media_actor, int logicial_frame) {
-
-    media::AVFrameID result;
-
-    scoped_actor sys{system()};
-
-    try {
-        result = utility::request_receive<media::AVFrameID>(
-            *sys,
-            media_actor,
-            media::get_media_pointer_atom_v,
-            media::MT_IMAGE,
-            logicial_frame);
-    } catch (const std::exception &e) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-    }
-
     return result;
 }
 
@@ -1252,7 +1215,7 @@ utility::Uuid GradingTool::current_bookmark() const {
     return utility::Uuid(grading_bookmark_->value());
 }
 
-utility::UuidList GradingTool::current_image_bookmarks() {
+utility::UuidList GradingTool::current_clip_bookmarks() {
 
     utility::UuidList filtered_list;
     if (viewport_current_images_ && viewport_current_images_->hero_image()) {
@@ -1274,7 +1237,7 @@ void GradingTool::create_bookmark_if_empty() {
     }
 }
 
-void GradingTool::create_bookmark() {
+void GradingTool::create_bookmark(int layerno, const bookmark::BookmarkDetail &from) {
 
     if (viewport_current_images_ && viewport_current_images_->hero_image()) {
 
@@ -1286,17 +1249,28 @@ void GradingTool::create_bookmark() {
 
         // Update layer QML data
         utility::JsonStore user_data;
-        user_data["grade_active"] = true;
-        user_data["mask_active"]  = false;
-        auto clip_layers          = media_actor_grading_bookmarks(current_media_actor_);
-        user_data["layer_name"]   = "Grade Layer " + std::to_string(clip_layers.size() + 1);
-        bmd.user_data_            = user_data;
+        utility::JsonStore from_user_data = from.user_data_.value_or(utility::JsonStore());
+        user_data["grade_active"]         = from_user_data.get_or("grade_active", true);
+        user_data["mask_active"]          = from_user_data.get_or("mask_active", false);
+        if (layerno == -1) {
+            auto clip_layers        = current_clip_bookmarks();
+            user_data["layer_name"] = "Grade Layer " + std::to_string(clip_layers.size() + 1);
+        } else {
+            user_data["layer_name"] = "Grade Layer " + std::to_string(layerno + 1);
+        }
+        bmd.user_data_ = user_data;
+
+        // Entire clip by default
+        bool full_clip = true;
+        if (from.uuid_) {
+            full_clip = from.duration_ == timebase::k_flicks_max;
+        }
 
         auto uuid = StandardPlugin::create_bookmark_on_frame(
             viewport_current_images_->hero_image().frame_id(),
             "Grading Note", // bookmark_subject
             bmd,            // detail
-            true            // bookmark_entire_duration
+            full_clip       // bookmark_entire_duration
         );
 
         grading_data_.bookmark_uuid_ = uuid;
@@ -1307,41 +1281,6 @@ void GradingTool::create_bookmark() {
     }
 
     spdlog::debug("Created bookmark {}", utility::to_string(grading_data_.bookmark_uuid_));
-}
-
-void GradingTool::copy_bookmark_on_media(
-    const bookmark::BookmarkAndAnnotationPtr &from, media::AVFrameID &frame_id, int layerno) {
-
-    bookmark::BookmarkDetail bmd;
-    // Hides bookmark from timeline
-    bmd.colour_    = "transparent";
-    bmd.visible_   = false;
-    bmd.user_type_ = "Grading";
-
-    // Update layer QML data
-    utility::JsonStore user_data;
-    utility::JsonStore from_user_data = from->detail_.user_data_.value_or(utility::JsonStore());
-    user_data["grade_active"]         = from_user_data.get_or("grade_active", true);
-    user_data["mask_active"]          = from_user_data.get_or("mask_active", false);
-    user_data["layer_name"]           = "Grade Layer " + std::to_string(layerno + 1);
-    bmd.user_data_                    = user_data;
-
-    const bool full_clip = from->detail_.duration_ == timebase::k_flicks_max;
-
-    auto uuid = StandardPlugin::create_bookmark_on_frame(
-        frame_id,
-        "Grading Note", // bookmark_subject
-        bmd,            // detail
-        full_clip       // bookmark_entire_duration
-    );
-
-    GradingData gd    = *static_cast<const GradingData *>(from->annotation_.get());
-    gd.bookmark_uuid_ = uuid;
-
-    StandardPlugin::update_bookmark_annotation(
-        uuid, std::make_shared<const GradingData>(gd), false);
-
-    spdlog::debug("Copied bookmark {}", utility::to_string(grading_data_.bookmark_uuid_));
 }
 
 void GradingTool::select_bookmark(const utility::Uuid &uuid) {
@@ -1477,9 +1416,12 @@ static std::vector<std::shared_ptr<plugin_manager::PluginFactory>> factories(
          "Remi Achard",
          "Colour operator to apply CDL with optional painted masking in viewport.")});
 
-extern "C" {
-plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
-    return new plugin_manager::PluginFactoryCollection(
-        std::vector<std::shared_ptr<plugin_manager::PluginFactory>>(factories));
-}
-}
+#define XSTUDIO_PLUGIN_DECLARE_END()                                                           \
+    extern "C" {                                                                               \
+    plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {                 \
+        return new plugin_manager::PluginFactoryCollection(                                    \
+            std::vector<std::shared_ptr<plugin_manager::PluginFactory>>(factories));           \
+    }                                                                                          \
+    }
+
+XSTUDIO_PLUGIN_DECLARE_END()

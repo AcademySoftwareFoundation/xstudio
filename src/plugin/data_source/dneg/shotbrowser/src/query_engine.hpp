@@ -101,7 +101,6 @@ const auto ValidTerms = R"_({
         "Has Contents",
         "Has Notes",
         "Id",
-        "Include Deleted",
         "Lookback",
         "Order By",
         "Playlist Type",
@@ -162,10 +161,8 @@ const auto ValidTerms = R"_({
         "Exclude Shot Status",
         "Filter",
         "Flag Media",
-        "Has Note Type",
         "Has Notes",
         "Id",
-        "Include Deleted",
         "Is Hero",
         "Latest Version",
         "Lookback",
@@ -347,9 +344,7 @@ const auto TermProperties = R"_({
     "Has Attachments": { "negated": null, "livelink": null },
     "Has Contents": { "negated": null, "livelink": null },
     "Has Notes": { "negated": null, "livelink": null },
-    "Has Note Type": { "negated": false, "livelink": null },
     "Id": { "negated": false, "livelink": false },
-    "Include Deleted": { "negated": null, "livelink": null },
     "Is Hero": { "negated": null, "livelink": null },
     "Latest Version": { "negated": null, "livelink": null },
     "Lookback": { "negated": null, "livelink": null },
@@ -418,34 +413,6 @@ const std::set<std::string> TermHasNoModel = {
     "Tag",
     "Twig Name",
     "Version Name"};
-
-const std::vector<std::string> ShotLocations(
-    {{"/metadata/clip/metadata/external/DNeg/shot"},
-     {"/metadata/external/DNeg/shot"},
-     {"/metadata/external/ivy/file/version/scope/name"},
-     {"/metadata/shotgun/version/relationships/entity/data/name"},
-     {"/metadata/shotgun/shot/attributes/code"},
-     {"/metadata/image_source_metadata/metadata/external/DNeg/shot"},
-     {"/metadata/audio_source_metadata/metadata/external/DNeg/shot"},
-     {"/metadata/image_source_metadata/metadata/external/ivy/file/version/scope/"
-      "name"},
-     {"/metadata/audio_source_metadata/metadata/external/ivy/file/version/scope/"
-      "name"},
-     {"/metadata/image_source_metadata/colour_pipeline/ocio_context/SHOT"}});
-
-
-const std::vector<std::string> ProjectNameLocations(
-    {{"/metadata/external/DNeg/show"},
-     {"/metadata/external/ivy/file/show"},
-     {"/metadata/shotgun/version/relationships/project/data/name"},
-     {"/metadata/shotgun/shot/relationships/project/data/name"},
-     {"/metadata/clip/metadata/external/DNeg/show"},
-     {"/metadata/image_source_metadata/metadata/external/DNeg/show"},
-     {"/metadata/audio_source_metadata/metadata/external/DNeg/show"},
-     {"/metadata/image_source_metadata/metadata/external/ivy/file/show"},
-     {"/metadata/audio_source_metadata/metadata/external/ivy/file/show"},
-     {"/metadata/image_source_metadata/colour_pipeline/ocio_context/SHOW"}});
-
 
 typedef std::function<void(const std::string &key)> CacheChangedFunc;
 
@@ -549,9 +516,22 @@ class QueryEngine {
         auto name = std::string();
 
         try {
-            for (const auto &i : ShotLocations) {
+            std::vector<std::string> locations(
+                {{"/metadata/clip/metadata/external/DNeg/shot"},
+                 {"/metadata/external/DNeg/shot"},
+                 {"/metadata/external/ivy/file/version/scope/name"},
+                 {"/metadata/shotgun/version/relationships/entity/data/name"},
+                 {"/metadata/shotgun/shot/attributes/code"},
+                 {"/metadata/image_source_metadata/metadata/external/DNeg/shot"},
+                 {"/metadata/audio_source_metadata/metadata/external/DNeg/shot"},
+                 {"/metadata/image_source_metadata/metadata/external/ivy/file/version/scope/"
+                  "name"},
+                 {"/metadata/audio_source_metadata/metadata/external/ivy/file/version/scope/"
+                  "name"},
+                 {"/metadata/image_source_metadata/colour_pipeline/ocio_context/SHOT"}});
+            for (const auto &i : locations) {
                 if (metadata.contains(json::json_pointer(i))) {
-                    if (strict and i == ShotLocations.at(3) and
+                    if (strict and i == locations.at(3) and
                         metadata.value(
                             json::json_pointer(
                                 "/metadata/shotgun/version/relationships/entity/data/type"),
@@ -573,7 +553,18 @@ class QueryEngine {
         auto project_name = std::string();
 
         try {
-            for (const auto &i : ProjectNameLocations) {
+            std::vector<std::string> project_name_locations(
+                {{"/metadata/external/DNeg/show"},
+                 {"/metadata/external/ivy/file/show"},
+                 {"/metadata/shotgun/version/relationships/project/data/name"},
+                 {"/metadata/shotgun/shot/relationships/project/data/name"},
+                 {"/metadata/clip/metadata/external/DNeg/show"},
+                 {"/metadata/image_source_metadata/metadata/external/DNeg/show"},
+                 {"/metadata/audio_source_metadata/metadata/external/DNeg/show"},
+                 {"/metadata/image_source_metadata/metadata/external/ivy/file/show"},
+                 {"/metadata/audio_source_metadata/metadata/external/ivy/file/show"},
+                 {"/metadata/image_source_metadata/colour_pipeline/ocio_context/SHOW"}});
+            for (const auto &i : project_name_locations) {
                 if (metadata.contains(json::json_pointer(i))) {
                     project_name = metadata.at(json::json_pointer(i)).get<std::string>();
                     break;
@@ -742,7 +733,6 @@ class QueryEngine {
         const utility::JsonStore &terms,
         const int project_id,
         const std::string &entity,
-        const utility::JsonStore &context,
         const utility::JsonStore &lookup,
         const bool and_mode = true,
         const bool initial  = true);

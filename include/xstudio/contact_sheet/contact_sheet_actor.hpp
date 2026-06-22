@@ -5,23 +5,25 @@
 
 #include "xstudio/subset/subset_actor.hpp"
 
-namespace xstudio::contact_sheet {
+namespace xstudio {
+namespace contact_sheet {
 
-class ContactSheetActor : public subset::SubsetActor {
+    class ContactSheetActor : public subset::SubsetActor {
 
-  public:
-    ContactSheetActor(
-        caf::actor_config &cfg, caf::actor playlist, const utility::JsonStore &jsn);
-    ContactSheetActor(caf::actor_config &cfg, caf::actor playlist, const std::string &name);
+      public:
+        ContactSheetActor(
+            caf::actor_config &cfg, caf::actor playlist, const utility::JsonStore &jsn);
+        ContactSheetActor(caf::actor_config &cfg, caf::actor playlist, const std::string &name);
 
-    caf::behavior make_behavior() override {
-        return override_behaviour_.or_else(subset::SubsetActor::make_behavior());
-    }
+        caf::behavior make_behavior() override {
+            return override_behaviour_.or_else(subset::SubsetActor::make_behavior());
+        }
 
-  private:
-    void init();
-    inline static const std::string NAME = "ContactSheetActor";
+      private:
+        void init();
+        inline static const std::string NAME = "ContactSheetActor";
 
-    caf::message_handler override_behaviour_;
-};
-} // namespace xstudio::contact_sheet
+        caf::message_handler override_behaviour_;
+    };
+} // namespace contact_sheet
+} // namespace xstudio

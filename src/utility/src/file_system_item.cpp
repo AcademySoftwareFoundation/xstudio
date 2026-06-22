@@ -33,8 +33,8 @@ bool FileSystemItem::scan(const int depth, const bool ignore_last_write) {
 
         case FSIT_DIRECTORY: {
             // check path exists.
-            auto path = uri_to_posix_path(path_);
-            // auto update = false;
+            auto path   = uri_to_posix_path(path_);
+            auto update = false;
             std::map<caf::uri, FileSystemItems::iterator> child_paths;
 
             for (auto it = begin(); it != end(); ++it)
@@ -53,8 +53,8 @@ bool FileSystemItem::scan(const int depth, const bool ignore_last_write) {
                 if (not ignore_last_write) {
                     auto last_write = fs::last_write_time(path);
                     if (last_write != last_write_) {
-                        scan = true;
-                        // update      = true;
+                        scan        = true;
+                        update      = true;
                         last_write_ = last_write;
                     }
                 }

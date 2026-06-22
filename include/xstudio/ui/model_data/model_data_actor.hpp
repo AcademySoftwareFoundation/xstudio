@@ -8,169 +8,177 @@
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/utility/tree.hpp"
 
-namespace xstudio::ui::model_data {
+namespace xstudio {
+namespace ui {
+    namespace model_data {
 
-/*
-This class maintains central 'model data' in a flexible json dictionary
-format. Why central? Because we can have multiple UI elements that
-provide separate views to the same bits of data. If the underlying data
-is changed we want the change to be reflected in all views. Examples
-could include the viewport toolbar or pop-up menus.
+        /*
+        This class maintains central 'model data' in a flexible json dictionary
+        format. Why central? Because we can have multiple UI elements that
+        provide separate views to the same bits of data. If the underlying data
+        is changed we want the change to be reflected in all views. Examples
+        could include the viewport toolbar or pop-up menus.
 
-The model data can be exposed in the UI as QAbstractItemModel, allowing
-for data in a tree structure to be iterated over in the UI. For example,
-menus, sub-menus, sub-sub-menus going to multiple levels can be
-maintained this way. A backend actor can add aslo data to the model or
-change data causing a refresh to the UI or add new menus at run time.
+        The model data can be exposed in the UI as QAbstractItemModel, allowing
+        for data in a tree structure to be iterated over in the UI. For example,
+        menus, sub-menus, sub-sub-menus going to multiple levels can be
+        maintained this way. A backend actor can add aslo data to the model or
+        change data causing a refresh to the UI or add new menus at run time.
 
-Model data can also be retrieved and written to preferences files. In
-this way we model the layout of the UI panels and maintain it in the
-user's preferences.
-*/
-class GlobalUIModelData : public caf::event_based_actor {
+        Model data can also be retrieved and written to preferences files. In
+        this way we model the layout of the UI panels and maintain it in the
+        user's preferences.
+        */
+        class GlobalUIModelData : public caf::event_based_actor {
 
-  public:
-    GlobalUIModelData(caf::actor_config &cfg);
-    ~GlobalUIModelData() override = default;
+          public:
+            GlobalUIModelData(caf::actor_config &cfg);
+            ~GlobalUIModelData() override = default;
 
-    caf::behavior make_behavior() override { return behavior_; }
+            caf::behavior make_behavior() override { return behavior_; }
 
-    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
+            const char *name() const override { return NAME.c_str(); }
 
-    void on_exit() override;
+            void on_exit() override;
 
-  private:
-    inline static const std::string NAME = "GlobalUIModelData";
+          private:
+            inline static const std::string NAME = "GlobalUIModelData";
 
-    [[nodiscard]] utility::JsonStore model_data_as_json(const std::string &model_name) const;
+            utility::JsonStore model_data_as_json(const std::string &model_name) const;
 
-    void set_data(
-        const std::string &model_name,
-        const std::string path,
-        const utility::JsonStore &data,
-        const std::string &role = std::string());
+            void set_data(
+                const std::string &model_name,
+                const std::string path,
+                const utility::JsonStore &data,
+                const std::string &role = std::string());
 
-    void set_data(
-        const std::string &model_name,
-        const utility::Uuid &item_uuid,
-        const std::string &role,
-        const utility::JsonStore &data,
-        caf::actor setter);
+            void set_data(
+                const std::string &model_name,
+                const utility::Uuid &item_uuid,
+                const std::string &role,
+                const utility::JsonStore &data,
+                caf::actor setter);
 
-    void insert_attribute_data_into_model(
-        const std::string &model_name,
-        const utility::Uuid &attribute_uuid,
-        const utility::JsonStore &attribute_data,
-        const std::string &sort_role,
-        caf::actor client);
+            void insert_attribute_data_into_model(
+                const std::string &model_name,
+                const utility::Uuid &attribute_uuid,
+                const utility::JsonStore &attribute_data,
+                const std::string &sort_role,
+                caf::actor client);
 
-    void remove_attribute_data_from_model(
-        const std::string &model_name, const utility::Uuid &attribute_uuid, caf::actor client);
+            void remove_attribute_data_from_model(
+                const std::string &model_name,
+                const utility::Uuid &attribute_uuid,
+                caf::actor client);
 
-    void stop_watching_model(const std::string &model_name, caf::actor client);
+            void stop_watching_model(const std::string &model_name, caf::actor client);
 
-    void register_model(
-        const std::string &model_name,
-        const utility::JsonStore &model_data,
-        caf::actor client,
-        bool force_resend                  = false,
-        const std::string &preference_path = std::string());
+            void register_model(
+                const std::string &model_name,
+                const utility::JsonStore &model_data,
+                caf::actor client,
+                bool force_resend                  = false,
+                const std::string &preference_path = std::string());
 
-    void
-    check_model_is_registered(const std::string &model_name, const bool auto_register = false);
+            void check_model_is_registered(
+                const std::string &model_name, const bool auto_register = false);
 
-    void insert_rows(
-        const std::string &model_name,
-        const std::string &path,
-        const int row,
-        int count,
-        const utility::JsonStore &data,
-        caf::actor requester = caf::actor());
+            void insert_rows(
+                const std::string &model_name,
+                const std::string &path,
+                const int row,
+                int count,
+                const utility::JsonStore &data,
+                caf::actor requester = caf::actor());
 
-    void remove_rows(
-        const std::string &model_name,
-        const std::string &path,
-        const int row,
-        int count,
-        caf::actor requester = caf::actor());
+            void remove_rows(
+                const std::string &model_name,
+                const std::string &path,
+                const int row,
+                int count,
+                caf::actor requester = caf::actor());
 
-    void
-    remove_attribute_from_model(const std::string &model_name, const utility::Uuid &attr_uuid);
+            void remove_attribute_from_model(
+                const std::string &model_name, const utility::Uuid &attr_uuid);
 
-    void push_to_prefs(const std::string &model_name, const bool actually_push = false);
+            void push_to_prefs(const std::string &model_name, const bool actually_push = false);
 
-    void node_activated(
-        const std::string &model_name,
-        const std::string &path,
-        const std::string &user_data,
-        const std::string &activation_type,
-        const bool from_hotkey);
+            void node_activated(
+                const std::string &model_name,
+                const std::string &path,
+                const std::string &user_data,
+                const std::string &activation_type,
+                const bool from_hotkey);
 
-    void insert_into_menu_model(
-        const std::string &model_name,
-        const std::string &menu_path,
-        const utility::JsonStore &menu_data,
-        caf::actor watcher);
+            void insert_into_menu_model(
+                const std::string &model_name,
+                const std::string &menu_path,
+                const utility::JsonStore &menu_data,
+                caf::actor watcher);
 
-    void remove_node(const std::string &model_name, const utility::Uuid &model_item_id);
+            void remove_node(const std::string &model_name, const utility::Uuid &model_item_id);
 
-    void broadcast_whole_model_data(const std::string &model_name);
+            void broadcast_whole_model_data(const std::string &model_name);
 
-    void set_menu_node_position(
-        const std::string &model_name,
-        const std::string &menu_path,
-        const float position_in_menu);
+            void set_menu_node_position(
+                const std::string &model_name,
+                const std::string &menu_path,
+                const float position_in_menu);
 
-    void update_hotkeys_model_data(const Hotkey &hotkey);
+            void update_hotkeys_model_data(const Hotkey &hotkey);
 
-    void hotkey_pressed(
-        const utility::Uuid &hotkey_uuid,
-        const std::string &context,
-        const std::string &window);
+            void hotkey_pressed(
+                const utility::Uuid &hotkey_uuid,
+                const std::string &context,
+                const std::string &window);
 
-    void reset_model(const std::string &model_name, const std::string &preferences_path);
+            void
+            reset_model(const std::string &model_name, const std::string &preferences_path);
 
-    void monitor_item(const caf::actor &actor);
+            void monitor_item(const caf::actor &actor);
 
-    void reset_model(
-        const std::string &model_name,
-        const utility::JsonStore &data,
-        caf::actor excluded_client);
+            void reset_model(
+                const std::string &model_name,
+                const utility::JsonStore &data,
+                caf::actor excluded_client);
 
-    struct ModelData {
-        ModelData()                   = default;
-        ModelData(const ModelData &o) = default;
-        ModelData(
-            const std::string name,
-            const utility::JsonStore &data,
-            caf::actor client                 = caf::actor(),
-            const std::string preference_path = std::string())
-            : name_(name),
-              data_(utility::json_to_tree(data, "children")),
-              preference_path_(std::move(preference_path)) {
-            clients_.push_back(client);
-        }
-        std::string name_;
-        std::string sort_key_;
-        utility::JsonTree data_;
-        std::string preference_path_;
-        std::vector<caf::actor> clients_;
-        std::map<utility::Uuid, std::vector<caf::actor>> menu_watchers_;
-        bool pending_prefs_update_ = {false};
-        std::set<utility::Uuid> hotkeys_;
-    };
+            struct ModelData {
+                ModelData()                   = default;
+                ModelData(const ModelData &o) = default;
+                ModelData(
+                    const std::string name,
+                    const utility::JsonStore &data,
+                    caf::actor client                  = caf::actor(),
+                    const std::string &preference_path = std::string())
+                    : name_(name),
+                      data_(utility::json_to_tree(data, "children")),
+                      preference_path_(preference_path) {
+                    clients_.push_back(client);
+                }
+                std::string name_;
+                std::string sort_key_;
+                utility::JsonTree data_;
+                std::string preference_path_;
+                std::vector<caf::actor> clients_;
+                std::map<utility::Uuid, std::vector<caf::actor>> menu_watchers_;
+                bool pending_prefs_update_ = {false};
+                std::set<utility::Uuid> hotkeys_;
+            };
 
-    typedef std::shared_ptr<ModelData> ModelDataPtr;
-    typedef std::vector<ModelDataPtr> ModelDataVec;
+            typedef std::shared_ptr<ModelData> ModelDataPtr;
+            typedef std::vector<ModelDataPtr> ModelDataVec;
 
-    ModelDataVec get_menu_models(const std::string model_name);
+            ModelDataVec get_menu_models(const std::string model_name);
 
-    void do_ordering(
-        utility::JsonTree *node, const std::string &ordering_key = "menu_item_position");
+            void do_ordering(
+                utility::JsonTree *node,
+                const std::string &ordering_key = "menu_item_position");
 
-    std::map<std::string, ModelDataPtr> models_;
-    std::set<std::string> models_to_be_fully_broadcasted_;
+            std::map<std::string, ModelDataPtr> models_;
+            std::set<std::string> models_to_be_fully_broadcasted_;
 
-    caf::behavior behavior_;
-};
-} // namespace xstudio::ui::model_data
+            caf::behavior behavior_;
+        };
+    } // namespace model_data
+} // namespace ui
+} // namespace xstudio

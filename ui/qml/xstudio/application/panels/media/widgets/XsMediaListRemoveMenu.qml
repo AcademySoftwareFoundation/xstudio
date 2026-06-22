@@ -26,9 +26,8 @@ XsPopupMenu {
         menuPath: ""
         menuItemPosition: 1
         menuModelName: removeMenu.menu_model_name
-        onActivated: media_list_functions.deleteSelected(true)
+        onActivated: deleteSelected(true)
         panelContext: removeMenu.panelContext
-        hotkeyUuid: hotkey_area.delete_selected_hotkey.uuid
     }
 
     XsMenuModelItem {
@@ -37,8 +36,7 @@ XsPopupMenu {
         menuPath: ""
         menuItemPosition: 2
         menuModelName: removeMenu.menu_model_name
-        onActivated: media_list_functions.deleteOffline(true)
+        onActivated: deleteOffline(true)
         panelContext: removeMenu.panelContext
-        hotkeyUuid: hotkey_area.delete_offline_hotkey.uuid
     }
 }

@@ -20,7 +20,6 @@ from xstudio.api.auxiliary import NotificationHandler
 from xstudio.api.auxiliary.json_store import JsonStoreHandler
 
 import json
-from pathlib import Path
 
 class Playlist(Container, NotificationHandler, JsonStoreHandler):
     """Playlist object."""
@@ -115,7 +114,7 @@ class Playlist(Container, NotificationHandler, JsonStoreHandler):
 
         return media
 
-    def add_media(self, path, frame_list=None, before_uuid=Uuid()):
+    def add_media(self, path, frame_list=None):
         """Add media from path.
 
         Args:
@@ -125,16 +124,15 @@ class Playlist(Container, NotificationHandler, JsonStoreHandler):
             media(Media): Media.
         """
         if isinstance(path, URI):
-            result = self.connection.request_receive(self.remote, add_media_atom(), path, False, before_uuid)[0]
+            result = self.connection.request_receive(self.remote, add_media_atom(), path, False, Uuid())[0]
         else:
             ppp = parse_posix_path(path)
-            name = Path(path).name.split(".", 1)[0] # this is to match what happens internally with a URI above
 
             if not str(ppp[1]) and frame_list is None:
-                result = self.connection.request_receive(self.remote, add_media_atom(), path, ppp[0], before_uuid)[0]
+                result = self.connection.request_receive(self.remote, add_media_atom(), path, ppp[0], Uuid())[0]
             else:
                 result = self.connection.request_receive(
-                    self.remote, add_media_atom(), path, ppp[0], ppp[1] if frame_list is None else frame_list, before_uuid
+                    self.remote, add_media_atom(), path, ppp[0], ppp[1] if frame_list is None else frame_list, Uuid()
                 )[0]
 
         return Media(self.connection, result.actor, result.uuid)
@@ -449,16 +447,6 @@ class Playlist(Container, NotificationHandler, JsonStoreHandler):
                     media_list.push_back(m)
 
         return self.connection.request_receive(self.remote, remove_media_atom(), VectorUuid(media_list))[0]
-    
-    def clear(self):
-        """Clear the playlist of all media
-
-        Returns:
-            success(bool): Returns result.
-        """
-        if len(self.media):
-            return self.remove_media(self.media)
-        return False
 
     def move_media(self, media, before=Uuid()):
         """Move media in tree.

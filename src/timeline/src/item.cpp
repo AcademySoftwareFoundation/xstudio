@@ -71,7 +71,7 @@ caf::actor_addr Item::string_to_actor_addr(const std::string &str) const {
     caf::actor_addr addr;
     caf::binary_serializer::container_type buf = hex_to_bytes(str);
     caf::binary_deserializer bd{ActorSystemSingleton::actor_system_ref(), buf};
-    std::ignore = bd.apply(addr);
+    auto e = bd.apply(addr);
     return addr;
 }
 
@@ -124,7 +124,7 @@ FrameRange Item::trimmed_range() const {
     if (has_available_range_)
         return available_range_;
 
-    return {};
+    return FrameRange();
 }
 
 FrameRate Item::trimmed_duration() const {
@@ -134,7 +134,7 @@ FrameRate Item::trimmed_duration() const {
     if (has_available_range_)
         return available_range_.duration();
 
-    return {};
+    return FrameRate();
 }
 
 FrameRate Item::trimmed_start() const {
@@ -144,7 +144,7 @@ FrameRate Item::trimmed_start() const {
     if (has_available_range_)
         return available_range_.start();
 
-    return {};
+    return FrameRate();
 }
 
 std::optional<FrameRate> Item::available_duration() const {
@@ -188,7 +188,7 @@ std::optional<FrameRateDuration> Item::available_frame_duration() const {
 // so watch out if things go wrong.
 JsonStore Item::refresh(const int depth) {
     if (not depth)
-        return {};
+        return JsonStore();
 
     auto result = nlohmann::json::array();
 
@@ -244,9 +244,9 @@ JsonStore Item::refresh(const int depth) {
     }
 
     if (result.empty())
-        return {};
+        return JsonStore();
 
-    return {result};
+    return JsonStore(result);
 }
 
 bool Item::valid() const {
@@ -769,7 +769,7 @@ std::vector<ResolvedItem> Item::resolve_time_raw(
             // should this be reversed ?
             for (const auto &it : *this) {
                 // we skip audio track..
-                if ((ignore_disabled and it.transparent()) or it.item_type() == IT_VIDEO_TRACK)
+                if (ignore_disabled and it.transparent() or it.item_type() == IT_VIDEO_TRACK)
                     continue;
 
                 auto t =
@@ -874,7 +874,7 @@ JsonStore Item::set_enabled(const bool value) {
         return jsn;
     }
 
-    return {};
+    return JsonStore();
 }
 
 JsonStore Item::set_locked(const bool value) {
@@ -889,7 +889,7 @@ JsonStore Item::set_locked(const bool value) {
         return jsn;
     }
 
-    return {};
+    return JsonStore();
 }
 
 JsonStore Item::set_name(const std::string &value) {
@@ -904,7 +904,7 @@ JsonStore Item::set_name(const std::string &value) {
         return jsn;
     }
 
-    return {};
+    return JsonStore();
 }
 
 JsonStore Item::set_flag(const std::string &value) {
@@ -919,7 +919,7 @@ JsonStore Item::set_flag(const std::string &value) {
         return jsn;
     }
 
-    return {};
+    return JsonStore();
 }
 
 JsonStore Item::set_prop(const JsonStore &value) {
@@ -942,7 +942,7 @@ JsonStore Item::set_prop(const JsonStore &value) {
         return jsn;
     }
 
-    return {};
+    return JsonStore();
 }
 
 void Item::set_actor_addr_direct(const caf::actor_addr &value) { uuid_addr_.second = value; }
@@ -979,7 +979,7 @@ JsonStore Item::set_actor_addr(const caf::actor_addr &value) {
         return jsn;
     }
 
-    return {};
+    return JsonStore();
 }
 
 JsonStore Item::set_markers(const Markers &value) {
@@ -995,7 +995,7 @@ JsonStore Item::set_markers(const Markers &value) {
         set_markers_direct(value);
         return jsn;
     }
-    return {};
+    return JsonStore();
 }
 
 void Item::set_range_direct(const FrameRange &avail, const FrameRange &active) {
@@ -1029,7 +1029,7 @@ JsonStore Item::set_range(const FrameRange &avail, const FrameRange &active) {
         return jsn;
     }
 
-    return {};
+    return JsonStore();
 }
 
 void Item::override_frame_rate(
@@ -1108,7 +1108,7 @@ JsonStore Item::set_active_range(const FrameRange &value) {
         return jsn;
     }
 
-    return {};
+    return JsonStore();
 }
 
 void Item::set_available_range_direct(const FrameRange &value) {
@@ -1138,7 +1138,7 @@ JsonStore Item::set_available_range(const FrameRange &value) {
         set_available_range_direct(value);
         return jsn;
     }
-    return {};
+    return JsonStore();
 }
 
 Items::iterator Item::insert_direct(Items::iterator position, const Item &val) {
@@ -1324,8 +1324,8 @@ bool Item::process_event(const JsonStore &event) {
             has_active_range_ = event.at("value4");
             break;
         case IA_INSERT: {
-            auto index = event.at("index").get<int>();
-            if (index >= 0 and index <= static_cast<int>(size())) {
+            auto index = event.at("index").get<size_t>();
+            if (index >= 0 and index <= size()) {
                 insert_direct(std::next(begin(), index), Item(JsonStore(event.at("item"))));
             } else {
                 spdlog::error(
@@ -1771,7 +1771,7 @@ class BuildFrameIDsHelper : public caf::event_based_actor {
         });
     }
 
-    ~BuildFrameIDsHelper() override {
+    ~BuildFrameIDsHelper() {
 
         // When this actor is destroyed it means that all references to this
         // actor held in the CAF mailbox have expired. Therefore it has received
@@ -1784,8 +1784,8 @@ class BuildFrameIDsHelper : public caf::event_based_actor {
     }
 
     caf::behavior behavior_;
-    caf::typed_response_promise<media::FrameTimeMapPtr> rp_;
     media::FrameTimeMap *result_;
+    caf::typed_response_promise<media::FrameTimeMapPtr> rp_;
     FrameRate base_rate_;
     const media::MediaType media_type_;
     utility::clock::time_point t0;
@@ -1822,9 +1822,9 @@ caf::typed_response_promise<media::FrameTimeMapPtr> Item::get_all_frame_IDs(
 
     // first step - we make a map of all frames in the timeline, and fill
     // with blank frames.
-    auto result      = new media::FrameTimeMap;
-    auto blank_frame = media::make_blank_frame(media_type);
-    timepoint        = start_frame * rate();
+    media::FrameTimeMap *result = new media::FrameTimeMap;
+    auto blank_frame            = media::make_blank_frame(media_type);
+    timepoint                   = start_frame * rate();
     for (auto i = start_frame; i < end_frame; i++) {
         result->emplace(std::make_pair(FrameRate(timepoint), blank_frame));
         timepoint += rate();

@@ -7,9 +7,7 @@ CAF_PUSH_WARNINGS
 CAF_POP_WARNINGS
 
 #include "xstudio/utility/uuid.hpp"
-#include "xstudio/ui/viewport/mask.hpp"
 
 PYBIND11_MAKE_OPAQUE(std::vector<std::string>)
 PYBIND11_MAKE_OPAQUE(std::vector<xstudio::utility::Uuid>)
 PYBIND11_MAKE_OPAQUE(std::vector<xstudio::utility::UuidActor>)
-PYBIND11_MAKE_OPAQUE(std::vector<xstudio::ui::viewport::Mask>)

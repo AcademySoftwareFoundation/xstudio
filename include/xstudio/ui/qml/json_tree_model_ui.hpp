@@ -107,7 +107,7 @@ class HELPER_QML_EXPORT JSONTreeModel : public QAbstractItemModel {
 
     bool insertRows(int row, int count, const QModelIndex &parent, const nlohmann::json &data);
 
-    Q_INVOKABLE [[nodiscard]] QModelIndex invalidIndex() const { return {}; }
+    Q_INVOKABLE QModelIndex invalidIndex() const { return QModelIndex(); }
 
     Q_INVOKABLE int
     countExpandedChildren(const QModelIndex parent, const QModelIndexList &expanded);
@@ -174,7 +174,7 @@ class HELPER_QML_EXPORT JSONTreeModel : public QAbstractItemModel {
 
     virtual void setModelData(const nlohmann::json &data);
 
-    [[nodiscard]] const std::string &children() const { return children_; }
+    const std::string &children() const { return children_; }
     void setChildren(const std::string &value) { children_ = value; }
 
     void setRoleNames(const nlohmann::json &data);
@@ -183,13 +183,11 @@ class HELPER_QML_EXPORT JSONTreeModel : public QAbstractItemModel {
         const std::vector<std::string> roles = {}, const std::string display_role = "display");
 
     nlohmann::json &indexToData(const QModelIndex &index);
-    [[nodiscard]] const nlohmann::json &indexToData(const QModelIndex &index) const;
-    [[nodiscard]] nlohmann::json
-    indexToFullData(const QModelIndex &index, const int depth = -1) const;
+    const nlohmann::json &indexToData(const QModelIndex &index) const;
+    nlohmann::json indexToFullData(const QModelIndex &index, const int depth = -1) const;
 
-    [[nodiscard]] utility::JsonTree *indexToTree(const QModelIndex &index) const;
-    [[nodiscard]] nlohmann::json::json_pointer
-    getIndexPath(const QModelIndex &index = QModelIndex()) const;
+    utility::JsonTree *indexToTree(const QModelIndex &index) const;
+    nlohmann::json::json_pointer getIndexPath(const QModelIndex &index = QModelIndex()) const;
     virtual QModelIndex getPathIndex(const nlohmann::json::json_pointer &path);
 
     void bindEventFunc(JSONTreeSendEventFunc fs);
@@ -333,7 +331,7 @@ class HELPER_QML_EXPORT JSONTreeFilterModel : public QSortFilterProxyModel {
         } catch (...) {
         }
 
-        return {};
+        return QString();
     }
 
     [[nodiscard]] bool invert() const { return invert_; }
@@ -376,7 +374,7 @@ class HELPER_QML_EXPORT JSONTreeFilterModel : public QSortFilterProxyModel {
         }
     }
 
-    [[nodiscard]] QString filterRoleName() const { return filterRoleName_; }
+    QString filterRoleName() const { return filterRoleName_; }
 
 
   signals:

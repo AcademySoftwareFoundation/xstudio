@@ -10,10 +10,7 @@
 #include <QObject>
 // #include <QOpenGLFramebufferObject>
 #include <QImage>
-
-#undef __GLEW_H__
 #include <QOpenGLContext>
-
 #include <QOffscreenSurface>
 
 namespace opengl {
@@ -26,166 +23,168 @@ class QQmlComponent;
 class QQuickRenderControl;
 class QQmlEngine;
 
-namespace xstudio::ui {
+namespace xstudio {
+namespace ui {
 
-namespace qml {
-    class Helpers;
-}
+    namespace qml {
+        class Helpers;
+    }
 
-namespace qt {
+    namespace qt {
 
-    class OffscreenViewport : public caf::mixin::actor_object<QObject> {
+        class OffscreenViewport : public caf::mixin::actor_object<QObject> {
 
-        Q_OBJECT
-        using super = caf::mixin::actor_object<QObject>;
+            Q_OBJECT
+            using super = caf::mixin::actor_object<QObject>;
 
-      public:
-        OffscreenViewport(const std::string name, bool sync_to_other_viewports);
-        ~OffscreenViewport() override = default;
+          public:
+            OffscreenViewport(const std::string name, bool sync_to_other_viewports);
+            ~OffscreenViewport() override;
 
-        // Direct rendering to an output file
-        void
-        renderSnapshot(const int width, const int height, const caf::uri path = caf::uri());
+            // Direct rendering to an output file
+            void
+            renderSnapshot(const int width, const int height, const caf::uri path = caf::uri());
 
-        void setPlayhead(const QString &playheadAddress);
+            void setPlayhead(const QString &playheadAddress);
 
-        std::string name() { return xstudio_viewport_->name(); }
+            std::string name() { return xstudio_viewport_->name(); }
 
-        void stop();
+            void stop();
 
-      public slots:
+          public slots:
 
-        void cleanup();
-        void sceneChanged();
-        void renderViewportUnderQML();
+            void cleanup();
+            void sceneChanged();
+            void renderViewportUnderQML();
 
-      private:
-        caf::actor_system &system() { return self()->home_system(); }
+          private:
+            caf::actor_system &system() { return self()->home_system(); }
 
-        void receive_change_notification(viewport::Viewport::ChangeCallbackId id);
+            void receive_change_notification(viewport::Viewport::ChangeCallbackId id);
 
-        thumbnail::ThumbnailBufferPtr renderOffscreen(
-            const int w,
-            const int h,
-            const media_reader::ImageBufPtr &image = media_reader::ImageBufPtr());
+            thumbnail::ThumbnailBufferPtr renderOffscreen(
+                const int w,
+                const int h,
+                const media_reader::ImageBufPtr &image = media_reader::ImageBufPtr());
 
-        media_reader::ImageBufPtr renderToImageBuf(
-            int width,
-            int height,
-            const bool include_image    = true,
-            const bool include_overlays = true,
-            const bool include_drawings = true);
+            media_reader::ImageBufPtr renderToImageBuf(
+                int width,
+                int height,
+                const bool include_image    = true,
+                const bool include_overlays = true,
+                const bool include_drawings = true);
 
-        thumbnail::ThumbnailBufferPtr renderToThumbnail(
-            const thumbnail::THUMBNAIL_FORMAT format,
-            const int width,
-            const bool auto_scale,
-            const bool show_annotations);
+            thumbnail::ThumbnailBufferPtr renderToThumbnail(
+                const thumbnail::THUMBNAIL_FORMAT format,
+                const int width,
+                const bool auto_scale,
+                const bool show_annotations);
 
-        thumbnail::ThumbnailBufferPtr renderToThumbnail(
-            const thumbnail::THUMBNAIL_FORMAT format, const int width, const int height);
+            thumbnail::ThumbnailBufferPtr renderToThumbnail(
+                const thumbnail::THUMBNAIL_FORMAT format, const int width, const int height);
 
-        void render(
-            const int w,
-            const int h,
-            const viewport::ImageFormat format,
-            const bool sync_fetch_playhead_image,
-            const utility::time_point &tp,
-            const media_reader::ImageBufPtr &image_to_use = media_reader::ImageBufPtr(),
-            const bool include_overlays                   = true,
-            const bool include_drawings                   = true);
+            void render(
+                const int w,
+                const int h,
+                const viewport::ImageFormat format,
+                const bool sync_fetch_playhead_image,
+                const utility::time_point &tp,
+                const media_reader::ImageBufPtr &image_to_use = media_reader::ImageBufPtr(),
+                const bool include_overlays                   = true,
+                const bool include_drawings                   = true);
 
-        void renderToImageBuffer(
-            const int w,
-            const int h,
-            media_reader::ImageBufPtr &dest_image,
-            const viewport::ImageFormat format,
-            const bool force_sync,
-            const utility::time_point &tp                 = utility::time_point(),
-            const media_reader::ImageBufPtr &image_to_use = media_reader::ImageBufPtr(),
-            const bool include_overlays                   = true,
-            const bool include_drawings                   = true);
+            void renderToImageBuffer(
+                const int w,
+                const int h,
+                media_reader::ImageBufPtr &dest_image,
+                const viewport::ImageFormat format,
+                const bool force_sync,
+                const utility::time_point &tp                 = utility::time_point(),
+                const media_reader::ImageBufPtr &image_to_use = media_reader::ImageBufPtr(),
+                const bool include_overlays                   = true,
+                const bool include_drawings                   = true);
 
-        void initGL();
+            void initGL();
 
-        void exportToEXR(const media_reader::ImageBufPtr &image, const caf::uri path);
+            void exportToEXR(const media_reader::ImageBufPtr &image, const caf::uri path);
 
-        media_reader::ImageBufPtr renderMediaFrameToImage(
-            caf::actor media_actor,
-            const int media_frame,
-            const int width,
-            const int height,
-            const bool include_image    = true,
-            const bool include_overlays = true,
-            const bool include_drawings = true);
+            media_reader::ImageBufPtr renderMediaFrameToImage(
+                caf::actor media_actor,
+                const int media_frame,
+                const int width,
+                const int height,
+                const bool include_image    = true,
+                const bool include_overlays = true,
+                const bool include_drawings = true);
 
-        thumbnail::ThumbnailBufferPtr renderMediaFrameToThumbnail(
-            caf::actor media_actor,
-            const int media_frame,
-            const thumbnail::THUMBNAIL_FORMAT format,
-            const int width,
-            const bool auto_scale,
-            const bool show_annotations);
+            thumbnail::ThumbnailBufferPtr renderMediaFrameToThumbnail(
+                caf::actor media_actor,
+                const int media_frame,
+                const thumbnail::THUMBNAIL_FORMAT format,
+                const int width,
+                const bool auto_scale,
+                const bool show_annotations);
 
-        thumbnail::ThumbnailBufferPtr renderMediaFrameToThumbnail(
-            caf::actor media_actor,
-            const timebase::flicks media_timepoint,
-            const thumbnail::THUMBNAIL_FORMAT format,
-            const int width,
-            const bool auto_scale,
-            const bool show_annotations);
+            thumbnail::ThumbnailBufferPtr renderMediaFrameToThumbnail(
+                caf::actor media_actor,
+                const timebase::flicks media_timepoint,
+                const thumbnail::THUMBNAIL_FORMAT format,
+                const int width,
+                const bool auto_scale,
+                const bool show_annotations);
 
-        void exportToCompressedFormat(
-            const media_reader::ImageBufPtr &buf,
-            const caf::uri path,
-            const std::string &ext,
-            const bool has_alpha = false);
+            void exportToCompressedFormat(
+                const media_reader::ImageBufPtr &buf,
+                const caf::uri path,
+                const std::string &ext,
+                const bool has_alpha = false);
 
-        bool setupTextureAndFrameBuffer(
-            const int width, const int height, const viewport::ImageFormat format);
+            bool setupTextureAndFrameBuffer(
+                const int width, const int height, const viewport::ImageFormat format);
 
-        void make_conversion_lut();
+            void make_conversion_lut();
 
-        bool loadQMLOverlays();
+            bool loadQMLOverlays();
 
-        void sync_python_hud_data();
+            void sync_python_hud_data();
 
-        thumbnail::ThumbnailBufferPtr
-        rgb96thumbFromHalfFloatImage(const media_reader::ImageBufPtr &image);
+            thumbnail::ThumbnailBufferPtr
+            rgb96thumbFromHalfFloatImage(const media_reader::ImageBufPtr &image);
 
-        ui::viewport::Viewport *xstudio_viewport_ = nullptr;
-        QOpenGLContext *gl_context_               = {nullptr};
-        QOffscreenSurface *surface_               = {nullptr};
-        QThread *thread_                          = {nullptr};
-        viewport::ViewportFramePostProcessorPtr post_draw_hook_;
+            ui::viewport::Viewport *xstudio_viewport_ = nullptr;
+            QOpenGLContext *gl_context_               = {nullptr};
+            QOffscreenSurface *surface_               = {nullptr};
+            QThread *thread_                          = {nullptr};
+            viewport::ViewportFramePostProcessorPtr post_draw_hook_;
 
-        // TODO: will remove once everything done
-        const char *formatSuffixes[4] = {"EXR", "JPG", "PNG", "TIFF"};
+            // TODO: will remove once everything done
+            const char *formatSuffixes[4] = {"EXR", "JPG", "PNG", "TIFF"};
 
-        int tex_width_      = 0;
-        int tex_height_     = 0;
-        GLuint texId_       = 0;
-        GLuint fboId_       = 0;
-        GLuint depth_texId_ = 0;
+            int tex_width_      = 0;
+            int tex_height_     = 0;
+            GLuint texId_       = 0;
+            GLuint fboId_       = 0;
+            GLuint depth_texId_ = 0;
 
-        int vid_out_width_                    = 0;
-        int vid_out_height_                   = 0;
-        viewport::ImageFormat vid_out_format_ = viewport::ImageFormat::RGBA_16;
-        caf::actor video_output_actor_;
-        media_reader::ImageBufPtr last_rendered_frame_;
-        media_reader::ImageBufPtr image_to_render_;
-        std::vector<uint32_t> half_to_int_32_lut_;
+            int vid_out_width_                    = 0;
+            int vid_out_height_                   = 0;
+            viewport::ImageFormat vid_out_format_ = viewport::ImageFormat::RGBA_16;
+            caf::actor video_output_actor_;
+            media_reader::ImageBufPtr last_rendered_frame_;
+            media_reader::ImageBufPtr image_to_render_;
+            std::vector<uint32_t> half_to_int_32_lut_;
 
-        caf::actor local_playhead_;
-        QString session_actor_addr_;
+            caf::actor local_playhead_;
+            QString session_actor_addr_;
 
-        QQuickWindow *quick_win_             = nullptr;
-        QQuickItem *root_qml_overlays_item_  = nullptr;
-        QQmlComponent *qml_component_        = nullptr;
-        QQuickRenderControl *render_control_ = nullptr;
-        QQmlEngine *qml_engine_              = nullptr;
-        ui::qml::Helpers *helper_            = nullptr;
-        bool overlays_loaded_                = false;
-    };
-} // namespace qt
-} // namespace xstudio::ui
+            QQuickWindow *quick_win_             = nullptr;
+            QQuickItem *root_qml_overlays_item_  = nullptr;
+            QQmlComponent *qml_component_        = nullptr;
+            QQuickRenderControl *render_control_ = nullptr;
+            QQmlEngine *qml_engine_              = nullptr;
+            ui::qml::Helpers *helper_            = nullptr;
+            bool overlays_loaded_                = false;
+        };
+    } // namespace qt
+} // namespace ui
+} // namespace xstudio

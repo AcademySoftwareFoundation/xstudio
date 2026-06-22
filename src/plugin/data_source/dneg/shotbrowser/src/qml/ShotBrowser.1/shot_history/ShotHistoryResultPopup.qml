@@ -65,9 +65,10 @@ XsPopupMenu {
         unlinkModel.notifyModel = buildTagModel()
     }
 
-    XsHotkeyReference {
+    XsHotkey {
         id: select_all_key
-        hotkeyName: "Select All"
+        name: "select_all_key"+rightClickMenu
+        sequence: "Ctrl+A"
     }
 
     XsMenuModelItem {

@@ -5,161 +5,165 @@
 #include "xstudio/media_reader/buffer.hpp"
 #include "xstudio/media/media.hpp"
 
-namespace xstudio::media_reader {
+namespace xstudio {
+namespace media_reader {
 
-class AudioBuffer : public Buffer {
-  public:
-    using Buffer::allocate;
+    class AudioBuffer : public Buffer {
+      public:
+        using Buffer::allocate;
 
-    AudioBuffer(const utility::JsonStore &params = utility::JsonStore()) : Buffer(params) {}
-    ~AudioBuffer() override = default;
+        AudioBuffer(const utility::JsonStore &params = utility::JsonStore()) : Buffer(params) {}
+        ~AudioBuffer() override = default;
 
-    void allocate(
-        const uint64_t _sample_rate,
-        const int _num_channels,
-        const uint64_t _num_samples,
-        const audio::SampleFormat _sample_format) {
+        void allocate(
+            const uint64_t _sample_rate,
+            const int _num_channels,
+            const uint64_t _num_samples,
+            const audio::SampleFormat _sample_format) {
 
-        sample_rate_   = _sample_rate;
-        num_channels_  = _num_channels;
-        num_samples_   = _num_samples;
-        sample_format_ = _sample_format;
-        Buffer::allocate(actual_sample_data_size());
-    }
-
-    void extend_size(size_t size_extension) { Buffer::resize(size() + size_extension); }
-
-    void extend(const AudioBuffer &o) {
-        if (o.sample_format() != sample_format() || o.num_channels() != num_channels()) {
-            throw std::runtime_error("AudioBuffer::extend mistmatch in audio buffer formats.");
+            sample_rate_   = _sample_rate;
+            num_channels_  = _num_channels;
+            num_samples_   = _num_samples;
+            sample_format_ = _sample_format;
+            Buffer::allocate(actual_sample_data_size());
         }
-        extend_size(o.size());
-        memcpy(buffer() + num_samples() * num_channels() * 2, o.buffer(), o.size());
-        num_samples_ += o.num_samples();
-    }
 
-    [[nodiscard]] uint64_t sample_rate() const { return sample_rate_; }
-    [[nodiscard]] int num_channels() const { return num_channels_; }
-    [[nodiscard]] long num_samples() const { return long(num_samples_); }
-    [[nodiscard]] audio::SampleFormat sample_format() const { return sample_format_; }
-    [[nodiscard]] double duration_seconds() const {
-        return sample_rate_ ? double(num_samples_) / double(sample_rate_) : 0.0;
-    }
-    [[nodiscard]] timebase::flicks duration_flicks() const {
-        return sample_rate_ ? timebase::flicks(
-                                  (timebase::k_flicks_one_second * num_samples_) / sample_rate_)
-                            : timebase::k_flicks_zero_seconds;
-    }
-    [[nodiscard]] bool reversed() const { return reversed_; }
+        void extend_size(size_t size_extension) { Buffer::resize(size() + size_extension); }
 
-    // Audio bufs now aligned with video frames
-    /*[[nodiscard]] std::chrono::microseconds time_delta_to_video_frame() const {
-        return time_delta_to_video_frame_;
-    }*/
-
-    void stretch_samples(const uint64_t new_num_samples);
-
-    void
-    set_new_sample_rate(const uint64_t new_sample_rate, const timebase::flicks &exact_duration);
-
-    [[nodiscard]] size_t sample_type_size_bytes() const {
-        size_t samp_size = 1;
-        switch (sample_format_) {
-
-        case audio::SampleFormat::UINT8:
-            samp_size = 1;
-            break;
-        case audio::SampleFormat::INT16:
-            samp_size = 2;
-            break;
-        case audio::SampleFormat::SFINT32:
-            samp_size = 4;
-            break;
-        case audio::SampleFormat::FLOAT32:
-            samp_size = 4;
-            break;
-        case audio::SampleFormat::INT64:
-            samp_size = 8;
-            break;
-        case audio::SampleFormat::DOUBLE64:
-            samp_size = 8;
-            break;
-        default:
-            samp_size = 1;
+        void extend(const AudioBuffer &o) {
+            if (o.sample_format() != sample_format() || o.num_channels() != num_channels()) {
+                throw std::runtime_error(
+                    "AudioBuffer::extend mistmatch in audio buffer formats.");
+            }
+            extend_size(o.size());
+            memcpy(buffer() + num_samples() * num_channels() * 2, o.buffer(), o.size());
+            num_samples_ += o.num_samples();
         }
-        return samp_size;
-    }
 
-    [[nodiscard]] size_t actual_sample_data_size() const {
-        return num_samples_ * num_channels_ * sample_type_size_bytes();
-    }
+        [[nodiscard]] uint64_t sample_rate() const { return sample_rate_; }
+        [[nodiscard]] int num_channels() const { return num_channels_; }
+        [[nodiscard]] long num_samples() const { return long(num_samples_); }
+        [[nodiscard]] audio::SampleFormat sample_format() const { return sample_format_; }
+        [[nodiscard]] double duration_seconds() const {
+            return sample_rate_ ? double(num_samples_) / double(sample_rate_) : 0.0;
+        }
+        [[nodiscard]] timebase::flicks duration_flicks() const {
+            return sample_rate_
+                       ? timebase::flicks(
+                             (timebase::k_flicks_one_second * num_samples_) / sample_rate_)
+                       : timebase::k_flicks_zero_seconds;
+        }
+        [[nodiscard]] bool reversed() const { return reversed_; }
 
-    void set_num_samples(const size_t n) { num_samples_ = n; }
-    void set_reversed(const bool r) { reversed_ = r; }
+        // Audio bufs now aligned with video frames
+        /*[[nodiscard]] std::chrono::microseconds time_delta_to_video_frame() const {
+            return time_delta_to_video_frame_;
+        }*/
 
-    // See notes in FFmpeg::pull_audio_buffer_from_stream
-    /*void set_time_delta_to_video_frame(const std::chrono::microseconds d) {
-        time_delta_to_video_frame_ = d;
-    }*/
+        void set_new_sample_rate(
+            const uint64_t new_sample_rate, const timebase::flicks &exact_duration);
 
-    [[nodiscard]] const media::MediaKey &media_key() const { return media_key_; }
-    void set_media_key(const media::MediaKey &key) { media_key_ = key; }
+        [[nodiscard]] size_t sample_type_size_bytes() const {
+            size_t samp_size = 1;
+            switch (sample_format_) {
 
-  private:
-    uint64_t sample_rate_              = {0};
-    int num_channels_                  = {0};
-    uint64_t num_samples_              = {0};
-    audio::SampleFormat sample_format_ = {audio::SampleFormat::UNSET};
-    media::MediaKey media_key_;
-    bool reversed_ = {false};
+            case audio::SampleFormat::UINT8:
+                samp_size = 1;
+                break;
+            case audio::SampleFormat::INT16:
+                samp_size = 2;
+                break;
+            case audio::SampleFormat::SFINT32:
+                samp_size = 4;
+                break;
+            case audio::SampleFormat::FLOAT32:
+                samp_size = 4;
+                break;
+            case audio::SampleFormat::INT64:
+                samp_size = 8;
+                break;
+            case audio::SampleFormat::DOUBLE64:
+                samp_size = 8;
+                break;
+            default:
+                samp_size = 1;
+            }
+            return samp_size;
+        }
 
-    // std::chrono::microseconds time_delta_to_video_frame_ =
-    // {std::chrono::microseconds(0)};
-};
+        [[nodiscard]] size_t actual_sample_data_size() const {
+            return num_samples_ * num_channels_ * sample_type_size_bytes();
+        }
 
-/* Extending std::shared_ptr<AudioBufPtr> by adding a time point telling us
-when the audio samples should be sounded */
-class AudioBufPtr : public std::shared_ptr<AudioBuffer> {
-  public:
-    using Base = std::shared_ptr<AudioBuffer>;
+        void set_num_samples(const size_t n) { num_samples_ = n; }
+        void set_reversed(const bool r) { reversed_ = r; }
 
-    AudioBufPtr() = default;
-    AudioBufPtr(AudioBuffer *imbuf) : Base(imbuf) {}
-    AudioBufPtr(const AudioBufPtr &o)
-        : Base(static_cast<const Base &>(o)),
-          when_to_display_(o.when_to_display_),
-          tts_(o.tts_),
-          frame_id_(o.frame_id_) {}
+        // See notes in FFmpeg::pull_audio_buffer_from_stream
+        /*void set_time_delta_to_video_frame(const std::chrono::microseconds d) {
+            time_delta_to_video_frame_ = d;
+        }*/
 
-    AudioBufPtr &operator=(const AudioBufPtr &o) {
-        Base &b          = static_cast<Base &>(*this);
-        b                = static_cast<const Base &>(o);
-        when_to_display_ = o.when_to_display_;
-        tts_             = o.tts_;
-        frame_id_        = o.frame_id_;
-        return *this;
-    }
+        [[nodiscard]] const media::MediaKey &media_key() const { return media_key_; }
+        void set_media_key(const media::MediaKey &key) { media_key_ = key; }
 
-    ~AudioBufPtr() = default;
+      private:
+        uint64_t sample_rate_              = {0};
+        int num_channels_                  = {0};
+        uint64_t num_samples_              = {0};
+        audio::SampleFormat sample_format_ = {audio::SampleFormat::UNSET};
+        media::MediaKey media_key_;
+        bool reversed_ = {false};
 
-    // equivalence operator based on the audio samples only
-    bool operator==(const AudioBufPtr &o) const { return this->get() == o.get(); }
+        // std::chrono::microseconds time_delta_to_video_frame_ =
+        // {std::chrono::microseconds(0)};
+    };
 
-    bool operator<(const AudioBufPtr &o) const { return when_to_display_ < o.when_to_display_; }
+    /* Extending std::shared_ptr<AudioBufPtr> by adding a time point telling us
+    when the audio samples should be sounded */
+    class AudioBufPtr : public std::shared_ptr<AudioBuffer> {
+      public:
+        using Base = std::shared_ptr<AudioBuffer>;
 
-    bool operator<(const utility::time_point &t) const { return when_to_display_ < t; }
+        AudioBufPtr() = default;
+        AudioBufPtr(AudioBuffer *imbuf) : Base(imbuf) {}
+        AudioBufPtr(const AudioBufPtr &o)
+            : Base(static_cast<const Base &>(o)),
+              when_to_display_(o.when_to_display_),
+              tts_(o.tts_),
+              frame_id_(o.frame_id_) {}
 
-    utility::time_point when_to_display_;
+        AudioBufPtr &operator=(const AudioBufPtr &o) {
+            Base &b          = static_cast<Base &>(*this);
+            b                = static_cast<const Base &>(o);
+            when_to_display_ = o.when_to_display_;
+            tts_             = o.tts_;
+            frame_id_        = o.frame_id_;
+            return *this;
+        }
 
-    [[nodiscard]] const timebase::flicks &timeline_timestamp() const { return tts_; }
-    void set_timline_timestamp(const timebase::flicks tts) { tts_ = tts; }
+        ~AudioBufPtr() = default;
 
-    [[nodiscard]] const media::AVFrameID &frame_id() const { return frame_id_; }
-    void set_frame_id(const media::AVFrameID &frame_id) { frame_id_ = frame_id; }
+        // equivalence operator based on the audio samples only
+        bool operator==(const AudioBufPtr &o) const { return this->get() == o.get(); }
 
-  private:
-    timebase::flicks tts_ = timebase::flicks{0};
-    media::AVFrameID frame_id_;
-};
+        bool operator<(const AudioBufPtr &o) const {
+            return when_to_display_ < o.when_to_display_;
+        }
 
-} // namespace xstudio::media_reader
+        bool operator<(const utility::time_point &t) const { return when_to_display_ < t; }
+
+        utility::time_point when_to_display_;
+
+        [[nodiscard]] const timebase::flicks &timeline_timestamp() const { return tts_; }
+        void set_timline_timestamp(const timebase::flicks tts) { tts_ = tts; }
+
+        [[nodiscard]] const media::AVFrameID &frame_id() const { return frame_id_; }
+        void set_frame_id(const media::AVFrameID &frame_id) { frame_id_ = frame_id; }
+
+      private:
+        timebase::flicks tts_ = timebase::flicks{0};
+        media::AVFrameID frame_id_;
+    };
+
+} // namespace media_reader
+} // namespace xstudio

@@ -1,6 +1,0 @@
-<RCC>
-	<qresource prefix="/file_system_browser_icons">
-		<file alias="folder_closed.svg">folder_closed.svg</file>
-		<file alias="refresh.svg">refresh.svg</file>
-	</qresource>
-</RCC>

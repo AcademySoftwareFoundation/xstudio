@@ -11,9 +11,50 @@ Item {
 
     id: flag_menu_inserter
 
-    property string text: "Flag Selected Media"
+    property string text: "Flag Media"
 
     signal flagSet(string flag, string flag_text)
+
+    ListModel {
+        id: colours_model
+
+        ListElement {
+            name: "Remove Flag"
+            colour: "#00000000"
+        }
+        ListElement {
+            name: "Red"
+            colour: "#FFFF0000"
+        }
+        ListElement {
+            name: "Green"
+            colour: "#FF00FF00"
+        }
+        ListElement {
+            name: "Blue"
+            colour: "#FF0000FF"
+        }
+        ListElement {
+            name: "Yellow"
+            colour: "#FFFFFF00"
+        }
+        ListElement {
+            name: "Orange"
+            colour: "#FFFFA500"
+        }
+        ListElement {
+            name: "Purple"
+            colour: "#FF800080"
+        }
+        ListElement {
+            name: "Black"
+            colour: "#FF000000"
+        }
+        ListElement {
+            name: "White"
+            colour: "#FFFFFFFF"
+        }
+    }
 
     property var menuModelName
     property var panelContext: null
@@ -36,18 +77,18 @@ Item {
 
     Repeater {
         id: repeater
-        model: flagColours
+        model: colours_model
         Item {
             XsMenuModelItem {
                 id: menu_item
-                text: modelData.name
+                text: name
                 menuItemType: "custom"
                 menuPath: fullMenuPath
                 menuItemPosition: index
                 menuModelName: flag_menu_inserter.menuModelName
-                userData: modelData.colour
+                userData: colour
                 onActivated: {
-                    flagSet(modelData.colour, modelData.name != "Remove Flag" ? modelData.name : "")
+                    flagSet(colour, name != "Remove Flag" ? name : "")
                 }
                 panelContext: flag_menu_inserter.panelContext
                 customMenuQml: "import xStudio 1.0; XsFlagMenuItem {}"

@@ -7,41 +7,43 @@
 #include "xstudio/utility/uuid.hpp"
 
 
-namespace xstudio::bookmark {
+namespace xstudio {
+namespace bookmark {
 
-class BookmarkActor : public caf::event_based_actor {
-  public:
-    BookmarkActor(caf::actor_config &cfg, const utility::JsonStore &jsn);
-    BookmarkActor(
-        caf::actor_config &cfg,
-        const utility::Uuid &uuid = utility::Uuid::generate(),
-        const Bookmark &base      = Bookmark());
+    class BookmarkActor : public caf::event_based_actor {
+      public:
+        BookmarkActor(caf::actor_config &cfg, const utility::JsonStore &jsn);
+        BookmarkActor(
+            caf::actor_config &cfg,
+            const utility::Uuid &uuid = utility::Uuid::generate(),
+            const Bookmark &base      = Bookmark());
 
-    ~BookmarkActor() override = default;
+        ~BookmarkActor() override = default;
 
-    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
+        const char *name() const override { return NAME.c_str(); }
 
-    void on_exit() override;
+        void on_exit() override;
 
-  private:
-    inline static const std::string NAME = "BookmarkActor";
-    void init();
-    caf::message_handler message_handler();
+      private:
+        inline static const std::string NAME = "BookmarkActor";
+        void init();
+        caf::message_handler message_handler();
 
-    caf::behavior make_behavior() override {
-        return message_handler().or_else(base_.container_message_handler(this));
-    }
+        caf::behavior make_behavior() override {
+            return message_handler().or_else(base_.container_message_handler(this));
+        }
 
-    void build_annotation_via_plugin(const utility::JsonStore &anno_data);
+        void build_annotation_via_plugin(const utility::JsonStore &anno_data);
 
-    void set_owner(caf::actor owner, const bool dead = false);
+        void set_owner(caf::actor owner, const bool dead = false);
 
 
-  private:
-    Bookmark base_;
-    caf::actor_addr owner_;
-    caf::actor json_store_;
-    caf::disposable monitor_;
-};
+      private:
+        Bookmark base_;
+        caf::actor_addr owner_;
+        caf::actor json_store_;
+        caf::disposable monitor_;
+    };
 
-} // namespace xstudio::bookmark
+} // namespace bookmark
+} // namespace xstudio

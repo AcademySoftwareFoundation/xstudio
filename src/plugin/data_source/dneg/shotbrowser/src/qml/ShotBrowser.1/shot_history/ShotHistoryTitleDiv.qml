@@ -11,7 +11,6 @@ RowLayout {id: titleDiv
     property int titleButtonCount: 4
     property real titleButtonSpacing: 1
     property real titleButtonHeight: XsStyleSheet.widgetStdHeight+4
-    property bool compactMode: true
 
     XsPrimaryButton{ id: updateScopeBtn
         Layout.preferredWidth: 40
@@ -95,31 +94,6 @@ RowLayout {id: titleDiv
                         filterBtn.text = nameFilter
                     }
                 }
-            }
-
-            XsPrimaryButton{
-                Layout.leftMargin: 2
-                Layout.preferredWidth: XsStyleSheet.primaryButtonStdWidth
-                Layout.maximumWidth: XsStyleSheet.primaryButtonStdWidth
-                Layout.fillHeight: true
-
-                imgSrc: "qrc:/icons/list_alt2.svg"
-                toolTip: "Compact Mode"
-                isActive: compactMode
-                onClicked: compactMode = !compactMode
-            }
-
-            XsPrimaryButton{
-                Layout.leftMargin: 2
-                Layout.rightMargin: 2
-                Layout.preferredWidth: XsStyleSheet.primaryButtonStdWidth
-                Layout.maximumWidth: XsStyleSheet.primaryButtonStdWidth
-                Layout.fillHeight: true
-
-                imgSrc: "qrc:/icons/imagesmode.svg"
-                toolTip: "Not Compact Mode"
-                isActive: !compactMode
-                onClicked: compactMode = !compactMode
             }
 
             XsComboBoxEditable{ id: filterSentTo

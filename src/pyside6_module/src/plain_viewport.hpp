@@ -6,9 +6,13 @@
 #include <QOpenGLWidget>
 
 // Forward declaration
-namespace xstudio::ui::qt {
-class ViewportGLWidget;
-}
+namespace xstudio {
+namespace ui {
+    namespace qt {
+        class ViewportGLWidget;
+    }
+} // namespace ui
+} // namespace xstudio
 
 class PlainViewport : public QWidget {
     Q_OBJECT

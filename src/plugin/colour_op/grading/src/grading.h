@@ -86,14 +86,12 @@ class GradingTool : public plugin::StandardPlugin {
 
     std::vector<caf::actor> selected_media_actors() const;
     utility::JsonStore media_actor_colour_params(const caf::actor &media_actor);
-    utility::UuidList media_actor_grading_bookmarks(const caf::actor &media_actor);
-    media::AVFrameID media_actor_frame_id(const caf::actor &media_actor, int logicial_frame);
+    utility::UuidList media_actor_bookmarks(const caf::actor &media_actor);
 
     utility::Uuid current_bookmark() const;
-    utility::UuidList current_image_bookmarks();
+    utility::UuidList current_clip_bookmarks();
     void create_bookmark_if_empty();
-    void create_bookmark();
-    void copy_bookmark_on_media(const bookmark::BookmarkAndAnnotationPtr &from, media::AVFrameID &frame_id, int layerno);
+    void create_bookmark(int layerno = -1, const bookmark::BookmarkDetail &from = bookmark::BookmarkDetail());
     void select_bookmark(const utility::Uuid &uuid);
     void select_bookmark_on_media_changed(
         const utility::Uuid &prevMediaUuid, const utility::Uuid &newMediaUuid);
@@ -169,7 +167,6 @@ class GradingTool : public plugin::StandardPlugin {
     media::AVFrameID current_frame_id_;
     size_t current_bookmarks_count_ = {0};
 
-    caf::actor current_media_actor_;
     utility::Uuid current_media_uuid_;
     std::map<utility::Uuid, utility::Uuid> grading_bookmark_selected_;
 

@@ -5,32 +5,36 @@
 #include "xstudio/ui/opengl/shader_program_base.hpp"
 #include "xstudio/plugin_manager/hud_plugin.hpp"
 
-namespace xstudio::ui::viewport {
+namespace xstudio {
+namespace ui {
+    namespace viewport {
 
-class ImageBoundaryHUD : public plugin::HUDPluginBase {
-  public:
-    ImageBoundaryHUD(caf::actor_config &cfg, const utility::JsonStore &init_settings);
+        class ImageBoundaryHUD : public plugin::HUDPluginBase {
+          public:
+            ImageBoundaryHUD(caf::actor_config &cfg, const utility::JsonStore &init_settings);
 
-    ~ImageBoundaryHUD();
+            ~ImageBoundaryHUD();
 
-    void attribute_changed(
-        const utility::Uuid &attribute_uuid, const int /*role*/
-        ) override;
+            void attribute_changed(
+                const utility::Uuid &attribute_uuid, const int /*role*/
+                ) override;
 
-  protected:
-    utility::BlindDataObjectPtr onscreen_render_data(
-        const media_reader::ImageBufPtr &,
-        const std::string & /*viewport_name*/,
-        const utility::Uuid &playhead_uuid,
-        const bool is_hero_image,
-        const bool images_are_in_grid_layout) const override;
+          protected:
+            utility::BlindDataObjectPtr onscreen_render_data(
+                const media_reader::ImageBufPtr &,
+                const std::string & /*viewport_name*/,
+                const utility::Uuid &playhead_uuid,
+                const bool is_hero_image,
+                const bool images_are_in_grid_layout) const override;
 
-    plugin::ViewportOverlayRendererPtr
-    make_overlay_renderer(const std::string &viewport_name) override;
+            plugin::ViewportOverlayRendererPtr
+            make_overlay_renderer(const std::string &viewport_name) override;
 
-  private:
-    module::ColourAttribute *colour_ = nullptr;
-    module::IntegerAttribute *width_ = nullptr;
-};
+          private:
+            module::ColourAttribute *colour_ = nullptr;
+            module::IntegerAttribute *width_ = nullptr;
+        };
 
-} // namespace xstudio::ui::viewport
+    } // namespace viewport
+} // namespace ui
+} // namespace xstudio

@@ -109,10 +109,13 @@ XsPopupMenu {
         menuPath: "Copy To Clipboard"
         menuItemPosition: 2.0
         menuModelName: contextMenu.menu_model_name
-        onActivated: playlist_functions.copySelectedNames()
-
-        hotkeyUuid: hotkey_area.copy_names_to_clipboard_hotkey.uuid
-
+        onActivated: {
+            let result = []
+            for(let i =0;i<sessionSelectionModel.selectedIndexes.length;i++) {
+                result.push(theSessionData.get(sessionSelectionModel.selectedIndexes[i], "nameRole"))
+            }
+            clipboard.text = result.join("\n")
+        }
         panelContext: contextMenu.panelContext
     }
 
@@ -129,9 +132,30 @@ XsPopupMenu {
         menuPath: ""
         menuItemPosition: 1.0
         menuModelName: contextMenu.menu_model_name
-        onActivated: playlist_functions.renamePlaylist()
-        hotkeyUuid: hotkey_area.rename_hotkey.uuid
+        property var targetIdx
+        onActivated: {
+            if(sessionSelectionModel.selectedIndexes.length != 1) {
+                dialogHelpers.errorDialogFunc(
+                    "Rename Playlist ...",
+                    "Please select a single item to rename."
+                    )
+            } else {
+                targetIdx = sessionSelectionModel.selectedIndexes[0]
+                let name = theSessionData.get(targetIdx, "nameRole")
+                let type = theSessionData.get(targetIdx, "typeRole")
+                dialogHelpers.textInputDialog(
+                    rename,
+                    "Rename " + type,
+                    "Enter a new name for the " + type,
+                    name,
+                    ["Cancel", "Rename " + type])
+            }
+        }
         panelContext: contextMenu.panelContext
+        function rename(new_name, button) {
+            if (button == "Cancel") return
+            theSessionData.set(targetIdx, new_name, "nameRole")
+        }
     }
 
     XsMenuModelItem {
@@ -140,19 +164,27 @@ XsPopupMenu {
         menuPath: ""
         menuItemPosition: 2.0
         menuModelName: contextMenu.menu_model_name
-        onActivated: playlist_functions.duplicate()
-        hotkeyUuid: hotkey_area.duplicate_hotkey.uuid
+        onActivated: {
+            for (var i = 0; i < sessionSelectionModel.selectedIndexes.length; ++i) {
+                let index = sessionSelectionModel.selectedIndexes[i]
+                theSessionData.duplicateRows(index.row, 1, index.parent)
+            }
+        }
         panelContext: contextMenu.panelContext
     }
+
 
     XsMenuModelItem {
         text: "Combine"
         panelContext: contextMenu.panelContext
         menuModelName: contextMenu.menu_model_name
         menuPath: ""
-        hotkeyUuid: hotkey_area.combine_hotkey.uuid
         menuItemPosition: 3.0
-        onActivated: playlist_functions.combine()
+        onActivated: {
+            if(sessionSelectionModel.selectedIndexes.length) {
+                theSessionData.mergeRows(sessionSelectionModel.selectedIndexes)
+            }
+        }
     }
 
     XsMenuModelItem {
@@ -161,7 +193,9 @@ XsPopupMenu {
         menuModelName: contextMenu.menu_model_name
         menuPath: "Export"
         menuItemPosition: 4.0
-        onActivated: file_functions.saveSelectionNewPath(undefined)
+        onActivated: {
+            file_functions.saveSelectionNewPath(undefined)
+        }
     }
 
     XsMenuModelItem {
@@ -170,7 +204,9 @@ XsPopupMenu {
         panelContext: contextMenu.panelContext
         menuModelName: contextMenu.menu_model_name
         menuPath: "Export"
-        onActivated: file_functions.exportSequencePath(function(result){if(result) {dialogHelpers.errorDialogFunc("Export Sequence Succeeded", "OTIO Exported")} else {dialogHelpers.errorDialogFunc("Export Sequence Failed", result)} })
+        onActivated: {
+            file_functions.exportSequencePath(function(result){if(result) {dialogHelpers.errorDialogFunc("Export Sequence Succeeded", "OTIO Exported")} else {dialogHelpers.errorDialogFunc("Export Sequence Failed", result)} })
+        }
     }
 
     XsMenuModelItem {
@@ -210,7 +246,6 @@ XsPopupMenu {
         menuModelName: contextMenu.menu_model_name
         onActivated: removeSelected()
         panelContext: contextMenu.panelContext
-        hotkeyUuid: hotkey_area.remove_selected.uuid
     }
 
     XsMenuModelItem {
@@ -219,8 +254,13 @@ XsPopupMenu {
         menuPath: "Cleanup"
         menuItemPosition: 32
         menuModelName: contextMenu.menu_model_name
-        onActivated: playlist_functions.removeUnusedMedia()
+        onActivated: {
+            for (var idx = 0; idx < sessionSelectionModel.selectedIndexes.length; ++idx) {
+                if (theSessionData.get(sessionSelectionModel.selectedIndexes[idx], "typeRole") == "Playlist") {
+                    theSessionData.purgePlaylist(sessionSelectionModel.selectedIndexes[idx])
+                }
+            }
+        }
         panelContext: contextMenu.panelContext
-        hotkeyUuid: hotkey_area.remove_unused_hotkey.uuid
     }
 }

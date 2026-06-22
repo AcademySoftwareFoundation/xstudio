@@ -10,33 +10,37 @@
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/uuid.hpp"
 
-namespace xstudio::timeline {
-class Stack : public utility::Container {
-  public:
-    Stack(
-        const std::string &name        = "Stack",
-        const utility::FrameRate &rate = utility::FrameRate(),
-        const utility::Uuid &uuid      = utility::Uuid::generate(),
-        const caf::actor &actor        = caf::actor());
+namespace xstudio {
+namespace timeline {
+    class Stack : public utility::Container {
+      public:
+        Stack(
+            const std::string &name        = "Stack",
+            const utility::FrameRate &rate = utility::FrameRate(),
+            const utility::Uuid &uuid      = utility::Uuid::generate(),
+            const caf::actor &actor        = caf::actor());
 
-    Stack(const utility::JsonStore &jsn);
-    Stack(const Item &item, const caf::actor &actor);
-    ~Stack() override = default;
+        Stack(const utility::JsonStore &jsn);
+        Stack(const Item &item, const caf::actor &actor);
+        ~Stack() override = default;
 
-    [[nodiscard]] utility::JsonStore serialise() const override;
-    [[nodiscard]] Stack duplicate() const;
+        [[nodiscard]] utility::JsonStore serialise() const override;
+        [[nodiscard]] Stack duplicate() const;
 
-    [[nodiscard]] const Item &item() const { return item_; }
-    [[nodiscard]] Item &item() { return item_; }
+        [[nodiscard]] const Item &item() const { return item_; }
+        [[nodiscard]] Item &item() { return item_; }
 
-    [[nodiscard]] const Items &children() const { return item_.children(); }
-    [[nodiscard]] Items &children() { return item_.children(); }
+        [[nodiscard]] const Items &children() const { return item_.children(); }
+        [[nodiscard]] Items &children() { return item_.children(); }
 
-    [[nodiscard]] bool valid_child(const Item &child) const { return item_.valid_child(child); }
+        [[nodiscard]] bool valid_child(const Item &child) const {
+            return item_.valid_child(child);
+        }
 
-    utility::JsonStore refresh_item() { return item_.refresh(); }
+        utility::JsonStore refresh_item() { return item_.refresh(); }
 
-  private:
-    Item item_;
-};
-} // namespace xstudio::timeline
+      private:
+        Item item_;
+    };
+} // namespace timeline
+} // namespace xstudio

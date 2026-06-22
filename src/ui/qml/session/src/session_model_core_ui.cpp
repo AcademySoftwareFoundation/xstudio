@@ -1299,9 +1299,9 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                 break;
 
             case thumbnailURLRole:
-                if (j.count("thumbnail_url") and j.at("thumbnail_url") != value) {
-                    j["thumbnail_url"] = value;
-                    result             = true;
+                if (j.count("thumnail_url") and j.at("thumnail_url") != value) {
+                    j["thumnail_url"] = value;
+                    result            = true;
                 }
                 break;
 
@@ -1366,7 +1366,7 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                     anon_mail(media::pixel_aspect_atom_v, value.get<double>())
                         .send(image_source_actor);
                 }
-            } break;
+            }
 
             case rotationRole: {
                 if (type == "Media") {
@@ -1380,7 +1380,7 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                         }
                     }
                 }
-            } break;
+            }
 
             case nameRole:
                 if (j.count("name") and j["name"] != value) {

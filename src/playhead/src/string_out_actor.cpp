@@ -189,33 +189,18 @@ void StringOutActor::build_frame_map(
 void StringOutActor::finalise_frame_map(
     caf::typed_response_promise<media::FrameTimeMapPtr> rp) {
 
-    // here we simply string together the FrameTimeMap from each of the
-    // sources in the order they were given to us.
-
-    auto result = new media::FrameTimeMap;
+    media::FrameTimeMap *result = new media::FrameTimeMap;
     timebase::flicks d(0);
     for (auto &c : source_actors_) {
 
         if (!source_frames_[c.uuid()])
             continue;
         const media::FrameTimeMap &map = *(source_frames_[c.uuid()]);
-        auto p                         = map.begin();
-        while (p != map.end()) {
-            (*result)[d]  = p->second;
-            const auto t0 = p->first;
-            p++;
-            if (p != map.end()) {
-                // advance time by the difference between the timestamps of this
-                // frame and the next frame. This preserves the timing of the
-                // frames as given by the source
-                d += p->first - t0;
-            } else {
-                // use the duration of the last frame rather than the timestamp
-                // of the next frame which doesn't exist.
-                p--;
-                d += p->second->rate();
-                p++;
-            }
+        timebase::flicks prev(0);
+        for (const auto &p : map) {
+            d += p.first - prev;
+            (*result)[d] = p.second;
+            prev         = p.first;
         }
     }
     rp.deliver(media::FrameTimeMapPtr(result));

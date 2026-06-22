@@ -5,7 +5,7 @@ from xstudio.core import JsonStore, Uuid, AttributeRole
 from xstudio.api.auxiliary.helpers import get_event_group
 from xstudio.core import spawn_plugin_base_atom, viewport_playhead_atom
 from xstudio.core import get_global_playhead_events_atom, show_message_box_atom
-from xstudio.core import plugin_events_group_atom, get_event_group_atom, event_atom
+from xstudio.core import plugin_events_group_atom, get_event_group_atom
 import sys
 import os
 import traceback
@@ -53,8 +53,6 @@ class PluginBase(ModuleBase):
         self.playhead_subscriptions = []
 
         self.user_attr_handler_ = None
-        self.__image_source_attr_id = None
-        self.__current_playhead = None
 
     def add_attribute(
         self,
@@ -208,71 +206,39 @@ class PluginBase(ModuleBase):
 
         raise RuntimeError("No plugin found with name \"{}\"".format(plugin_name))
 
-    def __playhead_attribute_changed(self, attr, role):
-        try:
-            if attr.uuid == self.__image_source_attr_id:
-                self.on_screen_media_changed(self.__current_playhead.on_screen_media)
-        except:
-            pass
-        self.playhead_attribute_changed(attr, role)
-
-    def playhead_attribute_changed(self, attribute_name, attribute_value):
-        """Re-implement this method in your plugin to handle changes to the
-        current global playhead attributes. This method will be called when
-        the current global playhead changes its attributes (e.g. current frame,
-        play mode, source etc.). See 'subscribe_to_playhead_events' for more
-        details.
+    def subscribe_to_playhead_events(self, playhead, callback_method, auto_cancel=True):
+        """Set-up a subscription to the events of an xstudio playhead. Can
+        automatically cancel previous subscription(s)
 
         Args:
-            attribute_name(str): The name of the changed attribute
-            attribute_value: The new value of the changed attribute
+            plugin(actor): The playhead that we want to watch
+            callback_method(Callable): The function which will be called
+            with playhead events. Must take a single argument (a tuple of the event
+            data)
+
+        Returns:
+            uuid (callback id): A uuid for the subscription. Pass to
+            unsubscribe_from_event_group to cancel an event subscription
         """
-        pass
+        event_group = self.connection.request_receive(
+            playhead,
+            get_event_group_atom())[0]
 
-    def on_screen_media_changed(self, media):
-        """Re-implement this method in your plugin to handle changes to the
-        current on-screen media. This method will be called when the primary
-        on-screen image source changes. See 'subscribe_to_playhead_events' for more
-        details.
+        if not event_group:
+            raise Exception("Actor has no event group.")
 
-        Args:
-            media(Media): The new on-screen media
-        """
-        pass
+        if auto_cancel and self.playhead_subscriptions:
+            for sub in self.playhead_subscriptions:
+                self.unsubscribe_from_event_group(sub)
+            self.playhead_subscriptions = []
 
-    def __connect_to_playhead(self, playhead_remote):
-        if self.__current_playhead:
-            self.__current_playhead.cleanup_message_handler()
-        if playhead_remote:
-            self.__current_playhead = Playhead(self.connection, playhead_remote)
-            self.__image_source_attr_id = self.__current_playhead.get_attribute("Source").uuid
-            self.__current_playhead.attribute_changed = self.__playhead_attribute_changed
+        subscription_id = self.connection.link.add_message_callback(
+            event_group, callback_method
+            )
 
-    def __playhead_event_handler(self, event_args):
-        # watch for the event that tells us when the global (main playhead) has changed.
-        if (len(event_args) == 3 and 
-            isinstance(event_args[0], event_atom) and 
-            isinstance(event_args[1], viewport_playhead_atom)):
-            self.__connect_to_playhead(event_args[2])
+        self.playhead_subscriptions.append(subscription_id)
 
-    def subscribe_to_playhead_events(self):
-        """Set-up a subscription to the events of the current global playhead.
-        Changes to playhead attributes (like current frame, play mode, source etc.) 
-        will passed to the playhead_attribute_changed method. Re-implement this
-        method in your plugin to handle playhead events. In addition, when the
-        (primary) on-screen image source changes, the 'on_screen_media_changed' 
-        method will be called. Re-implement this method in your plugin to 
-        handle on-screen media changes.
-        """
-        self.subscribe_to_global_playhead_events(self.__playhead_event_handler)
-        gphev = self.connection.request_receive(
-            self.connection.remote(),
-            get_global_playhead_events_atom())[0]
-        current_playhead = self.connection.request_receive(
-            gphev,
-            viewport_playhead_atom())[0]
-        self.__connect_to_playhead(current_playhead)
-
+        return subscription_id
 
     def subscribe_to_plugin_events(self, plugin, callback_method):
         """Set-up a subscription to the events of an xstudio plugin.

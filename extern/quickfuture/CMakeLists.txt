@@ -27,8 +27,7 @@ if(APPLE)
 else()
     set_target_properties(quickfuture
         PROPERTIES
-        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickFuture"
-        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickFuture")
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickFuture")
 endif()
 
 install(FILES ${QML_FILES} DESTINATION share/xstudio/plugin/qml/QuickFuture)

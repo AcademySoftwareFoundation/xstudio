@@ -229,7 +229,7 @@ utility::JsonStore DemoPlugin::qml_item_callback(
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
-    return {};
+    return utility::JsonStore();
 }
 
 void DemoPlugin::add_proxy_media_source(

@@ -69,17 +69,15 @@
 		<file>application/panels/media/delegates/XsMediaThumbnailHighlight.qml</file>
 		<file>application/panels/media/delegates/XsMediaThumbnailImage.qml</file>
 
-		<file>application/panels/playlists/functions/XsPlaylistFunctions.qml</file>
-	    <file>application/panels/playlists/delegates/XsPlaylistDividerDelegate.qml</file>
+	    <file>application/panels/playlists/XsPlaylists.qml</file>
+	    <file>application/panels/playlists/XsPlaylistItems.qml</file>
 	    <file>application/panels/playlists/delegates/XsPlaylistItemBase.qml</file>
 	    <file>application/panels/playlists/delegates/XsPlaylistItemDelegate.qml</file>
+	    <file>application/panels/playlists/delegates/XsPlaylistDividerDelegate.qml</file>
 	    <file>application/panels/playlists/delegates/XsPlaylistItemDragDropHandler.qml</file>
-	    <file>application/panels/playlists/menus/XsPlaylistContextMenu.qml</file>
-	    <file>application/panels/playlists/menus/XsPlaylistPlusMenu.qml</file>
 	    <file>application/panels/playlists/menus/XsPlaylistRemoveMenu.qml</file>
-	    <file>application/panels/playlists/widgets/XsPlaylistHotKeys.qml</file>
-	    <file>application/panels/playlists/XsPlaylistItems.qml</file>
-	    <file>application/panels/playlists/XsPlaylists.qml</file>
+	    <file>application/panels/playlists/menus/XsPlaylistPlusMenu.qml</file>
+	    <file>application/panels/playlists/menus/XsPlaylistContextMenu.qml</file>
 
 	    <file>application/panels/timeline/data/XsSortFilterModel.qml</file>
 	    <file>application/panels/timeline/delegates/XsDelegateAudioTrack.qml</file>
@@ -185,10 +183,7 @@
 	    <file>widgets/XsStringAttributeControl.qml</file>
 
 	    <file>application/dialogs/hotkeys/delegates/XsHotkeyDetails.qml</file>
-	    <file>application/dialogs/hotkeys/delegates/XsHotkeyGroup.qml</file>
-	    <file>application/dialogs/hotkeys/delegates/XsHotkeySequence.qml</file>
 	    <file>application/dialogs/hotkeys/XsHotkeysDialog.qml</file>
-	    <file>application/dialogs/hotkeys/XsHotkeySetterDialog.qml</file>
 
 	    <file>application/dialogs/preferences/delegates/XsColourPreference.qml</file>
 	    <file>application/dialogs/preferences/delegates/XsCompareModePref.qml</file>
@@ -218,7 +213,6 @@
 	    <file>widgets/indicators/XsNotification.qml</file>
 
 	    <file>widgets/indicators/XsLabel.qml</file>
-	    <file>widgets/indicators/XsTabButton.qml</file>
 	    <file>widgets/XsText.qml</file>
 	    <file>widgets/XsIntegerAttrControl.qml</file>
 	    <file>widgets/XsTextCopyable.qml</file>
@@ -246,7 +240,6 @@
 	    <file>menus/XsMenuItemToggleWithSettings.qml</file>
 	    <file>menus/XsPopupMenu.qml</file>
 
-	    <file>widgets/layout/XsTabBar.qml</file>
 	    <file>widgets/layout/XsGridView.qml</file>
 	    <file>widgets/indicators/XsIcon.qml</file>
 	    <file>widgets/indicators/XsImage.qml</file>
@@ -310,7 +303,6 @@
 	<qresource prefix="/icons">
 		<file alias="ad_group.svg">assets/icons/ad_group.svg</file>
 		<file alias="add.svg">assets/icons/add.svg</file>
-		<file alias="account_tree.svg">assets/icons/account_tree.svg</file>
 		<file alias="arrow_circle_up.svg">assets/icons/arrow_circle_up.svg</file>
 		<file alias="arrow_drop_down.svg">assets/icons/arrow_drop_down.svg</file>
 		<file alias="arrow_range.svg">assets/icons/arrow_range.svg</file>
@@ -344,7 +336,6 @@
 		<file alias="dock_bottom_flipped.png">assets/icons/dock_bottom_flipped.png</file>
 		<file alias="dock_left.svg">assets/icons/dock_left.svg</file>
 		<file alias="dock_right.svg">assets/icons/dock_right.svg</file>
-		<file alias="double_arrow.svg">assets/icons/double_arrow.svg</file>
 		<file alias="draft.svg">assets/icons/draft.svg</file>
 		<file alias="dropper.svg">assets/icons/dropper.svg</file>
 		<file alias="edit.svg">assets/icons/edit.svg</file>
@@ -360,21 +351,13 @@
 		<file alias="fit_screen.svg">assets/icons/fit_screen.svg</file>
 		<file alias="fit_select.svg">assets/icons/fit_select.svg</file>
 		<file alias="format_size.svg">assets/icons/format_size.svg</file>
-		<file alias="folder.svg">assets/icons/folder.svg</file>
-		<file alias="folder_open.svg">assets/icons/folder_open.svg</file>
 		<file alias="frame_inspect.svg">assets/icons/frame_inspect.svg</file>
 		<file alias="functions.svg">assets/icons/functions.svg</file>
 		<file alias="grid_view.svg">assets/icons/grid_view.svg</file>
 		<file alias="help.svg">assets/icons/help.svg</file>
-		<file alias="home.svg">assets/icons/home.svg</file>
-		<file alias="history.svg">assets/icons/history.svg</file>
-		<file alias="image.svg">assets/icons/image.svg</file>
-		<file alias="imagesmode.svg">assets/icons/imagesmode.svg</file>
-		<file alias="info.svg">assets/icons/info.svg</file>
 		<file alias="ink_pen.svg">assets/icons/ink_pen.svg</file>
 		<file alias="input.svg">assets/icons/input.svg</file>
 		<file alias="instant_mix.svg">assets/icons/instant_mix.svg</file>
-		<file alias="keep.svg">assets/icons/keep.svg</file>
 		<file alias="keyboard_arrow_up.svg">assets/icons/keyboard_arrow_up.svg</file>
 		<file alias="keyboard_tab.svg">assets/icons/keyboard_tab.svg</file>
 		<file alias="laps.svg">assets/icons/laps.svg</file>
@@ -385,9 +368,7 @@
 		<file alias="link.svg">assets/icons/link.svg</file>
 		<file alias="list.svg">assets/icons/list.svg</file>
 		<file alias="list_alt.svg">assets/icons/list_alt.svg</file>
-		<file alias="list_alt2.svg">assets/icons/list_alt2.svg</file>
 		<file alias="list_default.svg">assets/icons/list_default.svg</file>
-		<file alias="list_group.svg">assets/icons/list_group.svg</file>
 		<file alias="list_shotgun.svg">assets/icons/list_shotgun.svg</file>
 		<file alias="list_subset.svg">assets/icons/list_subset.svg</file>
 		<file alias="list_view.svg">assets/icons/list_view.svg</file>
@@ -415,13 +396,11 @@
 		<file alias="redo.svg">assets/icons/redo.svg</file>
 		<file alias="repartition.svg">assets/icons/repartition.svg</file>
 		<file alias="repeat.svg">assets/icons/repeat.svg</file>
-		<file alias="refresh.svg">assets/icons/refresh.svg</file>
 		<file alias="reset_image.svg">assets/icons/reset_image.svg</file>
 		<file alias="reset_tv.svg">assets/icons/reset_tv.svg</file>
 		<file alias="restart.svg">assets/icons/restart.svg</file>
 		<file alias="right_drag.svg">assets/icons/right_drag.svg</file>
 		<file alias="rotate-ccw.svg">assets/icons/rotate-ccw.svg</file>
-		<file alias="scanner.svg">assets/icons/scanner.svg</file>
 		<file alias="search.svg">assets/icons/search.svg</file>
 		<file alias="search_off.svg">assets/icons/search_off.svg</file>
 		<file alias="select.svg">assets/icons/select.svg</file>

@@ -90,7 +90,7 @@ Item{
                     }
                 }
                 toolTip: "Jump to Previous Note"
-                hotkeyNameForTooltip: "Jump to previous note"
+                hotkeyNameForTooltip: "Move backwards to previous note"
 
 
             }

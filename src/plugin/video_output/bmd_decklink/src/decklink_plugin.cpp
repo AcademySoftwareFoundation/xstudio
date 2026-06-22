@@ -55,7 +55,7 @@ const std::map<std::string, int64_t> eotf_modes({
     {"Auto PQ", -1},
 });
 
-const std::map<std::string, _BMDColorspace> colourspaces(
+const std::map<std::string, int64_t> colourspaces(
     {{"BT. 601", bmdColorspaceRec601},
      {"BT. 709", bmdColorspaceRec709},
      {"BT. 2020", bmdColorspaceRec2020}});
@@ -158,8 +158,7 @@ BMDecklinkPlugin::BMDecklinkPlugin(
 
 // This method is called when a new image buffer is ready to be displayed
 void BMDecklinkPlugin::incoming_video_frame_callback(media_reader::ImageBufPtr incoming) {
-    if (dcl_output_)
-        dcl_output_->incoming_frame(incoming);
+    dcl_output_->incoming_frame(incoming);
 }
 
 void BMDecklinkPlugin::exit_cleanup() {
@@ -285,11 +284,11 @@ void BMDecklinkPlugin::attribute_changed(const utility::Uuid &attribute_uuid, co
 
 audio::AudioOutputDevice *
 BMDecklinkPlugin::make_audio_output_device(const utility::JsonStore &prefs) {
-    if (dcl_output_) {
-        return new DecklinkAudioOutputDevice(prefs, dcl_output_);
-    } else {
+    if (!dcl_output_ || !dcl_output_->is_available()) {
         return nullptr;
     }
+    return static_cast<audio::AudioOutputDevice *>(
+        new DecklinkAudioOutputDevice(prefs, dcl_output_));
 }
 
 void BMDecklinkPlugin::initialise() {
@@ -298,6 +297,13 @@ void BMDecklinkPlugin::initialise() {
 
         dcl_output_ = new DecklinkOutput(this);
         set_hdr_mode_and_metadata();
+
+        if (!dcl_output_->is_available()) {
+            status_message_->set_value("No DeckLink device detected.");
+            is_in_error_->set_value(true);
+            spdlog::warn("Decklink drivers found, but no DeckLink device is available.");
+            return;
+        }
 
         resolutions_->set_role_data(
             module::Attribute::StringChoices, dcl_output_->output_resolution_names());
@@ -554,7 +560,7 @@ void BMDecklinkPlugin::save_hdr_colour_prefs() {
 std::string BMDecklinkPlugin::get_ocio_display_name() {
 
     if (!colour_pipeline())
-        return {};
+        return std::string();
 
     try {
 
@@ -571,10 +577,10 @@ std::string BMDecklinkPlugin::get_ocio_display_name() {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
 
-    return {};
+    return std::string();
 }
 
-BMDecklinkPlugin::~BMDecklinkPlugin() = default;
+BMDecklinkPlugin::~BMDecklinkPlugin() {}
 
 XSTUDIO_PLUGIN_DECLARE_BEGIN()
 

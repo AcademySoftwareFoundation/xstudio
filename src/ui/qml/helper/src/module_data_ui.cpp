@@ -71,7 +71,7 @@ void ModulesModelData::setModelData(const nlohmann::json &data) {
             UIModelData::setModelData(filtered_data);
         } else {
             spdlog::debug(
-                R"({} Attribute named "{}" not found in model data "{}")",
+                "{} Attribute named \"{}\" not found in model data \"{}\"",
                 __PRETTY_FUNCTION__,
                 filter_attr_name,
                 model_name_);
@@ -88,5 +88,5 @@ QVariant ModulesModelData::attributeRoleData(const QString attr_name, const QStr
     if (idx.isValid()) {
         return get(idx, role_name);
     }
-    return {};
+    return QVariant();
 }

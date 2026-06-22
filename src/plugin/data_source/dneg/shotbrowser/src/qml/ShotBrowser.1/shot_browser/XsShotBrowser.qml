@@ -54,10 +54,8 @@ Item{
     property alias sortByShotName: resultsFilteredModel.sortByShotName
     property alias sortInAscending: resultsFilteredModel.sortInAscending
     property alias pipeStep: resultsFilteredModel.filterPipeStep
-    property alias playlistType: resultsFilteredModel.filterPlaylistType
     property alias nameFilter: resultsFilteredModel.filterName
     property alias linkFilter: resultsFilteredModel.filterLink
-    property alias stages: stagesPref.value
 
     readonly property string panelType: "ShotBrowser"
 
@@ -74,11 +72,6 @@ Item{
     XsPreference {
         id: pauseOnPlaying
         path: "/plugin/data_source/shotbrowser/pause_update_on_playing"
-    }
-
-    XsPreference {
-        id: stagesPref
-        path: "/plugin/data_source/shotbrowser/browser/stages"
     }
 
     onCurrentPresetIndexChanged: {
@@ -298,9 +291,6 @@ Item{
         property bool showType: false
         property bool showVisibility: false
         property bool showPresetVisibility: false
-        property bool showStage: false
-        property bool showStageColour: false
-
         property var hideStatus: ["omt", "na", "del", "omtnto", "omtnwd"]
         property var filterProjects: []
         property var filterProjectStatus: []
@@ -348,8 +338,6 @@ Item{
                 "hideStatus",
                 "showStatus",
                 "showManifest",
-                "showStage",
-                "showStageColour",
                 "quickLoad",
                 "filterUnit",
                 "filterType",
@@ -782,7 +770,6 @@ Item{
             ShotBrowserEngine.connected = true
             setProjectIndex()
             updateMetaData()
-            favouriteTimer.start()
         }
     }
 }

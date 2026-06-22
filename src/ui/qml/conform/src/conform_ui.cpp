@@ -316,7 +316,6 @@ QFuture<QList<QUuid>> ConformEngineUI::conformItemsFuture(
             for (size_t i = 0; i < item_uav.size(); i++) {
                 pending.emplace_back(conformItemsFuture(
                     task,
-                    JsonStore(),
                     utility::UuidActorVector({item_uav.at(i)}),
                     UuidActor(puuid, pactor),
                     UuidActor(cuuid, cactor),
@@ -329,7 +328,7 @@ QFuture<QList<QUuid>> ConformEngineUI::conformItemsFuture(
 
             if (nofity_item) {
                 std::vector<bool> is_done(item_uav.size());
-                size_t done = 0;
+                auto done = 0;
                 while (done != item_uav.size()) {
                     for (size_t i = 0; i < is_done.size(); i++) {
                         if (not is_done[i] and pending[i].isResultReadyAt(0)) {
@@ -362,7 +361,6 @@ QFuture<QList<QUuid>> ConformEngineUI::conformItemsFuture(
 
     return conformItemsFuture(
         task,
-        JsonStore(),
         item_uav,
         UuidActor(puuid, pactor),
         UuidActor(cuuid, cactor),
@@ -517,7 +515,6 @@ QFuture<QList<QUuid>> ConformEngineUI::conformToSequenceFuture(
 
 QFuture<QList<QUuid>> ConformEngineUI::conformItemsFuture(
     const std::string &task,
-    const utility::JsonStore &metadata,
     const utility::UuidActorVector &items,
     const utility::UuidActor &playlist,
     const utility::UuidActor &container,
@@ -557,7 +554,6 @@ QFuture<QList<QUuid>> ConformEngineUI::conformItemsFuture(
                 conform_manager,
                 conform::conform_atom_v,
                 task,
-                metadata,
                 operations,
                 playlist,
                 container,
@@ -653,8 +649,9 @@ QFuture<QList<QUuid>> ConformEngineUI::conformToNewSequenceFuture(
                 auto seq_to_media = std::map<caf::uri, std::vector<UuidActor>>();
                 auto seq_to_name  = std::map<caf::uri, std::string>();
                 auto seq_to_meta  = std::map<caf::uri, utility::JsonStore>();
-                auto count        = 0;
-                auto media_done   = 0;
+
+                auto count      = 0;
+                auto media_done = 0;
 
                 for (const auto &i : reply) {
                     if (i) {
@@ -735,22 +732,6 @@ QFuture<QList<QUuid>> ConformEngineUI::conformToNewSequenceFuture(
                             timeline.actor(),
                             json_store::set_json_atom_v,
                             seq_to_meta.at(i.first));
-
-                        auto media_meta = JsonStore(R"({})");
-                        // add additonal metadata from first media item.
-                        // to support livelink.
-                        if (not playlist_media.empty()) {
-                            try {
-                                media_meta = request_receive<JsonStore>(
-                                    *sys,
-                                    playlist_media.at(0).actor(),
-                                    json_store::get_json_atom_v,
-                                    Uuid(),
-                                    "");
-                            } catch (const std::exception &err) {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-                            }
-                        }
 
                         // generate conform track.
                         request_receive<bool>(
@@ -894,7 +875,6 @@ QFuture<QList<QUuid>> ConformEngineUI::conformToNewSequenceFuture(
                                         // conform clips in new track
                                         conformItemsFuture(
                                             task,
-                                            media_meta,
                                             citems,
                                             playlist,
                                             timeline,
@@ -1131,8 +1111,8 @@ QFuture<QList<QUuid>> ConformEngineUI::conformFindRelatedFuture(
                     clip_ua,
                     sequence_ua);
 
-                // auto sessionModel = qobject_cast<SessionModel *>(
-                //     const_cast<QAbstractItemModel *>(sequenceIndex.model()));
+                auto sessionModel = qobject_cast<SessionModel *>(
+                    const_cast<QAbstractItemModel *>(sequenceIndex.model()));
 
                 for (const auto &i : reply)
                     result.push_back(QUuidFromUuid(i.uuid()));

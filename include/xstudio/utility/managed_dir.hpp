@@ -101,10 +101,10 @@ class ManagedDir {
             force = false;
 
             if (not done) {
-                pruned  = true;
-                auto it = content_.begin();
-                // auto mtime = it->first;
-                auto item = it->second;
+                pruned     = true;
+                auto it    = content_.begin();
+                auto mtime = it->first;
+                auto item  = it->second;
                 content_.erase(it);
 
                 if (content_.empty()) {

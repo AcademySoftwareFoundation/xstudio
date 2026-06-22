@@ -31,14 +31,14 @@ class HELPER_QML_EXPORT UIModelData : public caf::mixin::actor_object<JSONTreeMo
     explicit UIModelData(
         QObject *parent,
         const std::string &model_name,
-        const std::string data_preference_path,
+        const std::string &data_preference_path,
         const std::vector<std::string> &role_names = {});
 
     explicit UIModelData(QObject *parent);
 
     virtual void init(caf::actor_system &system);
 
-    [[nodiscard]] const QString modelDataName() const { return QStringFromStd(model_name_); }
+    const QString modelDataName() const { return QStringFromStd(model_name_); }
 
     Q_INVOKABLE void dump() const {
         spdlog::warn("UIModelData dump {}", utility::tree_to_json(data_, "children").dump(2));
@@ -85,8 +85,8 @@ class HELPER_QML_EXPORT UIModelData : public caf::mixin::actor_object<JSONTreeMo
     insertRowsSync(int row, int count, const QModelIndex &parent = QModelIndex());
 
   protected:
-    [[nodiscard]] std::string apply_filter(const std::string &path) const;
-    [[nodiscard]] std::string reverse_apply_filter(const std::string &path) const;
+    std::string apply_filter(const std::string &path) const;
+    std::string reverse_apply_filter(const std::string &path) const;
 
     caf::actor central_models_data_actor_;
     std::string model_name_;
@@ -200,7 +200,7 @@ class HELPER_QML_EXPORT MenuModelItem : public caf::mixin::actor_object<QObject>
 
     explicit MenuModelItem(QObject *parent = nullptr);
 
-    ~MenuModelItem() override = default;
+    virtual ~MenuModelItem() override;
 
     virtual void init(caf::actor_system &system);
 
@@ -233,22 +233,22 @@ class HELPER_QML_EXPORT MenuModelItem : public caf::mixin::actor_object<QObject>
     Q_PROPERTY(
         QString menuToolTip READ menuToolTip WRITE setMenuToolTip NOTIFY menuToolTipChanged)
 
-    [[nodiscard]] const QString &menuPath() const { return menu_path_; }
-    [[nodiscard]] const QString &text() const { return text_; }
-    [[nodiscard]] const QString &menuModelName() const { return menu_name_; }
-    [[nodiscard]] float menuItemPosition() const { return menu_item_position_; }
-    [[nodiscard]] const QStringList &choices() const { return choices_; }
-    [[nodiscard]] const QString &currentChoice() const { return current_choice_; }
-    [[nodiscard]] bool isChecked() const { return is_checked_; }
-    [[nodiscard]] const QString &hotkey() const { return hotkey_; }
-    [[nodiscard]] const QString &menuItemType() const { return menu_item_type_; }
-    [[nodiscard]] const QUuid &hotkeyUuid() const { return hotkey_uuid_; }
-    [[nodiscard]] const QString &menuCustomIcon() const { return menu_custom_icon_; }
-    [[nodiscard]] const QString &customMenuQml() const { return custom_menu_qml_; }
-    [[nodiscard]] const QString &menuToolTip() const { return menu_tooltip_; }
-    [[nodiscard]] const QVariant &userData() const { return user_data_; }
-    [[nodiscard]] bool enabled() const { return enabled_; }
-    [[nodiscard]] QObject *panelContext() const { return panel_context_; }
+    const QString &menuPath() const { return menu_path_; }
+    const QString &text() const { return text_; }
+    const QString &menuModelName() const { return menu_name_; }
+    float menuItemPosition() const { return menu_item_position_; }
+    const QStringList &choices() const { return choices_; }
+    const QString &currentChoice() const { return current_choice_; }
+    bool isChecked() const { return is_checked_; }
+    const QString &hotkey() const { return hotkey_; }
+    const QString &menuItemType() const { return menu_item_type_; }
+    const QUuid &hotkeyUuid() const { return hotkey_uuid_; }
+    const QString &menuCustomIcon() const { return menu_custom_icon_; }
+    const QString &customMenuQml() const { return custom_menu_qml_; }
+    const QString &menuToolTip() const { return menu_tooltip_; }
+    const QVariant &userData() const { return user_data_; }
+    bool enabled() const { return enabled_; }
+    QObject *panelContext() const { return panel_context_; }
 
   public slots:
 
@@ -416,14 +416,14 @@ class HELPER_QML_EXPORT PanelMenuModelFilter : public QSortFilterProxyModel {
   public:
     PanelMenuModelFilter(QObject *parent = nullptr);
 
-    [[nodiscard]] const QString &panelAddress() const { return panel_address_; }
+    const QString &panelAddress() const { return panel_address_; }
 
     Q_INVOKABLE [[nodiscard]] QVariant
     get(const QModelIndex &item, const QString &role = "display") const {
         if (source_model_) {
             return source_model_->get(mapToSource(item), role);
         }
-        return {};
+        return QVariant();
     }
 
     void setSourceModel(QAbstractItemModel *sourceModel) override;

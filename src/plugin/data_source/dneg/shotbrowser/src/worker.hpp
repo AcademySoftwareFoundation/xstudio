@@ -102,7 +102,7 @@ class MediaWorker : public caf::event_based_actor {
     MediaWorker(caf::actor_config &cfg, const caf::actor_addr source);
     ~MediaWorker() override = default;
 
-    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
+    const char *name() const override { return NAME.c_str(); }
 
   private:
     inline static const std::string NAME = "MediaWorker";

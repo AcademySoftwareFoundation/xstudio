@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: Apache-2.0
+#pragma once
+
+#include "xstudio/ui/opengl/shader_program_base.hpp"
+#include "xstudio/ui/opengl/opengl_text_rendering.hpp"
+#include "xstudio/plugin_manager/hud_plugin.hpp"
+
+namespace xstudio {
+namespace ui {
+    namespace viewport {
+
+        class MaskData : public utility::BlindDataObject {
+          public:
+            MaskData(
+                const utility::JsonStore &j, const std::string &caption, const float label_size)
+                : mask_shader_params_(j), mask_caption_(caption), label_size_(label_size) {}
+            ~MaskData() = default;
+
+            const utility::JsonStore mask_shader_params_;
+            const std::string mask_caption_;
+            const float label_size_;
+        };
+
+        class BasicMaskRenderer : public plugin::ViewportOverlayRenderer {
+
+          public:
+            void render_image_overlay(
+                const Imath::M44f &transform_window_to_viewport_space,
+                const Imath::M44f &transform_viewport_to_image_space,
+                const float viewport_du_dpixel,
+                const float device_pixel_ratio,
+                const xstudio::media_reader::ImageBufPtr &frame) override;
+
+            void init_overlay_opengl();
+
+            std::unique_ptr<xstudio::ui::opengl::GLShaderProgram> shader_;
+            GLuint vertex_buffer_object_;
+            GLuint vertex_array_object_;
+            std::unique_ptr<xstudio::ui::opengl::OpenGLTextRendererSDF> text_renderer_;
+            std::vector<float> precomputed_text_vertex_buffer_;
+            std::string text_;
+            float font_scale_ = 0.0f;
+            float ma_         = 0.0f;
+        };
+
+        class BasicViewportMasking : public plugin::HUDPluginBase {
+          public:
+            BasicViewportMasking(
+                caf::actor_config &cfg, const utility::JsonStore &init_settings);
+
+            ~BasicViewportMasking();
+
+            void attribute_changed(
+                const utility::Uuid &attribute_uuid, const int /*role*/
+                ) override;
+
+            void hotkey_pressed(
+                const utility::Uuid &hotkey_uuid,
+                const std::string &context,
+                const std::string &window) override;
+
+          protected:
+            void register_hotkeys() override;
+
+            utility::BlindDataObjectPtr onscreen_render_data(
+                const media_reader::ImageBufPtr &,
+                const std::string & /*viewport_name*/,
+                const utility::Uuid &playhead_uuid,
+                const bool is_hero_image,
+                const bool images_are_in_grid_layout) const override;
+
+            plugin::ViewportOverlayRendererPtr
+            make_overlay_renderer(const std::string &viewport_name) override {
+                return plugin::ViewportOverlayRendererPtr(new BasicMaskRenderer());
+            }
+
+          private:
+            module::FloatAttribute *mask_aspect_ratio_;
+            module::StringChoiceAttribute *aspect_ratio_presets_;
+            module::FloatAttribute *line_thickness_;
+            module::FloatAttribute *line_opacity_;
+            module::FloatAttribute *mask_opacity_;
+            module::FloatAttribute *safety_percent_;
+            module::FloatAttribute *mask_label_size_;
+            module::StringChoiceAttribute *mask_render_method_;
+
+            module::FloatAttribute *current_mask_aspect_;
+            module::FloatAttribute *current_mask_safety_;
+
+            module::BooleanAttribute *show_mask_label_;
+
+            utility::Uuid mask_hotkey_;
+        };
+
+    } // namespace viewport
+} // namespace ui
+} // namespace xstudio

@@ -11,171 +11,86 @@ import "./delegates"
 XsWindow {
     id: dialog
 
-    minimumWidth: 560
-	height: 750
+	width: 550
+	minimumWidth: 550
+	height: 250
+	// minimumHeight: 250
+    property var row_widths: [100, 100, 100]
+    function setRowMinWidth(w, i) {
+        if (w > row_widths[i]) {
+            var r = row_widths
+            r[i] = w
+            row_widths = r
+        }
+    }
+
     title: "xSTUDIO Hotkeys"
-
-    property var hoveredIndex: -1
-
-    property int widthHint: 334
-
-    property int groupColumns: Math.max(1, (width-60)/widthHint)
-    property int wHint: 50
 
     ColumnLayout {
 
-        id: rootLayout
         anchors.fill: parent
-        anchors.margins: 10
-        spacing: 20
+        anchors.margins: 0
+        spacing: 10
 
-        XsText {
-            Layout.leftMargin: 10
-            Layout.topMargin: 10
-            text: qsTr("Find and customize hotkeys for all actions in xSTUDIO. Click on a hotkey entry to modify the key binding. Hover your pointer over the hotkey entry to see a description of the associated action.")
-            font.pixelSize: XsStyleSheet.fontSize + 2
-            font.italic: true
+        TabBar {
+
+            id: tabBar
+
             Layout.fillWidth: true
-            wrapMode: Text.Wrap
-            horizontalAlignment: Text.AlignLeft
+            background: Rectangle {
+                color: XsStyleSheet.panelBgColor
+            }
+
+            Repeater {
+
+                model: hotkeysModel.categories
+
+                TabButton {
+
+                    width: implicitWidth
+
+                    contentItem: XsText {
+                        text: hotkeysModel.categories[index]
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.bold: tabBar.currentIndex == index
+                    }
+
+                    background: Rectangle {
+                        border.color: hovered? XsStyleSheet.accentColor : "transparent"
+                        color: tabBar.currentIndex == index ? XsStyleSheet.panelTitleBarColor : Qt.darker(XsStyleSheet.panelTitleBarColor, 1.5)
+                    }
+                }
+
+            }
+
+            onCurrentIndexChanged: {
+                hotkeysModel.currentCategory = hotkeysModel.categories[currentIndex]
+            }
+
         }
 
-        RowLayout {
+        XsListView {
 
-            id: rlayout
-            Layout.margins: 10
-            spacing: 10
+            Layout.fillWidth: true
+            Layout.fillHeight: true
 
-            ColumnLayout {
+            model: hotkeysModel
+            delegate: XsHotkeyDetails {}
 
-                spacing: 0
-                Layout.alignment: Qt.AlignTop
-
-                XsSearchButton{
-                    id: searchBtn
-                    Layout.preferredWidth: wHint
-                    Layout.preferredHeight: 24
-                    isExpanded: true
-                    hint: qsTr("Filter ...")
-                    onTextChanged: {
-                        hotkeysModel.searchString = text
-                    }
-                }
-
-                XsMenuDivider {
-                    Layout.preferredWidth: wHint
-                    text: qsTr("Jump To ...")
-                }
-
-                Repeater {
-                    model: hotkeysModel.categories
-                    XsSimpleButton {
-                        Layout.preferredWidth: wHint
-                        Layout.topMargin: 8
-                        text: modelData
-                        onIdealWidthChanged: {
-                            if (idealWidth > wHint) {
-                                wHint = idealWidth
-                            }
-                        }
-                        onClicked: {
-                            flickable.autoScrollToCategory(modelData)
-                        }
-                    }
-                }
-
-            }
-
-            Rectangle {
-                Layout.fillHeight: true
-                width: 1
-                color: XsStyleSheet.menuBorderColor
-            }
-
-            Flickable {
-                id: flickable
-                contentHeight: hotkeysListView.height
-                Layout.fillHeight: true
-                Layout.fillWidth: true
-
-                clip: true
-                ColumnLayout {
-
-                    id: hotkeysListView
-                    clip: true
-                    spacing: 8
-                    width: parent.width-16 // space for scrollbar
-
-                    Repeater {
-                        model: hotkeysModel
-                        id: repeater
-                        XsHotkeyGroup {
-                            Layout.fillWidth: true
-                            model: hotkeysModel
-                            rootIndex: model.index(index, 0)
-                            property var cat: hotkeyCategory
-                            function autoScrollToCategory() {
-                                autoScrollAnimator.to = y
-                                autoScrollAnimator.running = true
-                            }
-                        }
-                    }
-                }
-
-                ScrollBar.vertical: XsScrollBar {
-                    width: 12
-                    visible: flickable.height < hotkeysListView.height
-                    policy: ScrollBar.AlwaysOn
-                }
-
-                PropertyAnimation{
-                    id: autoScrollAnimator
-                    target: flickable
-                    properties: "contentY"
-                    duration: 100
-                }
-
-                function autoScrollToCategory(category) {
-
-                    for (var i=0; i<repeater.count; i++) {
-                        var item = repeater.itemAt(i)
-                        if (item.cat === category) {
-                            item.autoScrollToCategory()
-                        }
-                    }
-                }
-          }
         }
 
         XsSimpleButton {
 
             Layout.alignment: Qt.AlignRight|Qt.AlignVCenter
             Layout.rightMargin: 10
+            Layout.bottomMargin: 10
             text: qsTr("Close")
             width: XsStyleSheet.primaryButtonStdWidth*2
             onClicked: {
                 dialog.close()
             }
         }
-    }
-
-    Loader {
-        id: setterLoader
-    }
-
-    Component {
-        id: hotkeySetterComponent
-        XsHotkeySetterDialog {
-
-        }
-    }
-
-    function showHotkeySetter(hotkeyUUID) {
-
-        hotkeysModel.testHotkeyID = hotkeyUUID
-        setterLoader.sourceComponent = hotkeySetterComponent
-        setterLoader.item.hotkeyUUID = hotkeyUUID
-        setterLoader.item.visible = true
     }
 
 }

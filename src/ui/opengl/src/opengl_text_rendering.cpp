@@ -370,8 +370,8 @@ void OpenGLTextRendererVector::compute_wrap_indeces(
     std::string::const_iterator c               = text.begin();
     std::string::const_iterator last_word_begin = text.begin();
     float x                                     = 0.0f;
-    // int last_space                              = -1;
-    bool doneline = false;
+    int last_space                              = -1;
+    bool doneline                               = false;
     while (c != text.end()) {
 
         const CharacterMetrics &character = get_character(*c);

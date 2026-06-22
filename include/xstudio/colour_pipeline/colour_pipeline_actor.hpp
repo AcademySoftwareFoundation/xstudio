@@ -13,42 +13,44 @@
 #include "xstudio/utility/chrono.hpp"
 #include "xstudio/utility/helpers.hpp"
 
-namespace xstudio::colour_pipeline {
+namespace xstudio {
+namespace colour_pipeline {
 
-// TODO: This should be pulled from the preferences
-const int colour_pipeline_worker_count{4};
+    // TODO: This should be pulled from the preferences
+    const int colour_pipeline_worker_count{4};
 
-class GlobalColourPipelineActor : public caf::event_based_actor, public module::Module {
-  public:
-    GlobalColourPipelineActor(caf::actor_config &cfg);
-    ~GlobalColourPipelineActor() override;
+    class GlobalColourPipelineActor : public caf::event_based_actor, public module::Module {
+      public:
+        GlobalColourPipelineActor(caf::actor_config &cfg);
+        virtual ~GlobalColourPipelineActor();
 
-    caf::behavior make_behavior() override;
+        caf::behavior make_behavior() override;
 
-    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
+        const char *name() const override { return NAME.c_str(); }
 
-    void on_exit() override;
+        void on_exit() override;
 
-  private:
-    void load_colour_pipe_details();
+      private:
+        void load_colour_pipe_details();
 
-    void make_colour_pipeline(
-        const std::string &pipe_name,
-        const utility::JsonStore &jsn,
-        caf::typed_response_promise<caf::actor> &rp);
+        void make_colour_pipeline(
+            const std::string &pipe_name,
+            const utility::JsonStore &jsn,
+            caf::typed_response_promise<caf::actor> &rp);
 
-    caf::actor
-    make_colour_pipeline(const std::string &pipe_name, const utility::JsonStore &jsn);
+        caf::actor
+        make_colour_pipeline(const std::string &pipe_name, const utility::JsonStore &jsn);
 
-  private:
-    inline static const std::string NAME                = "GlobalColourPipelineActor";
-    inline static const std::string BUILTIN_PLUGIN_NAME = "OCIOColourPipeline";
+      private:
+        inline static const std::string NAME                = "GlobalColourPipelineActor";
+        inline static const std::string BUILTIN_PLUGIN_NAME = "OCIOColourPipeline";
 
-    std::vector<plugin_manager::PluginDetail> colour_pipe_plugin_details_;
-    std::string default_plugin_name_;
-    utility::JsonStore prefs_jsn_;
-    std::map<std::string, caf::actor> colour_piplines_;
-};
+        std::vector<plugin_manager::PluginDetail> colour_pipe_plugin_details_;
+        std::string default_plugin_name_;
+        utility::JsonStore prefs_jsn_;
+        std::map<std::string, caf::actor> colour_piplines_;
+    };
 
 
-} // namespace xstudio::colour_pipeline
+} // namespace colour_pipeline
+} // namespace xstudio

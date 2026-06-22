@@ -224,9 +224,9 @@ void YUVFrameGrabber::grabYUVFrameBuffer(
 
     // std::cerr << "ART " << pix_buf_size << " " << width << " " << height << "\n";
 
-    if (static_cast<int>(pix_buf_size) != pix_buf_size_) {
+    if (pix_buf_size != pix_buf_size_) {
         glBindBuffer(GL_PIXEL_PACK_BUFFER, pixel_buffer_object_);
-        glBufferData(GL_PIXEL_PACK_BUFFER, pix_buf_size, nullptr, GL_STREAM_COPY);
+        glBufferData(GL_PIXEL_PACK_BUFFER, pix_buf_size, NULL, GL_STREAM_COPY);
         pix_buf_size_ = pix_buf_size;
     }
 
@@ -251,16 +251,16 @@ void YUVFrameGrabber::grabYUVFrameBuffer(
     glBindBuffer(GL_PIXEL_PACK_BUFFER, pixel_buffer_object_);
     void *mappedBuffer = glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
 
-    // auto t4 = utility::clock::now();
+    auto t4 = utility::clock::now();
 
     destination_image->allocate(pix_buf_size);
     memcpy(destination_image->buffer(), mappedBuffer, pix_buf_size);
 
     // now mapped buffer contains the pixel data
     glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-    // auto t5 = utility::clock::now();
+    auto t5 = utility::clock::now();
 
-    // auto tt = utility::clock::now();
+    auto tt = utility::clock::now();
 
     // TODO: Gather stats on draw times etc and send to video_output_actor_
     // so it can monitor performance

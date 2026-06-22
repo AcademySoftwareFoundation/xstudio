@@ -47,14 +47,12 @@ TEST(MediaActorTest, Test) {
 
     Uuid media_s_uuid;
 
-    f.self->mail(add_media_source_atom_v, media_s)
-        .request(media, infinite)
+    f.self->request(media, infinite, add_media_source_atom_v, media_s)
         .receive(
             [&](const Uuid &uuid) { media_s_uuid = uuid; },
             [&](const caf::error &) { EXPECT_TRUE(false) << "Should return valid uuid"; });
 
-    f.self->mail(uuid_atom_v)
-        .request(media, infinite)
+    f.self->request(media, infinite, uuid_atom_v)
         .receive(
             [&](const Uuid &uuid) {
                 EXPECT_FALSE(uuid.is_null()) << "Should return valid uuid";
@@ -62,16 +60,14 @@ TEST(MediaActorTest, Test) {
             [&](const caf::error &) { EXPECT_TRUE(false) << "Should return valid uuid"; });
 
     JsonStoreHelper jsh(f.system, media);
-    f.self->mail(get_metadata_atom_v)
-        .request(media, infinite)
+    f.self->request(media, infinite, get_metadata_atom_v)
         .receive(
             [&](const bool &done) { EXPECT_TRUE(done) << "Should return true"; },
             [&](const caf::error &) { EXPECT_TRUE(false) << "Should return true"; });
     EXPECT_EQ(jsh.get<std::string>("/metadata/media/@/format/size"), "95566")
         << "Should be 95566";
 
-    f.self->mail(current_media_source_atom_v, media_s_uuid)
-        .request(media, infinite)
+    f.self->request(media, infinite, current_media_source_atom_v, media_s_uuid)
         .receive(
             [&](const bool &done) { EXPECT_TRUE(done) << "Should return true"; },
             [&](const caf::error &) { EXPECT_TRUE(false) << "Should return true"; });
@@ -80,8 +76,7 @@ TEST(MediaActorTest, Test) {
         static_cast<void>(jsh.get<std::string>("/metadata/media/@/format/size")),
         std::runtime_error);
 
-    f.self->mail(get_metadata_atom_v)
-        .request(media, infinite)
+    f.self->request(media, infinite, get_metadata_atom_v)
         .receive(
             [&](const bool &done) { EXPECT_TRUE(done) << "Should return true"; },
             [&](const caf::error &) { EXPECT_TRUE(false) << "Should return true"; });
@@ -92,8 +87,7 @@ TEST(MediaActorTest, Test) {
         << "Should be 2020:01:21 09:38:59";
 
     JsonStore serial;
-    f.self->mail(serialise_atom_v)
-        .request(media, infinite)
+    f.self->request(media, infinite, serialise_atom_v)
         .receive(
             [&](const JsonStore &jsn) { serial = jsn; },
             [&](const caf::error &) { EXPECT_TRUE(false) << "Should return true"; });
@@ -111,8 +105,6 @@ TEST(MediaActorTest, Test) {
     f.self->send_exit(gsa, caf::exit_reason::user_shutdown);
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 TEST(MediaSourceActorTest, Test) {
     fixture f;
@@ -122,8 +114,7 @@ TEST(MediaSourceActorTest, Test) {
 
     // const Uuid u = c(Uuid, get_uuid_atom_v);
 
-    f.self->mail(uuid_atom_v)
-        .request(tmp, std::chrono::seconds(10))
+    f.self->request(tmp, std::chrono::seconds(10), uuid_atom_v)
         .receive(
             [&](const Uuid &uuid) {
                 EXPECT_FALSE(uuid.is_null()) << "Should return valid uuid";
@@ -131,16 +122,14 @@ TEST(MediaSourceActorTest, Test) {
             [&](const caf::error &) { EXPECT_TRUE(false) << "Should return valid uuid"; });
 
     JsonStore serial;
-    f.self->mail(serialise_atom_v)
-        .request(tmp, infinite)
+    f.self->request(tmp, infinite, serialise_atom_v)
         .receive(
             [&](const JsonStore &jsn) { serial = jsn; },
             [&](const caf::error &) { EXPECT_TRUE(false) << "Should return true"; });
     // we should be able to spawn a clone of the above...
 
     auto tmp2 = f.self->spawn<MediaSourceActor>(serial);
-    f.self->mail(uuid_atom_v)
-        .request(tmp2, std::chrono::seconds(10))
+    f.self->request(tmp2, std::chrono::seconds(10), uuid_atom_v)
         .receive(
             [&](const Uuid &uuid) {
                 EXPECT_FALSE(uuid.is_null()) << "Should return valid uuid";
@@ -159,8 +148,7 @@ TEST(MediaSourceActorMetaTest, Test) {
 
         JsonStoreHelper jsh(f.system, media);
 
-        f.self->mail(get_metadata_atom_v)
-            .request(media, infinite)
+        f.self->request(media, infinite, get_metadata_atom_v)
             .receive(
                 [&](const bool &done) { EXPECT_TRUE(done) << "Should return true"; },
                 [&](const caf::error &) { EXPECT_TRUE(false) << "Should return true"; });
@@ -176,8 +164,7 @@ TEST(MediaSourceActorMetaTest, Test) {
 
         JsonStoreHelper jsh2(f.system, media);
 
-        f.self->mail(get_metadata_atom_v)
-            .request(media, infinite)
+        f.self->request(media, infinite, get_metadata_atom_v)
             .receive(
                 [&](const bool &done) { EXPECT_TRUE(done) << "Should return true"; },
                 [&](const caf::error &) { EXPECT_TRUE(false) << "Should return true"; });
@@ -186,8 +173,7 @@ TEST(MediaSourceActorMetaTest, Test) {
             jsh2.get<std::string>("/metadata/media/@1/headers/0/capDate/value"),
             "2020:01:21 09:38:59")
             << "Should be 2020:01:21 09:38:59";
-        f.self->mail(get_metadata_atom_v)
-            .request(media, infinite)
+        f.self->request(media, infinite, get_metadata_atom_v)
             .receive(
                 [&](const bool &done) { EXPECT_TRUE(done) << "Should return true"; },
                 [&](const caf::error &) { EXPECT_TRUE(false) << "Should return true"; });
@@ -198,8 +184,7 @@ TEST(MediaSourceActorMetaTest, Test) {
             << "Should be 2020:01:21 09:39:05";
 
         JsonStore serial;
-        f.self->mail(serialise_atom_v)
-            .request(media, infinite)
+        f.self->request(media, infinite, serialise_atom_v)
             .receive(
                 [&](const JsonStore &jsn) { serial = jsn; },
                 [&](const caf::error &) { EXPECT_TRUE(false) << "Should return true"; });
@@ -219,4 +204,3 @@ TEST(MediaSourceActorMetaTest, Test) {
         std::cerr << e.what() << std::endl;
     }
 }
-#pragma GCC diagnostic pop

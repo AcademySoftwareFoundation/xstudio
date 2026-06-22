@@ -241,7 +241,7 @@ bool Canvas::remove_shape(uint32_t id) {
 
     int remove_idx = -1;
 
-    for (size_t i = 0; i < items_.size(); ++i) {
+    for (int i = 0; i < items_.size(); ++i) {
         if (std::holds_alternative<Quad>(items_[i])) {
             auto &quad = std::get<Quad>(items_[i]);
 

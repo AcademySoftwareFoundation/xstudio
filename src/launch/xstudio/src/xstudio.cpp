@@ -38,6 +38,7 @@ __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;          // 
 #include "xstudio/atoms.hpp"
 #include "xstudio/caf_utility/caf_setup.hpp"
 #include "xstudio/global/global_actor.hpp"
+#include "xstudio/global/xstudio_actor_system.hpp"
 #include "xstudio/global_store/global_store.hpp"
 #include "xstudio/playhead/playhead_actor.hpp"
 #include "xstudio/session/session_actor.hpp"
@@ -421,7 +422,7 @@ void LoaderActor::send_media(
 
     std::vector<std::string> media;
     if (__media.is_array()) {
-        for (size_t i = 0; i < __media.size(); ++i) {
+        for (int i = 0; i < __media.size(); ++i) {
             try {
                 media.push_back(__media[i].get<std::string>());
             } catch (...) {
@@ -742,7 +743,7 @@ struct Launcher {
         actions["compare"]             = static_cast<std::string>(args::get(cli_args.compare));
         actions["silence_qt_warnings"] = cli_args.silence_qt_warnings.Matched();
 
-        for (const auto &ep : args::get(cli_args.force_enable_plugin)) {
+        for (const auto ep : args::get(cli_args.force_enable_plugin)) {
             if (!actions.contains("force_enable_plugins")) {
                 actions["force_enable_plugins"] = nlohmann::json::array();
             }
@@ -1093,13 +1094,13 @@ struct Launcher {
                         auto remote = request_receive_wait<caf::actor>(
                             *self,
                             connecting,
-                            std::chrono::seconds(3),
+                            std::chrono::seconds(2),
                             caf::connect_atom_v,
                             host,
                             port);
 
                         auto auth = request_receive_wait<caf::actor>(
-                            *self, remote, std::chrono::seconds(3), authenticate_atom_v);
+                            *self, remote, std::chrono::seconds(2), authenticate_atom_v);
 
                         spdlog::info("Connected to session '{}' at {}:{}", name, host, port);
                         return auth;
@@ -1131,7 +1132,7 @@ struct Launcher {
                     .c_str());
         }
 
-        return {};
+        return caf::actor();
     }
 };
 

@@ -18,7 +18,7 @@ using namespace xstudio;
 void xstudio::media_reader::ffmpeg::AVC_CHECK_THROW(int errorNum, const char *avc_command) {
     if (!errorNum)
         return;
-    std::array<char, 4096> buf{};
+    std::array<char, 4096> buf;
 
     if (!av_strerror(errorNum, buf.data(), buf.size())) {
         if (-errorNum == ENOENT) {
@@ -625,8 +625,11 @@ AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio() {
 FFMpegStream::FFMpegStream(
     AVFormatContext *fmt_ctx, AVStream *stream, int index, int thread_count, std::string path)
     : stream_index_(index),
+      codec_context_(nullptr),
       format_context_(fmt_ctx),
       avc_stream_(stream),
+      codec_(nullptr),
+      ffmpeg_frame_(nullptr),
       source_path(std::move(path)) {
 
     codec_type_   = avc_stream_->codecpar->codec_type;
@@ -821,11 +824,11 @@ size_t FFMpegStream::resample_audio(
         ffmpeg_frame_->ch_layout.nb_channels != src_audio_chans_) {
 
         swr_free(&audio_resampler_ctx_);
-        audio_resampler_ctx_ = nullptr;
+        audio_resampler_ctx_ = NULL;
 
         auto dest_layout = AVChannelLayout(AV_CHANNEL_LAYOUT_STEREO);
 
-        std::ignore = swr_alloc_set_opts2(
+        int ret = swr_alloc_set_opts2(
             &audio_resampler_ctx_,                 // we're allocating a new context
             &dest_layout,                          // out_ch_layout
             target_sample_format_,                 // out_sample_fmt
@@ -834,7 +837,7 @@ size_t FFMpegStream::resample_audio(
             (AVSampleFormat)ffmpeg_frame_->format, // in_sample_fmt
             ffmpeg_frame_->sample_rate,            // in_sample_rate
             0,                                     // log_offset
-            nullptr);                              // log_ctx
+            NULL);                                 // log_ctx
 
         if (!audio_resampler_ctx_ || swr_init(audio_resampler_ctx_) < 0) {
             std::array<char, 4096> errbuf;
@@ -1076,7 +1079,7 @@ int FFMpegStream::duration_frames() const {
 
 void FFMpegStream::decode_attached_pic() {
 
-    std::ignore = send_packet(&(avc_stream_->attached_pic));
+    int rx = send_packet(&(avc_stream_->attached_pic));
     av_frame_unref(ffmpeg_frame_);
     int rt = avcodec_receive_frame(codec_context_, ffmpeg_frame_);
     if (rt == 0) {

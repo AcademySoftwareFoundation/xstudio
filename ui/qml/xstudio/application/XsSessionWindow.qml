@@ -5,9 +5,6 @@ import QtQuick.Layouts
 import QtQml.Models
 import QtQml
 
-import QuickFuture 1.0
-import QuickPromise 1.0
-
 import xStudio 1.0
 import xstudio.qml.models 1.0
 import xstudio.qml.session 1.0
@@ -345,11 +342,12 @@ ApplicationWindow {
         target: sessionData.current_playhead
         function onPlayingChanged() {
             if(sessionData.current_playhead.playing)
-                Future.promise(helpers.inhibitScreenSaverFuture()).then(function(result){})
+                helpers.inhibitScreenSaver()
             else
-                Future.promise(helpers.inhibitScreenSaverFuture(false)).then(function(result){})
+                helpers.inhibitScreenSaver(false)
         }
-   }
+    }
+
     XsPreference {
         id: stopPlaybackOnMinimise
         path: "/ui/qml/stop_playing_when_not_visible"
@@ -364,9 +362,9 @@ ApplicationWindow {
             // we must still disable screensaver inhibition if xstudio goes
             // offscreen otherwise security lock-out on user inactivity won't
             // happen while xstudio continues to play in the background
-            Future.promise(helpers.inhibitScreenSaverFuture(false)).then(function(result){})
+            helpers.inhibitScreenSaver(false)
         } else if (sessionData.current_playhead.playing) {
-            Future.promise(helpers.inhibitScreenSaverFuture()).then(function(result){})
+            helpers.inhibitScreenSaver()
         }
     }
 
@@ -409,12 +407,6 @@ ApplicationWindow {
         id: file_functions
     }
     property alias file_functions: file_functions
-
-    XsPreference {
-        id: __media_flags
-        path: "/core/session/media_flags"
-    }
-    property alias flagColours: __media_flags.value
 
     ColumnLayout {
 

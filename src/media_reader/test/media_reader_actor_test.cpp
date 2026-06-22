@@ -22,7 +22,7 @@ using namespace caf;
 
 ACTOR_TEST_SETUP()
 
-// #pragma message "This needs fixing"
+#pragma message "This needs fixing"
 
 /*
 

@@ -4,13 +4,7 @@ xSTUDIO can be built in just a few steps on many Linux distros by employing Micr
 
 ### Base dependencies
 
-We assume that you have some knowledge of development on Linux platforms and have git, gcc and cmake installed on your system. You also need Ninja, which xSTUDIO uses as its CMake generator on all platforms. Install it via your distro's package manager:
-
-    # Rocky / RHEL / Fedora
-    sudo dnf install ninja-build
-
-    # Ubuntu / Debian
-    sudo apt install ninja-build
+We assume that you have some knowledge of development on Linux platforms and have git, gcc & cmake installed on your system.
 
 ### Download and install Qt 6.5.3 SDK
 
@@ -18,11 +12,11 @@ Follow [these instructions](downloading_qt.md) - ensuring that you download the 
 
 ### Download the VCPKG repo
 
-To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo and run the bootstrap script before we build xstudio. Run these commands in a terminal:
+To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo, run the bootstrap script and then switch to a specific git commit before we build xstudio. Run these commands in the Powershell:
 
     git clone https://github.com/microsoft/vcpkg.git
-    git -C vcpkg checkout c2aeddd80357b17592e59ad965d2adf65a19b22f
     ./vcpkg/bootstrap-vcpkg.sh
+    git checkout c2aeddd80357b17592e59ad965d2adf65a19b22f
 
 ### Download the xSTUDIO repo
 
@@ -32,45 +26,34 @@ Download from github in the usual manner. Enter the root folder of the repo and 
     cd xstudio
     git checkout develop
 
-### Tell CMake where Qt is installed
+You must run these commands to add the OpenTimelineIO submodule to the tree
 
-CMake needs to know where your Qt 6.5.3 SDK is installed. Create a `CMakeUserPresets.json` file alongside `CMakePresets.json` in the repo root. This file is gitignored, so your local path won't be committed. The user preset should have a different name from the tracked preset it inherits from, and add `Qt6_DIR` to `cacheVariables`. For example, if user Mary Jane downloaded Qt into her home folder:
+    git submodule init
+    git submodule update
+    git apply cmake/otio_patch.diff
 
-    {
-      "version": 3,
-      "configurePresets": [
-        {
-          "name": "LinuxNinjaReleaseLocal",
-          "inherits": "LinuxNinjaRelease",
-          "cacheVariables": {
-            "Qt6_DIR": "/home/maryjane/Qt/6.5.3/gcc_64/lib/cmake/Qt6"
-          }
-        }
-      ]
-    }
+### Modify the CMakePresets.json file
 
-See the [CMake presets documentation](https://cmake.org/cmake/help/latest/manual/cmake-presets.7.html) for the full format reference.
+Open the CMakePresets.json file (which is in the root of the xstudio repo) in a text editor. You must look for the entry "Qt6_DIR" and modify the value that follows it to point to your installation of the Qt SDK. Specifically, you need to point to a directory named 'Qt6' which is in a directory named 'cmake', which is in a directory named 'lib'. For example, if user Mary Jane downloaded Qt into her home folder the entry should look like this:
+
+    "Qt6_DIR": "/home/maryjane/Qt/6.5.3/gcc_64/lib/cmake/Qt6",
 
 ### Build xSTUDIO
 
 First, we configure for building. Note that this cmake command ***may take several hours to complete*** the first time it is run, though subsequently it will take a few seconds. This is because xSTUDIO's dependencies (particularly ffmpeg) take a long time to download and build from the source code, which is what VCPKG is doing.
+    
+    cmake -B build --preset LinuxRelease
 
-    cmake -B build --preset LinuxNinjaReleaseLocal
+When this has finished, you can build xSTUDIO with this command (in this case, the --parallel flag is set for a machine with 16 cores as an example). 
 
-When this has finished, you can build xSTUDIO with:
-
-    cmake --build build
-
-RelWithDebInfo and Debug variants are also available — see [CMakePresets.json](../../../CMakePresets.json) for the full list.
+    cmake --build build --parallel 16
 
 ### Running xSTUDIO in a dev environment
 
-If the compilation is successful you will find the xstudio app in `./build/bin/xstudio.bin`. To enable the Python API, add the built site-packages directory to your `PYTHONPATH`:
+If the compilation is successfull you will find the xstudio app in ./build/bin/xstudio.bin. To enable the python API, you will need to modify your PYTHONPATH evnironment variable like this, or something similar:
 
-    export PYTHONPATH=$PYTHONPATH:$(pwd)/build/bin/python/lib/python3.11/site-packages
-
-Run this from the xstudio repository root. The `python3.11` segment tracks whichever Python version vcpkg built — if you change the `python3` pin in `vcpkg.json`, update this path to match.
+    export PYTHONPATH=$PYTHONPATH:./build/bin/python/lib/python3.10/site-packages
 
 ### Installing xSTUDIO
 
-Correct packaging and installation of xstudio and its dependencies across various Linux distros is a problem we are still working on! For now, it is up to individual developers to do an effective installation on their system. You can try running `cmake --install build` from the repository root. Use -DCMAKE_BUILD_PREFIX={path} to set a test installation location
+Correct packaging and installation of xstudio and its dependencies across various Linux distros is a problem we are still working on! For now, it is up to individual developers to do an effective installation on their system. You can try running 'make install' from the 'build' folder. Use -DCMAKE_BUILD_PREFIX={path} to set a test installation location

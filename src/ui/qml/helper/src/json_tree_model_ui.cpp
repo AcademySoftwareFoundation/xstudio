@@ -500,7 +500,7 @@ QVariant JSONTreeModel::data(const QModelIndex &index, int role) const {
             "{} {} role: {}",
             __PRETTY_FUNCTION__,
             err.what(),
-            ((role - Roles::LASTROLE) < static_cast<int>(role_names_.size()))
+            ((role - Roles::LASTROLE) < role_names_.size())
                 ? role_names_[role - Roles::LASTROLE]
                 : "unknown role");
     }
@@ -594,12 +594,12 @@ bool JSONTreeModel::setData(const QModelIndex &index, const QVariant &value, int
             }
 
             if (j.count(field) && j[field].is_number_integer() &&
-                QMetaType::canConvert(value.metaType(), QMetaType(QMetaType::Int))) {
+                value.canConvert(QMetaType::Int)) {
                 // preserving int types from being changed to doubles
                 j[field] = value.toInt();
             } else if (
                 j.count(field) && j[field].is_number_float() &&
-                QMetaType::canConvert(value.metaType(), QMetaType(QMetaType::Float))) {
+                value.canConvert(QMetaType::Float)) {
                 // preserving int types from being changed to doubles
                 j[field] = value.toFloat();
             } else {
@@ -924,7 +924,7 @@ bool JSONTreeModel::reorderRows(
 
     auto tree = indexToTree(parent);
 
-    if (static_cast<int>(new_row_indeces.size()) != rowCount(parent)) {
+    if (new_row_indeces.size() != rowCount(parent)) {
         spdlog::error(
             "{}. {} indexes in re-ordered layout, expecting {}.",
             __PRETTY_FUNCTION__,
@@ -940,7 +940,7 @@ bool JSONTreeModel::reorderRows(
     // We need to make a list of the indeces that are going to be changing
     // due to our re-ordering.
     QModelIndexList from;
-    for (int dest_row = 0; dest_row < static_cast<int>(new_row_indeces.size()); ++dest_row) {
+    for (int dest_row = 0; dest_row < new_row_indeces.size(); ++dest_row) {
         int src_row = new_row_indeces[dest_row];
         if (src_row == dest_row)
             continue;
@@ -950,7 +950,7 @@ bool JSONTreeModel::reorderRows(
     // we need a mutable copy of new_row_indeces
     std::vector<int> indeces_mapping = new_row_indeces;
 
-    for (int dest_row = 0; dest_row < static_cast<int>(indeces_mapping.size()); ++dest_row) {
+    for (int dest_row = 0; dest_row < indeces_mapping.size(); ++dest_row) {
 
         int src_row = indeces_mapping[dest_row];
 
@@ -968,7 +968,7 @@ bool JSONTreeModel::reorderRows(
         // the position of all the other rows that lie between the src and
         // dest - this means we have to update the src rows in 'indeces_mapping'
         // so it works for the current re-ordered state of the data
-        for (int j = dest_row + 1; j < static_cast<int>(indeces_mapping.size()); ++j) {
+        for (int j = dest_row + 1; j < indeces_mapping.size(); ++j) {
             // looping over the remaining destination indeces ...
 
             if (indeces_mapping[j] >= dest_row) {
@@ -987,7 +987,7 @@ bool JSONTreeModel::reorderRows(
     // now we make a list of the updated model indexes for those rows that
     // got moved
     QModelIndexList to;
-    for (int dest_row = 0; dest_row < static_cast<int>(new_row_indeces.size()); ++dest_row) {
+    for (int dest_row = 0; dest_row < new_row_indeces.size(); ++dest_row) {
         int src_row = new_row_indeces[dest_row];
         if (src_row == dest_row)
             continue;
@@ -1316,13 +1316,12 @@ bool JSONTreeFilterModel::filterAcceptsRow(
             if (not v.isNull()) {
                 try {
                     auto qv = sourceModel()->data(index, k);
-                    if (v.typeId() == qv.typeId() && v == qv)
+                    if (v.type() == qv.type() && v == qv)
                         return invert_ ? false : true;
-                    else if (QMetaType::canConvert(
-                                 v.metaType(), QMetaType(QMetaType::QVariantList))) {
+                    else if (v.canConvert(QMetaType::QVariantList)) {
                         const auto vl = v.toList();
                         for (const auto &vli : vl) {
-                            if (qv.typeId() == vli.typeId() && qv == vli)
+                            if (qv.type() == vli.type() && qv == vli)
                                 return invert_ ? false : true;
                         }
                     }

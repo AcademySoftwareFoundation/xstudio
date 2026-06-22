@@ -10,77 +10,82 @@
 #include "xstudio/ui/canvas/canvas.hpp"
 
 
-namespace xstudio::ui::opengl {
+namespace xstudio {
+namespace ui {
+    namespace opengl {
 
-class OpenGLCanvasRenderer {
+        class OpenGLCanvasRenderer {
 
-  public:
-    OpenGLCanvasRenderer();
+          public:
+            OpenGLCanvasRenderer();
 
-    void render_canvas(
-        const xstudio::ui::canvas::Canvas &canvas,
-        const Imath::M44f &transform_window_to_viewport_space,
-        const Imath::M44f &transform_viewport_to_image_space,
-        const float viewport_du_dpixel,
-        const float device_pixel_ratio,
-        const float image_aspectratio,
-        const bool hide_strokes,
-        const std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>> &live_erase_stroked =
-            std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>>(),
-        const std::set<std::size_t> &skip_captions = std::set<std::size_t>());
+            void render_canvas(
+                const xstudio::ui::canvas::Canvas &canvas,
+                const Imath::M44f &transform_window_to_viewport_space,
+                const Imath::M44f &transform_viewport_to_image_space,
+                const float viewport_du_dpixel,
+                const float device_pixel_ratio,
+                const float image_aspectratio,
+                const bool hide_strokes,
+                const std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>>
+                    &live_erase_stroked =
+                        std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>>(),
+                const std::set<std::size_t> &skip_captions = std::set<std::size_t>());
 
-    void render_single_caption(
-        const xstudio::ui::canvas::Caption &caption,
-        const Imath::M44f &transform_window_to_viewport_space,
-        const Imath::M44f &transform_viewport_to_image_space,
-        const float viewport_du_dx,
-        const float device_pixel_ratio);
+            void render_single_caption(
+                const xstudio::ui::canvas::Caption &caption,
+                const Imath::M44f &transform_window_to_viewport_space,
+                const Imath::M44f &transform_viewport_to_image_space,
+                const float viewport_du_dx,
+                const float device_pixel_ratio);
 
-    void render_strokes(
-        const std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>> &strokes,
-        const Imath::M44f &transform_window_to_viewport_space,
-        const Imath::M44f &transform_viewport_to_image_space,
-        const float viewport_du_dx,
-        const float device_pixel_ratio);
+            void render_strokes(
+                const std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>> &strokes,
+                const Imath::M44f &transform_window_to_viewport_space,
+                const Imath::M44f &transform_viewport_to_image_space,
+                const float viewport_du_dx,
+                const float device_pixel_ratio);
 
-  private:
-    std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>>
-    get_strokes(const xstudio::ui::canvas::Canvas &canvas) {
+          private:
+            std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>>
+            get_strokes(const xstudio::ui::canvas::Canvas &canvas) {
 
-        // this is bad - we copy the whole stroke so we can have a shared ptr.
-        // This happens on every redraw.
-        // Canvas needs a refactor so we can get the strokes as a vector
-        // more efficiently without the copy.
-        std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>> result;
-        for (const auto &item : canvas) {
-            if (std::holds_alternative<xstudio::ui::canvas::Stroke>(item)) {
-                result.emplace_back(new xstudio::ui::canvas::Stroke(
-                    std::get<xstudio::ui::canvas::Stroke>(item)));
+                // this is bad - we copy the whole stroke so we can have a shared ptr.
+                // This happens on every redraw.
+                // Canvas needs a refactor so we can get the strokes as a vector
+                // more efficiently without the copy.
+                std::vector<std::shared_ptr<xstudio::ui::canvas::Stroke>> result;
+                for (const auto &item : canvas) {
+                    if (std::holds_alternative<xstudio::ui::canvas::Stroke>(item)) {
+                        result.emplace_back(new xstudio::ui::canvas::Stroke(
+                            std::get<xstudio::ui::canvas::Stroke>(item)));
+                    }
+                }
+                return result;
             }
-        }
-        return result;
-    }
 
-    template <typename T>
-    std::vector<T> all_canvas_items(const xstudio::ui::canvas::Canvas &canvas) {
-        std::vector<T> result;
-        canvas.read_lock();
-        for (const auto &item : canvas) {
-            if (std::holds_alternative<T>(item)) {
-                result.push_back(std::get<T>(item));
+            template <typename T>
+            std::vector<T> all_canvas_items(const xstudio::ui::canvas::Canvas &canvas) {
+                std::vector<T> result;
+                canvas.read_lock();
+                for (const auto &item : canvas) {
+                    if (std::holds_alternative<T>(item)) {
+                        result.push_back(std::get<T>(item));
+                    }
+                }
+                if (canvas.has_current_item_nolock<T>()) {
+                    result.push_back(std::move(canvas.get_current<T>()));
+                }
+                canvas.read_unlock();
+                return result;
             }
-        }
-        if (canvas.has_current_item_nolock<T>()) {
-            result.push_back(std::move(canvas.get_current<T>()));
-        }
-        canvas.read_unlock();
-        return result;
-    }
 
-  private:
-    std::unique_ptr<xstudio::ui::opengl::OpenGLStrokeRenderer> stroke_renderer_;
-    std::unique_ptr<xstudio::ui::opengl::OpenGLCaptionRenderer> caption_renderer_;
-    std::unique_ptr<xstudio::ui::opengl::OpenGLShapeRenderer> shape_renderer_;
-};
+          private:
+            std::unique_ptr<xstudio::ui::opengl::OpenGLStrokeRenderer> stroke_renderer_;
+            std::unique_ptr<xstudio::ui::opengl::OpenGLCaptionRenderer> caption_renderer_;
+            std::unique_ptr<xstudio::ui::opengl::OpenGLShapeRenderer> shape_renderer_;
+        };
 
-} // namespace xstudio::ui::opengl
+    } // end namespace opengl
+} // end namespace ui
+} // end namespace xstudio

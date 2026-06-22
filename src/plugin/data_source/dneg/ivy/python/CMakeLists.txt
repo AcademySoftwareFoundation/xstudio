@@ -11,26 +11,17 @@ set(PYTHONVP "python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}")
 
 configure_file(${SETUP_PY_IN} ${SETUP_PY})
 
-if(WIN32)
-add_custom_command(OUTPUT ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio_pipequery
-                    COMMAND ${Python_EXECUTABLE}
-                    ARGS -m pip install .
-                    DEPENDS ${DEPS} ${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in)
-else()
 add_custom_command(OUTPUT ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio_pipequery
                    COMMAND ${Python_EXECUTABLE}
                    ARGS setup.py install --old-and-unmanageable --prefix=${OUTPUT}
                    DEPENDS ${DEPS} ${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in)
-
-endif()
 
 add_custom_target(pipequery_python_module ALL DEPENDS __pybind_xstudio ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio_pipequery)
 
 
 
 if(WIN32)
-  #install(DIRECTORY ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio_pipequery
-  #    DESTINATION bin/python3/Lib/site-packages)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio_pipequery DESTINATION python/ FILES_MATCHING PATTERN "*.py")
 else()
   if(INSTALL_PYTHON_MODULE)
     install(DIRECTORY ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio_pipequery

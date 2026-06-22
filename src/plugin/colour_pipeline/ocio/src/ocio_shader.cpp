@@ -290,7 +290,7 @@ std::string to_dynamic_shader(const std::string &shader_text, DynamicCDLMap &dyn
     std::vector<std::string> new_shader_lines;
 
     auto lines = utility::split(shader_text, '\n');
-    for (size_t i = 0; i < lines.size(); ++i) {
+    for (int i = 0; i < lines.size(); ++i) {
         if (utility::starts_with(lines[i], "  // Add GradingPrimary")) {
             for (auto &[name, dynamic_cdl] : dynamic_cdls) {
                 if (lines[i + 3].find(std::to_string(dynamic_cdl.id)) != std::string::npos) {
