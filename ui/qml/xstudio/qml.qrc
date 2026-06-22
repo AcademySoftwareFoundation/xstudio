@@ -66,6 +66,7 @@
 		<file>application/panels/media/widgets/XsMediaListContextMenu.qml</file>
 		<file>application/panels/media/widgets/XsMediaListSwitchSourceMenu.qml</file>
 	    <file>application/panels/media/widgets/XsMediaHotKeys.qml</file>
+	    <file>application/panels/media/widgets/XsMediaScrollKeeper.qml</file>
 		<file>application/panels/media/delegates/XsMediaThumbnailHighlight.qml</file>
 		<file>application/panels/media/delegates/XsMediaThumbnailImage.qml</file>
 

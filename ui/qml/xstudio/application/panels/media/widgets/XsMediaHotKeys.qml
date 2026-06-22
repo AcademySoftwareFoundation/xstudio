@@ -313,6 +313,16 @@ XsHotkeyArea {
         componentName: "Media List"
     }
 
+    XsHotkey {
+        id: frame_hotkey
+        sequence: "F"
+        name: "Frame Selected"
+        description: "Frame Selected"
+        context: hotkey_area.context
+        onActivated: frameSelectedMedia()
+        componentName: "Media List"
+    }
+
     // add hotkeys for setting flag colours
     Repeater {
         model: flagColours.length
