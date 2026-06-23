@@ -276,6 +276,70 @@ ApplicationWindow {
         }
     }
 
+    // Use the Escape key as a global reset-to-home by doing the following:
+    //   - stopping playback
+    //   - exiting presentation mode if active
+    //   - making the viewed container the inspected container
+    //   - resetting the compare mode to the default for viewed container type
+    //   - soloing the selection to just the single hero selected media item
+    //   - leaving pinned-source mode if active
+    XsHotkey {
+        id: escape_hotkey
+        sequence: "Escape"
+        name: "Escape"
+        description: "Escape out of multi-selection, compare-mode, and presentation."
+        context: "any"
+
+        onActivated: (context)=> {
+            currentPlayhead.playing = false
+            if (appWindow.layoutName == "Present")
+                appWindow.togglePresentationMode()
+            currentMediaContainerIndex = viewportCurrentMediaContainerIndex
+            mediaSelectionModel.soloSelection()
+
+            // TODO: use the deault mode preference
+            const type = viewedMediaSetProperties.values.typeRole
+            if (type === "Playlist") {
+                currentPlayhead.compareMode = playlist_default_compare[0] || "A/B"
+            } else if (type === "Subset") {
+                currentPlayhead.compareMode = subset_default_compare[0] || "A/B"
+            } else if (type === "Contact Sheet") {
+                currentPlayhead.compareMode = contact_sheet_default_compare[0] || "Grid"
+            } else if (type === "Timeline") {
+                currentPlayhead.compareMode = timeline_default_compare[0] || "Off"
+                currentPlayhead.pinnedSourceMode = true
+            }
+        }
+
+        XsModelProperty {
+            id: __playlist_default_compare
+            role: "valueRole"
+            index: globalStoreModel.searchRecursive("/core/playhead/playlist_default_compare", "pathRole")
+        }
+        property alias playlist_default_compare: __playlist_default_compare.value
+
+        XsModelProperty {
+            id: __subset_default_compare
+            role: "valueRole"
+            index: globalStoreModel.searchRecursive("/core/playhead/subset_default_compare", "pathRole")
+        }
+        property alias subset_default_compare: __subset_default_compare.value
+
+        XsModelProperty {
+            id: __contact_sheet_default_compare
+            role: "valueRole"
+            index: globalStoreModel.searchRecursive("/core/playhead/contact_sheet_default_compare", "pathRole")
+        }
+        property alias contact_sheet_default_compare: __contact_sheet_default_compare.value
+
+        XsModelProperty {
+            id: __timeline_default_compare
+            role: "valueRole"
+            index: globalStoreModel.searchRecursive("/core/playhead/timeline_default_compare", "pathRole")
+        }
+        property alias timeline_default_compare: __timeline_default_compare.value
+    }
+
     property alias presentation_mode_hotkey: presentation_mode_hotkey
     property alias fullscreen_hotkey: fullscreen_hotkey
 
