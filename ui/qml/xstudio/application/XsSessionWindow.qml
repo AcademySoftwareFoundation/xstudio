@@ -87,7 +87,8 @@ ApplicationWindow {
         }
     }
     function setLayoutName(name) {
-        var idx = ui_layouts_model.searchRecursive(name, "layout_name", ui_layouts_model.root_index)
+        
+        var idx = ui_layouts_model.searchRecursive(name || "Review", "layout_name", ui_layouts_model.root_index)
         if (idx.valid) {
             layoutBar.selected_layout = idx.row
         } else if (layoutBar.current_layout_index.row > 0) {

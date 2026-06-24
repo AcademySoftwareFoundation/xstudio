@@ -163,8 +163,7 @@ void HotkeysUI::makeFilteredHotkeysData() {
                 other_hk.uuid() != hk.uuid()) {
                 clash_warning = fmt::format(
                     "clashes with hotkey '{}'",
-                    other_hk.hotkey_name(),
-                    other_hk.hotkey_sequence());
+                    other_hk.hotkey_name());
             }
         }
 

@@ -173,6 +173,14 @@ StandardPlugin::StandardPlugin(
             if (p != watched_attr_event_handlers_.end()) {
                 p->second(attr_id, role_id, role_data);
             }
+        },
+        [=](utility::event_atom,
+            utility::name_atom,
+            const std::string &name) {
+        },
+        [=](utility::event_atom,
+            utility::last_changed_atom,
+            const utility::time_point &last_change) {
         }};
 }
 

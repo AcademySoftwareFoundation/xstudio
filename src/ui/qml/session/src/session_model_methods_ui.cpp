@@ -1169,7 +1169,7 @@ QFuture<QList<QUuid>> SessionModel::handleOtherDropFuture(
                     *sys,
                     session_actor_,
                     session::add_playlist_atom_v,
-                    "Drag Drop",
+                    StdFromQString(getNextName("Drag Drop {}")),
                     Uuid(),
                     false);
                 target = uua.second.actor();

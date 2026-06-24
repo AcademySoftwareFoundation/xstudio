@@ -133,7 +133,9 @@ class OnScreenVersionName(HUDPlugin):
             # display_info is an array of values corresponding to the columns
             # of the Media List Panel in the xSTUDIO UI (the columns are fully
             # user-configurable, by the way)
-            return media_item.display_info[idx]
+            return media_item.display_info[idx] \
+                if idx < len(media_item.display_info) \
+                   else ""
         else:
             return ""
 
