@@ -58,7 +58,7 @@ Rectangle {
     property alias move_track_up_hotkey: move_track_up_hotkey
     property alias move_track_down_hotkey: move_track_down_hotkey
     property alias remove_items_hotkey: remove_items_hotkey
-
+    property alias add_marker_hotkey: add_marker_hotkey
 
 
 
@@ -733,7 +733,7 @@ Rectangle {
         theSessionData.set(index, name, "nameRole")
     }
 
-    function splitClips(indexes, frame=timelinePlayhead.logicalFrame) {
+    function splitClips(indexes=[], frame=timelinePlayhead.logicalFrame) {
         if(!indexes.length) {
             let cind = theSessionData.getTimelineClipIndex(timeline_items.rootIndex, timelinePlayhead.logicalFrame)
             if(cind.valid)
@@ -1328,8 +1328,27 @@ Rectangle {
     }
 
     XsHotkey {
+        id: split_clips_hotkey
+        context: "any"
+        sequence:  "Meta+S"
+        name: "Split Clip"
+        description: "Split timeline clip at current frame"
+        onActivated: splitClips()
+        componentName: "Timeline"
+    }
+
+    XsHotkey {
+        id: add_marker_hotkey
+        context: "any"
+        sequence: "Ctrl+M"
+        name: "Add Marker"
+        description: "Add new timeline marker on current frame."
+        componentName: "Timeline"
+    }
+
+    XsHotkey {
         id: next_marker
-        context: hotkey_area_id
+        context: "any"
         sequence:  "Ctrl+RIGHT"
         name: "Jump To Next Marker"
         description: "Jump To Next Marker"
@@ -1339,7 +1358,7 @@ Rectangle {
 
     XsHotkey {
         id: previous_marker
-        context: hotkey_area_id
+        context: "any"
         sequence:  "Ctrl+LEFT"
         name: "Jump To Previous Marker"
         description: "Jump To Previous Marker"
