@@ -65,7 +65,7 @@
 				"path": "/ui/viewport/hidden_toolbar_items",
 				"default_value": false,
 				"description": "Hides items from the viewport toolbar",
-				"value": ["Gamma", "Saturation", "Rate", "Mirror"],
+				"value": ["Rate", "Mirror"],
 				"datatype": "json",
 				"context": ["QML_UI"]
 			}
