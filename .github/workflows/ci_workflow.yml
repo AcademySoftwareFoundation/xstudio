@@ -1,0 +1,176 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) Contributors to the OpenEXR Project.
+#
+# GitHub Actions workflow file
+# https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions
+
+name: CI
+
+on:
+  push:
+    branches:
+      - "*"
+  pull_request:
+    branches:
+      - "*"
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+  INSTALL_PREFIX: ${{github.workspace}}/install_prefix
+  QV4_FORCE_INTERPRETER: 1
+
+jobs:
+  build-ubuntu:
+    runs-on: ubuntu-latest      
+    steps:
+      - uses: actions/checkout@v3
+      - name: Distro Installs
+        run : |
+          sudo apt-get update
+          sudo apt install -y \
+            build-essential cmake git python3-pip \
+            doxygen sphinx-common sphinx-rtd-theme-common python3-breathe \
+            python-is-python3 pybind11-dev libpython3-dev \
+            libspdlog-dev libfmt-dev libssl-dev zlib1g-dev libasound2-dev nlohmann-json3-dev uuid-dev libgtest-dev \
+            libglu1-mesa-dev freeglut3-dev mesa-common-dev libglew-dev libfreetype-dev \
+            libjpeg-dev libpulse-dev nlohmann-json3-dev \
+            yasm nasm libfdk-aac-dev libfdk-aac2 libmp3lame-dev libopus-dev libvpx-dev libx265-dev libx264-dev \
+            qttools5-dev qtbase5-dev qt5-qmake  qtdeclarative5-dev qtquickcontrols2-5-dev \
+            qml-module-qtquick* qml-module-qt-labs-*
+          sudo pip install sphinx_rtd_theme pytest
+
+      - name: Dependencies / Download and Extract
+        run: |
+          echo ${{env.INSTALL_PREFIX}}
+          echo $(nproc)
+          mkdir -p ${{env.INSTALL_PREFIX}}
+          mkdir deps
+          cd deps
+          git clone --depth 1 --branch RB-3.1 https://github.com/AcademySoftwareFoundation/openexr.git
+          git clone --depth 1 --branch cxx17 https://github.com/AcademySoftwareFoundation/OpenTimelineIO.git
+          wget https://github.com/actor-framework/actor-framework/archive/refs/tags/0.18.4.tar.gz -O actor-framework-0.18.4.tar.gz
+          wget https://github.com/AcademySoftwareFoundation/OpenColorIO/archive/refs/tags/v2.2.0.tar.gz -O OpenColorIO-2.2.0.tar.gz
+          wget https://ffmpeg.org/releases/ffmpeg-5.1.tar.bz2 -O ffmpeg-5.1.tar.bz2
+          tar -xf actor-framework-0.18.4.tar.gz
+          tar -xf OpenColorIO-2.2.0.tar.gz
+          tar -xf ffmpeg-5.1.tar.bz2
+
+      - name: Dependencies / ActorFramework
+        run: |
+          cd deps/actor-framework-0.18.4
+          mkdir build && cd build
+          cmake \
+            -DCAF_ENABLE_TESTING=OFF \
+            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+            -DCMAKE_INSTALL_PREFIX=${{env.INSTALL_PREFIX}} \
+            -DCMAKE_PREFIX_PATH=${{env.INSTALL_PREFIX}} \
+            ..
+          cmake --build . -j $(nproc)
+          cmake --install .
+
+      - name:  Dependencies / OpenEXR
+        run: |
+          cd deps/openexr
+          mkdir build && cd build
+          cmake \
+            -DOPENEXR_INSTALL_TOOLS=OFF \
+            -DOPENEXR_INSTALL_EXAMPLES=OFF \
+            -DOPENEXR_INSTALL_DOCS=OFF \
+            -DBUILD_TESTING=OFF \
+            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+            -DCMAKE_INSTALL_PREFIX=${{env.INSTALL_PREFIX}} \
+            -DCMAKE_PREFIX_PATH=${{env.INSTALL_PREFIX}} \
+            ..
+          cmake --build . -j $(nproc)
+          cmake --install .
+
+      - name: Dependencies / OpenColorIO
+        run: |
+          cd deps/OpenColorIO-2.2.0
+          mkdir build && cd build
+          cmake \
+            -DOCIO_BUILD_APPS=OFF \
+            -DOCIO_BUILD_TESTS=OFF \
+            -DOCIO_BUILD_GPU_TESTS=OFF \
+            -DOCIO_BUILD_PYTHON=OFF \
+            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+            -DCMAKE_INSTALL_PREFIX=${{env.INSTALL_PREFIX}} \
+            -DCMAKE_PREFIX_PATH=${{env.INSTALL_PREFIX}} \
+            ..
+          # github actions sometimes kills process if we use nprocs
+          cmake --build . -j $(nproc)
+          cmake --install .
+
+      - name: Dependencies / OpenTimelineIO
+        run: |
+          cd deps/OpenTimelineIO
+          mkdir build && cd build
+          cmake \
+            -DOTIO_PYTHON_INSTALL=ON \
+            -DOTIO_DEPENDENCIES_INSTALL=OFF \
+            -DOTIO_FIND_IMATH=ON \
+            -DOTIO_PYTHON_INSTALL_DIR=${{env.INSTALL_PREFIX}}/lib/python3.10/site-packages \
+            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+            -DCMAKE_INSTALL_PREFIX=${{env.INSTALL_PREFIX}} \
+            -DCMAKE_PREFIX_PATH=${{env.INSTALL_PREFIX}} \
+            ..
+          cmake --build . -j $(nproc)
+          cmake --install .
+
+      - name: Dependencies / FFmpeg
+        run: |
+          cd deps/ffmpeg-5.1
+          mkdir build && cd build
+          ../configure \
+            --extra-libs=-lpthread \
+            --extra-libs=-lm \
+            --enable-libfreetype \
+            --enable-libmp3lame \
+            --enable-libopus \
+            --enable-libvpx \
+            --enable-libx264 \
+            --enable-libx265 \
+            --enable-shared \
+            --enable-gpl \
+            --disable-doc \
+            --prefix=${{env.INSTALL_PREFIX}}
+          make -j$(nproc)
+          make install
+
+      - name: Configure xSTUDIO
+        env: 
+          LD_LIBRARY_PATH: ${{env.INSTALL_PREFIX}}/lib
+          PYTHONPATH: ${{env.INSTALL_PREFIX}}/lib/python3.10/site-packages
+        run: |
+          mkdir build && cd build
+          cmake \
+            -DBUILD_TESTING=ON \
+            -DPython_EXECUTABLE="/usr/bin/python3.10" \
+            -DPYTHON_EXECUTABLE="/usr/bin/python3.10" \
+            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+            -DCMAKE_INSTALL_PREFIX=${{env.INSTALL_PREFIX}} \
+            -DCMAKE_PREFIX_PATH=${{env.INSTALL_PREFIX}} \
+            ..
+
+      - name: Build xSTUDIO
+        run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} -j $(nproc)
+
+      - name: Test xSTUDIO
+        env: 
+          LD_LIBRARY_PATH: ${{env.INSTALL_PREFIX}}/lib
+          PYTHONPATH: ${{env.INSTALL_PREFIX}}/lib/python3.10/site-packages
+        continue-on-error: true
+        working-directory: ${{github.workspace}}/build
+        run: |
+          ctest -C ${{env.BUILD_TYPE}} -VV --output-on-failure
+
+      - name: Install xSTUDIO
+        run: cmake --install ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: xstudio-ubuntu
+          path: ${{env.INSTALL_PREFIX}}
+
