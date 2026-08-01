@@ -16,7 +16,14 @@ project(${XSTUDIO_GLOBAL_NAME} VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 # Pre-create the target so Qt's FindWrapOpenGL early-returns and never hits the
 # broken AGL block. Can be removed once the minimum supported Qt is >= 6.9.
 if(APPLE AND NOT TARGET WrapOpenGL::WrapOpenGL)
-    find_package(OpenGL REQUIRED)
+    # Force the system framework to be found, otherwise
+    # xstudio crashes under Tahoe and it prevents codesigning.
+    # Note that vcpkg's glew port needs to be patched similarly.
+    block(SCOPE_FOR VARIABLES)
+        set(CMAKE_FIND_FRAMEWORK ONLY)
+        find_package(OpenGL REQUIRED)
+    endblock()
+
     add_library(WrapOpenGL::WrapOpenGL INTERFACE IMPORTED)
     target_link_libraries(WrapOpenGL::WrapOpenGL INTERFACE OpenGL::GL)
 endif()

@@ -1,0 +1,17 @@
+--- a/build/cmake/CMakeLists.txt
++++ b/build/cmake/CMakeLists.txt
+@@ -36,7 +36,13 @@
+   set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+ endif()
+ 
+-find_package (OpenGL REQUIRED)
++if (APPLE)
++  set(CMAKE_FIND_FRAMEWORK ONLY)
++  find_package (OpenGL REQUIRED)
++  unset(CMAKE_FIND_FRAMEWORK)
++else()
++  find_package (OpenGL REQUIRED)
++endif()
+ 
+ # prefer GLVND
+ if (OPENGL_opengl_LIBRARY)

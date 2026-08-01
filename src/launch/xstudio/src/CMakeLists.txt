@@ -132,10 +132,6 @@ elseif(APPLE)
 
 	add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
-        ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/")
-
-	add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_CURRENT_SOURCE_DIR}/xstudio_app.ico "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/")
 
 	# install FFMPEG into the app bundle
@@ -144,17 +140,19 @@ elseif(APPLE)
         COMMAND ${CMAKE_COMMAND} -E copy
         ${FFMPEG_APP} "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/MacOS/ffmpeg")
 
-    get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)
-    get_filename_component(_qt_bin_dir "${_qmake_executable}" DIRECTORY)
-    find_program(macdeployqt_exe macdeployqt HINTS "${_qt_bin_dir}")
-        configure_file(macdeploy.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/macdeploy.cmake @ONLY)
-    install(SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/macdeploy.cmake)
+    # change its rpath so it can find its libraries in their build location so it and can be run in-place
+    # (this gets cleaned up during the install by macdeployqt)
+	add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND install_name_tool -rpath "@loader_path/../../lib" "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib"
+        "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/MacOS/ffmpeg")
+	add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND install_name_tool -add_rpath "@executable_path/../Frameworks"
+        "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/MacOS/ffmpeg")
 
-    # Add custom command to fix library paths after build
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -DAPP_BUNDLE_DIR=${CMAKE_BINARY_DIR}/xSTUDIO.app
-            -P ${CMAKE_CURRENT_SOURCE_DIR}/fixup_macos_bundle.cmake
-    )
+	configure_file("${CMAKE_CURRENT_SOURCE_DIR}/Info.plist" "${CMAKE_CURRENT_BINARY_DIR}/Info.plist")
+	add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        "${CMAKE_CURRENT_BINARY_DIR}/Info.plist" "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Info.plist")
 
 else()
 
