@@ -319,6 +319,11 @@ if (USE_VCPKG)
   add_subdirectory("scripts/qt_install")
 endif()
 
+if (APPLE)
+  # Finalize the bundle by removing any absolute rpaths from and codesigning any binaries
+  add_subdirectory("scripts/macos_finalize_bundle")
+endif()
+
 if (WIN32)
 
   include(InstallRequiredSystemLibraries)
