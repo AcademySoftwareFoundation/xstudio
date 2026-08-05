@@ -23,8 +23,11 @@ class EventToPythonThreadLockerActor : public caf::event_based_actor {
         : caf::event_based_actor(cfg), context_(context) {
 
         behavior_.assign(
-            [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {
-                // TODO: self clean up
+            [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &actor) {
+                auto p = actor_to_callback_uuid_.find(actor);
+                if (p != actor_to_callback_uuid_.end()) {
+                    actor_to_callback_uuid_.erase(p);
+                }
             },
             [=](const xstudio::utility::Uuid &callback_id) {
                 // stop watching
@@ -59,8 +62,25 @@ class EventToPythonThreadLockerActor : public caf::event_based_actor {
                 }
             },
             [=](caf::actor events_source, const xstudio::utility::Uuid &callback_id) {
+
                 actor_to_callback_uuid_[caf::actor_cast<caf::actor_addr>(events_source)]
                     .push_back(callback_id);
+
+                // generally events emitted by an event_group appear to come from the PARENT
+                // of the event_group. This isn't 100% reliable, though, if an anon_send is
+                // used for the event message it appears to come from the event_group itself.
+                // So we will register the callback with the parent of the event_group, if 
+                // we can find it as well as the event_group itself.
+                mail(xstudio::utility::parent_atom_v).request(events_source, infinite).then(
+                    [=](caf::actor_addr parent) {
+                        if (parent) {
+                           actor_to_callback_uuid_[caf::actor_cast<caf::actor_addr>(parent)].push_back(callback_id);
+                        }
+                    },
+                    [=](const caf::error &) {
+                        // ignore the error - 'events_source' may not have a parent.
+                    });
+
                 // join the events broadcast
                 mail(
                     xstudio::broadcast::join_broadcast_atom_v,
