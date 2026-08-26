@@ -38,11 +38,15 @@ else()
     add_library(quickpromise SHARED)
 endif()
 
-# On Windows the DLL must be next to the QML files for Qt to load the plugin.
-# (Install puts it at bin/ separately, see below.)
-if(WIN32)
+if(APPLE)
     set_target_properties(quickpromise
         PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickPromise"
+    )
+else()
+    set_target_properties(quickpromise
+        PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickPromise"
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickPromise")
 endif()
 
@@ -68,7 +72,7 @@ endif()
 add_custom_target(COPY_PROMISE_QML)
 
 if (APPLE)
-    set(QML_DEST_DIR ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/PlugIns/xstudio/qml/QuickPromise)
+    set(QML_DEST_DIR ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/qml/QuickPromise)
 else()
     set(QML_DEST_DIR ${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickPromise)
 endif()

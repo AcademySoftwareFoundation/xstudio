@@ -9,7 +9,7 @@
 	<key>CFBundleIconFile</key>
 	<string>xstudio_app.ico</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.googlecode.skia.${PRODUCT_NAME:rfc1034identifier}</string>
+	<string>com.dneg.xSTUDIO</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -17,15 +17,13 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
+	<string>${XSTUDIO_GLOBAL_VERSION}</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>LSMinimumSystemVersion</key>
-	<string>${MACOSX_DEPLOYMENT_TARGET}</string>
+	<string>${CMAKE_OSX_DEPLOYMENT_TARGET}</string>
 	<key>NSMainNibFile</key>
-	<string>HelloWorld</string>
+	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>CFBundleDocumentTypes</key>
