@@ -616,11 +616,32 @@ void process_item(
 
             auto source_range = ii->source_range();
             if (source_range) {
+                // SKF patch 0007: xstudio clip active ranges are MEDIA-NATIVE
+                // file frames (a trim of 1123 must re-import as 1123). OTIO
+                // source_range however is expressed in the media reference's
+                // available_range space, which TC-anchored conforms base at
+                // absolute timecode frames (e.g. 1205912), a million frames
+                // past the file numbering. Re-anchor ImageSequenceReference
+                // trims to the file numbering:
+                //     trim = start_frame + (source_start - available_start)
+                // Collapses to verbatim when available_start == start_frame
+                // (xstudio / NukeStudio exports).
+                auto start_val = source_range->start_time().value();
+                if (auto *isr = dynamic_cast<otio::ImageSequenceReference *>(
+                        ii->media_reference())) {
+                    if (auto avail = isr->available_range()) {
+                        start_val = static_cast<double>(isr->start_frame()) +
+                                    (start_val -
+                                     avail->start_time()
+                                         .rescaled_to(source_range->start_time().rate())
+                                         .value());
+                    }
+                }
                 self->mail(
                         active_range_atom_v,
                         FrameRange(
                             FrameRateDuration(
-                                static_cast<int>(source_range->start_time().value()),
+                                static_cast<int>(start_val),
                                 FrameRate(fps_to_flicks(source_range->start_time().rate()))),
                             FrameRateDuration(
                                 static_cast<int>(source_range->duration().value()),
