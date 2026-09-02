@@ -57,12 +57,4 @@ if(UNIX AND NOT APPLE)
     target_link_libraries(${PROJECT_NAME} PRIVATE asound)  # Link against asound on Linux
 endif()
 
-if(APPLE)
-    set_target_properties(${PROJECT_NAME} PROPERTIES
-        LINK_DEPENDS_NO_SHARED true
-        INSTALL_RPATH "@executable_path/../Frameworks"
-        BUILD_WITH_INSTALL_RPATH TRUE
-    )
-else()
-    set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
-endif()
+set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
