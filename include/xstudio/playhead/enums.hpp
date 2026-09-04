@@ -7,7 +7,12 @@ typedef enum { CM_STRING = 0, CM_AB, CM_VERTICAL, CM_HORIZONTAL, CM_GRID, CM_OFF
 
 typedef enum { AM_STRING = 0, AM_ONE, AM_ALL, AM_TEN } AssemblyMode;
 
-typedef enum { AAM_ALIGN_OFF = 0, AAM_ALIGN_FRAMES, AAM_ALIGN_TRIM } AutoAlignMode;
+typedef enum {
+    AAM_ALIGN_OFF = 0,
+    AAM_ALIGN_FRAMES,
+    AAM_ALIGN_TRIM,
+    AAM_ALIGN_MANUAL
+} AutoAlignMode;
 
 typedef enum { LM_PLAY_ONCE = 0, LM_LOOP, LM_PING_PONG } LoopMode;
 

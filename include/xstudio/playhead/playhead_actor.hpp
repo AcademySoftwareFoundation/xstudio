@@ -77,6 +77,7 @@ class PlayheadActor : public caf::event_based_actor, public PlayheadBase {
     void match_video_track_durations();
     void align_audio_playhead();
     void align_clip_frame_numbers();
+    bool set_manual_source_offset(const utility::Uuid &media_uuid, const int64_t offset);
     void move_playhead_to_last_viewed_frame_of_current_source();
     void move_playhead_to_last_viewed_frame_of_given_source(const utility::Uuid &source_uuid);
     void current_media_changed(caf::actor media_actor, const bool force = false);
@@ -131,6 +132,10 @@ class PlayheadActor : public caf::event_based_actor, public PlayheadBase {
 
     utility::UuidActor hero_sub_playhead_;
     utility::UuidActorVector sub_playheads_;
+
+    // per-source compare offsets (media uuid -> frame offset), applied by
+    // align_clip_frame_numbers() when auto align mode is 'Manual'
+    std::map<utility::Uuid, int64_t> manual_source_offsets_;
 
     utility::UuidActor video_string_out_actor_;
     utility::UuidActor timeline_actor_;
