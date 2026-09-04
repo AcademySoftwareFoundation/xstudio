@@ -1,7 +1,5 @@
 project(media_reader_ffmpeg VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
-find_package(GLEW REQUIRED)
-
 set(SOURCES
 	ffmpeg_stream.cpp
 	ffmpeg_decoder.cpp
@@ -26,7 +24,6 @@ if (${USE_VCPKG})
 	target_link_libraries(${PROJECT_NAME}
 		PUBLIC
 			xstudio::media_reader
-			GLEW::GLEW
 		PRIVATE 
 			${FFMPEG_LIBRARIES}
 		)
@@ -40,7 +37,6 @@ else()
 	target_link_libraries(${PROJECT_NAME}
 		PUBLIC
 			xstudio::media_reader
-			GLEW::GLEW
 			FFMPEG::avcodec
 			FFMPEG::avformat
 			FFMPEG::swscale

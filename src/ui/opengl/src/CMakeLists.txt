@@ -1,8 +1,6 @@
 SET(LINK_DEPS
 	CAF::core
     OpenGL::GL
-	OpenGL::GLU
-	GLEW::GLEW
     xstudio::ui::base
     xstudio::ui::canvas
     xstudio::ui::viewport
@@ -17,8 +15,13 @@ if(UNIX)
     list(APPEND LINK_DEPS pthread)
 endif()
 
+if (NOT APPLE)
+	find_package(GLEW REQUIRED)
+    list(APPEND LINK_DEPS GLEW::GLEW)
+endif()
+
+
 find_package(OpenGL REQUIRED)
-find_package(GLEW REQUIRED)
 find_package(OpenEXR)
 find_package(Imath)
 
@@ -38,6 +41,4 @@ endif()
 target_link_libraries(${PROJECT_NAME}
 	PRIVATE
 		freetype
-	PUBLIC
-		GLEW::GLEW
 )
