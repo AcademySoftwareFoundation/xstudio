@@ -844,9 +844,15 @@ void GLShaderProgram::compile(const bool force_combine_frag_shaders) {
         GLint maxLength = 0;
         glGetProgramiv(program_, GL_INFO_LOG_LENGTH, &maxLength);
 
-        // The maxLength includes the NULL character
-        std::vector<GLchar> infoLog(maxLength);
-        glGetProgramInfoLog(program_, maxLength, &maxLength, &infoLog[0]);
+        // The maxLength includes the NULL character. Some drivers report a
+        // link failure but leave the info log empty, so guard against that
+        // instead of dereferencing an empty vector's data().
+        std::string info_log_str = "(no info log provided by driver)";
+        if (maxLength > 0) {
+            std::vector<GLchar> infoLog(maxLength);
+            glGetProgramInfoLog(program_, maxLength, &maxLength, infoLog.data());
+            info_log_str.assign(infoLog.data());
+        }
 
         // Detach shaders after failed link .... (not clear if this is correct,
         // but no errors have been observed)
@@ -873,7 +879,7 @@ void GLShaderProgram::compile(const bool force_combine_frag_shaders) {
 
         // Use the infoLog as you see fit.
         std::stringstream e;
-        e << "Shader link error:\n\n" << infoLog.data();
+        e << "Shader link error:\n\n" << info_log_str;
 
         std::for_each(
             fragment_shaders_.begin(),
