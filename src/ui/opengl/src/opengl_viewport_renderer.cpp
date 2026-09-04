@@ -479,6 +479,12 @@ void OpenGLViewportRenderer::draw_image(
     const Imath::M44f &viewport_to_image_space,
     const float viewport_du_dx) {
 
+    // active_shader_program_ can be null if even the fallback "no image" shader
+    // failed to compile/link (e.g. a driver issue) - bind_textures() already
+    // treats this as nothing-to-draw, so match that here rather than
+    // dereferencing a null program.
+    if (!active_shader_program_)
+        return;
 
     active_shader_program_->use();
 
