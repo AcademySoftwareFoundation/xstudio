@@ -573,9 +573,15 @@ GLuint compile_frag_shader(const std::string fragmentSource) {
         GLint maxLength = 0;
         glGetShaderiv(fragmentShader, GL_INFO_LOG_LENGTH, &maxLength);
 
-        // The maxLength includes the NULL character
-        std::vector<GLchar> infoLog(maxLength);
-        glGetShaderInfoLog(fragmentShader, maxLength, &maxLength, &infoLog[0]);
+        // The maxLength includes the NULL character. Some drivers report a
+        // compile failure but leave the info log empty, so guard against
+        // that instead of dereferencing an empty vector's data().
+        std::string info_log_str = "(no info log provided by driver)";
+        if (maxLength > 0) {
+            std::vector<GLchar> infoLog(maxLength);
+            glGetShaderInfoLog(fragmentShader, maxLength, &maxLength, infoLog.data());
+            info_log_str.assign(infoLog.data());
+        }
 
         // We don't need the shader anymore.
         glDeleteShader(fragmentShader);
@@ -592,7 +598,7 @@ GLuint compile_frag_shader(const std::string fragmentSource) {
         // Use the infoLog as you see fit.
         std::stringstream e;
         e << "Fragment shader error:\n\n"
-          << infoLog.data() << "\n\nin program: \n\n"
+          << info_log_str << "\n\nin program: \n\n"
           << source_with_linenumbers;
         throw std::runtime_error(e.str().c_str());
     }
@@ -618,9 +624,15 @@ GLuint compile_vertex_shader(const std::string vertexSource) {
         GLint maxLength = 0;
         glGetShaderiv(vertexShader, GL_INFO_LOG_LENGTH, &maxLength);
 
-        // The maxLength includes the NULL character
-        std::vector<GLchar> infoLog(maxLength);
-        glGetShaderInfoLog(vertexShader, maxLength, &maxLength, &infoLog[0]);
+        // The maxLength includes the NULL character. Some drivers report a
+        // compile failure but leave the info log empty, so guard against
+        // that instead of dereferencing an empty vector's data().
+        std::string info_log_str = "(no info log provided by driver)";
+        if (maxLength > 0) {
+            std::vector<GLchar> infoLog(maxLength);
+            glGetShaderInfoLog(vertexShader, maxLength, &maxLength, infoLog.data());
+            info_log_str.assign(infoLog.data());
+        }
 
         // We don't need the shader anymore.
         glDeleteShader(vertexShader);
@@ -628,7 +640,7 @@ GLuint compile_vertex_shader(const std::string vertexSource) {
         // Use the infoLog as you see fit.
         std::stringstream e;
         e << "Vertex shader error:\n\n"
-          << infoLog.data() << "\n\nin program: \n\n"
+          << info_log_str << "\n\nin program: \n\n"
           << vertexSource;
         throw std::runtime_error(e.str().c_str());
 
