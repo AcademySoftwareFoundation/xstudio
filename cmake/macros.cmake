@@ -105,7 +105,10 @@ macro(default_options_local name)
 		set_target_properties(${name}
 			PROPERTIES
 			LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Frameworks"
+			INSTALL_NAME_DIR "@rpath"
+			BUILD_WITH_INSTALL_NAME_DIR TRUE
 			INSTALL_RPATH "@executable_path/../Frameworks"
+			BUILD_RPATH   "@executable_path/../Frameworks"
 			INSTALL_RPATH_USE_LINK_PATH TRUE
 		)
 	elseif(UNIX)
