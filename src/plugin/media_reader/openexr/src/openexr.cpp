@@ -500,10 +500,10 @@ void OpenEXRMediaReader::get_channel_names_by_layer(
     const auto &channels       = header.channels();
     for (Imf::ChannelList::ConstIterator i = channels.begin(); i != channels.end(); ++i) {
         const std::string channel_name = i.name();
-        const size_t dot_pos           = channel_name.find(".");
+        const size_t dot_pos           = channel_name.rfind(".");
         if (dot_pos != std::string::npos && dot_pos) {
-            // channel name has a dot separator - assume prefix is the 'layer' name which
-            // we shall assign as a separate MediaStream
+            // OpenEXR layer names may themselves contain dots. The final token is the
+            // channel component, so retain the full prefix as the MediaStream name.
             std::string layer_name = std::string(channel_name, 0, dot_pos);
             channel_names_by_layer[partname + layer_name].push_back(channel_name);
         } else {
@@ -540,9 +540,11 @@ void OpenEXRMediaReader::stream_ids_from_exr_part(
         // make sure RGBA layer is first Stream
         stream_ids.emplace_back("RGBA");
     } else {
-        // optherwise look for a layer matching *.rgb to pick as the first one
+        // Otherwise prefer conventional RGB layers or Blender's Combined beauty pass.
         for (auto p = channel_names_by_layer.begin(); p != channel_names_by_layer.end(); ++p) {
-            if (utility::to_lower(p->first).find(".rgb") != std::string::npos) {
+            const std::string layer_name = utility::to_lower(p->first);
+            if (layer_name.find(".rgb") != std::string::npos ||
+                layer_name.ends_with(".combined") || layer_name == "combined") {
                 stream_ids.emplace_back(p->first);
                 channel_names_by_layer.erase(p);
                 break;
@@ -613,13 +615,22 @@ std::array<Imf::PixelType, 4> OpenEXRMediaReader::pick_exr_channels_from_stream_
             }
         });
 
+    // The image buffer and shader support at most four interleaved channels. Keep
+    // malformed or unconventional layers from overrunning the fixed pixel type array.
+    if (exr_channels_to_load.size() > 4) {
+        exr_channels_to_load.resize(4);
+    }
 
     // At the moment we can handle either all channels are float 16 or all channels
     // are float 32 - we can't have a mix of channel types
 
     const auto &channels = header.channels();
 
-    std::array<Imf::PixelType, 4> pix_type;
+    std::array<Imf::PixelType, 4> pix_type{
+        static_cast<Imf::PixelType>(-1),
+        static_cast<Imf::PixelType>(-1),
+        static_cast<Imf::PixelType>(-1),
+        static_cast<Imf::PixelType>(-1)};
 
     // fetch the channel type for each of the channels we will load
     int ii = 0;
