@@ -401,7 +401,19 @@ class Connection(object):
     def response(self, req_id, timeout_milli=None):
         """"""
         if timeout_milli is not None:
-            self._dequeue_messages(timeout_milli, req_id)
+            try:
+                self._dequeue_messages(timeout_milli, req_id)
+            except TimeoutError:
+                # _dequeue_messages files every response it dequeues into
+                # self.responses, whatever request it was watching for - only
+                # its break is specific to watch_for. So another consumer of
+                # this connection's queue may have taken our response and
+                # stored it correctly while we were still waiting. Not having
+                # dequeued it ourselves is not the same as no answer arriving,
+                # and callers treat a timeout as evidence an actor is
+                # unresponsive.
+                if self.responses.get(req_id) is None:
+                    raise
 
         return self._response(req_id)
 
