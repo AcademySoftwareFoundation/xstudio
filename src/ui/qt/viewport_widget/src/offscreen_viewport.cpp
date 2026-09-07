@@ -283,6 +283,39 @@ OffscreenViewport::OffscreenViewport(const std::string name, bool sync_with_main
                 },
 
                 [=](render_viewport_to_image_atom,
+                    const int width,
+                    const int height,
+                    const media_reader::ImageBufPtr image) -> result<thumbnail::ThumbnailBufferPtr> {
+                    try {
+                        // Render a supplied full-res image down to a thumbnail via the
+                        // viewport's colour-managed pipeline. The image buffer may be in
+                        // any reader-provided format; the offscreen render normalises it to
+                        // RGBA_16F, which rgb96thumbFromHalfFloatImage expects.
+                        if (!image || width <= 0 || height <= 0)
+                            return caf::make_error(
+                                xstudio_error::error,
+                                "OffscreenViewport render-to-thumbnail: invalid image or "
+                                "dimensions.");
+                        media_reader::ImageBufPtr rendered(new media_reader::ImageBuffer());
+                        renderToImageBuffer(
+                            width,
+                            height,
+                            rendered,
+                            ImageFormat::RGBA_16F,
+                            true,
+                            utility::clock::now(),
+                            image,
+                            false, // include_overlays
+                            true); // include_drawings
+                        thumbnail::ThumbnailBufferPtr r = rgb96thumbFromHalfFloatImage(rendered);
+                        r->convert_to(thumbnail::TF_RGB24);
+                        return r;
+                    } catch (std::exception &e) {
+                        return caf::make_error(xstudio_error::error, e.what());
+                    }
+                },
+
+                [=](render_viewport_to_image_atom,
                     caf::actor media_actor,
                     const int media_frame,
                     const thumbnail::THUMBNAIL_FORMAT format,
