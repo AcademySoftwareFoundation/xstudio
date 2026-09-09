@@ -374,3 +374,9 @@ if (WIN32)
 
   include(CPack)
 endif()
+
+if (WIN32)
+  # Portable (no-install) package target. Must come last so its dependency
+  # collection sees every target defined above.
+  include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/portable.cmake)
+endif()

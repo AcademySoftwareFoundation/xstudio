@@ -1,0 +1,94 @@
+# Generated from scripts/portable/portable.cmake.in by cmake/portable.cmake.
+# Runs as `cmake -P` after the full install has been staged at
+# @XSTUDIO_PORTABLE_STAGE@. Sanity-checks, prunes dev-only content, adds the
+# launcher/README and zips the result.
+
+set(XSTUDIO_PORTABLE_STAGE "@XSTUDIO_PORTABLE_STAGE@")
+set(XSTUDIO_PORTABLE_NAME "@XSTUDIO_PORTABLE_NAME@")
+set(XSTUDIO_GLOBAL_VERSION "@XSTUDIO_GLOBAL_VERSION@")
+set(CMAKE_BINARY_DIR "@CMAKE_BINARY_DIR@")
+set(CMAKE_SOURCE_DIR "@CMAKE_SOURCE_DIR@")
+
+# 1. Sanity check the staged install before touching anything.
+set(_required_paths
+    "${XSTUDIO_PORTABLE_STAGE}/bin/xstudio.exe"
+    "${XSTUDIO_PORTABLE_STAGE}/bin/python3/python.exe"
+    "${XSTUDIO_PORTABLE_STAGE}/bin/Qt6Core.dll"
+    "${XSTUDIO_PORTABLE_STAGE}/bin/qml"
+    "${XSTUDIO_PORTABLE_STAGE}/share/xstudio/plugin")
+foreach(_path IN LISTS _required_paths)
+    if(NOT EXISTS "${_path}")
+        message(FATAL_ERROR
+            "Portable packaging failed: '${_path}' is missing from the staged "
+            "install at '${XSTUDIO_PORTABLE_STAGE}'. Build the project fully "
+            "before running the 'portable' target.")
+    endif()
+endforeach()
+
+# 2. Guard: on Windows share/xstudio/lib should only receive import libs
+# (cmake/macros.cmake default_options -> LIBRARY DESTINATION share/xstudio/lib).
+# Refuse to prune it if it ever contains runtime DLLs.
+file(GLOB _lib_dlls "${XSTUDIO_PORTABLE_STAGE}/share/xstudio/lib/*.dll")
+if(_lib_dlls)
+    message(FATAL_ERROR
+        "Portable packaging aborted: '${XSTUDIO_PORTABLE_STAGE}/share/xstudio/lib' "
+        "contains runtime DLLs: ${_lib_dlls}. The portable step prunes that "
+        "directory because on Windows it is expected to hold only import libs. "
+        "Update scripts/portable/portable.cmake.in if this layout change is intended.")
+endif()
+
+# Same guard for lib/: on Windows it receives only CMake package config and
+# import libs (ARCHIVE default destination of install(TARGETS ... EXPORT)).
+file(GLOB _root_lib_dlls "${XSTUDIO_PORTABLE_STAGE}/lib/*.dll")
+if(_root_lib_dlls)
+    message(FATAL_ERROR
+        "Portable packaging aborted: '${XSTUDIO_PORTABLE_STAGE}/lib' contains "
+        "runtime DLLs: ${_root_lib_dlls}. The portable step prunes that directory "
+        "because on Windows it is expected to hold only dev artifacts. Update "
+        "scripts/portable/portable.cmake.in if this layout change is intended.")
+endif()
+
+# 3. Prune dev-only content. Kept on purpose: *.pdb (crash triage), python/
+# (root-level .py copy), share/xstudio/docs (Help menu), bin/python3 (the *.lib
+# files inside it belong to the embedded python/numpy and stay as well).
+set(_prune_paths
+    "${XSTUDIO_PORTABLE_STAGE}/include"
+    "${XSTUDIO_PORTABLE_STAGE}/extern"
+    "${XSTUDIO_PORTABLE_STAGE}/lib"
+    "${XSTUDIO_PORTABLE_STAGE}/share/xstudio/lib")
+foreach(_path IN LISTS _prune_paths)
+    if(EXISTS "${_path}")
+        file(REMOVE_RECURSE "${_path}")
+    endif()
+endforeach()
+
+file(GLOB _dev_artifacts
+    "${XSTUDIO_PORTABLE_STAGE}/bin/*.lib"
+    "${XSTUDIO_PORTABLE_STAGE}/bin/*.exp")
+if(_dev_artifacts)
+    file(REMOVE ${_dev_artifacts})
+endif()
+
+# 4. Launcher (start avoids leaving a console window on double-click,
+# arguments are forwarded).
+configure_file("${CMAKE_SOURCE_DIR}/scripts/portable/xstudio.bat.in"
+    "${XSTUDIO_PORTABLE_STAGE}/xstudio.bat" @ONLY)
+
+# 5. README.
+configure_file("${CMAKE_SOURCE_DIR}/scripts/portable/README.txt.in"
+    "${XSTUDIO_PORTABLE_STAGE}/README.txt" @ONLY)
+
+# 6. Zip with a single top-level folder inside.
+set(_portable_zip "${CMAKE_BINARY_DIR}/${XSTUDIO_PORTABLE_NAME}-portable.zip")
+execute_process(
+    COMMAND "${CMAKE_COMMAND}" -E tar cf "${_portable_zip}" --format=zip "${XSTUDIO_PORTABLE_NAME}"
+    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/portable"
+    RESULT_VARIABLE _zip_result)
+if(NOT _zip_result EQUAL 0)
+    message(FATAL_ERROR
+        "Portable packaging failed: could not create '${_portable_zip}' "
+        "(exit code ${_zip_result}).")
+endif()
+
+message(STATUS "Portable xSTUDIO staged at: ${XSTUDIO_PORTABLE_STAGE}")
+message(STATUS "Portable xSTUDIO zip:       ${_portable_zip}")
