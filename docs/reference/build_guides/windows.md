@@ -90,6 +90,23 @@ RelWithDebInfo and Debug variants are also available — see [CMakePresets.json]
 
 If the build is successful, you should have an executable in the 'build' folder called something like 'xSTUDIO-1.2.0-win64.exe'. This can be executed to start the xSTUDIO installer.
 
+### Portable build (no installer)
+
+As an alternative to the NSIS installer you can build a relocatable, no-install folder plus a zip archive:
+
+    cmake --build build --target portable
+
+This produces:
+
+- `build/portable/xSTUDIO-<version>-win64/` - the staged package (kept for inspection), run it via `xstudio.bat` or `bin\xstudio.exe`
+- `build/xSTUDIO-<version>-win64-portable.zip` - the same folder as a single archive
+
+Notes:
+
+- Like `--target package`, the `portable` target re-runs the full install including `windeployqt`, so it is about as slow.
+- The folder is relocatable, but not data-isolated: preferences, autosaves and thumbnails are still written under the Windows user profile (see the package's `README.txt` for the exact paths).
+- `.xst` file associations and Start-menu entries are installer-only and are not part of the portable package.
+
 ### Running xSTUDIO from the build tree (dev workflow)
 
 For a quick dev run without going through the installer, the build generates a launcher at `build/run_xstudio.bat`. Arguments are forwarded to xstudio:

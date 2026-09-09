@@ -1,0 +1,19 @@
+xSTUDIO @XSTUDIO_GLOBAL_VERSION@ - portable build (Windows x64)
+===============================================================
+
+No installation required: run xstudio.bat (or bin\xstudio.exe) directly.
+The folder is fully relocatable - move or unpack it anywhere and run it.
+
+Note that this build is relocatable but not data-isolated. Preferences,
+autosaves and thumbnail caches are still written under the Windows user
+profile, shared with any other xSTUDIO installation:
+
+    %USERPROFILE%\.config\DNEG\xstudio\preferences
+    %USERPROFILE%\xStudio\autosave
+    %USERPROFILE%\xStudio\thumbnails
+
+.xst session-file associations and Start-menu entries are created by the
+NSIS installer only; they are not part of this portable package.
+
+Documentation is available from the Help menu inside xSTUDIO
+(share/xstudio/docs).
