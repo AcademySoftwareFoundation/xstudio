@@ -274,7 +274,9 @@ void Hotkey::sequence_to_key_and_modifier(
             modifier |= ControlModifier;
         } else {
             for (const auto &q : ui::Hotkey::key_names) {
-                if (q.second == D) {
+                const std::string qD = utility::replace_all(q.second, " ", "");
+                const std::string qd = utility::to_lower(qD);
+                if (qd == d) {
                     keycode = q.first;
                     break;
                 }
@@ -300,7 +302,8 @@ void Hotkey::sequence_to_key_and_modifier(
     }
 
     for (const auto &p : seq) {
-        const std::string d = utility::to_lower(p);
+        const std::string D = utility::replace_all(p, " ", "");
+        const std::string d = utility::to_lower(D);
         if (d == "shift") {
             modifier |= ShiftModifier;
         } else if (d == "meta") {
@@ -311,7 +314,9 @@ void Hotkey::sequence_to_key_and_modifier(
             modifier |= ControlModifier;
         } else {
             for (const auto &q : ui::Hotkey::key_names) {
-                if (q.second == p) {
+                const std::string qD = utility::replace_all(q.second, " ", "");
+                const std::string qd = utility::to_lower(qD);
+                if (qd == d) {
                     keycode = q.first;
                     break;
                 }

@@ -156,10 +156,19 @@ void ViewportGLWidget::mouseDoubleClickEvent(QMouseEvent *event) {
 }
 
 void ViewportGLWidget::keyPressEvent(QKeyEvent *key_event) {
+    auto text = StdFromQString(key_event->text());
+    auto key = key_event->key();
+
+    // remap numpad keys
+    if ((key_event->modifiers() & Qt::KeypadModifier) == Qt::KeypadModifier and
+        ui::Hotkey::key_to_numpad_key.find(key) != ui::Hotkey::key_to_numpad_key.end()) {
+        key = ui::Hotkey::key_to_numpad_key.at(key);
+        text = ui::Hotkey::key_names.at(key);
+    }
 
     anon_mail(
         ui::keypress_monitor::text_entry_atom_v,
-        StdFromQString(key_event->text()),
+        text,
         the_viewport_->name(),
         window_name_)
         .send(keypress_monitor_);
@@ -168,6 +177,14 @@ void ViewportGLWidget::keyPressEvent(QKeyEvent *key_event) {
 void ViewportGLWidget::keyReleaseEvent(QKeyEvent *key_event) {
 
     if (!key_event->isAutoRepeat()) {
+        auto key = key_event->key();
+
+        // remap numpad keys
+        if ((key_event->modifiers() & Qt::KeypadModifier) == Qt::KeypadModifier and
+            ui::Hotkey::key_to_numpad_key.find(key) != ui::Hotkey::key_to_numpad_key.end()) {
+            key = ui::Hotkey::key_to_numpad_key.at(key);
+        }
+
         anon_mail(
             ui::keypress_monitor::key_up_atom_v,
             key_event->key(),
@@ -183,10 +200,20 @@ bool ViewportGLWidget::event(QEvent *event) {
 
         auto key_event = dynamic_cast<QKeyEvent *>(event);
         if (key_event) {
+            auto text = StdFromQString(key_event->text());
+            auto key = key_event->key();
+
+            // remap numpad keys
+            if ((key_event->modifiers() & Qt::KeypadModifier) == Qt::KeypadModifier and
+                ui::Hotkey::key_to_numpad_key.find(key) != ui::Hotkey::key_to_numpad_key.end()) {
+                key = ui::Hotkey::key_to_numpad_key.at(key);
+                text = ui::Hotkey::key_names.at(key);
+            }
+
             anon_mail(
                 ui::keypress_monitor::key_down_atom_v,
                 key_event->key(),
-                StdFromQString(key_event->text()),
+                text,
                 the_viewport_->name(),
                 window_name_,
                 key_event->isAutoRepeat())
@@ -196,6 +223,14 @@ bool ViewportGLWidget::event(QEvent *event) {
 
         auto key_event = dynamic_cast<QKeyEvent *>(event);
         if (key_event && !key_event->isAutoRepeat()) {
+            auto key = key_event->key();
+
+            // remap numpad keys
+            if ((key_event->modifiers() & Qt::KeypadModifier) == Qt::KeypadModifier and
+                ui::Hotkey::key_to_numpad_key.find(key) != ui::Hotkey::key_to_numpad_key.end()) {
+                key = ui::Hotkey::key_to_numpad_key.at(key);
+            }
+
             anon_mail(
                 ui::keypress_monitor::key_up_atom_v,
                 key_event->key(),
