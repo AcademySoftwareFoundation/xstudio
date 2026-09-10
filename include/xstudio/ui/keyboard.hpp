@@ -216,21 +216,61 @@ class Hotkey {
         //{0x7c
         {0x7d, "}"},
         {0x7e, "~"},
-        {93, "numpad 0"},
-        {96, "numpad 1"},
-        {97, "numpad 2"},
-        {98, "numpad 3"},
-        {99, "numpad 4"},
-        {100, "numpad 5"},
-        {101, "numpad 6"},
-        {102, "numpad 7"},
-        {103, "numpad 8"},
-        {104, "numpad 9"},
-        {105, "numpad multiply"},
-        {106, "numpad add"},
-        {107, "numpad subtract"},
-        {109, "numpad decimal point"},
-        {110, "numpad divide"}};
+
+        // Use Javascript keycodes for the numpad
+        // except for '0' as it conflicts with '`' above
+        { 97, "numpad 1"},
+        { 98, "numpad 2"},
+        { 99, "numpad 3"},
+        {100, "numpad 4"},
+        {101, "numpad 5"},
+        {102, "numpad 6"},
+        {103, "numpad 7"},
+        {104, "numpad 8"},
+        {105, "numpad 9"},
+        {106, "numpad multiply"},
+        {107, "numpad add"},
+        {108, "numpad 0"},
+        {109, "numpad subtract"},
+        {110, "numpad decimal point"},
+        {111, "numpad comma"},
+        {111, "numpad divide"}};
+
+    inline static const std::map<int, int> key_to_numpad_key = {
+        {0x2a, 106},  // *
+        {0x2b, 107},  // +
+        {0x2c, 112},  // , (replaces . on some keyboards)
+        {0x2d, 109},  // -
+        {0x2e, 110},  // .
+        {0x2f, 111},  // /
+        {0x30, 108},  // 0
+        {0x31,  97},  // 1
+        {0x32,  98},  // 2
+        {0x33,  99},  // 3
+        {0x34, 100},  // 4
+        {0x35, 101},  // 5
+        {0x36, 102},  // 6
+        {0x37, 103},  // 7
+        {0x38, 104},  // 8
+        {0x39, 105},  // 9
+
+#ifndef __apple__
+        // remap numpad alternate keys to the above
+        // but not under macOS as it isn't needed
+        // and actually causes problems
+        {0x01000006, 108},  // Insert   => 0
+        {0x01000007, 110},  // Delete   => .
+        {0x0100000b, 101},  // Clear    => 5
+        {0x01000010, 103},  // Home     => 7
+        {0x01000011,  97},  // End      => 1
+        {0x01000012, 100},  // Left     => 4
+        {0x01000013, 104},  // Up       => 8
+        {0x01000014, 102},  // Right    => 6
+        {0x01000015,  98},  // Down     => 2
+        {0x01000016, 105},  // PageUp   => 9
+        {0x01000017,  99},  // PageDown => 3
+#endif
+    };
 
     inline static const std::map<int, int> key_to_modifier = {
         {0x01000020, (int)ShiftModifier},
