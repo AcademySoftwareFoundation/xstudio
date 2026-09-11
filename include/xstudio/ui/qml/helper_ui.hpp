@@ -678,8 +678,10 @@ class HELPER_QML_EXPORT Helpers : public QObject {
         return result;
     }
 
-    Q_INVOKABLE [[nodiscard]] QUrl QUrlFromPosixPath(const QString &path) const {
-        return QUrlFromUri(utility::posix_path_to_uri(path.toStdString()));
+    Q_INVOKABLE [[nodiscard]] QUrl QUrlFromPosixPath(const QString &path,
+                                                     const bool abspath = false,
+                                                     const bool remap = true) const {
+        return QUrlFromUri(utility::posix_path_to_uri(path.toStdString(), abspath, remap));
     }
 
     Q_INVOKABLE [[nodiscard]] QString fileFromURL(const QUrl &url) const {

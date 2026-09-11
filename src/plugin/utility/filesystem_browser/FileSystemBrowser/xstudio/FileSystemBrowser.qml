@@ -34,6 +34,8 @@ Item {
     // uri requires triple slash before drive letter on Windows, since this is the root.
     property var thumbSrcRoot: Qt.platform.os === "windows" ? "image://thumbnail/file:///" : "image://thumbnail/file://"
 
+    property string treeBaseRootPath: "/"
+
     onVisibleChanged: {
         if (!visible)
             sendCommand({"action": "stop_scan"})
@@ -179,13 +181,15 @@ Item {
                     let idx = scanResultsModel.index(j, 0, selectedItems[i])
                     if (scanResultsModel.get(idx, "is_folder")) continue;
                     else {
-                        v.push(helpers.QUrlFromPosixPath(scanResultsModel.get(idx, "path")))
-                        v2.push(scanResultsModel.get(idx, "path"))
+                        let path = scanResultsModel.get(idx, "path")
+                        v.push(helpers.QUrlFromPosixPath(path))
+                        v2.push(path)
                     }
                 }
             } else {
-                v.push(helpers.QUrlFromPosixPath(scanResultsModel.get(selectedItems[i], "path")))
-                v2.push(scanResultsModel.get(selectedItems[i], "path"))
+                let path = scanResultsModel.get(selectedItems[i], "path")
+                v.push(helpers.QUrlFromPosixPath(path))
+                v2.push(path)
             }
         }
         selectedItemsUrls = v
@@ -683,7 +687,7 @@ Item {
                                 
                     onReleased: (mouse)=> {
 
-                        if (underMouseIndex != -1 && mouse.button === Qt.LeftButton && mouse.modifiers == Qt.NoModifier) {    
+                        if (underMouseIndex != undefined && mouse.button === Qt.LeftButton && mouse.modifiers == Qt.NoModifier) {    
                             selectedItems = []
                             selectItem(underMouseIndex, 0)
                             
@@ -700,7 +704,7 @@ Item {
                     }
 
                     onDoubleClicked: (mouse) => {
-                        if (mouse.button === Qt.LeftButton && underMouseIndex != -1) {
+                        if (mouse.button === Qt.LeftButton && underMouseIndex != undefined) {
 
                             if (scanResultsModel.get(underMouseIndex, "is_folder")) {
                                 sendCommand({"action": "change_path", "path": scanResultsModel.get(underMouseIndex, "path")});
@@ -712,7 +716,7 @@ Item {
 
                     onClicked: (mouse) => {
 
-                        if (mouse.button === Qt.RightButton && underMouseIndex != -1) {
+                        if (mouse.button === Qt.RightButton && underMouseIndex != undefined) {
                             if (!selectedItems.includes(underMouseIndex)) {
                                 selectedItems = [underMouseIndex]
                             }
@@ -735,7 +739,7 @@ Item {
                         target: null
 
                         onActiveChanged: {
-                            if (active && underMouseIndex != -1) {
+                            if (active && underMouseIndex != undefined) {
                                 dragProxy.grabToImage(function(result) {
                                     let d = root.selectedItemsPaths.map(p => encodeURIComponent(p))
                                     dragProxy.Drag.mimeData = {"text/plain": d.join("\n")}
