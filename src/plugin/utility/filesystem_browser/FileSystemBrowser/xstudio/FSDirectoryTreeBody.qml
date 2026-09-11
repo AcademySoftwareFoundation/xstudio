@@ -15,7 +15,14 @@ Item {
     // Properties to communicate with parent
     property var currentPath: "/"
     property string baseRootPath: "/"
-    
+
+    Connections {
+        target: root
+        function onTreeBaseRootPathChanged() {
+            baseRootPath = stripTrailingPathSeparator(treeBaseRootPath)
+        }
+    }
+
     signal sendCommand(var cmd)
     //onSendCommand: (cmd) => console.log("DirectoryTree: Sending command: " + JSON.stringify(cmd))
     
@@ -57,6 +64,9 @@ Item {
             pendingExpandPath = currentPath;
             isSyncing = true;
             syncToPath();
+
+            if (!currentPath.startsWith(baseRootPath))
+                baseRootPath = "/"
         }
     }
 
@@ -230,9 +240,11 @@ Item {
         }
         
         treeModel.setProperty(index, "isLoading", true);
-        
-        // Request subdirs
-        sendCommand({"action": "get_subdirs", "path": node.path});
+
+        // Request subdirs, but after a delay to allow any "change_path" command to complete
+        callbackTimer.setTimeout(function() { return function() {
+            sendCommand({"action": "get_subdirs", "path": node.path})
+        }}(), 200);
     }
     
     function collapseNode(index) {
@@ -355,7 +367,7 @@ Item {
             menuItemPosition: 2
             menuPath: ""
             onActivated: {
-                helpers.showURIS([helpers.QUrlFromPosixPath(treeContextMenu.path)])
+                helpers.showURIS([helpers.QUrlFromPosixPath(treeContextMenu.path, false, false)])
             }
             menuModelName: treeContextMenu.menu_model_name
         }
