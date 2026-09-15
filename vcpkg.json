@@ -14,6 +14,7 @@
     "fmt",
     "lcms",
     "caf",
+    "gtest",
     "opencolorio",
     "openimageio",
     "openexr",

@@ -92,11 +92,16 @@ def import_timeline(playlist, otio, name=None, before=Uuid()):
     media_lookup = {}
 
     # preprocess clips
-    for i in otio.clip_if():
-        if i.media_reference.target_url not in media_lookup:
-            media = playlist.add_media(URI(i.media_reference.target_url))
+    # SKF patch: clip_if() was removed from OpenTimelineIO (find_clips()
+    # replaced it in 0.15) — the bundled otio is 0.18.1, so this raised
+    # AttributeError on every import. Also guard media references without a
+    # target_url (e.g. ImageSequenceReference) instead of crashing.
+    for i in otio.find_clips():
+        target_url = getattr(i.media_reference, "target_url", None)
+        if target_url and target_url not in media_lookup:
+            media = playlist.add_media(URI(target_url))
             timeline.add_media(media)
-            media_lookup[i.media_reference.target_url] = media
+            media_lookup[target_url] = media
 
     __process_obj(playlist, timeline, timeline.stack, reversed(otio.video_tracks()), media_lookup)
     __process_obj(playlist, timeline, timeline.stack, otio.audio_tracks(), media_lookup)

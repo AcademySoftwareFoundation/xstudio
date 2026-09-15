@@ -95,3 +95,27 @@ If the build is successful, you should have an executable in the 'build' folder 
 For a quick dev run without going through the installer, the build generates a launcher at `build/run_xstudio.bat`. Arguments are forwarded to xstudio:
 
     .\build\run_xstudio.bat path\to\session.xst
+
+### Running the unit tests
+
+The tests are not built by default. Add `BUILD_TESTING=ON` when you configure:
+
+    cmake -B build --preset WinNinjaReleaseLocal -DBUILD_TESTING=ON
+
+Build as normal, or build a single test target while you are working on it:
+
+    cmake --build build
+    cmake --build build --target helpers_test
+
+Then run the tests with ctest:
+
+    ctest --test-dir build --output-on-failure
+
+Each test is registered as `<component>_<target>`, so `helpers_test` in `src/utility/test` becomes `utility_helpers_test`. You can run a single test with `-R`, and run them in parallel with `-j`:
+
+    ctest --test-dir build --output-on-failure -R utility_helpers_test
+    ctest --test-dir build --output-on-failure -j 8
+
+> **Note:** the DLL search path is set up for each test when you configure, so the test executables will run directly from ctest or from your IDE. You do not need to set up an environment first.
+
+Some tests currently fail or time out on Windows, and on Linux too, so a clean run is not expected yet.

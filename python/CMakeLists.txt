@@ -26,8 +26,8 @@ if(APPLE)
 
     add_custom_target(python_module ALL DEPENDS __pybind_xstudio ${VCPKG_LOCATION}/xstudio/api)
 
-    # Here we copy the entire python installation into Frameworks
-    install(DIRECTORY ${VCPKG_LOCATION}/lib/${PYTHONVP} DESTINATION ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Frameworks/lib/)
+    # Here we copy the entire python installation into Resources
+    install(DIRECTORY ${VCPKG_LOCATION}/lib/${PYTHONVP} DESTINATION ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/python/lib)
 
 elseif(WIN32)
 

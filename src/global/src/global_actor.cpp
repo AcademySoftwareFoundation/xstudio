@@ -654,7 +654,12 @@ void GlobalActor::connect_api(const caf::actor &embedded_python) {
                 remote_api_session_name_);
             connected_ = true;
             if (python_enabled_) {
-                mail(connect_atom_v, port_)
+                // Connect the interpreter to the API actor directly. Passing
+                // the port instead routes it through the middleman - a TCP
+                // connection from the process to itself, which the OS can drop
+                // (macOS does on system sleep), permanently disconnecting every
+                // Python plugin with no path to reconnect.
+                mail(connect_atom_v, apia_)
                     .request(embedded_python, infinite)
                     .then(
                         [=](const bool result) {

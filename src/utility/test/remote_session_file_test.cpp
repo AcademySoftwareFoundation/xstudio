@@ -7,7 +7,7 @@ using namespace xstudio::utility;
 TEST(SessionFileTest, Test) {
     RemoteSessionFile local(".", 12345);
     RemoteSessionFile remote(".", 12346, "remotetest", "cookham", true);
-    RemoteSessionFile remote2(remote.filepath());
+    RemoteSessionFile remote2(remote.filepath().string());
     remote2.set_remove_on_delete();
 
 
