@@ -466,6 +466,8 @@ caf::actor actorFromQString(actor_system &sys, const QString &addr);
 std::string actorToString(actor_system &sys, const caf::actor &actor);
 caf::actor actorFromString(actor_system &sys, const std::string &addr);
 
+std::pair<int, std::string> decodeQKeyEvent(const QKeyEvent *key_event);
+
 QString getThumbnailURL(
     actor_system &sys,
     const caf::actor &actor,

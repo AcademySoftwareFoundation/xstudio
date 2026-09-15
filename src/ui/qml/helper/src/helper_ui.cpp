@@ -251,6 +251,20 @@ QVariant xstudio::ui::qml::json_to_qvariant(const nlohmann::json &json) {
 }
 
 
+std::pair<int, std::string> xstudio::ui::qml::decodeQKeyEvent(const QKeyEvent *key_event) {
+    auto key = key_event->key();
+    auto text = StdFromQString(key_event->text());
+
+    // remap numpad keys
+    if ((key_event->modifiers() & Qt::KeypadModifier) == Qt::KeypadModifier and
+        xstudio::ui::Hotkey::key_to_numpad_key.find(key) != xstudio::ui::Hotkey::key_to_numpad_key.end()) {
+        key = xstudio::ui::Hotkey::key_to_numpad_key.at(key);
+        text = xstudio::ui::Hotkey::key_names.at(key);
+    }
+
+    return {key, text};
+}
+
 KeyEventsItem::KeyEventsItem(QQuickItem *parent) : QQuickItem(parent) {
 
     keypress_monitor_ = CafSystemObject::get_actor_system().registry().template get<caf::actor>(
@@ -272,15 +286,7 @@ bool KeyEventsItem::event(QEvent *event) {
 
         auto key_event = dynamic_cast<QKeyEvent *>(event);
         if (key_event) {
-            auto text = StdFromQString(key_event->text());
-            auto key = key_event->key();
-
-            // remap numpad keys
-            if ((key_event->modifiers() & Qt::KeypadModifier) == Qt::KeypadModifier and
-                ui::Hotkey::key_to_numpad_key.find(key) != ui::Hotkey::key_to_numpad_key.end()) {
-                key = ui::Hotkey::key_to_numpad_key.at(key);
-                text = ui::Hotkey::key_names.at(key);
-            }
+            const auto [key, text] = decodeQKeyEvent(key_event);
 
             anon_mail(
                 ui::keypress_monitor::key_down_atom_v,
@@ -295,13 +301,7 @@ bool KeyEventsItem::event(QEvent *event) {
 
         auto key_event = dynamic_cast<QKeyEvent *>(event);
         if (key_event && !key_event->isAutoRepeat()) {
-            auto key = key_event->key();
-
-            // remap numpad keys
-            if ((key_event->modifiers() & Qt::KeypadModifier) == Qt::KeypadModifier and
-                ui::Hotkey::key_to_numpad_key.find(key) != ui::Hotkey::key_to_numpad_key.end()) {
-                key = ui::Hotkey::key_to_numpad_key.at(key);
-            }
+            const auto [key, text] = decodeQKeyEvent(key_event);
 
             anon_mail(
                 ui::keypress_monitor::key_up_atom_v, key, context_, window_name_)
@@ -344,20 +344,12 @@ bool KeyEventsItem::grabFocus() {
     return true;
 }
 
-void KeyEventsItem::keyPressEvent(QKeyEvent *event) {
+void KeyEventsItem::keyPressEvent(QKeyEvent *key_event) {
 
     if (window_name_.empty())
         window_name_ = StdFromQString(item_window_name(parent()));
 
-    auto text = StdFromQString(event->text());
-    auto key = event->key();
-
-    // remap numpad keys
-    if ((event->modifiers() & Qt::KeypadModifier) == Qt::KeypadModifier and
-        ui::Hotkey::key_to_numpad_key.find(key) != ui::Hotkey::key_to_numpad_key.end()) {
-        key = ui::Hotkey::key_to_numpad_key.at(key);
-        text = ui::Hotkey::key_names.at(key);
-    }
+    const auto [key, text] = decodeQKeyEvent(key_event);
 
     anon_mail(
         ui::keypress_monitor::text_entry_atom_v,
@@ -366,21 +358,15 @@ void KeyEventsItem::keyPressEvent(QKeyEvent *event) {
         window_name_)
         .send(keypress_monitor_);
 }
-void KeyEventsItem::keyReleaseEvent(QKeyEvent *event) {
+void KeyEventsItem::keyReleaseEvent(QKeyEvent *key_event) {
 
     if (window_name_.empty())
         window_name_ = StdFromQString(item_window_name(parent()));
 
-    if (!event->isAutoRepeat()) {
-        auto key = event->key();
+    if (!key_event->isAutoRepeat()) {
+        const auto [key, text] = decodeQKeyEvent(key_event);
 
-        // remap numpad keys
-        if ((event->modifiers() & Qt::KeypadModifier) == Qt::KeypadModifier and
-            ui::Hotkey::key_to_numpad_key.find(key) != ui::Hotkey::key_to_numpad_key.end()) {
-            key = ui::Hotkey::key_to_numpad_key.at(key);
-        }
-
-        anon_mail(ui::keypress_monitor::key_up_atom_v, event->key(), context_, window_name_)
+        anon_mail(ui::keypress_monitor::key_up_atom_v, key, context_, window_name_)
             .send(keypress_monitor_);
     }
 }

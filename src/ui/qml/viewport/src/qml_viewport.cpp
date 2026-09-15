@@ -404,30 +404,22 @@ void QMLViewport::mouseDoubleClickEvent(QMouseEvent *event) {
 
 void QMLViewport::keyPressEvent(QKeyEvent *key_event) {
 
+    auto [key, text] = decodeQKeyEvent(key_event);
+
     // On some platforms (MacOS) backspace and delete aren't
     // ASCII but widestring encoded. Hack here to get around
     // that until we do propoer wstring handling in the
     // backend
-    std::string text = StdFromQString(key_event->text());
-    if (key_event->key() == Qt::Key_Backspace) {
+    if (key == Qt::Key_Backspace) {
         std::array<char, 2> v;
         v[0] = 8;
         v[1] = 0;
         text = v.data();
-    } else if (key_event->key() == Qt::Key_Delete) {
+    } else if (key == Qt::Key_Delete) {
         std::array<char, 2> v;
         v[0] = 127;
         v[1] = 0;
         text = v.data();
-    }
-
-    auto key = key_event->key();
-
-    // remap numpad keys
-    if ((key_event->modifiers() & Qt::KeypadModifier) == Qt::KeypadModifier and
-        ui::Hotkey::key_to_numpad_key.find(key) != ui::Hotkey::key_to_numpad_key.end()) {
-        key = ui::Hotkey::key_to_numpad_key.at(key);
-        text = ui::Hotkey::key_names.at(key);
     }
 
     anon_mail(
@@ -441,13 +433,7 @@ void QMLViewport::keyPressEvent(QKeyEvent *key_event) {
 void QMLViewport::keyReleaseEvent(QKeyEvent *key_event) {
 
     if (!key_event->isAutoRepeat()) {
-        auto key = key_event->key();
-
-        // remap numpad keys
-        if ((key_event->modifiers() & Qt::KeypadModifier) == Qt::KeypadModifier and
-            ui::Hotkey::key_to_numpad_key.find(key) != ui::Hotkey::key_to_numpad_key.end()) {
-            key = ui::Hotkey::key_to_numpad_key.at(key);
-        }
+        const auto [key, text] = decodeQKeyEvent(key_event);
 
         anon_mail(
             ui::keypress_monitor::key_up_atom_v,
@@ -487,15 +473,7 @@ bool QMLViewport::event(QEvent *event) {
 
         auto key_event = dynamic_cast<QKeyEvent *>(event);
         if (key_event) {
-            auto text = StdFromQString(key_event->text());
-            auto key = key_event->key();
-
-            // remap numpad keys
-            if ((key_event->modifiers() & Qt::KeypadModifier) == Qt::KeypadModifier and
-                ui::Hotkey::key_to_numpad_key.find(key) != ui::Hotkey::key_to_numpad_key.end()) {
-                key = ui::Hotkey::key_to_numpad_key.at(key);
-                text = ui::Hotkey::key_names.at(key);
-            }
+            const auto [key, text] = decodeQKeyEvent(key_event);
 
             anon_mail(
                 ui::keypress_monitor::key_down_atom_v,
@@ -510,17 +488,11 @@ bool QMLViewport::event(QEvent *event) {
 
         auto key_event = dynamic_cast<QKeyEvent *>(event);
         if (key_event && !key_event->isAutoRepeat()) {
-            auto key = key_event->key();
-
-            // remap numpad keys
-            if ((key_event->modifiers() & Qt::KeypadModifier) == Qt::KeypadModifier and
-                ui::Hotkey::key_to_numpad_key.find(key) != ui::Hotkey::key_to_numpad_key.end()) {
-                key = ui::Hotkey::key_to_numpad_key.at(key);
-            }
+            const auto [key, text] = decodeQKeyEvent(key_event);
 
             anon_mail(
                 ui::keypress_monitor::key_up_atom_v,
-                key_event->key(),
+                key,
                 renderer_actor ? renderer_actor->std_name() : "",
                 StdFromQString(m_window->objectName()))
                 .send(keypress_monitor_);
