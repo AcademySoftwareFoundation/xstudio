@@ -21,3 +21,5 @@ __build_debug
 build_rel/
 build_dbg/
 aqtinstall.log
+build_logs/
+CMakeUserPresets.json.bak
