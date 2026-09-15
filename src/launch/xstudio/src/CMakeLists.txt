@@ -125,6 +125,8 @@ elseif(APPLE)
 		RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/MacOS"
 		OUTPUT_NAME "${PROJECT_NAME}.bin"
 		LINK_DEPENDS_NO_SHARED true
+		INSTALL_RPATH "@executable_path/../Frameworks"
+		BUILD_RPATH   "@executable_path/../Frameworks"
 	)
 
 	add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
@@ -149,12 +151,6 @@ elseif(APPLE)
     find_program(macdeployqt_exe macdeployqt HINTS "${_qt_bin_dir}")
         configure_file(macdeploy.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/macdeploy.cmake @ONLY)
     install(SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/macdeploy.cmake)
-
-    # Add custom command to fix library paths after build
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -DAPP_BUNDLE_DIR=${CMAKE_BINARY_DIR}/xSTUDIO.app
-            -P ${CMAKE_CURRENT_SOURCE_DIR}/fixup_macos_bundle.cmake
-    )
 
 else()
 
