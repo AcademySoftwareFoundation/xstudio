@@ -10,6 +10,12 @@ set(XSTUDIO_GLOBAL_NAME xStudio)
 
 project(${XSTUDIO_GLOBAL_NAME} VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
+# XQuartz's Mesa libGL under /opt/X11 shadows OpenGL.framework, so keep it off the search path.
+if(APPLE)
+    list(APPEND CMAKE_IGNORE_PREFIX_PATH /opt/X11 /usr/X11 /usr/X11R6)
+    list(REMOVE_DUPLICATES CMAKE_IGNORE_PREFIX_PATH)
+endif()
+
 # Work around Qt bug: FindWrapOpenGL.cmake links -framework AGL, which was
 # removed from the macOS SDK in 10.14. Fixed upstream in Qt 6.9+ but not
 # backported to 6.5/6.8 LTS (see https://codereview.qt-project.org/c/qt/qtbase/+/652022).
