@@ -1,12 +1,18 @@
 
 set(snippets)
 
+if(APPLE)
+  set(_snippets_install_dir "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/snippets")
+else()
+  set(_snippets_install_dir "${CMAKE_BINARY_DIR}/bin/snippets")
+endif()
+
 macro(add_snip name)
-  add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/bin/snippets/${name}
+  add_custom_command(OUTPUT ${_snippets_install_dir}/${name}
                    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/${name}
-                                                    ${CMAKE_BINARY_DIR}/bin/snippets/${name}
+                                                    ${_snippets_install_dir}/${name}
                    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${name})
-  list(APPEND snippets ${CMAKE_BINARY_DIR}/bin/snippets/${name})
+  list(APPEND snippets ${_snippets_install_dir}/${name})
 endmacro()
 
 add_snip(Demo/print_status.py)
