@@ -232,7 +232,7 @@ macro(add_plugin_qml name _dir)
 				cmake_path(GET DIR FILENAME dirname)
 				add_custom_command(TARGET ${name}_COPY_QML POST_BUILD
 					COMMAND ${CMAKE_COMMAND} -E
-						copy_directory ${DIR} ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/PlugIns/xstudio/qml/${dirname})
+						copy_directory ${DIR} ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/qml/${dirname})
 			endif()
 		endforeach()
 	else()

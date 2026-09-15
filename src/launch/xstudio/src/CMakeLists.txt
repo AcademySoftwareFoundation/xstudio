@@ -132,9 +132,10 @@ elseif(APPLE)
 	add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources")
 
+	configure_file("${CMAKE_CURRENT_SOURCE_DIR}/Info.plist" "${CMAKE_CURRENT_BINARY_DIR}/Info.plist")
 	add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
-        ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/")
+        ${CMAKE_CURRENT_BINARY_DIR}/Info.plist "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/")
 
 	add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
