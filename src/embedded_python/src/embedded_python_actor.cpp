@@ -1180,8 +1180,17 @@ void EmbeddedPythonActor::update_preferences(const utility::JsonStore &j) {
     auto paths = preference_value<JsonStore>(j, "/core/python/snippets/path");
     auto snips = std::vector<caf::uri>();
 
+#ifdef __apple__
+    // Redirect XSTUDIO_ROOT to the bundle's Resources dir
+    const auto additional =
+        std::map<std::string, std::string>{
+        {"XSTUDIO_ROOT", xstudio_resources_dir()} };
+#else
+    const auto additional = std::map<std::string, std::string>{};
+#endif
+
     for (const auto &path : paths)
-        snips.emplace_back(posix_path_to_uri(expand_envvars(path)));
+        snips.emplace_back(posix_path_to_uri(expand_envvars(path, additional)));
 
     if (snips != snippet_paths_) {
         refresh_snippets(snips);
