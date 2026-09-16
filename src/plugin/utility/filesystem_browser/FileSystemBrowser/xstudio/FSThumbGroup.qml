@@ -38,9 +38,11 @@ Item {
         XsText {
             anchors.verticalCenter: parent.verticalCenter
             anchors.left: folderIcon.right; anchors.leftMargin: 10
+            anchors.right: parent.right; anchors.rightMargin: 10
             text: path + "   (" + total_file_count + ")"
             font.bold: true
             elide: Text.ElideLeft
+            horizontalAlignment: Text.AlignLeft
             font.pixelSize: 14
         }
     }

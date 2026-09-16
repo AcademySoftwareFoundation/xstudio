@@ -28,7 +28,7 @@ TEST(LockFileTest, Test) {
     myfile << "File to lock.\n";
     myfile.close();
 
-    auto lock_file = LockFile(source);
+    auto lock_file = xstudio::utility::LockFile(source);
 
     EXPECT_EQ(lock_file.source(), posix_path_to_uri(source));
 
@@ -52,7 +52,7 @@ TEST(LockFileTest, Test) {
     EXPECT_TRUE(lock_file.lock());
 
     // same owner
-    auto try_lock_file = LockFile(source);
+    auto try_lock_file = xstudio::utility::LockFile(source);
     EXPECT_TRUE(try_lock_file.locked());
     EXPECT_TRUE(try_lock_file.owned());
     EXPECT_FALSE(try_lock_file.unlock());

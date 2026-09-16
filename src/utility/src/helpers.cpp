@@ -317,11 +317,9 @@ std::string xstudio::utility::uri_to_posix_path(const caf::uri &uri, const bool 
     if (uri.path().data()) {
         std::string path = uri_decode(uri.path().data());
         // spdlog::warn("{} {}",uri.path().data(), path);
-#ifdef __linux__
         if (not path.empty() and path[0] != '/' and not uri.authority().empty()) {
             path = "/" + path;
         }
-#endif
 
 #ifdef _WIN32
 
@@ -335,22 +333,29 @@ std::string xstudio::utility::uri_to_posix_path(const caf::uri &uri, const bool 
             }
         }
 
-        // Reconstruct UNC path from URI authority (server name)
-        // file://server/share/path -> \\server\share\path
-        if (!uri.authority().empty()) {
-            std::string host = to_string(uri.authority());
-            if (!host.empty() && host != "localhost") {
-                // Convert forward slashes to backslashes for Windows
-                std::replace(path.begin(), path.end(), '/', '\\');
-                path = R"(\\)" + host + R"(\)" + path;
-            }
-        }
         // replace double slashes with single slashes. This can happen with
         // file://server////share/path
         auto p = path.find("//");
         while (p != std::string::npos) {
             path.erase(p, 1);
             p = path.find("//");
+        }
+
+        // Reconstruct UNC path from URI authority (server name)
+        // file://server/share/path -> \\server\share\path
+        // Only for 'file' - the authority is a server name there, and a web
+        // host for any other scheme.
+        if (uri.scheme() == "file") {
+            std::string host = to_string(uri.authority());
+            if (!host.empty() && host != "localhost") {
+                // the separator between host and share is added below
+                while (!path.empty() && path[0] == '/') {
+                    path.erase(0, 1);
+                }
+                // Convert forward slashes to backslashes for Windows
+                std::replace(path.begin(), path.end(), '/', '\\');
+                path = R"(\\)" + host + R"(\)" + path;
+            }
         }
 #endif
         return (remap ? forward_remap_file_path(path) : path);

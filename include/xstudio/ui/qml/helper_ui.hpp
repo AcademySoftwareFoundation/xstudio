@@ -466,6 +466,8 @@ caf::actor actorFromQString(actor_system &sys, const QString &addr);
 std::string actorToString(actor_system &sys, const caf::actor &actor);
 caf::actor actorFromString(actor_system &sys, const std::string &addr);
 
+std::pair<int, std::string> decodeQKeyEvent(const QKeyEvent *key_event);
+
 QString getThumbnailURL(
     actor_system &sys,
     const caf::actor &actor,
@@ -678,8 +680,10 @@ class HELPER_QML_EXPORT Helpers : public QObject {
         return result;
     }
 
-    Q_INVOKABLE [[nodiscard]] QUrl QUrlFromPosixPath(const QString &path) const {
-        return QUrlFromUri(utility::posix_path_to_uri(path.toStdString()));
+    Q_INVOKABLE [[nodiscard]] QUrl QUrlFromPosixPath(const QString &path,
+                                                     const bool abspath = false,
+                                                     const bool remap = true) const {
+        return QUrlFromUri(utility::posix_path_to_uri(path.toStdString(), abspath, remap));
     }
 
     Q_INVOKABLE [[nodiscard]] QString fileFromURL(const QUrl &url) const {

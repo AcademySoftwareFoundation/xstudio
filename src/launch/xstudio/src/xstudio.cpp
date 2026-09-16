@@ -66,6 +66,8 @@ CAF_PUSH_WARNINGS
 #include <QOpenGLContext>
 #include <QOffscreenSurface>
 #include <QOpenGLFunctions>
+#include <QEvent>
+#include <QFileOpenEvent>
 CAF_POP_WARNINGS
 
 #include "xstudio/ui/qml/studio_ui.hpp" //NOLINT
@@ -200,6 +202,77 @@ void xstudioQtMessageHandler(
     }
 }
 
+#ifdef __apple__
+class MacApplication : public QApplication {
+public:
+    MacApplication(int &argc, char **argv) : QApplication(argc, argv),
+                                             system{CafActorSystem::system()} {}
+
+  protected:
+    bool event(QEvent *event) override {
+        if (event->type() == QEvent::FileOpen) {
+            auto *openEvent = static_cast<QFileOpenEvent *>(event);
+            if (openEvent) {
+                try {
+                    scoped_actor self{system};
+
+                    const auto &glob_reg = system.registry().template
+                        get<caf::actor>(global_registry);
+                    auto session = request_receive<caf::actor>(
+                        *self, glob_reg, session::session_atom_v);
+
+                    // Get the playlist to push media to.
+                    auto playlist = request_receive<caf::actor>(
+                        *self, session, session::get_push_playlist_atom_v);
+
+                    // Add this media to the playlist
+                    const auto path    = fs::path(openEvent->file().toStdString());
+                    auto filename_stem = path.stem().string();
+                    const auto dotpos  = filename_stem.find(".");
+                    if (dotpos && dotpos != std::string::npos) {
+                        filename_stem = std::string(filename_stem, 0, dotpos);
+                    }
+
+                    auto uri = caf::uri_builder()
+                        .scheme("file")
+                        .host("localhost")
+                        .path(path.string()).make();
+
+                    auto media_ua = request_receive<UuidActor>(
+                        *self, playlist,
+                        playlist::add_media_atom_v, filename_stem, uri, utility::Uuid());
+
+                    // Select the newly added media
+                    auto playhead_selection_actor =
+                        request_receive<caf::actor>(
+                            *self, playlist, playlist::selection_actor_atom_v);
+                    auto selection = UuidVector{media_ua.uuid()};
+                    anon_mail(playlist::select_media_atom_v, selection)
+                        .send(playhead_selection_actor);
+
+                    // Make sure the playlist is the active and viewed container
+                    anon_mail(session::active_media_container_atom_v, playlist)
+                        .send(session);
+                    anon_mail(session::viewport_active_media_container_atom_v, playlist)
+                        .send(session);
+
+                } catch (const std::exception &e) {
+                    spdlog::error("A Failed to load media '{}'", e.what());
+                    return QApplication::event(event);
+                }
+            }
+
+            return true;
+        }
+        return QApplication::event(event);
+    }
+
+  private:
+    actor_system &system;
+};
+#endif
+
+
 int execute_xstudio_ui(
     const bool disble_vsync,
     const float ui_scale_factor,
@@ -252,7 +325,11 @@ int execute_xstudio_ui(
         qInstallMessageHandler(xstudioQtMessageHandler);
     }
 
+#ifdef __apple__
+    MacApplication app(argc, argv);
+#else
     QApplication app(argc, argv);
+#endif
     app.setOrganizationName("DNEG");
     app.setOrganizationDomain("dneg.com");
     app.setApplicationVersion(PROJECT_VERSION);

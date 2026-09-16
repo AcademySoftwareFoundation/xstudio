@@ -90,8 +90,49 @@ RelWithDebInfo and Debug variants are also available — see [CMakePresets.json]
 
 If the build is successful, you should have an executable in the 'build' folder called something like 'xSTUDIO-1.2.0-win64.exe'. This can be executed to start the xSTUDIO installer.
 
+### Portable build (no installer)
+
+As an alternative to the NSIS installer you can build a relocatable, no-install folder plus a zip archive:
+
+    cmake --build build --target portable
+
+This produces:
+
+- `build/portable/xSTUDIO-<version>-win64/` - the staged package (kept for inspection), run it via `xstudio.bat` or `bin\xstudio.exe`
+- `build/xSTUDIO-<version>-win64-portable.zip` - the same folder as a single archive
+
+Notes:
+
+- Like `--target package`, the `portable` target re-runs the full install including `windeployqt`, so it is about as slow.
+- The folder is relocatable, but not data-isolated: preferences, autosaves and thumbnails are still written under the Windows user profile (see the package's `README.txt` for the exact paths).
+- `.xst` file associations and Start-menu entries are installer-only and are not part of the portable package.
+
 ### Running xSTUDIO from the build tree (dev workflow)
 
 For a quick dev run without going through the installer, the build generates a launcher at `build/run_xstudio.bat`. Arguments are forwarded to xstudio:
 
     .\build\run_xstudio.bat path\to\session.xst
+
+### Running the unit tests
+
+The tests are not built by default. Add `BUILD_TESTING=ON` when you configure:
+
+    cmake -B build --preset WinNinjaReleaseLocal -DBUILD_TESTING=ON
+
+Build as normal, or build a single test target while you are working on it:
+
+    cmake --build build
+    cmake --build build --target helpers_test
+
+Then run the tests with ctest:
+
+    ctest --test-dir build --output-on-failure
+
+Each test is registered as `<component>_<target>`, so `helpers_test` in `src/utility/test` becomes `utility_helpers_test`. You can run a single test with `-R`, and run them in parallel with `-j`:
+
+    ctest --test-dir build --output-on-failure -R utility_helpers_test
+    ctest --test-dir build --output-on-failure -j 8
+
+> **Note:** the DLL search path is set up for each test when you configure, so the test executables will run directly from ctest or from your IDE. You do not need to set up an environment first.
+
+Some tests currently fail or time out on Windows, and on Linux too, so a clean run is not expected yet.
