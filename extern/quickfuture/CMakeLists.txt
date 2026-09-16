@@ -22,7 +22,7 @@ set(QML_FILES
 if(APPLE)
     set_target_properties(quickfuture
         PROPERTIES
-        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/PlugIns/xstudio/qml/QuickFuture"
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/qml/QuickFuture"
     )
 else()
     set_target_properties(quickfuture
@@ -49,7 +49,7 @@ set(QML_FUTURE_FILES
 )
 
 if (APPLE)
-    set(QML_DEST_DIR ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/PlugIns/xstudio/qml/QuickFuture)
+    set(QML_DEST_DIR ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/qml/QuickFuture)
 else()
     set(QML_DEST_DIR ${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickFuture)
 endif()

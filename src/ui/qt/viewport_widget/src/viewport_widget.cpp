@@ -156,10 +156,11 @@ void ViewportGLWidget::mouseDoubleClickEvent(QMouseEvent *event) {
 }
 
 void ViewportGLWidget::keyPressEvent(QKeyEvent *key_event) {
+    const auto [key, text] = decodeQKeyEvent(key_event);
 
     anon_mail(
         ui::keypress_monitor::text_entry_atom_v,
-        StdFromQString(key_event->text()),
+        text,
         the_viewport_->name(),
         window_name_)
         .send(keypress_monitor_);
@@ -168,9 +169,11 @@ void ViewportGLWidget::keyPressEvent(QKeyEvent *key_event) {
 void ViewportGLWidget::keyReleaseEvent(QKeyEvent *key_event) {
 
     if (!key_event->isAutoRepeat()) {
+        const auto [key, text] = decodeQKeyEvent(key_event);
+
         anon_mail(
             ui::keypress_monitor::key_up_atom_v,
-            key_event->key(),
+            key,
             the_viewport_->name(),
             window_name_)
             .send(keypress_monitor_);
@@ -183,10 +186,12 @@ bool ViewportGLWidget::event(QEvent *event) {
 
         auto key_event = dynamic_cast<QKeyEvent *>(event);
         if (key_event) {
+            const auto [key, text] = decodeQKeyEvent(key_event);
+
             anon_mail(
                 ui::keypress_monitor::key_down_atom_v,
-                key_event->key(),
-                StdFromQString(key_event->text()),
+                key,
+                text,
                 the_viewport_->name(),
                 window_name_,
                 key_event->isAutoRepeat())
@@ -196,9 +201,11 @@ bool ViewportGLWidget::event(QEvent *event) {
 
         auto key_event = dynamic_cast<QKeyEvent *>(event);
         if (key_event && !key_event->isAutoRepeat()) {
+            const auto [key, text] = decodeQKeyEvent(key_event);
+
             anon_mail(
                 ui::keypress_monitor::key_up_atom_v,
-                key_event->key(),
+                key,
                 the_viewport_->name(),
                 window_name_)
                 .send(keypress_monitor_);
