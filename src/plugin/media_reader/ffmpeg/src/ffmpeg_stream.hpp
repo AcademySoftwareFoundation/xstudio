@@ -137,6 +137,13 @@ class FFMpegStream {
         current_audio_sample_ = -1;
     }
 
+    // The timestamp of the first packet of the stream: the start time, or the
+    // first index entry where that is earlier, as in an mp4 whose edit list
+    // carries the AAC priming in a packet ahead of the pts zero the start time
+    // reports. Never later than the start time: a format without an index of
+    // its own gets entries added wherever a seek happened to probe.
+    [[nodiscard]] int64_t first_packet_pts() const;
+
   private:
     [[nodiscard]] int64_t stream_start_time() const {
         return avc_stream_->start_time != AV_NOPTS_VALUE ? avc_stream_->start_time : 0;

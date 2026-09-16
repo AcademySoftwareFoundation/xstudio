@@ -622,6 +622,13 @@ AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio() {
     return audio_buffer;
 }
 
+int64_t FFMpegStream::first_packet_pts() const {
+    int64_t first = stream_start_time();
+    if (avformat_index_get_entries_count(avc_stream_))
+        first = std::min(first, avformat_index_get_entry(avc_stream_, 0)->timestamp);
+    return first;
+}
+
 FFMpegStream::FFMpegStream(
     AVFormatContext *fmt_ctx, AVStream *stream, int index, int thread_count, std::string path)
     : stream_index_(index),
