@@ -227,6 +227,12 @@ int64_t FFMpegDecoder::decode_and_store_next_frame() {
 
         if (decode_stream_ && avc_packet_->stream_index == decode_stream_->stream_index()) {
             int rx = decode_stream_->send_packet(avc_packet_);
+            if (rx == AVERROR_INVALIDDATA) {
+                // a packet the decoder rejects, the partial one a seek can land
+                // on: skipped, as ffmpeg's own tools skip it
+                av_packet_unref(avc_packet_);
+                return 0;
+            }
             if (rx)
                 AVC_CHECK_THROW(rx, "avcodec_send_packet");
             if (decode_stream_->receive_frame() == 0) {
@@ -280,6 +286,8 @@ int64_t FFMpegDecoder::decode_next_frame() {
         if (decode_stream_ && avc_packet_->stream_index == decode_stream_->stream_index()) {
             int rx = decode_stream_->send_packet(avc_packet_);
             av_packet_unref(avc_packet_);
+            if (rx == AVERROR_INVALIDDATA)
+                return AVERROR(EAGAIN); // skipped, as ffmpeg's own tools skip it
             if (rx)
                 AVC_CHECK_THROW(rx, "avcodec_send_packet");
             return decode_stream_->receive_frame();

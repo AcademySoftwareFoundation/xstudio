@@ -151,6 +151,10 @@ class FFMpegStream {
 
     void decode_attached_pic();
 
+    // a fresh decoder, as the head of the stream gets: a flush does not reset
+    // every decoder
+    void open_audio_decoder();
+
     // void setup_frame(ImageStorePtr & video_frame);
     int stream_index_;
     AVCodecContext *codec_context_{nullptr};

@@ -629,6 +629,18 @@ int64_t FFMpegStream::first_packet_pts() const {
     return first;
 }
 
+void FFMpegStream::open_audio_decoder() {
+    avcodec_free_context(&codec_context_);
+    codec_context_ = avcodec_alloc_context3(codec_);
+    AVC_CHECK_THROW(
+        avcodec_parameters_to_context(codec_context_, avc_stream_->codecpar),
+        "avcodec_parameters_to_context");
+    // a decoder trimming priming off a frame corrects its timestamp only if
+    // it knows the timebase; without this the samples move and the label stays
+    codec_context_->pkt_timebase = avc_stream_->time_base;
+    AVC_CHECK_THROW(avcodec_open2(codec_context_, codec_, nullptr), "avcodec_open2");
+}
+
 FFMpegStream::FFMpegStream(
     AVFormatContext *fmt_ctx, AVStream *stream, int index, int thread_count, std::string path)
     : stream_index_(index),
@@ -714,12 +726,7 @@ FFMpegStream::FFMpegStream(
 
     } else if (codec_type_ == AVMEDIA_TYPE_AUDIO && codec_) {
         stream_type_ = AUDIO_STREAM;
-
-        /** initialize the stream parameters with demuxer information */
-        AVC_CHECK_THROW(
-            avcodec_parameters_to_context(codec_context_, avc_stream_->codecpar),
-            "avcodec_parameters_to_context");
-        AVC_CHECK_THROW(avcodec_open2(codec_context_, codec_, nullptr), "avcodec_open2");
+        open_audio_decoder();
     } else {
         throw std::runtime_error("No decoder found.");
     }
@@ -1039,7 +1046,12 @@ int FFMpegStream::send_packet(AVPacket *avc_packet_) {
     return rt;
 }
 
-void FFMpegStream::flush_buffers() { avcodec_flush_buffers(codec_context_); }
+void FFMpegStream::flush_buffers() {
+    if (stream_type_ == AUDIO_STREAM)
+        open_audio_decoder();
+    else
+        avcodec_flush_buffers(codec_context_);
+}
 
 double FFMpegStream::duration_seconds() const {
 
