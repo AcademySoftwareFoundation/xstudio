@@ -734,12 +734,15 @@ bool FFMpegDecoder::PartiallyFilledAudioBuf::copy_samples_from_other_buffer(
 
     // N.B. other_buffer sample rate must match 'the_buffer_' sample rate
 
-    int64_t output_buf_first_sample =
-        (the_buffer_->display_timestamp_flicks() * the_buffer_->sample_rate()) /
-        timebase::k_flicks_one_second;
-    int64_t other_buf_first_sample =
-        (other_buffer->display_timestamp_flicks() * other_buffer->sample_rate()) /
-        timebase::k_flicks_one_second;
+    // signed: a frame of priming handed over ahead of the stream start has a
+    // negative timestamp
+    const int64_t output_buf_first_sample = (the_buffer_->display_timestamp_flicks().count() *
+                                             int64_t(the_buffer_->sample_rate())) /
+                                            timebase::k_flicks_one_second.count();
+    const int64_t other_buf_first_sample  = (other_buffer->display_timestamp_flicks().count() *
+                                             int64_t(other_buffer->sample_rate())) /
+                                            timebase::k_flicks_one_second.count();
+
 
     int64_t first_samp_to_copy = std::max(output_buf_first_sample, other_buf_first_sample);
     int64_t last_samp_to_copy  = std::min(
@@ -773,10 +776,8 @@ bool FFMpegDecoder::PartiallyFilledAudioBuf::copy_samples_from_other_buffer(
         overlap = false;
         for (size_t j = 0; j < filled_samples_.size(); ++j) {
             for (size_t i = j + 1; i < filled_samples_.size(); ++i) {
-                if ((filled_samples_[j].second >= filled_samples_[i].first &&
-                     filled_samples_[j].second <= filled_samples_[i].second) ||
-                    (filled_samples_[j].first >= filled_samples_[i].first &&
-                     filled_samples_[j].first <= filled_samples_[i].second)) {
+                if (filled_samples_[j].first <= filled_samples_[i].second &&
+                    filled_samples_[i].first <= filled_samples_[j].second) {
 
                     filled_samples_[j].second =
                         std::max(filled_samples_[j].second, filled_samples_[i].second);
@@ -913,6 +914,10 @@ void FFMpegDecoder::do_seek(const int seek_frame, bool force) {
             // clear our caches
             video_frame_mini_cache_.clear();
             audio_frame_mini_cache_.clear();
+
+            // half-assembled audio frames were filled from the position being
+            // abandoned; kept, they would finish as a mix of two decode passes
+            partially_filled_output_buffers_.clear();
         }
     }
 }
