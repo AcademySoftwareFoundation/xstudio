@@ -361,6 +361,8 @@ RowLayout {
                             hoverEnabled: true
                             onClicked: {
                                 sendCommand({"action": "change_path", "path": modelData.path})
+                                if (modelData.isPinned)
+                                    treeBaseRootPath = modelData.path
                                 pathPopup.close()
                             }
                         }
