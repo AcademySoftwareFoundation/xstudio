@@ -59,3 +59,28 @@ target_compile_definitions(ffmpeg_audio_integrity_test
 add_test(ffmpeg_audio_integrity_tests ffmpeg_audio_integrity_test)
 
 set_target_properties(ffmpeg_audio_integrity_test PROPERTIES LINK_DEPENDS_NO_SHARED true)
+
+add_executable(audio_pts_rescaler_test audio_pts_rescaler_test.cpp)
+default_options_gtest(audio_pts_rescaler_test)
+target_link_libraries(audio_pts_rescaler_test
+	PUBLIC
+		xstudio::media_reader::ffmpeg
+		${GTEST_LDFLAGS}
+)
+target_include_directories(audio_pts_rescaler_test
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src
+)
+
+# the rescaler keeps its pts in libavutil's rationals
+if (${USE_VCPKG})
+	find_package(FFMPEG REQUIRED)
+	target_link_libraries(audio_pts_rescaler_test PRIVATE ${FFMPEG_LIBRARIES})
+	target_include_directories(audio_pts_rescaler_test PRIVATE ${FFMPEG_INCLUDE_DIRS})
+	target_link_directories(audio_pts_rescaler_test PRIVATE ${FFMPEG_LIBRARY_DIRS})
+else()
+	find_package(FFMPEG REQUIRED COMPONENTS avutil)
+	target_link_libraries(audio_pts_rescaler_test PRIVATE FFMPEG::avutil)
+endif()
+
+add_test(audio_pts_rescaler_tests audio_pts_rescaler_test)

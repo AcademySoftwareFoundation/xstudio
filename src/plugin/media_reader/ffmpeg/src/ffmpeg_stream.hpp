@@ -5,12 +5,16 @@
 #include "xstudio/thumbnail/thumbnail.hpp"
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/frame_rate.hpp"
+#include "audio_pts_rescaler.hpp"
+
+#include <limits>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/buffer.h>
 #include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
+#include <libavutil/mathematics.h>
 #include <libavutil/pixfmt.h>
 #include <libswresample/swresample.h>
 #include <libswscale/swscale.h>
@@ -132,10 +136,11 @@ class FFMpegStream {
                                               double(avc_stream_->time_base.num)));
     }
 
-    void set_current_frame_unknown() {
-        current_frame_        = CURRENT_FRAME_UNKNOWN;
-        current_audio_sample_ = -1;
-    }
+    void set_current_frame_unknown() { current_frame_ = CURRENT_FRAME_UNKNOWN; }
+
+    // Audio decoded after a seek and dropped, so the decoder has settled: RFC 7845
+    // asks 80ms for opus, the most any codec here needs.
+    static constexpr double AUDIO_SEEK_PREROLL_SECONDS = 0.08;
 
     // The timestamp of the first packet of the stream: the start time, or the
     // first index entry where that is earlier, as in an mp4 whose edit list
@@ -143,6 +148,27 @@ class FFMpegStream {
     // reports. Never later than the start time: a format without an index of
     // its own gets entries added wherever a seek happened to probe.
     [[nodiscard]] int64_t first_packet_pts() const;
+
+    // Whether the run about to be decoded starts with pre-roll to drop, and the
+    // timestamp the seek was meant to reach: nothing from there on is dropped.
+    // Not at the head of the stream, where the decoder's initial state is right.
+    void set_audio_preroll(const bool preroll, const int64_t wanted_pts) {
+        audio_preroll_pending_ = preroll;
+        audio_wanted_pts_      = wanted_pts;
+        audio_landed_late_     = false;
+    }
+    // whether the first frame decoded after the seek started after the
+    // timestamp the seek was meant to reach: the demuxer landed late
+    [[nodiscard]] bool audio_landed_late() const { return audio_landed_late_; }
+
+    // Once per audio stream: seek to its first packet and decode the first
+    // frames with a codec context of its own, to learn the frame sizes and
+    // where the audio starts. Returns whether it ran, since running moves the
+    // read position.
+    bool probe_audio_start();
+    // Where to seek to decode from target_pts. Differs from target_pts for a
+    // stream whose packets are regions of differing size, see AudioPtsRescaler.
+    int64_t audio_seek_pts(int64_t target_pts);
 
   private:
     [[nodiscard]] int64_t stream_start_time() const {
@@ -152,8 +178,11 @@ class FFMpegStream {
     void decode_attached_pic();
 
     // a fresh decoder, as the head of the stream gets: a flush does not reset
-    // every decoder
+    // every decoder, and priming is trimmed by hand from whole frames
     void open_audio_decoder();
+    // drop the samples the frame's skip-samples side data names; returns the
+    // count dropped from the front
+    int64_t trim_skipped_samples();
 
     // void setup_frame(ImageStorePtr & video_frame);
     int stream_index_;
@@ -172,10 +201,40 @@ class FFMpegStream {
     bool using_own_frame_allocation       = {false};
     bool nothing_decoded_yet_             = {true};
     int64_t current_frame_                = {CURRENT_FRAME_UNKNOWN};
-    int64_t current_audio_sample_         = {-1};
-    Imath::V2i resolution_                = {Imath::V2i(0, 0)};
-    float pixel_aspect_                   = 1.0f;
-    bool is_attached_pic_                 = {false};
+
+    // decoded frames ending at or before this run position are pre-roll; the
+    // lowest position of all means none is
+    static constexpr int64_t NO_PREROLL = std::numeric_limits<int64_t>::min();
+    int64_t audio_publish_from_         = {NO_PREROLL};
+    bool audio_preroll_pending_         = {false};
+    int64_t audio_wanted_pts_           = {0};
+    bool audio_landed_late_             = {false};
+
+
+    AudioPtsRescaler audio_pts_rescaler_;
+    // the file position of the audio packet last sent to the decoder, and which
+    // of the packets at that position it was
+    static constexpr int64_t NO_PACKET_POS = std::numeric_limits<int64_t>::min();
+    int64_t audio_packet_pos_              = {NO_PACKET_POS};
+    int audio_packet_ordinal_              = {0};
+    // sizing packets for the region table without decoding them: the codec's
+    // parser, and the region of the packet it was fed last
+    static constexpr int64_t NO_REGION  = -1;
+    AVCodecParserContext *audio_parser_ = {nullptr};
+    AVCodecContext *audio_parse_ctx_    = {nullptr};
+    int64_t audio_sizer_fed_            = {NO_REGION};
+    bool audio_duration_in_samples_     = {false};
+    int64_t audio_first_packet_pts_     = {0};
+
+    void reset_audio_packet_sizer();
+    int size_audio_packet(const AVPacket *packet, int64_t region);
+    void add_audio_region(const AVPacket *packet);
+    void extend_audio_region_table(int64_t sample);
+    bool audio_start_probed_ = {false};
+
+    Imath::V2i resolution_ = {Imath::V2i(0, 0)};
+    float pixel_aspect_    = 1.0f;
+    bool is_attached_pic_  = {false};
 
     // for video rescaling
     SwsContext *sws_context_ = {nullptr};

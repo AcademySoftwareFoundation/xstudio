@@ -422,14 +422,26 @@ void FFMpegDecoder::decode_audio_frame(
 
         // this is the decode loop, we keep going until we have decoded the frame
         // that we want.
-        while (last_decoded_frame_ <= frame_num) {
+        for (;;) {
+            while (last_decoded_frame_ <= frame_num) {
 
-            // decoding of any and all streams happens in this call, and if
-            // we get a complete video or audio frame it is also stored within
-            // this function
-            if (decode_and_store_next_frame() == AVERROR_EOF) {
-                break;
+                // decoding of any and all streams happens in this call, and if
+                // we get a complete video or audio frame it is also stored within
+                // this function
+                if (decode_and_store_next_frame() == AVERROR_EOF) {
+                    break;
+                }
             }
+
+            // A demuxer that lands a seek later than asked (a program stream,
+            // whose parser drops packets while it finds its feet) leaves the
+            // decoder no warm-up before the frame: seek again from further
+            // back, and keep that distance for this file.
+            if (!decode_stream_->audio_landed_late() ||
+                audio_preroll_scale_ >= MAX_AUDIO_PREROLL_SCALE)
+                break;
+            audio_preroll_scale_ *= 2;
+            do_seek(frame_num, true);
         }
 
         // re-check if we have the frame we want
@@ -747,10 +759,9 @@ bool FFMpegDecoder::PartiallyFilledAudioBuf::copy_samples_from_other_buffer(
     const int64_t output_buf_first_sample = (the_buffer_->display_timestamp_flicks().count() *
                                              int64_t(the_buffer_->sample_rate())) /
                                             timebase::k_flicks_one_second.count();
-    const int64_t other_buf_first_sample  = (other_buffer->display_timestamp_flicks().count() *
-                                             int64_t(other_buffer->sample_rate())) /
-                                            timebase::k_flicks_one_second.count();
-
+    const int64_t other_buf_first_sample = (other_buffer->display_timestamp_flicks().count() *
+                                            int64_t(other_buffer->sample_rate())) /
+                                           timebase::k_flicks_one_second.count();
 
     int64_t first_samp_to_copy = std::max(output_buf_first_sample, other_buf_first_sample);
     int64_t last_samp_to_copy  = std::min(
@@ -891,6 +902,11 @@ void FFMpegDecoder::do_seek(const int seek_frame, bool force) {
     // frames will be put in our mini cache, so next time we need a frame
     // that is before the one we were just asked for it's already decoded.
 
+    // the start of an audio stream is probed once, which moves the read
+    // position, so the seek below then has to happen for real
+    if (decode_stream_ && decode_stream_->probe_audio_start())
+        force = true;
+
     if (decode_stream_) {
         decode_stream_->set_current_frame_unknown();
 
@@ -905,6 +921,25 @@ void FFMpegDecoder::do_seek(const int seek_frame, bool force) {
                 decoding_backwards_ ? std::max(seek_frame - 16, 0)
                                     : std::max(seek_frame - 1, 0));
 
+            bool audio_preroll       = false;
+            const int64_t wanted_pts = timestamp;
+            if (decode_stream_->stream_type() == AUDIO_STREAM) {
+
+                timestamp -= decode_stream_->seconds_to_pts(
+                    FFMpegStream::AUDIO_SEEK_PREROLL_SECONDS * audio_preroll_scale_);
+                audio_preroll = true;
+
+                // Below the first packet there is nothing to pre-roll from. Seek to
+                // its timestamp, not INT64_MIN, which not every demuxer reads as the head.
+                if (timestamp <= decode_stream_->first_packet_pts()) {
+                    timestamp     = decode_stream_->first_packet_pts();
+                    audio_preroll = false;
+                }
+            }
+
+            // a stream whose packets differ in size knows which one holds that time
+            timestamp = decode_stream_->audio_seek_pts(timestamp);
+
             decode_stream_->flush_buffers();
 
             std::stringstream msg;
@@ -916,6 +951,8 @@ void FFMpegDecoder::do_seek(const int seek_frame, bool force) {
                     timestamp,
                     AVSEEK_FLAG_BACKWARD),
                 msg.str().c_str());
+
+            decode_stream_->set_audio_preroll(audio_preroll, wanted_pts);
 
             last_decoded_frame_ = -100;
 
