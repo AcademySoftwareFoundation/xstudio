@@ -98,6 +98,15 @@ ApplicationWindow {
         }
     }
 
+    // Bring the first tab showing panel type 'viewName' (e.g. "Viewport") to
+    // the front of its tab strip in the current layout. Returns false if the
+    // layout has no such tab.
+    function selectPanelTab(viewName) {
+        var idx = ui_layouts_model.searchRecursive(viewName, "tab_view", layoutBar.current_layout_index)
+        if (!idx.valid) return false
+        return ui_layouts_model.set(idx.parent, idx.row, "current_tab")
+    }
+
     function togglePresentationMode() {
         if (layoutName == "Present") {
             setLayoutName(lastNonPresentLayout)

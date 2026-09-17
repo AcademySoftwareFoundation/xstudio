@@ -53,6 +53,17 @@ Item {
         Component.onCompleted: channel.registerObject("xstudioWebBridge", xstudioWebBridge)
     }
 
+    // Layout and tab switching are QML concerns; the bridge just relays.
+    Connections {
+        target: xstudioWebBridge
+        function onLayoutRequested(name) {
+            appWindow.setLayoutName(name)
+        }
+        function onPanelRequested(requestId, name) {
+            xstudioWebBridge.panelRequestDone(requestId, appWindow.selectPanelTab(name), name)
+        }
+    }
+
     ColumnLayout {
 
         anchors.fill: parent

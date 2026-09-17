@@ -13,6 +13,7 @@ SET(LINK_DEPS
 	xstudio::ui::qt::viewport_widget
 	xstudio::utility
 	xstudio::session
+	xstudio::timeline
 )
 
 SET(EXTRAMOC

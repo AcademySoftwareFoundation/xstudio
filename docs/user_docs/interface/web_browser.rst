@@ -6,8 +6,8 @@ The Web Browser Panel
 The Web Browser panel embeds a Chromium based browser (Qt WebEngine) inside
 xSTUDIO. It is intended to host web based tools that drive xSTUDIO, so pages
 loaded in it can reach a native bridge object over `Qt WebChannel
-<https://doc.qt.io/qt-6/qtwebchannel-index.html>`_. The bridge is still a
-stub; at present it only proves that the connection works.
+<https://doc.qt.io/qt-6/qtwebchannel-index.html>`_; see `The bridge API`_
+below.
 
 The panel is only present in builds configured with ``BUILD_WEBENGINE=ON``
 (see the build guides). Standard builds do not include it. It is
@@ -30,6 +30,74 @@ is a bundled test page that connects to xSTUDIO over the channel and calls
 Anything the page writes to its JavaScript console is forwarded to the
 xSTUDIO log, prefixed with ``[web]``, so problems with a page can be read in
 the Log panel without opening developer tools.
+
+The bridge API
+--------------
+
+The native object is registered on the panel's QWebChannel as
+``xstudioWebBridge``. A page reaches it with Qt's ``qwebchannel.js``:
+
+.. code-block:: javascript
+
+    new QWebChannel(qt.webChannelTransport, function (channel) {
+        var bridge = channel.objects.xstudioWebBridge;
+        bridge.result.connect(function (id, res) { /* res.ok, res.error, ... */ });
+        bridge.findPlaylist("Review", function (id) { /* outcome arrives on result(id, res) */ });
+    });
+
+``ping()`` and ``version()`` answer directly through the callback. Every other
+method returns a request id straight away and does its work on a worker thread,
+in call order. ``addMedia`` is the exception: each add appears in the playlist
+at once, in call order, but none waits for the one before to load, and each
+answers when its file has been read, so a page should fire all its adds at once
+and await each ``uuid`` only when it needs it. A file that cannot be opened
+still becomes an item, with an error status. Every call adds an item; a page
+that wants one item per URL keeps its own map. The outcome arrives on the
+``result`` signal with that id and an object that always has ``ok`` and, on
+failure, ``error``. Handles are UUID strings. A page gets them from the calls
+that create things and from ``findPlaylist``, which hands out a handle to a
+playlist already in the session. The bridge only accepts handles it has handed
+out; a UUID copied from elsewhere is rejected.
+
+.. list-table::
+   :widths: 40 60
+   :header-rows: 1
+
+   * - Method
+     - Result fields
+   * - ``ping()``
+     - returns ``"pong"``; the connection check
+   * - ``version()``
+     - returns ``{xstudio, bridge}``: the release and the bridge API number.
+       A web tool can compare these and ask the user for a newer xSTUDIO.
+   * - ``findPlaylist(name)``
+     - ``uuid``, empty when no playlist has that name.
+   * - ``createPlaylist(name)``
+     - ``uuid``.
+   * - ``createTimeline(playlistUuid, name)``
+     - ``uuid``. An empty timeline (no default tracks) in that playlist.
+   * - ``insertVideoTrack(timelineUuid, name, colour)``
+     - ``uuid``. Appends a video track; ``colour`` is ``RRGGBB``, may be empty.
+   * - ``insertAudioTrack(timelineUuid, name)``
+     - ``uuid``. Appends an audio track.
+   * - ``addMedia(playlistUuid, url)``
+     - ``uuid``. Adds one media item from ``http(s)://``, ``file://`` or a path.
+   * - ``insertClip(trackUuid, mediaUuid, name)``
+     - ``uuid``, ``frames``. Appends the media to the track as a clip and
+       reports its length.
+   * - ``showTimeline(timelineUuid)``
+     - Makes the timeline the viewed and inspected container.
+   * - ``selectLayout(name)``
+     - Switches the main window to the named layout ("Review", "Timeline",
+       "Present"; empty means "Review").
+   * - ``selectPanel(name)``
+     - Brings the first tab showing that panel type (for example "Viewport")
+       to the front of its tab strip in the current layout; ``ok`` is false
+       if the layout has no such tab.
+
+Each call is one Python API call, nothing more. How a payload turns into
+tracks, clips and gaps, and what to show afterwards, is the page's job: one web server is easier
+to update than every xSTUDIO install.
 
 Rendering: GPU and CPU
 ----------------------
