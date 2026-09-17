@@ -3,9 +3,9 @@
         "qml": {
             "web_browser_home_url": {
                 "path": "/ui/qml/web_browser_home_url",
-                "default_value": "about:blank",
-                "description": "Page the Web Browser panel opens on and returns to with the Home button.",
-                "value": "about:blank",
+                "default_value": "qrc:/application/panels/webbrowser/webchannel_test.html",
+                "description": "Page the Web Browser panel opens on and returns to with the Home button. The default is a bundled test page that checks the panel's connection to xSTUDIO.",
+                "value": "qrc:/application/panels/webbrowser/webchannel_test.html",
                 "datatype": "string",
                 "context": [
                     "QML_UI"

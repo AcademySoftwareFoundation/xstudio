@@ -4,7 +4,10 @@ The Web Browser Panel
 =====================
 
 The Web Browser panel embeds a Chromium based browser (Qt WebEngine) inside
-xSTUDIO. It is intended to host web based tools that drive xSTUDIO.
+xSTUDIO. It is intended to host web based tools that drive xSTUDIO, so pages
+loaded in it can reach a native bridge object over `Qt WebChannel
+<https://doc.qt.io/qt-6/qtwebchannel-index.html>`_. The bridge is still a
+stub; at present it only proves that the connection works.
 
 The panel is only present in builds configured with ``BUILD_WEBENGINE=ON``
 (see the build guides). Standard builds do not include it. It is
@@ -20,7 +23,9 @@ and press Enter to load it. The footer shows the page title, or the load
 progress while a page is loading.
 
 The page that opens when the panel is created, and that **Home** returns to,
-is set in Preferences (**Web Browser** tab, **Home Page**).
+is set in Preferences (**Web Browser** tab, **Home Page**). The shipped default
+is a bundled test page that connects to xSTUDIO over the channel and calls
+``ping()``; it prints ``pong`` when everything is wired up.
 
 Anything the page writes to its JavaScript console is forwarded to the
 xSTUDIO log, prefixed with ``[web]``, so problems with a page can be read in

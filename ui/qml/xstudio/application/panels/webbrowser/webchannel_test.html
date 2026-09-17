@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>xSTUDIO WebChannel test</title>
+<style>
+  body { font-family: sans-serif; background: #2b2b2b; color: #ddd; padding: 2em; }
+  #status { font-size: 1.4em; margin: 1em 0; }
+  .ok { color: #7c7; } .err { color: #e66; }
+  button { font-size: 1em; padding: 0.4em 1em; }
+  pre { background: #1e1e1e; padding: 1em; }
+</style>
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+</head>
+<body>
+<h2>xSTUDIO WebChannel test</h2>
+<p>Connects to the native <code>xstudioWebBridge</code> object over QWebChannel and calls <code>ping()</code>.</p>
+<div id="status">Connecting…</div>
+<button id="pingBtn" disabled>ping()</button>
+<pre id="log"></pre>
+<script>
+  var logEl = document.getElementById("log");
+  var statusEl = document.getElementById("status");
+  function log(msg) { logEl.textContent += new Date().toISOString().substr(11, 12) + "  " + msg + "\n"; }
+  function setStatus(msg, cls) { statusEl.textContent = msg; statusEl.className = cls || ""; }
+
+  if (typeof qt === "undefined" || !qt.webChannelTransport) {
+    setStatus("No qt.webChannelTransport: page is not running inside a WebEngineView with a WebChannel.", "err");
+  } else {
+    new QWebChannel(qt.webChannelTransport, function (channel) {
+      var bridge = channel.objects.xstudioWebBridge;
+      if (!bridge) {
+        setStatus("Channel connected but xstudioWebBridge is not registered.", "err");
+        log("registered objects: " + Object.keys(channel.objects).join(", "));
+        return;
+      }
+      setStatus("Channel connected. xstudioWebBridge is available.", "ok");
+      var btn = document.getElementById("pingBtn");
+      btn.disabled = false;
+      var doPing = function () {
+        log("→ ping()");
+        bridge.ping(function (reply) {
+          log("← " + JSON.stringify(reply));
+          console.log("xstudioWebBridge.ping() -> " + JSON.stringify(reply));
+          setStatus("ping() returned " + JSON.stringify(reply), reply === "pong" ? "ok" : "err");
+        });
+      };
+      btn.onclick = doPing;
+      doPing();
+    });
+  }
+</script>
+</body>
+</html>

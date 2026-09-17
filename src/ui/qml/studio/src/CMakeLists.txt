@@ -16,6 +16,7 @@ SET(LINK_DEPS
 )
 
 SET(EXTRAMOC
+	${ROOT_DIR}/include/xstudio/ui/qml/web_bridge_ui.hpp
 )
 
 create_qml_component(studio ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}" "${EXTRAMOC}")

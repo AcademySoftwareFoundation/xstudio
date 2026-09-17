@@ -14,6 +14,7 @@
 #include "xstudio/ui/qml/shotgun_provider_ui.hpp"
 #include "xstudio/ui/qml/studio_ui.hpp" //NOLINT
 #include "xstudio/ui/qml/thumbnail_provider_ui.hpp"
+#include "xstudio/ui/qml/web_bridge_ui.hpp"
 
 #include <QApplication>
 #include <QFontDatabase>
@@ -119,6 +120,7 @@ void xstudio::ui::qml::setup_xstudio_qml_emgine(QQmlEngine *engine, caf::actor_s
     // QML can't see the ifdef, so it gates on this bool instead.
 #ifdef BUILD_WEBENGINE
     engine->rootContext()->setContextProperty("webEngineAvailable", true);
+    engine->rootContext()->setContextProperty("xstudioWebBridge", new WebBridgeUI(engine));
 #else
     engine->rootContext()->setContextProperty("webEngineAvailable", false);
 #endif
