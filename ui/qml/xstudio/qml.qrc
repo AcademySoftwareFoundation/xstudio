@@ -112,6 +112,7 @@
 	    <file>application/panels/log/XsLogPanel.qml</file>
 	    <file>application/panels/webbrowser/XsWebBrowserPanel.qml</file>
 	    <file>application/panels/webbrowser/webchannel_test.html</file>
+	    <file>application/panels/webbrowser/xstudio.css</file>
 
 	    <file>application/panels/viewport/XsOffscreenViewportOverlays.qml</file>
 	    <file>application/panels/viewport/XsViewportPanel.qml</file>
