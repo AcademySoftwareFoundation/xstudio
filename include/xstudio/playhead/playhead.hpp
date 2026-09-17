@@ -145,7 +145,8 @@ class PlayheadBase : public module::Module {
         auto_align_mode_names = {
             {AAM_ALIGN_OFF, "Off", "Off", true},
             {AAM_ALIGN_FRAMES, "On", "On", true},
-            {AAM_ALIGN_TRIM, "On (Trim)", "Trim", true}};
+            {AAM_ALIGN_TRIM, "On (Trim)", "Trim", true},
+            {AAM_ALIGN_MANUAL, "Manual", "Man.", true}};
 
     utility::TimeSourceMode play_rate_mode_{utility::TimeSourceMode::DYNAMIC};
     utility::FrameRate playhead_rate_;
