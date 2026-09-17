@@ -581,6 +581,9 @@ ApplicationWindow {
         viewsModel.register_view("divider", "divider", 9.0)
         viewsModel.register_view("qrc:/application/panels/python/XsPythonPanel.qml", "Python", 10.0)
         viewsModel.register_view("qrc:/application/panels/log/XsLogPanel.qml", "Log", 11.0)
+        if (webEngineAvailable) {
+            viewsModel.register_view("qrc:/application/panels/webbrowser/XsWebBrowserPanel.qml", "Web Browser", 12.0)
+        }
 
         popoutWindowsModel.register_popout_window(
             "Notes",

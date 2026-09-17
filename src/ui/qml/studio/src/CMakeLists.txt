@@ -19,3 +19,7 @@ SET(EXTRAMOC
 )
 
 create_qml_component(studio ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}" "${EXTRAMOC}")
+
+if(BUILD_WEBENGINE)
+	target_compile_definitions(studio_qml PRIVATE BUILD_WEBENGINE)
+endif()

@@ -1,0 +1,30 @@
+{
+    "ui": {
+        "qml": {
+            "web_browser_home_url": {
+                "path": "/ui/qml/web_browser_home_url",
+                "default_value": "about:blank",
+                "description": "Page the Web Browser panel opens on and returns to with the Home button.",
+                "value": "about:blank",
+                "datatype": "string",
+                "context": [
+                    "QML_UI"
+                ],
+                "category": "Web Browser",
+                "display_name": "Home Page"
+            },
+            "web_browser_disable_gpu": {
+                "path": "/ui/qml/web_browser_disable_gpu",
+                "default_value": false,
+                "description": "Render web pages on the CPU instead of the GPU. Turn this on if the Web Browser panel is black because GPU rendering failed. Requires a restart.",
+                "value": false,
+                "datatype": "bool",
+                "context": [
+                    "QML_UI"
+                ],
+                "category": "Web Browser",
+                "display_name": "Render Pages on CPU"
+            }
+        }
+    }
+}

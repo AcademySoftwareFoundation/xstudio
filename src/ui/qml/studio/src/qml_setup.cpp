@@ -114,6 +114,14 @@ void xstudio::ui::qml::setup_xstudio_qml_emgine(QQmlEngine *engine, caf::actor_s
 
     engine->rootContext()->setContextProperty("CurrentDirPath", QString(QDir::currentPath()));
     engine->rootContext()->setContextProperty("logger", proxylogger);
+
+    // The web browser panel is only registered when built with BUILD_WEBENGINE.
+    // QML can't see the ifdef, so it gates on this bool instead.
+#ifdef BUILD_WEBENGINE
+    engine->rootContext()->setContextProperty("webEngineAvailable", true);
+#else
+    engine->rootContext()->setContextProperty("webEngineAvailable", false);
+#endif
     // connect logger.
     auto logsink = std::make_shared<spdlog::sinks::qtlog_sink_mt>(logger);
     spdlog::get("xstudio")->sinks().push_back(logsink);
