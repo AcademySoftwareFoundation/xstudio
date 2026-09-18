@@ -1,10 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <chrono>
+#include <cstdlib>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
+#include <algorithm>
+#include <vector>
 
 #include "ffmpeg_stream.hpp"
+
+extern "C" {
+#include <libavutil/intreadwrite.h>
+}
 #include "xstudio/media/media_error.hpp"
 
 #ifdef __GNUC__ // Check if GCC compiler is being used
@@ -530,6 +538,33 @@ FFMpegStream::convert_av_frame_to_thumbnail(const size_t size_hint) {
 
 AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio() {
 
+    // where the whole frame sits in the stream; pre-roll is judged by that too
+    const int64_t about =
+        audio_pts_rescaler_.uses_region_table()
+            ? audio_pts_rescaler_.region_start(
+                  int64_t(reinterpret_cast<intptr_t>(ffmpeg_frame_->opaque)) - 1)
+            : audio_pts_rescaler_.position(ffmpeg_frame_->pts);
+
+    if (audio_preroll_pending_) {
+        // pre-roll is what was decoded before the position asked for, up to the
+        // warm-up the seek allowed for. A demuxer that lands with less than
+        // half that warm-up to spare has landed late.
+        const int64_t warm_up =
+            int64_t(AUDIO_SEEK_PREROLL_SECONDS * ffmpeg_frame_->sample_rate);
+        const int64_t wanted   = audio_pts_rescaler_.rescale(audio_wanted_pts_);
+        audio_landed_late_     = about > wanted - warm_up / 2;
+        audio_publish_from_    = std::min(about + warm_up, wanted);
+        audio_preroll_pending_ = false;
+    }
+    if (about + ffmpeg_frame_->nb_samples <= audio_publish_from_)
+        return AudioBufPtr();
+
+    // the priming the container asked to be dropped is dropped from the frame; a
+    // frame it swallows whole is not kept
+    const int64_t pos = about + trim_skipped_samples();
+    if (ffmpeg_frame_->nb_samples <= 0)
+        return AudioBufPtr();
+
     AudioBufPtr audio_buffer(new AudioBuffer());
     audio_buffer->allocate(
         ffmpeg_frame_->sample_rate, // sample rate
@@ -578,48 +613,78 @@ AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio() {
     // AudioBufPtr class.
     resample_audio(ffmpeg_frame_, audio_buffer, -1, ffmpeg_frame_->sample_rate);
 
-    if (avc_stream_->time_base.den >= ffmpeg_frame_->sample_rate) {
-
-        // if the numerator of the timebase is greater than the sample rate, then
-        // the frame pts should be accurate to withing one sample. This means
-        // that we can rely on the pts to exactly tell us where this frame of
-        // audio lies relative to the start of the audio stream
-        audio_buffer->set_display_timestamp_flicks(
-            (timebase::k_flicks_one_second * ffmpeg_frame_->pts * avc_stream_->time_base.num) /
-            avc_stream_->time_base.den);
-
-    } else {
-        // uh-oh ... timebase is NOT accurate enough for us to know exactly the timestamp
-        // for this audio frame. Seem like orbis can do this - the timebase gives
-        // us millisecond accuracy but sample rate is 48kHz.
-        if (current_audio_sample_ == -1) {
-
-            // current_audio_sample_ is -1 if we've done a seek or otherwise
-            // this is the first frame decoded
-
-            // best guess for the position of the first sample of this frame
-            // within the overall stream
-            current_audio_sample_ =
-                (ffmpeg_frame_->pts * ffmpeg_frame_->sample_rate * avc_stream_->time_base.num) /
-                avc_stream_->time_base.den;
-
-            // subsequent decoded frames will at least have accurate timestamp
-            // vs. this frame because we increment current_audio_sample_ by the
-            // number of samples in the frame.
-            // This should be good enough to assemble and re-sample the audio
-            // in ffmpeg_decoder.cpp where ffmpeg audio frames are lined up to
-            // a virtual video frame rate and re-sampled to match the soundcard
-            // sample rate.
-        }
-
-        audio_buffer->set_display_timestamp_flicks(
-            (timebase::k_flicks_one_second * current_audio_sample_) /
-            ffmpeg_frame_->sample_rate);
-
-        current_audio_sample_ += ffmpeg_frame_->nb_samples;
-    }
+    audio_buffer->set_display_timestamp_flicks(
+        (timebase::k_flicks_one_second * pos) / ffmpeg_frame_->sample_rate);
 
     return audio_buffer;
+}
+
+int64_t FFMpegStream::first_packet_pts() const {
+    int64_t first = stream_start_time();
+    if (avformat_index_get_entries_count(avc_stream_))
+        first = std::min(first, avformat_index_get_entry(avc_stream_, 0)->timestamp);
+    return first;
+}
+
+void FFMpegStream::open_audio_decoder() {
+    avcodec_free_context(&codec_context_);
+    codec_context_ = avcodec_alloc_context3(codec_);
+    AVC_CHECK_THROW(
+        avcodec_parameters_to_context(codec_context_, avc_stream_->codecpar),
+        "avcodec_parameters_to_context");
+    // the decoder corrects timestamps for samples it trims only if it knows the
+    // timebase; and here it trims nothing, it names the samples to drop instead,
+    // so every frame it returns is a whole one
+    codec_context_->pkt_timebase = avc_stream_->time_base;
+    codec_context_->flags2 |= AV_CODEC_FLAG2_SKIP_MANUAL;
+    // a frame carries the opaque of the packet it was decoded from
+    codec_context_->flags |= AV_CODEC_FLAG_COPY_OPAQUE;
+    AVC_CHECK_THROW(avcodec_open2(codec_context_, codec_, nullptr), "avcodec_open2");
+}
+
+// The skip-samples side data a frame carries when the decoder is opened with
+// AV_CODEC_FLAG2_SKIP_MANUAL, laid out as libavutil/frame.h says:
+//   u32le  samples to drop from the start of the frame
+//   u32le  samples to drop from the end
+//   u8     reason for each, which the reader has no use for
+namespace {
+constexpr size_t SKIP_START_OFFSET = 0;
+constexpr size_t SKIP_END_OFFSET   = 4;
+constexpr size_t SKIP_COUNTS_SIZE  = 8; // both counts present
+} // namespace
+
+// Drop the samples the side data names, in place. A frame owns its memory
+// through reference-counted buffers, not through its data pointers, so moving
+// the pointers forward is safe and the frame frees as before. Packed audio has
+// one plane holding every channel interleaved; planar audio has one plane per
+// channel. extended_data is the authoritative array of planes and data mirrors
+// its first entries, so both are moved when they are distinct.
+int64_t FFMpegStream::trim_skipped_samples() {
+    const AVFrameSideData *side =
+        av_frame_get_side_data(ffmpeg_frame_, AV_FRAME_DATA_SKIP_SAMPLES);
+    if (!side || side->size < SKIP_COUNTS_SIZE)
+        return 0;
+    // a frame the priming swallows whole names more samples than it holds
+    const int64_t skip =
+        std::min<int64_t>(AV_RL32(side->data + SKIP_START_OFFSET), ffmpeg_frame_->nb_samples);
+    const int64_t discard = std::min<int64_t>(
+        AV_RL32(side->data + SKIP_END_OFFSET), ffmpeg_frame_->nb_samples - skip);
+    if (skip > 0) {
+        const auto fmt   = AVSampleFormat(ffmpeg_frame_->format);
+        const int bps    = av_get_bytes_per_sample(fmt);
+        const int chans  = ffmpeg_frame_->ch_layout.nb_channels;
+        const int planes = av_sample_fmt_is_planar(fmt) ? chans : 1;
+        // bytes per plane for one sample: every channel in the packed plane,
+        // one channel in a planar one
+        const int64_t step = skip * bps * (planes == 1 ? chans : 1);
+        for (int i = 0; i < planes; ++i)
+            ffmpeg_frame_->extended_data[i] += step;
+        if (ffmpeg_frame_->extended_data != ffmpeg_frame_->data)
+            for (int i = 0; i < std::min(planes, AV_NUM_DATA_POINTERS); ++i)
+                ffmpeg_frame_->data[i] = ffmpeg_frame_->extended_data[i];
+    }
+    ffmpeg_frame_->nb_samples -= int(skip + discard);
+    return skip;
 }
 
 FFMpegStream::FFMpegStream(
@@ -707,12 +772,7 @@ FFMpegStream::FFMpegStream(
 
     } else if (codec_type_ == AVMEDIA_TYPE_AUDIO && codec_) {
         stream_type_ = AUDIO_STREAM;
-
-        /** initialize the stream parameters with demuxer information */
-        AVC_CHECK_THROW(
-            avcodec_parameters_to_context(codec_context_, avc_stream_->codecpar),
-            "avcodec_parameters_to_context");
-        AVC_CHECK_THROW(avcodec_open2(codec_context_, codec_, nullptr), "avcodec_open2");
+        open_audio_decoder();
     } else {
         throw std::runtime_error("No decoder found.");
     }
@@ -770,6 +830,9 @@ FFMpegStream::~FFMpegStream() {
     if (codec_context_) {
         avcodec_free_context(&codec_context_);
     }
+    if (audio_parser_)
+        av_parser_close(audio_parser_);
+    avcodec_free_context(&audio_parse_ctx_);
     if (sws_context_)
         sws_freeContext(sws_context_);
 }
@@ -1027,12 +1090,290 @@ int64_t FFMpegStream::receive_frame() {
 void FFMpegStream::send_flush_packet() { avcodec_send_packet(codec_context_, nullptr); }
 
 int FFMpegStream::send_packet(AVPacket *avc_packet_) {
+    if (stream_type_ == AUDIO_STREAM && audio_pts_rescaler_.uses_region_table()) {
+        // Name the packet by where it is in the file and which of the packets
+        // there it is, and let the decoder hand its region to the frame it
+        // decodes to (AV_CODEC_FLAG_COPY_OPAQUE). 0 is left to mean no packet.
+        audio_packet_ordinal_ =
+            avc_packet_->pos == audio_packet_pos_ ? audio_packet_ordinal_ + 1 : 0;
+        audio_packet_pos_ = avc_packet_->pos;
+
+        if (audio_pts_rescaler_.has_region(audio_packet_pos_, audio_packet_ordinal_)) {
+            // only keeps the parser in step for the packets that follow
+            size_audio_packet(
+                avc_packet_,
+                audio_pts_rescaler_.region_index(audio_packet_pos_, audio_packet_ordinal_));
+        } else if (
+            audio_sizer_fed_ != NO_REGION &&
+            audio_sizer_fed_ == audio_pts_rescaler_.regions() - 1) {
+            // reading on past the end of the table: the next region
+            add_audio_region(avc_packet_);
+        }
+        // anything else is a packet the table should hold and does not: that throws
+        avc_packet_->opaque = reinterpret_cast<void *>(intptr_t(
+            audio_pts_rescaler_.region_index(audio_packet_pos_, audio_packet_ordinal_) + 1));
+    }
     int rt = avcodec_send_packet(codec_context_, avc_packet_);
     av_packet_unref(avc_packet_);
     return rt;
 }
 
-void FFMpegStream::flush_buffers() { avcodec_flush_buffers(codec_context_); }
+void FFMpegStream::flush_buffers() {
+    if (stream_type_ == AUDIO_STREAM) {
+        open_audio_decoder();
+        // the next packet read is the first at its file position again, and
+        // does not follow the one the packet sizer saw last
+        audio_packet_pos_     = NO_PACKET_POS;
+        audio_packet_ordinal_ = 0;
+        if (audio_pts_rescaler_.uses_region_table())
+            reset_audio_packet_sizer();
+    } else {
+        avcodec_flush_buffers(codec_context_);
+    }
+    // nothing is pre-roll until a seek says so
+    audio_publish_from_    = NO_PREROLL;
+    audio_preroll_pending_ = false;
+}
+
+bool FFMpegStream::probe_audio_start() {
+
+    if (stream_type_ != AUDIO_STREAM || audio_start_probed_)
+        return false;
+    audio_start_probed_ = true;
+    if (av_seek_frame(
+            format_context_, stream_index_, first_packet_pts(), AVSEEK_FLAG_BACKWARD) < 0)
+        return true;
+
+    AVCodecContext *probe = avcodec_alloc_context3(codec_);
+    AVPacket *packet      = av_packet_alloc();
+    AVFrame *frame        = av_frame_alloc();
+
+    AudioPtsRescaler::StreamStart start;
+    start.initial_padding  = avc_stream_->codecpar->initial_padding;
+    start.priming_declared = start.initial_padding > 0;
+    int sample_rate        = avc_stream_->codecpar->sample_rate;
+    int first_packet_size  = 0;
+
+    // a second or so of frames: enough for the pts of a 1/1000 time_base to
+    // fix where the audio starts
+    static constexpr size_t PROBE_FRAMES = 48;
+    // packets of any stream read before giving up, so a stream that never
+    // yields a frame cannot spin; a file with video has many between two of
+    // audio, so it is generous, and nothing depends on its value
+    static constexpr int PROBE_PACKETS_LIMIT = 1024;
+
+    if (probe && packet && frame &&
+        avcodec_parameters_to_context(probe, avc_stream_->codecpar) >= 0) {
+        probe->pkt_timebase = avc_stream_->time_base;
+        probe->flags2 |= AV_CODEC_FLAG2_SKIP_MANUAL;
+        if (avcodec_open2(probe, codec_, nullptr) >= 0) {
+            bool accepted = false;
+            for (int i = 0; i < PROBE_PACKETS_LIMIT && start.frames.size() < PROBE_FRAMES;
+                 ++i) {
+                if (av_read_frame(format_context_, packet) < 0)
+                    break;
+                // a packet the decoder rejects is the partial one a seek to the
+                // head of a program stream lands on; the first it accepts is
+                // where the audio starts
+                if (packet->stream_index == stream_index_ &&
+                    avcodec_send_packet(probe, packet) >= 0 && !accepted) {
+                    accepted               = true;
+                    start.first_packet_pts = packet->pts;
+                    first_packet_size      = packet->size;
+                    if (av_packet_get_side_data(packet, AV_PKT_DATA_SKIP_SAMPLES, nullptr))
+                        start.priming_declared = true;
+                }
+                av_packet_unref(packet);
+                while (avcodec_receive_frame(probe, frame) == 0) {
+                    if (frame->pts != AV_NOPTS_VALUE && frame->nb_samples > 0) {
+                        if (start.frames.empty()) {
+                            const AVFrameSideData *side =
+                                av_frame_get_side_data(frame, AV_FRAME_DATA_SKIP_SAMPLES);
+                            // only the start count is wanted here
+                            if (side && side->size >= SKIP_END_OFFSET)
+                                start.first_frame_skip =
+                                    AV_RL32(side->data + SKIP_START_OFFSET);
+                        }
+                        start.frames.push_back({frame->pts, frame->nb_samples});
+                        sample_rate = frame->sample_rate;
+                    }
+                    av_frame_unref(frame);
+                }
+            }
+        }
+    }
+
+    av_frame_free(&frame);
+    av_packet_free(&packet);
+    avcodec_free_context(&probe);
+
+    audio_pts_rescaler_ = AudioPtsRescaler(avc_stream_->time_base, sample_rate);
+    audio_pts_rescaler_.set_stream_start(start);
+
+    // How a frame's position is worked out is chosen from what the library
+    // states about the stream, see AudioPtsRescaler.
+    AVCodecParameters *par = avc_stream_->codecpar;
+    const bool no_frames   = av_get_exact_bits_per_sample(par->codec_id) > 0;
+    const bool pts_in_samples =
+        int64_t(avc_stream_->time_base.num) * sample_rate <= avc_stream_->time_base.den;
+    // the library only returns a demuxer's frame size for a non-zero packet size
+    const int frame_size =
+        no_frames ? 0 : av_get_audio_frame_duration2(par, std::max(first_packet_size, 1));
+
+    if (no_frames && pts_in_samples) {
+        audio_pts_rescaler_.use_pts();
+    } else if (frame_size > 0) {
+        audio_pts_rescaler_.use_frame_size(frame_size);
+    } else {
+        // every packet is a region of its own size: the table of them is filled
+        // as packets are read, no further into the file than has been needed
+        audio_pts_rescaler_.use_region_table();
+        audio_first_packet_pts_ = start.first_packet_pts;
+        audio_duration_in_samples_ =
+            avc_stream_->time_base.num == 1 && avc_stream_->time_base.den == sample_rate;
+        reset_audio_packet_sizer();
+    }
+    return true;
+}
+
+// The size of a vorbis packet depends on the block size of the packet before
+// it, which the codec's parser remembers. It is started afresh wherever
+// packets stop being fed to it in file order.
+void FFMpegStream::reset_audio_packet_sizer() {
+    if (audio_parser_)
+        av_parser_close(audio_parser_);
+    avcodec_free_context(&audio_parse_ctx_);
+    audio_parser_    = av_parser_init(avc_stream_->codecpar->codec_id);
+    audio_parse_ctx_ = avcodec_alloc_context3(codec_);
+    if (audio_parser_)
+        audio_parser_->flags |= PARSER_FLAG_COMPLETE_FRAMES;
+    if (!audio_parse_ctx_ ||
+        avcodec_parameters_to_context(audio_parse_ctx_, avc_stream_->codecpar) < 0)
+        throw std::runtime_error(source_path + ": cannot set up the audio packet parser");
+    audio_sizer_fed_ = NO_REGION;
+}
+
+// How many samples the packet decodes to, from the library, without decoding:
+// from the codec parameters and the packet's size, else from the codec's
+// parser, else from the packet's duration where the time_base is one sample.
+// `region` is the packet's place in the table; the parser's answer only holds
+// if it was fed the packet before this one, or this is the stream's first.
+int FFMpegStream::size_audio_packet(const AVPacket *packet, const int64_t region) {
+    const bool follows = region == 0 || audio_sizer_fed_ == region - 1;
+    audio_sizer_fed_   = region;
+
+    int nb_samples = av_get_audio_frame_duration2(avc_stream_->codecpar, packet->size);
+    if (nb_samples <= 0 && audio_parser_) {
+        uint8_t *out = nullptr;
+        int out_size = 0;
+        av_parser_parse2(
+            audio_parser_,
+            audio_parse_ctx_,
+            &out,
+            &out_size,
+            packet->data,
+            packet->size,
+            packet->pts,
+            packet->dts,
+            packet->pos);
+        nb_samples = follows ? audio_parser_->duration : 0;
+    }
+    if (nb_samples <= 0 && audio_duration_in_samples_ && packet->duration > 0)
+        nb_samples = int(packet->duration);
+    return nb_samples;
+}
+
+// The packet is the next the region table does not hold.
+void FFMpegStream::add_audio_region(const AVPacket *packet) {
+    const int nb_samples = size_audio_packet(packet, audio_pts_rescaler_.regions());
+    if (nb_samples <= 0 || packet->pos < 0)
+        throw std::runtime_error(
+            fmt::format(
+                "{}: the library gives no frame size for audio codec {} and cannot size or "
+                "locate the packet at pts {} without decoding it, so its audio cannot be "
+                "positioned",
+                source_path,
+                avcodec_get_name(avc_stream_->codecpar->codec_id),
+                packet->pts));
+    audio_pts_rescaler_.add_region(packet->pos, nb_samples, packet->pts);
+}
+
+// Take the region table far enough into the file to cover `sample`: go back to
+// where it stops and read forward, sizing each packet, until it does or the
+// stream ends. The file is left wherever that reached; a seek follows.
+void FFMpegStream::extend_audio_region_table(const int64_t sample) {
+
+    const int64_t regions = audio_pts_rescaler_.regions();
+    const int64_t resume =
+        regions ? audio_pts_rescaler_.seek_pts_for_region(regions - 1) : first_packet_pts();
+    AVC_CHECK_THROW(
+        av_seek_frame(format_context_, stream_index_, resume, AVSEEK_FLAG_BACKWARD),
+        "av_seek_frame to where the audio region table stops");
+    reset_audio_packet_sizer();
+
+    // packets of the other streams are not wanted here
+    std::vector<AVDiscard> discard(format_context_->nb_streams);
+    for (unsigned i = 0; i < format_context_->nb_streams; ++i) {
+        discard[i] = format_context_->streams[i]->discard;
+        if (int(i) != stream_index_)
+            format_context_->streams[i]->discard = AVDISCARD_ALL;
+    }
+
+    AVPacket *packet = av_packet_alloc();
+    int64_t pos      = NO_PACKET_POS;
+    int ordinal      = 0;
+    std::string failure;
+    try {
+        // an empty table covers nothing, wherever its first region will start
+        while ((audio_pts_rescaler_.regions() == 0 ||
+                audio_pts_rescaler_.covered_to() <= sample) &&
+               av_read_frame(format_context_, packet) >= 0) {
+            if (packet->stream_index == stream_index_) {
+                ordinal = packet->pos == pos ? ordinal + 1 : 0;
+                pos     = packet->pos;
+                if (audio_pts_rescaler_.has_region(pos, ordinal)) {
+                    // in the table already: only keeps the parser in step
+                    size_audio_packet(packet, audio_pts_rescaler_.region_index(pos, ordinal));
+                } else if (
+                    audio_pts_rescaler_.regions() > 0 ||
+                    packet->pts == audio_first_packet_pts_) {
+                    // from the first packet the decoder accepted on
+                    add_audio_region(packet);
+                }
+            }
+            av_packet_unref(packet);
+        }
+    } catch (const std::exception &e) {
+        failure = e.what();
+    }
+    av_packet_free(&packet);
+    for (unsigned i = 0; i < format_context_->nb_streams; ++i)
+        format_context_->streams[i]->discard = discard[i];
+    if (!failure.empty())
+        throw std::runtime_error(failure);
+}
+
+// Where to seek to decode from `target_pts`, a time in the stream's time_base.
+// With a region table the time is a sample, the table says which region holds
+// it, and the seek goes to that region; the table is taken that far first if
+// it does not reach. Otherwise the time is the answer.
+int64_t FFMpegStream::audio_seek_pts(const int64_t target_pts) {
+    if (stream_type_ != AUDIO_STREAM || !audio_pts_rescaler_.uses_region_table())
+        return target_pts;
+
+    const int64_t sample = audio_pts_rescaler_.rescale(target_pts);
+    if (audio_pts_rescaler_.regions() == 0 || sample >= audio_pts_rescaler_.covered_to())
+        extend_audio_region_table(sample);
+    if (audio_pts_rescaler_.regions() == 0)
+        throw std::runtime_error(
+            source_path + ": no audio packet could be put in the region table");
+
+    // a time past the end of the stream is held by no region: its last will do
+    const int64_t region = sample < audio_pts_rescaler_.covered_to()
+                               ? audio_pts_rescaler_.region_holding(sample)
+                               : audio_pts_rescaler_.regions() - 1;
+    return audio_pts_rescaler_.seek_pts_for_region(region);
+}
 
 double FFMpegStream::duration_seconds() const {
 

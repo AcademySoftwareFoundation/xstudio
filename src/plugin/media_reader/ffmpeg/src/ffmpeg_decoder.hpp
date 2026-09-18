@@ -60,6 +60,11 @@ class FFMpegDecoder {
     void pull_video_buffer_from_stream(StreamPtr &video_stream);
     void pull_buffer_from_stream(StreamPtr &stream);
 
+
+    // how many times the pre-roll a seek allows for, doubled each time a
+    // demuxer lands later than asked; a property of the file, so kept
+    int audio_preroll_scale_                     = 1;
+    static constexpr int MAX_AUDIO_PREROLL_SCALE = 16;
     void do_seek(const int seek_frame, const bool force = false);
     void empty_mini_caches(const int decoded_frame);
     bool is_single_frame() const;
