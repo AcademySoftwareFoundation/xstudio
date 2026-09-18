@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
-
 #include <caf/all.hpp>
 #include <map>
 #include <vector>
@@ -13,16 +12,21 @@ CAF_POP_WARNINGS
 
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/tree.hpp"
+#include "xstudio/utility/uuid.hpp"
+#include "xstudio/ui/qml/actor_object.hpp"
 
 #include "helper_qml_export.h"
 
 namespace xstudio::ui::qml {
+
+typedef std::function<void(const utility::JsonStore &event)> JSONTreeSendEventFunc;
 
 class HELPER_QML_EXPORT JSONTreeModel : public QAbstractItemModel {
     Q_OBJECT
 
     Q_PROPERTY(int count READ length NOTIFY lengthChanged)
     Q_PROPERTY(int length READ length NOTIFY lengthChanged)
+    Q_PROPERTY(QVariant modelData READ qModelData WRITE setQModelData NOTIFY jsonChanged)
 
   public:
     [[nodiscard]] int length() const { return rowCount(); }
@@ -32,14 +36,32 @@ class HELPER_QML_EXPORT JSONTreeModel : public QAbstractItemModel {
     void lengthChanged();
 
   public:
-    enum Roles { JSONRole = Qt::UserRole + 1, JSONTextRole, LASTROLE };
+    enum Roles {
+        idRole = Qt::UserRole + 1,
+        childCountRole,
+        childrenRole,
+        JSONRole,
+        JSONTextRole,
+        JSONPathRole,
+        LASTROLE
+    };
 
     inline static const std::map<int, std::string> role_names = {
-        {Qt::DisplayRole, "display"}, {JSONRole, "jsonRole"}, {JSONTextRole, "jsonTextRole"}};
+        {Qt::DisplayRole, "display"},
+        {idRole, "idRole"},
+        {childCountRole, "childCountRole"},
+        {childrenRole, "childrenRole"},
+        {JSONRole, "jsonRole"},
+        {JSONTextRole, "jsonTextRole"},
+        {JSONPathRole, "jsonPathRole"}};
 
     JSONTreeModel(QObject *parent = nullptr);
 
     [[nodiscard]] bool canFetchMore(const QModelIndex &parent) const override;
+
+    Q_INVOKABLE void fetchMoreWait(const QModelIndex &parent);
+
+    [[nodiscard]] QVariant qModelData() const;
 
     [[nodiscard]] int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     [[nodiscard]] int columnCount(const QModelIndex &parent = QModelIndex()) const override {
@@ -56,7 +78,7 @@ class HELPER_QML_EXPORT JSONTreeModel : public QAbstractItemModel {
     bool
     setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
 
-    Q_INVOKABLE [[nodiscard]] bool
+    Q_INVOKABLE bool
     set(const QModelIndex &item, const QVariant &value, const QString &role = "display");
 
     Q_INVOKABLE [[nodiscard]] QVariant
@@ -70,6 +92,7 @@ class HELPER_QML_EXPORT JSONTreeModel : public QAbstractItemModel {
 
     Q_INVOKABLE bool
     removeRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
+
     Q_INVOKABLE bool moveRows(
         const QModelIndex &sourceParent,
         int sourceRow,
@@ -79,9 +102,12 @@ class HELPER_QML_EXPORT JSONTreeModel : public QAbstractItemModel {
     Q_INVOKABLE bool
     insertRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
 
+    Q_INVOKABLE bool
+    insertRowsData(int row, int count, const QModelIndex &parent, const QVariant &data);
+
     bool insertRows(int row, int count, const QModelIndex &parent, const nlohmann::json &data);
 
-    Q_INVOKABLE QModelIndex invalidIndex() const { return QModelIndex(); }
+    Q_INVOKABLE [[nodiscard]] QModelIndex invalidIndex() const { return {}; }
 
     Q_INVOKABLE int
     countExpandedChildren(const QModelIndex parent, const QModelIndexList &expanded);
@@ -98,35 +124,35 @@ class HELPER_QML_EXPORT JSONTreeModel : public QAbstractItemModel {
         const QModelIndex &parent = QModelIndex(),
         const int start           = 0);
 
-    Q_INVOKABLE QModelIndexList search_list(
+    Q_INVOKABLE QModelIndexList searchList(
         const QVariant &value,
         const int role,
         const QModelIndex &parent,
         const int start,
         const int hits);
 
-    Q_INVOKABLE QModelIndexList search_list(
+    Q_INVOKABLE QModelIndexList searchList(
         const QVariant &value,
         const QString &role,
         const QModelIndex &parent,
         const int start,
         const int hits);
 
-    Q_INVOKABLE QModelIndex search_recursive(
+    Q_INVOKABLE QModelIndex searchRecursive(
         const QVariant &value,
         const QString &role       = "display",
         const QModelIndex &parent = QModelIndex(),
         const int start           = 0,
         const int depth           = -1);
 
-    Q_INVOKABLE QModelIndex search_recursive(
+    Q_INVOKABLE QModelIndex searchRecursive(
         const QVariant &value,
         const int role,
         const QModelIndex &parent = QModelIndex(),
         const int start           = 0,
         const int depth           = -1);
 
-    Q_INVOKABLE QModelIndexList search_recursive_list(
+    Q_INVOKABLE QModelIndexList searchRecursiveList(
         const QVariant &value,
         const int role,
         const QModelIndex &parent,
@@ -134,7 +160,7 @@ class HELPER_QML_EXPORT JSONTreeModel : public QAbstractItemModel {
         const int hits,
         const int depth = -1);
 
-    Q_INVOKABLE QModelIndexList search_recursive_list(
+    Q_INVOKABLE QModelIndexList searchRecursiveList(
         const QVariant &value,
         const QString &role,
         const QModelIndex &parent,
@@ -143,10 +169,12 @@ class HELPER_QML_EXPORT JSONTreeModel : public QAbstractItemModel {
         const int depth = -1);
 
     [[nodiscard]] nlohmann::json modelData() const;
-    void setModelData(const nlohmann::json &data);
 
+    Q_INVOKABLE void setQModelData(const QVariant &value);
 
-    const std::string &children() const { return children_; }
+    virtual void setModelData(const nlohmann::json &data);
+
+    [[nodiscard]] const std::string &children() const { return children_; }
     void setChildren(const std::string &value) { children_ = value; }
 
     void setRoleNames(const nlohmann::json &data);
@@ -155,15 +183,73 @@ class HELPER_QML_EXPORT JSONTreeModel : public QAbstractItemModel {
         const std::vector<std::string> roles = {}, const std::string display_role = "display");
 
     nlohmann::json &indexToData(const QModelIndex &index);
-    const nlohmann::json &indexToData(const QModelIndex &index) const;
-    nlohmann::json indexToFullData(const QModelIndex &index, const int depth = -1) const;
+    [[nodiscard]] const nlohmann::json &indexToData(const QModelIndex &index) const;
+    [[nodiscard]] nlohmann::json
+    indexToFullData(const QModelIndex &index, const int depth = -1) const;
 
-    utility::JsonTree *indexToTree(const QModelIndex &index) const;
-    nlohmann::json::json_pointer getIndexPath(const QModelIndex &index = QModelIndex()) const;
-    QModelIndex getPathIndex(const nlohmann::json::json_pointer &path);
+    [[nodiscard]] utility::JsonTree *indexToTree(const QModelIndex &index) const;
+    [[nodiscard]] nlohmann::json::json_pointer
+    getIndexPath(const QModelIndex &index = QModelIndex()) const;
+    virtual QModelIndex getPathIndex(const nlohmann::json::json_pointer &path);
+
+    void bindEventFunc(JSONTreeSendEventFunc fs);
+    virtual bool receiveEvent(const utility::JsonStore &event);
+
+    /* For row reordering at a given parent index only. The full list of
+    re-ordered indeces must be provbided.
+
+    e.g. if we have rows in the model A,B,C,D,E and we are re-ordering to
+    E,A,D,C,B then new_row_indeces should be [4,0,3,2,1] */
+    bool reorderRows(const QModelIndex &parent, const std::vector<int> &new_row_indeces);
+
 
   protected:
-    virtual QModelIndexList search_recursive_list_base(
+    void setModelDataBase(const nlohmann::json &data, const bool local = true);
+
+    bool insertNodes(
+        const int row,
+        const int count,
+        utility::JsonTree *node,
+        const nlohmann::json &data = R"({})"_json);
+
+    bool baseInsertRows(
+        int row,
+        int count,
+        const QModelIndex &parent  = QModelIndex(),
+        const nlohmann::json &data = R"({})"_json,
+        const bool local           = true);
+
+    bool moveNodes(
+        utility::JsonTree *src,
+        int first_row,
+        int last_row,
+        utility::JsonTree *dst,
+        int dst_row);
+
+    bool baseMoveRows(
+        const QModelIndex &sourceParent,
+        int sourceRow,
+        int count,
+        const QModelIndex &destinationParent,
+        int destinationChild,
+        const bool local = true);
+
+    bool removeNodes(const int row, const int count, utility::JsonTree *node);
+
+    bool baseRemoveRows(
+        int row, int count, const QModelIndex &parent = QModelIndex(), const bool local = true);
+
+    bool baseSetData(
+        const QModelIndex &index,
+        const QVariant &value,
+        const std::string &key,
+        QVector<int> roles,
+        const bool local = true);
+
+    bool
+    baseSetDataAll(const QModelIndex &index, const QVariant &value, const bool local = true);
+
+    virtual QModelIndexList searchRecursiveListBase(
         const QVariant &value,
         const int role,
         const QModelIndex &parent,
@@ -172,21 +258,42 @@ class HELPER_QML_EXPORT JSONTreeModel : public QAbstractItemModel {
         const int depth = -1);
 
     std::string children_{"children"};
-    std::string display_role_;
+    std::string display_role_{"name"};
     std::vector<std::string> role_names_;
     utility::JsonTree data_;
+    utility::Uuid model_id_;
+
+  private:
+    JSONTreeSendEventFunc event_send_callback_{nullptr};
 };
+
+// class JSONTreeListModel : public QAbstractProxyModel {
+//     Q_OBJECT
+
+//   public:
+//     JSONTreeListModel(QObject *parent = nullptr) : QAbstractProxyModel(parent) {
+//     }
+
+//     QModelIndex mapFromSource(const QModelIndex &sourceIndex) const override;
+//     QModelIndex mapToSource(const QModelIndex &proxyIndex) const override;
+// };
 
 class HELPER_QML_EXPORT JSONTreeFilterModel : public QSortFilterProxyModel {
     Q_OBJECT
 
     Q_PROPERTY(int length READ length NOTIFY lengthChanged)
     Q_PROPERTY(int count READ length NOTIFY lengthChanged)
+    Q_PROPERTY(bool invert READ invert WRITE setInvert NOTIFY invertChanged)
 
-    Q_PROPERTY(bool sortAscending READ sortAscending WRITE setSortAscending NOTIFY
-                   sortAscendingChanged)
+    Q_PROPERTY(
+        bool sortAscending READ sortAscending WRITE setSortAscending NOTIFY
+            sortAscendingChanged)
     Q_PROPERTY(
         QString sortRoleName READ sortRoleName WRITE setSortRoleName NOTIFY sortRoleNameChanged)
+
+    Q_PROPERTY(
+        QString filterRoleName READ filterRoleName WRITE setFilterRoleName NOTIFY
+            filterRoleNameChanged)
 
   public:
     JSONTreeFilterModel(QObject *parent = nullptr) : QSortFilterProxyModel(parent) {
@@ -205,6 +312,13 @@ class HELPER_QML_EXPORT JSONTreeFilterModel : public QSortFilterProxyModel {
 
     Q_INVOKABLE [[nodiscard]] QVariant getRoleFilter(const QString &role = "display") const;
     Q_INVOKABLE void setRoleFilter(const QVariant &filter, const QString &role = "display");
+    Q_INVOKABLE void setInvert(const bool invert) {
+        if (invert != invert_) {
+            invert_ = invert;
+            emit invertChanged();
+            invalidateFilter();
+        }
+    }
 
     Q_INVOKABLE [[nodiscard]] QVariant
     get(const QModelIndex &item, const QString &role = "display") const;
@@ -219,13 +333,16 @@ class HELPER_QML_EXPORT JSONTreeFilterModel : public QSortFilterProxyModel {
         } catch (...) {
         }
 
-        return QString();
+        return {};
     }
+
+    [[nodiscard]] bool invert() const { return invert_; }
 
     void setSortAscending(const bool ascending = true) {
         if (ascending != (sortOrder() == Qt::AscendingOrder ? true : false)) {
             sort(0, ascending ? Qt::AscendingOrder : Qt::DescendingOrder);
             emit sortAscendingChanged();
+            invalidate();
         }
     }
 
@@ -242,15 +359,32 @@ class HELPER_QML_EXPORT JSONTreeFilterModel : public QSortFilterProxyModel {
     void setSortRoleName(const QString &role) {
         auto role_id = roleId(role);
         if (role_id != sortRole()) {
-            setSortRole(role_id);
             emit sortRoleNameChanged();
+            setSortRole(role_id);
+            invalidate();
         }
     }
+
+    void setFilterRoleName(const QString &value) {
+        if (filterRoleName_ != value) {
+            filterRoleName_ = value;
+
+            setFilterRole(roleId(value));
+
+            emit filterRoleNameChanged();
+            invalidateFilter();
+        }
+    }
+
+    [[nodiscard]] QString filterRoleName() const { return filterRoleName_; }
+
 
   signals:
     void lengthChanged();
     void sortAscendingChanged();
     void sortRoleNameChanged();
+    void filterRoleNameChanged();
+    void invertChanged();
 
   protected:
     [[nodiscard]] bool
@@ -258,7 +392,7 @@ class HELPER_QML_EXPORT JSONTreeFilterModel : public QSortFilterProxyModel {
 
   private:
     std::map<int, QVariant> roleFilterMap_;
+    bool invert_ = {false};
+    QString filterRoleName_{"display"};
 };
-
-
 } // namespace xstudio::ui::qml

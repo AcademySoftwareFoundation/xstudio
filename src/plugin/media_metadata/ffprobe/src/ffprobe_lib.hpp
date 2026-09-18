@@ -12,35 +12,33 @@ extern "C" {
 }
 
 
-namespace xstudio {
-namespace ffprobe {
+namespace xstudio::ffprobe {
 
-    typedef struct MediaStream {
-        AVStream *st{nullptr};
-        AVCodecContext *dec_ctx{nullptr};
-    } MediaStream;
+typedef struct MediaStream {
+    AVStream *st{nullptr};
+    AVCodecContext *dec_ctx{nullptr};
+} MediaStream;
 
-    typedef struct MediaFile {
-        AVFormatContext *fmt_ctx{nullptr};
+typedef struct MediaFile {
+    AVFormatContext *fmt_ctx{nullptr};
 
-        std::vector<MediaStream> streams;
-        int nb_streams{0};
+    std::vector<MediaStream> streams;
+    int nb_streams{0};
 
-        ~MediaFile();
+    ~MediaFile();
 
-    } MediaFile;
+} MediaFile;
 
-    class FFProbe {
-      public:
-        FFProbe();
-        virtual ~FFProbe();
+class FFProbe {
+  public:
+    FFProbe();
+    virtual ~FFProbe();
 
-        utility::JsonStore probe_file(const caf::uri &path);
-        std::string probe_file(const std::string &path);
+    utility::JsonStore probe_file(const caf::uri &path);
+    std::string probe_file(const std::string &path);
 
-      private:
-        std::shared_ptr<MediaFile> open_file(const std::string &path);
-    };
+  private:
+    std::shared_ptr<MediaFile> open_file(const std::string &path);
+};
 
-} // namespace ffprobe
-} // namespace xstudio
+} // namespace xstudio::ffprobe

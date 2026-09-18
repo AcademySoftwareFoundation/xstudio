@@ -56,9 +56,17 @@ uri_from_file_list(const std::vector<std::string> &paths) {
     for (const auto &i : sequences) {
         // convert sequence into uri
         if (i.is_sequence()) {
-            result.emplace_back(std::make_pair(
-                posix_path_to_uri(std::regex_replace(i.name_, percent_match, "{:0$1d}"), true),
-                FrameList(i.frames_)));
+            std::string path_fmt_spec = std::regex_replace(i.name_, percent_match, "{:0$1d}");
+            // If no frame padding is detected, path_fmt_spec will now have {:00d} in it,
+            // which we want to replace with {:d} as fmtlib will not accept {:00d} as a format
+            // specifier.
+            size_t start_pos = path_fmt_spec.find("{:00d}");
+            if (start_pos != std::string::npos) {
+                // no padding, add default.
+                path_fmt_spec = path_fmt_spec.replace(start_pos, 6, "{:d}");
+            }
+            result.emplace_back(
+                std::make_pair(posix_path_to_uri(path_fmt_spec, true), FrameList(i.frames_)));
         } else {
             result.emplace_back(std::make_pair(posix_path_to_uri(i.name_, true), FrameList()));
         }
@@ -74,6 +82,7 @@ std::vector<UriSequence> uri_from_file(const std::string &path) {
 Entry::Entry(const std::string path) : name_(std::move(path)) {
     std::memset(&stat_, 0, sizeof stat_);
 }
+
 #ifdef _WIN32
 uint64_t get_block_size_windows(const xstudio::utility::Entry &entry) {
     const std::string &path = entry.name_; // Assuming 'name_' contains the path
@@ -102,9 +111,12 @@ Sequence::Sequence(const Entry &entry)
       size_(entry.stat_.st_blocks * 512),
 #endif
       apparent_size_(entry.stat_.st_size),
-#ifdef _WIN32
+#if defined(_WIN32)
       mtim_(get_mtim(entry.stat_)),
       ctim_(get_ctim(entry.stat_)),
+#elif defined(__apple__)
+      mtim_(entry.stat_.st_mtimespec.tv_sec),
+      ctim_(entry.stat_.st_mtimespec.tv_sec),
 #else
       mtim_(entry.stat_.st_mtim.tv_sec),
       ctim_(entry.stat_.st_ctim.tv_sec),
@@ -243,21 +255,15 @@ std::optional<DefaultSequenceHelper> create_default_seq(const Entry &entry) {
             R"((.+\.)([-]?\d+)(\.[^.\d]{1,4}\.[^.]{1,3}))", std::regex::optimize);
         static const std::regex body_dot_number_and_ext(
             R"((.+\.)([-]?\d+)(\.[^.]+))", std::regex::optimize);
-        // static const std::regex body_number_and_ext(
-        //     R"((.+?)([-]?\d+)(\.[^.]+))", std::regex::optimize);
-        // static const std::regex body_number_body("(.+)([-]?\\d{3,})(.+)$");
-        // if (std::regex_match(entry.name_.c_str(), m, bare_number) or
-        //     std::regex_match(entry.name_.c_str(), m, number_and_ext) or
-        //     std::regex_match(entry.name_.c_str(), m, body_dot_number_and_double_ext) or
-        //     std::regex_match(entry.name_.c_str(), m, body_dot_number_and_ext) or
-        //     std::regex_match(entry.name_.c_str(), m, body_number_and_ext)) {
+        static const std::regex body_no_dot_number_and_ext(
+            R"((.+[^0-9])(\d+)(\.[^.]+))", std::regex::optimize);
 
         if (std::regex_match(entry.name_.c_str(), m, bare_number) or
             std::regex_match(entry.name_.c_str(), m, number_and_ext) or
             std::regex_match(entry.name_.c_str(), m, body_dot_number_and_double_ext) or
-            std::regex_match(entry.name_.c_str(), m, body_dot_number_and_ext)
-            // std::regex_match(entry.name_.c_str(), m, body_number_and_ext)
-        ) {
+            std::regex_match(entry.name_.c_str(), m, body_dot_number_and_ext) or
+            std::regex_match(entry.name_.c_str(), m, body_no_dot_number_and_ext)) {
+
             // skip versions..
             if (ends_with(m[1].str(), "_v"))
                 return {};
@@ -355,9 +361,10 @@ std::string escape_percentage(const std::string &str) {
 }
 
 static const std::set<std::string> not_sequence_ext_set{
-    ".BZ2", ".bz2", ".MOV", ".mov", ".AVI", ".avi",  ".CINE", ".cine", ".R3D", ".r3d", ".AAF",
-    ".aaf", ".MXF", ".mxf", ".WAV", ".wav", ".AIFF", ".aiff", ".HIP",  ".hip", ".MB",  ".mb",
-    ".MA",  ".ma",  ".NK",  ".nk",  ".mv4", ".MP4",  ".mp4",  ".mp3",  ".MP3", ".WEBM"};
+    ".BZ2", ".bz2", ".MOV", ".mov", ".AVI", ".avi", ".CINE", ".cine", ".R3D", 
+    ".r3d", ".AAF", ".aaf", ".MXF", ".mxf", ".WAV", ".wav",  ".AIFF", ".aiff",
+    ".AIF", ".aif", ".HIP", ".hip", ".MB",  ".mb",  ".MA",   ".ma",   ".NK",
+    ".nk",  ".mv4", ".MP4", ".mp4", ".mp3", ".MP3", ".WEBM", ".webm"};
 
 bool default_is_sequence(const Entry &entry) {
     // things that are never sequences..

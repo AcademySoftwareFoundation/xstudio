@@ -1,7 +1,7 @@
-project(__pybind_xstudio VERSION 0.1.0 LANGUAGES CXX)
+project(__pybind_xstudio VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
-find_package(pybind11 CONFIG REQUIRED)
-#find_package(caf CONFIG REQUIRED)
+find_package(Python COMPONENTS Interpreter Development)
+find_package(pybind11 CONFIG)
 find_package(Python COMPONENTS Interpreter)
 
 set(PYTHONVP "python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}")
@@ -27,11 +27,21 @@ add_library(
 	py_utility.cpp
 	py_xstudio.cpp
 )
+
 add_library(xstudio::python_module ALIAS ${PROJECT_NAME})
 
 default_options_local(${PROJECT_NAME})
 
 set_python_to_proper_build_type()
+
+if (APPLE)
+	# Note - for Apple we install into the vcpkg installation structure at build time.
+	# Our install commands will copy the entire python3.X folder into the app bundle
+	# when making the re-locatable .app structure
+	set(OUTPUT_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib/${PYTHONVP}/site-packages/xstudio/core")
+else()
+	set(OUTPUT_DIR "${CMAKE_BINARY_DIR}/bin/python/lib/${PYTHONVP}/site-packages/xstudio/core")
+endif()
 
 target_link_libraries(
 	${PROJECT_NAME}
@@ -41,8 +51,9 @@ target_link_libraries(
 		xstudio::global_store_static
 		xstudio::json_store_static
 		xstudio::timeline_static
-		caf::core
-		caf::io
+		xstudio::media_static
+		CAF::core
+		CAF::io
 )
 
 if(INSTALL_XSTUDIO)
@@ -51,7 +62,7 @@ if(INSTALL_XSTUDIO)
 		PROPERTIES
 		PREFIX "${PYTHON_MODULE_PREFIX}"
 	    SUFFIX "${PYTHON_MODULE_EXTENSION}"
-	    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/python/lib/${PYTHONVP}/site-packages/xstudio/core"
+	    LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_DIR}
 	)
 else()
 	set_target_properties(
@@ -67,6 +78,5 @@ else()
 endif(INSTALL_XSTUDIO)
 
 if(WIN32)
-install(TARGETS ${PROJECT_NAME} DESTINATION "${CMAKE_INSTALL_PREFIX}/python/xstudio/core")
+install(TARGETS ${PROJECT_NAME} DESTINATION bin/python3/Lib/site-packages/xstudio/core)
 endif()
-

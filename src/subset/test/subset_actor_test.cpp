@@ -44,7 +44,7 @@ TEST(SubsetActorTest, Test) {
                 utility::FrameRate(timebase::k_flicks_24fps),
                 su1))}));
 
-    f.self->anon_send(playlist, add_media_atom_v, media, Uuid());
+    anon_mail(add_media_atom_v, media, Uuid()).send(playlist);
 
     auto media_uuid = request_receive<Uuid>(*(f.self), media, uuid_atom_v);
 
@@ -60,7 +60,7 @@ TEST(SubsetActorTest, Test) {
                 utility::FrameRate(timebase::k_flicks_24fps),
                 su2))}));
 
-    f.self->anon_send(playlist, add_media_atom_v, media2, Uuid());
+    anon_mail(add_media_atom_v, media2, Uuid()).send(playlist);
 
     // spawn subset..
     auto subset = f.self->spawn<SubsetActor>(playlist, "Test");

@@ -17,7 +17,7 @@ inline std::string to_string(xstudio_error x) {
     }
 }
 
-inline bool from_string(caf::string_view in, xstudio_error &out) {
+inline bool from_string(std::string_view in, xstudio_error &out) {
     if (in == "error") {
         out = xstudio_error::error;
         return true;

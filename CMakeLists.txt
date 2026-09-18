@@ -1,20 +1,25 @@
-cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
+cmake_policy(VERSION 3.26)
+#cmake_minimum_required(VERSION 3.28 FATAL_ERROR)
+#cmake_policy(VERSION 3.28)
 
-option(USE_VCPKG "Use Vcpkg for package management" OFF)
-if(WIN32)
-    set(USE_VCPKG ON)
-endif()
-
-if (USE_VCPKG)
-  include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/vcpkg.cmake)
-endif()
-
-set(XSTUDIO_GLOBAL_VERSION "0.11.2" CACHE STRING "Version string")
+set(XSTUDIO_GLOBAL_VERSION "1.3.0" CACHE STRING "Version string")
 set(XSTUDIO_GLOBAL_NAME xStudio)
+
+# set(CMAKE_OSX_DEPLOYMENT_TARGET "14.5" CACHE STRING "Minimum OS X deployment version" FORCE)
 
 project(${XSTUDIO_GLOBAL_NAME} VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
-cmake_policy(VERSION 3.26)
+# Work around Qt bug: FindWrapOpenGL.cmake links -framework AGL, which was
+# removed from the macOS SDK in 10.14. Fixed upstream in Qt 6.9+ but not
+# backported to 6.5/6.8 LTS (see https://codereview.qt-project.org/c/qt/qtbase/+/652022).
+# Pre-create the target so Qt's FindWrapOpenGL early-returns and never hits the
+# broken AGL block. Can be removed once the minimum supported Qt is >= 6.9.
+if(APPLE AND NOT TARGET WrapOpenGL::WrapOpenGL)
+    find_package(OpenGL REQUIRED)
+    add_library(WrapOpenGL::WrapOpenGL INTERFACE IMPORTED)
+    target_link_libraries(WrapOpenGL::WrapOpenGL INTERFACE OpenGL::GL)
+endif()
 
 option(BUILD_TESTING "Build tests" OFF)
 option(INSTALL_PYTHON_MODULE "Install python module" ON)
@@ -24,23 +29,28 @@ option(ENABLE_CLANG_TIDY "Enable clang-tidy, ninja clang-tidy." OFF)
 option(ENABLE_CLANG_FORMAT "Enable clang format, ninja clangformat." OFF)
 option(FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang only)." TRUE)
 option(OPTIMIZE_FOR_NATIVE "Build with -march=native" OFF)
-option(BUILD_RESKIN "Build xstudio reskin binary" ON)
-
+option(USE_VCPKG "Use Vcpkg for package management" OFF)
+option(BUILD_PYSIDE_WIDGETS "Build xstudio player as PySide widget" OFF)
+option(OPENIMAGEIO_PLUGIN "Include the OpenImageIO PLugin" ON)
+option(BMD_DECKLINK_PLUGIN "Include the Blackmagic DeckLink SDI Card Video Output Plugin" ON)
 
 if(WIN32)
-    set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od /Oy-") 
-    add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
-    # enable UUID System Generator 
+    set(USE_VCPKG ON)
+    #include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/vcpkg.cmake)
+    set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od /Oy-")
+    # /MP is for MSBuild which parallelizes at project level.
+    # Ninja parallelizes at file level, so /MP would over-subscribe CPUs.
+    if(NOT CMAKE_GENERATOR STREQUAL "Ninja")
+        add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
+    endif()
+    # enable UUID System Generator
     add_definitions(-DUUID_SYSTEM_GENERATOR=ON)
 endif()
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
-
 set(STUDIO_PLUGINS "" CACHE STRING "Enable compilation of SITE plugins")
 
-
 if (("${CMAKE_GENERATOR}" MATCHES "Makefiles" OR ("${CMAKE_GENERATOR}" MATCHES "Ninja" AND NOT WIN32)) AND NOT __CHECKED_CXX_FLAGS)
-    set(__CHECKED_CXX_FLAGS TRUE CACHE INTERNAL "Whether we checked the CXX flags already")
+  set(__CHECKED_CXX_FLAGS TRUE CACHE INTERNAL "Whether we checked the CXX flags already")
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${COMMON_GCC}" CACHE STRING "" FORCE)
 	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${COMMON_GCC}" CACHE STRING "" FORCE)
 	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${COMMON_GCC}" CACHE STRING "" FORCE)
@@ -49,7 +59,12 @@ if (("${CMAKE_GENERATOR}" MATCHES "Makefiles" OR ("${CMAKE_GENERATOR}" MATCHES "
 endif()
 
 set(CXXOPTS_BUILD_TESTS OFF CACHE BOOL "Enable or disable cxxopts' tests")
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpic -fdiagnostics-color=always")
+endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpic -fmax-errors=5 -fdiagnostics-color=always")
 endif()
 
@@ -71,9 +86,8 @@ if (NOT ${GCC_MARCH_OVERRIDE} STREQUAL "")
   endif()
 endif()
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU") 
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fpic")
-endif()
+
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fpic")
 
 set(TEST_RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/test_resource")
 set(ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -106,14 +120,20 @@ if (USE_SANITIZER STREQUAL "Address")
     if(MSVC)
         target_compile_options(<target> PUBLIC /fsanitize=address)
     else()
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
         set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -fsanitize=address")
     endif()
 elseif (USE_SANITIZER STREQUAL "Thread")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=thread")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
+    if(MSVC)
+        target_compile_options(<target> PUBLIC /fsanitize=thread)
+    else()
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=thread")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=thread")
+        set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -fsanitize=thread")
+    endif()
 elseif (USE_SANITIZER STREQUAL "Undefined")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined")
@@ -150,7 +170,7 @@ if(ENABLE_CLANG_TIDY)
     set(CMAKE_EXPORT_COMPILE_COMMANDS "ON")
     add_custom_target(
         clang-tidy
-        COMMAND ${CLANG_TIDY_COMMAND} -quiet -extra-arg=-I${CLANG_PATH}/lib/clang/11.1.0/include
+        COMMAND ${CLANG_TIDY_COMMAND} -use-color -quiet -extra-arg="-std=c++17 -I${CLANG_PATH}/lib/clang/20/include"
         USES_TERMINAL
     )
   endif()
@@ -169,7 +189,7 @@ if(WIN32)
   set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
   # When moving to Qt6 or greater, we might be able to use qt_generate_deploy_app_script
-  #set(deploy_script "${Qt5_DIR}/../../../windeployqt.exe  )
+  #set(deploy_script "${Qt6_DIR}/../../../windeployqt.exe  )
 endif()
 
 if(MSVC)
@@ -178,33 +198,40 @@ if(MSVC)
 
 endif()
 
-# Add the necessary libraries from Vcpkg if Vcpkg integration is enabled
-if(USE_VCPKG)
+if (USE_VCPKG)
 
   set(VCPKG_INTEGRATION ON)
-  # Set Python in VCPKG
-  set(Python_EXECUTABLE "${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3/python.exe")  
+
   # Install pip and sphinx
+  find_package(Python COMPONENTS Interpreter Development)
+
+  message("Python_RUNTIME_LIBRARY_DIRS ${Python_RUNTIME_LIBRARY_DIRS}")
+
   execute_process(
-    COMMAND "${CMAKE_COMMAND}" -E env "PATH=${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3" python.exe -m ensurepip --upgrade
+    COMMAND "${Python_EXECUTABLE}" -m ensurepip --upgrade
     RESULT_VARIABLE ENSUREPIP_RESULT
   )
+
   if(ENSUREPIP_RESULT)
     message(FATAL_ERROR "Failed to ensurepip.")
   else()
     execute_process(
-      COMMAND "${CMAKE_COMMAND}" -E env "PATH=${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3" python.exe -m pip install setuptools sphinx breathe sphinx-rtd-theme OpenTimelineIO importlib_metadata zipp
+      COMMAND "${Python_EXECUTABLE}" -m pip install setuptools sphinx breathe sphinx-rtd-theme OpenTimelineIO-Plugins importlib_metadata zipp numpy pyyaml fileseq
       RESULT_VARIABLE PIP_RESULT
     )
     if(PIP_RESULT)
-      message(FATAL_ERROR "Failed to install Sphinx using pip.")
+      message(FATAL_ERROR "Failed to install python dependencies using pip.")
     endif()
   endif()
-  # append vcpkg packages
-  list(APPEND CMAKE_PREFIX_PATH "${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows")
-  
+
+else()
+  list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
+ 	find_package(PkgConfig REQUIRED)
 endif()
 
+# Add the necessary libraries from Vcpkg if Vcpkg integration is enabled
+
+find_package(OpenTimelineIO CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 include(CTest)
 
@@ -226,59 +253,124 @@ add_subdirectory(src)
 
 if(INSTALL_XSTUDIO)
 
-
-    # add extern libs that are build-time dependencies of xstudio
-if (UNIX)
-    add_subdirectory("extern/reproc")
-endif()
-    add_subdirectory("extern/quickfuture")
-    add_subdirectory("extern/quickpromise")
-
-  add_subdirectory(share/preference)
-  add_subdirectory(share/snippets)
-  add_subdirectory(share/fonts)
+  # build quickpromise
+  add_subdirectory(extern/quickpromise)
+  add_subdirectory(extern/quickfuture)
 
   install(DIRECTORY include/xstudio
           DESTINATION include)
 
   INSTALL(DIRECTORY extern/ DESTINATION extern)
 
+  add_subdirectory(share/preference)
+  add_subdirectory(share/snippets)
+  add_subdirectory(share/fonts)
+
   if(BUILD_DOCS)
-    if(NOT INSTALL_PYTHON_MODULE)
-      add_subdirectory(python)
-    endif ()
+    message("BUILDING DOCS")
     add_subdirectory(docs)
   else()
-    install(DIRECTORY share/docs/ DESTINATION share/xstudio/docs)
+    if (APPLE)
+      install(DIRECTORY share/docs/ DESTINATION ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/docs)
+    else()
+      install(DIRECTORY share/docs/ DESTINATION share/xstudio/docs)
+    endif()
   endif ()
 
-  include(CMakePackageConfigHelpers)
+  if (NOT APPLE)
 
-  configure_package_config_file(xStudioConfig.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/xStudioConfig.cmake
-    INSTALL_DESTINATION lib/cmake/${PROJECT_NAME}
-  )
-  write_basic_package_version_file("xStudioConfigVersion.cmake"
-    VERSION ${PROJECT_VERSION}
-    COMPATIBILITY SameMajorVersion
-  )
+    include(CMakePackageConfigHelpers)
 
-  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/xStudioConfig.cmake
-              ${CMAKE_CURRENT_BINARY_DIR}/xStudioConfigVersion.cmake
+    configure_package_config_file(xStudioConfig.cmake.in
+      ${CMAKE_CURRENT_BINARY_DIR}/xStudioConfig.cmake
+      INSTALL_DESTINATION lib/cmake/${PROJECT_NAME}
+    )
+    write_basic_package_version_file("xStudioConfigVersion.cmake"
+      VERSION ${PROJECT_VERSION}
+      COMPATIBILITY SameMajorVersion
+    )
+
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/xStudioConfig.cmake
+                ${CMAKE_CURRENT_BINARY_DIR}/xStudioConfigVersion.cmake
+        DESTINATION lib/cmake/${PROJECT_NAME}
+    )
+
+    install(EXPORT xstudio
       DESTINATION lib/cmake/${PROJECT_NAME}
-  )
+      FILE ${PROJECT_NAME}Targets.cmake
+      NAMESPACE xstudio::
+      EXPORT_LINK_INTERFACE_LIBRARIES
+    )
 
-  install(EXPORT xstudio
-    DESTINATION lib/cmake/${PROJECT_NAME}
-    FILE ${PROJECT_NAME}Targets.cmake
-    NAMESPACE xstudio::
-    EXPORT_LINK_INTERFACE_LIBRARIES
-  )
+  endif()
 
 endif ()
 
-if(USE_VCPKG)
+if (USE_VCPKG)
   # To provide reliable ordering, we need to make this install script happen in a subdirectory.
   # Otherwise, Qt deploy will happen before we have the rest of the application deployed.
   add_subdirectory("scripts/qt_install")
+endif()
+
+if (WIN32)
+
+  include(InstallRequiredSystemLibraries)
+
+  set(CPACK_PACKAGE_VERSION ${XSTUDIO_GLOBAL_VERSION})
+
+  string(REGEX MATCH "^([0-9]+)\\.([0-9]+)\\.([0-9]+)" VERSION_MATCH ${XSTUDIO_GLOBAL_VERSION})
+
+  set(CPACK_PACKAGE_VERSION_MAJOR ${CMAKE_MATCH_1})
+  set(CPACK_PACKAGE_VERSION_MINOR ${CMAKE_MATCH_2})
+  set(CPACK_PACKAGE_VERSION_PATCH ${CMAKE_MATCH_3})
+
+  set(CPACK_PACKAGE_VENDOR "DNEG / Academy Software Foundation")
+  set (CPACK_NSIS_MUI_ICON
+      "${CMAKE_CURRENT_SOURCE_DIR}/ui/icons\\\\xstudio_app.ico")
+  set (CPACK_PACKAGE_NAME "xSTUDIO")
+  set (CPACK_NSIS_PACKAGE_NAME "xSTUDIO")
+  set (CPACK_PACKAGE_ICON
+      "${CMAKE_CURRENT_SOURCE_DIR}/ui/icons\\\\xstudio_app.ico")
+  set (CPACK_RESOURCE_FILE_LICENSE
+      "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+  set (CPACK_CREATE_DESKTOP_LINKS xstudio)
+  set (CPACK_NSIS_MENU_LINKS
+      "share/docs/index.html"
+      "xSTUDIO Help")
+
+  if("${STUDIO_PLUGINS}" STREQUAL "dneg")
+    # for dneg deployment, we add some CLI args to pick up our customised facility preferences thus:
+    set(CPACK_NSIS_CREATE_ICONS_EXTRA
+      "CreateShortCut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\xSTUDIO.lnk' '$INSTDIR\\\\bin\\\\xstudio.exe' '--pref N:\\\\SITE\\\\data\\\\xStudio\\\\dneg_defaults.json --pref N:\\\\SITE\\\\data\\\\xStudio\\\\windows_extra_config\\\\dneg_windows_defaults.json'"
+    )
+  else()
+    set(CPACK_NSIS_CREATE_ICONS_EXTRA
+      "CreateShortCut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\xSTUDIO.lnk' '$INSTDIR\\\\bin\\\\xstudio.exe'"
+    )
+  endif()
+
+  #set (CPACK_PACKAGE_EXECUTABLES "xstudio" "xSTUDIO" )
+
+  set (CPACK_NSIS_EXTRA_INSTALL_COMMANDS "
+      WriteRegStr HKCR '.xst' '' 'XStudioSession'
+      WriteRegStr HKCR 'XStudioSession' '' 'xSTUDIO Session File'
+      WriteRegStr HKCR 'XStudioSession\\\\shell' '' 'open'
+      WriteRegStr HKCR 'XStudioSession\\\\DefaultIcon' \\\\
+                        '' '$INSTDIR\\\\bin\\\\xstudio.exe,0'
+      WriteRegStr HKCR 'XStudioSession\\\\shell\\\\open\\\\command' \\\\
+                        '' '$INSTDIR\\\\bin\\\\xstudio.exe \\\"%1\\\"'
+      WriteRegStr HKCR 'XStudioSession\\\\shell\\\\edit' \\\\
+                        '' 'Edit xSTUDIO Session File'
+      WriteRegStr HKCR 'XStudioSession\\\\shell\\\\edit\\\\command' \\\\
+                        '' '$INSTDIR\\\\bin\\\\xstudio.exe \\\"%1\\\"'
+      System::Call \\\\
+        'Shell32::SHChangeNotify(i 0x8000000, i 0, i 0, i 0)'
+      ")
+
+  set (CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "
+      DeleteRegKey HKCR '.xst'
+      DeleteRegKey HKCR 'XStudioSession'
+      ")
+
+  include(CPack)
 endif()

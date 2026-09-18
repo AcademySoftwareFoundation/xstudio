@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: Apache-2.0
+import QtQuick
+
+import QtQuick.Layouts
+
+import xStudio 1.0
+
+Rectangle{
+    property alias text: textDiv.text
+    property alias textDiv: textDiv
+    property alias textColor: textDiv.color
+
+    color: XsStyleSheet.widgetBgNormalColor
+
+    XsText{ id: textDiv
+        text: ""
+        color: XsStyleSheet.primaryTextColor
+        font.bold: true
+        width : parent.width - panelPadding * 2
+        height: parent.height
+        anchors.verticalCenter: parent.verticalCenter
+        leftPadding: panelPadding
+        horizontalAlignment: Text.AlignLeft
+        elide: Text.ElideRight
+    }
+}

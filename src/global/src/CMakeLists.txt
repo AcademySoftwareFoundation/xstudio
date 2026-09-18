@@ -1,29 +1,37 @@
 project(global VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
-find_package(pybind11 REQUIRED)  # or `add_subdirectory(pybind11)`
+
+find_package(Python COMPONENTS Interpreter Development)
+find_package(pybind11 CONFIG)  # or `add_subdirectory(pybind11)`
+find_package(fmt REQUIRED)
 
 set(SOURCES
 	global_actor.cpp
+	xstudio_actor_system.cpp
 )
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 add_library(xstudio::global ALIAS ${PROJECT_NAME})
 default_options(${PROJECT_NAME})
+
 if(UNIX)
-target_compile_options(${PROJECT_NAME}
-	PRIVATE -fvisibility=hidden
-)
+	# Note: this is causing link errors. What was it for? (Ted)
+    #target_compile_options(${PROJECT_NAME}
+	#    PRIVATE -fvisibility=hidden
+    #)
 endif()
 
 set_python_to_proper_build_type()
 
 target_link_libraries(${PROJECT_NAME}
 	PUBLIC
+		xstudio::bookmark
 		xstudio::module
 		xstudio::audio_output
+		xstudio::caf_utility
 		xstudio::conform
 		xstudio::embedded_python
-		xstudio::event
 		xstudio::global_store
+		xstudio::media
 		xstudio::media_cache
 		xstudio::media_cache
 		xstudio::media_hook
@@ -34,19 +42,27 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::scanner
 		xstudio::session
 		xstudio::studio
-		xstudio::sync
 		xstudio::thumbnail
 		xstudio::ui::model_data
 		xstudio::ui::viewport
 		xstudio::utility
-		caf::core
-		caf::io
+		CAF::core
+		CAF::io
+		fmt::fmt
 	PRIVATE
-		pybind11::embed
+		Python::Python
 )
 
 if(UNIX AND NOT APPLE)
     target_link_libraries(${PROJECT_NAME} PRIVATE asound)  # Link against asound on Linux
 endif()
 
-set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
+if(APPLE)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        LINK_DEPENDS_NO_SHARED true
+        INSTALL_RPATH "@executable_path/../Frameworks"
+        BUILD_WITH_INSTALL_RPATH TRUE
+    )
+else()
+    set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
+endif()

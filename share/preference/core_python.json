@@ -9,16 +9,37 @@
 				"datatype": "bool",
 				"context": ["APPLICATION"]
 			},
-
 			"snippets":{
 				"path": {
 					"path": "/core/python/snippets/path",
-					"default_value": [],
-					"description": "Paths to snippet dirs",
-					"value": [],
+					"default_value": ["${XSTUDIO_ROOT}/snippets","${HOME}/xStudio/snippets"],
+					"description": "This preference must be a json array. Each element of the array must be a path to a filesystem folder. xSTUDIO will search these folders for python 'snippets' - self contained python scripts.",
+					"value": ["${XSTUDIO_ROOT}/snippets","${HOME}/xStudio/snippets"],
 					"datatype": "json",
-					"context": ["APPLICATION"]
+					"context": ["APPLICATION"],
+					"category": "Python",
+					"options": "import xStudio 1.0; XsJsonPreference {}",
+					"display_name": "Snippets Paths"
 				}
+			},
+			"python_plugin_search_folders": {
+				"path": "/core/python/python_plugin_search_folders",
+				"default_value": [],
+				"description": "This preference must be a json array. Each element of the array must be a path.",
+				"value": [],
+				"datatype": "json",
+				"context": ["APPLICATION"]
+			},	
+			"user_python_plugin_search_folders": {
+				"path": "/core/python/user_python_plugin_search_folders",
+				"default_value": [],
+				"description": "This preference must be a json array. Each element of the array must be a path to a filesystem folder. xSTUDIO will search these folders for xSTUDIO python plugins. Re-start xstudio after modifying this preference for it to take effect.",
+				"value": [],
+				"datatype": "json",
+				"display_name": "Python Plugins Search Paths",
+				"context": ["APPLICATION"],
+				"category": "Python",
+				"options": "import xStudio 1.0; XsJsonPreference {}"
 			}
 		}
 	}

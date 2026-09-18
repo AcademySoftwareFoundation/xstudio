@@ -25,6 +25,7 @@ void py_ui(py::module_ &m) {
         .value("NoModifier", ui::KeyboardModifier::NoModifier)
         .value("ShiftModifier", ui::KeyboardModifier::ShiftModifier)
         .value("ControlModifier", ui::KeyboardModifier::ControlModifier)
+        .value("AltModifier", ui::KeyboardModifier::AltModifier)
         .value("MetaModifier", ui::KeyboardModifier::MetaModifier)
         .value("KeypadModifier", ui::KeyboardModifier::KeypadModifier)
         .value("GroupSwitchModifier", ui::KeyboardModifier::GroupSwitchModifier)

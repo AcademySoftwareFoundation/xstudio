@@ -6,6 +6,13 @@
 #include <limits>
 #include <regex>
 
+#ifdef _WIN32
+#include <windows.h>
+#elif defined(__APPLE__)
+#include <csignal>
+#include <cerrno>
+#endif
+
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/remote_session_file.hpp"
@@ -14,7 +21,7 @@
 using namespace xstudio::utility;
 
 
-static std::regex parse_re(R"((.+)_(.+)_(.+)_(.+))");
+static std::regex parse_re(R"((.+)_.+_(.+)_(.+))");
 
 RemoteSessionFile::RemoteSessionFile(const std::string &file_path) {
     // build entry..
@@ -30,9 +37,8 @@ RemoteSessionFile::RemoteSessionFile(const std::string &file_path) {
     std::smatch match;
     if (std::regex_search(file_name, match, parse_re)) {
         session_name_ = match[1];
-        sync_         = (match[2] == "sync" ? true : false);
-        host_         = match[3];
-        port_         = std::stoi(match[4], nullptr, 0);
+        host_         = match[2];
+        port_         = std::stoi(match[3], nullptr, 0);
     } else {
         throw std::runtime_error("Invalid remote session file. " + file_name);
     }
@@ -45,7 +51,21 @@ RemoteSessionFile::RemoteSessionFile(const std::string &file_path) {
 
     // test pid if host is local.
     if (host_ == "localhost" and pid_) {
-        if (not exists(fs::path(fmt::format("/proc/{}", pid_)))) {
+        bool alive = false;
+#ifdef _WIN32
+        HANDLE h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid_);
+        if (h) {
+            DWORD exit_code = 0;
+            alive = GetExitCodeProcess(h, &exit_code) && exit_code == STILL_ACTIVE;
+            CloseHandle(h);
+        }
+#elif defined(__APPLE__)
+        // POSIX signal 0 doesn't deliver a signal, just checks existence.
+        alive = (kill(pid_, 0) == 0) || (errno == EPERM);
+#else
+        alive = exists(fs::path(fmt::format("/proc/{}", pid_)));
+#endif
+        if (not alive) {
             remove(filepath());
             throw std::runtime_error("Invalid remote session file, process dead. " + file_name);
         }
@@ -53,8 +73,8 @@ RemoteSessionFile::RemoteSessionFile(const std::string &file_path) {
     last_write_ = fs::last_write_time(filepath());
 }
 
-RemoteSessionFile::RemoteSessionFile(const std::string path, const int port, const bool sync)
-    : path_(std::move(path)), port_(port), sync_(sync) {
+RemoteSessionFile::RemoteSessionFile(const std::string path, const int port)
+    : path_(std::move(path)), port_(port) {
 
     pid_ = get_pid();
     for (auto i = 0; i < 100; i++) {
@@ -72,15 +92,13 @@ RemoteSessionFile::RemoteSessionFile(const std::string path, const int port, con
 RemoteSessionFile::RemoteSessionFile(
     const std::string path,
     const int port,
-    const bool sync,
     const std::string session_name,
     const std::string host,
     const bool force_cleanup)
     : path_(std::move(path)),
       session_name_(std::move(session_name)),
       host_(std::move(host)),
-      port_(port),
-      sync_(sync) {
+      port_(port) {
 
     // we can't test if remote is still valid.
     // so we should only use this to create a new connection ?
@@ -176,16 +194,7 @@ RemoteSessionManager::~RemoteSessionManager() {
 
 std::optional<RemoteSessionFile> RemoteSessionManager::first_api() const {
     for (const auto &i : sessions_) {
-        if (i.host() == "localhost" and not i.sync())
-            return i;
-    }
-
-    return {};
-}
-
-std::optional<RemoteSessionFile> RemoteSessionManager::first_sync() const {
-    for (const auto &i : sessions_) {
-        if (i.host() == "localhost" and i.sync())
+        if (i.host() == "localhost")
             return i;
     }
 
@@ -207,8 +216,8 @@ void RemoteSessionManager::add_session_file(const RemoteSessionFile rsm) {
 }
 
 
-std::string RemoteSessionManager::create_session_file(const int port, const bool sync) {
-    auto i                   = RemoteSessionFile(path_, port, sync);
+std::string RemoteSessionManager::create_session_file(const int port) {
+    auto i                   = RemoteSessionFile(path_, port);
     std::string session_name = i.session_name();
     sessions_.emplace_front(i);
     return session_name;
@@ -216,12 +225,10 @@ std::string RemoteSessionManager::create_session_file(const int port, const bool
 
 void RemoteSessionManager::create_session_file(
     const int port,
-    const bool sync,
     const std::string session_name,
     const std::string host,
     const bool force_cleanup) {
-    sessions_.emplace_front(
-        RemoteSessionFile(path_, port, sync, session_name, host, force_cleanup));
+    sessions_.emplace_front(RemoteSessionFile(path_, port, session_name, host, force_cleanup));
 }
 
 void RemoteSessionManager::remove_session(const std::string &session_name) {

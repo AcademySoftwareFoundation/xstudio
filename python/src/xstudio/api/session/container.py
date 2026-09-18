@@ -116,7 +116,6 @@ class PlaylistTree(object):
 
         return self._children
 
-
 class Container(ActorConnection):
     def __init__(self, connection, remote, uuid=None):
         """Create Container object.
@@ -136,6 +135,30 @@ class Container(ActorConnection):
     def uuid_actor(self):
         """Return as a UuidActor."""
         return UuidActor(self.uuid, self.remote)
+
+    def add_event_callback_function(self, callback_function):
+        """Set a callback that will be called whenever the Container sends
+        a message to its event group
+        Args:
+            callback_function(function): Callback function
+
+        Returns:
+            uuid(Uuid): A unique ID for the cinternal allback handler. Use to
+            remove the callback
+        """
+        return self.connection.link.add_message_callback(
+            self.group, callback_function
+            )
+
+    def remove_event_callback_function(self, callback_id):
+        """Remove a callback that was set-up to get event messages from the
+        container
+        Args:
+            callback_id(Uuid): Callback ID
+        """
+        self.connection.link.remove_message_callback(
+            self.group, callback_id
+            )
 
     @property
     def name(self):

@@ -103,6 +103,16 @@
                 },
 				"datatype": "json",
 				"context": ["QML_UI"]
+			},
+			"keep_laser_active": {
+				"path": "/plugin/annotations/keep_laser_active",
+				"default_value": false,
+				"description": "When using the annotations tool, keep the laser tool active after the toolbar is hidden. This may be useful if your are working in full-screen mode to preset and you want to make laser strokes but not have the annotations toolbar visible.",
+				"value": false,
+				"datatype": "bool",
+				"display_name": "Laser Pen Active when Toolbar Hidden",
+				"context": ["APPLICATION"],
+				"category": "Viewport"
 			}
 		}
 	}

@@ -4,12 +4,10 @@
 xSTUDIO User Guide
 ###################
 
-.. image:: ./images/xstudio-logo.png
-   :scale: 80 %
-   :align: center
+.. image:: images/interface-01.png
 
 .. note::
-     The screenshots included in this user guide show visual content from the 'Meridian' title, part of the `Netflix Open Content <https://opencontent.netflix.com/>`_ media data set. 
+     The screenshots included in this user guide include some visual content from the 'Meridian' title, part of the `Netflix Open Content <https://opencontent.netflix.com/>`_ media data set. 
 
 .. toctree::
    :maxdepth: 2
@@ -17,8 +15,6 @@ xSTUDIO User Guide
    overview
    ./getting_started/getting_started
    ./interface/interface
-   ./playback
-   ./notes   
-   ./preferences   
+   ./workflow/workflow
    ./appendix/index
    ./release_notes/index

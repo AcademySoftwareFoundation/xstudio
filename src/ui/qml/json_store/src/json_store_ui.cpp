@@ -19,11 +19,6 @@ JsonStoreUI::JsonStoreUI(QObject *parent) : QMLActor(parent) {}
 void JsonStoreUI::init(actor_system &system_) {
     QMLActor::init(system_);
 
-    self()->set_down_handler([=](down_msg &msg) {
-        if (msg.source == store)
-            unsubscribe();
-    });
-
     set_message_handler([=](actor_companion * /*self_*/) -> message_handler {
         return {
             [=](json_store::update_atom,
@@ -33,7 +28,6 @@ void JsonStoreUI::init(actor_system &system_) {
                 set_json_string(QStringFromStd(full.dump(4)), true);
             },
             [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-            [=](const group_down_msg &) {},
 
             [=](json_store::update_atom, const utility::JsonStore &json) {
                 set_json_string(QStringFromStd(json.dump(4)), true);
@@ -56,16 +50,21 @@ void JsonStoreUI::set_json_string(const QString &str, const bool from_actor) {
 }
 
 void JsonStoreUI::subscribe(caf::actor actor) {
+    monitor_.dispose();
     unsubscribe();
-    self()->monitor(actor);
+
+    monitor_ = self()->monitor(
+        actor, [this, addr = actor.address()](const error &) { unsubscribe(); });
+
     store = actor;
     // get group, and watch..
     scoped_actor sys{system()};
-    sys->request(actor, infinite, utility::get_group_atom_v)
+    sys->mail(utility::get_group_atom_v)
+        .request(actor, infinite)
         .receive(
-            [&](const std::pair<caf::actor, utility::JsonStore> &data) {
-                const auto [grp, json] = data;
-                store_events           = grp;
+            [&](const std::tuple<caf::actor, caf::actor, utility::JsonStore> &data) {
+                const auto [js, grp, json] = data;
+                store_events               = grp;
 
                 scoped_actor sys{system()};
                 request_receive<bool>(
@@ -74,12 +73,11 @@ void JsonStoreUI::subscribe(caf::actor actor) {
                 set_json_string(QStringFromStd(json.dump(4)), true);
             },
             [&](const caf::error &e) {
-                aout(self()) << __PRETTY_FUNCTION__ << " " << e << std::endl;
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(e));
             });
 }
 
 void JsonStoreUI::unsubscribe() {
-    self()->demonitor(store);
     store = caf::actor();
 
     scoped_actor sys{system()};
@@ -98,7 +96,7 @@ void JsonStoreUI::send_update(QString text) {
     if (store != caf::actor()) {
         try {
             utility::JsonStore json_data(nlohmann::json::parse(text.toUtf8().constData()));
-            anon_send(store, json_store::set_json_atom_v, json_data);
+            anon_mail(json_store::set_json_atom_v, json_data).send(store);
         } catch (...) {
         }
     }

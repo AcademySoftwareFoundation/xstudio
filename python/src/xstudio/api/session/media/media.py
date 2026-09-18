@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.core import get_media_source_atom, current_media_source_atom, get_json_atom, get_metadata_atom, reflag_container_atom, rescan_atom
-from xstudio.core import invalidate_cache_atom, get_media_pointer_atom, MediaType, Uuid
-from xstudio.core import add_media_source_atom, FrameRate, FrameList, parse_posix_path, URI
-from xstudio.core import set_json_atom, JsonStore, quickview_media_atom
+from xstudio.core import invalidate_cache_atom, get_media_pointer_atom, MediaType, Uuid, media_status_atom
+from xstudio.core import add_media_source_atom, FrameRate, FrameList, parse_posix_path, URI, MediaStatus
+from xstudio.core import set_json_atom, JsonStore, quickview_media_atom, media_display_info_atom
+from xstudio.core import transform_matrix_atom
 
 from xstudio.api.session.container import Container
 from xstudio.api.session.media.media_source import MediaSource
@@ -42,6 +43,26 @@ class Media(Container):
 
 
     @property
+    def status(self):
+        """Get media status
+
+        Returns:
+            status(MediaStatus): Status of current media source.
+        """
+
+        return self.connection.request_receive(self.remote, media_status_atom())[0]
+
+    @property
+    def is_online(self):
+        """Get media status
+
+        Returns:
+            status(MediaStatus): Status of current media source.
+        """
+
+        return self.status == MediaStatus.MS_ONLINE
+
+    @property
     def flag_colour(self):
         """Get media flag colour.
 
@@ -60,6 +81,32 @@ class Media(Container):
         """
 
         return self.connection.request_receive(self.remote, reflag_container_atom())[0][1]
+
+    @flag_colour.setter
+    def flag_colour(self, colour):
+        """Set media flag colour.
+
+        Args:
+            colour(string): colour string
+
+        Returns:
+            bool: success
+
+        """
+        return self.reflag(colour, self.flag_text)
+
+    @flag_text.setter
+    def flag_text(self, text):
+        """Set media flag text.
+
+        Args:
+            text(string): text string
+
+        Returns:
+            bool: success
+
+        """
+        return self.reflag(self.flag_colour, text)
 
     def media_source(self, media_type=MediaType.MT_IMAGE):
         """Get current media source.
@@ -117,7 +164,7 @@ class Media(Container):
             bool: success
 
         """
-        return self.connection.request_receive(self.remote, set_json_atom(), Uuid(), JsonStore(new_metadata))
+        return self.connection.request_receive(self.remote, set_json_atom(), Uuid(), JsonStore(new_metadata), "")
 
     def get_metadata(self, path):
         """Get metdata at JSON path
@@ -132,7 +179,7 @@ class Media(Container):
         return json.loads(self.connection.request_receive(self.remote, get_json_atom(), Uuid(), path)[0].dump())
 
     def set_metadata(self, data, path):
-        """Get metdata at JSON path
+        """Set metdata at JSON path
 
         Args:
             data(json): JSON Data
@@ -232,3 +279,33 @@ class Media(Container):
             success(bool): Returns result.
         """
         return self.connection.request_receive(self.remote, reflag_container_atom(), flag_colour, flag_string)[0]
+
+    @property
+    def display_info(self):
+        """Get media display info. This is the list of values that are
+        shown in the xSTUDIO UI MediaList panel for this media item.
+
+        Returns:
+            display_info(json): Media display info
+        """        
+        return json.loads(self.connection.request_receive(self.remote, media_display_info_atom())[0].dump())
+
+    @property
+    def transform_matrix(self):
+        """Get media item transform matrix. This matrix is used when the image
+        is drawn into the xstudio viewport, and can be changed to apply scaling,
+        rotation, shear and so-on.
+
+        Returns:
+            transform_matrix(Imath::M44f): Media transform matrix.
+        """
+        return self.connection.request_receive(self.remote, transform_matrix_atom())[0]
+
+    @transform_matrix.setter
+    def transform_matrix(self, new_matrix):
+        """Set media item transform matrix.
+
+        Args:
+            new_matrix(M44f): Set media item transform matrix.
+        """
+        self.connection.request_receive(self.remote, transform_matrix_atom(), new_matrix)

@@ -18,106 +18,96 @@
 #include <QList>
 #include <QUrl>
 
-namespace xstudio {
-namespace ui {
-    namespace qml {
+namespace xstudio::ui::qml {
 
-        struct LogItem {
-            QDateTime timeStamp;
-            int level;
-            QString text;
-        };
+struct LogItem {
+    QDateTime timeStamp;
+    int level;
+    QString text;
+};
 
 
-        class LOG_QML_EXPORT LogModel : public QAbstractListModel {
-            Q_OBJECT
-            Q_PROPERTY(QStringList logLevels READ logLevels NOTIFY logLevelsChanged)
+class LOG_QML_EXPORT LogModel : public QAbstractListModel {
+    Q_OBJECT
+    Q_PROPERTY(QStringList logLevels READ logLevels NOTIFY logLevelsChanged)
 
-          public:
-            enum LogRoles {
-                TimeRole = Qt::UserRole + 1,
-                LevelRole,
-                LevelStringRole,
-                StringRole
-            };
-            inline static const std::map<int, std::string> role_names = {
-                {TimeRole, "timeRole"},
-                {LevelRole, "levelRole"},
-                {LevelStringRole, "levelStringRole"},
-                {StringRole, "stringRole"}};
+  public:
+    enum LogRoles { TimeRole = Qt::UserRole + 1, LevelRole, LevelStringRole, StringRole };
+    inline static const std::map<int, std::string> role_names = {
+        {TimeRole, "timeRole"},
+        {LevelRole, "levelRole"},
+        {LevelStringRole, "levelStringRole"},
+        {StringRole, "stringRole"}};
 
-            LogModel(QObject *parent = nullptr);
-            [[nodiscard]] int
-            rowCount(const QModelIndex &parent = QModelIndex()) const override;
-            [[nodiscard]] QVariant
-            data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
-            [[nodiscard]] QStringList logLevels() const { return log_levels_; }
+    LogModel(QObject *parent = nullptr);
+    [[nodiscard]] int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+    [[nodiscard]] QVariant
+    data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+    [[nodiscard]] QStringList logLevels() const { return log_levels_; }
 
-            static QString logLevelToQString(const int level);
+    static QString logLevelToQString(const int level);
 
-          signals:
-            void logLevelsChanged();
-            void newLogRecord(const QDateTime &timestamp, const int level, const QString &text);
+  signals:
+    void logLevelsChanged();
+    void newLogRecord(const QDateTime &timestamp, const int level, const QString &text);
 
-          public slots:
-            void appendLog(const QDateTime &timestamp, const int level, const QString &text);
+  public slots:
+    void appendLog(const QDateTime &timestamp, const int level, const QString &text);
 
-          private:
-            [[nodiscard]] QHash<int, QByteArray> roleNames() const override;
+  private:
+    [[nodiscard]] QHash<int, QByteArray> roleNames() const override;
 
-            QList<LogItem> data_;
-            QStringList log_levels_;
-        };
-        // trace = SPDLOG_LEVEL_TRACE, debug = SPDLOG_LEVEL_DEBUG, info = SPDLOG_LEVEL_INFO,
-        // warn = SPDLOG_LEVEL_WARN,
-        //  err = SPDLOG_LEVEL_ERROR, critical = SPDLOG_LEVEL_CRITICAL, off =
-        //  SPDLOG_LEVEL_OFF
+    QList<LogItem> data_;
+    QStringList log_levels_;
+};
+// trace = SPDLOG_LEVEL_TRACE, debug = SPDLOG_LEVEL_DEBUG, info = SPDLOG_LEVEL_INFO,
+// warn = SPDLOG_LEVEL_WARN,
+//  err = SPDLOG_LEVEL_ERROR, critical = SPDLOG_LEVEL_CRITICAL, off =
+//  SPDLOG_LEVEL_OFF
 
-        class LOG_QML_EXPORT LogFilterModel : public QSortFilterProxyModel {
-            Q_OBJECT
-            Q_PROPERTY(int logLevel READ logLevel WRITE setLogLevel NOTIFY logLevelChanged)
-            Q_PROPERTY(QString logLevelString READ logLevelString NOTIFY logLevelStringChanged)
-            Q_PROPERTY(QStringList logLevels READ logLevels NOTIFY logLevelsChanged)
+class LOG_QML_EXPORT LogFilterModel : public QSortFilterProxyModel {
+    Q_OBJECT
+    Q_PROPERTY(int logLevel READ logLevel WRITE setLogLevel NOTIFY logLevelChanged)
+    Q_PROPERTY(QString logLevelString READ logLevelString NOTIFY logLevelStringChanged)
+    Q_PROPERTY(QStringList logLevels READ logLevels NOTIFY logLevelsChanged)
 
-          public:
-            LogFilterModel(QObject *parent = nullptr) : QSortFilterProxyModel(parent) {
-                setFilterRole(LogModel::StringRole);
-                setFilterCaseSensitivity(Qt::CaseInsensitive);
-                setDynamicSortFilter(true);
-                QObject::connect(this, &QSortFilterProxyModel::sourceModelChanged, [=]() {
-                    if (auto m = dynamic_cast<LogModel *>(sourceModel())) {
-                        QObject::connect(
-                            m, &LogModel::newLogRecord, this, &LogFilterModel::newLogRecord);
-                    }
-                });
+  public:
+    LogFilterModel(QObject *parent = nullptr) : QSortFilterProxyModel(parent) {
+        setFilterRole(LogModel::StringRole);
+        setFilterCaseSensitivity(Qt::CaseInsensitive);
+        setDynamicSortFilter(true);
+        QObject::connect(this, &QSortFilterProxyModel::sourceModelChanged, [=]() {
+            if (auto m = dynamic_cast<LogModel *>(sourceModel())) {
+                QObject::connect(
+                    m, &LogModel::newLogRecord, this, &LogFilterModel::newLogRecord);
             }
-            [[nodiscard]] int logLevel() const { return log_Level_; }
-            [[nodiscard]] QString logLevelString() const;
-            [[nodiscard]] QStringList logLevels() const;
+        });
+    }
+    [[nodiscard]] int logLevel() const { return log_Level_; }
+    [[nodiscard]] QString logLevelString() const;
+    [[nodiscard]] QStringList logLevels() const;
 
-          protected:
-            [[nodiscard]] bool
-            filterAcceptsRow(int source_row, const QModelIndex &source_parent) const override;
+  protected:
+    [[nodiscard]] bool
+    filterAcceptsRow(int source_row, const QModelIndex &source_parent) const override;
 
-          signals:
-            void logLevelChanged();
-            void logLevelStringChanged();
-            void logLevelsChanged();
-            void newLogRecord(const QDateTime &timestamp, const int level, const QString &text);
+  signals:
+    void logLevelChanged();
+    void logLevelStringChanged();
+    void logLevelsChanged();
+    void newLogRecord(const QDateTime &timestamp, const int level, const QString &text);
 
-          public slots:
-            void setLogLevel(const int level);
-            void copyLogToClipboard(const int start = 0, int count = -1) const;
-            void saveLogToFile(const QUrl &path, const int start = 0, int count = -1) const;
+  public slots:
+    void setLogLevel(const int level);
+    void copyLogToClipboard(const int start = 0, int count = -1) const;
+    void saveLogToFile(const QUrl &path, const int start = 0, int count = -1) const;
 
-          private:
-            void saveLogToFile(const QString &path, const int start = 0, int count = -1) const;
-            [[nodiscard]] QString logText(const int start, int count) const;
-            int log_Level_{SPDLOG_LEVEL_INFO};
-        };
-    } // namespace qml
-} // namespace ui
-} // namespace xstudio
+  private:
+    void saveLogToFile(const QString &path, const int start = 0, int count = -1) const;
+    [[nodiscard]] QString logText(const int start, int count) const;
+    int log_Level_{SPDLOG_LEVEL_INFO};
+};
+} // namespace xstudio::ui::qml
 
 
 //

@@ -2,21 +2,21 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Currently, a *very* rough demo showing remote control of xstudio with two
-way communication to a PySide2 interface"""
+way communication to a PySide6 interface"""
 
-from PySide2.QtWidgets import QApplication
-from PySide2.QtWidgets import QMainWindow
-from PySide2.QtWidgets import QVBoxLayout, QHBoxLayout, QGridLayout
-from PySide2.QtWidgets import QPushButton
-from PySide2.QtWidgets import QWidget
-from PySide2.QtWidgets import QCheckBox
-from PySide2.QtWidgets import QSlider
-from PySide2.QtWidgets import QLineEdit
-from PySide2.QtQuickWidgets import QQuickWidget
-from PySide2.QtWidgets import QFileDialog
-from PySide2.QtCore import QUrl
-from PySide2.QtCore import QTimer
-from PySide2.QtCore import Qt
+from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QMainWindow
+from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QGridLayout
+from PySide6.QtWidgets import QPushButton
+from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QCheckBox
+from PySide6.QtWidgets import QSlider
+from PySide6.QtWidgets import QLineEdit
+from PySide6.QtQuickWidgets import QQuickWidget
+from PySide6.QtWidgets import QFileDialog
+from PySide6.QtCore import QUrl
+from PySide6.QtCore import QTimer
+from PySide6.QtCore import Qt
 import sys
 import time
 import subprocess

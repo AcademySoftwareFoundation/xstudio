@@ -4,83 +4,107 @@
 #include "xstudio/utility/uuid.hpp"
 #include <set>
 #include <caf/actor.hpp>
-namespace xstudio {
-namespace ui {
+namespace xstudio::ui {
 
-    enum KeyboardModifier {
-        NoModifier          = 0x0,
-        ShiftModifier       = 1 << 0,
-        ControlModifier     = 1 << 1,
-        AltModifier         = 1 << 2,
-        MetaModifier        = 1 << 3,
-        KeypadModifier      = 1 << 4,
-        GroupSwitchModifier = 1 << 5,
-        ZoomActionModifier  = 1 << 6,
-        PanActionModifier   = 1 << 7
-    };
+enum KeyboardModifier {
+    NoModifier          = 0x0,
+    ShiftModifier       = 1 << 0,
+    ControlModifier     = 1 << 1,
+    AltModifier         = 1 << 2,
+    MetaModifier        = 1 << 3,
+    KeypadModifier      = 1 << 4,
+    GroupSwitchModifier = 1 << 5,
+    ZoomActionModifier  = 1 << 6,
+    PanActionModifier   = 1 << 7
+};
 
-    inline static const std::map<int, int> key_to_modifier = {
-        {16777248, (int)ShiftModifier},
-        {16777249, (int)ControlModifier},
-        {16777251, (int)AltModifier},
-        {16777249, (int)MetaModifier}};
+// This is very rough and ready, needs a lot more work!
+class Hotkey {
 
-    // This is very rough and ready, needs a lot more work!
-    class Hotkey {
+  public:
+    Hotkey(
+        const int k,
+        const int mod,
+        const std::string name,
+        const std::string component,
+        const std::string description,
+        const std::string window_name,
+        const bool auto_repeat,
+        caf::actor_addr watcher,
+        const utility::Uuid uuid = utility::Uuid());
 
-      public:
-        Hotkey(
-            const int k,
-            const int mod,
-            const std::string name,
-            const std::string component,
-            const std::string description,
-            const std::string context,
-            const bool auto_repeat,
-            caf::actor_addr watcher);
+    Hotkey(const Hotkey &o) = default;
+    Hotkey()                = default;
 
-        Hotkey(const Hotkey &o) = default;
-        Hotkey()                = default;
+    [[nodiscard]] const std::string &hotkey_name() const { return name_; }
+    [[nodiscard]] const std::string &hotkey_origin() const { return component_; }
+    [[nodiscard]] const std::string &hotkey_description() const { return description_; }
+    [[nodiscard]] const std::string key() const;
+    [[nodiscard]] int modifiers() const { return modifiers_; }
+    [[nodiscard]] int key_id() const { return key_; }
+    [[nodiscard]] int default_modifiers() const { return default_modifiers_; }
+    [[nodiscard]] int default_key_id() const { return default_key_; }
+    [[nodiscard]] const utility::Uuid &uuid() const { return uuid_; }
+    [[nodiscard]] std::string hotkey_sequence() const;
+    [[nodiscard]] const std::vector<caf::actor_addr> &watchers() const { return watchers_; }
 
-        void add_watcher(caf::actor_addr);
+    bool update(const Hotkey &o, const bool update_sequence = true);
 
-        [[nodiscard]] const std::string &hotkey_name() const { return name_; }
-        [[nodiscard]] const std::string &hotkey_origin() const { return component_; }
-        [[nodiscard]] const std::string &hotkey_description() const { return description_; }
-        [[nodiscard]] const std::string key() const;
-        [[nodiscard]] int modifiers() const { return modifiers_; }
-        [[nodiscard]] const utility::Uuid &uuid() const { return uuid_; }
-        [[nodiscard]] std::string hotkey_sequence() const;
+    bool update(const int new_key, const int new_modifiers);
 
-        bool update(const Hotkey &o);
+    void add_watcher(caf::actor_addr w);
 
-        void update_state(
-            const std::set<int> &current_keys,
-            const std::string &context,
-            const bool auto_repeat);
+    void watcher_died(caf::actor_addr &watcher);
 
-        static std::map<int, std::string> key_names;
+    // setting an exclusive watcher means it is the only actor to get the
+    // hotkey event. Hotkey events are not broadcast to 'regular' watchers
+    // or to the general event_group of the global keyboard_events actor.
+    // The most recent actor to set itself exclusive is the  one that gets
+    // the events.
+    void exclusive_watcher(caf::actor_addr w, bool watch);
 
-      private:
-        void notifty_watchers(const std::string &context);
+    void update_state(
+        const std::set<int> &current_keys,
+        const std::string &context,
+        const std::string &window,
+        const bool auto_repeat,
+        caf::actor keypress_monitor,
+        const bool due_to_focus_change = false);
 
-        int key_       = 0;
-        int modifiers_ = 0;
-        bool pressed_  = false;
-        utility::Uuid uuid_;
-        std::string name_;
-        std::string component_;
-        std::string description_;
-        std::string context_;
-        bool auto_repeat_;
-        std::vector<std::pair<caf::actor_addr, std::string>> watchers_;
-    };
+    static void
+    sequence_to_key_and_modifier(const std::string &sequence, int &keycode, int &modifier);
 
+    static void sequence_to_key_and_modifier(
+        const std::vector<std::string> &seq, int &keycode, int &modifier);
+
+  private:
+    void notify(
+        const std::string &context,
+        const std::string &window,
+        caf::actor keypress_monitor,
+        const bool due_to_focus_change);
+    void notify_watchers(
+        const std::string &context, const std::string &window, const bool due_to_focus_change);
+
+    int default_key_       = 0;
+    int default_modifiers_ = 0;
+    int key_               = 0;
+    int modifiers_         = 0;
+    bool pressed_          = false;
+    utility::Uuid uuid_;
+    std::string name_;
+    std::string component_;
+    std::string description_;
+    bool auto_repeat_;
+    std::vector<caf::actor_addr> watchers_;
+    std::vector<caf::actor_addr> exclusive_watchers_;
+
+  public:
     // This is a straight clone of the Qt::Key enums but instead we provide string
     // names for each key. The reason is that the actual key press event comes from
     // qt and we pass the qt key ID - here in xSTUDIO backend we don't want
     // any qt dependency hence this map.
-    inline std::map<int, std::string> Hotkey::key_names = {
+    inline static const std::map<int, std::string> key_names = {
         {0x01000000, "Escape"},
         {0x01000001, "Tab"},
         {0x01000002, "Backtab"},
@@ -125,7 +149,7 @@ namespace ui {
         {0x0100003d, "F14"},
         {0x0100003e, "F15"},
         {0x20, "Space Bar"},
-        {0x21, "Exclam"},
+        {0x21, "!"},
         {0x22, "\""},
         {0x23, "#"},
         {0x24, "$"},
@@ -208,5 +232,16 @@ namespace ui {
         {109, "numpad decimal point"},
         {110, "numpad divide"}};
 
-} // namespace ui
-} // namespace xstudio
+    inline static const std::map<int, int> key_to_modifier = {
+        {0x01000020, (int)ShiftModifier},
+        {0x01000021, (int)ControlModifier},
+        {0x01000022, (int)MetaModifier},
+        {0x01000023, (int)AltModifier}};
+    inline static const std::map<int, int> modifier_to_key = {
+        {(int)ShiftModifier, 0x01000020},
+        {(int)ControlModifier, 0x01000021},
+        {(int)MetaModifier, 0x01000022},
+        {(int)AltModifier, 0x01000023}};
+};
+
+} // namespace xstudio::ui

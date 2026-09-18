@@ -36,45 +36,42 @@
 #else
 
 #define START_SLOW_WATCHER()                                                                   \
-    {}
+    {                                                                                          \
+    }
 #define CHECK_SLOW_WATCHER()                                                                   \
-    {}
+    {                                                                                          \
+    }
 #define CHECK_SLOW_WATCHER_FAST()                                                              \
-    {}
+    {                                                                                          \
+    }
 #define CHECK_SLOW_WATCHER_EXACT(a, b, c)                                                      \
-    {}
+    {                                                                                          \
+    }
 
 #endif
 
 
-namespace xstudio {
+namespace xstudio::utility {
+
 /*!
- *  \addtogroup xstudio
+ *  \addtogroup utility
  *  @{
  */
-namespace utility {
-
-    /*!
-     *  \addtogroup utility
-     *  @{
-     */
 
 
-    /*! Start logger
+/*! Start logger
 
-      \param lvl - logging level
-      \param logfile - optional file to log to
+  \param lvl - logging level
+  \param logfile - optional file to log to
 
-    */
-    void start_logger(
-        const spdlog::level::level_enum lvl = spdlog::level::info,
-        const std::string &logfile          = "");
+*/
+void start_logger(
+    const spdlog::level::level_enum lvl = spdlog::level::info, const std::string &logfile = "");
 
 
-    //! Stop logger
-    void stop_logger();
-    /*! @} End of Doxygen Groups*/
+//! Stop logger
+void stop_logger();
+/*! @} End of Doxygen UIDataModels*/
 
-} // namespace utility
-/*! @} End of Doxygen Groups*/
-} // namespace xstudio
+} // namespace xstudio::utility
+/*! @} End of Doxygen UIDataModels*/

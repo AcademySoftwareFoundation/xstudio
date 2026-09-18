@@ -10,78 +10,92 @@ CAF_PUSH_WARNINGS
 #include <QtConcurrent>
 CAF_POP_WARNINGS
 
+// include CMake auto-generated export hpp
+#include "xstudio/ui/qml/studio_qml_export.h"
+
 #include "xstudio/ui/qml/helper_ui.hpp"
 #include "xstudio/ui/qt/offscreen_viewport.hpp"
 #include "xstudio/utility/uuid.hpp"
 
-namespace xstudio {
-namespace ui {
-    namespace qml {
+namespace xstudio::ui::qml {
 
-        //  top level utility actor, for stuff that lives out side the session.
-        class StudioUI : public QMLActor {
+void setup_xstudio_qml_emgine(QQmlEngine *engine, caf::actor_system &system);
 
-            Q_OBJECT
+//  top level utility actor, for stuff that lives out side the session.
+class STUDIO_QML_EXPORT StudioUI : public QMLActor {
 
-            Q_PROPERTY(QList<QObject *> dataSources READ dataSources NOTIFY dataSourcesChanged)
-            Q_PROPERTY(QString sessionActorAddr READ sessionActorAddr WRITE setSessionActorAddr
-                           NOTIFY sessionActorAddrChanged)
+    Q_OBJECT
 
-          public:
-            explicit StudioUI(caf::actor_system &system, QObject *parent = nullptr);
-            ~StudioUI();
+    Q_PROPERTY(
+        QString sessionActorAddr READ sessionActorAddr WRITE setSessionActorAddr NOTIFY
+            sessionActorAddrChanged)
 
-            Q_INVOKABLE bool clearImageCache();
+  public:
+    explicit StudioUI(caf::actor_system &system, QObject *parent = nullptr);
+    ~StudioUI() override;
 
-            Q_INVOKABLE [[nodiscard]] QUrl userDocsUrl() const;
-            Q_INVOKABLE [[nodiscard]] QUrl apiDocsUrl() const;
-            Q_INVOKABLE [[nodiscard]] QUrl releaseDocsUrl() const;
-            Q_INVOKABLE [[nodiscard]] QUrl hotKeyDocsUrl() const;
+    Q_INVOKABLE bool clearImageCache();
 
-            Q_INVOKABLE void newSession(const QString &name);
+    Q_INVOKABLE [[nodiscard]] QUrl userDocsUrl() const;
+    Q_INVOKABLE [[nodiscard]] QUrl apiDocsUrl() const;
+    Q_INVOKABLE [[nodiscard]] QUrl releaseDocsUrl() const;
+    Q_INVOKABLE [[nodiscard]] QUrl docsSectionUrl(const QString &section) const;
 
-            Q_INVOKABLE bool loadSession(const QUrl &path, const QVariant &json = QVariant()) {
-                return loadSessionFuture(path, json).result();
-            }
-            Q_INVOKABLE QFuture<bool>
-            loadSessionFuture(const QUrl &path, const QVariant &json = QVariant());
+    Q_INVOKABLE void newSession(const QString &name);
 
-            Q_INVOKABLE bool loadSessionRequest(const QUrl &path) {
-                return loadSessionRequestFuture(path).result();
-            }
-            Q_INVOKABLE QFuture<bool> loadSessionRequestFuture(const QUrl &path);
-
-            QList<QObject *> dataSources() { return data_sources_; }
-
-            [[nodiscard]] QString sessionActorAddr() const { return session_actor_addr_; };
-
-            void setSessionActorAddr(const QString &addr);
-
-          signals:
-
-            void newSessionCreated(const QString &session_addr);
-            void sessionLoaded(const QString &session_addr);
-            void dataSourcesChanged();
-            void sessionRequest(const QUrl path, const QByteArray jsn);
-            void sessionActorAddrChanged();
-            void openQuickViewers(QStringList mediaActors, QString compareMode);
-            void showMessageBox(
-                QString messageTile, QString messageBody, bool closeButton, int timeoutSeconds);
+    Q_INVOKABLE bool loadSession(const QUrl &path, const QVariant &json = QVariant()) {
+        return loadSessionFuture(path, json).result();
+    }
+    Q_INVOKABLE QFuture<bool>
+    loadSessionFuture(const QUrl &path, const QVariant &json = QVariant());
 
 
-          public slots:
+    Q_INVOKABLE bool importSession(const QUrl &path, const QVariant &json = QVariant()) {
+        return importSessionFuture(path, json).result();
+    }
+    Q_INVOKABLE QFuture<bool>
+    importSessionFuture(const QUrl &path, const QVariant &json = QVariant());
 
-          private:
-            void init(caf::actor_system &system) override;
-            void updateDataSources();
-            void loadVideoOutputPlugins();
+    Q_INVOKABLE bool loadSessionRequest(const QUrl &path) {
+        return loadSessionRequestFuture(path).result();
+    }
+    Q_INVOKABLE QFuture<bool> loadSessionRequestFuture(const QUrl &path);
 
-            QList<QObject *> data_sources_;
-            QString session_actor_addr_;
-            std::vector<xstudio::ui::qt::OffscreenViewport *> offscreen_viewports_;
-            std::vector<caf::actor> video_output_plugins_;
-            xstudio::ui::qt::OffscreenViewport *snapshot_offscreen_viewport_ = nullptr;
-        };
-    } // namespace qml
-} // namespace ui
-} // namespace xstudio
+    [[nodiscard]] QString sessionActorAddr() const { return session_actor_addr_; };
+
+    void setSessionActorAddr(const QString &addr);
+
+    Q_INVOKABLE QString renderScreenShotToDisk(
+        const QUrl &path, const int compression, const int width, const int height);
+
+    Q_INVOKABLE QString renderScreenShotToClipboard(const int width, const int height);
+
+    Q_INVOKABLE void setupSnapshotViewport(const QString &playhead_addr);
+
+    Q_INVOKABLE void loadVideoOutputPlugins();
+
+  signals:
+
+    void newSessionCreated(const QString &session_addr);
+    void sessionLoaded(const QString &session_addr);
+    void dataSourcesChanged();
+    void sessionRequest(const QUrl path, const QByteArray jsn);
+    void sessionActorAddrChanged();
+    void openQuickViewers(QStringList mediaActors, QString compareMode, int inpt, int outPt);
+    void showMessageBox(
+        QString messageTile, QString messageBody, bool closeButton, int timeoutSeconds);
+
+  public slots:
+
+  private:
+    void init(caf::actor_system &system) override;
+    xstudio::ui::qt::OffscreenViewport *offscreen_snapshot_viewport();
+    void loadVideoOutputPlugin(const utility::Uuid &plugin_id);
+
+
+    xstudio::ui::qt::OffscreenViewport *snapshot_offscreen_viewport_ = nullptr;
+    std::vector<xstudio::ui::qt::OffscreenViewport *> offscreen_viewports_;
+    std::map<utility::Uuid, caf::actor> video_output_plugins_;
+    QString session_actor_addr_;
+};
+} // namespace xstudio::ui::qml

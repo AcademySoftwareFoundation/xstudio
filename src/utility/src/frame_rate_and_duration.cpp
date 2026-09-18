@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-#ifdef _WIN32
-#include <numeric>
-#else
+#ifdef __linux__
 #include <experimental/numeric>
 #endif
 #include <functional>
@@ -29,9 +27,9 @@ double FrameRateDuration::seconds(const FrameRate &override) const {
 int FrameRateDuration::frames(const FrameRate &override) const {
     long int frames = 0;
     if (override.count()) {
-        frames = (long)std::round(duration_ / override);
+        frames = (long)std::round(duration_.count() / override.count());
     } else if (rate_.count()) {
-        frames = (long)std::round(duration_ / rate_);
+        frames = (long)std::round(duration_.count() / rate_.count());
     }
     return static_cast<int>(frames);
 }
@@ -64,11 +62,9 @@ int FrameRateDuration::frame(const FrameRateDuration &rt, const bool remapped) c
 
 void xstudio::utility::from_json(const nlohmann::json &j, FrameRateDuration &rt) {
     FrameRate r;
-    long int ticks;
-
+    uint64_t ticks;
     j.at("rate").get_to(r);
     j.at("duration").get_to(ticks);
-
     rt.set_duration(timebase::flicks(ticks));
     rt.set_rate(r);
 }
@@ -83,6 +79,21 @@ void xstudio::utility::to_json(nlohmann::json &j, const FrameRateDuration &rt) {
 FrameRateDuration FrameRateDuration::operator-(const FrameRateDuration &other) {
     return FrameRateDuration(frames() - frame(other), rate_);
 }
+
+FrameRateDuration FrameRateDuration::operator+(const FrameRateDuration &other) {
+    return FrameRateDuration(frames() + frame(other), rate_);
+}
+
+FrameRateDuration &FrameRateDuration::operator+=(const FrameRateDuration &other) {
+    set_frames(frames() + other.frames());
+    return *this;
+}
+
+FrameRateDuration &FrameRateDuration::operator-=(const FrameRateDuration &other) {
+    set_frames(frames() - other.frames());
+    return *this;
+}
+
 
 FrameRateDuration
 FrameRateDuration::subtract_frames(const FrameRateDuration &other, const bool remapped) const {

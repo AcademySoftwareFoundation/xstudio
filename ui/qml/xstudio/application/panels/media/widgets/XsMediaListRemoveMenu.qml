@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: Apache-2.0
+import QtQuick
+
+import xStudio 1.0
+import xstudio.qml.models 1.0
+
+import "../functions/"
+
+
+XsPopupMenu {
+
+    id: removeMenu
+    visible: false
+    menu_model_name: "medialist_remove_button_menu"
+
+    // property idenfies the 'panel' that is the anticedent of this
+    // menu instance. As this menu is instanced multiple times in the
+    // xstudio interface we use this context property to ensure our
+    // 'onActivated' callback/signal is only triggered in the corresponding
+    // XsMenuModelItem instance.
+    property var panelContext: helpers.contextPanel(removeMenu)
+
+    XsMenuModelItem {
+        text: "Remove Selected Media"
+        menuItemType: "button"
+        menuPath: ""
+        menuItemPosition: 1
+        menuModelName: removeMenu.menu_model_name
+        onActivated: media_list_functions.deleteSelected(true)
+        panelContext: removeMenu.panelContext
+        hotkeyUuid: hotkey_area.delete_selected_hotkey.uuid
+    }
+
+    XsMenuModelItem {
+        text: "Remove Offline Media"
+        menuItemType: "button"
+        menuPath: ""
+        menuItemPosition: 2
+        menuModelName: removeMenu.menu_model_name
+        onActivated: media_list_functions.deleteOffline(true)
+        panelContext: removeMenu.panelContext
+        hotkeyUuid: hotkey_area.delete_offline_hotkey.uuid
+    }
+}

@@ -16,3 +16,4 @@ endif()
 # These are IMPORTED targets created by xStudioTargets.cmake
 set(xStudio_LIBRARIES foo)
 set(xStudio_EXECUTABLE bar)
+set(XSTUDIO_GLOBAL_VERSION @XSTUDIO_GLOBAL_VERSION@)

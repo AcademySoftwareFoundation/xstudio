@@ -10,7 +10,6 @@
 #include "xstudio/media_cache/media_cache_actor.hpp"
 #include "xstudio/media_reader/media_reader_actor.hpp"
 #include "xstudio/playlist/playlist_actor.hpp"
-#include "xstudio/utility/edit_list.hpp"
 #include "xstudio/utility/helpers.hpp"
 
 using namespace xstudio;
@@ -43,20 +42,21 @@ TEST(AudioActorTest, Test) {
     auto playlist = f.self->spawn<PlaylistActor>("Test");
     auto srcuuid  = Uuid::generate();
 
-    f.self->anon_send(
-        playlist,
-        add_media_atom_v,
-        f.self->spawn<MediaActor>(
-            "Media3",
-            Uuid(),
-            UuidActorVector({UuidActor(
-                srcuuid,
-                f.self->spawn<MediaSourceActor>(
-                    "MediaSource3",
-                    posix_path_to_uri(TEST_RESOURCE "/media/test.mov"),
-                    utility::FrameRate(timebase::k_flicks_24fps),
-                    srcuuid))})),
-        Uuid());
+    f.self
+        ->mail(
+            add_media_atom_v,
+            f.self->spawn<MediaActor>(
+                "Media3",
+                Uuid(),
+                UuidActorVector({UuidActor(
+                    srcuuid,
+                    f.self->spawn<MediaSourceActor>(
+                        "MediaSource3",
+                        posix_path_to_uri(TEST_RESOURCE "/media/test.mov"),
+                        utility::FrameRate(timebase::k_flicks_24fps),
+                        srcuuid))})),
+            Uuid())
+        .send(playlist);
 
     using namespace std::chrono_literals;
 
@@ -72,11 +72,11 @@ TEST(AudioActorTest, Test) {
                        playlist::create_playhead_atom_v)
                        .actor();
 
-        f.self->send(playhead, playhead::play_atom_v, true);
+        f.self->mail(playhead::play_atom_v, true).send(playhead);
 
         std::this_thread::sleep_for(3000ms);
 
-        f.self->send(playhead, playhead::play_atom_v, false);
+        f.self->mail(playhead::play_atom_v, false).send(playhead);
         f.self->send_exit(playhead, caf::exit_reason::user_shutdown);
 
     } catch (std::exception &e) {

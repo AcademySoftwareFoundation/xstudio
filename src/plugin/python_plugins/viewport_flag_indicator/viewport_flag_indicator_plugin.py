@@ -1,0 +1,146 @@
+#!/bin/env python
+# SPDX-License-Identifier: Apache-2.0
+
+from xstudio.connection import Connection
+from xstudio.plugin import HUDPlugin
+from xstudio.core import JsonStore
+from xstudio.core import event_atom, show_atom
+from xstudio.core import HUDElementPosition
+from xstudio.api.session.media import Media
+import json
+
+# path to QML resources relative to this .py file
+qml_folder_name = "qml/ViewportFlagIndicator.1"
+
+# QML code necessary to instance a custom settings panel for this HUD plugin.
+# This is the dialog that is shown when the user clicks on the cog icon in the
+# HUD button in the viewport toolbar.
+# Note that if your plugin uses 'plain' attributes (int, string, float, bool)
+# then you don't need a custom settings panel, xstudio will create a default 
+# one for you with controls for adjusting attributes that you want the user to
+# be able to change.
+settings_box_qml = """
+import QtQuick
+ViewportFlagIndicatorSettingsDialog {
+}
+"""
+
+# QML code necessary to create the overlay item that is drawn over the xSTUDIO
+# viewport.
+overlay_qml = """
+ViewportFlagIndicatorSettingsOverlay {
+}
+"""
+
+# Declare our plugin class - we're using the HUDPlugin base class meaning we
+# get a toggle under the 'HUD' button in the viewport toolbar to turn our
+# hud on and off
+class ViewportFlagIndicatorPlugin(HUDPlugin):
+
+    def __init__(self, connection):
+
+        HUDPlugin.__init__(
+            self,
+            connection,
+            "Media Dot", # the name of the HUD item
+            qml_folder=qml_folder_name,
+            position_in_hud_list=-10.0)
+        
+        # calling this function sets up our custom settings dialog with the
+        # front end. Uncomment this line to use the customised settings dialog.
+        # Otherwise the automated settings dialog will show.
+        # self.set_custom_settings_qml(settings_box_qml)
+
+        # add an attribute to control the size of the flag indicator
+        self.indicator_size = self.add_attribute(
+            "Indicator Size",
+            30.0, # default size
+            # additional attribute role data is provided as a dictionary
+            # as follows. The keys must be valid role names. See attribute.hpp
+            # for a list of the attribute role data names
+            {
+                "float_scrub_min": 5.0, 
+                "float_scrub_max": 100.0,
+                "float_scrub_step": 2.0,
+                "float_display_decimals": 2
+            },
+            # The flag below ensures that if the user changes the Indicator Size
+            # the value will be stored in the user's preferences files amnd
+            register_as_preference=True 
+            )
+
+        # add an attribute to control the position of the indicator
+        self.x_offset = self.add_attribute(
+            "X Offset",
+            0.0,
+            {
+                "float_scrub_min": -200.0, 
+                "float_scrub_max": 200.0,
+                "float_scrub_step": 1.0,
+                "float_display_decimals": 0
+            },
+            register_as_preference=True 
+            )
+
+        # add an attribute to control the position of the indicator
+        self.y_offset = self.add_attribute(
+            "Y Offset",
+            0.0,
+            {
+                "float_scrub_min": -200.0, 
+                "float_scrub_max": 200.0,
+                "float_scrub_step": 1.0,
+                "float_display_decimals": 0
+            },
+            register_as_preference=True 
+            )
+
+        # here we add the attribute sto a named 'group'. In the qml code, we can
+        # get to the attribute data using the 'XsModuleData' item and telling
+        # it which group we want to attach to.
+        self.y_offset.expose_in_ui_attrs_group("vp_flag_indicator")
+        self.x_offset.expose_in_ui_attrs_group("vp_flag_indicator")
+        self.indicator_size.expose_in_ui_attrs_group("vp_flag_indicator")
+        self.indicator_size.set_tool_tip("Set the size of the indicator in pixels")
+        self.indicator_size.set_redraw_viewport_on_change(True)
+
+        # this call will mean xstudio can add a slider for the indicator size
+        # attribute to the settings panel for the plugin
+        self.add_hud_settings_attribute(self.indicator_size)
+        self.add_hud_settings_attribute(self.x_offset)
+        self.add_hud_settings_attribute(self.y_offset)
+
+        # here we provide the QML code to instance the item that will draw
+        # the overlay graphics
+        self.hud_element_qml(
+            overlay_qml,
+            HUDElementPosition.BottomRight)
+
+        # expose our attributes in the UI layer
+        self.connect_to_ui()
+
+    def media_item_hud_data(self, media_item = None):
+
+        # This method is called by the base class. media_item is an instance
+        # of the Media class, and is the media object for some image that is
+        # going on-screen. We use it to build data that we return which will
+        # subsequently be available in the property 'media_item_hud_data'
+        # in our QML item that draws the HUD graphics.
+        if media_item:
+            # display_info is an array of values corresponding to the columns
+            # of the Media List Panel in the xSTUDIO UI (the columns are fully
+            # user-configurable, by the way)
+            return media_item.flag_colour
+        else:
+            return "#00000000"
+
+# This method is required by xSTUDIO
+def create_plugin_instance(connection):
+    return ViewportFlagIndicatorPlugin(connection)
+
+
+if __name__=="__main__":
+
+    XSTUDIO = Connection(auto_connect=True)
+    mask_plugin_instance = create_plugin_instance(XSTUDIO)
+    XSTUDIO.process_events_forever()

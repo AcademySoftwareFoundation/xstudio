@@ -22,11 +22,11 @@ RegisterGradingDataSerialiser(GradingDataSerialiser_1_pt_0, 1, 0)
     void GradingDataSerialiser_1_pt_0::_serialise(
         const GradingData *grading_data, nlohmann::json &d) const {
 
-    d = grading_data->layers();
+    d = *grading_data;
 }
 
 void GradingDataSerialiser_1_pt_0::_deserialise(
     GradingData *grading_data, const nlohmann::json &d) {
 
-    grading_data->layers() = d.template get<std::vector<LayerData>>();
+    *grading_data = d.template get<GradingData>();
 }

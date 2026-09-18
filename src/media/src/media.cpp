@@ -7,6 +7,27 @@
 using namespace xstudio::media;
 using namespace xstudio::utility;
 
+MediaKey::MediaKey(const std::string &o) : std::string(o) {
+    hash_ = std::hash<std::string>{}(o);
+}
+
+MediaKey::MediaKey(
+    const std::string &key_format,
+    const caf::uri &uri,
+    const int frame,
+    const std::string &stream_id,
+    const size_t mod_timestamp,
+    const utility::FrameRate &rate)
+    : std::string(
+          fmt::format(
+              fmt::runtime(key_format),
+              to_string(uri),
+              (frame == std::numeric_limits<int>::min() ? 0 : frame),
+              stream_id,
+              mod_timestamp,
+              rate.count())) {
+    hash_ = std::hash<std::string>{}(static_cast<const std::string &>(*this));
+}
 
 Media::Media(const JsonStore &jsn)
     : Container(static_cast<utility::JsonStore>(jsn["container"])) {
@@ -19,6 +40,9 @@ Media::Media(const JsonStore &jsn)
     set_current(jsn["current"]);
     if (jsn.find("current_audio") != jsn.end()) {
         set_current(jsn["current_audio"], MediaType::MT_AUDIO);
+    }
+    if (jsn.contains("transform")) {
+        transform_ = jsn["transform"].get<Imath::M44f>();
     }
 }
 
@@ -56,17 +80,26 @@ void Media::remove_media_source(const Uuid &uuid) {
         else
             current_audio_source_ = Uuid();
     }
+    if (uuid == current_thumbnail_source_)
+        current_thumbnail_source_ = Uuid();
 }
 
 bool Media::set_current(const Uuid &uuid, const MediaType mt) {
     if (std::find(media_sources_.begin(), media_sources_.end(), uuid) !=
         std::end(media_sources_)) {
-        if (mt == MediaType::MT_IMAGE) {
+        switch (mt) {
+        case MediaType::MT_IMAGE:
             current_image_source_ = uuid;
-        } else {
+            return true;
+        case MediaType::MT_AUDIO:
             current_audio_source_ = uuid;
+            return true;
+        case MediaType::MT_THUMBNAIL:
+            current_thumbnail_source_ = uuid;
+            return true;
+        default:
+            return false;
         }
-        return true;
     }
     return false;
 }
@@ -87,6 +120,10 @@ void Media::deserialise(const utility::JsonStore &jsn) {
     if (jsn.find("current_audio") != jsn.end()) {
         set_current(jsn.at("current_audio"), MediaType::MT_AUDIO);
     }
+
+    if (jsn.contains("transform")) {
+        transform_ = jsn["transform"].get<Imath::M44f>();
+    }
 }
 
 
@@ -101,6 +138,9 @@ JsonStore Media::serialise() const {
     jsn["sub_media"]     = {};
     for (const auto &i : media_sources_) {
         jsn["sub_media"].push_back(i);
+    }
+    if (transform_ != Imath::M44f()) {
+        jsn["transform"] = transform_;
     }
 
     return jsn;

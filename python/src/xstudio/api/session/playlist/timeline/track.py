@@ -1,12 +1,15 @@
 # SPDX-License-Identifier: Apache-2.0
-from xstudio.core import UuidActor, ItemType
-from xstudio.core import item_atom, insert_item_atom, enable_atom, remove_item_atom, erase_item_atom, item_name_atom, move_item_atom
-from xstudio.core import move_item_atom, item_flag_atom
-from xstudio.core import active_range_atom, available_range_atom
-from xstudio.api.session.container import Container
+from xstudio.core import insert_item_atom, remove_item_atom, erase_item_atom, move_item_atom
+from xstudio.core import split_item_at_frame_atom, split_item_atom, erase_item_at_frame_atom
+from xstudio.core import move_item_at_frame_atom
+from xstudio.core import Uuid, actor, UuidActor, ItemType, UuidActorVec, FrameRateDuration
+from xstudio.api.session.playlist.timeline.item import Item
 from xstudio.api.session.playlist.timeline import create_item_container
+from xstudio.api.session.playlist.timeline.gap import Gap
+from xstudio.api.session.playlist.timeline.clip import Clip
+from xstudio.api.auxiliary import NotificationHandler
 
-class Track(Container):
+class Track(Item, NotificationHandler):
     """Timeline object."""
 
     def __init__(self, item_type, connection, remote, uuid=None):
@@ -21,7 +24,8 @@ class Track(Container):
         Kwargs:
             uuid(Uuid): Uuid of remote actor.
         """
-        Container.__init__(self, connection, remote, uuid)
+        Item.__init__(self, connection, remote, uuid)
+        NotificationHandler.__init__(self, self)
         self.item_type = item_type
 
     @property
@@ -43,58 +47,12 @@ class Track(Container):
         return self.item_type == ItemType.IT_VIDEO_TRACK
 
     @property
-    def item_flag(self):
-        """Get flag.
-
-        Returns:
-            name(str): flag.
-        """
-        return self.item.flag()
-
-    @item_flag.setter
-    def item_flag(self, x):
-        """Set flag.
-
-        Args:
-            name(str): Set flag.
-        """
-        self.connection.request_receive(self.remote, item_flag_atom(), x)
+    def clips(self):
+        return self.children_of_type([ItemType.IT_CLIP])
 
     @property
-    def item_name(self):
-        """Get name.
-
-        Returns:
-            name(str): Name.
-        """
-        return self.item.name()
-
-    @item_name.setter
-    def item_name(self, x):
-        """Set name.
-
-        Args:
-            name(str): Set name.
-        """
-        self.connection.request_receive(self.remote, item_name_atom(), x)
-
-    @property
-    def enabled(self):
-        """Get enabled state.
-
-        Returns:
-            enabled(bool): State.
-        """
-        return self.item.enabled()
-
-    @enabled.setter
-    def enabled(self, value):
-        """Set enabled state.
-
-        Args:
-            value(bool): Set enabled state.
-        """
-        self.connection.request_receive(self.remote, enable_atom(), value)
+    def gaps(self):
+        return self.children_of_type([ItemType.IT_GAP])
 
     def __len__(self):
         """Get size.
@@ -104,14 +62,37 @@ class Track(Container):
         """
         return len(self.item)
 
-    @property
-    def item(self):
-        """Get item.
+    def insert_gap(self, frames, index=-1):
+        """Insert gap
+        Args:
+            frames(int): Duration in frames.
+            index(int): Position to insert
 
-        Returns:
-            item(Item): Item for timeline.
+        returns success(Item): New item
         """
-        return self.connection.request_receive(self.remote, item_atom())[0]
+        result = Gap(self.connection,
+            self.connection.remote_spawn("Gap", "Gap", FrameRateDuration(frames, self.rate))
+        )
+
+        self.insert_child(result, index)
+
+        return result
+
+    def insert_clip(self, media, index=-1):
+        """Insert gap
+        Args:
+            media(Media): Media to insert, MUST already exist in timeline.
+            index(int): Position to insert
+
+        returns success(Item): New item
+        """
+        result = Clip(self.connection,
+            self.connection.remote_spawn("Clip",  media.uuid_actor(), "")
+        )
+
+        self.insert_child(result, index)
+
+        return result
 
     def insert_child(self, obj, index=-1):
         """Insert child obj
@@ -127,10 +108,13 @@ class Track(Container):
         if not isinstance(obj, UuidActor):
             obj = obj.uuid_actor()
 
-        return self.connection.request_receive(self.remote, insert_item_atom(), index, obj)[0]
+        uav = UuidActorVec()
+        uav.push_back(obj)
 
-    def remove_child(self, index=-1):
-        """Remove child obj
+        return self.connection.request_receive(self.remote, insert_item_atom(), index, uav)[0]
+
+    def remove_child_at_index(self, index=-1, count=1, add_gap=True):
+        """Remove child obj, removed item must be released or reparented.
 
         Args:
             index(int): Index to remove
@@ -138,9 +122,22 @@ class Track(Container):
         Returns:
             item(Item): Item removed
         """
-        return self.connection.request_receive(self.remote, remove_item_atom(), index)[0]
+        return self.connection.request_receive(self.remote, remove_item_atom(), index, count, add_gap)[0]
 
-    def erase_child(self, index=-1):
+
+    def erase_frames(self, frame=0, duration=1, add_gap=True):
+        """Remove and destroy frames
+        Args:
+            frame(int): start frame
+            duration(int): Duration frames
+            add_gap(bool): Replace with gap
+
+        Returns:
+            Transaction(JsonStore): Transaction.
+        """
+        return self.connection.request_receive(self.remote, erase_item_at_frame_atom(), frame, duration, add_gap)[0]
+
+    def erase_child_at_index(self, index=-1, count=1, add_gap=True):
         """Remove and destroy child obj
 
         Args:
@@ -149,9 +146,31 @@ class Track(Container):
         Returns:
             success(bool): Item erased
         """
-        return self.connection.request_receive(self.remote, erase_item_atom(), index)[0]
+        return self.connection.request_receive(self.remote, erase_item_atom(), index, count, add_gap)[0]
 
-    def move_children(self, start, count, dest):
+    def remove_child(self, child, add_gap=True):
+        """Remove child obj, removed item must be released or reparented.
+
+        Args:
+            child(Item): Child to remove
+
+        Returns:
+            item(Item): Child removed
+        """
+        return self.connection.request_receive(self.remote, remove_item_atom(), child.uuid, add_gap)[0]
+
+    def erase_child(self, child, add_gap=True):
+        """Remove and destroy child obj
+
+        Args:
+            child(Item): Child to erase
+
+        Returns:
+            success(bool): Item erased
+        """
+        return self.connection.request_receive(self.remote, erase_item_atom(), child.uuid, add_gap)[0]
+
+    def move_children(self, start, count, dest, add_gap=False):
         """Move child items
 
         Args:
@@ -162,21 +181,58 @@ class Track(Container):
         Returns:
             success(bool): Items moved
         """
-        return self.connection.request_receive(self.remote, move_item_atom(), start, count, dest)[0]
+        return self.connection.request_receive(self.remote, move_item_atom(), start, count, dest, add_gap)[0]
 
-    @property
-    def children(self):
-        """Get children.
+    def move_frames(self, frame, duration, destination, insert=True, add_gap=False):
+        """Move frames
+
+        Args:
+            frame(int): First frame
+            duration(int): Duration in frames
+            destination(int): Destination frame
+            insert(bool): Insert at destination frame, overwrite if False
+            add_gap(bool): Add gap at source
 
         Returns:
-            children([Gap/Track/Clip/Stack]): Children.
+            success(bool): Items moved
         """
-        children = []
+        return self.connection.request_receive(self.remote, move_item_at_frame_atom(), frame, duration, destination, insert, add_gap)[0]
 
-        for i in self.item.children():
-            children.append(create_item_container(self.connection, i))
 
-        return children
+    def split_child_at_index(self, index, frame):
+        """Split child obj
+
+        Args:
+            index(int): Index to split
+            frame(int): Frame of child to split
+
+        Returns:
+            success(bool): Item split
+        """
+        return self.connection.request_receive(self.remote, split_item_atom(), index, frame)[0]
+
+    def split_child(self, child, frame):
+        """Split child obj
+
+        Args:
+            child(Item): Child to split
+            frame(int): Frame of child to split
+
+        Returns:
+            success(bool): Item split
+        """
+        return self.connection.request_receive(self.remote, split_item_atom(), child.uuid, frame)[0]
+
+    def split(self, frame):
+        """Split track item at frame
+
+        Args:
+            frame(int): Frame of track to split
+
+        Returns:
+            success(bool): Item split
+        """
+        return self.connection.request_receive(self.remote, split_item_at_frame_atom(), frame)[0]
 
     def children_of_type(self, types):
         """Get children matching types.
@@ -188,33 +244,3 @@ class Track(Container):
             children([item]): Children.
         """
         return [create_item_container(self.connection,i) for i in self.item.children() if i.item_type() in types]
-
-    @property
-    def trimmed_range(self):
-        return self.item.trimmed_range()
-
-    @property
-    def available_range(self):
-        return self.item.available_range()
-
-    @available_range.setter
-    def available_range(self, x):
-        """Set available_range.
-
-        Args:
-            x(FrameRange): Set available_range.
-        """
-        self.connection.request_receive(self.remote, available_range_atom(), x)
-
-    @property
-    def active_range(self):
-        return self.item.active_range()
-
-    @active_range.setter
-    def active_range(self, x):
-        """Set active_range.
-
-        Args:
-            x(FrameRange): Set active_range.
-        """
-        self.connection.request_receive(self.remote, active_range_atom(), x)

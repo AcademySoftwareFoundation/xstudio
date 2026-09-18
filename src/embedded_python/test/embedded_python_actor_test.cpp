@@ -44,7 +44,7 @@ TEST(EmbeddedPythonActorTest, Test) {
     }
 
     try {
-        f.self->send(tmp, python_exec_atom_v, "a=3");
+        f.self->mail(python_exec_atom_v, "a=3").send(tmp);
     } catch (const std::exception &) {
     }
 
@@ -76,7 +76,7 @@ TEST(EmbeddedPythonActorTest, Test) {
     } catch (const std::exception &) {
     }
 
-    f.self->send(tmp, python_exec_atom_v, "print ('hello')", utility::Uuid());
+    f.self->mail(python_exec_atom_v, "print ('hello')", utility::Uuid()).send(tmp);
 
     try {
         auto result = request_receive<Uuid>(*(f.self), tmp, python_create_session_atom_v, true);

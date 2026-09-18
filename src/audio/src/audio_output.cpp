@@ -15,7 +15,34 @@ using namespace xstudio::utility;
 using namespace xstudio::global_store;
 using namespace xstudio;
 
+// when blocks of audio samples aren't contiguous then to avoid a transient
+// at the border between the blocks we fade out samples at the tail of the
+// current block and the head of the next block. The window for this fade out
+// is defined here. It still causes distortion but much less bad.
+#define FADE_FUNC_SAMPS 256
+
 namespace {
+
+// sine envelope for fading/blending samples to avoid transients heading
+// to the soundcard
+static std::vector<float> fade_in_coeffs;
+static std::vector<float> fade_out_coeffs;
+
+struct MakeCoeffs {
+    MakeCoeffs() {
+        if (fade_in_coeffs.empty()) {
+            fade_in_coeffs.resize(FADE_FUNC_SAMPS);
+            fade_out_coeffs.resize(FADE_FUNC_SAMPS);
+            for (int i = 0; i < FADE_FUNC_SAMPS; ++i) {
+                fade_out_coeffs[i] =
+                    (cos(float(i) * M_PI / float(FADE_FUNC_SAMPS)) + 1.0f) * 0.5f;
+                fade_in_coeffs[i] = 1.0f - fade_out_coeffs[i];
+            }
+        }
+    }
+};
+
+static MakeCoeffs s_mk_coeffs;
 
 template <typename T>
 void changing_volume_adjust(
@@ -116,13 +143,44 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
     const int fade_in_out);
 
 template <typename T>
-void reverse_audio_buffer(const T *in, T *out, const int num_channels, const int num_samples);
+bool copy_samples_to_scrub_buffer(
+    T *&stream,
+    const long total_samps_needed,
+    long &total_samps_pushed,
+    media_reader::AudioBufPtr &current_buf,
+    const long buffer_offset_sample,
+    const long num_channels);
+
+template <typename T>
+void reverse_audio_buffer(const T *in, T *out, const int num_samples, const int num_channels);
 
 template <typename T>
 media_reader::AudioBufPtr
 super_simple_respeed_audio_buffer(const media_reader::AudioBufPtr in, const float velocity);
 
-void AudioOutputControl::prepare_samples_for_soundcard(
+timebase::flicks ScrubHelper::scrub_duration(const utility::FrameRate &media_rate) const {
+    if (scrub_behaviour_ == OneFrame)
+        return media_rate.to_flicks();
+    else if (scrub_behaviour_ == OnePt25Frames)
+        return (media_rate.to_flicks() * 125) / 100;
+    else if (scrub_behaviour_ == OnePt5Frames)
+        return (media_rate.to_flicks() * 150) / 100;
+    else if (scrub_behaviour_ == TwoFrames)
+        return media_rate.to_flicks() * 2;
+    else if (scrub_behaviour_ == ThreeFrames)
+        return media_rate.to_flicks() * 3;
+    else if (scrub_behaviour_ == OneFrameAt24Fps)
+        return timebase::k_flicks_24fps;
+    else if (scrub_behaviour_ == OneFrameAt30Fps)
+        return timebase::k_flicks_one_thirtieth_second;
+    else if (scrub_behaviour_ == OneFrameAt60Fps)
+        return timebase::k_flicks_one_sixtieth_second;
+    else if (scrub_behaviour_ == Custom)
+        return (timebase::k_flicks_one_second * scrub_window_millisecs_) / 1000;
+    return media_rate.to_flicks();
+}
+
+void AudioOutputControl::prepare_samples_for_soundcard_playback(
     std::vector<int16_t> &v,
     const long num_samps_to_push,
     const long microseconds_delay,
@@ -131,21 +189,13 @@ void AudioOutputControl::prepare_samples_for_soundcard(
 
     try {
 
-        v.resize(num_samps_to_push * num_channels);
-
-        memset(v.data(), 0, v.size() * sizeof(int16_t));
-
         int16_t *d            = v.data();
         long n                = num_samps_to_push;
         long num_samps_pushed = 0;
 
-
-        if (muted())
-            return;
-
         while (n > 0) {
 
-            if (!current_buf_ && sample_data_.size()) {
+            if (not current_buf_ and not sample_data_.empty()) {
 
                 // when is the next sample that we copy into the buffer going to get played?
                 // We assume there are 'samples_in_soundcard_buffer + num_samps_pushed' audio
@@ -163,26 +213,31 @@ void AudioOutputControl::prepare_samples_for_soundcard(
 
                     // is audio playback stable ? i.e. is the next sample buffer
                     // continuous with the one we are about to play?
-                    auto next_buf = pick_audio_buffer(
+                    next_buf_ = pick_audio_buffer(
                         next_sample_play_time +
                             std::chrono::microseconds(
                                 int(round(current_buf_->duration_seconds() * 1000000.0))),
                         false);
 
                     fade_in_out_ = check_if_buffer_is_contiguous_with_previous_and_next(
-                        current_buf_, next_buf, previous_buf_);
+                        current_buf_, next_buf_, previous_buf_);
+
+                    /*if (fade_in_out_ != NoFade) {
+                        if (previous_buf_)
+                            std::cerr << "P " << to_string(previous_buf_->media_key()) << "\n";
+                        if (current_buf_)
+                            std::cerr << "C " << to_string(current_buf_->media_key()) << "\n";
+                        if (next_buf_)
+                            std::cerr << "N " << to_string(next_buf_->media_key()) << "\n\n";
+
+                    }*/
 
                 } else {
-                    // spdlog::warn("Break hit because current_buf_ is null after trying to pick
-                    // "
-                    //              "an audio buffer.");
                     fade_in_out_ = DoFadeHeadAndTail;
                     break;
                 }
 
             } else if (!current_buf_ && sample_data_.empty()) {
-                // spdlog::warn("Break hit because both current_buf_ and sample_data_ are
-                // empty.");
                 break;
             }
 
@@ -196,144 +251,245 @@ void AudioOutputControl::prepare_samples_for_soundcard(
                 fade_in_out_);
 
             if (current_buf_pos_ == (long)current_buf_->num_samples()) {
-                // current buf is exhausted
-                // spdlog::info("Current buffer is exhausted.");
+                // current buf is exhausted, clear current_buf_ so we pick
+                // a new one on next pass through this loop
                 previous_buf_ = current_buf_;
                 current_buf_.reset();
             } else {
-                // spdlog::warn("Break hit due to unspecified condition.");
                 break;
             }
         }
 
-
-        const float vol       = volume();
-        static float last_vol = vol;
-        if (last_vol != vol) {
-            changing_volume_adjust(v, vol / 100.0f, last_vol / 100.0f);
+        const float vol = volume();
+        if (last_volume_ != vol) {
+            changing_volume_adjust(v, vol / 100.0f, last_volume_ / 100.0f);
         } else if (vol != 100.0f) {
             static_volume_adjust(v, vol / 100.0f);
         }
-        last_vol = vol;
+        last_volume_ = vol;
 
     } catch (std::exception &e) {
         spdlog::debug("{} {}", __PRETTY_FUNCTION__, e.what());
     }
 }
 
-void AudioOutputControl::queue_samples_for_playing(
+void AudioOutputControl::prepare_samples_for_audio_scrubbing(
     const std::vector<media_reader::AudioBufPtr> &audio_frames,
-    const bool playing,
-    const bool forwards,
-    const float velocity) {
+    const timebase::flicks playhead_position) {
 
-    if (!playing) {
+    playhead_position_ = playhead_position;
+
+    // store bufs in our map
+    sample_data_.clear();
+    auto frame_duration = timebase::k_flicks_zero_seconds;
+    for (const auto &_frame : audio_frames) {
+
+        if (!_frame)
+            continue;
+
+        // See note in FFMpegDecoder::pull_audio_frame_from_stream()
+        /*const auto adjusted_timeline_timestamp = std::chrono::duration_cast<timebase::flicks>(
+            _frame.timeline_timestamp() + _frame->time_delta_to_video_frame());
+        sample_data_[adjusted_timeline_timestamp] = _frame;*/
+
+        sample_data_[_frame.timeline_timestamp()] = _frame;
+        frame_duration = std::max(frame_duration, _frame->duration_flicks());
+    }
+
+    // We need to select the window of audio samples played according to
+    // the scrub_window_millisecs_ user setting. If scrub_window_millisecs_ is 40 ms, say,
+    // and the frame duration is also 40ms, we play the audio for the frame corresponding
+    // to playhead_position_. If scrub_window_millisecs_ was 60ms, we'd want to play
+    // the last 10ms of audio from the preceeding frame, all the audio in the frame matching
+    // playhead_position_ and then the firs 10ms of audio from the following frame
+
+    const timebase::flicks sample_window_begin_tps =
+        playhead_position_ -
+        (scrub_helper_.scrub_duration(frame_duration) - frame_duration) / 2;
+
+    // now pick nearest buffer
+    auto r = sample_data_.lower_bound(sample_window_begin_tps);
+    if (r != sample_data_.begin()) {
+        if (sample_window_begin_tps != r->first)
+            r--;
+    }
+    if (r == sample_data_.end())
+        return;
+
+    const long num_channels = r->second->num_channels();
+
+    // time diff from first audio sample to playhead position
+    auto delta = sample_window_begin_tps - r->first;
+
+    long samples_offset = long(
+        round(std::max(0.0, timebase::to_seconds(delta)) * double(r->second->sample_rate())));
+
+    if (samples_offset < 0 || samples_offset >= r->second->num_samples()) {
+        // the offset into our 'best' audio buffer from the playhead_position_
+        // to the timestamp for the audio buf is outside the duration of the
+        // audio buffer
+        // we haven't found an audio buffer that corresponds to the playhead_position_
+        // so must clear the buffer (i.e. play no audio)
+        scrubbing_samples_buf_.clear();
         return;
     }
 
-    playback_velocity_ = audio_repitch_ ? std::max(0.1f, velocity) : 1.0f;
+    // how many samples do we want to sound for this scrub event?
+    long num_scrub_samps = long(
+        scrub_helper_.scrub_duration_secs(frame_duration) * double(r->second->sample_rate()));
 
-    /*
-    // Earlier attempt at resampling in queue; needs a more reliable sample rate info and needs
-    sample rate from output device. if (audio_frames.size()) { auto audio_sample_rate =
-    audio_frames.front()->sample_rate(); if (audio_sample_rate == 0) { audio_sample_rate =
-    audio_frames.back()->sample_rate();
-        }
+    // now we fill our scrub samples buffer.
 
-        if (audio_sample_rate == 0) {
-            // If we can't get the sample rate from anything, use the last best guess.
-            // This seems to happen
-            audio_sample_rate = last_sample_rate_;
-        } else {
-            last_sample_rate_ = audio_sample_rate;
-        }
+    // What if there are samples left in the buffer from the previous scrub event that
+    // haven't played out yet? We want to overwrite them, but we need to do a
+    // blend so there isn't a discontinuity with the last samples that were
+    // dispatched to the soundcard
+    const size_t data_in_buffer = scrubbing_samples_buf_.size();
+    scrubbing_samples_buf_.resize(num_scrub_samps * num_channels);
 
-        // If our audio card does not match the source rate, we need to respeed/repitch the
-    samples. if (audio_sample_rate and audio_sample_rate != 96000L) { double sample_respeed =
-    (double)audio_sample_rate / 96000.0; playback_velocity_ *= sample_respeed; audio_repitch_ =
-    true;
-        }
+    if (data_in_buffer < scrubbing_samples_buf_.size()) {
+        // any new samples added to buffer must be zero
+        memset(
+            scrubbing_samples_buf_.data() + data_in_buffer,
+            0,
+            (scrubbing_samples_buf_.size() - data_in_buffer) * sizeof(int16_t));
     }
-    */
 
+    int16_t *samps = scrubbing_samples_buf_.data();
+    long n         = 0;
+    while (r != sample_data_.end() && r->second &&
+           copy_samples_to_scrub_buffer(
+               samps, num_scrub_samps, n, r->second, samples_offset, num_channels)) {
+        samples_offset = 0;
+        r++;
+    }
 
-    for (const auto &a : audio_frames) {
+    // we need to modulate the last samples put into the buffer with an envelope
+    // that smoothly takes the amplitude to zero so we don't get transients
+    // going to the soundcard should we not be streaming more samples to
+    // the soundcard after this buffer is exhausted
 
-        auto audio_frame = a;
-        // if we're not playing and the last audio buffer played is the same as
-        // the one we're receiving now we don't queue it for playing. This is because
-        // a viewport refresh (for e.g. exposure scrubbing) results in the same
-        // image frame being broadcast by the playhead
-        if (!audio_frame ||
-            (previous_buf_ && previous_buf_->media_key() == audio_frame->media_key()) ||
-            (current_buf_ && current_buf_->media_key() == audio_frame->media_key()) ||
-            !audio_frame->num_samples()) {
-
-            // spdlog::info("Audio frame skipped due to either being null, matching "
-            //               "previous/current buffer or having no samples.");
-            continue;
+    long fade_samps = std::min(long(FADE_FUNC_SAMPS), n);
+    samps           = scrubbing_samples_buf_.data() + (n - fade_samps) * num_channels;
+    float *f        = fade_out_coeffs.data() + long(FADE_FUNC_SAMPS) - fade_samps;
+    while (fade_samps) {
+        for (int chn = 0; chn < num_channels; ++chn) {
+            (*samps) = round((*samps) * (*f));
+            samps++;
         }
+        f++;
+        fade_samps--;
+    }
+}
 
-        // spdlog::info("Processing audio frame with media key: {}, num samples: {}, sample
-        // rate: {}, num channels: {}",
-        //          audio_frame->media_key(), audio_frame->num_samples(),
-        //          audio_frame->sample_rate(), audio_frame->num_channels());
+long AudioOutputControl::copy_samples_to_buffer_for_scrubbing(
+    std::vector<int16_t> &v, const long num_samps_to_push) {
+
+    size_t nn = std::min(v.size(), scrubbing_samples_buf_.size());
+    if (!nn)
+        return 0;
+    memcpy(v.data(), scrubbing_samples_buf_.data(), nn * sizeof(int16_t));
+
+    if (nn < scrubbing_samples_buf_.size()) {
+        std::vector<int16_t> remaining_samps(scrubbing_samples_buf_.size() - nn);
+        memcpy(
+            remaining_samps.data(),
+            scrubbing_samples_buf_.data() + nn,
+            (scrubbing_samples_buf_.size() - nn) * sizeof(int16_t));
+        scrubbing_samples_buf_ = std::move(remaining_samps);
+    } else {
+        scrubbing_samples_buf_.clear();
+    }
+
+    if (volume() != 100.0f) {
+        static_volume_adjust(v, volume() / 100.0f);
+    }
+
+    return (long)nn;
+}
+
+void AudioOutputControl::queue_samples_for_playing(
+    const std::vector<media_reader::AudioBufPtr> &audio_frames) {
+
+    timebase::flicks t0;
+    if (audio_frames.size()) {
+        t0 = audio_frames[0].timeline_timestamp();
+    }
+    for (const auto &_frame : audio_frames) {
 
         // xstudio stores a frame of audio samples for every video frame for any
         // given source (if the source has no video it is assigned a 'virtual' video
-        // frame rate to maintain this approach). However, audio frames generally
+        // frame rate to maintain this approach).
+        //
+        // However, audio frames generally
         // do not have the same duration as video frames, so there is always some
         // offset between when the video frame is shown and when the audio samples
-        // associated with that frame should sound.
-        const auto when_to_sound_audio =
-            audio_frame.when_to_display_ + audio_frame->time_delta_to_video_frame();
+        // associated with that frame should sound. When building sample_data_
+        // map we take account of this difference, which was calculate in
+        // the fffmpeg reader when the audio samples are packaged up.
+        /*const auto adjusted_timeline_timestamp = std::chrono::duration_cast<timebase::flicks>(
+            _frame.timeline_timestamp()
+            + (_frame ? _frame->time_delta_to_video_frame() : std::chrono::microseconds(0)));*/
+        const auto adjusted_timeline_timestamp = _frame.timeline_timestamp();
 
-        // have we already got these audio samples in our queue? If so erase and
-        // add back in to update the key
-        if (false) {
-            for (auto p = sample_data_.begin(); p != sample_data_.end(); ++p) {
-                if (p->second->media_key() == audio_frame->media_key()) {
-                    // spdlog::info("Found and erasing existing audio sample from queue with the
-                    // "
-                    //              "same media key.");
-                    sample_data_.erase(p);
-                    break;
-                }
-            }
-        }
+        if (_frame)
+            t0 += timebase::to_flicks(_frame->duration_seconds());
+        else
+            continue;
 
+        // skip empty frames
+        if (!_frame->num_samples())
+            continue;
 
-        if (audio_repitch_ && playback_velocity_ != 1.0f) {
-            audio_frame = super_simple_respeed_audio_buffer<int16_t>(
-                audio_frame, fabs(playback_velocity_));
-        }
+        media_reader::AudioBufPtr frame =
+            audio_repitch_ && playback_velocity_ != 1.0f
+                ? super_simple_respeed_audio_buffer<int16_t>(_frame, playback_velocity_)
+                : _frame;
 
-        if (!forwards) {
+        if (!playing_forward_) {
 
-            media_reader::AudioBufPtr reversed(
-                new media_reader::AudioBuffer(audio_frame->params()));
+            media_reader::AudioBufPtr reversed(new media_reader::AudioBuffer(frame->params()));
 
             reversed->allocate(
-                audio_frame->sample_rate(),
-                audio_frame->num_channels(),
-                audio_frame->num_samples(),
-                audio_frame->sample_format());
+                frame->sample_rate(),
+                frame->num_channels(),
+                frame->num_samples(),
+                frame->sample_format());
 
             reverse_audio_buffer(
-                (const int16_t *)audio_frame->buffer(),
+                (const int16_t *)frame->buffer(),
                 (int16_t *)reversed->buffer(),
-                audio_frame->num_samples(),
-                audio_frame->num_channels());
+                frame->num_samples(),
+                frame->num_channels());
 
-            sample_data_[when_to_sound_audio] = reversed;
+            sample_data_[adjusted_timeline_timestamp] = reversed;
             reversed->set_reversed(true);
-
-            reversed->set_display_timestamp_seconds(audio_frame->display_timestamp_seconds());
+            reversed->set_display_timestamp_seconds(frame->display_timestamp_seconds());
 
         } else {
-            sample_data_[when_to_sound_audio] = audio_frame;
+            sample_data_[adjusted_timeline_timestamp] = frame;
         }
     }
+}
+
+void AudioOutputControl::playhead_position_changed(
+    const timebase::flicks playhead_position,
+    const timebase::flicks playhead_loop_in,
+    const timebase::flicks playhead_loop_out,
+    const bool forward,
+    const float velocity,
+    const bool playing,
+    utility::time_point when_position_changed) {
+    if (!playing_ && playhead_position == playhead_position_) {
+        // playhead hasn't moved
+    }
+    playhead_position_           = playhead_position;
+    playhead_loop_in_            = playhead_loop_in;
+    playhead_loop_out_           = playhead_loop_out;
+    playback_velocity_           = std::max(0.1f, velocity);
+    playing_                     = playing;
+    playing_forward_             = forward;
+    playhead_position_update_tp_ = when_position_changed;
 }
 
 void AudioOutputControl::clear_queued_samples() {
@@ -344,10 +500,68 @@ void AudioOutputControl::clear_queued_samples() {
 media_reader::AudioBufPtr AudioOutputControl::pick_audio_buffer(
     const utility::clock::time_point &tp, bool drop_old_buffers) {
 
-    auto r = sample_data_.lower_bound(tp);
+    // The idea here is we pick an audio buffer from sample_data_ to draw
+    // samples off and stream to the soundcard.
 
-    if (r == sample_data_.end())
-        return media_reader::AudioBufPtr();
+    // sample_data_ is a map of audio buffers stored against their play timestamp
+    // in the playhead timeline. So for example frame zero in the timeline
+    // has timestamp = 0. Frame 2 has timestamp = 41ms (for a 24fps source).
+
+    // 'tp' here is a system clock timepoint that tells us when the last
+    // audio sample currently in the soundcard sample buffer will actually
+    // get played.
+
+    // based on 'tp' - we estimate the playhead position when the
+    // first sample of the next audio buffer that we pick to put into the
+    // soundcard buffer will sound.
+
+    // predict where we will be at the timepoint 'next_video_refresh' ...
+    const timebase::flicks delta =
+        std::chrono::duration_cast<timebase::flicks>(tp - playhead_position_update_tp_);
+    const double v = (playing_forward_ ? 1.0f : -1.0f) * playback_velocity_;
+
+    auto future_playhead_position =
+        timebase::to_flicks(v * timebase::to_seconds(delta)) + playhead_position_;
+
+    if (!playing_forward_ && playhead_loop_in_ > future_playhead_position) {
+        future_playhead_position =
+            playhead_loop_out_ - (playhead_loop_in_ - future_playhead_position);
+    } else if (playing_forward_ && playhead_loop_out_ < future_playhead_position) {
+        future_playhead_position =
+            playhead_loop_in_ + (future_playhead_position - playhead_loop_out_);
+    }
+
+    // during playback, we just pick the audio buffer immediately after
+    // the one that we last used. However, we check if this new buffer's
+    // position in the playback timeline matches well with our estimate of
+    // where the playhead will be when the audio samples hit the speakers.
+    //
+    // If it doesn't we continue and use a best match search below
+
+    // let's step from the last audio buffer we used to the next...
+    auto p = sample_data_.find(last_buffer_pts_);
+    if (p != sample_data_.end()) {
+        if (playing_forward_) {
+            p++;
+            if (p == sample_data_.end())
+                p--;
+        } else if (!playing_forward_ && p != sample_data_.begin()) {
+            p--;
+        }
+
+        auto drift = timebase::to_seconds(future_playhead_position - p->first);
+        if (fabs(drift) < 0.05) {
+            if (drop_old_buffers)
+                last_buffer_pts_ = p->first;
+            return p->second;
+        }
+    }
+
+    auto r = sample_data_.lower_bound(future_playhead_position);
+
+    if (r == sample_data_.end()) {
+        return {};
+    }
 
     // gtp et the audio buf with a 'show' time that is CLOSEST
     // to now, need to look at the previous element to see if
@@ -355,30 +569,39 @@ media_reader::AudioBufPtr AudioOutputControl::pick_audio_buffer(
     if (r != sample_data_.begin()) {
         auto r2 = r;
         r2--;
-        const auto d2 = tp - r2->first;
-        const auto d1 = r->first - tp;
+        const auto d2 = future_playhead_position - r2->first;
+        const auto d1 = r->first - future_playhead_position;
 
         if (d1 > d2) {
             r = r2;
         }
     }
 
-    media_reader::AudioBufPtr v = r->second;
+    media_reader::AudioBufPtr buf = r->second;
+    if (drop_old_buffers)
+        last_buffer_pts_ = r->first;
 
-    // if the audio buffer is not supposed to be played close to 'tp' we want to carry on and
-    // play silence until soundcard and audio buffers are in sync
-    const auto delta =
-        double(std::chrono::duration_cast<std::chrono::microseconds>(r->first - tp).count()) /
-        1000000.0;
-    // if (0) {//fabs(delta) > v->duration_seconds()/2) {
-    //     return media_reader::AudioBufPtr();
-    // }
+    // what if our 'best' buffer, i.e. the one nearest to 'future_playhead_position'
+    // is still not close. Some innaccuracy is happening, e.g. buffers that we need
+    // haven't been delivered. We must play silence instead,
+    const auto t_mismatch = double(std::chrono::duration_cast<std::chrono::microseconds>(
+                                       r->first - future_playhead_position)
+                                       .count()) /
+                            1000000.0;
 
-    if (drop_old_buffers) {
-        r++;
-        sample_data_.erase(sample_data_.begin(), r);
+    // std::cerr << "t_mismatch " << t_mismatch << "\n";
+
+    // so if we are more than half the duration of the buffer out, return empty ptr
+    if (!buf || fabs(t_mismatch) > buf->duration_seconds() / 2) {
+        return {};
     }
-    return v;
+
+    if (drop_old_buffers && playing_forward_) {
+        sample_data_.erase(sample_data_.begin(), r);
+    } else if (drop_old_buffers) {
+        sample_data_.erase(r, sample_data_.end());
+    }
+    return buf;
 }
 
 AudioOutputControl::Fade
@@ -438,6 +661,7 @@ AudioOutputControl::check_if_buffer_is_contiguous_with_previous_and_next(
                                   previous_buf_->display_timestamp_seconds()) /
                                      playback_velocity_ -
                                  previous_buf_->duration_seconds();
+
             if (fabs(delta) > 0.001) {
                 result |= DoFadeHead;
             }
@@ -450,11 +674,6 @@ AudioOutputControl::check_if_buffer_is_contiguous_with_previous_and_next(
     return (AudioOutputControl::Fade)result;
 }
 
-// when blocks of audio samples aren't contiguous then to avoid a transient
-// at the border between the blocks we fade out samples at the tail of the
-// current block and the head of the next block. The window for this fade out
-// is defined here. It still causes distortion but much less bad.
-#define FADE_FUNC_SAMPS 128
 
 template <typename T>
 void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
@@ -465,14 +684,6 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
     long &num_samps_pushed,
     const int num_channels,
     const int fade_in_out) {
-
-    static std::vector<float> fade_coeffs;
-    if (fade_coeffs.empty()) {
-        fade_coeffs.resize(FADE_FUNC_SAMPS);
-        for (int i = 0.0f; i < FADE_FUNC_SAMPS; ++i) {
-            fade_coeffs[i] = (sin(float(i) * M_PI / float(FADE_FUNC_SAMPS)) + 1.0f) * 0.5f;
-        }
-    }
 
     if (fade_in_out == AudioOutputControl::NoFade) {
 
@@ -506,11 +717,12 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
         T *tt = ((T *)current_buf->buffer()) + current_buf_position * num_channels;
 
         if (fade_in_out & AudioOutputControl::DoFadeHead) {
+
             while (current_buf_position < FADE_FUNC_SAMPS && num_samples_to_copy &&
                    current_buf_position < current_buf->num_samples()) {
 
                 for (int chn = 0; chn < num_channels; ++chn) {
-                    (*stream++) = T(round((*tt++) * fade_coeffs[current_buf_position]));
+                    (*stream++) = T(round(float(*tt++) * fade_in_coeffs[current_buf_position]));
                 }
                 num_samples_to_copy--;
                 current_buf_position++;
@@ -521,7 +733,7 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
         const long bpos = std::max(
             std::min(
                 long(current_buf->num_samples() - current_buf_position) -
-                    ((fade_in_out & AudioOutputControl::DoFadeTail) ? 32l : 0l),
+                    ((fade_in_out & AudioOutputControl::DoFadeTail) ? 256l : 0l),
                 num_samples_to_copy),
             0l);
 
@@ -537,10 +749,10 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
             while (num_samples_to_copy && current_buf_position < current_buf->num_samples()) {
 
                 const int i   = current_buf->num_samples() - current_buf_position - 1;
-                const float f = i < FADE_FUNC_SAMPS ? fade_coeffs[i] : 1.0f;
+                const float f = i < FADE_FUNC_SAMPS ? fade_in_coeffs[i] : 1.0f;
 
                 for (int chn = 0; chn < num_channels; ++chn) {
-                    (*stream++) = T(round((*tt++) * f));
+                    (*stream++) = T(round(float(*tt++) * f));
                 }
 
                 num_samples_to_copy--;
@@ -551,6 +763,46 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
     }
 }
 
+template <typename T>
+bool copy_samples_to_scrub_buffer(
+    T *&stream,
+    const long total_samps_needed,
+    long &total_samps_pushed,
+    media_reader::AudioBufPtr &current_buf,
+    const long buffer_offset_sample,
+    const long num_channels) {
+
+
+    const long buffer_size_samples = current_buf->num_samples();
+    long buffer_position           = buffer_offset_sample;
+
+    T *tt = ((T *)current_buf->buffer()) + buffer_offset_sample * num_channels;
+
+    long n = total_samps_needed;
+    // when we fill the first samples of 'stream' we blend with any samples
+    // already in the buffer to avoid the transients
+    while (total_samps_pushed < FADE_FUNC_SAMPS && buffer_position < buffer_size_samples && n) {
+
+        const float f = fade_in_coeffs[total_samps_pushed];
+        // blend incoming samps with whatever samps are already in the buffer
+        for (int chn = 0; chn < num_channels; ++chn) {
+            (*stream) = T(round((*tt) * f)) + T(round((*stream) * (1.0f - f)));
+            stream++;
+            tt++;
+        }
+        buffer_position++;
+        total_samps_pushed++;
+        n--;
+    }
+
+    long remaining_samples = std::min(
+        buffer_size_samples - buffer_position, total_samps_needed - total_samps_pushed);
+    memcpy(stream, tt, remaining_samples * sizeof(T) * num_channels);
+    stream += remaining_samples * num_channels;
+    total_samps_pushed += remaining_samples;
+
+    return total_samps_pushed < total_samps_needed;
+}
 
 template <typename T>
 void reverse_audio_buffer(const T *in, T *out, const int num_samples, const int num_channels) {

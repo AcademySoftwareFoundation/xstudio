@@ -1,0 +1,703 @@
+// SPDX-License-Identifier: Apache-2.0
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Controls.Basic
+import Qt.labs.qmlmodels
+
+import xStudio 1.0
+import ShotBrowser 1.0
+import xstudio.qml.models 1.0
+import xstudio.qml.helpers 1.0
+
+
+Item{
+    property bool setupMode: false;
+
+    XsGradientRectangle{
+        anchors.fill: parent
+    }
+
+    function showOrHideManifestDialog(){
+        if(!manifestDialog.visible){
+            manifestDialog.x = appWindow.x + appWindow.width/3
+            manifestDialog.y = appWindow.y + appWindow.height/4
+        }
+
+        manifestDialog.visible = !manifestDialog.visible
+    }
+
+    XsSBManifestDialog{
+        id: manifestDialog
+        tagModel: assetMode ? (
+            assetBaseModel ? assetBaseModel.shotManifestTags : []) :
+            (sequenceBaseModel ? sequenceBaseModel.shotManifestTags : []
+        )
+        variantModel: assetMode ? (
+            assetBaseModel ? assetBaseModel.assetTags : []) :
+            (sequenceBaseModel ? sequenceBaseModel.assetTags: []
+        )
+
+        property bool setup: false
+
+        onVisibleChanged: {
+            if(visible) {
+                setup = true
+                let filt = assetMode ?  assetFilterModel.manifestFilter : sequenceFilterModel.manifestFilter
+                notTags = filt.NOT == undefined ? [] : filt.NOT
+
+                if((filt.AND == undefined ? [] : filt.AND).length)
+                    andMode = true;
+                else
+                    andMode = false;
+
+                tags = andMode ? (filt.AND == undefined ? [] : filt.AND) : (filt.OR == undefined ? [] : filt.OR)
+
+                setup = false
+            }
+        }
+
+        function updateTags() {
+            if(!setup) {
+                let tmptags = {}
+                if(notTags.length || tags.length )
+                    tmptags = {"NOT": notTags, "AND": andMode ? tags : [], "OR": andMode ? [] : tags , "MODE": tagMode}
+
+                if(assetMode)
+                    assetFilterModel.manifestFilter = tmptags;
+                else
+                    sequenceFilterModel.manifestFilter = tmptags;
+            }
+        }
+
+        onAndModeChanged: updateTags()
+        onTagsChanged: updateTags()
+        onNotTagsChanged: updateTags()
+    }
+
+    XsLabel {
+        visible: setupMode
+        color: XsStyleSheet.hintColor
+        anchors.fill: parent
+        text: "Tick or untick the heart icon on these Presets to add or remove them from your Replace, Compare and Auto-Conform menus"
+        font.pixelSize: XsStyleSheet.fontSize * 1.5
+    }
+
+    ColumnLayout {
+        anchors.fill: parent
+        anchors.rightMargin: panelPadding
+        spacing: panelPadding
+
+        enabled: !setupMode
+        visible: enabled
+
+        Rectangle{
+            Layout.fillWidth: true
+            Layout.preferredHeight: 2
+            color: panelColor
+        }
+
+        RowLayout { id: headerDiv
+            Layout.fillWidth: true;
+            Layout.preferredHeight: btnHeight
+            spacing: buttonSpacing
+            z: 1
+
+            XsSBTreeSearchButton{ id: searchBtn
+                Layout.fillWidth: isExpanded
+                Layout.minimumWidth: btnWidth
+                Layout.preferredWidth: btnWidth
+                Layout.preferredHeight: parent.height
+                isExpanded: true
+                hint: "Search..."
+                model: assetMode ? assetListMode : seqListMode
+
+                ShotBrowserSequenceFilterModel {
+                    id: seqListMode
+                    sourceModel: ShotBrowserEngine.presetsModel.termModel("ShotSequenceList", "", projectId)
+                    hideStatus: prefs.hideStatus
+                    hideEmpty: prefs.hideEmpty || (assetMode ?  JSON.stringify(assetFilterModel.manifestFilter) != "{}" : JSON.stringify(sequenceFilterModel.manifestFilter) != "{}")
+                    showHidden: prefs.showHidden
+                    locationFilter: prefs.filterLocation
+                    unitFilter: {
+                        if(prefs.inited && projectIndex && projectIndex.model && projectIndex.model.get(projectIndex,"nameRole") in prefs.filterUnit)
+                            return prefs.filterUnit[projectIndex.model.get(projectIndex,"nameRole")]
+                        return []
+                    }
+                    typeFilter: {
+                        if(prefs.inited && projectIndex && projectIndex.model && projectIndex.model.get(projectIndex,"nameRole") in prefs.filterType)
+                            return prefs.filterType[projectIndex.model.get(projectIndex,"nameRole")]
+                        return []
+                    }
+                }
+
+                ShotBrowserSequenceFilterModel {
+                    id: assetListMode
+                    sourceModel: ShotBrowserEngine.presetsModel.termModel("AssetList", "", projectId)
+                    hideStatus: prefs.hideStatus
+                }
+
+                function selectInTree(currentIndex) {
+                    // possibility of id collisions ?
+                    if(currentIndex != -1) {
+                        let index = model.index(currentIndex, 0)
+                        let mid = index.model.get(index, "idRole")
+                        let baseModel = sequenceBaseModel
+                        let filterModel = sequenceFilterModel
+                        let selectionModel = sequenceSelectionModel
+                        let treemodel = sequenceTreeModel
+
+                        if(assetMode) {
+                            baseModel = assetBaseModel
+                            filterModel = assetFilterModel
+                            selectionModel = assetSelectionModel
+                            treemodel = assetTreeModel
+                        }
+
+                        let bi = baseModel.searchRecursive(mid, "idRole")
+                        if(bi.valid) {
+                            let fi = filterModel.mapFromSource(bi)
+                            if(fi.valid) {
+                                let parents = helpers.getParentIndexes([fi])
+                                for(let i = 0; i< parents.length; i++){
+                                    if(parents[i].valid) {
+                                        // find in tree.. Order ?
+                                        let ti = treemodel.mapFromModel(parents[i])
+                                        if(ti.valid) {
+                                            treemodel.expandRow(ti.row)
+                                        }
+                                    }
+                                }
+                                // should now be visible
+                                let ti = treemodel.mapFromModel(fi)
+                                selectionModel.select(ti, ItemSelectionModel.ClearAndSelect)
+                            }
+                        }
+                    }
+                }
+
+                onIndexSelected: (index) => {
+                    selectInTree(index)
+                }
+            }
+
+            Item{
+                Layout.fillWidth: !searchBtn.isExpanded
+                Layout.preferredWidth: searchBtn.isExpanded? buttonSpacing : buttonSpacing*8
+                Layout.preferredHeight: parent.height
+            }
+            XsPrimaryButton{ id: liveLinkBtn
+                Layout.preferredWidth: btnWidth
+                Layout.preferredHeight: parent.height
+                imgSrc: "qrc:/icons/link.svg"
+
+                isActive: sequenceTreeLiveLink && !isPaused
+                onClicked: sequenceTreeLiveLink  = !sequenceTreeLiveLink
+            }
+
+            Item{
+                Layout.fillWidth: !searchBtn.isExpanded
+                Layout.preferredWidth: searchBtn.isExpanded? buttonSpacing : buttonSpacing*8
+                Layout.preferredHeight: parent.height
+            }
+
+            XsPrimaryButton{
+                Layout.preferredWidth: btnWidth
+                Layout.preferredHeight: parent.height
+                imgSrc: "qrc:/shotbrowser_icons/sell.svg"
+                isActive: assetMode ? JSON.stringify(assetFilterModel.manifestFilter) != "{}" : JSON.stringify(sequenceFilterModel.manifestFilter) != "{}"
+                onClicked: showOrHideManifestDialog()
+            }
+
+            XsPrimaryButton{ id: filterBtn
+                Layout.preferredWidth: btnWidth
+                Layout.preferredHeight: parent.height
+                imgSrc: "qrc:/icons/filter.svg"
+                isActive: sequenceFilterModel && sequenceFilterModel.hideStatus.length
+                onClicked: {
+                    // searchBtn.isExpanded = false
+                    if(shotFilterPopup.visible) {
+                        shotFilterPopup.visible = false
+                    } else {
+                        shotFilterPopup.showMenu(
+                            filterBtn,
+                            width/2,
+                            height/2);
+                    }
+                }
+            }
+        }
+
+        XsPopupMenu {
+            id: shotFilterPopup
+            menu_model_name: "shot_filter_popup" + shotFilterPopup
+            visible: false
+
+            closePolicy: filterBtn.hovered ? Popup.CloseOnEscape :  Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+            XsMenuModelItem {
+                text: "Show Status"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 0
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: prefs.showStatus
+                onActivated: prefs.showStatus = !prefs.showStatus
+            }
+            XsMenuModelItem {
+                text: "Show Unit"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 0.1
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: prefs.showUnit
+                onActivated: prefs.showUnit = !prefs.showUnit
+            }
+            XsMenuModelItem {
+                text: "Show DnTags"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 0.15
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: prefs.showManifest
+                onActivated: prefs.showManifest = !prefs.showManifest
+            }
+
+            XsMenuModelItem {
+                text: "Show Stage"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 0.16
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: prefs.showStage
+                onActivated: prefs.showStage = !prefs.showStage
+            }
+            XsMenuModelItem {
+                text: "Show Stage Colour"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 0.17
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: prefs.showStageColour
+                onActivated: prefs.showStageColour = !prefs.showStageColour
+            }
+
+            XsMenuModelItem {
+                text: "Show Type"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 0.2
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: prefs.showType
+                onActivated: prefs.showType = !prefs.showType
+            }
+
+            XsMenuModelItem {
+                text: "Show Completion Location"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 0.21
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: prefs.showCompletion
+                onActivated: prefs.showCompletion = !prefs.showCompletion
+            }
+
+            XsMenuModelItem {
+                text: "Show Selection Icon"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 0.3
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: prefs.showVisibility
+                onActivated: prefs.showVisibility = !prefs.showVisibility
+            }
+
+            XsMenuModelItem {
+                text: "Hide Selected"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 0.35
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: !prefs.showHidden
+                onActivated: prefs.showHidden = !prefs.showHidden
+            }
+
+            // XsMenuModelItem {
+            //     text: "Misc"
+            //     menuItemType: "divider"
+            //     menuPath: ""
+            //     menuItemPosition: 0.5
+            //     menuModelName: shotFilterPopup.menu_model_name
+            // }
+
+            XsMenuModelItem {
+                text: "Hide Empty"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 0.9
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: prefs.hideEmpty
+                onActivated: prefs.hideEmpty = !prefs.hideEmpty
+            }
+
+
+            XsMenuModelItem {
+                text: "Hide Location"
+                menuItemType: "divider"
+                menuPath: ""
+                menuItemPosition: 1
+                menuModelName: shotFilterPopup.menu_model_name
+            }
+
+            XsMenuModelItem {
+                text: "No Location"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 10
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: sequenceFilterModel && sequenceFilterModel.locationFilter.includes("No Location")
+                onActivated: {
+                    if(isChecked) {
+                        sequenceFilterModel.locationFilter = Array.from(sequenceFilterModel.locationFilter).filter(r => r !== "No Location")
+                    } else {
+                        let tmp = sequenceFilterModel.locationFilter
+                        tmp.push("No Location")
+                        sequenceFilterModel.locationFilter = tmp
+                        prefs.filterLocation = sequenceFilterModel.locationFilter
+                    }
+                }
+            }
+
+            Repeater {
+                model:  DelegateModel {
+                    property var notifyLocationModel: ShotBrowserEngine.ready ? ShotBrowserEngine.presetsModel.termModel("Completion Location") : []
+                    onNotifyLocationModelChanged: {
+                        if(sequenceFilterModel)
+                            sequenceFilterModel.locationFilter = prefs.filterLocation
+                    }
+                    model: notifyLocationModel
+                    delegate :
+                        Item {
+                            XsMenuModelItem {
+                                text: nameRole.toUpperCase()
+                                menuItemType: "toggle"
+                                menuPath: ""
+                                menuItemPosition: index + 10
+                                menuModelName: shotFilterPopup.menu_model_name
+                                isChecked: sequenceFilterModel && sequenceFilterModel.locationFilter.includes(nameRole)
+                                onActivated: {
+                                    if(isChecked) {
+                                        sequenceFilterModel.locationFilter = Array.from(sequenceFilterModel.locationFilter).filter(r => r !== nameRole)
+
+                                    } else {
+                                        let tmp = sequenceFilterModel.locationFilter
+                                        tmp.push(nameRole)
+                                        sequenceFilterModel.locationFilter = tmp
+                                    }
+                                    prefs.filterLocation = sequenceFilterModel.locationFilter
+                                }
+                            }
+                        }
+                }
+            }
+
+            XsMenuModelItem {
+                text: "Hide Unit"
+                menuItemType: "divider"
+                menuPath: ""
+                menuItemPosition: 20
+                menuModelName: shotFilterPopup.menu_model_name
+            }
+
+            XsMenuModelItem {
+                text: "No Unit"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 30
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: sequenceFilterModel && sequenceFilterModel.unitFilter.includes("No Unit")
+                onActivated: {
+                    if(isChecked) {
+                        sequenceFilterModel.unitFilter = Array.from(sequenceFilterModel.unitFilter).filter(r => r !== "No Unit")
+                    } else {
+                        let tmp = sequenceFilterModel.unitFilter
+                        tmp.push("No Unit")
+                        sequenceFilterModel.unitFilter = tmp
+                    }
+                }
+            }
+
+            Repeater {
+                model:  DelegateModel {
+                    property var notifyUnitModel: ShotBrowserEngine.presetsModel.termModel("Unit", "Version", projectId)
+                    onNotifyUnitModelChanged: {
+                        if(sequenceFilterModel && projectIndex && projectIndex.valid) {
+                            if( prefs.inited && projectIndex.model.get(projectIndex,"nameRole") in prefs.filterUnit)
+                                sequenceFilterModel.unitFilter = prefs.filterUnit[projectIndex.model.get(projectIndex,"nameRole")]
+                            else
+                                sequenceFilterModel.unitFilter = []
+                        }
+                    }
+                    model: notifyUnitModel
+                    delegate :
+                        Item {
+                            XsMenuModelItem {
+                                text: nameRole
+                                menuItemType: "toggle"
+                                menuPath: ""
+                                menuItemPosition: index + 40
+                                menuModelName: shotFilterPopup.menu_model_name
+                                isChecked: sequenceFilterModel && sequenceFilterModel.unitFilter.includes(nameRole)
+                                onActivated: {
+                                    if(isChecked) {
+                                        sequenceFilterModel.unitFilter = Array.from(sequenceFilterModel.unitFilter).filter(r => r !== nameRole)
+                                    } else {
+                                        let tmp = sequenceFilterModel.unitFilter
+                                        tmp.push(nameRole)
+                                        sequenceFilterModel.unitFilter = tmp
+                                    }
+                                }
+                            }
+                        }
+                }
+            }
+
+            XsMenuModelItem {
+                text: "Hide Type"
+                menuItemType: "divider"
+                menuPath: ""
+                menuItemPosition: 100
+                menuModelName: shotFilterPopup.menu_model_name
+            }
+
+            XsMenuModelItem {
+                text: "No Type"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 110
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: sequenceFilterModel && sequenceFilterModel.typeFilter.includes("No Type")
+                onActivated: {
+                    if(isChecked) {
+                        sequenceFilterModel.typeFilter = Array.from(sequenceFilterModel.typeFilter).filter(r => r !== "No Type")
+                    } else {
+                        let tmp = sequenceFilterModel.typeFilter
+                        tmp.push("No Type")
+                        sequenceFilterModel.typeFilter = tmp
+                    }
+                }
+            }
+
+            Repeater {
+                model:  DelegateModel {
+                    property var notifyTypeModel: sequenceFilterModel && sequenceFilterModel.sourceModel && sequenceFilterModel.sourceModel.types.length ? sequenceFilterModel.sourceModel.types : []
+                    onNotifyTypeModelChanged: {
+                        if(sequenceFilterModel && projectIndex && projectIndex.valid) {
+                            if(prefs.inited && projectIndex.model.get(projectIndex, "nameRole") in prefs.filterType)
+                                sequenceFilterModel.typeFilter = prefs.filterType[projectIndex.model.get(projectIndex,"nameRole")]
+                            else
+                                sequenceFilterModel.typeFilter = []
+                        }
+                    }
+                    model: notifyTypeModel
+                    delegate :
+                        Item {
+                            XsMenuModelItem {
+                                text: modelData
+                                menuItemType: "toggle"
+                                menuPath: ""
+                                menuItemPosition: index + 110
+                                menuModelName: shotFilterPopup.menu_model_name
+                                isChecked: sequenceFilterModel && sequenceFilterModel.typeFilter.includes(modelData)
+                                onActivated: {
+                                    if(isChecked) {
+                                        sequenceFilterModel.typeFilter = Array.from(sequenceFilterModel.typeFilter).filter(r => r !== modelData)
+                                    } else {
+                                        let tmp = sequenceFilterModel.typeFilter
+                                        tmp.push(modelData)
+                                        sequenceFilterModel.typeFilter = tmp
+                                    }
+                                }
+                            }
+                        }
+                }
+            }
+
+
+            XsMenuModelItem {
+                text: "Hide Status"
+                menuItemType: "divider"
+                menuPath: ""
+                menuItemPosition: 200
+                menuModelName: shotFilterPopup.menu_model_name
+            }
+
+            Repeater {
+                model:  DelegateModel {
+                    property var notifyModel: ShotBrowserEngine.presetsModel.termModel("Shot Status")
+                    model: notifyModel
+                    delegate :
+                        Item {
+                            XsMenuModelItem {
+                                text: nameRole
+                                menuItemType: "toggle"
+                                menuPath: ""
+                                menuItemPosition: index + 201
+                                menuModelName: shotFilterPopup.menu_model_name
+                                isChecked: (prefs.hideStatus.includes(nameRole) || prefs.hideStatus.includes(idRole))
+                                onActivated: {
+                                    if(isChecked) {
+                                        prefs.hideStatus = Array.from(prefs.hideStatus).filter(r => r !== idRole && r !== nameRole)
+                                    } else {
+                                        let tmp = prefs.hideStatus
+                                        tmp.push(idRole)
+                                        tmp.push(nameRole)
+                                        prefs.hideStatus = tmp
+                                    }
+                                }
+                            }
+                        }
+                }
+            }
+        }
+
+        Rectangle{
+            Layout.fillWidth: true;
+            Layout.fillHeight: true;
+            color: panelColor
+            visible: !assetMode
+
+            XsListView {
+                id: sequenceTreeView
+                anchors.fill: parent
+                spacing: 1
+
+                ScrollBar.vertical: XsScrollBar{visible: sequenceTreeView.height < sequenceTreeView.contentHeight}
+                property int rightSpacing: sequenceTreeView.height < sequenceTreeView.contentHeight ? 12 : 0
+                Behavior on rightSpacing {NumberAnimation {duration: 150}}
+
+                model: sequenceTreeModel
+
+                Connections {
+                    target: sequenceSelectionModel
+                    function onSelectionChanged(selected, deselected) {
+                        if(selected.length){
+                            sequenceTreeView.positionViewAtIndex(selected[0].topLeft.row, ListView.Visible)
+                        }
+                    }
+                }
+
+                delegate: DelegateChooser {
+                    role: "typeRole"
+
+                    DelegateChoice {
+                        roleValue: "Sequence";
+                        XsSBSequenceDelegate{
+                            width: sequenceTreeView.width - sequenceTreeView.rightSpacing
+                            height: btnHeight-4
+                            delegateModel: sequenceTreeModel
+                            selectionModel: sequenceSelectionModel
+                            showStatus: prefs.showStatus
+                            showType: prefs.showType
+                            showVisibility: prefs.showVisibility
+                        }
+                    }
+                    DelegateChoice {
+                        roleValue: "Project";
+                        XsSBSequenceDelegate{
+                            width: sequenceTreeView.width - sequenceTreeView.rightSpacing
+                            height: btnHeight-4
+                            delegateModel: sequenceTreeModel
+                            selectionModel: sequenceSelectionModel
+                            showVisibility: prefs.showVisibility
+                        }
+                    }
+                    DelegateChoice {
+                        roleValue: "Episode";
+                        XsSBSequenceDelegate{
+                            width: sequenceTreeView.width - sequenceTreeView.rightSpacing
+                            height: btnHeight-4
+                            delegateModel: sequenceTreeModel
+                            selectionModel: sequenceSelectionModel
+                            showStatus: prefs.showStatus
+                            showType: prefs.showType
+                            showVisibility: prefs.showVisibility
+                        }
+                    }
+                    DelegateChoice {
+                        roleValue: "Asset";
+                        XsSBSequenceDelegate{
+                            width: sequenceTreeView.width - sequenceTreeView.rightSpacing
+                            height: btnHeight-4
+                            delegateModel: sequenceTreeModel
+                            selectionModel: sequenceSelectionModel
+                            showStatus: prefs.showStatus
+                            showType: prefs.showType
+                            showVisibility: prefs.showVisibility
+                        }
+                    }
+                    DelegateChoice {
+                        roleValue: "Shot";
+                        XsSBShotDelegate{
+                            width: sequenceTreeView.width - sequenceTreeView.rightSpacing
+                            height: btnHeight-4
+                            delegateModel: sequenceTreeModel
+                            selectionModel: sequenceSelectionModel
+                            showUnit: prefs.showUnit
+                            showCompletion: prefs.showCompletion
+                            showStatus: prefs.showStatus
+                            showManifest: prefs.showManifest
+                            showType: prefs.showType
+                            showVisibility: prefs.showVisibility
+                            showStage: prefs.showStage
+                            showStageColour: prefs.showStageColour
+                        }
+                    }
+                }
+            }
+        }
+        Rectangle{
+            Layout.fillWidth: true;
+            Layout.fillHeight: true;
+            color: panelColor
+            visible: assetMode
+
+            XsListView {
+                id: assetTreeView
+                anchors.fill: parent
+                spacing: 1
+
+                ScrollBar.vertical: XsScrollBar{visible: assetTreeView.height < assetTreeView.contentHeight}
+                property int rightSpacing: assetTreeView.height < assetTreeView.contentHeight ? 10 : 0
+                Behavior on rightSpacing {NumberAnimation {duration: 150}}
+
+                model: assetTreeModel
+
+                Connections {
+                    target: assetSelectionModel
+                    function onSelectionChanged(selected, deselected) {
+                        if(selected.length){
+                            assetTreeView.positionViewAtIndex(selected[0].topLeft.row, ListView.Visible)
+                        }
+                    }
+                }
+
+                delegate: DelegateChooser {
+                    role: "typeRole"
+
+                    DelegateChoice {
+                        roleValue: "Asset";
+                        XsSBSequenceDelegate{
+                            width: assetTreeView.width - assetTreeView.rightSpacing
+                            height: btnHeight-4
+                            delegateModel: assetTreeModel
+                            selectionModel: assetSelectionModel
+                            showStatus: prefs.showStatus
+                            showType: prefs.showType
+                            showVisibility: prefs.showVisibility
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

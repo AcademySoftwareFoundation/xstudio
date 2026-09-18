@@ -7,8 +7,7 @@ function help
 	echo "Options:"
     echo "  -s SESSION, --session SESSION Session name (DEFAULT: '')"
     echo "  -h HOST, --host HOST          Host xstudio is running on (DEFAULT: '')"
-    echo "  -p, --port                    Port to connect to (DEFAULT: 45500)"
-    echo "  --sync                        Force SYNC mode (DEFAULT: False)"
+    echo "  -p, --port                    Port to connect to (DEFAULT: 14441)"
     echo "  -e, --execute                 Execute command and exit"
 	echo "  --help                        show this help message and exit"
     echo "  -d, --debug                   Print debug output"
@@ -19,8 +18,7 @@ function help
 DEBUG=False
 SESSION=
 HOST=
-PORT=45500
-SYNC=False
+PORT=14441
 EXECUTE=
 
 SOURCE="${BASH_SOURCE[0]}"
@@ -36,7 +34,6 @@ ARGVV="$@"
 while [[ $# > 0 ]]
 do
 key="$1"
-
 
 case $key in
     -s|--session)
@@ -60,9 +57,6 @@ case $key in
     -p|--port)
     PORT="$2"
     shift
-    ;;
-    --sync)
-    SYNC=True
     ;;
     --help)
     help
@@ -89,7 +83,6 @@ export XSTUDIOPY_DEBUG=$DEBUG
 export XSTUDIOPY_SESSION=$SESSION
 export XSTUDIOPY_HOST=$HOST
 export XSTUDIOPY_PORT=$PORT
-export XSTUDIOPY_SYNC=$SYNC
 export XSTUDIOPY_EXECUTE=$EXECUTE
 
 if [[ -z "$EXECUTE" ]]; then

@@ -7,4 +7,4 @@ SET(LINK_DEPS
 	Imath::Imath
 )
 
-create_plugin_with_alias(media_metadata_openexr xstudio::media_metadata::openexr 0.1.0  "${LINK_DEPS}")
+create_plugin_with_alias(media_metadata_openexr xstudio::media_metadata::openexr ${XSTUDIO_GLOBAL_VERSION}  "${LINK_DEPS}")

@@ -1,0 +1,60 @@
+{
+	"plugin":{
+		"media_reader":{
+			"OIIO":{
+				"use_tbb": {
+					"path": "/plugin/media_reader/OIIO/use_tbb",
+					"description": "Enable or disable TBB in OIIO",
+					"datatype": "int",
+					"context": ["APPLICATION"],
+					"default_value": 1,
+					"value": 1
+				},
+				"supported": {
+					"path": "/plugin/media_reader/OIIO/supported",
+					"description": "Control plugin format support. Note MRC_FULLY means we use this plugin and NOT ffmpeg.",
+					"datatype": "json",
+					"context": ["APPLICATION"],
+					"default_value": {
+				        "JPG": "MRC_FORCE",
+				        "JPEG": "MRC_FORCE",
+				        "PNG": "MRC_FORCE",
+				        "TIF": "MRC_FORCE",
+				        "TEX": "MRC_FULLY",
+				        "TIFF": "MRC_FORCE",
+				        "TGA": "MRC_FULLY",
+				        "BMP": "MRC_FORCE",
+				        "PSD": "MRC_FULLY",
+				        "HDR": "MRC_FULLY",
+				        "DPX": "MRC_FORCE",
+				        "ACES": "MRC_FULLY",
+				        "JP2": "MRC_FULLY",
+				        "J2K": "MRC_FULLY",
+				        "WEBP": "MRC_NO",
+				        "EXR": "MRC_NO",
+						"": "MRC_NO"
+					},
+					"value": {
+				        "JPG": "MRC_FORCE",
+				        "JPEG": "MRC_FORCE",
+				        "PNG": "MRC_FORCE",
+				        "TIF": "MRC_FORCE",
+				        "TEX": "MRC_FULLY",
+				        "TIFF": "MRC_FORCE",
+				        "TGA": "MRC_FULLY",
+				        "BMP": "MRC_FORCE",
+				        "PSD": "MRC_FULLY",
+				        "HDR": "MRC_FULLY",
+				        "DPX": "MRC_FORCE",
+				        "ACES": "MRC_FULLY",
+				        "JP2": "MRC_FULLY",
+				        "J2K": "MRC_FULLY",
+				        "WEBP": "MRC_NO",
+				        "EXR": "MRC_NO",
+						"": "MRC_NO"
+					}
+				}
+			}
+		}
+	}
+}

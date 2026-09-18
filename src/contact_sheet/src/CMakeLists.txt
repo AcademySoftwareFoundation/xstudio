@@ -1,8 +1,8 @@
 SET(LINK_DEPS
 	xstudio::media
 	xstudio::utility
-	xstudio::broadcast
-	caf::core
+	xstudio::subset
+	CAF::core
 )
 
-create_component(contact_sheet 0.1.0 "${LINK_DEPS}")
+create_component(contact_sheet ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}")

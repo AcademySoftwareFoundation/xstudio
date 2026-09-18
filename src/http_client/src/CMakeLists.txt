@@ -4,14 +4,15 @@ find_package(ZLIB)
 
 SET(LINK_DEPS
 	xstudio::utility
-	caf::core
+	xstudio::media
+	CAF::core
 	OpenSSL::SSL
 	ZLIB::ZLIB
 )
 
-create_component(http_client 0.1.0 "${LINK_DEPS}")
+create_component(http_client ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}")
 
-# project(http_client VERSION 0.1.0 LANGUAGES CXX)
+# project(http_client VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
 # set(SOURCES
 # 	http_client.cpp
@@ -26,7 +27,7 @@ create_component(http_client 0.1.0 "${LINK_DEPS}")
 # target_link_libraries(${PROJECT_NAME}
 # 	PUBLIC
 # 		xstudio::utility
-# 		caf::core
+# 		CAF::core
 # 		OpenSSL::SSL
 # 		ZLIB::ZLIB
 # )

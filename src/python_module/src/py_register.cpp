@@ -31,16 +31,14 @@ CAF_POP_WARNINGS
 #include "xstudio/utility/timecode.hpp"
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/utility/frame_range.hpp"
+#include "xstudio/utility/notification_handler.hpp"
+#include "xstudio/ui/viewport/mask.hpp"
 
 
 namespace py = pybind11;
 
 using namespace xstudio;
 namespace caf::python {
-
-void register_group_down_msg(py::module &m, const std::string &name) {
-    py::class_<caf::group_down_msg>(m, name.c_str()).def(py::init<>());
-}
 
 void register_playlistitem_class(py::module &m, const std::string &name) {
     // auto str_impl = [](const utility::PlaylistItem& x) { return to_string(x); };
@@ -62,19 +60,112 @@ void register_abs_class(py::module &m, const std::string &name) {
 }
 
 void register_uuid_class(py::module &m, const std::string &name) {
-    auto str_impl = [](const utility::Uuid &x) { return to_string(x); };
+    auto str_impl  = [](const utility::Uuid &x) { return to_string(x); };
+    auto hash_impl = [](const utility::Uuid &x) {
+        std::hash<utility::Uuid> h;
+        return h(x);
+    };
     py::class_<utility::Uuid>(m, name.c_str())
         .def(py::init<>())
         .def(py::init<const std::string &>())
         .def("generate", &utility::Uuid::generate)
         .def("generate_in_place", &utility::Uuid::generate_in_place)
+        .def("generate_from_name", &utility::Uuid::generate_in_place_from_name)
         .def("is_null", &utility::Uuid::is_null)
         .def(py::self == py::self)
         .def(py::self != py::self)
+        .def("__hash__", hash_impl)
         .def("__str__", str_impl);
 }
 
-void register_plugindetail_class(py::module &m, const std::string &name) {
+void register_notification_class(py::module &m, const std::string &name) {
+    py::class_<utility::Notification>(m, name.c_str())
+        .def(py::init<>())
+        .def("type", [](const utility::Notification &x) { return x.type(); })
+        .def("uuid", [](const utility::Notification &x) { return x.uuid(); })
+        .def("text", [](const utility::Notification &x) { return x.text(); })
+        .def("progress", [](const utility::Notification &x) { return x.progress(); })
+        .def(
+            "progress_maximum",
+            [](const utility::Notification &x) { return x.progress_maximum(); })
+        .def(
+            "progress_minimum",
+            [](const utility::Notification &x) { return x.progress_minimum(); })
+        .def(
+            "progress_percentage",
+            [](const utility::Notification &x) { return x.progress_percentage(); })
+        .def(
+            "progress_text_percentage",
+            [](const utility::Notification &x) { return x.progress_text_percentage(); })
+        .def(
+            "progress_text_range",
+            [](const utility::Notification &x) { return x.progress_text_range(); })
+
+        .def(
+            "set_type",
+            [](utility::Notification &x, const utility::NotificationType value) {
+                x.type(value);
+            })
+        .def(
+            "set_uuid",
+            [](utility::Notification &x, const utility::Uuid &value) { x.uuid(value); })
+        .def(
+            "set_text",
+            [](utility::Notification &x, const std::string &value) { x.text(value); })
+        .def(
+            "set_progress",
+            [](utility::Notification &x, const float value) { x.progress(value); })
+        .def(
+            "set_progress_minimum",
+            [](utility::Notification &x, const float value) { x.progress_maximum(value); })
+        .def(
+            "set_progress_maximum",
+            [](utility::Notification &x, const float value) { x.progress_maximum(value); })
+        .def(
+            "set_expires_in",
+            [](utility::Notification &x, const int seconds) {
+                x.expires_in(std::chrono::seconds(seconds));
+            })
+
+
+        .def(
+            "InfoNotification",
+            [](const std::string &text, const int seconds) {
+                return utility::Notification::InfoNotification(
+                    text, std::chrono::seconds(seconds));
+            })
+        .def(
+            "WarnNotification",
+            [](const std::string &text, const int seconds) {
+                return utility::Notification::WarnNotification(
+                    text, std::chrono::seconds(seconds));
+            })
+        .def(
+            "ProcessingNotification",
+            [](const std::string &text) {
+                return utility::Notification::ProcessingNotification(text);
+            })
+        .def(
+            "ProgressPercentageNotification",
+            [](const std::string &text, const float progress = 0.0f, const int seconds = 600) {
+                return utility::Notification::ProgressPercentageNotification(
+                    text, progress, std::chrono::seconds(seconds));
+            })
+        .def(
+            "ProgressRangeNotification",
+            [](const std::string &text,
+               const float progress     = 0.0f,
+               const float progress_min = 0.0f,
+               const float progress_max = 100.0f,
+               const int seconds        = 600) {
+                return utility::Notification::ProgressRangeNotification(
+                    text, progress, progress_min, progress_max, std::chrono::seconds(seconds));
+            })
+
+        ;
+}
+
+void XSTUDIO_REGISTER_PLUGINdetail_class(py::module &m, const std::string &name) {
     py::class_<plugin_manager::PluginDetail>(m, name.c_str())
         .def(py::init<>())
         .def("name", [](const plugin_manager::PluginDetail &x) { return x.name_; })
@@ -167,6 +258,7 @@ void register_timecode_class(py::module &m, const std::string &name) {
     auto str_impl = [](const utility::Timecode &x) { return to_string(x); };
     py::class_<utility::Timecode>(m, name.c_str())
         .def(py::init<>())
+        .def(py::init<const int, const double>())
         .def("__str__", str_impl)
         .def("hours", [](const utility::Timecode &x) { return x.hours(); })
         .def("minutes", [](const utility::Timecode &x) { return x.minutes(); })
@@ -181,26 +273,37 @@ void register_mediareference_class(py::module &m, const std::string &name) {
     auto str_impl = [](const utility::MediaReference &x) { return to_string(x); };
     py::class_<utility::MediaReference>(m, name.c_str())
         .def(py::init<>())
+        .def(py::init<caf::uri, bool, utility::FrameRate>())
+        .def(py::init<caf::uri, utility::FrameList, bool, utility::FrameRate>())
         .def("__str__", str_impl)
         .def("container", &utility::MediaReference::container)
         .def("frame_count", &utility::MediaReference::frame_count)
+        .def("fill_partial_sequences", &utility::MediaReference::fill_partial_sequences)
         .def(
             "seconds",
             &utility::MediaReference::seconds,
             "Duration in seconds",
             py::arg("override") = utility::FrameRate())
         .def("duration", &utility::MediaReference::duration)
+        .def("set_duration", &utility::MediaReference::set_duration)
         .def("rate", &utility::MediaReference::rate)
         .def("set_rate", &utility::MediaReference::set_rate)
         .def(
             "uri",
-            py::overload_cast<>(&utility::MediaReference::uri, py::const_),
-            "URI of mediareference")
-
+            py::overload_cast<utility::MediaReference::FramePadFormat>(
+                &utility::MediaReference::uri, py::const_),
+            "URI of mediareference",
+            py::arg("fpf") = utility::MediaReference::FramePadFormat::FPF_XSTUDIO)
+        .def("set_frame_list", &utility::MediaReference::set_frame_list)
         .def("uri_from_frame", &utility::MediaReference::uri_from_frame)
+        .def("pick_representative_frame", &utility::MediaReference::pick_representative_frame)
         .def("timecode", &utility::MediaReference::timecode)
+        .def("set_timecode", &utility::MediaReference::set_timecode)
         .def("offset", &utility::MediaReference::offset)
         .def("set_offset", &utility::MediaReference::set_offset)
+        .def("start_frame_offset", &utility::MediaReference::start_frame_offset)
+        .def("set_start_frame_offset", &utility::MediaReference::set_start_frame_offset)
+        .def("set_timecode", &utility::MediaReference::set_timecode)
         .def("frame", [](const utility::MediaReference &x, int i) {
             auto f = x.frame(i);
             if (f)
@@ -220,6 +323,7 @@ void register_bookmark_detail_class(py::module &m, const std::string &name) {
         .def_readwrite("visible", &bookmark::BookmarkDetail::visible_)
         .def_readwrite("start", &bookmark::BookmarkDetail::start_)
         .def_readwrite("duration", &bookmark::BookmarkDetail::duration_)
+        .def_readwrite("user_data", &bookmark::BookmarkDetail::user_data_)
         .def_readwrite("author", &bookmark::BookmarkDetail::author_)
         .def_readwrite("owner", &bookmark::BookmarkDetail::owner_)
         .def_readwrite("note", &bookmark::BookmarkDetail::note_)
@@ -239,7 +343,7 @@ void register_mediakey_class(py::module &m, const std::string &name) {
 }
 
 void register_jsonstore_class(py::module &m, const std::string &name) {
-    auto str_impl             = [](const utility::JsonStore &x) { return to_string(x); };
+    auto str_impl = [](const utility::JsonStore &x) -> std::string { return x.dump(); };
     auto get_preferences_impl = [](const utility::JsonStore &x,
                                    const std::set<std::string> &context =
                                        std::set<std::string>()) {
@@ -274,7 +378,8 @@ void register_jsonstore_class(py::module &m, const std::string &name) {
         .def("remove", &utility::JsonStore::remove)
         .def("empty", &utility::JsonStore::empty)
         .def("get_preferences", get_preferences_impl)
-        .def("get_values", get_preference_values_impl);
+        .def("get_values", get_preference_values_impl)
+        .def("parse_string", &utility::JsonStore::parse_string);
 }
 
 void register_FrameRate_class(py::module &m, const std::string &name) {
@@ -307,7 +412,7 @@ void register_FrameRateDuration_class(py::module &m, const std::string &name) {
     auto str_impl = [](const utility::FrameRateDuration &x) { return to_string(x); };
     py::class_<utility::FrameRateDuration>(m, name.c_str())
         .def(py::init<>())
-        .def(py::init<int, utility::FrameRate>())
+        .def(py::init<const int, utility::FrameRate>())
         .def(
             "frames",
             &utility::FrameRateDuration::frames,
@@ -321,15 +426,94 @@ void register_FrameRateDuration_class(py::module &m, const std::string &name) {
         .def("__str__", str_impl);
 }
 
-void register_actor_class(py::module &m, const std::string &name) {
-    auto str_impl = [](const caf::actor &x) { return to_string(x); };
-    py::class_<caf::actor>(m, name.c_str()).def(py::init()).def("__str__", str_impl);
+void register_matrix44_class(py::module &m, const std::string &name) {
+    auto str_impl = [](const Imath::M44f &x) {
+        std::stringstream s;
+        s << x;
+        return s.str();
+    };
+    py::class_<Imath::M44f>(m, name.c_str())
+        .def(py::init<>())
+        .def(
+            py::init<
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float>())
+        .def(
+            "rotate",
+            [](Imath::M44f &s, float x, float y, float z) { s.rotate(Imath::V3f(x, y, z)); })
+        .def(
+            "scale",
+            [](Imath::M44f &s, float x, float y, float z) { s.scale(Imath::V3f(x, y, z)); })
+        .def(
+            "__getitem__",
+            [](const Imath::M44f &s, size_t i) {
+                if (i >= 4) {
+                    throw py::index_error();
+                }
+                py::list l;
+                l.append(s[i][0]);
+                l.append(s[i][1]);
+                l.append(s[i][2]);
+                l.append(s[i][3]);
+                return l;
+            })
+        .def(
+            "__setitem__",
+            [](Imath::M44f &s, size_t i, py::list &l) {
+                if (i >= 4) {
+                    throw py::index_error();
+                }
+                auto v = l.cast<std::vector<float>>();
+                if (v.size() != 4) {
+                    throw py::value_error();
+                }
+                s[i][0] = v[0];
+                s[i][1] = v[1];
+                s[i][2] = v[2];
+                s[i][3] = v[3];
+            })
+        .def("__str__", str_impl);
 }
 
-void register_group_class(py::module &m, const std::string &name) {
-    auto str_impl = [](const caf::group &x) { return to_string(x); };
-    py::class_<caf::group>(m, name.c_str()).def(py::init()).def("__str__", str_impl);
+void register_colour_triplet_class(py::module &m, const std::string &name) {
+    auto str_impl = [](const utility::ColourTriplet &x) { return to_string(x); };
+    py::class_<utility::ColourTriplet>(m, name.c_str())
+        .def(py::init<>())
+        .def(py::init<float, float, float>())
+        .def_property("red", &utility::ColourTriplet::red, &utility::ColourTriplet::set_red)
+        .def_property(
+            "green", &utility::ColourTriplet::green, &utility::ColourTriplet::set_green)
+        .def_property("blue", &utility::ColourTriplet::blue, &utility::ColourTriplet::set_blue)
+        .def("__str__", str_impl)
+        .def("__repr__", str_impl);
 }
+
+void register_actor_class(py::module &m, const std::string &name) {
+    auto str_impl = [](const caf::actor &x) { return to_string(x); };
+    py::class_<caf::actor>(m, name.c_str())
+        .def(py::init())
+        .def("__bool__", [](const caf::actor &x) { return bool(x); })
+        .def("__str__", str_impl);
+}
+
+// void register_group_class(py::module &m, const std::string &name) {
+//     auto str_impl = [](const caf::group &x) { return to_string(x); };
+//     py::class_<caf::group>(m, name.c_str()).def(py::init()).def("__str__", str_impl);
+// }
 
 void register_addr_class(py::module &m, const std::string &name) {
     auto str_impl = [](const caf::actor_addr &x) { return to_string(x); };
@@ -375,28 +559,6 @@ void register_uuid_actor_vector_class(py::module &m, const std::string &name) {
             py::keep_alive<0, 1>());
 }
 
-void register_uuidvec_class(py::module &m, const std::string &name) {
-    // auto str_impl = [](const std::vector<xstudio::utility::Uuid>& x) { return
-    // to_string(x);
-    // };
-    py::class_<std::vector<xstudio::utility::Uuid>>(m, name.c_str())
-        .def(py::init())
-        // .def("__str__", str_impl)
-        .def("clear", &std::vector<xstudio::utility::Uuid>::clear)
-        .def(
-            "push_back",
-            py::overload_cast<const xstudio::utility::Uuid &>(
-                &std::vector<xstudio::utility::Uuid>::push_back))
-        .def("pop_back", &std::vector<xstudio::utility::Uuid>::pop_back)
-        .def("__len__", &std::vector<xstudio::utility::Uuid>::size)
-        .def(
-            "__iter__",
-            [](std::vector<xstudio::utility::Uuid> &v) {
-                return py::make_iterator(v.begin(), v.end());
-            },
-            py::keep_alive<0, 1>());
-}
-
 void register_item_class(py::module &m, const std::string &name) {
     // auto str_impl = [](const timeline::Item &x) { return to_string(x); };
     py::class_<timeline::Item>(m, name.c_str())
@@ -408,11 +570,11 @@ void register_item_class(py::module &m, const std::string &name) {
         .def("uuid_actor", &timeline::Item::uuid_actor)
         .def("enabled", &timeline::Item::enabled)
         .def("transparent", &timeline::Item::transparent)
-
         .def("rate", &timeline::Item::rate)
         .def("name", &timeline::Item::name)
         .def("flag", &timeline::Item::flag)
         .def("prop", &timeline::Item::prop)
+        .def("locked", &timeline::Item::locked)
 
         .def("active_range", &timeline::Item::active_range)
         .def("active_duration", &timeline::Item::active_duration)
@@ -425,13 +587,25 @@ void register_item_class(py::module &m, const std::string &name) {
         .def("trimmed_range", &timeline::Item::trimmed_range)
         .def("trimmed_duration", &timeline::Item::trimmed_duration)
         .def("trimmed_start", &timeline::Item::trimmed_start)
-
+        .def(
+            "frame_at_index",
+            [](timeline::Item &v, const int frame) { return v.frame_at_index(frame); })
+        .def("range_at_index", &timeline::Item::range_at_index)
+        .def(
+            "item_at_frame",
+            [](timeline::Item &v, const int frame) {
+                auto tmp = v.item_at_frame(frame);
+                if (tmp)
+                    return std::optional<timeline::Item>(*(tmp->first));
+                return std::optional<timeline::Item>();
+            })
         .def(
             "resolve_time",
             &timeline::Item::resolve_time,
-            py::arg("time")       = utility::FrameRate(),
-            py::arg("media_type") = media::MediaType::MT_IMAGE,
-            py::arg("focus")      = utility::UuidSet())
+            py::arg("time")            = utility::FrameRate(),
+            py::arg("media_type")      = media::MediaType::MT_IMAGE,
+            py::arg("focus")           = utility::UuidSet(),
+            py::arg("must_have_focus") = false)
 
         .def("children", py::overload_cast<>(&timeline::Item::children), "Get children")
         .def("__len__", [](timeline::Item &v) { return v.size(); });
@@ -442,9 +616,10 @@ void register_frame_range_class(py::module &m, const std::string &name) {
     py::class_<utility::FrameRange>(m, name.c_str())
         .def(py::init())
         .def(py::init<xstudio::utility::FrameRateDuration>())
-        .def(py::init<
-             xstudio::utility::FrameRateDuration,
-             xstudio::utility::FrameRateDuration>())
+        .def(
+            py::init<
+                xstudio::utility::FrameRateDuration,
+                xstudio::utility::FrameRateDuration>())
         .def("rate", &utility::FrameRange::rate)
         .def("start", &utility::FrameRange::start)
         .def("duration", &utility::FrameRange::duration)
@@ -466,7 +641,50 @@ void register_frame_list_class(py::module &m, const std::string &name) {
     auto str_impl = [](const utility::FrameList &x) { return to_string(x); };
     py::class_<utility::FrameList>(m, name.c_str())
         .def(py::init<>())
+        .def(py::init<int, int, int>())
         .def(py::init<std::string>())
+        .def("__str__", str_impl);
+}
+
+void register_mask_class(py::module &m, const std::string &name) {
+    auto str_impl = [](const ui::viewport::Mask &x) { return to_string(x); };
+    py::class_<ui::viewport::Mask>(m, name.c_str())
+        .def(
+            py::init<
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                std::string,
+                float,
+                bool>(),
+            "Construct a Mask for viewport masking (black bars, safe areas, etc.). The "
+            "HUDPlugin base class provides an interface for defining masks for specific media "
+            "items.\n\n"
+            "Args:\n"
+            "    left (float): Left edge position of the mask.\n"
+            "    right (float): Right edge position of the mask.\n"
+            "    top (float): Top edge position of the mask.\n"
+            "    bottom (float): Bottom edge position of the mask.\n"
+            "    line_thickness (float): Thickness of the mask border lines.\n"
+            "    line_opacity (float): Opacity of the mask border lines.\n"
+            "    mask_opacity (float): Opacity of the masked (blacked-out) area.\n"
+            "    label (str): Text label displayed on the mask.\n"
+            "    label_size (float): Font size of the label.\n"
+            "    auto_fit (bool): Whether the mask automatically fits to the viewport.\n",
+            py::arg("left"),
+            py::arg("right"),
+            py::arg("top"),
+            py::arg("bottom"),
+            py::arg("line_thickness"),
+            py::arg("line_opacity"),
+            py::arg("mask_opacity"),
+            py::arg("label"),
+            py::arg("label_size"),
+            py::arg("auto_fit"))
         .def("__str__", str_impl);
 }
 

@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.core import get_studio_atom, get_global_image_cache_atom, get_global_audio_cache_atom, get_global_thumbnail_atom
-from xstudio.core import get_global_store_atom, get_plugin_manager_atom, get_scanner_atom, exit_atom
+from xstudio.core import get_global_store_atom, get_plugin_manager_atom, get_scanner_atom, exit_atom, get_python_atom
+from xstudio.core import get_actor_from_registry_atom, log_atom, set_clipboard_atom
+from xstudio.core import LogLevel
 from xstudio.common_api import CommonAPI
 from xstudio.api.studio import Studio
 from xstudio.api.intrinsic import GlobalStore
@@ -9,6 +11,7 @@ from xstudio.api.intrinsic import MediaCache
 from xstudio.api.intrinsic import PluginManager
 from xstudio.api.intrinsic import Scanner
 from xstudio.api.auxiliary.helpers import Filesize
+from xstudio.api.auxiliary import ActorConnection
 
 class API(CommonAPI):
     """API connection.
@@ -95,6 +98,77 @@ class API(CommonAPI):
         """
         return self.app.session
 
+    def get_actor_from_registry(self, name):
+        """Get actor fro registry name
+
+       Args:
+            name(str): Registry name
+        Returns:
+            remote actor(ActorConnection): Requested actor."""
+        return ActorConnection(
+            self.connection,
+            self.connection.request_receive(self.connection.remote(), get_actor_from_registry_atom(), name)[0]
+        )
+
+
+    def log(self, level, messge):
+        """Log msg at level
+        Args:
+            level(str): Log message level
+            messge(str): Log message
+        """
+        self.connection.request_receive(self.connection.remote(), log_atom(), level, messge)
+
+    def log_trace(self, messge):
+        """Log msg at level
+        Args:
+            messge(str): Log message
+        """
+        self.log(LogLevel.SPDLOG_LEVEL_TRACE, messge)
+
+    def log_debug(self, messge):
+        """Log msg at level
+        Args:
+            messge(str): Log message
+        """
+        self.log(LogLevel.SPDLOG_LEVEL_DEBUG, messge)
+
+    def log_info(self, messge):
+        """Log msg at level
+        Args:
+            messge(str): Log message
+        """
+        self.log(LogLevel.SPDLOG_LEVEL_INFO, messge)
+
+    def log_warn(self, messge):
+        """Log msg at level
+        Args:
+            messge(str): Log message
+        """
+        self.log(LogLevel.SPDLOG_LEVEL_WARN, messge)
+
+    def log_err(self, messge):
+        """Log msg at level
+        Args:
+            messge(str): Log message
+        """
+        self.log(LogLevel.SPDLOG_LEVEL_ERROR, messge)
+
+    def log_critical(self, messge):
+        """Log msg at level
+        Args:
+            messge(str): Log message
+        """
+        self.log(LogLevel.SPDLOG_LEVEL_CRITICAL, messge)
+
+    def set_clipboard(self, content):
+        """Set UI clipboard
+        Args:
+            content(str): content
+        """
+        self.app.set_clipboard(content)
+
+
     @property
     def global_store(self):
         """Global JSON store object.
@@ -151,7 +225,7 @@ class API(CommonAPI):
 
     @property
     def plugin_manager(self):
-        """Global thumbnail object.
+        """Global plugin manager actor.
 
         Returns:
             PluginManager(object): If connected, `None` otherwise
@@ -222,7 +296,6 @@ class API(CommonAPI):
             else:
                 # connection stats
                 stat["connection"]["connected"] = True
-                stat["connection"]["type"] = self.connection.api_type
                 stat["connection"]["version"] = self.connection.app_version
                 stat["connection"]["application"] = self.connection.app_type
                 stat["connection"]["host"] = self.connection.host
@@ -257,7 +330,7 @@ class API(CommonAPI):
         if s["connection"]["connected"]:
             print("Connection:")
             print("  Remote:", s["connection"]["host"] + ":" + str(s["connection"]["port"]))
-            print("  Detail:", s["connection"]["application"], s["connection"]["type"], s["connection"]["version"])
+            print("  Detail:", s["connection"]["application"], s["connection"]["version"])
             print("Cache:")
             print("  Image:", s["cache"]["image"]["count"], str(Filesize(s["cache"]["image"]["size"])),)
             print("  Audio:", s["cache"]["audio"]["count"], str(Filesize(s["cache"]["audio"]["size"])),)

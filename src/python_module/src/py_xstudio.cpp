@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-#ifdef __GNUC__ // Check if GCC compiler is being used
 #pragma GCC diagnostic ignored "-Wattributes"
-#endif
 
 #include "py_opaque.hpp"
 
@@ -27,6 +25,20 @@ CAF_POP_WARNINGS
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/utility/serialise_headers.hpp"
 #include "xstudio/media_reader/pixel_info.hpp"
+#include "xstudio/ui/viewport/mask.hpp"
+
+#ifdef __apple__
+namespace caf {
+namespace detail {
+
+    template <> struct int_types_by_size<16> {
+        using unsigned_type = __uint128_t;
+        using signed_type   = __int128;
+    };
+
+} // namespace detail
+} // namespace caf
+#endif
 
 using namespace xstudio;
 namespace py = pybind11;
@@ -41,6 +53,26 @@ py::tuple py_parse_posix_path(const std::string &path) {
     PyTuple_SetItem(result.ptr(), 1, py::cast(std::move(fl)).release().ptr());
     return result;
 }
+
+py::object
+py_actor_from_string(const std::string &actor_addr, caf::actor remote = caf::actor()) {
+
+    // the py module actor system can be different to the main xstudio actor system.
+    // If the actor at 'actor_addr' refers to an actor living in the main xstudio
+    // system, the first call to actor_from_string may fail as the actor_system_ref
+    // is not the main xstudio system. In this case, we can use remote which is
+    // passed in from the python side and is a reference actor from the xstudio
+    // system (usually the 'remote' member of a Python plugin instance)
+
+    auto actor = utility::actor_from_string(
+        utility::ActorSystemSingleton::actor_system_ref(), actor_addr);
+
+    if (!actor) {
+        actor = utility::actor_from_string(remote->home_system(), actor_addr);
+    }
+    return py::cast(std::move(actor));
+}
+
 } // namespace caf::python
 
 #include "py_config.hpp"
@@ -70,10 +102,16 @@ PYBIND11_MODULE(__pybind_xstudio, m) {
             result(tuple(URI,FrameList)): result.
     )");
     m.def("remote_session_path", &utility::remote_session_path, "Return path to session files");
+    m.def(
+        "actor_from_string",
+        &caf::python::py_actor_from_string,
+        "Convert an actor address string to the actor object");
 
     py::enum_<session::ExportFormat>(m, "ExportFormat")
         .value("EF_UNDEFINED", session::ExportFormat::EF_UNDEFINED)
         .value("EF_CSV", session::ExportFormat::EF_CSV)
+        .value("EF_CSV_WITH_ANNOTATIONS", session::ExportFormat::EF_CSV_WITH_ANNOTATIONS)
+        .value("EF_CSV_WITH_IMAGES", session::ExportFormat::EF_CSV_WITH_IMAGES)
         .value("EF_LAST", session::ExportFormat::EF_LAST)
         .export_values();
 
@@ -90,6 +128,22 @@ PYBIND11_MODULE(__pybind_xstudio, m) {
     py::enum_<global::StatusType>(m, "StatusType")
         .value("ST_NONE", global::StatusType::ST_NONE)
         .value("ST_BUSY", global::StatusType::ST_BUSY)
+        .export_values();
+
+    py::enum_<spdlog::level::level_enum>(m, "LogLevel")
+        .value("SPDLOG_LEVEL_TRACE", spdlog::level::level_enum::trace)
+        .value("SPDLOG_LEVEL_DEBUG", spdlog::level::level_enum::debug)
+        .value("SPDLOG_LEVEL_INFO", spdlog::level::level_enum::info)
+        .value("SPDLOG_LEVEL_WARN", spdlog::level::level_enum::warn)
+        .value("SPDLOG_LEVEL_ERROR", spdlog::level::level_enum::err)
+        .value("SPDLOG_LEVEL_CRITICAL", spdlog::level::level_enum::critical)
+        .value("SPDLOG_LEVEL_OFF", spdlog::level::level_enum::off)
+        .export_values();
+
+    py::enum_<utility::MediaReference::FramePadFormat>(m, "FramePadFormat")
+        .value("FPF_XSTUDIO", utility::MediaReference::FramePadFormat::FPF_XSTUDIO)
+        .value("FPF_NUKE", utility::MediaReference::FramePadFormat::FPF_NUKE)
+        .value("FPF_SHAKE", utility::MediaReference::FramePadFormat::FPF_SHAKE)
         .export_values();
 
     py::enum_<module::Attribute::Role>(m, "AttributeRole")
@@ -115,7 +169,7 @@ PYBIND11_MODULE(__pybind_xstudio, m) {
         .value("DefaultValue", module::Attribute::Role::DefaultValue)
         .value("AbbrValue", module::Attribute::Role::AbbrValue)
         .value("UuidRole", module::Attribute::Role::UuidRole)
-        .value("Groups", module::Attribute::Role::Groups)
+        .value("UIDataModels", module::Attribute::Role::UIDataModels)
         .value("MenuPaths", module::Attribute::Role::MenuPaths)
         .value("ToolbarPosition", module::Attribute::Role::ToolbarPosition)
         .value("OverrideValue", module::Attribute::Role::OverrideValue)
@@ -129,7 +183,18 @@ PYBIND11_MODULE(__pybind_xstudio, m) {
         .value("TextContainerBox", module::Attribute::Role::TextContainerBox)
         .value("Colour", module::Attribute::Role::Colour)
         .value("HotkeyUuid", module::Attribute::Role::HotkeyUuid)
+        .value("IconPath", module::Attribute::Role::IconPath)
+        .value("CallbackData", module::Attribute::Role::CallbackData)
         .export_values();
+
+    // set XSTUDIO_LOCAL_PLUGIN_PATH so we can load python plugins that are
+    // provided as part of the xstudio install/distribution
+    m.add_object(
+        "XSTUDIO_LOCAL_PLUGIN_PATH", py::cast(utility::xstudio_resources_dir("plugin-python")));
+
+    py::bind_vector<std::vector<std::string>>(m, "VectorString");
+    py::bind_vector<std::vector<xstudio::utility::Uuid>>(m, "VectorUuid");
+    py::bind_vector<std::vector<xstudio::ui::viewport::Mask>>(m, "VectorMask");
 
     py_remote_session_file(m);
     py_playhead(m);

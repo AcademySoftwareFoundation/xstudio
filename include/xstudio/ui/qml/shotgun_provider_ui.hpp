@@ -92,12 +92,12 @@ class ShotgunThumbnailReader : public ControllableJob<std::pair<QImage, QString>
                     (mode == "thumbnail" ? true : false),
                     true);
                 if (thumbnail_cache)
-                    sys->anon_send(
-                        thumbnail_cache,
+                    anon_mail(
                         media_cache::store_atom_v,
                         key,
                         static_cast<size_t>(std::max(requestedSize_.width(), 128)),
-                        tbp);
+                        tbp)
+                        .send(thumbnail_cache);
             }
 
             if (not cjc.shouldRun())
@@ -135,11 +135,11 @@ class ShotgunThumbnailReader : public ControllableJob<std::pair<QImage, QString>
 class ShotgunResponse : public QQuickImageResponse {
   public:
     ShotgunResponse(
-        const QString &id,
+        const QString id,
         const QSize &requestedSize,
         QThreadPool *pool,
         QMap<QString, QDateTime> &bad_thumbs)
-        : id_(id), bad_thumbs_(bad_thumbs) {
+        : id_(std::move(id)), bad_thumbs_(bad_thumbs) {
         // spdlog::warn("{}", StdFromQString(id));
         if (bad_thumbs_.contains(id_) and
             bad_thumbs_[id_].secsTo(QDateTime::currentDateTime()) < 60 * 20) {

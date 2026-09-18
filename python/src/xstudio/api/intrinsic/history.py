@@ -5,7 +5,7 @@ from xstudio.api.session import Container
 class History(Container):
     """Access JSON stores"""
     def __init__(self, connection, remote, uuid=None):
-        """Create JsonStorePy object.
+        """Create object.
 
         Args:
             connection(Connection): Connection object

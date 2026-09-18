@@ -1,0 +1,6 @@
+module SessionSnapshots
+
+SessionSnapshotsMenu 1.0 SessionSnapshotsMenu.qml
+NewSnapshotDialog 1.0 NewSnapshotDialog.qml
+
+plugin session_snapshots

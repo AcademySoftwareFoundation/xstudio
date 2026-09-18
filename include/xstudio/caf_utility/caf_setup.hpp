@@ -3,11 +3,9 @@
 
 #include <caf/actor_system_config.hpp>
 
-namespace xstudio {
-namespace caf_utility {
-    class caf_config : public caf::actor_system_config {
-      public:
-        caf_config(int argc, char **argv);
-    };
-} // namespace caf_utility
-} // namespace xstudio
+namespace xstudio::caf_utility {
+class caf_config : public caf::actor_system_config {
+  public:
+    caf_config(int argc, char **argv);
+};
+} // namespace xstudio::caf_utility

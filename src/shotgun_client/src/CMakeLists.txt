@@ -1,11 +1,10 @@
 SET(LINK_DEPS
 	xstudio::utility
-	xstudio::broadcast
 	xstudio::http_client
-	caf::core
+	CAF::core
 )
 
 find_package(OpenSSL)
 find_package(ZLIB)
 
-create_component(shotgun_client 0.1.0 "${LINK_DEPS}")
+create_component(shotgun_client ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}")

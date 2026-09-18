@@ -4,6 +4,8 @@ SET(LINK_DEPS
 	xstudio::contact_sheet
 	xstudio::audio_output
 	xstudio::playlist
+	xstudio::global
+	xstudio::utility
 )
 
 create_tests("${LINK_DEPS}")

@@ -42,7 +42,9 @@ class TestPlugin : public PluginFactory {
     [[nodiscard]] bool resident() const override { return false; }
     [[nodiscard]] std::string author() const override { return "author"; }
     [[nodiscard]] std::string description() const override { return "description"; }
-    [[nodiscard]] semver::version version() const override { return semver::version("0.1.0"); }
+    [[nodiscard]] semver::version version() const override {
+        return semver::version("${XSTUDIO_GLOBAL_VERSION}");
+    }
 
     [[nodiscard]] caf::actor spawn(
         caf::blocking_actor &sys,
@@ -55,8 +57,9 @@ class TestPFC : public PluginFactoryCollection {
   public:
     TestPFC() : PluginFactoryCollection() {
         factories_.emplace_back(std::make_shared<TestPlugin>());
-        factories_.emplace_back(std::make_shared<PluginFactoryTemplate<TestActor>>(
-            Uuid("e4e1d569-2338-4e6e-b127-5a9688df161a"), "template_test"));
+        factories_.emplace_back(
+            std::make_shared<PluginFactoryTemplate<TestActor>>(
+                Uuid("e4e1d569-2338-4e6e-b127-5a9688df161a"), "template_test"));
     }
 };
 

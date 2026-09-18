@@ -16,8 +16,8 @@ void FrameRequestQueue::add_frame_request(
     bool matches_existing_request = false;
     for (auto pp = queue_.rbegin(); pp != queue_.rend(); ++pp) {
 
-        if ((*pp)->requested_frame_->frame_ == frame_info.frame_ &&
-            (*pp)->requested_frame_->uri_ == frame_info.uri_) {
+        if ((*pp)->requested_frame_->frame() == frame_info.frame() &&
+            (*pp)->requested_frame_->uri() == frame_info.uri()) {
             if ((*pp)->required_by_ > required_by) {
                 (*pp)->required_by_ = required_by;
             }
@@ -47,9 +47,9 @@ void FrameRequestQueue::add_frame_requests(
 
     for (const auto &p : frames_info) {
         const std::shared_ptr<const media::AVFrameID> &frame_info = (p.second);
-        const utility::time_point &required_by                    = p.first;
+        const utility::time_point &when_we_want_it                = p.first;
         queue_.emplace_back(
-            new FrameRequest(frame_info, required_by, requesting_playhead_uuid));
+            new FrameRequest(frame_info, when_we_want_it, requesting_playhead_uuid));
     }
 
     std::sort(
@@ -60,11 +60,22 @@ void FrameRequestQueue::add_frame_requests(
 }
 
 std::optional<FrameRequest>
-FrameRequestQueue::pop_request(const std::map<utility::Uuid, int> &exclude_playheads) {
+FrameRequestQueue::pop_request(
+    const std::map<utility::Uuid, int> &in_flight_frame_requests_per_playhead,
+    const size_t max_num_inflight_requests) {
     std::optional<FrameRequest> rt = {};
 
     for (auto p = queue_.begin(); p != queue_.end(); p++) {
-        if (!exclude_playheads.count((*p)->requesting_playhead_uuid_)) {
+        auto q = in_flight_frame_requests_per_playhead.find((*p)->requesting_playhead_uuid_);
+        // logic here is as follows: if there are no in-flight requests for this playhead, we can pop the request. 
+        // If there are in-flight requests but the number of in-flight requests is less than the max allowed, 
+        // then we can pop the request if it is NOT for a containerised encoding. If we have multiple frame requests
+        // in-flight for containerised media (like mp4) the a-sync nature of the media reader workers and cache means
+        // the frames will ultimately be read out-of-order. This can kill performance for readers like mp4 which have
+        // motion encoding with I fra
+        if (q == in_flight_frame_requests_per_playhead.end() || 
+            ((*p)->requested_frame_ && !(*p)->requested_frame_->is_containerised_encoding() && size_t(q->second) < max_num_inflight_requests)
+        ) {
             rt = *(*p);
             queue_.erase(p);
             break;

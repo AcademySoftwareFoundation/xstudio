@@ -3,14 +3,10 @@
 
 #include "xstudio/ui/opengl/shader_program_base.hpp"
 
-namespace xstudio {
-namespace ui {
-    namespace opengl {
+namespace xstudio::ui::opengl {
 
-        class NoImageShaderProgram : public GLShaderProgram {
-          public:
-            NoImageShaderProgram();
-        };
-    } // namespace opengl
-} // namespace ui
-} // namespace xstudio
+class NoImageShaderProgram : public GLShaderProgram {
+  public:
+    NoImageShaderProgram();
+};
+} // namespace xstudio::ui::opengl

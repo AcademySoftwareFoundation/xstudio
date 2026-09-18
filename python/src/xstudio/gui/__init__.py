@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
-"""PySide2 shim.
+"""PySide6 shim.
 
-Import pyside2 shim.
+Import pyside6 shim.
 """
 
-from .__pyside2_xstudio import *
+from .__pyside6_xstudio import *

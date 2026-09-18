@@ -13,64 +13,216 @@ static const struct CircPts {
 
     CircPts(const int n) {
         for (int i = 0; i < n + 1; ++i) {
-            pts_.emplace_back(Imath::V2f(
-                cos(float(i) * M_PI * 2.0f / float(n)),
-                sin(float(i) * M_PI * 2.0f / float(n))));
+            pts_.emplace_back(
+                Imath::V2f(
+                    cos(float(i) * M_PI * 2.0f / float(n)),
+                    sin(float(i) * M_PI * 2.0f / float(n))));
         }
     }
 
 } s_circ_pts(48);
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+
+inline size_t __hash_combine(float _lhs, size_t rhs) {
+    uint32_t v = *(reinterpret_cast<uint32_t *>(&_lhs));
+    auto lhs   = size_t(v);
+    lhs ^= rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2);
+    return lhs;
+}
+
+#pragma GCC diagnostic pop
+
 } // anonymous namespace
 
+void Stroke::update_hash(const bool update_with_last_point_only) {
 
-Stroke Stroke::Pen(
-    const utility::ColourTriplet &colour,
-    const float thickness,
-    const float softness,
-    const float opacity) {
+    if (update_with_last_point_only && _points.size()) {
+        _hash = __hash_combine(_points.back().pos.x, _hash);
+        _hash = __hash_combine(_points.back().pos.y, _hash);
+        _hash = __hash_combine(_points.back().size_pressure, _hash);
+        _hash = __hash_combine(_points.back().opacity_pressure, _hash);
+    } else {
+        _hash = 0;
+        _hash = __hash_combine(_thickness, _hash);
+        _hash = __hash_combine(_softness, _hash);
+        _hash = __hash_combine(_opacity, _hash);
+        _hash = __hash_combine(_size_sensitivity, _hash);
+        _hash = __hash_combine(_opacity_sensitivity, _hash);
+        _hash = __hash_combine(_colour.red(), _hash);
+        _hash = __hash_combine(_colour.green(), _hash);
+        _hash = __hash_combine(_colour.blue(), _hash);
+        _hash = __hash_combine(static_cast<float>(_type), _hash);
+        for (const auto &point : _points) {
+            _hash = __hash_combine(point.pos.x, _hash);
+            _hash = __hash_combine(point.pos.y, _hash);
+            _hash = __hash_combine(point.size_pressure, _hash);
+            _hash = __hash_combine(point.opacity_pressure, _hash);
+        }
+    }
+}
 
-    Stroke s;
-    s.thickness = thickness;
-    s.softness  = softness;
-    s.colour    = colour;
-    s.opacity   = opacity;
-    s.type      = StrokeType_Pen;
+Stroke *Stroke::Pen(
+    const utility::ColourTriplet &_colour,
+    const float _thickness,
+    const float _softness,
+    const float _opacity) {
+
+    auto s                  = new Stroke;
+    s->_thickness           = _thickness;
+    s->_softness            = _softness;
+    s->_colour              = _colour;
+    s->_opacity             = _opacity;
+    s->_size_sensitivity    = 0.0f;
+    s->_opacity_sensitivity = 0.0f;
+    s->_type                = StrokeType_Pen;
+    s->update_hash();
+
     return s;
 }
 
-Stroke Stroke::Erase(const float thickness) {
+Stroke *Stroke::Brush(
+    const utility::ColourTriplet &_colour,
+    const float _thickness,
+    const float _softness,
+    const float _opacity,
+    const float _size_sensitivity,
+    const float _opacity_sensitivity) {
 
-    Stroke s;
-    s.thickness = thickness;
-    s.softness  = 0.0f;
-    s.colour    = {1.0f, 1.0f, 1.0f};
-    s.opacity   = 1.0f;
-    s.type      = StrokeType_Erase;
+    auto s                  = new Stroke;
+    s->_thickness           = _thickness;
+    s->_softness            = _softness;
+    s->_colour              = _colour;
+    s->_opacity             = _opacity;
+    s->_size_sensitivity    = _size_sensitivity;
+    s->_opacity_sensitivity = _opacity_sensitivity;
+    s->_type                = StrokeType_Brush;
+    s->update_hash();
+
     return s;
+}
+
+Stroke *Stroke::Erase(const float _thickness) {
+
+    auto s                  = new Stroke;
+    s->_thickness           = _thickness;
+    s->_softness            = 0.0f;
+    s->_colour              = {1.0f, 1.0f, 1.0f};
+    s->_opacity             = 1.0f;
+    s->_size_sensitivity    = 1.0f;
+    s->_opacity_sensitivity = 1.0f;
+    s->_type                = StrokeType_Erase;
+    s->update_hash();
+
+    return s;
+}
+
+Stroke *Stroke::BurnAdd(const float intensity, const float thickness, const float softness) {
+
+    auto s                  = new Stroke;
+    s->_thickness           = thickness;
+    s->_softness            = softness;
+    s->_colour              = utility::ColourTriplet(intensity, 0.0f, 0.0f);
+    s->_opacity             = 1.0f;
+    s->_size_sensitivity    = 0.0f;
+    s->_opacity_sensitivity = 0.0f;
+    s->_type                = StrokeType_BurnAdd;
+    s->update_hash();
+
+    return s;
+}
+
+Stroke *Stroke::BurnMult(const float intensity, const float thickness, const float softness) {
+
+    auto s                  = new Stroke;
+    s->_thickness           = thickness;
+    s->_softness            = softness;
+    s->_colour              = utility::ColourTriplet(intensity, 0.0f, 0.0f);
+    s->_opacity             = 1.0f;
+    s->_size_sensitivity    = 0.0f;
+    s->_opacity_sensitivity = 0.0f;
+    s->_type                = StrokeType_BurnMult;
+    s->update_hash();
+
+    return s;
+}
+
+Stroke *Stroke::DodgeAdd(const float intensity, const float thickness, const float softness) {
+
+    auto s                  = new Stroke;
+    s->_thickness           = thickness;
+    s->_softness            = softness;
+    s->_colour              = utility::ColourTriplet(intensity, 0.0f, 0.0f);
+    s->_opacity             = 1.0f;
+    s->_size_sensitivity    = 0.0f;
+    s->_opacity_sensitivity = 0.0f;
+    s->_type                = StrokeType_DodgeAdd;
+    s->update_hash();
+
+    return s;
+}
+
+Stroke *Stroke::DodgeMult(const float intensity, const float thickness, const float softness) {
+
+    auto s                  = new Stroke;
+    s->_thickness           = thickness;
+    s->_softness            = softness;
+    s->_colour              = utility::ColourTriplet(intensity, 0.0f, 0.0f);
+    s->_opacity             = 1.0f;
+    s->_size_sensitivity    = 0.0f;
+    s->_opacity_sensitivity = 0.0f;
+    s->_type                = StrokeType_DodgeMult;
+    s->update_hash();
+
+    return s;
+}
+
+int Stroke::blend_mode() const {
+    switch (_type) {
+    case StrokeType_BurnAdd:
+        return 1;
+    case StrokeType_BurnMult:
+        return 2;
+    case StrokeType_DodgeAdd:
+        return 3;
+    case StrokeType_DodgeMult:
+        return 4;
+    default:
+        return 0;
+    }
 }
 
 bool Stroke::operator==(const Stroke &o) const {
     return (
-        opacity == o.opacity && thickness == o.thickness && softness == o.softness &&
-        colour == o.colour && type == o.type && points == o.points);
+        _opacity == o._opacity && _thickness == o._thickness && _softness == o._softness &&
+        _colour == o._colour && _size_sensitivity == o._size_sensitivity &&
+        _opacity_sensitivity == o._opacity_sensitivity && _type == o._type &&
+        _points == o._points);
+}
+
+void Stroke::make_line(const Imath::V2f &start, const Imath::V2f &end) {
+
+    _points.clear();
+    add_point(start);
+    add_point(end);
 }
 
 void Stroke::make_square(const Imath::V2f &corner1, const Imath::V2f &corner2) {
 
-    points = std::vector<Imath::V2f>(
-        {Imath::V2f(corner1.x, corner1.y),
-         Imath::V2f(corner2.x, corner1.y),
-         Imath::V2f(corner2.x, corner2.y),
-         Imath::V2f(corner1.x, corner2.y),
-         Imath::V2f(corner1.x, corner1.y)});
+    _points.clear();
+    add_point(Imath::V2f(corner1.x, corner1.y));
+    add_point(Imath::V2f(corner2.x, corner1.y));
+    add_point(Imath::V2f(corner2.x, corner2.y));
+    add_point(Imath::V2f(corner1.x, corner2.y));
+    add_point(Imath::V2f(corner1.x, corner1.y));
 }
 
 void Stroke::make_circle(const Imath::V2f &origin, const float radius) {
 
-    points.clear();
+    _points.clear();
     for (const auto &pt : s_circ_pts.pts_) {
-        points.push_back(origin + pt * radius);
+        add_point(origin + pt * radius);
     }
 }
 
@@ -78,68 +230,67 @@ void Stroke::make_arrow(const Imath::V2f &start, const Imath::V2f &end) {
 
     Imath::V2f v;
     if (start == end) {
-        v = Imath::V2f(1.0f, 0.0f) * thickness * 4.0f;
+        v = Imath::V2f(1.0f, 0.0f) * _thickness * 4.0f;
     } else {
-        v = (start - end).normalized() * std::max(thickness * 4.0f, 0.01f);
+        v = (start - end).normalized() * std::max(_thickness * 4.0f, 0.01f);
     }
     const Imath::V2f t(v.y, -v.x);
 
-    points.clear();
-    points.push_back(start);
-    points.push_back(end);
-    points.push_back(end + v + t);
-    points.push_back(end);
-    points.push_back(end + v - t);
+    _points.clear();
+    add_point(start);
+    add_point(end);
+    add_point(end + v + t);
+    add_point(end);
+    add_point(end + v - t);
 }
 
-void Stroke::make_line(const Imath::V2f &start, const Imath::V2f &end) {
-
-    points.clear();
-    points.push_back(start);
-    points.push_back(end);
+void Stroke::add_points(const std::vector<Point> &points) {
+    _points.insert(_points.end(), points.begin(), points.end());
+    update_hash(true);
 }
 
-void Stroke::add_point(const Imath::V2f &pt) {
+void Stroke::add_point(const Imath::V2f &pt, float size_pressure, float opacity_pressure) {
 
-    if (!(!points.empty() && points.back() == pt)) {
-        points.emplace_back(pt);
-    }
-}
-
-std::vector<Imath::V2f> Stroke::vertices() const {
-
-    std::vector<Imath::V2f> result;
-
-    if (!points.empty()) {
-        result = points;
-        result.push_back(points.back()); // repeat last point to make end 'cap'
+    if ((_points.empty() || _points.back().pos != pt)) {
+        _points.emplace_back(pt, size_pressure, opacity_pressure);
     }
 
-    return result;
+    update_hash(true);
 }
 
-// Note the below is slightly more complex than it could because
-// we try to maintain bakward compatibility with previous format.
+bool Stroke::fade(const float fade_amount) {
+    bool is_invisible = true;
+    for (auto &point : _points) {
+        point.opacity_pressure = std::max(0.0f, point.opacity_pressure - fade_amount);
+        if (point.opacity_pressure)
+            is_invisible = false; // at least one point has non-zero opacity ... don't erase
+    }
+    update_hash();
+    return is_invisible;
+}
 
 void xstudio::ui::canvas::from_json(const nlohmann::json &j, Stroke &s) {
 
-    j.at("opacity").get_to(s.opacity);
-    j.at("thickness").get_to(s.thickness);
+    j.at("type").get_to(s._type);
+    j.at("opacity").get_to(s._opacity);
+    j.at("thickness").get_to(s._thickness);
+    j.at("softness").get_to(s._softness);
+    j.at("size_sensitivity").get_to(s._size_sensitivity);
+    j.at("opacity_sensitivity").get_to(s._opacity_sensitivity);
 
-    if (j.contains("softness")) {
-        j.at("softness").get_to(s.softness);
-    }
+    auto c    = j.at("colour").get<std::vector<float>>();
+    s._colour = utility::ColourTriplet{c[0], c[1], c[2]};
 
-    s.type = j["is_erase_stroke"].get<bool>() ? StrokeType_Erase : StrokeType_Pen;
-    s.colour =
-        utility::ColourTriplet{j.value("r", 1.0f), j.value("g", 1.0f), j.value("b", 1.0f)};
+    s.update_hash();
 
     if (j.contains("points") && j["points"].is_array()) {
         auto it = j["points"].begin();
         while (it != j["points"].end()) {
-            auto x = it++.value().get<float>();
-            auto y = it++.value().get<float>();
-            s.add_point(Imath::V2f(x, y));
+            auto x                = (it++)->get<float>();
+            auto y                = (it++)->get<float>();
+            auto size_pressure    = (it++)->get<float>();
+            auto opacity_pressure = (it++)->get<float>();
+            s.add_point(Imath::V2f(x, y), size_pressure, opacity_pressure);
         }
     }
 }
@@ -147,22 +298,22 @@ void xstudio::ui::canvas::from_json(const nlohmann::json &j, Stroke &s) {
 void xstudio::ui::canvas::to_json(nlohmann::json &j, const Stroke &s) {
 
     j = nlohmann::json{
-        {"opacity", s.opacity},
-        {"thickness", s.thickness},
-        {"softness", s.softness},
-        {"is_erase_stroke", s.type == StrokeType_Erase}};
+        {"type", s._type},
+        {"opacity", s._opacity},
+        {"thickness", s._thickness},
+        {"softness", s._softness},
+        {"size_sensitivity", s._size_sensitivity},
+        {"opacity_sensitivity", s._opacity_sensitivity},
+        {"colour", {s._colour.r, s._colour.g, s._colour.b}}};
 
     std::vector<float> pts;
-    pts.reserve(s.points.size() * 2);
-    for (auto &pt : s.points) {
-        pts.push_back(pt.x);
-        pts.push_back(pt.y);
+    pts.reserve(s._points.size() * 4);
+    for (auto &pt : s._points) {
+        pts.push_back(pt.pos.x);
+        pts.push_back(pt.pos.y);
+        pts.push_back(pt.size_pressure);
+        pts.push_back(pt.opacity_pressure);
     }
-    j["points"] = pts;
 
-    if (s.type != StrokeType_Erase) {
-        j["r"] = s.colour.r;
-        j["g"] = s.colour.g;
-        j["b"] = s.colour.b;
-    }
+    j["points"] = pts;
 }

@@ -1,175 +1,109 @@
-
-
 <!DOCTYPE html>
-<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<html class="writer-html5" lang="en" data-content_root="../../../../">
 <head>
-  <meta charset="utf-8">
-  
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
-  <title>xstudio.api.session.session &mdash; xStudio 0.10.0 documentation</title>
-  
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>xstudio.api.session.session &mdash; xStudio 1.3.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css?v=eafc0fe6" />
 
   
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
   
-  
-  
-
-  
-  <script type="text/javascript" src="../../../../_static/js/modernizr.min.js"></script>
-  
-    
-      <script type="text/javascript" id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
-        <script src="../../../../_static/jquery.js"></script>
-        <script src="../../../../_static/underscore.js"></script>
-        <script src="../../../../_static/doctools.js"></script>
-        <script src="../../../../_static/language_data.js"></script>
-    
-    <script type="text/javascript" src="../../../../_static/js/theme.js"></script>
-
-    
-
-  
-  <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="../../../../_static/graphviz.css" type="text/css" />
+        <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../../_static/documentation_options.js?v=1f29e9d3"></script>
+        <script src="../../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
-    <link rel="search" title="Search" href="../../../../search.html" /> 
+    <link rel="search" title="Search" href="../../../../search.html" />
+    <link href="../../../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
 </head>
 
-<body class="wy-body-for-nav">
-
-   
+<body class="wy-body-for-nav"> 
   <div class="wy-grid-for-nav">
-    
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-          
 
           
-            <a href="../../../../index.html" class="icon icon-home"> xStudio
           
-
-          
+          <a href="../../../../index.html" class="icon icon-home">
+            xStudio
           </a>
-
-          
-            
-            
               <div class="version">
-                0.10.0
+                1.3.0
               </div>
-            
-          
-
-          
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-
-          
-        </div>
-
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-          
-            
-            
-              
-            
-            
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../index.html">Welcome to xStudio’s documentation!</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../user_docs/index.html">xSTUDIO User Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../api/index.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reference/index.html">xSTUDIO Reference</a></li>
 </ul>
 
-            
-          
         </div>
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-
-      
-      <nav class="wy-nav-top" aria-label="top navigation">
-        
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="../../../../index.html">xStudio</a>
-        
       </nav>
 
-
       <div class="wy-nav-content">
-        
         <div class="rst-content">
-        
-          
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<div role="navigation" aria-label="breadcrumbs navigation">
-
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-    
-      <li><a href="../../../../index.html">Docs</a> &raquo;</li>
-        
-          <li><a href="../../../index.html">Module code</a> &raquo;</li>
-        
-          <li><a href="../../api.html">xstudio.api</a> &raquo;</li>
-        
-      <li>xstudio.api.session.session</li>
-    
-    
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../api.html">xstudio.api</a></li>
+      <li class="breadcrumb-item active">xstudio.api.session.session</li>
       <li class="wy-breadcrumbs-aside">
-        
       </li>
-    
   </ul>
-
-  
   <hr/>
 </div>
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
-            
+             
   <h1>Source code for xstudio.api.session.session</h1><div class="highlight"><pre>
 <span></span><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
 <span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">get_playlists_atom</span><span class="p">,</span> <span class="n">get_playlist_atom</span><span class="p">,</span> <span class="n">add_playlist_atom</span><span class="p">,</span> <span class="n">move_container_atom</span>
 <span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">get_container_atom</span><span class="p">,</span> <span class="n">create_group_atom</span><span class="p">,</span> <span class="n">remove_container_atom</span><span class="p">,</span> <span class="n">path_atom</span><span class="p">,</span> <span class="n">get_media_atom</span>
 <span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">rename_container_atom</span><span class="p">,</span> <span class="n">create_divider_atom</span><span class="p">,</span> <span class="n">media_rate_atom</span><span class="p">,</span> <span class="n">playhead_rate_atom</span>
 <span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">reflag_container_atom</span><span class="p">,</span> <span class="n">merge_playlist_atom</span><span class="p">,</span> <span class="n">copy_container_to_atom</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">get_bookmark_atom</span><span class="p">,</span> <span class="n">save_atom</span><span class="p">,</span> <span class="n">current_playlist_atom</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">URI</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">,</span> <span class="n">UuidVec</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">get_bookmark_atom</span><span class="p">,</span> <span class="n">save_atom</span><span class="p">,</span> <span class="n">active_media_container_atom</span><span class="p">,</span> <span class="n">name_atom</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">viewport_active_media_container_atom</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">URI</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">,</span> <span class="n">VectorUuid</span><span class="p">,</span> <span class="n">item_selection_atom</span><span class="p">,</span> <span class="n">type_atom</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">render_to_video_atom</span><span class="p">,</span> <span class="n">get_event_group_atom</span><span class="p">,</span> <span class="n">event_atom</span>
 
 <span class="kn">from</span> <span class="nn">xstudio.api.session.container</span> <span class="kn">import</span> <span class="n">Container</span><span class="p">,</span> <span class="n">PlaylistTree</span><span class="p">,</span> <span class="n">PlaylistItem</span>
 <span class="kn">from</span> <span class="nn">xstudio.api.session.playlist</span> <span class="kn">import</span> <span class="n">Playlist</span>
 <span class="kn">from</span> <span class="nn">xstudio.api.session.media.media</span> <span class="kn">import</span> <span class="n">Media</span>
 <span class="kn">from</span> <span class="nn">xstudio.api.session.bookmark</span> <span class="kn">import</span> <span class="n">Bookmarks</span>
+<span class="kn">from</span> <span class="nn">xstudio.api.session.playlist.subset</span> <span class="kn">import</span> <span class="n">Subset</span>
+<span class="kn">from</span> <span class="nn">xstudio.api.session.playlist.contact_sheet</span> <span class="kn">import</span> <span class="n">ContactSheet</span>
+<span class="kn">from</span> <span class="nn">xstudio.api.session.playlist.timeline</span> <span class="kn">import</span> <span class="n">Timeline</span>
+<span class="kn">from</span> <span class="nn">xstudio.api.auxiliary</span> <span class="kn">import</span> <span class="n">NotificationHandler</span>
 
-<div class="viewcode-block" id="Session"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session">[docs]</a><span class="k">class</span> <span class="nc">Session</span><span class="p">(</span><span class="n">Container</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Session object.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="Session">
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.session.Session">[docs]</a>
+<span class="k">class</span> <span class="nc">Session</span><span class="p">(</span><span class="n">Container</span><span class="p">,</span> <span class="n">NotificationHandler</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Session object.&quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Create Session object.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create Session object.</span>
 
 <span class="sd">        Derived from Container.</span>
 
@@ -181,10 +115,137 @@
 <span class="sd">            uuid(Uuid): Uuid of remote actor.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">Container</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="p">)</span>
+        <span class="n">NotificationHandler</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+
+        <span class="c1"># for video renderer interaction</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vid_render_job_callbacks</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subscribed_to_vid_renderer</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">selected_media</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get currently selected media.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Media(): Media.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">inspected_container</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">inspected_container</span><span class="o">.</span><span class="n">playhead_selection</span><span class="o">.</span><span class="n">selected_sources</span>
+        <span class="k">return</span> <span class="p">[]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">selected_containers</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get currently selected containers.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            container(Playlist,Subset,Timelime,ContactSheet): Container.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">items</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">item_selection_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">items</span><span class="p">:</span>
+            <span class="n">item_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">type_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">item_type</span> <span class="o">==</span> <span class="s2">&quot;Timeline&quot;</span><span class="p">:</span>
+                <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">Timeline</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="n">item_type</span> <span class="o">==</span> <span class="s2">&quot;Subset&quot;</span><span class="p">:</span>
+                <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">Subset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="n">item_type</span> <span class="o">==</span> <span class="s2">&quot;ContactSheet&quot;</span><span class="p">:</span>
+                <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">ContactSheet</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="n">item_type</span> <span class="o">==</span> <span class="s2">&quot;Playlist&quot;</span><span class="p">:</span>
+                <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">Playlist</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+                <span class="p">)</span>
+
+
+        <span class="k">return</span> <span class="n">result</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">viewed_playlist</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get currently viewed (Playlist,Subset,Timelime,ContactSheet).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Playlist(): Playlist.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">viewed_container</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">viewed_container</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get currently viewed container.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            container(Playlist,Subset,Timelime,ContactSheet): Container.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">viewport_active_media_container_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">Container</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">actor</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;Timeline&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Timeline</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">c</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;Subset&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Subset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">c</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;ContactSheet&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ContactSheet</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">Playlist</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+
+    <span class="nd">@viewed_container</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">viewed_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">container</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the current, on-screen playlist</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            container(Playlist,Subset,Timelime,ContactSheet): playlist, subset or timeline(sequence)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">viewport_active_media_container_atom</span><span class="p">(),</span> <span class="n">container</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">inspected_playlist</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get currently inspected playlist/subset/timeline etc.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            container(Playlist,Subset,Timelime,ContactSheet): Container.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">inspected_container</span>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">inspected_container</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get currently inspected container.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            container(Playlist,Subset,Timelime,ContactSheet): Container.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">active_media_container_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">Container</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">actor</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;Timeline&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Timeline</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">c</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;Subset&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Subset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">c</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;ContactSheet&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ContactSheet</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">Playlist</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+
+    <span class="nd">@inspected_container</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">inspected_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">container</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the current, *inspected* playlist</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            container(Playlist,Subset,Timelime,ContactSheet): playlist, subset or timeline(sequence)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">active_media_container_atom</span><span class="p">(),</span> <span class="n">container</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">path</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Get session file path.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get session file path.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            path(str): Session path.</span>
@@ -194,7 +255,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">media_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Get new media rate.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get new media rate.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            media_rate(core.FrameRate): Media rate to use for rateless media.</span>
@@ -203,7 +264,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">bookmarks</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Get bookmarks.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get bookmarks.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Bookmarks(): Session bookmarks.</span>
@@ -216,7 +277,7 @@
 
     <span class="nd">@media_rate</span><span class="o">.</span><span class="n">setter</span>
     <span class="k">def</span> <span class="nf">media_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set media_rate.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set media_rate.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            media_rate(core.FrameRate): Set media_rate.</span>
@@ -225,7 +286,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">playhead_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Get playhead rate.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get playhead rate.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            playhead_rate(core.FrameRate): Rate for new playheads.</span>
@@ -234,7 +295,7 @@
 
     <span class="nd">@playhead_rate</span><span class="o">.</span><span class="n">setter</span>
     <span class="k">def</span> <span class="nf">playhead_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set playhead_rate.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set playhead_rate.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            playhead_rate(core.FrameRate): Set playhead_rate.</span>
@@ -243,7 +304,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">playlists</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Get playlists.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get playlists.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            playlists(list[Playlist]): Playlists.</span>
@@ -251,9 +312,30 @@
         <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_playlists_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">Playlist</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">result</span><span class="p">]</span>
 
+<div class="viewcode-block" id="Session.create_hidden_playlist">
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.session.Session.create_hidden_playlist">[docs]</a>
+    <span class="k">def</span> <span class="nf">create_hidden_playlist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Hidden Playlist&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create hidden playlist. This playlist can be used to put transient</span>
+<span class="sd">        media on screen (e.g. preview mode of File System Browser plugin). The</span>
+<span class="sd">        playlist is not added to the session and is not visible in the playlists</span>
+<span class="sd">        interface and is not serialised into the session file.</span>
 
-<div class="viewcode-block" id="Session.create_playlist"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.create_playlist">[docs]</a>    <span class="k">def</span> <span class="nf">create_playlist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;New Playlist&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Create new playlist.</span>
+<span class="sd">        Kwargs:</span>
+<span class="sd">            name(str): Name of new playlist</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Playlist: Returns the Playlist</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">add_playlist_atom</span><span class="p">(),</span> <span class="n">name</span><span class="p">,</span> <span class="kc">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">Playlist</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="Session.create_playlist">
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.session.Session.create_playlist">[docs]</a>
+    <span class="k">def</span> <span class="nf">create_playlist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;New Playlist&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new playlist.</span>
 
 <span class="sd">        Kwargs:</span>
 <span class="sd">            name(str): Name of new playlist</span>
@@ -270,8 +352,11 @@
         <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">add_playlist_atom</span><span class="p">(),</span> <span class="n">name</span><span class="p">,</span> <span class="n">before</span><span class="p">,</span> <span class="n">into</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">return</span> <span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">Playlist</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">uuid</span><span class="p">))</span></div>
 
-<div class="viewcode-block" id="Session.merge_playlist"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.merge_playlist">[docs]</a>    <span class="k">def</span> <span class="nf">merge_playlist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">playlists</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Combined Playlist&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Create new playlist.</span>
+
+<div class="viewcode-block" id="Session.merge_playlist">
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.session.Session.merge_playlist">[docs]</a>
+    <span class="k">def</span> <span class="nf">merge_playlist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">playlists</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Combined Playlist&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new playlist.</span>
 
 <span class="sd">        Kwargs:</span>
 <span class="sd">            playlists(list): Playlists to merge</span>
@@ -282,22 +367,25 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            playlist(Uuid,Playlist): Returns container Uuid and Playlist</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">uuids</span> <span class="o">=</span> <span class="n">UuidVec</span><span class="p">()</span>
+        <span class="n">uuids</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">playlists</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
                 <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">.</span><span class="n">uuid</span>
-            <span class="n">uuids</span><span class="o">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+            <span class="n">uuids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">before</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
             <span class="n">before</span> <span class="o">=</span> <span class="n">before</span><span class="o">.</span><span class="n">uuid</span>
 
-        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">merge_playlist_atom</span><span class="p">(),</span> <span class="n">name</span><span class="p">,</span> <span class="n">before</span><span class="p">,</span> <span class="n">uuids</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">merge_playlist_atom</span><span class="p">(),</span> <span class="n">name</span><span class="p">,</span> <span class="n">before</span><span class="p">,</span> <span class="n">VectorUuid</span><span class="p">(</span><span class="n">uuids</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">return</span> <span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">Playlist</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">uuid</span><span class="p">))</span></div>
+
 
         <span class="c1"># return (result[0], Playlist(self.connection, result[1][1], result[1][0]))</span>
 
-<div class="viewcode-block" id="Session.create_divider"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.create_divider">[docs]</a>    <span class="k">def</span> <span class="nf">create_divider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;New Divider&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Create new divider.</span>
+<div class="viewcode-block" id="Session.create_divider">
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.session.Session.create_divider">[docs]</a>
+    <span class="k">def</span> <span class="nf">create_divider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;New Divider&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new divider.</span>
 
 <span class="sd">        Kwargs:</span>
 <span class="sd">            name(str): Name of new divider</span>
@@ -315,8 +403,11 @@
         <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_container_atom</span><span class="p">(),</span> <span class="n">uuid</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">PlaylistTree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Session.move_container"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.move_container">[docs]</a>    <span class="k">def</span> <span class="nf">move_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Move container in tree.</span>
+
+<div class="viewcode-block" id="Session.move_container">
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.session.Session.move_container">[docs]</a>
+    <span class="k">def</span> <span class="nf">move_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Move container in tree.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            src(Container/Uuid): Item to move.</span>
@@ -335,8 +426,11 @@
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">move_container_atom</span><span class="p">(),</span> <span class="n">src</span><span class="p">,</span> <span class="n">before</span><span class="p">,</span> <span class="n">into</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="Session.remove_container"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.remove_container">[docs]</a>    <span class="k">def</span> <span class="nf">remove_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Remove container from tree.</span>
+
+<div class="viewcode-block" id="Session.remove_container">
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.session.Session.remove_container">[docs]</a>
+    <span class="k">def</span> <span class="nf">remove_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove container from tree.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            src(Container/Uuid): Item to remove.</span>
@@ -349,8 +443,11 @@
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">remove_container_atom</span><span class="p">(),</span> <span class="n">src</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="Session.get_container"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.get_container">[docs]</a>    <span class="k">def</span> <span class="nf">get_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Get container from tree.</span>
+
+<div class="viewcode-block" id="Session.get_container">
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.session.Session.get_container">[docs]</a>
+    <span class="k">def</span> <span class="nf">get_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get container from tree.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            src(Item/Uuid): Item to find.</span>
@@ -364,21 +461,25 @@
         <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_container_atom</span><span class="p">(),</span> <span class="n">src</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">PlaylistTree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Session.set_on_screen_source"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.set_on_screen_source">[docs]</a>    <span class="k">def</span> <span class="nf">set_on_screen_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set the onscreen source.</span>
+
+<div class="viewcode-block" id="Session.set_on_screen_source">
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.session.Session.set_on_screen_source">[docs]</a>
+    <span class="k">def</span> <span class="nf">set_on_screen_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the onscreen source.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            src(Container): Playlist, Subset, ContactSheet, Timeline</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
-            <span class="n">current_playlist_atom</span><span class="p">(),</span>
+            <span class="n">active_media_container_atom</span><span class="p">(),</span>
             <span class="n">src</span><span class="o">.</span><span class="n">uuid_actor</span><span class="p">()</span><span class="o">.</span><span class="n">actor</span>
             <span class="p">)</span></div>
 
+
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">playlist_tree</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Get container tree.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get container tree.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Tree(PlaylistTree): Returns result.</span>
@@ -386,8 +487,10 @@
         <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_container_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">PlaylistTree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Session.create_group"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.create_group">[docs]</a>    <span class="k">def</span> <span class="nf">create_group</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;New Group&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
-        <span class="sd">&quot;&quot;&quot;Create new group.</span>
+<div class="viewcode-block" id="Session.create_group">
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.session.Session.create_group">[docs]</a>
+    <span class="k">def</span> <span class="nf">create_group</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;New Group&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new group.</span>
 
 <span class="sd">        Kwargs:</span>
 <span class="sd">            name(str): Name of new group</span>
@@ -402,8 +505,11 @@
         <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">create_group_atom</span><span class="p">(),</span> <span class="n">name</span><span class="p">,</span> <span class="n">before</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">PlaylistTree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Session.rename_container"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.rename_container">[docs]</a>    <span class="k">def</span> <span class="nf">rename_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">container</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Rename container in tree.</span>
+
+<div class="viewcode-block" id="Session.rename_container">
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.session.Session.rename_container">[docs]</a>
+    <span class="k">def</span> <span class="nf">rename_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">container</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Rename container in tree.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            name(str): New name.</span>
@@ -417,8 +523,11 @@
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">rename_container_atom</span><span class="p">(),</span> <span class="n">name</span><span class="p">,</span> <span class="n">container</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="Session.reflag_container"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.reflag_container">[docs]</a>    <span class="k">def</span> <span class="nf">reflag_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flag</span><span class="p">,</span> <span class="n">container</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Reflag container in tree.</span>
+
+<div class="viewcode-block" id="Session.reflag_container">
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.session.Session.reflag_container">[docs]</a>
+    <span class="k">def</span> <span class="nf">reflag_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flag</span><span class="p">,</span> <span class="n">container</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reflag container in tree.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            flag(str): New flag.</span>
@@ -432,8 +541,11 @@
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">reflag_container_atom</span><span class="p">(),</span> <span class="n">flag</span><span class="p">,</span> <span class="n">container</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="Session.copy_containers_to"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.copy_containers_to">[docs]</a>    <span class="k">def</span> <span class="nf">copy_containers_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">playlist</span><span class="p">,</span> <span class="n">containers</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Create copy containers to playlist.</span>
+
+<div class="viewcode-block" id="Session.copy_containers_to">
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.session.Session.copy_containers_to">[docs]</a>
+    <span class="k">def</span> <span class="nf">copy_containers_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">playlist</span><span class="p">,</span> <span class="n">containers</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create copy containers to playlist.</span>
 
 <span class="sd">        Kwargs:</span>
 <span class="sd">            playlist(Uuid/Playlist): Destination playlist.</span>
@@ -444,21 +556,24 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            uuids(list[Uuid]): Returns list of new container uuids.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">uuids</span> <span class="o">=</span> <span class="n">UuidVec</span><span class="p">()</span>
+        <span class="n">uuids</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">containers</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
                 <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">.</span><span class="n">uuid</span>
-            <span class="n">uuids</span><span class="o">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+            <span class="n">uuids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">before</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
             <span class="n">before</span> <span class="o">=</span> <span class="n">before</span><span class="o">.</span><span class="n">uuid</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">playlist</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
             <span class="n">playlist</span> <span class="o">=</span> <span class="n">playlist</span><span class="o">.</span><span class="n">uuid</span>
 
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">copy_container_to_atom</span><span class="p">(),</span> <span class="n">playlist</span><span class="p">,</span> <span class="n">uuids</span><span class="p">,</span> <span class="n">before</span><span class="p">,</span> <span class="n">into</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">copy_container_to_atom</span><span class="p">(),</span> <span class="n">playlist</span><span class="p">,</span> <span class="n">VectorUuid</span><span class="p">(</span><span class="n">uuids</span><span class="p">),</span> <span class="n">before</span><span class="p">,</span> <span class="n">into</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="Session.get_media"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.get_media">[docs]</a>    <span class="k">def</span> <span class="nf">get_media</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Return all media over all playlists</span>
+
+<div class="viewcode-block" id="Session.get_media">
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.session.Session.get_media">[docs]</a>
+    <span class="k">def</span> <span class="nf">get_media</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return all media over all playlists</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            media(list[Media]): List of media objects.</span>
@@ -466,16 +581,22 @@
         <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_media_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">Media</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">result</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="Session.save"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.save">[docs]</a>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Save session</span>
+
+<div class="viewcode-block" id="Session.save">
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.session.Session.save">[docs]</a>
+    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Save session</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            int(hash]): Hash of saved session</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">save_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="Session.save_as"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.save_as">[docs]</a>    <span class="k">def</span> <span class="nf">save_as</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Save session to path</span>
+
+<div class="viewcode-block" id="Session.save_as">
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.session.Session.save_as">[docs]</a>
+    <span class="k">def</span> <span class="nf">save_as</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Save session to path</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            path(str/uri): Path to save to.</span>
@@ -486,46 +607,211 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="n">URI</span><span class="p">):</span>
             <span class="n">path</span> <span class="o">=</span> <span class="n">URI</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">save_atom</span><span class="p">(),</span> <span class="n">path</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">save_atom</span><span class="p">(),</span> <span class="n">path</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="Session.quickview_media">
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.session.Session.quickview_media">[docs]</a>
+    <span class="k">def</span> <span class="nf">quickview_media</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">media_paths</span><span class="p">,</span> <span class="n">compare_mode</span><span class="o">=</span><span class="s2">&quot;Grid&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load media item(s) into a QuickView playlist and show in a QuickView</span>
+<span class="sd">        window</span>
+<span class="sd">        Args:</span>
+<span class="sd">            media_paths(str or list[str] or list[Uri]): media to load</span>
+<span class="sd">            compare_mode(str): Compare mode where multiple media items are to</span>
+<span class="sd">            be loaded. Options are &quot;Grid&quot;/&quot;Off&quot;/&quot;A/B&quot;/&quot;Over&quot; etc.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">quickview_playlist</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">playlist</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">playlists</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">playlist</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;QuickView&quot;</span><span class="p">:</span>
+                <span class="n">quickview_playlist</span> <span class="o">=</span> <span class="n">playlist</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">quickview_playlist</span><span class="p">:</span>
+            <span class="n">quickview_playlist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_playlist</span><span class="p">(</span><span class="s2">&quot;QuickView&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="n">new_media</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">media_paths</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">mp</span> <span class="ow">in</span> <span class="n">media_paths</span><span class="p">:</span>
+                <span class="n">new_media</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">quickview_playlist</span><span class="o">.</span><span class="n">add_media</span><span class="p">(</span><span class="n">mp</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">new_media</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">quickview_playlist</span><span class="o">.</span><span class="n">add_media</span><span class="p">(</span><span class="n">media_paths</span><span class="p">))</span>
+
+        <span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">UuidActorVec</span><span class="p">,</span> <span class="n">UuidActor</span><span class="p">,</span> <span class="n">open_quickview_window_atom</span>
+
+        <span class="n">media_actors</span> <span class="o">=</span> <span class="n">UuidActorVec</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">new_media</span><span class="p">:</span>
+            <span class="n">media_actors</span><span class="o">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">UuidActor</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">uuid</span><span class="p">,</span> <span class="n">m</span><span class="o">.</span><span class="n">remote</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
+            <span class="n">open_quickview_window_atom</span><span class="p">(),</span>
+            <span class="n">media_actors</span><span class="p">,</span>
+            <span class="n">compare_mode</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Session.render_container">
+<a class="viewcode-back" href="../../../../reference/python_api/api.html#xstudio.api.session.Session.render_container">[docs]</a>
+    <span class="k">def</span> <span class="nf">render_container</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">container</span><span class="p">,</span>
+        <span class="n">output_file_path</span><span class="p">,</span>
+        <span class="n">output_audio_path</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="n">width</span><span class="o">=</span><span class="mi">1920</span><span class="p">,</span>
+        <span class="n">height</span><span class="o">=</span><span class="mi">1080</span><span class="p">,</span>
+        <span class="n">in_frame</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">out_frame</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">frame_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">frame_for_frame</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">video_codec_opts</span><span class="o">=</span><span class="s2">&quot;-c:v libx264 -pix_fmt yuv420p -preset medium -tune film&quot;</span><span class="p">,</span>
+        <span class="n">audio_codec_opts</span><span class="o">=</span><span class="s2">&quot;-c:a aac -ac 2 -ar 44100&quot;</span><span class="p">,</span>
+        <span class="n">auto_check_output</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">ocio_display</span><span class="o">=</span><span class="s2">&quot;sRGB&quot;</span><span class="p">,</span>
+        <span class="n">ocio_view</span><span class="o">=</span><span class="s2">&quot;Raw&quot;</span><span class="p">,</span>
+        <span class="n">timecode</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="n">status_callback</span><span class="o">=</span><span class="kc">None</span>
+        <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Render a playlist, timeline, subset or contact sheet to a quicktime </span>
+<span class="sd">        or image sequence (jpg, tiff, png etc)</span>
+<span class="sd">        Args:</span>
+<span class="sd">            container(Playlist/Timeline/Subset/ContactSheet): The item to render</span>
+<span class="sd">            output_file_path(str): Filesystem path to the output video file. For </span>
+<span class="sd">                frame based image sequences use # characters for frame number and </span>
+<span class="sd">                padding to zeros. E.g. /Users/ted/Video/my_render.####.jpg for 4 </span>
+<span class="sd">                digit padded frame numbers</span>
+<span class="sd">            output_audio_path(str): Filesystem path to the output audio file. This</span>
+<span class="sd">                option ONLY applies if you are outputting frame based image sequences.</span>
+<span class="sd">                Leave empty if you do not want audio in this case. A common audio</span>
+<span class="sd">                encoding file extension is necessary such as .wav .aiff .ogg etc.</span>
+<span class="sd">            width(int): Output image format width in pixels</span>
+<span class="sd">            height(int): Output image format height in pixels</span>
+<span class="sd">            in_frame(int): Only valid for timelines. Start frame for output render.</span>
+<span class="sd">                Defaults to first frame</span>
+<span class="sd">            out_frame(int): Only valid for timelines. End frame for output render.</span>
+<span class="sd">                Defaults to timeline duration.</span>
+<span class="sd">            frame_rate(FrameRate): Output video frame rate - defaults to the</span>
+<span class="sd">                frame rate of the first media item in the playlist etc.</span>
+<span class="sd">            frame_for_frame(bool): If the media or timeline frame rate is different</span>
+<span class="sd">                to the output frame rate, frames will map 1:1 to the output</span>
+<span class="sd">                if this is True. If False, the output will match the input in</span>
+<span class="sd">                terms of duration. For example if rendering out at 12fps and the </span>
+<span class="sd">                media is 24 fps then using True for this flag will result in an output</span>
+<span class="sd">                that is twice as long and half the speed of the input. Otherwise</span>
+<span class="sd">                the output will be the same duration as the input and every</span>
+<span class="sd">                other frame will be dropped.</span>
+<span class="sd">            video_codec_opts(str): FFMpeg video codec options. For example use</span>
+<span class="sd">                &quot;-c:v libx264 -pix_fmt yuv420p -preset medium -tune film&quot; for an</span>
+<span class="sd">                H264 encoding.</span>
+<span class="sd">            audio_codec_opts(str): FFMpeg audio codec options. For example use</span>
+<span class="sd">                &quot;--c:a aac -ac 2 -ar 44100&quot; for AAC 44.1kHz encoding.</span>
+<span class="sd">            auto_check_output(bool): Use True to immediately launch a quickview</span>
+<span class="sd">                window with the render result when it has completed.</span>
+<span class="sd">            ocio_display(str): The OCIO display profile to apply when generating</span>
+<span class="sd">                the output</span>
+<span class="sd">            ocio_view(str): The OCIO view to apply when generating the output</span>
+<span class="sd">            timecode(str/int): For containerised media a timecode string like </span>
+<span class="sd">                &quot;00:00:41:17&quot; will inject timecode data into the output file. For</span>
+<span class="sd">                frame based media a frame number here will set the start frame</span>
+<span class="sd">                numbering for the output image file sequence.</span>
+<span class="sd">            status_callback(function(Uuid, dict)): An optional callback function. This </span>
+<span class="sd">                callback will be executed when the status of the render job has</span>
+<span class="sd">                changed. The status is provided as a dictionary including a </span>
+<span class="sd">                &#39;status&#39; field which is set to &#39;Complete&#39; when the job is</span>
+<span class="sd">                finished successfully.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            job_id(Uuid): the uuid of the render job. Tjhis</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">vid_renderer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">plugin_manager</span><span class="o">.</span><span class="n">get_plugin_instance</span><span class="p">(</span>
+            <span class="n">Uuid</span><span class="p">(</span><span class="s2">&quot;4147f82d-1006-4025-ac04-79c81cd5e7b7&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="c1"># set default output frame rate if required</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">frame_rate</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">Timeline</span><span class="p">):</span>
+                <span class="n">frame_rate</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">rate</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">frame_rate</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">media</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">media_source</span><span class="p">()</span><span class="o">.</span><span class="n">rate</span>
+
+        <span class="c1"># set default in/out frames to timeline duration if required</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">Timeline</span><span class="p">)</span> <span class="ow">and</span> <span class="n">in_frame</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+            <span class="n">in_frame</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">Timeline</span><span class="p">)</span> <span class="ow">and</span> <span class="n">out_frame</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+            <span class="n">out_frame</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">trimmed_range</span><span class="o">.</span><span class="n">frame_duration</span><span class="p">()</span><span class="o">.</span><span class="n">frames</span><span class="p">()</span>
+
+        <span class="n">job_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span>
+            <span class="n">vid_renderer</span><span class="p">,</span>
+            <span class="n">render_to_video_atom</span><span class="p">(),</span>
+            <span class="n">container</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">container</span><span class="o">.</span><span class="n">uuid</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">Playlist</span><span class="p">)</span> <span class="k">else</span> <span class="n">container</span><span class="o">.</span><span class="n">parent_playlist</span><span class="o">.</span><span class="n">uuid</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">Timeline</span><span class="p">)</span> <span class="k">else</span> <span class="n">container</span><span class="o">.</span><span class="n">playlist</span><span class="o">.</span><span class="n">uuid</span><span class="p">,</span>
+            <span class="n">container</span><span class="o">.</span><span class="n">uuid</span><span class="p">,</span>
+            <span class="n">output_file_path</span><span class="p">,</span>
+            <span class="n">output_audio_path</span><span class="p">,</span>
+            <span class="n">width</span><span class="p">,</span>
+            <span class="n">height</span><span class="p">,</span>
+            <span class="n">in_frame</span><span class="p">,</span>
+            <span class="n">out_frame</span><span class="p">,</span>
+            <span class="n">frame_rate</span> <span class="k">if</span> <span class="n">frame_rate</span> <span class="o">!=</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">container</span><span class="o">.</span><span class="n">media</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">media_source</span><span class="p">()</span><span class="o">.</span><span class="n">rate</span><span class="p">,</span>
+            <span class="n">video_codec_opts</span><span class="p">,</span>
+            <span class="s2">&quot;8&quot;</span><span class="p">,</span>
+            <span class="n">audio_codec_opts</span><span class="p">,</span>
+            <span class="s2">&quot;Via Python&quot;</span><span class="p">,</span>
+            <span class="n">ocio_display</span><span class="p">,</span>
+            <span class="n">ocio_view</span><span class="p">,</span>
+            <span class="n">auto_check_output</span><span class="p">,</span>
+            <span class="n">timecode</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># A callback has be passed in ... we need to subscribe to messages from</span>
+        <span class="c1"># the video renderer plugin which will ping us when the render is complete</span>
+        <span class="c1"># of if it has failed</span>
+        <span class="k">if</span> <span class="n">status_callback</span> <span class="o">!=</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">job_id</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">vid_render_job_callbacks</span><span class="p">[</span><span class="n">job_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">status_callback</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">subscribed_to_vid_renderer</span><span class="p">:</span>
+                <span class="c1"># this call gets the event group for the video renderer</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">subscribed_to_vid_renderer</span> <span class="o">=</span> <span class="kc">True</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">link</span><span class="o">.</span><span class="n">add_message_callback</span><span class="p">(</span>
+                    <span class="n">vid_renderer</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">__vid_renderer_events</span>
+                    <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">job_id</span></div>
+
+
+    <span class="k">def</span> <span class="nf">__vid_renderer_events</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event_message_content</span><span class="p">):</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">event_message_content</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">event_message_content</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">event_atom</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">event_message_content</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">vid_render_job_callbacks</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">vid_render_job_callbacks</span><span class="p">[</span><span class="n">event_message_content</span><span class="p">[</span><span class="mi">1</span><span class="p">]](</span>
+                    <span class="n">event_message_content</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                    <span class="n">event_message_content</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+                    <span class="p">)</span></div>
+
 </pre></div>
 
            </div>
-           
           </div>
           <footer>
-  
 
   <hr/>
 
   <div role="contentinfo">
-    <p>
-        &copy; Copyright 2020, DNeg
-
-    </p>
+    <p>&#169; Copyright 2025, DNeg.</p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
 
 </footer>
-
         </div>
       </div>
-
     </section>
-
   </div>
-  
-
-
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script>
-
-  
-  
-    
-   
+  </script> 
 
 </body>
 </html>

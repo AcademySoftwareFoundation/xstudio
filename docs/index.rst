@@ -3,17 +3,26 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to xStudio's documentation!
+Welcome to xSTUDIO's documentation!
 ===================================
+
+|
+|
+.. image:: user_docs/images/xstudio_logo_256_v1.svg
+   :height: 256 px
+   :width: 256 px
+   :scale: 120 %
+   :align: center
+|
+|
 
 Table of Contents
 ^^^^^^^^^^^^^^^^^
 .. toctree::
     :maxdepth: 2
 
-    self
     user_docs/index
-    api/index
+    reference/index
 
 Indices and tables
 ==================

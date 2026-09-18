@@ -23,3 +23,4 @@ class Studio(App):
 
     # def handle_event(self, sender, req_id, event):
     #     print(sender, req_id, event)
+

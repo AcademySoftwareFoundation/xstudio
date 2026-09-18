@@ -26,20 +26,12 @@ class IvyDataSource : public DataSource, public module::Module {
     ~IvyDataSource() override = default;
 
     // handled directly in actor.
-    utility::JsonStore get_data(const utility::JsonStore &) override {
-        return utility::JsonStore();
-    }
-    utility::JsonStore put_data(const utility::JsonStore &) override {
-        return utility::JsonStore();
-    }
-    utility::JsonStore post_data(const utility::JsonStore &) override {
-        return utility::JsonStore();
-    }
-    utility::JsonStore use_data(const utility::JsonStore &) override {
-        return utility::JsonStore();
-    }
+    utility::JsonStore get_data(const utility::JsonStore &) override { return {}; }
+    utility::JsonStore put_data(const utility::JsonStore &) override { return {}; }
+    utility::JsonStore post_data(const utility::JsonStore &) override { return {}; }
+    utility::JsonStore use_data(const utility::JsonStore &) override { return {}; }
 
-    std::string url() const { return "http://pipequery.zro"; }
+    std::string url() const { return "http://pipequery"; }
     std::string path() const { return "/v1/graphql"; }
     std::string show() const { return show_; }
     std::string content_type() const { return "application/graphql"; }
@@ -61,11 +53,21 @@ template <typename T> class IvyDataSourceActor : public caf::event_based_actor {
         caf::actor_config &cfg, const utility::JsonStore & = utility::JsonStore());
 
     caf::behavior make_behavior() override {
-        return data_source_.message_handler().or_else(behavior_);
+        return message_handler_extensions().or_else(data_source_.message_handler());
     }
     void on_exit() override;
 
   private:
+    caf::message_handler message_handler_extensions();
+
+    void get_version(
+        caf::typed_response_promise<utility::JsonStore> rp,
+        const std::string &show,
+        const utility::Uuid &id);
+
+    void
+    pipequery(caf::typed_response_promise<utility::JsonStore> rp, const std::string &query);
+
     void ivy_load(
         caf::typed_response_promise<utility::UuidActorVector> rp,
         const caf::uri &uri,
@@ -85,7 +87,12 @@ template <typename T> class IvyDataSourceActor : public caf::event_based_actor {
         caf::typed_response_promise<utility::UuidActorVector> rp,
         const std::string &show,
         const utility::Uuid &stalk_dnuuid,
+        const caf::actor &media_actor,
         const utility::FrameRate &media_rate);
+
+    void order_new_media_sources(
+        caf::typed_response_promise<utility::UuidActorVector> rp,
+        const utility::UuidActorVector &new_media_sources);
 
     void ivy_load_audio_sources(
         caf::typed_response_promise<utility::UuidActorVector> rp,
@@ -103,9 +110,13 @@ template <typename T> class IvyDataSourceActor : public caf::event_based_actor {
         const utility::JsonStore &jsn,
         const utility::FrameRate &media_rate);
 
-    caf::behavior behavior_;
+    void update_preferences(const utility::JsonStore &js);
+
     T data_source_;
     caf::actor http_;
     caf::actor pool_;
-    utility::Uuid uuid_ = {utility::Uuid::generate()};
+    bool enable_audio_autoload_{true};
+    bool use_stalk_name_for_audio_sources_{false};
+    std::string default_audio_source_ = {"ax"};
+    utility::Uuid uuid_               = {utility::Uuid::generate()};
 };

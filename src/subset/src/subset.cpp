@@ -8,8 +8,8 @@
 using namespace xstudio::subset;
 using namespace xstudio::utility;
 
-Subset::Subset(const std::string &name, const std::string &type)
-    : Container(name, type), playhead_rate_(timebase::k_flicks_24fps) {}
+Subset::Subset(const std::string &name, const std::string &type, const utility::Uuid &uuid)
+    : Container(name, type, uuid), playhead_rate_(timebase::k_flicks_24fps) {}
 
 Subset::Subset(const JsonStore &jsn)
     : Container(static_cast<utility::JsonStore>(jsn["container"])),

@@ -2,7 +2,7 @@
 from xstudio.api.session.container import Container
 from xstudio.api.session.bookmark.bookmark import Bookmark
 from xstudio.core import add_bookmark_atom, remove_bookmark_atom, get_bookmark_atom, get_bookmarks_atom
-from xstudio.core import Uuid
+from xstudio.core import Uuid, URI
 from xstudio.core import export_atom, ExportFormat
 
 class Bookmarks(Container):
@@ -95,14 +95,17 @@ class Bookmarks(Container):
 
         return self.connection.request_receive(self.remote, remove_bookmark_atom(), uuid)[0]
 
-    def export(self, format=ExportFormat.EF_CSV):
-        """Remove bookmark
+    def export(self, format=ExportFormat.EF_CSV, path=""):
+        """export bookmarks
 
         Kwargs:
             format(ExportFormat): Export format.
+            path(str): Export path for images.
 
         Returns:
             Data([str,byte]): Succeeded.
         """
+        if not isinstance(path, URI):
+            path = URI(path)
 
-        return self.connection.request_receive(self.remote, export_atom(), format)[0]
+        return self.connection.request_receive(self.remote, export_atom(), format, path)[0]

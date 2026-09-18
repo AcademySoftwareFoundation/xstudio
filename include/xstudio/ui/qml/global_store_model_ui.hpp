@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
-
 // include CMake auto-generated export hpp
 #include "xstudio/ui/qml/global_store_qml_export.h"
 
@@ -70,5 +69,63 @@ class GLOBAL_STORE_QML_EXPORT GlobalStoreModel
     std::shared_ptr<global_store::GlobalStoreHelper> gsh_;
     bool autosave_{false};
 };
+
+/* A specialised version of the GlobalStoreModel where only 'public' data
+entries from the GlobalStore are exposed in a flattened tree. The purpose of
+this is to drive the preferences panel in the front end. */
+class GLOBAL_STORE_QML_EXPORT PublicPreferencesModel
+    : public caf::mixin::actor_object<JSONTreeModel> {
+    Q_OBJECT
+
+    Q_PROPERTY(bool autosave READ autosave WRITE setAutosave NOTIFY autosaveChanged)
+
+    enum Roles {
+        nameRole = JSONTreeModel::Roles::LASTROLE,
+        pathRole,
+        datatypeRole,
+        contextRole,
+        valueRole,
+        descriptionRole,
+        defaultValueRole,
+        overriddenValueRole,
+        overriddenPathRole,
+        displayNameRole,
+        categoryRole,
+        optionsRole
+    };
+
+  public:
+    using super = caf::mixin::actor_object<JSONTreeModel>;
+    explicit PublicPreferencesModel(QObject *parent = nullptr);
+    virtual void init(caf::actor_system &system);
+
+    [[nodiscard]] QVariant
+    data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+
+    bool
+    setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
+
+    [[nodiscard]] bool autosave() const { return autosave_; }
+
+    void setAutosave(const bool enabled = true);
+
+  signals:
+    void autosaveChanged();
+
+  public:
+    caf::actor_system &system() { return self()->home_system(); }
+
+  private:
+    void buildModel(const utility::JsonStore &entireGlobalStore);
+
+    void storeToTree(const nlohmann::json &src, nlohmann::json &tree);
+
+    bool updateProperty(const std::string &path, const utility::JsonStore &change);
+
+
+    std::shared_ptr<global_store::GlobalStoreHelper> gsh_;
+    bool autosave_{false};
+};
+
 
 } // namespace xstudio::ui::qml

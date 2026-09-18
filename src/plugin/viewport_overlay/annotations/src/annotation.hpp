@@ -5,33 +5,36 @@
 #include "xstudio/bookmark/bookmark.hpp"
 #include "xstudio/ui/canvas/canvas.hpp"
 
-namespace xstudio {
-namespace ui {
-    namespace viewport {
+namespace xstudio::ui::viewport {
 
-        class Annotation : public bookmark::AnnotationBase {
+class Annotation : public bookmark::AnnotationBase {
 
-          public:
-            explicit Annotation();
-            explicit Annotation(const utility::JsonStore &s);
+  public:
+    explicit Annotation();
+    explicit Annotation(const utility::JsonStore &s);
+    explicit Annotation(const Annotation &o) = default;
 
-            bool operator==(const Annotation &o) const {
-                return canvas_ == o.canvas_ && is_laser_annotation_ == o.is_laser_annotation_;
-            }
+    bool operator==(const Annotation &o) const {
+        return canvas_ == o.canvas_ && is_laser_annotation_ == o.is_laser_annotation_;
+    }
 
-            [[nodiscard]] utility::JsonStore
-            serialise(utility::Uuid &plugin_uuid) const override;
+    [[nodiscard]] utility::JsonStore serialise(utility::Uuid &plugin_uuid) const override;
 
-            xstudio::ui::canvas::Canvas &canvas() { return canvas_; }
-            const xstudio::ui::canvas::Canvas &canvas() const { return canvas_; }
+    size_t hash() const override { return canvas_.hash(); }
 
-          private:
-            bool is_laser_annotation_{false};
-            xstudio::ui::canvas::Canvas canvas_;
-        };
+    xstudio::ui::canvas::Canvas &canvas() { return canvas_; }
+    const xstudio::ui::canvas::Canvas &canvas() const { return canvas_; }
 
-        typedef std::shared_ptr<Annotation> AnnotationPtr;
+    // this allows other parts of the app (notably the Sync plugin) to
+    // access the canvas from the AnnotationBase, because 'Annotation'
+    // is only defined here in the plugin, not in xSTUDIO's general API
+    const void *user_data() const override { return reinterpret_cast<const void *>(&canvas_); }
 
-    } // end namespace viewport
-} // end namespace ui
-} // end namespace xstudio
+  private:
+    bool is_laser_annotation_{false};
+    xstudio::ui::canvas::Canvas canvas_;
+};
+
+typedef std::shared_ptr<Annotation> AnnotationPtr;
+
+} // namespace xstudio::ui::viewport

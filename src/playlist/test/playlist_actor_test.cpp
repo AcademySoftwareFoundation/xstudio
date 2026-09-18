@@ -11,7 +11,6 @@
 #include "xstudio/playhead/sub_playhead.hpp"
 #include "xstudio/playhead/playhead_actor.hpp"
 #include "xstudio/playlist/playlist_actor.hpp"
-#include "xstudio/utility/edit_list.hpp"
 #include "xstudio/utility/helpers.hpp"
 
 using namespace xstudio::utility;
@@ -38,54 +37,59 @@ TEST(PlaylistActorTest, Test) {
     fixture f;
     auto tmp = f.self->spawn<PlaylistActor>("Test");
 
-    f.self->request(tmp, std::chrono::seconds(10), name_atom_v)
+    f.self->mail(name_atom_v)
+        .request(tmp, std::chrono::seconds(10))
         .receive(
             [&](const std::string &name) { EXPECT_EQ(name, "Test"); },
             [&](const caf::error &err) { EXPECT_TRUE(false) << to_string(err); });
 
-    f.self->anon_send(tmp, name_atom_v, "Test2");
-    f.self->request(tmp, std::chrono::seconds(10), name_atom_v)
+    anon_mail(name_atom_v, "Test2").send(tmp);
+    f.self->mail(name_atom_v)
+        .request(tmp, std::chrono::seconds(10))
         .receive(
             [&](const std::string &name) { EXPECT_EQ(name, "Test2"); },
             [&](const caf::error &err) { EXPECT_TRUE(false) << to_string(err); });
 
     auto su1 = Uuid::generate();
-    f.self->anon_send(
-        tmp,
-        add_media_atom_v,
-        f.self->spawn<MediaActor>(
-            "test",
-            Uuid(),
-            UuidActorVector({UuidActor(
-                su1,
-                f.self->spawn<MediaSourceActor>(
-                    "test",
-                    posix_path_to_uri(TEST_RESOURCE "/media/test.{:04d}.ppm"),
-                    FrameList(1, 10),
-                    utility::FrameRate(timebase::k_flicks_24fps),
-                    su1))})),
+    f.self
+        ->mail(
+            add_media_atom_v,
+            f.self->spawn<MediaActor>(
+                "test",
+                Uuid(),
+                UuidActorVector({UuidActor(
+                    su1,
+                    f.self->spawn<MediaSourceActor>(
+                        "test",
+                        posix_path_to_uri(TEST_RESOURCE "/media/test.{:04d}.ppm"),
+                        FrameList(1, 10),
+                        utility::FrameRate(timebase::k_flicks_24fps),
+                        su1))})),
 
-        Uuid());
+            Uuid())
+        .send(tmp);
 
 
     auto su2 = Uuid::generate();
-    f.self->anon_send(
-        tmp,
-        add_media_atom_v,
-        f.self->spawn<MediaActor>(
-            "test",
-            Uuid(),
-            UuidActorVector({UuidActor(
-                su1,
-                f.self->spawn<MediaSourceActor>(
-                    "test",
-                    posix_path_to_uri(TEST_RESOURCE "/media/test.mov"),
-                    utility::FrameRate(timebase::k_flicks_24fps),
-                    su2))})),
-        Uuid());
+    f.self
+        ->mail(
+            add_media_atom_v,
+            f.self->spawn<MediaActor>(
+                "test",
+                Uuid(),
+                UuidActorVector({UuidActor(
+                    su1,
+                    f.self->spawn<MediaSourceActor>(
+                        "test",
+                        posix_path_to_uri(TEST_RESOURCE "/media/test.mov"),
+                        utility::FrameRate(timebase::k_flicks_24fps),
+                        su2))})),
+            Uuid())
+        .send(tmp);
 
     JsonStore serial;
-    f.self->request(tmp, infinite, serialise_atom_v)
+    f.self->mail(serialise_atom_v)
+        .request(tmp, infinite)
         .receive(
             [&](const JsonStore &jsn) { serial = jsn; },
             [&](const caf::error &err) { EXPECT_TRUE(false) << to_string(err); });
@@ -93,12 +97,13 @@ TEST(PlaylistActorTest, Test) {
     auto tmp2 = f.self->spawn<PlaylistActor>(serial);
     auto tmp3 = f.self->spawn<PlaylistActor>(serial);
 
-    f.self->request(tmp2, std::chrono::seconds(10), name_atom_v)
+    f.self->mail(name_atom_v)
+        .request(tmp2, std::chrono::seconds(10))
         .receive(
             [&](const std::string &name) { EXPECT_EQ(name, "Test2"); },
             [&](const caf::error &err) { EXPECT_TRUE(false) << to_string(err); });
 }
-#pragma message "This needs fixing"
+// #pragma message "This needs fixing"
 
 // TEST(PlaylistActorMediaTest, Test) {
 // 	fixture f;
@@ -127,7 +132,7 @@ TEST(PlaylistActorTest, Test) {
 // 		Uuid()
 // 	);
 
-// 	f.self->anon_send(tmp, add_media_atom_v,
+// 	f.self->anon_mail(add_media_atom_v,
 // 		f.self->spawn<MediaActor>(
 // 			"Media3",
 // 			Uuid(),
@@ -136,7 +141,7 @@ TEST(PlaylistActorTest, Test) {
 // "/media/test.mov"))
 // 		),
 // 		Uuid()
-// 	);
+// 	).send(tmp);
 
 // 	// check our media refs work..
 // 	f.self->request(tmp, std::chrono::seconds(10), get_media_pointer_atom_v, media::MT_IMAGE,
@@ -196,7 +201,7 @@ TEST(PlaylistPlayheadActorTest, Test) {
     // 	}
     //    );
 
-    //  f.self->request(pa, infinite, buffer_atom_v).receive(
+    //  f.self->request(pa, infinite, image_buffer_atom_v).receive(
     //    [&](ImageBufPtr buf) {
     //        EXPECT_FALSE(buf);
     //      },
@@ -278,14 +283,16 @@ TEST(PlaylistActorContainerTest, Test) {
     Uuid gu1;
     Uuid gu2;
 
-    f.self->request(tmp, infinite, create_group_atom_v, "Group", Uuid())
+    f.self->mail(create_group_atom_v, "Group", Uuid())
+        .request(tmp, infinite)
         .receive(
             [&](const Uuid &u) {
                 gu1 = u;
                 EXPECT_TRUE(true) << "Failed to create group";
             },
             [&](const caf::error &err) { EXPECT_TRUE(false) << to_string(err); });
-    f.self->request(tmp, infinite, create_group_atom_v, "Group2", gu1)
+    f.self->mail(create_group_atom_v, "Group2", gu1)
+        .request(tmp, infinite)
         .receive(
             [&](const Uuid &u) {
                 gu2 = u;
@@ -293,14 +300,16 @@ TEST(PlaylistActorContainerTest, Test) {
             },
             [&](const caf::error &err) { EXPECT_TRUE(false) << to_string(err); });
 
-    f.self->request(tmp, infinite, create_subset_atom_v, "SubsetTest", gu1, false)
+    f.self->mail(create_subset_atom_v, "SubsetTest", gu1, false)
+        .request(tmp, infinite)
         .receive(
             [&](const UuidUuidActor &a) {
                 EXPECT_TRUE(a.second.actor()) << "Failed to create subset";
             },
             [&](const caf::error &err) { EXPECT_TRUE(false) << to_string(err); });
 
-    f.self->request(tmp, infinite, create_subset_atom_v, "SubsetTest2", gu1, true)
+    f.self->mail(create_subset_atom_v, "SubsetTest2", gu1, true)
+        .request(tmp, infinite)
         .receive(
             [&](const UuidUuidActor &a) {
                 EXPECT_TRUE(a.second.actor()) << "Failed to create subset";
@@ -308,7 +317,8 @@ TEST(PlaylistActorContainerTest, Test) {
             [&](const caf::error &err) { EXPECT_TRUE(false) << to_string(err); });
 
     JsonStore js;
-    f.self->request(tmp, infinite, serialise_atom_v)
+    f.self->mail(serialise_atom_v)
+        .request(tmp, infinite)
         .receive(
             [&](const JsonStore &j) { js = j; },
             [&](const caf::error &err) { EXPECT_TRUE(false) << to_string(err); });
@@ -316,17 +326,20 @@ TEST(PlaylistActorContainerTest, Test) {
     std::cout << js.dump() << std::endl;
     auto tmp2 = f.self->spawn<PlaylistActor>(js);
 
-    f.self->request(tmp, infinite, get_container_atom_v)
+    f.self->mail(get_container_atom_v)
+        .request(tmp, infinite)
         .receive(
             [&](const PlaylistTree &ct) { std::cout << ct << std::endl; },
             [&](const caf::error &err) { EXPECT_TRUE(false) << to_string(err); });
 
-    f.self->request(tmp2, infinite, get_container_atom_v)
+    f.self->mail(get_container_atom_v)
+        .request(tmp2, infinite)
         .receive(
             [&](const PlaylistTree &ct) { std::cout << ct << std::endl; },
             [&](const caf::error &err) { EXPECT_TRUE(false) << to_string(err); });
 
-    f.self->request(tmp2, infinite, serialise_atom_v)
+    f.self->mail(serialise_atom_v)
+        .request(tmp2, infinite)
         .receive(
             [&](const JsonStore &j) { js = j; },
             [&](const caf::error &err) { EXPECT_TRUE(false) << to_string(err); });

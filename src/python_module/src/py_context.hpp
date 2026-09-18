@@ -17,6 +17,8 @@ CAF_PUSH_WARNINGS
 CAF_POP_WARNINGS
 
 #include "xstudio/utility/caf_helpers.hpp"
+#include "xstudio/utility/uuid.hpp"
+#include "xstudio/utility/json_store.hpp"
 
 namespace caf::python {
 
@@ -28,10 +30,7 @@ class py_context : public py_config {
   public:
     py_context(int argc = 0, char **argv = nullptr);
 
-    virtual ~py_context() {
-        // shutdown system
-        disconnect();
-    }
+    virtual ~py_context();
 
     std::optional<message> py_build_message(const py::args &xs);
     void py_send(const py::args &xs);
@@ -41,9 +40,18 @@ class py_context : public py_config {
     void py_send_exit(const py::args &xs);
     py::tuple
     tuple_from_message(const message_id mid, const strong_actor_ptr sender, const message &msg);
-    py::tuple py_tuple_from_wrapped_message(const py::args &xs);
+
+    // xstudio::utility::JsonStore process_non_specific_message(message &msg);
+
+    void
+    execute_event_callback(const caf::message &msg, const xstudio::utility::Uuid &callback_id);
+    void erase_func(py::function &callback_func);
+
     py::tuple py_dequeue();
     py::tuple py_dequeue_with_timeout(xstudio::utility::absolute_receive_timeout timeout);
+    xstudio::utility::Uuid py_add_message_callback(const py::args &xs);
+    void py_remove_message_callback(const xstudio::utility::Uuid &id);
+
     actor py_self() { return self_; }
     actor py_remote() { return remote_; }
     actor py_spawn(const py::args &xs);
@@ -59,6 +67,7 @@ class py_context : public py_config {
     bool connect_local(caf::actor actor);
     std::string host() { return host_; }
     uint16_t port() { return port_; }
+
 
   public:
     std::string host_;
@@ -81,10 +90,14 @@ class py_context : public py_config {
     // the python module is instanced.
     actor_system &system_;
 
-
     scoped_actor self_;
     actor remote_;
+    actor embedded_python_actor_;
     py::function my_func;
     std::thread my_thread;
+
+    caf::actor message_callback_handler_actor_;
+    std::map<xstudio::utility::Uuid, py::function> message_callback_funcs_;
+    std::map<xstudio::utility::Uuid, py::object> plugin_registry_;
 };
 } // namespace caf::python

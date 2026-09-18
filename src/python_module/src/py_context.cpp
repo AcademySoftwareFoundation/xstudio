@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-#ifdef __GNUC__ // Check if GCC compiler is being used
 #pragma GCC diagnostic ignored "-Wattributes"
-#endif
 
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/caf_helpers.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/atoms.hpp"
 #include "xstudio/global/global_actor.hpp"
 
 #include "py_opaque.hpp"
@@ -13,6 +12,84 @@
 #include "py_context.hpp"
 
 namespace caf::python {
+
+/* This actor receives event messages from actors (xstudio components) that
+Python plugins want to get messages from. It then sends the message back
+to the py_context object which has registered the python callback functions
+from the Python plugins, and executes the relevant callback function*/
+class EventToPythonThreadLockerActor : public caf::event_based_actor {
+  public:
+    EventToPythonThreadLockerActor(caf::actor_config &cfg, py_context *context)
+        : caf::event_based_actor(cfg), context_(context) {
+
+        behavior_.assign(
+            [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {
+                // TODO: self clean up
+            },
+            [=](const xstudio::utility::Uuid &callback_id) {
+                // stop watching
+
+                // find actor that has its events forwarded to the callback with
+                // the given ID
+                auto p = actor_to_callback_uuid_.begin();
+                while (p != actor_to_callback_uuid_.end()) {
+
+                    auto q = p->second.begin();
+                    while (q != p->second.end()) {
+                        if (*q == callback_id) {
+                            q = p->second.erase(q);
+                        } else {
+                            q++;
+                        }
+                    }
+
+                    if (p->second.empty()) {
+                        // don't need to get events from this actor any more
+                        auto events_source = caf::actor_cast<caf::actor>(p->first);
+                        if (events_source) {
+                            mail(
+                                xstudio::broadcast::leave_broadcast_atom_v,
+                                caf::actor_cast<caf::actor>(this))
+                                .send(events_source);
+                        }
+                        p = actor_to_callback_uuid_.erase(p);
+                    } else {
+                        p++;
+                    }
+                }
+            },
+            [=](caf::actor events_source, const xstudio::utility::Uuid &callback_id) {
+                actor_to_callback_uuid_[caf::actor_cast<caf::actor_addr>(events_source)]
+                    .push_back(callback_id);
+                // join the events broadcast
+                mail(
+                    xstudio::broadcast::join_broadcast_atom_v,
+                    caf::actor_cast<caf::actor>(this))
+                    .send(events_source);
+            },
+            [=](bool) {},
+            [=](message &_msg) {
+                auto src = caf::actor_cast<caf::actor_addr>(current_sender());
+                auto p   = actor_to_callback_uuid_.find(src);
+                if (p == actor_to_callback_uuid_.end()) {
+                    spdlog::debug(
+                        "Python event group callback - getting messages from unknown source.");
+                } else {
+                    for (const auto &id : p->second) {
+                        context_->execute_event_callback(_msg, id);
+                    }
+                }
+            });
+    }
+
+    ~EventToPythonThreadLockerActor() override = default;
+
+    caf::behavior behavior_;
+    py_context *context_;
+    std::map<caf::actor_addr, std::vector<xstudio::utility::Uuid>> actor_to_callback_uuid_;
+
+    caf::behavior make_behavior() override { return behavior_; }
+};
 
 inline void set_py_exception_fill(std::ostream &) {
     // end of recursion
@@ -36,6 +113,11 @@ py_context::py_context(int argc, char **argv)
       self_(system_),
       remote_() {}
 
+py_context::~py_context() {
+    // shutdown system
+    disconnect();
+}
+
 std::optional<message> py_context::py_build_message(const py::args &xs) {
     if (xs.size() < 2) {
         set_py_exception("Too few arguments to call build_message");
@@ -46,7 +128,31 @@ std::optional<message> py_context::py_build_message(const py::args &xs) {
     message_builder mb;
     for (; i != xs.end(); ++i) {
         std::string type_name = PyEval_GetFuncName((*i).ptr());
-        auto kvp              = bindings().find(type_name);
+        if (type_name == "dict") {
+            // special case for dicts - we want to convert them to JsonStore
+            try {
+                py::object json_py_module = py::module_::import("json");
+                py::object as_json_str    = json_py_module.attr("dumps")(*i);
+                const xstudio::utility::JsonStore js(
+                    nlohmann::json::parse(as_json_str.cast<std::string>()));
+                mb.append(js);
+                continue;
+            } catch (const std::exception &err) {
+                set_py_exception(
+                    "Attempt to send a message to xSTUDIO with dict data that is not 'json' "
+                    "compatible: ",
+                    err.what());
+                return {};
+            }
+        } /*else if (type_name == "list") {
+            // special case for lists - can we convert to std::vector<ElemType> ?
+            py::list lst = (*i).cast<py::list>();
+            if (lst.size() > 0) {
+                std::string elem_type_name = PyEval_GetFuncName(lst[0].ptr());
+                type_name = fmt::format("list({})", elem_type_name);
+            }
+        }*/
+        auto kvp = bindings().find(type_name);
         if (kvp == bindings().end()) {
             set_py_exception(
                 R"(Unable to add element of type A ")",
@@ -68,13 +174,13 @@ void py_context::py_send(const py::args &xs) {
     auto dest = (*i).cast<actor>();
     auto msg  = py_build_message(xs);
     if (msg)
-        self_->send(dest, *msg);
+        self_->mail(*msg).send(dest);
 }
 
 caf::actor py_context::py_spawn(const py::args &xs) {
     if (xs.size() < 1) {
         set_py_exception("Too few arguments to call py_spawn");
-        return caf::actor();
+        return {};
     }
     auto i      = xs.begin();
     auto name   = (*i).cast<std::string>();
@@ -83,13 +189,13 @@ caf::actor py_context::py_spawn(const py::args &xs) {
     if (remote)
         return *remote;
     set_py_exception("Failed to spawn actor.");
-    return caf::actor();
+    return {};
 }
 
 caf::actor py_context::py_remote_spawn(const py::args &xs) {
     if (xs.size() < 1) {
         set_py_exception("Too few arguments to call py_remote_spawn");
-        return caf::actor();
+        return {};
     }
     auto i      = xs.begin();
     auto name   = (*i).cast<std::string>();
@@ -99,54 +205,76 @@ caf::actor py_context::py_remote_spawn(const py::args &xs) {
     if (remote)
         return *remote;
     set_py_exception("Failed to spawn remote actor.");
-    return caf::actor();
+    return {};
 }
 
-void py_context::py_join(const py::args &xs) {
-    if (xs.size() < 1) {
-        set_py_exception("Too few arguments to call CAF.join");
-        return;
-    }
-    auto i   = xs.begin();
-    auto grp = (*i).cast<group>();
+// void py_context::py_join(const py::args &xs) {
+//     if (xs.size() < 1) {
+//         set_py_exception("Too few arguments to call CAF.join");
+//         return;
+//     }
+//     auto i   = xs.begin();
+//     auto grp = (*i).cast<group>();
 
-    if (grp) {
-        self_->join(grp);
-        // spdlog::warn("{}", self_->joined_groups().size());
-    }
-}
+//     if (grp) {
+//         self_->join(grp);
+//         // spdlog::warn("{}", self_->joined_groups().size());
+//     }
+// }
 
-void py_context::py_leave(const py::args &xs) {
-    if (xs.size() < 1) {
-        set_py_exception("Too few arguments to call CAF.leave");
-        return;
-    }
-    auto i   = xs.begin();
-    auto grp = (*i).cast<group>();
-    if (grp)
-        self_->leave(grp);
-}
+// void py_context::py_leave(const py::args &xs) {
+//     if (xs.size() < 1) {
+//         set_py_exception("Too few arguments to call CAF.leave");
+//         return;
+//     }
+//     auto i   = xs.begin();
+//     auto grp = (*i).cast<group>();
+//     if (grp)
+//         self_->leave(grp);
+// }
 
-py::tuple py_context::py_tuple_from_wrapped_message(const py::args &xs) {
+void py_context::erase_func(py::function &callback_func) {
 
-    auto i = xs.begin();
     try {
-        if (i == xs.end()) {
-            throw std::runtime_error("Empty args passed to tuple_from_message");
-        }
-        auto msg = (*i).cast<caf::message>();
-        py::tuple result(msg.size());
 
+        // acquire the GIL!
+        py::gil_scoped_acquire gil;
+
+        // erase
+        callback_func = py::function();
+
+    } catch (std::exception &e) {
+
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+}
+
+void py_context::execute_event_callback(
+    const caf::message &msg, const xstudio::utility::Uuid &callback_id) {
+
+    auto p = message_callback_funcs_.find(callback_id);
+    if (p == message_callback_funcs_.end())
+        return;
+    auto &callback_func = p->second;
+
+    try {
+
+        // acquire the GIL!
+        py::gil_scoped_acquire gil;
+
+        // build our CAF message data into a python tuple
+        py::tuple result(msg.size());
         for (size_t i = 0; i < msg.size(); ++i) {
             auto tid = msg.type_at(i);
-            if (auto meta_obj = detail::global_meta_object(tid)) {
-                auto kvp = portable_bindings().find(to_string(meta_obj->type_name));
+            if (auto meta_obj = detail::global_meta_object(tid);
+                not meta_obj.type_name.empty()) {
+                auto kvp = portable_bindings().find(std::string(meta_obj.type_name));
                 if (kvp == portable_bindings().end()) {
                     set_py_exception(
                         R"(Unable to add element of type B ")",
-                        to_string(meta_obj->type_name),
+                        std::string(meta_obj.type_name),
                         R"(" to message: type is unknown to CAF)");
-                    return py::tuple{};
+                    return;
                 }
                 auto obj = kvp->second->to_object(msg, i);
                 PyTuple_SetItem(result.ptr(), static_cast<int>(i), obj.release().ptr());
@@ -157,15 +285,23 @@ py::tuple py_context::py_tuple_from_wrapped_message(const py::args &xs) {
                     " from message: ",
                     "could not get portable name of ",
                     tid);
-                return py::tuple{};
+                return;
             }
         }
-        return result;
+
+        // run the callback
+        callback_func(result);
+
     } catch (std::exception &e) {
-        set_py_exception(e.what());
-        return py::tuple{};
+
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
 }
+
+#ifdef __GNUC__ // Check if GCC compiler is being used
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 uint64_t py_context::py_request(const py::args &xs) {
     if (xs.size() < 2) {
@@ -175,12 +311,17 @@ uint64_t py_context::py_request(const py::args &xs) {
     auto i    = xs.begin();
     auto dest = (*i).cast<actor>();
     auto msg  = py_build_message(xs);
+
     if (msg) {
         auto reqhan = self_->request(dest, caf::infinite, *msg);
         return reqhan.id().request_id().integer_value();
     }
     return 0;
 }
+
+#ifdef __GNUC__ // Check if GCC compiler is being used
+#pragma GCC diagnostic pop
+#endif
 
 void py_context::py_send_exit(const py::args &xs) {
     if (xs.size() < 1) {
@@ -204,12 +345,12 @@ py::tuple py_context::tuple_from_message(
 
     for (size_t i = 0; i < msg.size(); ++i) {
         auto tid = msg.type_at(i);
-        if (auto meta_obj = detail::global_meta_object(tid)) {
-            auto kvp = portable_bindings().find(to_string(meta_obj->type_name));
+        if (auto meta_obj = detail::global_meta_object(tid); not meta_obj.type_name.empty()) {
+            auto kvp = portable_bindings().find(std::string(meta_obj.type_name));
             if (kvp == portable_bindings().end()) {
                 set_py_exception(
                     R"(Unable to add element of type C ")",
-                    to_string(meta_obj->type_name),
+                    std::string(meta_obj.type_name),
                     R"(" to message: type is unknown to CAF)");
                 return py::tuple{};
             }
@@ -275,14 +416,79 @@ py_context::py_dequeue_with_timeout(xstudio::utility::absolute_receive_timeout t
     return tuple_from_message(ptr->mid, ptr->sender, std::move(ptr->content()));
 }
 
+xstudio::utility::Uuid py_context::py_add_message_callback(const py::args &xs) {
+
+    // this is called from Python plugins so that event messages from some
+    // actor in xstudio's system can be watched via a python callback function
+    // in the plugin.
+
+    xstudio::utility::Uuid uuid = xstudio::utility::Uuid::generate();
+
+    if (xs.size() == 2) {
+
+        auto i = xs.begin();
+        // this is the xstudio actor that
+        auto remote_actor = (*i).cast<caf::actor>();
+        i++;
+        auto callback_func = (*i).cast<py::function>();
+        auto addr          = caf::actor_cast<caf::actor_addr>(remote_actor);
+
+        // spawn a listener actor to receive the event messages. THis will
+        // run the Python callback (after acquiring the GIL)
+        if (!message_callback_handler_actor_) {
+            message_callback_handler_actor_ =
+                self_->spawn<EventToPythonThreadLockerActor>(this);
+        }
+
+        // here we store the python function object - the callback in the Python
+        // code
+        message_callback_funcs_[uuid] = callback_func;
+
+        // here we message our 'watcher'. It will join the event group of
+        // the 'remote_actor' and when it gets event messages from that actor
+        // it will run the py_callback
+        anon_mail(remote_actor, uuid).send(message_callback_handler_actor_);
+
+    } else {
+        throw std::runtime_error(
+            "Set message callback expecting tuple of size 2 "
+            "(remote_event_group_actor, callack_func).");
+    }
+    return uuid;
+}
+
+void py_context::py_remove_message_callback(const xstudio::utility::Uuid &id) {
+
+    if (message_callback_handler_actor_) {
+        anon_mail(id).send(message_callback_handler_actor_);
+    }
+    auto p = message_callback_funcs_.find(id);
+    if (p != message_callback_funcs_.end()) {
+        message_callback_funcs_.erase(p);
+    } else {
+        throw std::runtime_error(
+            "py_remove_message_callback - callback handler ID not recognised.");
+    }
+}
+
 void py_context::disconnect() {
-    host_   = "";
-    port_   = 0;
-    remote_ = actor();
+
+    host_                  = "";
+    port_                  = 0;
+    remote_                = actor();
+    embedded_python_actor_ = caf::actor();
+    self_->send_exit(message_callback_handler_actor_, caf::exit_reason::user_shutdown);
+    message_callback_handler_actor_ = caf::actor();
+    message_callback_funcs_.clear();
 }
 
 bool py_context::connect_remote(std::string host, uint16_t port) {
     disconnect();
+
+    // This will be null in xstudio_python case, but we expect that
+    embedded_python_actor_ =
+        system_.registry().template get<caf::actor>(xstudio::embedded_python_registry);
+
     auto actor = system_.middleman().remote_actor(host, port);
     if (actor) {
         remote_ = *actor;
@@ -293,10 +499,74 @@ bool py_context::connect_remote(std::string host, uint16_t port) {
 }
 
 bool py_context::connect_local(caf::actor actor) {
+
     disconnect();
+
+    // This will be null in xstudio_python case, but we expect that
+    embedded_python_actor_ =
+        system_.registry().template get<caf::actor>(xstudio::embedded_python_registry);
+
     remote_ = actor;
     return static_cast<bool>(actor);
 }
 
+/*xstudio::utility::JsonStore py_context::process_non_specific_message(message &msg) {
+
+    // acquire the GIL!
+    py::gil_scoped_acquire gil;
+
+    // Is this message a request to process
+    if (msg.size() >=3) {
+        if (msg.match_element<xstudio::embedded_python::python_exec_plugin_method_atom>(0) &&
+            msg.match_element<std::string>(1) &&
+            msg.match_element<std::string>(2))
+        {
+            std::string plugin_name = msg.get_as<std::string>(1);
+            std::string plugin_method = msg.get_as<std::string>(2);
+            py::tuple args(msg.size()-3);
+
+            // build our CAF message data into a python tuple
+            for (size_t i = 3; i < msg.size(); ++i) {
+                auto tid = msg.type_at(i);
+                if (auto meta_obj = caf::detail::global_meta_object(tid);
+                    not meta_obj.type_name.empty()) {
+                    auto kvp = portable_bindings().find(std::string(meta_obj.type_name));
+                    if (kvp == portable_bindings().end()) {
+                        std::string err(fmt::format("Unable to extract element from message:
+type {} not known to CAF.", std::string(meta_obj.type_name))); throw
+std::runtime_error(err.c_str());
+                    }
+                    auto obj = kvp->second->to_object(msg, i);
+                    PyTuple_SetItem(args.ptr(), static_cast<int>(i-3), obj.release().ptr());
+                } else {
+                    std::string err(fmt::format("Unable to extract element {} from message:
+could not get portable name of {}", i, to_string(msg), tid)); throw
+std::runtime_error(err.c_str());
+                }
+            }
+
+            try {
+                auto g = py::globals();
+                if (g.contains(py::str("XSTUDIO"))) {
+
+                    py::object xstudio_link = g["XSTUDIO"];
+                    py::object plugin =
+                        xstudio_link.attr("get_named_python_plugin_instance")(plugin_name);
+                    py::object result = plugin.attr(plugin_method.c_str())(*args);
+                    return result.cast<xstudio::utility::JsonStore>();
+                } else {
+                    throw std::runtime_error("Couldn't import XSTUDIO module.");
+                }
+            } catch (py::error_already_set &e) {
+                e.restore();
+                throw;
+            }
+        }
+    } else {
+        std::string err(fmt::format("Unrecognised message: {}", to_string(msg)));
+        throw std::runtime_error(err.c_str());
+    }
+    return xstudio::utility::JsonStore();
+}*/
 
 } // namespace caf::python

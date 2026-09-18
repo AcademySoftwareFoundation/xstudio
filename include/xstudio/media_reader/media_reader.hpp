@@ -71,7 +71,7 @@ namespace media_reader {
         thumbnail(const media::AVFrameID &mptr, const size_t thumb_size);
         [[nodiscard]] virtual media::MediaDetail detail(const caf::uri &uri) const;
         [[nodiscard]] virtual uint8_t maximum_readers(const caf::uri &uri) const;
-        [[nodiscard]] virtual bool prefer_sequential_access(const caf::uri &uri) const;
+        [[nodiscard]] virtual bool prefer_sequential_access() const;
         [[nodiscard]] virtual bool can_decode_audio() const;
         [[nodiscard]] virtual bool can_do_partial_frames() const;
         [[nodiscard]] virtual utility::Uuid plugin_uuid() const = 0;
@@ -81,11 +81,17 @@ namespace media_reader {
 
         virtual MRCertainty
         supported(const caf::uri &uri, const std::array<uint8_t, 16> &signature);
+        [[nodiscard]] virtual std::vector<std::string> supported_extensions() const {
+            return std::vector<std::string>();
+        }
 
       private:
-        static PixelInfo
-        default_pixel_picker(const ImageBuffer &buf, const Imath::V2i &pixel_location) {
-            return PixelInfo(pixel_location);
+        static PixelInfo default_pixel_picker(
+            const ImageBuffer &buf,
+            const utility::JsonStore &pixel_unpack_uniforms,
+            const Imath::V2i &pixel_location,
+            const std::vector<Imath::V2i> &extra_pixel_locationss) {
+            return {pixel_location};
         }
         const std::string name_;
     };
@@ -125,18 +131,28 @@ namespace media_reader {
                 utility::JsonStore js;
                 utility::join_broadcast(this, prefs.get_group(js));
                 media_reader_.update_preferences(js);
+                utility::add_supported_extensions(media_reader_.supported_extensions());
             }
 
             behavior_.assign(
                 [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
                 [=](utility::name_atom) -> std::string { return media_reader_.name(); },
 
+                [=](utility::detail_atom) -> bool {
+                    // this allows the cacheing m,edia reader actor to find out if
+                    // it can spawn multiple readers to read a given source in parallel or not.
+                    // For example, EXR benefits from multiple readers while ffmpeg does not
+                    // because motion compressed video formats are not well served by multiple
+                    // readers.
+                    return media_reader_.prefer_sequential_access();
+                },
+
                 [=](get_audio_atom, const media::AVFrameID &mptr) -> result<AudioBufPtr> {
                     AudioBufPtr mb;
                     try {
                         mb = media_reader_.audio(mptr);
                         if (mb) {
-                            mb->set_media_key(mptr.key_);
+                            mb->set_media_key(mptr.key());
                         }
                     } catch (const std::exception &e) {
                         return make_error(xstudio_error::error, e.what());
@@ -147,16 +163,14 @@ namespace media_reader {
                 [=](get_image_atom, const media::AVFrameID &mptr) -> result<ImageBufPtr> {
                     ImageBufPtr mb;
                     try {
-                        std::string path = utility::uri_to_posix_path(mptr.uri_);
+                        std::string path = utility::uri_to_posix_path(mptr.uri());
                         mb               = media_reader_.image(mptr);
                         if (mb) {
-                            mb->set_media_key(mptr.key_);
+                            if (mb->media_key().is_null())
+                                mb->set_media_key(mptr.key());
                             mb->set_pixel_picker_func(media_reader_.pixel_picker_func());
-                            if (mb->audio_) {
-                                mb->audio_->set_media_key(mptr.key_);
-                            }
                             mb->params()["path"]   = path;
-                            mb->params()["frame"]  = mptr.frame_;
+                            mb->params()["frame"]  = mptr.frame();
                             mb->params()["reader"] = media_reader_.name();
                         }
                     } catch (const media_missing_error &e) {
@@ -193,9 +207,33 @@ namespace media_reader {
                 },
 
                 [=](media_reader::get_thumbnail_atom,
-                    const media::AVFrameID &mptr,
+                    media::AVFrameID mptr,
                     const size_t thumb_size) -> result<thumbnail::ThumbnailBufferPtr> {
                     try {
+
+                        if (mptr.stream_id() == "auto video") {
+                            // special case where we don't have a full Media object but
+                            // need a thumbnail (FileBrowser plugin, for example). We
+                            // must pick the middle frame for the stream and the first
+                            // video stream in the set.
+                            const auto stream_details =
+                                media_reader_.detail(mptr.uri()).streams_;
+                            for (const auto &sd : stream_details) {
+                                if (sd.media_type_ == media::MediaType::MT_IMAGE) {
+                                    mptr = media::AVFrameID(
+                                        mptr.uri(),
+                                        sd.duration_.frames() / 2,
+                                        mptr.first_frame(),
+                                        mptr.frame_status(),
+                                        0,
+                                        mptr.pixel_aspect(),
+                                        sd.duration_.rate(),
+                                        sd.name_);
+                                    break;
+                                }
+                            }
+                        }
+
                         return media_reader_.thumbnail(mptr, thumb_size);
                     } catch (const media_missing_error &e) {
                         return make_error(media::media_error::missing, e.what());
@@ -228,12 +266,14 @@ namespace media_reader {
                     const utility::JsonStore & /*change*/,
                     const std::string & /*path*/,
                     const utility::JsonStore &full) {
-                    delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+                    return mail(json_store::update_atom_v, full)
+                        .delegate(actor_cast<caf::actor>(this));
                 },
 
                 [=](json_store::update_atom, const utility::JsonStore &js) {
                     try {
                         media_reader_.update_preferences(js);
+                        utility::add_supported_extensions(media_reader_.supported_extensions());
                     } catch (const std::exception &err) {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                     }

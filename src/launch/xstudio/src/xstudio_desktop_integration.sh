@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # if already installed.
-grep -qs Version=1.6.0 ~/.local/share/applications/xstudio.desktop && exit 0
+grep -qs Version=2.7.0 ~/.local/share/applications/xstudio.desktop && exit 0
 
 # Desktop file.
 mkdir -p ~/.local/share/applications
@@ -11,19 +11,17 @@ mkdir -p ~/.local/share/icons
 
 cat <<EOF > ~/.local/share/applications/xstudio.desktop
 [Desktop Entry]
-Version=1.6.0
+Version=2.7.0
 Type=Application
 Name=xStudio
-Exec=xstudio %U
-TryExec=xstudio
+Exec=/tools/SITE/rnd/scripts/xstudio %U
+TryExec=/tools/SITE/rnd/scripts/xstudio
 StartupNotify=false
 MimeType=x-scheme-handler/xstudio;image/png;image/jpeg;video/mp4;video/quicktime;
 Terminal=false
 Icon=xstudio
 Categories=AudioVideo;Player;
 EOF
-# Exec=/u/al/dev/xstudio/src/launch/xstudio/src/xstudio-dev.sh %U
-# TryExec=/u/al/dev/xstudio/src/launch/xstudio/src/xstudio-dev.sh
 
 cat <<EOF > ~/.local/share/mime/packages/xstudio.xml
 <?xml version="1.0" encoding="UTF-8"?>

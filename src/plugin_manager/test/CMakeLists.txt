@@ -7,6 +7,8 @@ target_link_libraries(plugin_manager_test
 		xstudio::plugin_manager
 		xstudio::json_store
 		xstudio::global_store
+		xstudio::media
+		xstudio::global
 		${GTEST_LDFLAGS}
 )
 target_compile_definitions(plugin_manager_test
@@ -39,7 +41,7 @@ target_link_libraries(plugin_test
 	PUBLIC
 		xstudio::plugin_manager
 		xstudio::utility
-		caf::core
+		CAF::core
 )
 set_target_properties(${name}
     PROPERTIES

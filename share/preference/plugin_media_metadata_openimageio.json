@@ -1,0 +1,54 @@
+{
+	"plugin":{
+		"media_metadata":{
+			"OIIO":{
+				"supported": {
+					"path": "/plugin/media_metadata/OIIO/supported",
+					"description": "Control plugin format support",
+					"datatype": "json",
+					"context": ["APPLICATION"],
+
+					"default_value": {
+				        "JPG": "MMC_FORCE",
+				        "JPEG": "MMC_FORCE",
+				        "PNG": "MMC_FORCE",
+				        "TIF": "MMC_FORCE",
+				        "TEX": "MMC_FORCE",
+				        "TIFF": "MMC_FORCE",
+				        "TGA": "MMC_FORCE",
+				        "BMP": "MMC_FORCE",
+				        "PSD": "MMC_FORCE",
+				        "HDR": "MMC_FORCE",
+				        "DPX": "MMC_FORCE",
+				        "ACES": "MMC_FORCE",
+				        "JP2": "MMC_FORCE",
+				        "J2K": "MMC_FORCE",
+				        "WEBP": "MMC_FORCE",
+				        "EXR": "MMC_NO",
+						"": "MMC_MAYBE"
+					},
+
+					"value": {
+				        "JPG": "MMC_FORCE",
+				        "JPEG": "MMC_FORCE",
+				        "PNG": "MMC_FORCE",
+				        "TIF": "MMC_FORCE",
+				        "TEX": "MMC_FULLY",
+				        "TIFF": "MMC_FORCE",
+				        "TGA": "MMC_FULLY",
+				        "BMP": "MMC_FORCE",
+				        "PSD": "MMC_FULLY",
+				        "HDR": "MMC_FULLY",
+				        "DPX": "MMC_FORCE",
+				        "ACES": "MMC_FULLY",
+				        "JP2": "MMC_FULLY",
+				        "J2K": "MMC_FULLY",
+				        "WEBP": "MMC_FULLY",
+				        "EXR": "MMC_NO",
+						"": "MMC_NO"
+					}
+				}
+			}
+		}
+	}
+}

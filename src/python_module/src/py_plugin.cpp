@@ -35,4 +35,14 @@ void py_plugin(py::module_ &m) {
         .value("PF_UTILITY", plugin_manager::PluginFlags::PF_UTILITY)
         .value("PF_CONFORM", plugin_manager::PluginFlags::PF_CONFORM)
         .export_values();
+
+    py::enum_<plugin::HUDElementPosition>(m, "HUDElementPosition")
+        .value("BottomLeft", plugin::HUDElementPosition::BottomLeft)
+        .value("BottomCenter", plugin::HUDElementPosition::BottomCenter)
+        .value("BottomRight", plugin::HUDElementPosition::BottomRight)
+        .value("TopLeft", plugin::HUDElementPosition::TopLeft)
+        .value("TopCenter", plugin::HUDElementPosition::TopCenter)
+        .value("TopRight", plugin::HUDElementPosition::TopRight)
+        .value("FullScreen", plugin::HUDElementPosition::FullScreen)
+        .export_values();
 }

@@ -6,7 +6,6 @@
 // #include <caf/all.hpp>
 // #include <caf/config.hpp>
 // #include <caf/io/all.hpp>
-#include "xstudio/utility/helpers.hpp"
 
 #include "py_opaque.hpp"
 
@@ -14,14 +13,17 @@
 #include "xstudio/playhead/playhead.hpp"
 #include "xstudio/playlist/playlist.hpp"
 #include "xstudio/ui/mouse.hpp"
-#include "xstudio/utility/caf_helpers.hpp"
+#include "xstudio/ui/mouse.hpp"
+#include "xstudio/ui/viewport/mask.hpp"
 #include "xstudio/utility/container.hpp"
+#include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/media_reference.hpp"
 #include "xstudio/utility/remote_session_file.hpp"
 #include "xstudio/utility/serialise_headers.hpp"
 #include "xstudio/utility/timecode.hpp"
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/utility/frame_range.hpp"
+#include "xstudio/utility/notification_handler.hpp"
 
 #include "py_config.hpp"
 
@@ -29,7 +31,7 @@ namespace caf::python {
 
 extern void register_abs_class(py::module &m, const std::string &name);
 extern void register_uuid_class(py::module &m, const std::string &name);
-extern void register_plugindetail_class(py::module &m, const std::string &name);
+extern void XSTUDIO_REGISTER_PLUGINdetail_class(py::module &m, const std::string &name);
 extern void register_playlisttree_class(py::module &m, const std::string &name);
 extern void register_thumbnailbuffer_class(py::module &m, const std::string &name);
 extern void register_streamdetail_class(py::module &m, const std::string &name);
@@ -40,31 +42,41 @@ extern void register_mediapointer_class(py::module &m, const std::string &name);
 extern void register_mediakey_class(py::module &m, const std::string &name);
 extern void register_jsonstore_class(py::module &m, const std::string &name);
 extern void register_FrameRate_class(py::module &m, const std::string &name);
-extern void register_group_down_msg(py::module &m, const std::string &name);
 extern void register_URI_class(py::module &m, const std::string &name);
 extern void register_FrameRateDuration_class(py::module &m, const std::string &name);
+extern void register_vector3_class(py::module &m, const std::string &name);
+extern void register_matrix44_class(py::module &m, const std::string &name);
+extern void register_colour_triplet_class(py::module &m, const std::string &name);
 extern void register_uuid_actor_class(py::module &m, const std::string &name);
 extern void register_uuid_actor_vector_class(py::module &m, const std::string &name);
-extern void register_uuidvec_class(py::module &m, const std::string &name);
 extern void register_item_class(py::module &m, const std::string &name);
 extern void register_frame_range_class(py::module &m, const std::string &name);
 extern void register_frame_list_class(py::module &m, const std::string &name);
+extern void register_notification_class(py::module &m, const std::string &name);
+extern void register_stringvec_class(py::module &m, const std::string &name);
+extern void register_mask_class(py::module &m, const std::string &name);
 
 using namespace xstudio;
 
 void py_config::add_messages() {
-    add_message_type<caf::group_down_msg>(
-        "group_down_msg", "caf::group_down_msg", &register_group_down_msg);
     add_message_type<caf::uri>("URI", "caf::uri", &register_URI_class);
     add_message_type<media::MediaType>("MediaType", "xstudio::media::MediaType", nullptr);
+    add_message_type<spdlog::level::level_enum>(
+        "LogLevel", "spdlog::level::level_enum", nullptr);
+    add_message_type<plugin::HUDElementPosition>(
+        "HUDElementPosition", "xstudio::plugin::HUDElementPosition", nullptr);
     add_message_type<media::StreamDetail>(
         "StreamDetail", "xstudio::media::StreamDetail", &register_streamdetail_class);
     add_message_type<plugin_manager::PluginDetail>(
-        "PluginDetail", "xstudio::plugin_manager::PluginDetail", &register_plugindetail_class);
+        "PluginDetail",
+        "xstudio::plugin_manager::PluginDetail",
+        &XSTUDIO_REGISTER_PLUGINdetail_class);
     add_message_type<std::vector<plugin_manager::PluginDetail>>(
         "PluginDetailVec", "std::vector<xstudio::plugin_manager::PluginDetail>", nullptr);
-    add_message_type<playhead::CompareMode>(
-        "CompareMode", "xstudio::playhead::CompareMode", nullptr);
+    add_message_type<playhead::AssemblyMode>(
+        "AssemblyMode", "xstudio::playhead::AssemblyMode", nullptr);
+    add_message_type<playhead::AutoAlignMode>(
+        "AutoAlignMode", "xstudio::playhead::AutoAlignMode", nullptr);
     add_message_type<global::StatusType>("StatusType", "xstudio::global::StatusType", nullptr);
     add_message_type<playhead::LoopMode>("LoopMode", "xstudio::playhead::LoopMode", nullptr);
     add_message_type<playhead::OverflowMode>(
@@ -104,6 +116,15 @@ void py_config::add_messages() {
     add_message_type<std::vector<std::pair<int, int>>>(
         "std::vector<std::pair<int, int>>", "std::vector<std::pair<int, int>>", nullptr);
 
+    add_message_type<std::pair<
+        xstudio::utility::UuidActor,
+        std::pair<std::string, xstudio::utility::UuidActor>>>(
+        "std::pair<xstudio::utility::UuidActor, std::pair<std::string, "
+        "xstudio::utility::UuidActor>>",
+        "std::pair<xstudio::utility::UuidActor, std::pair<std::string, "
+        "xstudio::utility::UuidActor>>",
+        nullptr);
+
     add_message_type<timebase::flicks>("timebase::flicks", "timebase::flicks", nullptr);
 
     add_message_type<std::vector<std::tuple<xstudio::utility::Uuid, std::string, int, int>>>(
@@ -114,8 +135,6 @@ void py_config::add_messages() {
     add_message_type<timebase::flicks>(
         "xstudio::utility::time_point", "xstudio::utility::time_point", nullptr);
 
-    add_message_type<std::vector<utility::Uuid>>(
-        "UuidVec", "std::vector<xstudio::utility::Uuid>", &register_uuidvec_class);
     add_message_type<utility::absolute_receive_timeout>(
         "absolute_receive_timeout",
         "xstudio::utility::absolute_receive_timeout",
@@ -128,10 +147,13 @@ void py_config::add_messages() {
         "FrameRateDuration",
         "xstudio::utility::FrameRateDuration",
         &register_FrameRateDuration_class);
+    add_message_type<utility::ColourTriplet>(
+        "ColourTriplet", "xstudio::utility::ColourTriplet", &register_colour_triplet_class);
     add_message_type<utility::JsonStore>(
         "JsonStore", "xstudio::utility::JsonStore", &register_jsonstore_class);
     add_message_type<utility::MediaReference>(
         "MediaReference", "xstudio::utility::MediaReference", &register_mediareference_class);
+    add_message_type<Imath::M44f>("M44f", "Imath::M44f", &register_matrix44_class);
 
     add_message_type<bookmark::BookmarkDetail>(
         "BookmarkDetail", "xstudio::bookmark::BookmarkDetail", &register_bookmark_detail_class);
@@ -162,6 +184,9 @@ void py_config::add_messages() {
     add_message_type<xstudio::timeline::Item>(
         "Item", "xstudio::timeline::Item", &register_item_class);
 
+    add_message_type<xstudio::timeline::ItemType>(
+        "ItemType", "xstudio::timeline::ItemType", nullptr);
+
     add_message_type<xstudio::utility::FrameRange>(
         "FrameRange", "xstudio::utility::FrameRange", &register_frame_range_class);
 
@@ -169,5 +194,16 @@ void py_config::add_messages() {
         "std::pair<xstudio::utility::JsonStore, xstudio::timeline::Item>",
         "std::pair<xstudio::utility::JsonStore, xstudio::timeline::Item>",
         nullptr);
+
+    add_message_type<xstudio::utility::Notification>(
+        "Notification", "xstudio::utility::Notification", &register_notification_class);
+
+    add_message_type<std::vector<xstudio::utility::Notification>>(
+        "std::vector<xstudio::utility::Notification>",
+        "std::vector<xstudio::utility::Notification>",
+        nullptr);
+
+    add_message_type<xstudio::ui::viewport::Mask>(
+        "Mask", "xstudio::ui::viewport::Mask", &register_mask_class);
 }
 } // namespace caf::python

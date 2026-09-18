@@ -7,37 +7,43 @@
 #include "xstudio/utility/uuid.hpp"
 
 
-namespace xstudio {
-namespace bookmark {
+namespace xstudio::bookmark {
 
-    class BookmarksActor : public caf::event_based_actor {
-      public:
-        BookmarksActor(caf::actor_config &cfg, const utility::JsonStore &jsn);
-        BookmarksActor(
-            caf::actor_config &cfg, const utility::Uuid &uuid = utility::Uuid::generate());
+class BookmarksActor : public caf::event_based_actor {
+  public:
+    BookmarksActor(caf::actor_config &cfg, const utility::JsonStore &jsn);
+    BookmarksActor(
+        caf::actor_config &cfg, const utility::Uuid &uuid = utility::Uuid::generate());
 
-        ~BookmarksActor() override = default;
+    ~BookmarksActor() override = default;
 
-        const char *name() const override { return NAME.c_str(); }
+    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
 
-        static caf::message_handler default_event_handler();
+    static caf::message_handler default_event_handler();
 
-      private:
-        inline static const std::string NAME = "BookmarksActor";
-        void init();
-        caf::behavior make_behavior() override { return behavior_; }
+    void on_exit() override;
 
-        void csv_export(
-            caf::typed_response_promise<std::pair<std::string, std::vector<std::byte>>> rp);
+  private:
+    inline static const std::string NAME = "BookmarksActor";
+    void init();
+    caf::message_handler message_handler();
 
-      private:
-        caf::behavior behavior_;
-        Bookmarks base_;
-        caf::actor event_group_;
-        std::string default_category_;
+    caf::behavior make_behavior() override {
+        return message_handler().or_else(base_.container_message_handler(this));
+    }
 
-        std::map<utility::Uuid, caf::actor> bookmarks_;
-    };
+    void csv_export(
+        caf::typed_response_promise<std::pair<std::string, std::vector<std::byte>>> rp,
+        const session::ExportFormat ef,
+        const caf::uri &path);
 
-} // namespace bookmark
-} // namespace xstudio
+    void monitor_bookmark(const caf::actor &actor);
+
+  private:
+    Bookmarks base_;
+    std::string default_category_;
+
+    std::map<utility::Uuid, caf::actor> bookmarks_;
+};
+
+} // namespace xstudio::bookmark

@@ -9,6 +9,7 @@
 #include <iostream>
 
 #include "xstudio/media_reader/media_reader.hpp"
+#include "xstudio/media_reader/image_buffer_set.hpp"
 #include "xstudio/thumbnail/thumbnail.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
@@ -19,6 +20,10 @@ using namespace xstudio::media;
 using namespace xstudio::media_reader;
 
 namespace fs = std::filesystem;
+
+std::mutex ImageBufPtr::mmm;
+int ImageBufPtr::copy_count   = 0;
+int ImageBufPtr::t_copy_count = 0;
 
 /* ImageBufferRecyclerCache
  *
@@ -45,78 +50,77 @@ namespace fs = std::filesystem;
  *  reader down while it waits for the cache to re-cycle image buffers, we are
  *  going to do it at a lower level within the ImageBuffer allocate method
  */
-class ImageBufferRecyclerCache {
-  public:
-    void store_unwanted_buffer(Buffer::BufferDataPtr &buf, const size_t size) {
+void ImageBufferRecyclerCache::store_unwanted_buffer(
+    Buffer::BufferDataPtr &buf, const size_t size) {
 
-        // uncomment this to turn the whole thing off
-        // return;
+    // uncomment this to turn the whole thing off
+    // return;
+    mutex_.lock();
+    while ((total_size_ + size) > max_size_) {
 
-        mutex_.lock();
-        while ((total_size_ + size) > max_size_) {
-
-            // simply delete oldest buffers - if user is playing through a timeline
-            // of mixed formats it's likely that the cache is deleting frames
-            // of a different size to the one that the readers are currently asking
-            // for. However, it's going to be quite complex to address that
-            // problem and we have to fallback on the OS memory managment coping
-            // with rapid allocation/deallocation ok. The general case is that
-            // the xStudio session is loaded with common format sources, though.
-            auto p = size_by_time_.begin();
-            if (p == size_by_time_.end())
-                break;
-            const size_t s = p->second;
-            if (!recycle_buffer_bin_[s].empty()) {
-                recycle_buffer_bin_[s].pop_back();
-                if (recycle_buffer_bin_[s].empty()) {
-                    recycle_buffer_bin_.erase(recycle_buffer_bin_.find(s));
-                }
-                total_size_ -= s;
+        // simply delete oldest buffers - if user is playing through a timeline
+        // of mixed formats it's likely that the cache is deleting frames
+        // of a different size to the one that the readers are currently asking
+        // for. However, it's going to be quite complex to address that
+        // problem and we have to fallback on the OS memory managment coping
+        // with rapid allocation/deallocation ok. The general case is that
+        // the xStudio session is loaded with common format sources, though.
+        auto p = size_by_time_.begin();
+        if (p == size_by_time_.end())
+            break;
+        const size_t s = p->second;
+        if (!recycle_buffer_bin_[s].empty()) {
+            recycle_buffer_bin_[s].pop_back();
+            if (recycle_buffer_bin_[s].empty()) {
+                recycle_buffer_bin_.erase(recycle_buffer_bin_.find(s));
             }
-            size_by_time_.erase(p);
+            total_size_ -= s;
         }
-        auto tp = utility::clock::now();
-        recycle_buffer_bin_[size].push_back(buf);
-        total_size_ += size;
-        size_by_time_[tp] = size;
-        mutex_.unlock();
+        size_by_time_.erase(p);
     }
+    recycle_buffer_bin_[size].push_back(buf);
+    total_size_ += size;
+    size_by_time_[utility::clock::now()] = size;
+    mutex_.unlock();
+}
 
-    Buffer::BufferDataPtr fetch_recycled_buffer(const size_t required_size) {
+Buffer::BufferDataPtr
+ImageBufferRecyclerCache::fetch_recycled_buffer(const size_t required_size) {
 
-        Buffer::BufferDataPtr r;
-        mutex_.lock();
-        auto p = recycle_buffer_bin_.find(required_size);
-        if (p != recycle_buffer_bin_.end() && !p->second.empty()) {
-            r = p->second.back();
-            p->second.pop_back();
-            if (p->second.empty())
-                recycle_buffer_bin_.erase(p);
-            total_size_ -= required_size;
+    Buffer::BufferDataPtr r;
+    mutex_.lock();
+    auto p = recycle_buffer_bin_.find(required_size);
+    if (p != recycle_buffer_bin_.end() && !p->second.empty()) {
+
+        auto q = size_by_time_.begin();
+        while (q != size_by_time_.end()) {
+            if (q->second == required_size) {
+                size_by_time_.erase(q);
+                break;
+            }
+            q++;
         }
-        mutex_.unlock();
 
-        return r;
+        r = p->second.back();
+        p->second.pop_back();
+        if (p->second.empty())
+            recycle_buffer_bin_.erase(p);
+        total_size_ -= required_size;
     }
+    mutex_.unlock();
 
-    size_t max_size_ = {
-        512 * 1024 *
-        1024}; // 0.5GB - probably doesn't need to be that big, and need to set this with a pref
-    size_t total_size_ = {0};
-    typedef std::vector<Buffer::BufferDataPtr> Buffers;
-    std::map<size_t, Buffers> recycle_buffer_bin_;
-    std::map<utility::time_point, size_t> size_by_time_;
-    std::mutex mutex_;
-};
+    return r;
+}
 
-static ImageBufferRecyclerCache s_buffer_recycler_;
+std::shared_ptr<ImageBufferRecyclerCache> Buffer::s_buf_cache =
+    std::make_shared<ImageBufferRecyclerCache>();
 
-Buffer::~Buffer() { s_buffer_recycler_.store_unwanted_buffer(buffer_, size_); }
+Buffer::~Buffer() { s_buf_cache->store_unwanted_buffer(buffer_, size_); }
 
 xstudio::media_reader::byte *Buffer::allocate(const size_t size) {
     if (size_ != size) {
 
-        buffer_ = s_buffer_recycler_.fetch_recycled_buffer(size);
+        buffer_ = s_buf_cache->fetch_recycled_buffer(size);
         if (!buffer_) {
             buffer_.reset(new BufferData(size));
         }
@@ -129,10 +133,103 @@ void Buffer::resize(const size_t size) {
     auto old_buffer = buffer_;
     auto old_size   = size_;
     allocate(size);
-    if (old_buffer) {
+    if (old_buffer && old_buffer != buffer_) {
         memcpy(buffer(), old_buffer->data_.get(), std::min(old_size, size_));
-        s_buffer_recycler_.store_unwanted_buffer(old_buffer, old_size);
+        s_buf_cache->store_unwanted_buffer(old_buffer, old_size);
     }
+}
+
+template <typename T> void typed_resample(AudioBuffer &in, const size_t out_samples) {
+
+    const T *in_buf = (const T *)(in.buffer());
+
+    auto new_buffer = new Buffer::BufferData(out_samples * in.num_channels() * sizeof(T));
+    T *out_buf      = reinterpret_cast<T *>(new_buffer->data_.get());
+
+    int n               = out_samples - 1;
+    float ff            = 0.0f;
+    const float ff_step = float(in.num_samples()) / float(out_samples);
+    const int chans     = in.num_channels();
+
+    // no doubt some SSE stuff would help here?
+
+    while (n--) {
+
+        const T *isamp0 = in_buf + int(ff) * chans;
+        const T *isamp1 = isamp0 + chans;
+        const float v   = ff - floor(ff);
+
+        int c = chans;
+        while (c--) {
+            *(out_buf++) = T(float(*(isamp0++)) * (1.0 - v) + float(*(isamp1++)) * (v));
+        }
+        ff += ff_step;
+    }
+
+    int c  = chans;
+    in_buf = (const T *)in.buffer() + (in.num_samples() - 1) * chans;
+    while (c--) {
+        *(out_buf++) = *(in_buf++);
+    }
+
+    in.set_buf_data(new_buffer);
+}
+
+void AudioBuffer::stretch_samples(const uint64_t num_samples) {
+
+    if (sample_format() == audio::SampleFormat::UINT8) {
+        typed_resample<uint8_t>(*this, num_samples);
+    } else if (sample_format() == audio::SampleFormat::INT16) {
+        typed_resample<int16_t>(*this, num_samples);
+    } else if (sample_format() == audio::SampleFormat::SFINT32) {
+        typed_resample<int32_t>(*this, num_samples);
+    } else if (sample_format() == audio::SampleFormat::FLOAT32) {
+        typed_resample<float>(*this, num_samples);
+    } else if (sample_format() == audio::SampleFormat::INT64) {
+        typed_resample<int64_t>(*this, num_samples);
+    } else if (sample_format() == audio::SampleFormat::DOUBLE64) {
+        typed_resample<double>(*this, num_samples);
+    }
+
+    num_samples_ = num_samples;
+}
+
+void AudioBuffer::set_new_sample_rate(
+    const uint64_t new_sample_rate, const timebase::flicks &exact_duration) {
+    // due to rounding, buffers that form a stream will likely have differing number of samples
+    // depending on their position in the stream. To ensure consistency we calculate the new
+    // number of samples as follows.
+    const int64_t first_sample =
+        (display_timestamp_flicks() * new_sample_rate) / timebase::k_flicks_one_second;
+    const int64_t last_sample =
+        ((display_timestamp_flicks() + exact_duration) * new_sample_rate) /
+        timebase::k_flicks_one_second;
+    const int64_t num_samples = last_sample - first_sample;
+
+    // this very simplistic re-sampling may add some distortion, but it I am
+    // sure it will be tiny/inaudible.
+    // You will have a problem if you have 96kHZ audio, with frequencies content
+    // above 24k say (if we a sampling down to 48kHZ) due to aliasing.
+    // We also introduce a tiny innaccuracy at the boundary samples between
+    // continuous buffers as the last sample of one buffer and the first sample
+    // of the next are not re-sampled at all.
+
+    if (sample_format() == audio::SampleFormat::UINT8) {
+        typed_resample<uint8_t>(*this, num_samples);
+    } else if (sample_format() == audio::SampleFormat::INT16) {
+        typed_resample<int16_t>(*this, num_samples);
+    } else if (sample_format() == audio::SampleFormat::SFINT32) {
+        typed_resample<int32_t>(*this, num_samples);
+    } else if (sample_format() == audio::SampleFormat::FLOAT32) {
+        typed_resample<float>(*this, num_samples);
+    } else if (sample_format() == audio::SampleFormat::INT64) {
+        typed_resample<int64_t>(*this, num_samples);
+    } else if (sample_format() == audio::SampleFormat::DOUBLE64) {
+        typed_resample<double>(*this, num_samples);
+    }
+
+    sample_rate_ = new_sample_rate;
+    num_samples_ = num_samples;
 }
 
 
@@ -154,19 +251,100 @@ xstudio::media_reader::byte *ImageBuffer::allocate(const size_t _size) {
     return Buffer::allocate(padded_size);
 }
 
+utility::JsonStore ImageBufPtr::metadata() const {
+    // the idea here is we add in a few useful metadata fields ontop of the
+    // metadata that is carried by the underlying pointer (the ImageBuffer).
+    // These fields have context that is outside the raw media that the fra,e
+    // came from (e.g. timecode, pixel aspect which can be overridden or are
+    // coming from the timeline that the media is being played from)
+    utility::JsonStore result = get() ? get()->metadata() : utility::JsonStore();
+
+    result["uri"]            = to_string(frame_id().uri());
+    result["frame"]          = frame_id().frame();
+    result["pixel aspect"]   = frame_id().pixel_aspect();
+    result["frame rate"]     = fmt::format("{:.3f}", frame_id().rate().to_fps());
+    result["timecode"]       = to_string(frame_id().timecode());
+    result["timecode frame"] = int(frame_id().timecode());
+    result["error"]          = frame_id().error();
+    return result;
+}
+
+bool ImageBufDisplaySet::has_grid_layout() const {
+
+    // This indicates if the images in a set are all overlaid on each other (e.g. A/B
+    // compare or Over of Off etc) or whether they have different transforms (e.g.
+    // grid mode or PiP)
+    for (int i = 1; i < num_onscreen_images(); ++i) {
+        if (onscreen_image(i).layout_transform() != onscreen_image(0).layout_transform())
+            return true;
+    }
+    return false;
+}
+
+
+void ImageBufDisplaySet::finalise() {
+
+    utility::JsonStore image_info = nlohmann::json::parse("[]");
+    images_hash_                  = 0;
+    for (int i = 0; i < num_onscreen_images(); ++i) {
+        const auto &im = onscreen_image(i);
+        nlohmann::json r;
+        if (im) {
+            r["image_size_in_pixels"] = im->image_size_in_pixels();
+            // r["image_pixels_bounding_box"] = im->image_pixels_bounding_box();
+            r["pixel_aspect"] = im.frame_id().pixel_aspect();
+            images_hash_ += im.frame_id().key().hash();
+        }
+        image_info.push_back(r);
+    }
+
+    as_json_.clear();
+    as_json_["image_info"]            = image_info;
+    as_json_["hero_image_index"]      = hero_sub_playhead_index_;
+    as_json_["prev_hero_image_index"] = previous_hero_sub_playhead_index_;
+    hash_                             = int64_t(std::hash<std::string>{}(as_json_.dump()));
+
+    auto hash_fun = [=](const uint8_t *d, size_t l) {
+        while (l--) {
+            hash_ = hash_ * 33 + *(d++);
+        }
+    };
+    for (int i = 0; i < num_onscreen_images(); ++i) {
+        const auto t = onscreen_image(i).layout_transform();
+        hash_fun(reinterpret_cast<const uint8_t *>(t.x), sizeof(t));
+    }
+}
+
+void ImageSetLayoutData::compute_hash() {
+
+    hash_         = 5831;
+    auto hash_fun = [=](uint8_t *d, size_t l) {
+        while (l--) {
+            hash_ = hash_ * 33 + *(d++);
+        }
+    };
+
+    hash_fun(
+        reinterpret_cast<uint8_t *>(image_transforms_.data()),
+        image_transforms_.size() * sizeof(Imath::M44f));
+    hash_fun(
+        reinterpret_cast<uint8_t *>(image_draw_order_hint_.data()),
+        image_draw_order_hint_.size() * sizeof(int));
+}
+
 MediaReader::MediaReader(std::string name, const utility::JsonStore &)
     : name_(std::move(name)) {}
 
 std::string MediaReader::name() const { return name_; }
 
-ImageBufPtr MediaReader::image(const media::AVFrameID &) { return ImageBufPtr(); }
+ImageBufPtr MediaReader::image(const media::AVFrameID &) { return {}; }
 
-AudioBufPtr MediaReader::audio(const media::AVFrameID &) { return AudioBufPtr(); }
+AudioBufPtr MediaReader::audio(const media::AVFrameID &) { return {}; }
 
 thumbnail::ThumbnailBufferPtr MediaReader::thumbnail(const media::AVFrameID &mp, const size_t) {
     throw std::runtime_error(
-        "Thumbnail generation not supported for this format. " + mp.reader_);
-    return thumbnail::ThumbnailBufferPtr();
+        "Thumbnail generation not supported for this format. " + mp.reader());
+    return {};
 }
 
 MRCertainty MediaReader::supported(const caf::uri &, const std::array<uint8_t, 16> &) {
@@ -181,7 +359,7 @@ MediaDetail MediaReader::detail(const caf::uri &) const {
 
 uint8_t MediaReader::maximum_readers(const caf::uri &) const { return 1; }
 
-bool MediaReader::prefer_sequential_access(const caf::uri &) const { return true; }
+bool MediaReader::prefer_sequential_access() const { return true; }
 
 bool MediaReader::can_decode_audio() const { return false; }
 

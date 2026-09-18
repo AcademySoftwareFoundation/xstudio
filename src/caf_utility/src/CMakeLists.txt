@@ -1,10 +1,9 @@
 find_package(fmt REQUIRED)
 
 SET(LINK_DEPS
-	caf::io
-	caf::core
+	CAF::io
+	CAF::core
 	fmt::fmt
 )
 
-create_component(caf_utility 0.1.0 "${LINK_DEPS}")
-
+create_component(caf_utility ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}")

@@ -1,0 +1,136 @@
+// SPDX-License-Identifier: Apache-2.0
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Controls.Basic
+
+import xStudio 1.0
+import xstudio.qml.models 1.0
+import xstudio.qml.session 1.0
+import xstudio.qml.helpers 1.0
+import xstudio.qml.viewport 1.0
+
+Window {
+
+    id: appWindow
+    visible: true
+    color: "#00000000"
+    title: "xSTUDIO QuickView - "+fileName
+    objectName: "xstudio_quickview_window"
+    minimumWidth: 150
+    minimumHeight: 100
+
+    // this gives us access to the 'role' data of the entry in the session model
+    // for the current on-screen media SOURCE
+    property var fileName: {
+        if (viewport.viewportPlayhead && typeof(viewport.viewportPlayhead.playheadImageURI) == "string") {
+            return helpers.fileFromURL(viewport.viewportPlayhead.playheadImageURI)
+        }
+        return ""
+    }
+
+    onClosing: {
+        // without this, class destruction doesn't seem to happen when the
+        // window is closed
+        appWindow.destroy()
+    }
+
+    FontLoader {id: fontInter; source: "qrc:/assets/fonts/Inter-Regular.ttf"}
+
+    // child items might expect a user_data property to be in context - normally
+    // it comes from the panels layout model so panels can store persistent
+    // data, but for quickwindows we don't need to store anything.
+    property var user_data: uiLayoutsModel.retrieveFloatingWindowData("quickview_window")
+    onUser_dataChanged: {
+        uiLayoutsModel.storeFloatingWindowData("quickview_window", user_data)
+    }
+
+    function checkMenuYPosition(refItem, h, refX, refY) {
+        var ypos = refItem.mapToItem(
+            appWindow.contentItem,
+            refX,
+            refY
+            ).y
+        return Math.max((ypos+h)-appWindow.contentItem.height, 0)
+    }
+
+    function maxMenuHeight(origMenuHeight) {
+        // limit the maximum menu size to 80% of the height of the window
+        // itself as long as the menu is less than 66% of the window height.
+        // This meeans that you don't get a menu that is shortened by 2 pixels
+        if (origMenuHeight > appWindow.contentItem.height*0.8) {
+            return appWindow.contentItem.height*0.6
+        }
+        return origMenuHeight
+    }
+
+    property var preFullScreenVis: [x, y, width, height]
+    property var qmlWindowRef: Window  // so javascript can reference Window enums.
+
+    // this is referenced by some child widgets - normally provided by the
+    // layouts framework which isn't employed for quick view windows
+    property string panelId: "" + appWindow
+
+    property bool fullscreen: false
+
+    onFullscreenChanged : {
+        if (fullscreen && visibility !== Window.FullScreen) {
+            preFullScreenVis = [x, y, width, height]
+            showFullScreen();
+        } else if (!fullscreen) {
+            visibility = qmlWindowRef.Windowed
+            x = preFullScreenVis[0]
+            y = preFullScreenVis[1]
+            width = preFullScreenVis[2]
+            height = preFullScreenVis[3]
+        }
+
+    }
+
+    Timer {
+        id: bufferedUITimer
+        interval: bufferedUIDelay.value != undefined ? bufferedUIDelay.value : 0
+        running: false
+        repeat: false
+
+    }
+    property alias bufferedUITimer: bufferedUITimer
+
+    /*****************************************************************
+     *
+     * This captures any keyboard input and forwards to the last viewport
+     * to become visible or the last viewport which the mouse has entered.
+     * Hotkeys are all handled by the viewport
+     *
+     ****************************************************************/
+    XsHotkeyArea {
+        anchors.fill: parent
+        context: appWindow.viewport.view.name
+        focus: true
+    }
+
+    XsHotkey {
+        id: fullscreen_hotkey
+        sequence: "Ctrl+F"
+        name: "Full Screen"
+        description: "Makes the window go fullscreen"
+        onActivated: {
+            appWindow.fullscreen = !appWindow.fullscreen
+        }
+    }
+
+    property bool popoutIsOpen: false
+    property bool isPopoutViewer: true
+    property bool isQuickview: true
+
+    XsViewportPanel {
+        id: viewportPanel
+        anchors.fill: parent
+    }
+    property alias viewport: viewportPanel
+
+    function set_menu_bar_visibility(menu_bar_visible) {
+        // dummy function needed by XsViewportPanel. No menu bar in quickview window
+    }
+
+}
+

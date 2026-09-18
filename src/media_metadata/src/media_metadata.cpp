@@ -17,9 +17,12 @@ namespace fs = std::filesystem;
 
 namespace xstudio::media_metadata {
 
-MediaMetadata::MediaMetadata(std::string name) : name_(std::move(name)) {}
+MediaMetadata::MediaMetadata(std::string name, const utility::JsonStore &)
+    : name_(std::move(name)) {}
 
 std::string MediaMetadata::name() const { return name_; }
+
+void MediaMetadata::update_preferences(const utility::JsonStore &) {}
 
 nlohmann::json MediaMetadata::metadata(const caf::uri &uri) {
     nlohmann::json _metadata = read_metadata(uri);

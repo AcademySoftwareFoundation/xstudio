@@ -2,7 +2,7 @@
 #include <iostream>
 #include <sstream>
 
-#include "xstudio/ui/opengl/texture.hpp"
+#include "xstudio/ui/opengl/opengl_texture_base.hpp"
 #include "xstudio/ui/opengl/shader_program_base.hpp"
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/string_helpers.hpp"
@@ -55,9 +55,10 @@ void set_gl_uniform_matrix(
     const xstudio::utility::JsonStore &v,
     const int count,
     const int typesize,
-    const std::string &nm) {
+    const std::string &nm,
+    bool transpose = false) {
     std::vector<float> vals = unpack_json_to_vect<float>(v, count * typesize, nm);
-    std::apply(f, std::make_tuple(location, count, false, vals.data()));
+    std::apply(f, std::make_tuple(location, count, transpose, vals.data()));
 }
 
 
@@ -66,26 +67,39 @@ const char *vertex_shader_base = R"(
 layout (location = 0) in vec4 aPos;
 out vec2 texPosition;
 uniform ivec2 image_dims;
+uniform mat4 image_transform_matrix;
 uniform mat4 to_coord_system;
 uniform mat4 to_canvas;
-uniform float pixel_aspect;
+uniform float image_aspect;
+uniform ivec2 image_bounds_min;
+uniform ivec2 image_bounds_max;
 
 vec2 calc_pixel_coordinate(vec2 viewport_coordinate);
 
 void main()
 {
-    vec4 rpos = aPos*to_coord_system;
-    gl_Position = aPos*to_canvas;
-    texPosition = vec2(
-        (rpos.x + 1.0f) * float(image_dims.x),
-        (rpos.y * pixel_aspect * float(image_dims.x)) + float(image_dims.y)
-    ) * 0.5f;
+    // awkward scale/translate to accommodate overscan where image_bounds (i.e.
+    // exr data window) is different to image_dims (i.e. display window size)
+    // This could/should go in image_transform_matrix!
+    float bdbx = float(image_bounds_max.x-image_bounds_min.x);
+    float bdby = float(image_bounds_max.y-image_bounds_min.y);
+    float alpha = float(image_bounds_min.x + image_bounds_max.x)/float(image_dims.x) - 1.0f;
+    float beta = bdbx/float(image_dims.x);
+    float alpha_y = float(image_bounds_min.y + image_bounds_max.y)/float(image_dims.y) - 1.0f;
+    float beta_y = bdby/float(image_dims.y);
+    vec4 rpos = aPos;
+
+    rpos.x = alpha + beta*rpos.x;
+    rpos.y = alpha_y + beta_y*rpos.y;
+    rpos.y = rpos.y/image_aspect;
+
+    gl_Position = rpos*image_transform_matrix*to_coord_system*to_canvas;
+    texPosition = vec2(image_bounds_min.x + bdbx*(aPos.x + 1.0f)*0.5f, image_bounds_min.y + bdby*(aPos.y + 1.0f)*0.5f);
 }
 )";
 
 const char *frag_shader_base_tex = R"(
-#version 430 core
-#extension GL_ARB_shader_storage_buffer_object : require
+#version 410 core
 in vec2 texPosition;
 out vec4 FragColor;
 //uniform usampler2DRect the_tex;
@@ -97,7 +111,28 @@ uniform bool use_bilinear_filtering;
 
 uniform usampler2DRect the_tex;
 uniform ivec2 tex_dims;
-uniform bool pack_rgb_10_bit;
+uniform bool use_alpha;
+
+vec2 unpackHalf2x16(uint vv) {
+
+    uint a = vv & uint(0xFFFF);
+    uint a_frac = a & uint(0x03FF);
+    uint a_exp = (a >> 10) & uint(0x1F);
+    uint signbit = a >> 15;
+    float pwr = a_exp == 0 ? -14.0 : -15.0 + float(a_exp);
+    float b = pow(2.0, pwr)*((a_exp == 0 ? 0.0 : 1.0) + float(a_frac)/1024.0);
+    b = signbit == 1 ? -b : b;
+
+    a = vv >> 16;
+    a_frac = a & uint(0x3FF);
+    a_exp = (a >> 10) & uint(0x1F);
+    signbit = a >> 15;
+    pwr = a_exp == 0 ? -14.0 : -15.0 + float(a_exp);
+    float c = pow(2.0, pwr)*((a_exp == 0 ? 0.0 : 1.0) + float(a_frac)/1024.0);
+    c = signbit == 1 ? -c : c;
+
+    return vec2(b, c);
+}
 
 ivec2 step_sample(ivec2 tex_coord)
 {
@@ -278,33 +313,9 @@ vec4 get_bicubic_filter(vec2 pos)
         mix(sample1, sample0, sx), sy);
 }
 
-vec4 pack_RGB_10_10_10_2(vec4 rgb) 
-{
-    // this sets up the rgba value so that if the fragment 
-    // bit depth is 8 bit RGBA, the 4 bytes contain the
-    // RGB as packed 10 bit colours. We use this for SDI
-    // output, for example.
-
-    // scale to 10 bits
-    uint offset = 64;
-    float scale = 876.0f;
-    uint r = offset + uint(max(0.0,min(rgb.r*scale,scale)));
-    uint g = offset + uint(max(0.0,min(rgb.g*scale,scale)));
-    uint b = offset + uint(max(0.0,min(rgb.b*scale,scale)));
-
-    // pack
-    uint RR = (r << 20) + (g << 10) + b;
-
-    // unpack!
-    return vec4(float((RR >> 24)&255)/255.0,
-        float((RR >> 16)&255)/255.0,
-        float((RR >> 8)&255)/255.0,
-        float(RR&255)/255.0);
-
-}
-
 void main(void)
 {
+
     if (texPosition.x < image_bounds_min.x || texPosition.x > image_bounds_max.x) FragColor = vec4(0.0,0.0,0.0,1.0);
     else if (texPosition.y < image_bounds_min.y || texPosition.y > image_bounds_max.y) FragColor = vec4(0.0,0.0,0.0,1.0);
     else {
@@ -320,14 +331,11 @@ void main(void)
         }
 
         //INJECT_COLOUR_OPS_CALL
-        if (pack_rgb_10_bit) {
-            rgb_frag_value = pack_RGB_10_10_10_2(rgb_frag_value);
-        } else {
+        if (!use_alpha) {
             rgb_frag_value.a = 1.0;
         }
 
         FragColor = rgb_frag_value;
-
     }
 }
 )";
@@ -341,7 +349,7 @@ out vec4 FragColor;
 uniform ivec2 image_dims;
 uniform ivec2 image_bounds_min;
 uniform ivec2 image_bounds_max;
-uniform bool pack_rgb_10_bit;
+uniform bool use_alpha;
 
 uniform bool use_bilinear_filtering;
 
@@ -377,6 +385,27 @@ uint get_image_data_4bytes_packed(int byte_address) {
     }
 
     return c;
+}
+
+vec2 unpackHalf2x16(uint vv) {
+
+    uint a = vv & uint(0xFFFF);
+    uint a_frac = a & uint(0x03FF);
+    uint a_exp = (a >> 10) & uint(0x1F);
+    uint signbit = a >> 15;
+    float pwr = a_exp == 0 ? -14.0 : -15.0 + float(a_exp);
+    float b = pow(2.0, pwr)*((a_exp == 0 ? 0.0 : 1.0) + float(a_frac)/1024.0);
+    b = signbit == 1 ? -b : b;
+
+    a = vv >> 16;
+    a_frac = a & uint(0x3FF);
+    a_exp = (a >> 10) & uint(0x1F);
+    signbit = a >> 15;
+    pwr = a_exp == 0 ? -14.0 : -15.0 + float(a_exp);
+    float c = pow(2.0, pwr)*((a_exp == 0 ? 0.0 : 1.0) + float(a_frac)/1024.0);
+    c = signbit == 1 ? -c : c;
+
+    return vec2(b, c);
 }
 
 // This function returns 2 floats of image data packed
@@ -502,34 +531,10 @@ vec4 get_bicubic_filter(vec2 pos)
         mix(sample1, sample0, sx), sy);
 }
 
-vec4 pack_RGB_10_10_10_2(vec4 rgb) 
-{
-    // this sets up the rgba value so that if the fragment 
-    // bit depth is 8 bit RGBA, the 4 bytes contain the
-    // RGB as packed 10 bit colours. We use this for SDI
-    // output, for example.
-
-    // scale to 10 bits
-    uint offset = 64;
-    float scale = 876.0f;
-    uint r = offset + uint(max(0.0,min(rgb.r*scale,scale)));
-    uint g = offset + uint(max(0.0,min(rgb.g*scale,scale)));
-    uint b = offset + uint(max(0.0,min(rgb.b*scale,scale)));
-
-    // pack
-    uint RR = (r << 20) + (g << 10) + b;
-
-    // unpack!
-    return vec4(float((RR >> 24)&255)/255.0,
-        float((RR >> 16)&255)/255.0,
-        float((RR >> 8)&255)/255.0,
-        float(RR&255)/255.0);
-}
-
 void main(void)
 {
-    if (texPosition.x < image_bounds_min.x || texPosition.x > image_bounds_max.x) FragColor = vec4(0.0,0.0,0.0,1.0);
-    else if (texPosition.y < image_bounds_min.y || texPosition.y > image_bounds_max.y) FragColor = vec4(0.0,0.0,0.0,1.0);
+    if (texPosition.x < image_bounds_min.x || texPosition.x > image_bounds_max.x) FragColor = vec4(1.0,0.0,0.0,1.0);
+    else if (texPosition.y < image_bounds_min.y || texPosition.y > image_bounds_max.y) FragColor = vec4(0.0,.0,1.0,1.0);
     else {
 
         // For now, disabling bilinear filtering as it is too expensive and slowing refresh badly
@@ -543,12 +548,6 @@ void main(void)
         }
 
         //INJECT_COLOUR_OPS_CALL
-
-        if (pack_rgb_10_bit) {
-            rgb_frag_value = pack_RGB_10_10_10_2(rgb_frag_value);
-        } else {
-            rgb_frag_value.a = 1.0;
-        }
 
         FragColor = rgb_frag_value;
     }
@@ -740,30 +739,77 @@ void GLShaderProgram::inject_colour_op_shader(const std::string &colour_op_shade
     colour_operation_index_++;
 }
 
-void GLShaderProgram::compile() {
+void GLShaderProgram::compile(const bool force_combine_frag_shaders) {
 
     // Get a program object.
     program_ = glCreateProgram();
 
     try {
 
-        // compile the vertex shader objects
-        std::for_each(
-            vertex_shaders_.begin(),
-            vertex_shaders_.end(),
-            [=](const std::string &shader_code) {
-                shaders_.push_back(compile_vertex_shader(shader_code));
-            });
+        // compile the vertex shader objects - if we are doing a retry (with
+        // force_combine_frag_shaders == false) we don't need to re-do the
+        // vertex shaders
+        if (force_combine_frag_shaders) {
+            std::for_each(
+                vertex_shaders_.begin(),
+                vertex_shaders_.end(),
+                [=](const std::string &shader_code) {
+                    shaders_.push_back(compile_vertex_shader(shader_code));
+                });
+        }
+
+        // Note: force_combine_frag_shaders is set to true on first attempt.
+
+        // We used to compile the frag shaders separately as it was assumed this
+        // was faster because the binaries might be cached by nvidia drivers
+        // so re-using the same frag shader components would be more efficient.
+        // However, we're seeing link errors with this approach and this could
+        // be a bug in the drivers as the approach is 'legal' according to
+        // Khronos docs (but not recommended ?!)
+
+        if (force_combine_frag_shaders) {
+
+            std::string combined_shaders;
+            std::for_each(
+                fragment_shaders_.begin(),
+                fragment_shaders_.end(),
+                [&combined_shaders](const std::string &shader_code) {
+                    combined_shaders = combined_shaders + "\n" + shader_code;
+                });
+
+            // here we strip version directives that each shader may (or may
+            // not) include. Instead we force version 410 which is the highest
+            // version that still allows MacOS compatibility. If this causes
+            // a compile failure the log will warn the developer anyway and we
+            // hope shaders will remain compatible with V410.
+            static std::regex version_regex(R"(\#version.+\n)");
+            combined_shaders = std::regex_replace(combined_shaders, version_regex, " ");
+            // add back in v410 directive (see note above)
+            combined_shaders       = "#version 410\n" + combined_shaders;
+            orig_fragment_shaders_ = fragment_shaders_;
+            fragment_shaders_.clear();
+            fragment_shaders_.emplace_back(std::move(combined_shaders));
+        }
 
         // compile the fragment shader objects
         std::for_each(
             fragment_shaders_.begin(),
             fragment_shaders_.end(),
-            [=](const std::string &shader_code) {
+            [this](const std::string &shader_code) {
                 shaders_.push_back(compile_frag_shader(shader_code));
             });
 
+
     } catch (...) {
+
+        if (force_combine_frag_shaders) {
+            fragment_shaders_ = orig_fragment_shaders_;
+            // here we re-try compilation but combine all our fragment_shaders_
+            // into a single shader, which may overcome the link error. See
+            // note above
+            compile(false);
+            return;
+        }
 
         // a shader hasn't compiled ... delete anthing that did compile
         std::for_each(
@@ -790,6 +836,12 @@ void GLShaderProgram::compile() {
         std::vector<GLchar> infoLog(maxLength);
         glGetProgramInfoLog(program_, maxLength, &maxLength, &infoLog[0]);
 
+        // Detach shaders after failed link .... (not clear if this is correct,
+        // but no errors have been observed)
+        std::for_each(shaders_.begin(), shaders_.end(), [&](GLuint shdr) {
+            glDetachShader(program_, shdr);
+        });
+
         // We don't need the program anymore.
         glDeleteProgram(program_);
 
@@ -799,9 +851,23 @@ void GLShaderProgram::compile() {
 
         shaders_.clear();
 
+        if (force_combine_frag_shaders) {
+            // here we re-try compilation but combine all our fragment_shaders_
+            // into a single shader, which may overcome the link error. See
+            // note above
+            compile(false);
+            return;
+        }
+
         // Use the infoLog as you see fit.
         std::stringstream e;
         e << "Shader link error:\n\n" << infoLog.data();
+
+        std::for_each(
+            fragment_shaders_.begin(),
+            fragment_shaders_.end(),
+            [=](const std::string &shader_code) { std::cerr << shader_code << "\n\n"; });
+
         throw std::runtime_error(e.str().c_str());
     }
 
@@ -911,11 +977,32 @@ void GLShaderProgram::set_shader_parameters(const utility::JsonStore &shader_par
             } else if (shader_param_type == "uvec4") {
                 set_gl_uniform<unsigned int>(glUniform4uiv, location, vs, count, 4, param_name);
             } else if (shader_param_type == "mat2") {
-                set_gl_uniform_matrix(glUniformMatrix2fv, location, vs, count, 4, param_name);
+                set_gl_uniform_matrix(
+                    glUniformMatrix2fv,
+                    location,
+                    vs,
+                    count,
+                    4,
+                    param_name,
+                    transpose_matrices_);
             } else if (shader_param_type == "mat3") {
-                set_gl_uniform_matrix(glUniformMatrix3fv, location, vs, count, 9, param_name);
+                set_gl_uniform_matrix(
+                    glUniformMatrix3fv,
+                    location,
+                    vs,
+                    count,
+                    9,
+                    param_name,
+                    transpose_matrices_);
             } else if (shader_param_type == "mat4") {
-                set_gl_uniform_matrix(glUniformMatrix4fv, location, vs, count, 16, param_name);
+                set_gl_uniform_matrix(
+                    glUniformMatrix4fv,
+                    location,
+                    vs,
+                    count,
+                    16,
+                    param_name,
+                    transpose_matrices_);
             }
         }
     }

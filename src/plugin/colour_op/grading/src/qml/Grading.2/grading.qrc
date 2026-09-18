@@ -1,0 +1,14 @@
+<RCC>
+    <qresource prefix="/grading_icons">
+		<file alias="brightness_low.svg">icons/brightness_low.svg</file>
+		<file alias="brightness_high.svg">icons/brightness_high.svg</file>
+		<file alias="hexagon.svg">icons/hexagon.svg</file>
+		<file alias="mask_domino.svg">icons/mask_domino.svg</file>
+		<file alias="invert_colors.svg">icons/invert_colors.svg</file>
+
+		<file alias="wheel_256px.png">icons/wheel_256px.png</file>
+
+		<file alias="all_inclusive.svg">icons/all_inclusive.svg</file>
+		<file alias="step_into.svg">icons/step_into.svg</file>
+	</qresource>
+</RCC>

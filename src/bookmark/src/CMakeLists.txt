@@ -1,9 +1,9 @@
 
 SET(LINK_DEPS
 	xstudio::utility
-	xstudio::broadcast
 	xstudio::json_store
-	caf::core
+	xstudio::media
+	CAF::core
 )
 
-create_component(bookmark 0.1.0 "${LINK_DEPS}")
+create_component(bookmark ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}")

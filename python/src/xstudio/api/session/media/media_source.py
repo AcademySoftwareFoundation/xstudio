@@ -1,13 +1,15 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.core import get_media_stream_atom, current_media_stream_atom, MediaType, media_reference_atom, rescan_atom, invalidate_cache_atom
-from xstudio.core import media_status_atom, get_json_atom, set_json_atom, JsonStore
+from xstudio.core import media_status_atom
+from xstudio.core import transform_matrix_atom
 
 from xstudio.api.session.container import Container
 from xstudio.api.session.media.media_stream import MediaStream
+from xstudio.api.auxiliary.json_store import JsonStoreHandler
 
 import json
 
-class MediaSource(Container):
+class MediaSource(Container, JsonStoreHandler):
     """MediaSource object."""
 
     def __init__(self, connection, remote, uuid=None):
@@ -25,6 +27,7 @@ class MediaSource(Container):
             str(MediaType.MT_IMAGE): None,
             str(MediaType.MT_AUDIO): None
         }
+        JsonStoreHandler.__init__(self, self)
 
     @property
     def image_streams(self):
@@ -133,54 +136,6 @@ class MediaSource(Container):
         return self.connection.request_receive(self.remote, invalidate_cache_atom())[0]
 
     @property
-    def metadata(self):
-        """Get media metadata.
-
-        Returns:
-            metadata(json): Media metadata.
-        """
-        return json.loads(self.connection.request_receive(self.remote, get_json_atom(), "")[0].dump())
-
-
-    @metadata.setter
-    def metadata(self, new_metadata):
-        """Set media reference rate.
-
-        Args:
-            new_metadata(json): Json dict to set as media source metadata
-
-        Returns:
-            bool: success
-
-        """
-        return self.connection.request_receive(self.remote, set_json_atom(), JsonStore(new_metadata))
-
-    def get_metadata(self, path):
-        """Get metdata at JSON path
-
-        Args:
-            path(str): JSON Pointer
-
-        Returns:
-            metadata(json) Json at pointer location
-        """
-
-        return json.loads(self.connection.request_receive(self.remote, get_json_atom(), path)[0].dump())
-
-    def set_metadata(self, data, path):
-        """Get metdata at JSON path
-
-        Args:
-            data(json): JSON Data
-            path(str): JSON Pointer
-
-        Returns:
-            bool: success
-        """
-
-        return self.connection.request_receive(self.remote, set_json_atom(), JsonStore(data), path)[0]
-
-    @property
     def image_stream(self):
         """Get current image stream.
 
@@ -224,3 +179,23 @@ class MediaSource(Container):
             status(MediaStatus): Set status state.
         """
         self.connection.request_receive(self.remote, media_status_atom(), status)
+
+    @property
+    def transform_matrix(self):
+        """Get media source transform matrix. This matrix is used when the image
+        is drawn into the xstudio viewport, and can be changed to apply scaling,
+        rotation, shear and so-on.
+
+        Returns:
+            transform_matrix(Imath::M44f): MediaSource transform matrix.
+        """
+        return self.connection.request_receive(self.remote, transform_matrix_atom())[0]
+
+    @transform_matrix.setter
+    def transform_matrix(self, new_matrix):
+        """Set media source transform matrix.
+
+        Args:
+            new_matrix(M44f): Set media source transform matrix.
+        """
+        self.connection.request_receive(self.remote, transform_matrix_atom(), new_matrix)

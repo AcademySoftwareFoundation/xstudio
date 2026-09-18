@@ -4,9 +4,6 @@ import xstudio
 def test_type(spawn):
     assert spawn.app_type == spawn.APP_TYPE_XSTUDIO
 
-def test_api_type(spawn):
-    assert spawn.api_type == spawn.API_TYPE_FULL
-
 def test_api_session(spawn):
     assert isinstance(spawn.api.session, xstudio.api.session.Session)
 

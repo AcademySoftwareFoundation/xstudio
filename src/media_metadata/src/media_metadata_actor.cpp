@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <caf/sec.hpp>
 #include <caf/policy/select_all.hpp>
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/global_store/global_store.hpp"
@@ -19,7 +20,8 @@ using namespace xstudio::global_store;
 using namespace xstudio::media_metadata;
 using namespace caf;
 
-MediaMetadataWorkerActor::MediaMetadataWorkerActor(caf::actor_config &cfg)
+MediaMetadataWorkerActor::MediaMetadataWorkerActor(
+    caf::actor_config &cfg, const utility::JsonStore &prefs)
     : caf::event_based_actor(cfg) {
 
     auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
@@ -37,7 +39,7 @@ MediaMetadataWorkerActor::MediaMetadataWorkerActor(caf::actor_config &cfg)
         for (const auto &i : details) {
             if (i.enabled_) {
                 auto actor = request_receive<caf::actor>(
-                    *sys, pm, plugin_manager::spawn_plugin_atom_v, i.uuid_);
+                    *sys, pm, plugin_manager::spawn_plugin_atom_v, i.uuid_, prefs);
                 link_to(actor);
                 plugins_.push_back(actor);
                 name_plugin_[i.name_] = actor;
@@ -144,19 +146,25 @@ GlobalMediaMetadataActor::GlobalMediaMetadataActor(caf::actor_config &cfg)
     spdlog::debug("Created GlobalMediaMetadataActor.");
     print_on_exit(this, "GlobalMediaMetadataActor");
 
+    JsonStore j;
     try {
         auto prefs = GlobalStoreHelper(system());
-        JsonStore j;
         join_broadcast(this, prefs.get_group(j));
         worker_count = preference_value<size_t>(j, "/core/media_metadata/max_worker_count");
     } catch (...) {
     }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
     auto pool = caf::actor_pool::make(
-        system().dummy_execution_unit(),
+        system(),
         worker_count,
-        [&] { return system().spawn<MediaMetadataWorkerActor>(); },
+        [&] { return system().spawn<MediaMetadataWorkerActor>(j); },
         caf::actor_pool::round_robin());
+
+#pragma GCC diagnostic pop
+
     link_to(pool);
 
     system().registry().put(media_metadata_registry, this);
@@ -164,32 +172,33 @@ GlobalMediaMetadataActor::GlobalMediaMetadataActor(caf::actor_config &cfg)
     behavior_.assign(
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
         [=](get_metadata_atom _get_metadata_atom, const caf::uri &_uri) {
-            delegate(pool, _get_metadata_atom, _uri, std::numeric_limits<int>::min());
+            return mail(_get_metadata_atom, _uri, std::numeric_limits<int>::min())
+                .delegate(pool);
         },
 
         [=](get_metadata_atom _get_metadata_atom,
             const caf::uri &_uri,
             const std::string &force_plugin) {
-            delegate(
-                pool, _get_metadata_atom, _uri, std::numeric_limits<int>::min(), force_plugin);
+            return mail(_get_metadata_atom, _uri, std::numeric_limits<int>::min(), force_plugin)
+                .delegate(pool);
         },
 
         [=](get_metadata_atom _get_metadata_atom, const caf::uri &_uri, const int frame) {
-            delegate(pool, _get_metadata_atom, _uri, frame);
+            return mail(_get_metadata_atom, _uri, frame).delegate(pool);
         },
 
         [=](get_metadata_atom _get_metadata_atom,
             const caf::uri &_uri,
             const int frame,
             const std::string &force_plugin) {
-            delegate(pool, _get_metadata_atom, _uri, frame, force_plugin);
+            return mail(_get_metadata_atom, _uri, frame, force_plugin).delegate(pool);
         },
 
         [=](json_store::update_atom,
             const JsonStore & /*change*/,
             const std::string & /*path*/,
             const JsonStore &full) {
-            delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+            return mail(json_store::update_atom_v, full).delegate(actor_cast<caf::actor>(this));
         },
 
         [=](json_store::update_atom, const JsonStore &j) mutable {
@@ -203,11 +212,9 @@ GlobalMediaMetadataActor::GlobalMediaMetadataActor(caf::actor_config &cfg)
                         worker_count,
                         count);
                     while (worker_count < count) {
-                        anon_send(
-                            pool,
-                            sys_atom_v,
-                            put_atom_v,
-                            system().spawn<MediaMetadataWorkerActor>());
+                        anon_mail(
+                            sys_atom_v, put_atom_v, system().spawn<MediaMetadataWorkerActor>(j))
+                            .send(pool);
                         worker_count++;
                     }
                 } else if (count < worker_count) {
@@ -217,11 +224,12 @@ GlobalMediaMetadataActor::GlobalMediaMetadataActor(caf::actor_config &cfg)
                         worker_count,
                         count);
                     worker_count = count;
-                    request(pool, infinite, sys_atom_v, get_atom_v)
+                    mail(sys_atom_v, get_atom_v)
+                        .request(pool, infinite)
                         .await(
                             [=](const std::vector<actor> &ws) {
                                 for (auto i = worker_count; i < ws.size(); i++) {
-                                    anon_send(pool, sys_atom_v, delete_atom_v, ws[i]);
+                                    anon_mail(sys_atom_v, delete_atom_v, ws[i]).send(pool);
                                 }
                             },
                             [=](const error &err) {

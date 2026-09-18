@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
-namespace xstudio {
-namespace thumbnail {
+namespace xstudio::thumbnail {
 
-    typedef enum { TF_RGB24 = 0, TF_RGBF96 } THUMBNAIL_FORMAT;
+typedef enum { TF_RGB24 = 0, TF_RGBF96 } THUMBNAIL_FORMAT;
 
 }
-} // namespace xstudio

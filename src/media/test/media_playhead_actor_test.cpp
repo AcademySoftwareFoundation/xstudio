@@ -8,7 +8,6 @@
 #include "xstudio/media_reader/media_reader.hpp"
 #include "xstudio/playhead/sub_playhead.hpp"
 #include "xstudio/playhead/playhead_actor.hpp"
-#include "xstudio/utility/edit_list.hpp"
 #include "xstudio/utility/helpers.hpp"
 
 using namespace xstudio::utility;
@@ -44,7 +43,7 @@ TEST(MediaPlayheadActorTest, Test) {
     //   }
     //   );
 
-    // f.self->request(pa, infinite, buffer_atom_v).receive(
+    // f.self->request(pa, infinite, image_buffer_atom_v).receive(
     //   [&](ImageBufPtr buf) {
     //       EXPECT_FALSE(buf);
     //     },

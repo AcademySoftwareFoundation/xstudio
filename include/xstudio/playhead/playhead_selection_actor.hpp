@@ -10,43 +10,49 @@
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/uuid.hpp"
 
-namespace xstudio {
-namespace playhead {
-    class PlayheadSelectionActor : public caf::event_based_actor {
-      public:
-        PlayheadSelectionActor(
-            caf::actor_config &cfg, const utility::JsonStore &jsn, caf::actor playlist);
-        PlayheadSelectionActor(
-            caf::actor_config &cfg, const std::string &name, caf::actor playlist);
-        ~PlayheadSelectionActor() override = default;
+namespace xstudio::playhead {
+class PlayheadSelectionActor : public caf::event_based_actor {
+  public:
+    PlayheadSelectionActor(
+        caf::actor_config &cfg, const utility::JsonStore &jsn, caf::actor playlist);
+    PlayheadSelectionActor(
+        caf::actor_config &cfg, const std::string &name, caf::actor playlist);
+    virtual ~PlayheadSelectionActor() = default;
 
-        const char *name() const override { return NAME.c_str(); }
+    [[nodiscard]] const char *name() const override { return NAME.c_str(); }
 
-      private:
-        inline static const std::string NAME = "PlayheadSelectionActor";
-        void init();
+  private:
+    inline static const std::string NAME = "PlayheadSelectionActor";
+    void init();
 
-        caf::behavior make_behavior() override { return behavior_; }
+    void on_exit() override;
 
-        void select_media(const utility::UuidList &media_uuids);
 
-        void insert_actor(
-            caf::actor actor, const utility::Uuid media_uuid, const utility::Uuid &before_uuid);
+    caf::message_handler message_handler();
 
-        void remove_dead_actor(caf::actor_addr actor);
+    caf::behavior make_behavior() override {
+        return message_handler().or_else(base_.container_message_handler(this));
+    }
 
-        void select_all();
+    void select_media(
+        const utility::UuidVector &media_uuids = utility::UuidVector(),
+        const bool retry                       = true,
+        const SelectionMode mode               = SM_CLEAR_AND_SELECT);
 
-        void select_one();
+    void insert_actor(
+        caf::actor actor, const utility::Uuid media_uuid, const utility::Uuid &before_uuid);
 
-        void select_next_media_item(const int skip_by);
+    void select_all();
 
-      private:
-        PlayheadSelection base_;
-        caf::behavior behavior_;
-        caf::actor event_group_;
-        caf::actor playlist_;
-        std::map<utility::Uuid, caf::actor> source_actors_;
-    };
-} // namespace playhead
-} // namespace xstudio
+    void select_one();
+
+    void select_next_media_item(const int skip_by);
+
+  private:
+    PlayheadSelection base_;
+    caf::actor playlist_;
+    std::map<utility::Uuid, caf::actor> source_actors_;
+    std::string filter_string_;
+    std::map<caf::actor_addr, caf::disposable> monitor_;
+};
+} // namespace xstudio::playhead

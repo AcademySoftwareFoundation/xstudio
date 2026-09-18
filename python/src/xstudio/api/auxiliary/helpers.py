@@ -33,6 +33,25 @@ class ActorConnection(object):
         """
         return self.connection.remove_handler(handler_id)
 
+    def add_event_callback(self, callback):
+        """Add event message callback
+        Args:
+            callback(fun(sender, req_id, event)): Callback function.
+
+        Returns:
+            handler_id(str): Key for removing handler.
+        """
+        return self.connection.add_event_callback(self.remote, callback)
+
+    def remove_event_callback(self, handler_id):
+        """Add event handler
+        Args:
+            handler_id(str): Handler id.
+
+        Returns:
+            success(bool): Success.
+        """
+        return self.connection.remove_event_callback(handler_id)
 
 def get_name(connection, remote):
     """Get actor name

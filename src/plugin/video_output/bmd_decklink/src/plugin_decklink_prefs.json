@@ -1,0 +1,111 @@
+{
+	"plugin": {
+		"decklink": {
+			"output_resolution": {
+				"path": "/plugin/decklink/output_resolution",
+				"default_value": "1920 x 1080",
+				"description": "default SDI output resolution",
+				"value": "1920 x 1080",
+				"datatype": "string",
+				"context": ["PLUGIN"]
+			},
+			"output_frame_rate": {
+				"path": "/plugin/decklink/output_frame_rate",
+				"default_value": "24.0",
+				"description": "default SDI output refresh rate",
+				"value": "24.0",
+				"datatype": "string",
+				"context": ["PLUGIN"]
+			},
+			"pixel_format": {
+				"path": "/plugin/decklink/pixel_format",
+				"default_value": "10 bit RGB",
+				"description": "Default SDI output pixel format",
+				"value": "10 bit RGB",
+				"datatype": "string",
+				"context": ["PLUGIN"]
+			},
+			"auto_start_sdi": {
+				"path": "/plugin/decklink/auto_start_sdi",
+				"default_value": false,
+				"description": "If set will cause SDI output to turn on when xSTUDIO starts up.",
+				"value": false,
+				"datatype": "bool",
+				"context": ["PLUGIN"]
+			},
+			"audio_samps_water_level": {
+				"path": "/plugin/decklink/audio_samps_water_level",
+				"default_value": 4096,
+				"description": "This determines the number of audio samples buffered by the SDI card in front of playback.",
+				"value": 4096,
+				"datatype": "int",
+				"context": ["PLUGIN"]
+			},
+			"audio_sync_delay": {
+				"path": "/plugin/decklink/audio_sync_delay",
+				"default_value": 500,
+				"description": "Not used anymore.",
+				"value": 500,
+				"datatype": "int",
+				"context": ["PLUGIN"]
+			},
+			"new_audio_sync_delay": {
+				"path": "/plugin/decklink/new_audio_sync_delay",
+				"default_value": 100,
+				"description": "This can be used to adjust sync between audio out and video in the SDI stream.",
+				"value": 100,
+				"datatype": "int",
+				"context": ["PLUGIN"]
+			},
+			"hdr_mode": {
+				"path": "/plugin/decklink/hdr_mode",
+				"default_value": "SDR",
+				"description": "The default HDR mode",
+				"value": "SDR",
+				"datatype": "string",
+				"context": ["PLUGIN"]
+			},
+			"colourspace": {
+				"path": "/plugin/decklink/colourspace",
+				"default_value": "BT. 709",
+				"description": "The default HDR colour space",
+				"value": "BT. 709",
+				"datatype": "string",
+				"context": ["PLUGIN"]
+			},
+			"ocio_display_hdr_match_string": {
+				"path": "/plugin/decklink/ocio_display_hdr_match_string",
+				"default_value": "hdr",
+				"description": "If this string is found in the ocio display for the SDI output, HDR PQ mode is automatically enabled",
+				"value": "hdr",
+				"datatype": "string",
+				"context": ["PLUGIN"]
+			},
+			"hdr_presets": {
+				"path": "/plugin/decklink/hdr_presets",
+				"description": "The RGB and white point xy coords for metadata presets",
+				"value": {
+					"BT. 709": [0.64, 0.33, 0.30, 0.6, 0.15, 0.06, 0.3127, 0.329],
+					"BT. 2020": [0.708, 0.292, 0.17, 0.797, 0.131, 0.046, 0.3127, 0.329],
+					"DCI-P3": [0.68, 0.32, 0.265, 0.69, 0.15, 0.06, 0.3127, 0.329]
+				},
+				"datatype": "json",
+				"context": ["PLUGIN"]
+			},
+			"hdr_colour_metadata_values": {
+				"path": "/plugin/decklink/hdr_colour_metadata_values",
+				"description": "Stores the RGB and white point xy coords for HDR metadata",
+				"value": [0.64, 0.33, 0.30, 0.6, 0.15, 0.06, 0.3127, 0.329],
+				"datatype": "json",
+				"context": ["PLUGIN"]
+			},
+			"hdr_luminance_metadata_values": {
+				"path": "/plugin/decklink/hdr_luminance_metadata_values",
+				"description": "Stores the Lum. Min, Lum. Max, CLL Max and Frm Avg Light HDR settings",
+				"value": [0.0005, 1000.0, 1000.0, 400.0],
+				"datatype": "json",
+				"context": ["PLUGIN"]
+			}
+		}
+	}
+}

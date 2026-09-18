@@ -3,6 +3,7 @@
 
 #include "xstudio/media/media.hpp"
 #include "xstudio/utility/frame_list.hpp"
+#include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/json_store.hpp"
 
 using namespace xstudio::media;
@@ -24,6 +25,12 @@ MediaSource::MediaSource(const JsonStore &jsn)
     current_audio_ = jsn["current_audio"];
     for (const auto &i : jsn["audio_streams"]) {
         audio_streams_.push_back(i);
+    }
+
+    partial_seq_behaviour_ = jsn.value("partial_seq_behaviour", PS_COLLAPSE_TO_ON_DISK_FRAMES);
+
+    if (jsn.contains("transform")) {
+        transform_ = jsn["transform"].get<Imath::M44f>();
     }
 }
 
@@ -76,8 +83,20 @@ JsonStore MediaSource::serialise() const {
         jsn["audio_streams"].push_back(i);
     }
 
+    jsn["partial_seq_behaviour"] = partial_seq_behaviour();
+
+    if (transform_ != Imath::M44f()) {
+        jsn["transform"] = transform_;
+    }
+
     return jsn;
 }
+
+MediaSourceChecksum MediaSource::checksum() const {
+    return std::make_tuple(
+        fs::path(utility::uri_to_posix_path(ref_.uri())).filename().string(), checksum_, size_);
+}
+
 
 bool MediaSource::set_current(const MediaType media_type, const Uuid &uuid) {
     bool result = false;
@@ -97,6 +116,8 @@ bool MediaSource::set_current(const MediaType media_type, const Uuid &uuid) {
             result         = true;
         }
         break;
+    default:
+        break;
     }
     return result;
 }
@@ -110,6 +131,8 @@ Uuid MediaSource::current(const MediaType media_type) const {
         break;
     case MT_AUDIO:
         uuid = current_audio_;
+        break;
+    default:
         break;
     }
 
@@ -125,6 +148,8 @@ bool MediaSource::has_type(const MediaType media_type) const {
         break;
     case MT_AUDIO:
         result = not audio_streams_.empty();
+        break;
+    default:
         break;
     }
 
@@ -151,6 +176,8 @@ void MediaSource::add_media_stream(
                 current_audio_ = uuid;
         }
         break;
+    default:
+        break;
     }
 }
 
@@ -175,6 +202,8 @@ void MediaSource::remove_media_stream(const MediaType media_type, const Uuid &uu
             else
                 current_audio_.clear();
         }
+        break;
+    default:
         break;
     }
 }

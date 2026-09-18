@@ -27,7 +27,7 @@ TEST(EmbeddedPython, Test) {
         s.eval_locals("c=locals()['a']+locals()['b']", nlohmann::json({{"a", 1}, {"b", 2}}));
     EXPECT_EQ(d["c"], 3);
 
-    EXPECT_FALSE(s.connect(45500));
+    EXPECT_FALSE(s.connect(14441));
     try {
         s.exec("print ('hello')");
     } catch (...) {

@@ -21,8 +21,9 @@ void JsonStore::set(const nlohmann::json &json, const std::string &path) {
 
 bool JsonStore::remove(const std::string &path) {
     try {
-        *this = patch(json::parse(
-            std::string(R"([{"op": "remove", "path": ")") + path + std::string("\"}]")));
+        *this = patch(
+            json::parse(
+                std::string(R"([{"op": "remove", "path": ")") + path + std::string("\"}]")));
     } catch (...) {
         return false;
     }
@@ -34,14 +35,26 @@ JsonStore xstudio::utility::open_session(const caf::uri &path) {
 }
 
 JsonStore xstudio::utility::open_session(const std::string &path) {
-    JsonStore js;
 
+#ifdef _WIN32
+    zstr::ifstream i(path, std::ios::binary);
+    i >> std::noskipws;
+    const std::string uncompressed(
+        (std::istreambuf_iterator<char>(i)), std::istreambuf_iterator<char>());
+    return JsonStore(nlohmann::json::parse(uncompressed));
+#else
+    JsonStore js;
     zstr::ifstream i(path);
     i >> js;
-
     return js;
+#endif
 }
 
+
+void JsonStore::parse_string(const std::string &data) {
+    auto n = nlohmann::json::parse(data);
+    *this  = nlohmann::json::parse(data);
+}
 
 // void JsonStore::merge(const JsonStore &json, const std::string &path) {
 //     merge(json, path);

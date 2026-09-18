@@ -1,6 +1,0 @@
-python310.zip
-.
-../python
-../python/site-packages
-
-import site

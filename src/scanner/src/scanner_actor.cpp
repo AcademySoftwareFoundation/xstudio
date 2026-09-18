@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/policy/select_all.hpp>
+#include <caf/actor_registry.hpp>
 #include <filesystem>
-#include <openssl/md5.h>
 #include <iostream>
 #include <iomanip>
 #include <sstream>
@@ -34,7 +34,7 @@ media::MediaStatus check_media_status(const MediaReference &mr) {
     try {
 
         if (mr.container()) {
-            if (not fs::exists(uri_to_posix_path(mr.uri())))
+            if (mr.uri().scheme() == "file" and not fs::exists(uri_to_posix_path(mr.uri())))
                 ms = media::MediaStatus::MS_MISSING;
         } else {
             // check first and last frame.
@@ -53,7 +53,7 @@ media::MediaStatus check_media_status(const MediaReference &mr) {
             }
         }
 
-    } catch ([[maybe_unused]] std::exception &e) {
+    } catch (std::exception &e) {
         ms = media::MediaStatus::MS_UNREADABLE;
     }
 
@@ -73,8 +73,6 @@ uintmax_t get_file_size(const std::string &path) {
 }
 
 std::string get_checksum(const std::string &path) {
-    std::array<unsigned char, MD5_DIGEST_LENGTH> hash;
-
     // read first and last 1k..
     std::string buf(2048, ' ');
     // open file..
@@ -82,19 +80,27 @@ std::string get_checksum(const std::string &path) {
     try {
         myfile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
         myfile.open(path, std::ios::in | std::ios::binary);
-        myfile.read((char *)buf.data(), 1024);
-        myfile.seekg(-1024, std::ios::end);
-        myfile.read((char *)buf.data() + 1024, 1024);
+        auto short_file = false;
+
+        try {
+            myfile.read((char *)buf.data(), 1024);
+        } catch (...) {
+            // shortfile..
+            short_file = true;
+        }
+        if (not short_file) {
+            myfile.seekg(-1024, std::ios::end);
+            myfile.read((char *)buf.data() + 1024, 1024);
+        }
+
         myfile.close();
+
     } catch (const std::exception &err) {
         spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, path, err.what());
-        return std::string();
+        return {};
     }
 
-    MD5_CTX md5;
-    MD5_Init(&md5);
-    MD5_Update(&md5, buf.c_str(), buf.size());
-    MD5_Final(hash.data(), &md5);
+    auto hash = utility::md5_hash(buf.c_str(), buf.size());
 
     std::stringstream ss;
 
@@ -163,13 +169,15 @@ ScanHelperActor::ScanHelperActor(caf::actor_config &cfg) : caf::event_based_acto
         },
 
         [=](media::relink_atom,
-            const std::pair<std::string, uintmax_t> &pin,
-            const caf::uri &uri) -> result<caf::uri> {
+            const media::MediaSourceChecksum &pin,
+            const caf::uri &uri,
+            const bool loose_match) -> result<caf::uri> {
             // recursively scan directory
             // look for size match.
             // then checksum
             // cache any checksums we create..
             auto path = uri_to_posix_path(uri);
+            auto cpin = std::make_pair(std::get<1>(pin), std::get<2>(pin));
 
             try {
                 for (const auto &entry : fs::recursive_directory_iterator(path)) {
@@ -184,7 +192,7 @@ ScanHelperActor::ScanHelperActor(caf::actor_config &cfg) : caf::event_based_acto
 
                             if (cache_.count(puri)) {
                                 const auto &c = cache_.at(puri);
-                                if (c == pin)
+                                if (c == cpin)
                                     return puri;
                             } else {
 #ifdef _WIN32
@@ -192,14 +200,14 @@ ScanHelperActor::ScanHelperActor(caf::actor_config &cfg) : caf::event_based_acto
 #else
                                 auto size = get_file_size(entry.path());
 #endif
-                                if (size == pin.second) {
+                                if (size == cpin.second) {
 #ifdef _WIN32
                                     auto checksum = get_checksum(entry.path().string());
 #else
                                     auto checksum = get_checksum(entry.path());
 #endif
                                     cache_[puri] = std::make_pair(checksum, size);
-                                    if (checksum == pin.first)
+                                    if (checksum == cpin.first)
                                         return puri;
                                 }
                             }
@@ -207,9 +215,26 @@ ScanHelperActor::ScanHelperActor(caf::actor_config &cfg) : caf::event_based_acto
                     } catch (...) {
                     }
                 }
+                if (loose_match) {
+                    for (const auto &entry : fs::recursive_directory_iterator(path)) {
+                        try {
+                            if (fs::is_regular_file(entry.status())) {
+                            // check we've not alredy got it in cache..
+#ifdef _WIN32
+                                const auto puri = posix_path_to_uri(entry.path().string());
+#else
+                                const auto puri = posix_path_to_uri(entry.path());
+#endif
+
+                                if (entry.path().filename() == std::get<0>(pin))
+                                    return puri;
+                            }
+                        } catch (...) {
+                        }
+                    }
+                }
             } catch (...) {
             }
-
             return caf::uri();
         });
 }
@@ -223,15 +248,16 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
 
     behavior_.assign(
         [=](media::media_status_atom, const MediaReference &mr, caf::actor dest) {
-            anon_send(dest, media::media_status_atom_v, check_media_status(mr));
+            anon_mail(media::media_status_atom_v, check_media_status(mr)).send(dest);
         },
 
         [=](media::checksum_atom atom, const caf::actor &media_source) {
-            request(media_source, infinite, media::media_reference_atom_v)
+            mail(media::media_reference_atom_v)
+                .request(media_source, infinite)
                 .then(
                     [=](const MediaReference &result) mutable {
-                        anon_send(
-                            caf::actor_cast<caf::actor>(this), atom, media_source, result);
+                        anon_mail(atom, media_source, result)
+                            .send(caf::actor_cast<caf::actor>(this));
                     },
                     [=](const caf::error &err) {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -241,36 +267,42 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
         [=](media::checksum_atom atom,
             const caf::actor &media_source,
             const MediaReference &mr) {
-            request(helper, infinite, atom, mr)
+            mail(atom, mr)
+                .request(helper, infinite)
                 .then(
                     [=](const std::pair<std::string, uintmax_t> &result) mutable {
-                        anon_send(media_source, atom, result);
+                        anon_mail(atom, result).send(media_source);
                     },
                     [=](const caf::error &err) {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                     });
         },
 
-        [=](media::rescan_atom atom, const MediaReference &mr) { delegate(helper, atom, mr); },
+        [=](media::rescan_atom atom, const MediaReference &mr) {
+            return mail(atom, mr).delegate(helper);
+        },
 
         [=](media::checksum_atom atom, const MediaReference &mr) {
-            delegate(helper, atom, mr);
+            return mail(atom, mr).delegate(helper);
         },
 
         [=](media::relink_atom atom,
-            const std::pair<std::string, uintmax_t> &pin,
-            const caf::uri &path) { delegate(helper, atom, pin, path); },
+            const media::MediaSourceChecksum &pin,
+            const caf::uri &path,
+            const bool loose_match) {
+            return mail(atom, pin, path, loose_match).delegate(helper);
+        },
 
-        [=](media::relink_atom atom, const caf::actor &media_source, const caf::uri &path) {
-            request(media_source, infinite, media::checksum_atom_v)
+        [=](media::relink_atom atom,
+            const caf::actor &media_source,
+            const caf::uri &path,
+            const bool loose_match) {
+            mail(media::checksum_atom_v)
+                .request(media_source, infinite)
                 .then(
-                    [=](const std::pair<std::string, uintmax_t> &result) mutable {
-                        anon_send(
-                            caf::actor_cast<caf::actor>(this),
-                            atom,
-                            media_source,
-                            result,
-                            path);
+                    [=](const media::MediaSourceChecksum &result) mutable {
+                        anon_mail(atom, media_source, result, path, loose_match)
+                            .send(caf::actor_cast<caf::actor>(this));
                     },
                     [=](const caf::error &err) {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -279,14 +311,17 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
 
         [=](media::relink_atom atom,
             const caf::actor &media_source,
-            const std::pair<std::string, uintmax_t> &pin,
-            const caf::uri &path) {
-            request(helper, infinite, atom, pin, path)
+            const media::MediaSourceChecksum &pin,
+            const caf::uri &path,
+            const bool loose_match) {
+            mail(atom, pin, path, loose_match)
+                .request(helper, infinite)
                 .then(
                     [=](const caf::uri &result) mutable {
                         if (not result.empty()) {
                             // get mr, and then over write..
-                            request(media_source, infinite, media::media_reference_atom_v)
+                            mail(media::media_reference_atom_v)
+                                .request(media_source, infinite)
                                 .then(
                                     [=](MediaReference mr) mutable {
                                         if (not mr.container()) {
@@ -298,8 +333,8 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
                                                 mr.set_uri(tmp[0].first);
                                         } else
                                             mr.set_uri(result);
-                                        anon_send(
-                                            media_source, media::media_reference_atom_v, mr);
+                                        anon_mail(media::media_reference_atom_v, mr)
+                                            .send(media_source);
                                     },
                                     [=](const caf::error &err) {
                                         spdlog::warn(

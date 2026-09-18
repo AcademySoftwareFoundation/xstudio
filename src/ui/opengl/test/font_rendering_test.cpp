@@ -10,5 +10,5 @@ using namespace xstudio;
 
 TEST(LoadFontTest, Test) {
 
-    OpenGLTextRendererBitmap(utility::xstudio_root("/fonts/Overpass-Regular.ttf"), 48);
+    OpenGLTextRendererBitmap(utility::xstudio_resources_dir("fonts/Overpass-Regular.ttf"), 48);
 }

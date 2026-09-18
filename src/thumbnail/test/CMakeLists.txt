@@ -3,7 +3,8 @@ include(CTest)
 SET(LINK_DEPS
 	xstudio::thumbnail
 	xstudio::utility
-	caf::core
+	xstudio::media
+	CAF::core
 )
 
 create_tests("${LINK_DEPS}")

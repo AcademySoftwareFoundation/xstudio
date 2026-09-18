@@ -9,12 +9,10 @@
 #endif
 #include <cpp-httplib/httplib.h>
 
-namespace xstudio {
-namespace http_client {
-    class HTTPClient {
-      public:
-        HTTPClient()          = default;
-        virtual ~HTTPClient() = default;
-    };
-} // namespace http_client
-} // namespace xstudio
+namespace xstudio::http_client {
+class HTTPClient {
+  public:
+    HTTPClient()          = default;
+    virtual ~HTTPClient() = default;
+};
+} // namespace xstudio::http_client

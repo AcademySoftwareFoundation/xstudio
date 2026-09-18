@@ -11,7 +11,7 @@ namespace {
 const static utility::Uuid PLUGIN_UUID{"300bd462-d30c-4d24-a854-439c9ae94495"};
 
 const char *glsl_shader_code = R"(
-#version 430 core
+#version 410 core
 uniform float solarise;
 
 vec4 colour_transform_op(vec4 rgba) {
@@ -51,7 +51,7 @@ SolariseOp::SolariseOp(caf::actor_config &cfg, const utility::JsonStore &init_se
     gamma_ = add_float_attribute("Solarise", "Solarise", 0.0f, 0.0f, 6.0f, 0.005f);
     gamma_->set_redraw_viewport_on_change(true);
     gamma_->set_role_data(module::Attribute::ToolbarPosition, 4.5f);
-    gamma_->set_role_data(module::Attribute::Groups, nlohmann::json{"any_toolbar"});
+    gamma_->set_role_data(module::Attribute::UIDataModels, nlohmann::json{"any_toolbar"});
     gamma_->set_role_data(module::Attribute::Activated, false);
     gamma_->set_role_data(module::Attribute::DefaultValue, 1.0f);
     gamma_->set_role_data(module::Attribute::ToolTip, "Set the viewport gamma");

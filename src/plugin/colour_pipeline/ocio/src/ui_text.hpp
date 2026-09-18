@@ -6,6 +6,7 @@
 #include "xstudio/ui/keyboard.hpp"
 
 struct UiText {
+
     std::string RED       = "Red";
     std::string GREEN     = "Green";
     std::string BLUE      = "Blue";
@@ -54,15 +55,15 @@ struct UiText {
          "Luminance"},
         {int('C'),
          xstudio::ui::NoModifier,
-         "Rever to RGB Mode",
+         "Revert to RGB Mode",
          "Returns to regular RGB colour view mode",
          "RGB"}};
 
     std::string DISPLAY                 = "Display";
     std::string DISPLAY_SHORT           = "Disp";
     std::string VIEW                    = "View";
-    std::string EXPOSURE                = "Exposure";
-    std::string EXPOSURE_SHORT          = "Exp";
+    std::string EXPOSURE                = "Exposure (E)";
+    std::string EXPOSURE_SHORT          = "Exp (E)";
     std::string GAMMA                   = "Gamma";
     std::string GAMMA_SHORT             = "Gam";
     std::string ENABLE_GAMMA            = "Gamma Control";
@@ -78,41 +79,17 @@ struct UiText {
     std::string CMS_OFF                 = "Bypass Colour Management";
     std::string CMS_OFF_SHORT           = "CMS OFF";
     std::string CMS_OFF_ICON            = "--";
-    std::string PREF_VIEW               = "Preferred View";
-    std::string VIEW_MODE               = "Global View Control";
-    std::string GLOBAL_VIEW_SHORT       = "Global View";
-    std::string SOURCE_CS_MODE          = "Auto adjust source";
-    std::string SOURCE_CS_MODE_SHORT    = "Adjust source";
-
-
-    std::string DEFAULT_VIEW                   = "Default";
-    std::string AUTOMATIC_VIEW                 = "Automatic";
-    std::vector<std::string> PREF_VIEW_OPTIONS = {
-        DEFAULT_VIEW,
-        AUTOMATIC_VIEW,
-        // New config style
-        "Client",
-        "Client graded",
-        "Client neutral",
-        "Client alt",
-        "Un-tone-mapped",
-        "Raw",
-        // Old config style
-        "Film",
-        "Film primary",
-        "Film neutral",
-        "Film alt",
-        "Linear",
-        "Gamma22",
-        // Common views
-        "DNEG",
-        "Log"};
-
+    std::string GLOBAL_VIEW             = "Apply OCIO view selection to all media";
+    std::string GLOBAL_VIEW_SHORT       = "Apply OCIO view all";
+    std::string UTM_MODE                = "Avoid LUT inversion for external media";
+    std::string UTM_MODE_SHORT          = "Avoid LUT inv";
+    std::string SAT_ORDER               = "Apply viewport saturation after OCIO display view";
+    std::string SAT_ORDER_SHORT         = "Apply sat after";
 
     std::string CS_MSG_CMS_SELECT_CLR_TIP =
         "Select colour channel to display. You can also use R,G,B,A,Ctrl+L hotkeys.";
-    std::string CS_MSG_CMS_SET_EXP_TIP = "Set viewer Exposure in f-stops. Double click to "
-                                         "toggle between last set value and default of 0.0.";
+    std::string CS_MSG_CMS_SET_EXP_TIP   = "Set viewer Exposure in f-stops. Double click to "
+                                           "toggle between last set value and default of 0.0.";
     std::string CS_MSG_CMS_SET_GAMMA_TIP = "Set viewer Gamma. Double click to "
                                            "toggle between last set value and default of 1.0.";
     std::string CS_MSG_CMS_SET_SATURATION_TIP =
@@ -141,14 +118,15 @@ struct UiText {
                                   "Documentation > OCIO for more information.";
     std::string VIEW_TOOLTIP = "Select from available grades and looks. See User Documentation "
                                "> OCIO for more information.";
-    std::string SOURCE_CS_TOOLTIP = "Select from available colourspaces. See User "
-                                    "Documentation > OCIO for more information.";
-    std::string CS_BYPASS_TOOLTIP = "Turn off colour management";
-    std::string PREF_VIEW_TOOLTIP = "Set preferred view";
-    std::string GLOBAL_VIEW_TOOLTIP =
-        "Enable global view to affect every loaded media when changing the OCIO view.";
-    std::string SOURCE_CS_MODE_TOOLTIP =
-        "Automatically use the most appropriate source colour space for the selected view.";
+    std::string SOURCE_CS_TOOLTIP   = "Select from available colourspaces. See User "
+                                      "Documentation > OCIO for more information.";
+    std::string CS_BYPASS_TOOLTIP   = "Turn off colour management";
+    std::string GLOBAL_VIEW_TOOLTIP = "View selection in the viewport will apply to all media "
+                                      "(uncheck to use different views per media)";
+    std::string UTM_MODE_TOOLTIP = "Avoid full scene-linear roundtrip for external media (can "
+                                   "mitigate LUT inversion artefacts)";
+    std::string SAT_ORDER_TOOLTIP =
+        "Apply saturation after the OCIO display view transform (as opposed to before)";
 
     std::vector<std::string> OCIO_LOAD_ERROR = {"Error could not load OCIO config"};
 };

@@ -2,8 +2,7 @@ SET(LINK_DEPS
 	xstudio::playlist
 	xstudio::utility
 	xstudio::bookmark
-	xstudio::tag
-	caf::core
+	CAF::core
 )
 
-create_component(session 0.1.0 "${LINK_DEPS}")
+create_component(session ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}")

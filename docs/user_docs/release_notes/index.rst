@@ -1,69 +1,50 @@
 
+
 .. _release_notes:
 
 Release Notes
 =============
 
-===============
-v0.11.0 (Alpha)
-===============
+======
+v1.3.0
+======
 
-**Media**
+**Overview**
 
-  - Relink media sources.
-  - Reload Media sources.
-  - Media source stream selection.
+xSTUDIO is a high performance playback and review tool designed by and for Visual Effects, Animation and Post Production professionals. The application can load and play large collections of media files. The efficient playback engine allows you to quickly load and play high resolution image formats with a wide range of file formats and encoding. Intuitive tools allow you to create and organise playlists and media sub-sets within playlists to build interactive review sessions, image and video reference libraries. A multi-track timeline editing interface provides the facility for loading or creating edits from simple to complex. xSTUDIO's python and C++ APIs provide powerful tools for customisation and integration with production pipelines and asset management systems. xSTUDIO is designed to be a flexible tool that can be used in a variety of ways in the production process - from dailies review, to VFX shot review, to grading and colour management, to client presentation and more.
 
-**The Viewer**
+**New in this version (v1.3.x)**
 
-  - Independent selection of audio source.
-  - Display of alpha channel.
-  - Flip / Flop media.
-  - WEBM support.
+- Filesystem Browser Interface
+- User configurable hotkeys
+- Dodge and Burn tools in Annotation draw-overs
+- ‘Onion-skinning’ plugin for visualisation of animated draw-overs
+- Better optimisation of image (frame) based loading
+- Improved mask rendering & API
+- Improved build workflow for Mac, Linux and Windows
+- Updated Documentation and Release Notes
+- Code cleanup: passes ‘Clang tidy’ and -Werror (gcc)
 
-**Misc**
+**Features available since v1.2.x**
 
-  - Refactor of QML/Qt layer to support future developments.
+- SDI Output via Blackmagic Designs Decklink cards.
+- Export annotations as images or Grease Pencil packages for import into 3D applications.
+- A demonstration/reference pipeline integration plugin. Intended for developers as a model for authoring pipeline integrations with xSTUDIO.
+- PDF reader plugin for viewing PDF documents within xSTUDIO as frame based media items.
+- Much faster build support for Windows using Ninja build system.
+- Render playlists, timelines and contact sheets to output video quickly, easily and with any ffmpeg encoding parameters that you like.
+- Set media FPS via the toolbar, right-click Viewport menu or hotkey shortcut.
+- Numerous API extensions inspired by feedbaqck from the community.
 
-===============
-v0.10.0 (Alpha)
-===============
+**xSTUDIO Highlights**
 
-This intial open source version of xSTUDIO should be considered as a 'preview' release as the development team get to grips with maintaining the code base on a public repo. There are still some major features under development so we expect some parts of the code to change and expand considerably.
-
-This version provides the following headline features:
-
-**Playlists**
-
-  - Create any number of playlists
-  - Drag and drop within or betweemn playlists to reorder and organise media
-
-**Media**
-
-  - Display virtually any image format (EXR, TIF, JPG, MOV, etc)
-  - Drag and drop media from the filesystem
-  - Audio playback
-
-**Notes**
-
-  - Add notes and annotations to media
-  - Sketch, Shapes and Laser modes
-  - Adjustable colour, opacity and size
-  - Add editable text captions over the image in any colour or size
-
-**The Viewer**
-
-  - Colour accurate (OCIO v2 colour management)
-  - Adjust exposure and playback rate
-  - Zoom/pan image, RGBA channel display
-  - A/B and String "Compare Modes"
-  - Adjustable masking and guide-lines
-
-What can I expect from future releases?
-***************************************
-Many more exciting features will be released over the next year, including:
-
-- Multi-track NLE timeline with auto-conform
-- Session-syncing for collaborative review sessions
-- Colour-correction and image-transform tools (rotate/move/scale etc)
-- And much more!
+- Efficient and high perfomance playback engine.
+- Compatible with a broad range of media file formats.
+- Flexible and highly configurable user interface.
+- Simple and intuitive playlist driven session workflow.
+- Multi-track NLE timeline interface.
+- Accurate colour management with OpenColorIO integration.
+- Note entry workflow - text only, draw-overs or both.
+- Colour-correction tools for grading or making grading notes.
+- Python API for scripting, plugin extensions and remote control
+- C++ API for high-performance plugin extensions and graphics overlays

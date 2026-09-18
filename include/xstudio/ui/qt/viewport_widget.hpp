@@ -8,33 +8,58 @@ CAF_PUSH_WARNINGS
 #include <QOpenGLWidget>
 CAF_POP_WARNINGS
 
-namespace xstudio {
-namespace ui {
-    namespace qt {
+namespace xstudio::ui::qt {
 
-        class ViewportGLWidget : public caf::mixin::actor_object<QOpenGLWidget> {
+class ViewportGLWidget : public caf::mixin::actor_object<QOpenGLWidget> {
 
-          public:
-            using super = caf::mixin::actor_object<QOpenGLWidget>;
+    Q_OBJECT
 
-            ViewportGLWidget(QWidget *parent);
+  public:
+    using super = caf::mixin::actor_object<QOpenGLWidget>;
 
-            virtual void init(caf::actor_system &system);
+    ViewportGLWidget(
+        QWidget *parent,
+        const bool live_viewport    = false,
+        const QString window_name   = "OffscreenViewport",
+        const QString viewport_name = "");
 
-            void set_playhead(caf::actor playhead);
+    ~ViewportGLWidget();
 
-          protected:
-            void initializeGL() override;
+    virtual void init(caf::actor_system &system);
 
-            void resizeGL(int w, int h) override;
+    void set_playhead(caf::actor playhead);
 
-            void paintGL() override;
+    QString name();
 
-            void receive_change_notification(viewport::Viewport::ChangeCallbackId id);
+    void resizeGL(int w, int h) override;
 
-            std::shared_ptr<ui::viewport::Viewport> the_viewport_;
-        };
+  public slots:
+    void frameBufferSwapped();
 
-    } // namespace qt
-} // namespace ui
-} // namespace xstudio
+  protected:
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
+    void keyReleaseEvent(QKeyEvent *event) override;
+    bool event(QEvent *event) override;
+
+    void initializeGL() override;
+
+    void paintGL() override;
+
+    void receive_change_notification(viewport::Viewport::ChangeCallbackId id);
+
+    void sendPointerEvent(EventType t, QMouseEvent *event, int force_modifiers = 0);
+    void sendPointerEvent(QHoverEvent *event);
+
+    std::shared_ptr<ui::viewport::Viewport> the_viewport_;
+    const bool live_viewport_;
+    caf::actor keypress_monitor_;
+    std::string window_name_;
+    std::string viewport_name_;
+};
+
+} // namespace xstudio::ui::qt

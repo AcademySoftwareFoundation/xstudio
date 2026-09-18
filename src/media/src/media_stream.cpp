@@ -9,11 +9,11 @@ using namespace xstudio::utility;
 
 MediaStream::MediaStream(const JsonStore &jsn)
     : utility::Container(static_cast<JsonStore>(jsn["container"])) {
+
     detail_.duration_   = jsn["duration"];
     detail_.key_format_ = jsn["key_format"];
     detail_.media_type_ = media_type_from_string(jsn["media_type"]);
     detail_.name_       = name();
-
     // older versions of xstudio did not serialise these values. MediaStreamActor
     // takes care of re-scanning for the data in this case
     if (jsn.contains("resolution"))
@@ -22,6 +22,8 @@ MediaStream::MediaStream(const JsonStore &jsn)
         detail_.pixel_aspect_ = jsn["pixel_aspect"];
     if (jsn.contains("stream_index"))
         detail_.index_ = jsn["stream_index"];
+    if (jsn.contains("transform"))
+        transform_ = jsn["transform"].get<Imath::M44f>();
 }
 
 MediaStream::MediaStream(const StreamDetail &detail)
@@ -37,6 +39,8 @@ JsonStore MediaStream::serialise() const {
     jsn["resolution"]   = detail_.resolution_;
     jsn["pixel_aspect"] = detail_.pixel_aspect_;
     jsn["stream_index"] = detail_.index_;
+    if (transform_ != Imath::M44f())
+        jsn["transform"] = transform_;
 
     return jsn;
 }

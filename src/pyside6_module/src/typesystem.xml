@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<typesystem package="__pyside6_xstudio">
+    <load-typesystem name="typesystem_qml.xml" generate="no" />
+    <load-typesystem name="typesystem_core.xml" generate="no" />
+    <load-typesystem name="typesystem_core_common.xml" generate="no" />
+    <load-typesystem name="typesystem_gui.xml" generate="no" />
+    <load-typesystem name="typesystem_widgets.xml" generate="no" />
+    <load-typesystem name="typesystem_quick.xml" generate="no" />
+    <load-typesystem name="typesystem_quickwidgets.xml" generate="no" />
+    <object-type name="PlainViewport"/>
+    <object-type name="PySideQmlViewport"/>
+    <object-type name="XstudioPyApp"/>
+</typesystem>
+

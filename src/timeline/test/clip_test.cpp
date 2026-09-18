@@ -21,6 +21,23 @@ TEST(ClipTest, Test) {
     // check initial value
     EXPECT_EQ(c.item().trimmed_range().duration(), timebase::k_flicks_zero_seconds);
 
+    EXPECT_EQ(c.item().top_left().first, 0);
+    EXPECT_EQ(c.item().top_left().second, 0);
+
+    EXPECT_EQ(c.item().bottom_right().first, 0);
+    EXPECT_EQ(c.item().bottom_right().second, 1);
+
+    c.item().set_available_range(FrameRange(
+        FrameRateDuration(1, timebase::k_flicks_24fps),
+        FrameRateDuration(10, timebase::k_flicks_24fps)));
+
+    EXPECT_EQ(c.item().top_left().first, 0);
+    EXPECT_EQ(c.item().top_left().second, 0);
+
+    EXPECT_EQ(c.item().bottom_right().first, 10);
+    EXPECT_EQ(c.item().bottom_right().second, 1);
+
+
     Clip c2(c.serialise());
     EXPECT_EQ(c2.item().uuid(), c.uuid());
 }
