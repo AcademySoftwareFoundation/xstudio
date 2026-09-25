@@ -21,13 +21,11 @@ Requires 'ffmpeg' (and 'ffprobe') to be available on PATH, e.g.:
 import shutil
 import subprocess
 from pathlib import Path
-from urllib.parse import unquote
 
 import numpy as np
 
 from xstudio.plugin import PluginBase
-
-DETECTOR_OPTIONS = ["Content (fast cuts)", "Adaptive (camera motion)"]
+from .detector import DETECTOR_OPTIONS, compute_cut_frames, uri_to_local_path
 
 # path to QML resources relative to this .py file
 qml_folder_name = "qml/SceneCutDetector.1"
@@ -201,41 +199,15 @@ class SceneCutDetector(PluginBase):
         if media_ref is None:
             raise RuntimeError("Selected media has no resolvable media reference.")
 
-        file_path = self._uri_to_local_path(str(media_ref.uri()))
+        file_path = uri_to_local_path(str(media_ref.uri()))
         if not Path(file_path).is_file():
             raise RuntimeError("Media file not found on disk: {}".format(file_path))
 
         return file_path
 
-    @staticmethod
-    def _uri_to_local_path(uri_str):
-        """Convert a file:// URI to a local filesystem path.
-
-        urlsplit() mis-parses Windows drive-letter URIs because it treats
-        the drive letter (or an explicit 'localhost' authority, which
-        xstudio's URI class emits, e.g. 'file://localhost//C:/Users/...')
-        as a network host, so we strip the scheme/host directly instead.
-        """
-        path_part = uri_str
-        if path_part.startswith("file://"):
-            path_part = path_part[len("file://"):]
-            if path_part.startswith("localhost"):
-                path_part = path_part[len("localhost"):]
-        elif path_part.startswith("file:"):
-            path_part = path_part[len("file:"):]
-
-        path_part = unquote(path_part).lstrip("/")
-
-        # Windows drive-letter paths need no leading slash: "C:/Users/..."
-        if len(path_part) > 1 and path_part[1] == ":":
-            return path_part
-
-        return "/" + path_part
-
     def _detect_cuts(self, file_path, detector_name, threshold, min_scene_len):
-        """Decode downscaled grayscale frames via ffmpeg and flag a cut
-        wherever the mean pixel difference between consecutive frames
-        exceeds a threshold.
+        """Decode downscaled grayscale frames via ffmpeg and delegate to
+        compute_cut_frames() for the actual difference/threshold logic.
 
         Returns a sorted list of 0-based frame numbers (in source decode
         order) where a new scene starts.
@@ -255,48 +227,25 @@ class SceneCutDetector(PluginBase):
 
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-        cut_frames = []
-        recent_diffs = []
-        previous_frame = None
-        frame_index = 0
-        last_cut_frame = -min_scene_len
+        frame_count = 0
 
-        try:
+        def read_frames():
+            nonlocal frame_count
             while True:
                 raw = proc.stdout.read(_ANALYSIS_FRAME_BYTES)
                 if len(raw) < _ANALYSIS_FRAME_BYTES:
                     break
+                frame_count += 1
+                yield np.frombuffer(raw, dtype=np.uint8)
 
-                frame = np.frombuffer(raw, dtype=np.uint8).astype(np.float32)
-
-                if previous_frame is not None:
-                    diff = float(np.abs(frame - previous_frame).mean())
-
-                    if detector_name == DETECTOR_OPTIONS[1] and recent_diffs:
-                        # "Adaptive": a cut has to stand out relative to a
-                        # rolling average of recent frame differences, not
-                        # just against a fixed absolute threshold.
-                        rolling_mean = sum(recent_diffs) / len(recent_diffs)
-                        is_cut = diff > threshold and diff > 3.0 * max(rolling_mean, 1.0)
-                    else:
-                        is_cut = diff > threshold
-
-                    if is_cut and (frame_index - last_cut_frame) >= min_scene_len:
-                        cut_frames.append(frame_index)
-                        last_cut_frame = frame_index
-
-                    recent_diffs.append(diff)
-                    if len(recent_diffs) > 15:
-                        recent_diffs.pop(0)
-
-                previous_frame = frame
-                frame_index += 1
+        try:
+            cut_frames = compute_cut_frames(read_frames(), detector_name, threshold, min_scene_len)
         finally:
             proc.stdout.close()
             stderr = proc.stderr.read()
             proc.wait()
 
-        if proc.returncode != 0 and frame_index == 0:
+        if proc.returncode != 0 and frame_count == 0:
             raise RuntimeError(
                 "ffmpeg failed to decode \"{}\":\n{}".format(
                     file_path, stderr.decode(errors="replace")
