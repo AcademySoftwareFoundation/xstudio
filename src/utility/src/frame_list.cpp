@@ -259,6 +259,14 @@ xstudio::utility::frame_groups_from_sequence_spec(const caf::uri &from_path) {
 
     try {
         std::string path = uri_to_posix_path(from_path);
+#ifdef _WIN32
+        // directory_iterator reports entries via generic_string(), which uses
+        // forward slashes even for UNC paths, but uri_to_posix_path yields a
+        // native UNC path ('\\server\share\...') with backslashes. Match the
+        // path against the generic form so the backslashes are not read as
+        // regex escapes and the fmt::format result lines up with entryPath.
+        path = fs::path(path).generic_string();
+#endif
         const std::regex spec_re("\\{[^}]+\\}");
         const std::regex path_re("^" + std::regex_replace(path, spec_re, "([0-9-]+)") + "$");
 #ifdef _WIN32
@@ -279,7 +287,7 @@ xstudio::utility::frame_groups_from_sequence_spec(const caf::uri &from_path) {
 #endif
             if (std::regex_match(entryPath, m, path_re)) {
                 int frame = std::atoi(m[1].str().c_str());
-                if (fmt::format(fmt::runtime(path), frame) == entry.path()) {
+                if (fmt::format(fmt::runtime(path), frame) == entryPath) {
                     frames.insert(frame);
                 }
             }
