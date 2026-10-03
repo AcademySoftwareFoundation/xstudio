@@ -224,9 +224,14 @@ void PixelProbeHUD::update_onscreen_info(
                 if (p0.x >= -1.0f && p0.x <= 1.0f && p0.y >= -a && p0.y <= a) {
 
                     // pointer is inside image boundary
+                    // clamp so the right/top edge doesn't index one past the last pixel
                     Imath::V2i image_coord(
-                        int(round((p0.x + 1.0f) * 0.5f * im->image_size_in_pixels().x)),
-                        int(round((p0.y / a + 1.0f) * 0.5f * im->image_size_in_pixels().y)));
+                        std::min(
+                            im->image_size_in_pixels().x - 1,
+                            int(round((p0.x + 1.0f) * 0.5f * im->image_size_in_pixels().x))),
+                        std::min(
+                            im->image_size_in_pixels().y - 1,
+                            int(round((p0.y / a + 1.0f) * 0.5f * im->image_size_in_pixels().y))));
 
 
                     // here we get the RGB, YUV value at the image coordinate
