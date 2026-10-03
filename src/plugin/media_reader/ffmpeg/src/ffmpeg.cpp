@@ -180,6 +180,10 @@ vec4 fetch_rgba_pixel(ivec2 image_coord)
 				yuv_tex_lookup_8bit(uv_coord, u_plane_bytes_offset, u_linesize),
 				yuv_tex_lookup_8bit(uv_coord, v_plane_bytes_offset, v_linesize));
 
+		if (a_linesize != 0) {
+			a = float(yuv_tex_lookup_8bit(image_coord, a_plane_bytes_offset, a_linesize))*norm_coeff;
+		}
+
 	}
 
 	yuv -= yuv_offsets;
@@ -715,33 +719,44 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
         auto fetch_rgba_pixel_from_rgb24 = [&](const Imath::V2i image_coord,
                                                bool bgr) -> Imath::V4f {
             auto bytes4 = get_image_data_4bytes(image_coord.x * 3 + image_coord.y * y_linesize);
-            Imath::V4f r = bgr ? Imath::V4f(bytes4[2], bytes4[1], bytes4[0], 0.0f)
-                               : Imath::V4f(bytes4[0], bytes4[1], bytes4[2], 0.0f);
-            r *= norm_coeff;
-            r.w = 1.0f;
-            return r;
+            Imath::V4f rgb = bgr ? Imath::V4f(bytes4[2], bytes4[1], bytes4[0], 0.0f)
+                                 : Imath::V4f(bytes4[0], bytes4[1], bytes4[2], 0.0f);
+            r.add_code_value_info("R", (int)rgb.x);
+            r.add_code_value_info("G", (int)rgb.y);
+            r.add_code_value_info("B", (int)rgb.z);
+            rgb *= norm_coeff;
+            rgb.w = 1.0f;
+            return rgb;
         };
 
         auto fetch_rgba_pixel_from_rgba32 = [&](const Imath::V2i image_coord) -> Imath::V4f {
             int address = image_coord.x * 4 + image_coord.y * y_linesize;
             auto bytes4 = get_image_data_4bytes(address);
-            Imath::V4f r(0, 0, 0, 0);
+            Imath::V4f rgba(0, 0, 0, 0);
             if (pix_fmt == 3) { // AV_PIX_FMT_ARGB
-                r = Imath::V4f(bytes4[1], bytes4[2], bytes4[3], bytes4[0]);
+                rgba = Imath::V4f(bytes4[1], bytes4[2], bytes4[3], bytes4[0]);
             } else if (pix_fmt == 4) { // AV_PIX_FMT_RGBA
-                // nope
+                rgba = Imath::V4f(bytes4[0], bytes4[1], bytes4[2], bytes4[3]);
             } else if (pix_fmt == 5) { // AV_PIX_FMT_ABGR
-                r = Imath::V4f(bytes4[3], bytes4[2], bytes4[1], bytes4[0]);
+                rgba = Imath::V4f(bytes4[3], bytes4[2], bytes4[1], bytes4[0]);
             } else if (pix_fmt == 6) { // AV_PIX_FMT_BGRA
-                r = Imath::V4f(bytes4[0], bytes4[1], bytes4[2], bytes4[3]);
+                rgba = Imath::V4f(bytes4[2], bytes4[1], bytes4[0], bytes4[3]);
             }
 
-            return r * norm_coeff;
+            r.add_code_value_info("R", (int)rgba.x);
+            r.add_code_value_info("G", (int)rgba.y);
+            r.add_code_value_info("B", (int)rgba.z);
+            r.add_code_value_info("A", (int)rgba.w);
+
+            return rgba * norm_coeff;
         };
 
         auto fetch_rgba_pixel_from_yuv = [&](const Imath::V2i image_coord) -> Imath::V4f {
             Imath::V3i yuv;
             float a = ALPHA_UNSET;
+            // the alpha code value as stored, kept separately from the normalised
+            // value that goes into the returned pixel
+            int a_code = -1;
 
             Imath::V2i uv_coord = Imath::V2i(
                 half_scale_uvx ? image_coord.x >> 1 : image_coord.x,
@@ -766,9 +781,9 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
                 }
 
                 if (a_linesize != 0) {
-                    a = float(yuv_tex_lookup_10bit(
-                            image_coord, a_plane_bytes_offset, a_linesize)) *
-                        norm_coeff;
+                    a_code =
+                        yuv_tex_lookup_10bit(image_coord, a_plane_bytes_offset, a_linesize);
+                    a = float(a_code) * norm_coeff;
                 }
 
             } else {
@@ -777,14 +792,19 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
                     yuv_tex_lookup_8bit(image_coord, y_plane_bytes_offset, y_linesize),
                     yuv_tex_lookup_8bit(uv_coord, u_plane_bytes_offset, u_linesize),
                     yuv_tex_lookup_8bit(uv_coord, v_plane_bytes_offset, v_linesize));
+
+                if (a_linesize != 0) {
+                    a_code = yuv_tex_lookup_8bit(image_coord, a_plane_bytes_offset, a_linesize);
+                    a      = float(a_code) * norm_coeff;
+                }
             }
 
             // record the code values
             r.add_code_value_info("Y", yuv.x);
-            r.add_code_value_info("U", yuv.y);
-            r.add_code_value_info("V", yuv.z);
-            if (a != ALPHA_UNSET)
-                r.add_code_value_info("A", a);
+            r.add_code_value_info("Cb", yuv.y);
+            r.add_code_value_info("Cr", yuv.z);
+            if (a_code >= 0)
+                r.add_code_value_info("A", a_code);
 
             yuv -= yuv_offsets;
             Imath::V3f yuvf(yuv.x, yuv.y, yuv.z);
