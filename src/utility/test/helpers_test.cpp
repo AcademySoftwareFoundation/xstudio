@@ -195,6 +195,23 @@ TEST(UriToPosixPathSchemeTest, UncHostForms) {
         "\\\\192.168.0.1\\share\\f.mov");
     // Share root, no file.
     EXPECT_EQ(uri_to_posix_path(uri_of("file://server/share")), "\\\\server\\share");
+
+    // The same UNC paths arrive with forward slashes from the command line
+    // (run_xstudio.bat //host/share/...) and from fs::path::generic_string().
+    // Both separator styles must encode with the server as the URI host, or
+    // the server is lost on decode and the path collapses to drive-relative.
+    for (const char *p : {"//server/share/f.mov", "\\\\server\\share\\f.mov"}) {
+        const auto u = posix_path_to_uri(p);
+        EXPECT_EQ(to_string(u.authority()), "server") << p;
+        EXPECT_EQ(uri_to_posix_path(u), "\\\\server\\share\\f.mov") << p;
+    }
+}
+
+TEST(UriToPosixPathSchemeTest, UncCliPathsKeepTheirServer) {
+    FrameList fl;
+    for (const char *p : {"//server/share/file.mov", "\\\\server\\share\\file.mov"}) {
+        EXPECT_EQ(parse_cli_posix_path(p, fl), posix_path_to_uri(p)) << p;
+    }
 }
 #endif
 
@@ -210,6 +227,11 @@ TEST(UriToPosixPathSchemeTest, RoundTrip) {
         "C:\\media\\backslash.mov",
         "\\\\server\\share\\c.mov",
         "\\\\server.domain.com\\share\\with space\\d.mov",
+        // Forward-slash UNC, as it arrives from the command line and from
+        // generic_string(). The round trip returns the native backslash form,
+        // which fwd() normalises.
+        "//server/share/c.mov",
+        "//server.domain.com/share/with space/f.mov",
 #endif
     };
 
