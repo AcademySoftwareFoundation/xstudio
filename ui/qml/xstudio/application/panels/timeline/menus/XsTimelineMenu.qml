@@ -148,21 +148,21 @@ XsPopupMenu {
         menuModelName: timelineMenu.menu_model_name
     }
 
-    XsMenuModelItem {
-        text: qsTr("Track Templates")
-        menuPath: ""
-        menuItemPosition: 3
-        menuModelName: timelineMenu.menu_model_name
-        panelContext: timelineMenu.panelContext
-      }
+    // XsMenuModelItem {
+    //     text: "Track Templates"
+    //     menuPath: ""
+    //     menuItemPosition: 3
+    //     menuModelName: timelineMenu.menu_model_name
+    //     panelContext: timelineMenu.panelContext
+    //   }
 
-    XsMenuModelItem {
-        text: qsTr("User Track Templates")
-        menuPath: ""
-        menuItemPosition: 4
-        menuModelName: timelineMenu.menu_model_name
-        panelContext: timelineMenu.panelContext
-      }
+    // XsMenuModelItem {
+    //     text: "User Track Templates"
+    //     menuPath: ""
+    //     menuItemPosition: 4
+    //     menuModelName: timelineMenu.menu_model_name
+    //     panelContext: timelineMenu.panelContext
+    //   }
 
     XsMenuModelItem {
         text: "Snippet"
@@ -236,6 +236,10 @@ XsPopupMenu {
                     createTracks(modelData["video tracks"])
                     createTracks(modelData["audio tracks"], false)
                 }
+                Component.onCompleted: {
+                    if(!index)
+                        setMenuPathPosition("Track Templates", 3)
+                }
             }
         }
     }
@@ -257,6 +261,10 @@ XsPopupMenu {
                 onActivated: {
                     createTracks(modelData["video tracks"])
                     createTracks(modelData["audio tracks"], false)
+                }
+                Component.onCompleted: {
+                    if(!index)
+                        setMenuPathPosition("User Track Templates", 4)
                 }
             }
         }

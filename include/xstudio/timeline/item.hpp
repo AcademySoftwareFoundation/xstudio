@@ -181,11 +181,16 @@ class Item : private Items {
     [[nodiscard]] std::optional<std::pair<Items::const_iterator, int>>
     item_at_frame(const int frame) const;
 
+    [[nodiscard]] std::optional<Items::const_iterator>
+    item_at_time_point(const utility::FrameRate time_point) const;
+
     [[nodiscard]] std::optional<Items::const_iterator> item_at_index(const int index) const;
 
     [[nodiscard]] utility::FrameRange range_at_index(const int item_index) const;
     [[nodiscard]] int frame_at_index(const int item_index) const;
     [[nodiscard]] int frame_at_index(const int item_index, const int item_frame) const;
+
+    [[nodiscard]] std::optional<utility::FrameRange> item_range(const utility::Uuid &item_id) const;
 
     [[nodiscard]] std::optional<int> frame_at_item_frame(
         const utility::Uuid &item_uuid,

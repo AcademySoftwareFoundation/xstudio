@@ -291,6 +291,18 @@ void OCIOColourPipeline::process_thumbnail(
         global_settings_.untonemapped_mode);
 }
 
+utility::JsonStore OCIOColourPipeline::get_current_display_and_view() const {
+    utility::JsonStore display_and_view;
+    display_and_view["display"] = display_->value();
+    display_and_view["view"] = view_->value();
+    return display_and_view;
+}
+
+std::string OCIOColourPipeline::get_icc_profile_path(
+    const std::string &display, const std::string &view) const {
+    return m_engine_.get_icc_profile_path(current_source_colour_mgmt_metadata_, display, view);
+}
+
 void OCIOColourPipeline::extend_pixel_info(
     media_reader::PixelInfo &pixel_info, const media::AVFrameID &frame_id) {
 

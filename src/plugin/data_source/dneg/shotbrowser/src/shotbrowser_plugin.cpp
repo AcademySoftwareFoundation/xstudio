@@ -1982,14 +1982,14 @@ void ShotBrowser::do_add_media_sources_from_ivy(
             }
         }
 
-        if (name.empty()) {
-            for (const auto &i : names) {
-                if (i.second == "SG Movie") {
-                    name = i.second;
-                    break;
-                }
-            }
-        }
+        // if (name.empty()) {
+        //     for (const auto &i : names) {
+        //         if (i.second == "SG Movie") {
+        //             name = i.second;
+        //             break;
+        //         }
+        //     }
+        // }
 
         return name;
     };
@@ -2019,6 +2019,14 @@ void ShotBrowser::do_add_media_sources_from_ivy(
                                         media::MT_IMAGE,
                                         true)
                                         .send(ivy_media_task_data->media_actor_);
+                                else if(not ivy_media_task_data->preferred_visual_sources_.empty())
+                                    anon_mail(
+                                        playhead::media_source_atom_v,
+                                        ivy_media_task_data->preferred_visual_sources_.at(0),
+                                        media::MT_IMAGE,
+                                        false)
+                                        .send(ivy_media_task_data->media_actor_);
+
                             },
                             [=](error &err) {
                                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -2038,11 +2046,18 @@ void ShotBrowser::do_add_media_sources_from_ivy(
                                         media::MT_AUDIO,
                                         true)
                                         .send(ivy_media_task_data->media_actor_);
+                                else if(not ivy_media_task_data->preferred_audio_sources_.empty())
+                                    anon_mail(
+                                        playhead::media_source_atom_v,
+                                        ivy_media_task_data->preferred_audio_sources_.at(0),
+                                        media::MT_AUDIO,
+                                        false)
+                                        .send(ivy_media_task_data->media_actor_);
                             },
                             [=](error &err) {
                                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                             });
-                            
+
                     continue_processing_job_queue();
                 },
                 [=](error &err) {

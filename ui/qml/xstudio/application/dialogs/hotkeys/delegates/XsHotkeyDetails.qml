@@ -28,7 +28,7 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
         onClicked: {
-            showHotkeySetter(hotkeyUuid)
+            showHotkeySetter(hotkeyUuid, hotkeyCategory)
         }
     }
 

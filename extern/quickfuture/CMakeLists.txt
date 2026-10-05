@@ -29,10 +29,10 @@ else()
         PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickFuture"
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickFuture")
-endif()
 
-install(FILES ${QML_FILES} DESTINATION share/xstudio/plugin/qml/QuickFuture)
-install(TARGETS quickfuture LIBRARY DESTINATION share/xstudio/plugin/qml/QuickFuture)
+    install(FILES ${QML_FILES} DESTINATION share/xstudio/plugin/qml/QuickFuture)
+    install(TARGETS quickfuture LIBRARY DESTINATION share/xstudio/plugin/qml/QuickFuture)
+endif()
 
 if(WIN32)
     # On Windows the dll must be present in the qml/QuickFuture folder

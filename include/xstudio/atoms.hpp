@@ -840,6 +840,8 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_playback_atoms, FIRST_CUSTOM_ID + (200 * 5))
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, colour_pipe_linearise_data_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, colour_pipe_display_data_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, get_colourspace_info_atom)
+    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, get_current_display_and_view_atom)
+    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, get_icc_profile_path_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, skip_to_bookmark_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, skip_to_media_atom)
 

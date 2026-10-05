@@ -2,7 +2,7 @@
 from xstudio.core import UuidActor, Uuid, actor, item_atom, MediaType, ItemType, enable_atom, item_flag_atom
 from xstudio.core import active_range_atom, available_range_atom, undo_atom, redo_atom, history_atom, add_media_atom, item_name_atom
 from xstudio.core import URI, selection_actor_atom, item_selection_atom, item_type_atom, get_media_atom, save_atom, export_atom
-from xstudio.core import get_playlist_atom
+from xstudio.core import get_playlist_atom, bake_atom
 from xstudio.core import import_atom, erase_item_atom, get_playhead_atom, FrameRate, FrameRateDuration
 from xstudio.core import AudioMode, audio_mode_atom
 from xstudio.api.session.container import Container
@@ -392,6 +392,35 @@ class Timeline(Item, NotificationHandler, JsonStoreHandler):
             otio(str): The OTIO data
         """
         return self.connection.request_receive(self.remote, export_atom())[0]
+
+    def export_flattened_otio(self, path, schema=""):
+        """Export a baked version of the timeline where all video tracks are
+        flattened into a single video track. Audio tracks are ommitted 
+        altogether. File path extension infers the format of the exported file.
+
+        Args:
+            path(str/uri): Path to export to.
+
+        Returns:
+            bool: True on success, False on failure
+        """
+        otio_string = self.connection.request_receive(self.remote, export_atom(), bake_atom())[0]
+
+        from opentimelineio.adapters import read_from_string, write_to_file
+        from opentimelineio import versioning
+
+        otio_object = read_from_string(otio_string)
+
+        result = False
+
+        if schema:
+            # versioning.full_map() contains list..
+            downgrade_manifest = versioning.fetch_map("OTIO_CORE", schema)
+            result = write_to_file(otio_object, path, target_schema_versions=downgrade_manifest)
+        else:
+            result = write_to_file(otio_object, path)
+
+        return result
 
     def export_otio(self, path, schema=""):
         """Export timeline via OpenTimelineIO. File path extension infers the

@@ -55,7 +55,7 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
 
     Q_PROPERTY(
         QModelIndexList selectedTimelinesIndeces READ
-            selectedTimelinesIndeces NOTIFY selectedTimelinesIndecesChanged)    
+            selectedTimelinesIndeces NOTIFY selectedTimelinesIndecesChanged)
 
     Q_PROPERTY(
         QPersistentModelIndex lastTimelineIndex READ lastTimelineIndex NOTIFY lastTimelineIndexChanged)
@@ -231,7 +231,7 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
         const bool isOverwrite = false);
     Q_INVOKABLE void endTimelineItemDrag(
         const QModelIndexList &items, const QString &mode, const bool isOverwrite = false);
-        
+
     Q_INVOKABLE void draggingAdjust(const QModelIndex &item, const int frameChange);
     Q_INVOKABLE int checkAdjust(
         const QModelIndex &item,
@@ -454,6 +454,12 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
     Q_INVOKABLE QFuture<QString> getJSONFuture(
         const QModelIndex &index, const QString &path, const bool includeSource = false);
 
+    Q_INVOKABLE QList<QUuid> getBookmarks(const QModelIndexList &indexes) {
+        return getBookmarksFuture(indexes).result();
+    }
+    Q_INVOKABLE QFuture<QList<QUuid>> getBookmarksFuture(
+        const QModelIndexList &indexes);
+
     Q_INVOKABLE QStringList
     getMediaSourceNames(const QModelIndex &media_index, bool image_sources);
     Q_INVOKABLE QStringList setMediaSource(
@@ -501,7 +507,7 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
     }
 
     Q_INVOKABLE QModelIndexList selectedTimelinesIndeces() {
-        return multi_select_timeline_indeces_; 
+        return multi_select_timeline_indeces_;
     }
 
     Q_INVOKABLE QPersistentModelIndex lastTimelineIndex() {

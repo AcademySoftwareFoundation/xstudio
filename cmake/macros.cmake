@@ -380,8 +380,6 @@ endmacro()
 
 macro(add_python_plugin NAME)
 
-	install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${NAME} DESTINATION share/xstudio/plugin-python)
-
 	add_custom_target(COPY_PY_PLUGIN_${NAME} ALL)
 
  	if (APPLE)
@@ -395,6 +393,8 @@ macro(add_python_plugin NAME)
         	copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/${NAME} ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/plugin-python/${NAME})
 
 	else()
+
+		install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${NAME} DESTINATION share/xstudio/plugin-python)
 
 		add_custom_command(TARGET COPY_PY_PLUGIN_${NAME} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E

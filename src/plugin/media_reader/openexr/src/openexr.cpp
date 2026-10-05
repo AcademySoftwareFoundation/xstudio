@@ -295,7 +295,7 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
     for (size_t i = 0; i < exr_channels_to_load.size(); ++i) {
         if (pix_type[i] == Imf::PixelType::HALF)
             bytes_per_pixel += 2;
-        else if (static_cast<int>(pix_type[i]) != -1) // uint32 or float32
+        else // uint32 or float32
             bytes_per_pixel += 4;
     }
 

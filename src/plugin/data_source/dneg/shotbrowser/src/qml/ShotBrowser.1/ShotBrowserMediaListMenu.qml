@@ -53,7 +53,6 @@ Item {
             }
         }
 
-
         appWindow.mediaSelectionModel.select(
             helpers.createItemSelection(selection),
             ItemSelectionModel.ClearAndSelect
@@ -62,6 +61,62 @@ Item {
         return selection
     }
 
+
+    function getOfflineTimeline() {
+        let rootIndex = theSessionData.index(2, 0, theSessionData.lastTimelineIndex)
+        let tindex = theSessionData.getTimelineIndex(rootIndex)
+        let mlist = theSessionData.index(0, 0, tindex)
+        let clips = theSessionData.searchRecursiveList(
+            "Clip", "typeRole", rootIndex,0,-1,-1
+        )
+        // with media uuid
+        let clipsWithBadMedia = []
+        let bad_media = []
+        for(let i = 0; i< clips.length; i++) {
+            let cmu = theSessionData.get(clips[i], "clipMediaUuidRole")
+            if(cmu != undefined && cmu != "{00000000-0000-0000-0000-000000000000}") {
+                // test media..
+                // locate media index..
+                let mindex = theSessionData.search(cmu, "actorUuidRole", mlist)
+                if(mindex.valid) {
+                    // check media offline
+                    theSessionData.fetchMoreWait(mindex)
+                    let state = theSessionData.get(mindex, "mediaStatusRole")
+                    if(state != undefined && state != "Online") {
+                        clipsWithBadMedia.push(clips[i])
+                        bad_media.push(mindex)
+                    }
+                } else {
+                    clipsWithBadMedia.push(clips[i])
+                }
+            }
+        }
+
+        theSessionData.makeTimelineSelection(tindex, clipsWithBadMedia)
+
+        return bad_media
+    }
+
+    function getMediaFromClips(clips=[]) {
+        let media = []
+        let rootIndex = theSessionData.index(2, 0, theSessionData.lastTimelineIndex)
+        let tindex = theSessionData.getTimelineIndex(rootIndex)
+        let mlist = theSessionData.index(0, 0, tindex)
+
+        for(let i = 0; i< clips.length; i++) {
+            let cmu = theSessionData.get(clips[i], "clipMediaUuidRole")
+            if(cmu != undefined && cmu != "{00000000-0000-0000-0000-000000000000}") {
+                // test media..
+                // locate media index..
+                let mindex = theSessionData.search(cmu, "actorUuidRole", mlist)
+                if(mindex.valid) {
+                    media.push(mindex)
+                }
+            }
+        }
+
+        return media
+    }
 
     XsHotkey {
         id: reload_playlist
@@ -72,22 +127,6 @@ Item {
             helpers.QUuidFromUuidString(inspectedMediaSetProperties.values.actorUuidRole), true
         )
         componentName: "ShotBrowser"
-    }
-
-    XsHotkey {
-        id: qc_offline_current
-        name: "Quick Cache Offline - Current"
-        description: "Quick Cache Offline media"
-        onActivated: ShotBrowserHelpers.useCache(getOffline())
-        componentName: "Media List"
-    }
-
-    XsHotkey {
-        id: qc_selected_current
-        name: "Quick Cache Selected - Current"
-        description: "Quick Cache Selected media"
-        onActivated: ShotBrowserHelpers.useCache(mediaSelectionModel.selectedIndexes)
-        componentName: "Media List"
     }
 
     XsMenuModelItem {
@@ -157,18 +196,307 @@ Item {
         onActivated: ShotBrowserHelpers.downloadMovies(menuContext.mediaSelection)
     }
 
+
+
+
+
+
+
+
+    XsHotkey {
+        id: qc_offline_current
+        name: "Offline / Current"
+        description: "Quick Cache Offline media/clips"
+        onActivated: (context) => {
+            if(context.includes("timeline")) {
+                ShotBrowserHelpers.useCache(getOfflineTimeline())
+            } else {
+                ShotBrowserHelpers.useCache(getOffline())
+            }
+        }
+        componentName: "Quick Cache"
+    }
+
+    XsHotkey {
+        id: qc_selected_current
+        name: "Selected / Current"
+        description: "Quick Cache Selected media/clip"
+        onActivated:  (context) => {
+            if(context.includes("timeline")) {
+                ShotBrowserHelpers.useCache(getMediaFromClips(sessionData.currentTimelineSelection))
+            } else {
+                ShotBrowserHelpers.useCache(mediaSelectionModel.selectedIndexes)
+            }
+        }
+        componentName: "Quick Cache"
+    }
+
+
+    XsHotkey {
+        id: qc_offline_movie_dneg
+        name: "Offline / movie_dneg"
+        description: "Quick Cache Offline media/clips"
+        onActivated: (context) => {
+            if(context.includes("timeline")) {
+                ShotBrowserHelpers.useCache(getOfflineTimeline(), "movie_dneg")
+            } else {
+                ShotBrowserHelpers.useCache(getOffline(), "movie_dneg")
+            }
+        }
+        componentName: "Quick Cache"
+    }
+
+    XsHotkey {
+        id: qc_selected_movie_dneg
+        name: "Selected / movie_dneg"
+        description: "Quick Cache Selected media/clip"
+        onActivated:  (context) => {
+            if(context.includes("timeline")) {
+                ShotBrowserHelpers.useCache(getMediaFromClips(sessionData.currentTimelineSelection), "movie_dneg")
+            } else {
+                ShotBrowserHelpers.useCache(mediaSelectionModel.selectedIndexes, "movie_dneg")
+            }
+        }
+        componentName: "Quick Cache"
+    }
+
+    XsHotkey {
+        id: qc_offline_client_movie
+        name: "Offline / client_movie"
+        description: "Quick Cache Offline media/clips"
+        onActivated: (context) => {
+            if(context.includes("timeline")) {
+                ShotBrowserHelpers.useCache(getOfflineTimeline(), "client_movie")
+            } else {
+                ShotBrowserHelpers.useCache(getOffline(), "client_movie")
+            }
+        }
+        componentName: "Quick Cache"
+    }
+
+    XsHotkey {
+        id: qc_selected_client_movie
+        name: "Selected / client_movie"
+        description: "Quick Cache Selected media/clip"
+        onActivated:  (context) => {
+            if(context.includes("timeline")) {
+                ShotBrowserHelpers.useCache(getMediaFromClips(sessionData.currentTimelineSelection), "client_movie")
+            } else {
+                ShotBrowserHelpers.useCache(mediaSelectionModel.selectedIndexes, "client_movie")
+            }
+        }
+        componentName: "Quick Cache"
+    }
+
+    XsHotkey {
+        id: qc_offline_review_proxy_1
+        name: "Offline / review_proxy_1"
+        description: "Quick Cache Offline media/clips"
+        onActivated: (context) => {
+            if(context.includes("timeline")) {
+                ShotBrowserHelpers.useCache(getOfflineTimeline(), "review_proxy_1")
+            } else {
+                ShotBrowserHelpers.useCache(getOffline(), "review_proxy_1")
+            }
+        }
+        componentName: "Quick Cache"
+    }
+
+    XsHotkey {
+        id: qc_selected_review_proxy_1
+        name: "Selected / review_proxy_1"
+        description: "Quick Cache Selected media/clip"
+        onActivated:  (context) => {
+            if(context.includes("timeline")) {
+                ShotBrowserHelpers.useCache(getMediaFromClips(sessionData.currentTimelineSelection), "review_proxy_1")
+            } else {
+                ShotBrowserHelpers.useCache(mediaSelectionModel.selectedIndexes, "review_proxy_1")
+            }
+        }
+        componentName: "Quick Cache"
+    }
+
+    XsHotkey {
+        id: qc_offline_review_proxy_2
+        name: "Offline / review_proxy_2"
+        description: "Quick Cache Offline media/clips"
+        onActivated: (context) => {
+            if(context.includes("timeline")) {
+                ShotBrowserHelpers.useCache(getOfflineTimeline(), "review_proxy_2")
+            } else {
+                ShotBrowserHelpers.useCache(getOffline(), "review_proxy_2")
+            }
+        }
+        componentName: "Quick Cache"
+    }
+
+    XsHotkey {
+        id: qc_selected_review_proxy_2
+        name: "Selected / review_proxy_2"
+        description: "Quick Cache Selected media/clip"
+        onActivated:  (context) => {
+            if(context.includes("timeline")) {
+                ShotBrowserHelpers.useCache(getMediaFromClips(sessionData.currentTimelineSelection), "review_proxy_2")
+            } else {
+                ShotBrowserHelpers.useCache(mediaSelectionModel.selectedIndexes, "review_proxy_2")
+            }
+        }
+        componentName: "Quick Cache"
+    }
+
+    XsHotkey {
+        id: qc_offline_main_proxy0
+        name: "Offline / main_proxy0"
+        description: "Quick Cache Offline media/clips"
+        onActivated: (context) => {
+            if(context.includes("timeline")) {
+                ShotBrowserHelpers.useCache(getOfflineTimeline(), "main_proxy0")
+            } else {
+                ShotBrowserHelpers.useCache(getOffline(), "main_proxy0")
+            }
+        }
+        componentName: "Quick Cache"
+    }
+
+    XsHotkey {
+        id: qc_selected_main_proxy0
+        name: "Selected / main_proxy0"
+        description: "Quick Cache Selected media/clip"
+        onActivated:  (context) => {
+            if(context.includes("timeline")) {
+                ShotBrowserHelpers.useCache(getMediaFromClips(sessionData.currentTimelineSelection), "main_proxy0")
+            } else {
+                ShotBrowserHelpers.useCache(mediaSelectionModel.selectedIndexes, "main_proxy0")
+            }
+        }
+        componentName: "Quick Cache"
+    }
+
+
     XsMenuModelItem {
-        text: "Quick Cache Offline"
+        menuItemType: "divider"
+        menuItemPosition: 3.4
         menuPath: ""
-        hotkeyUuid: qc_offline_current.uuid
-        menuItemPosition: 261
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.useCache(getOffline())
+        menuModelName: "timeline_clip_menu_"
+    }
+
+ XsMenuModelItem {
+        text: "Current"
+        menuPath: "Quick Cache Selected"
+        hotkeyUuid: qc_selected_current.uuid
+        menuItemPosition: 1
+        menuModelName: "timeline_clip_menu_"
+        onActivated: ShotBrowserHelpers.useCache(getMediaFromClips(sessionData.currentTimelineSelection))
     }
 
     XsMenuModelItem {
+        text: "movie_dneg"
+        menuPath: "Quick Cache Selected"
+        hotkeyUuid: qc_selected_movie_dneg.uuid
+        menuItemPosition: 2
+        menuModelName: "timeline_clip_menu_"
+        onActivated: ShotBrowserHelpers.useCache(getMediaFromClips(sessionData.currentTimelineSelection), text)
+    }
+
+    XsMenuModelItem {
+        text: "client_movie"
+        menuPath: "Quick Cache Selected"
+        hotkeyUuid: qc_selected_client_movie.uuid
+        menuItemPosition: 3
+        menuModelName: "timeline_clip_menu_"
+        onActivated: ShotBrowserHelpers.useCache(getMediaFromClips(sessionData.currentTimelineSelection), text)
+    }
+
+    XsMenuModelItem {
+        text: "review_proxy_1"
+        menuPath: "Quick Cache Selected"
+        hotkeyUuid: qc_selected_review_proxy_1.uuid
+        menuItemPosition: 4
+        menuModelName: "timeline_clip_menu_"
+        onActivated: ShotBrowserHelpers.useCache(getMediaFromClips(sessionData.currentTimelineSelection), text)
+    }
+
+    XsMenuModelItem {
+        text: "review_proxy_2"
+        menuPath: "Quick Cache Selected"
+        hotkeyUuid: qc_selected_review_proxy_2.uuid
+        menuItemPosition: 5
+        menuModelName: "timeline_clip_menu_"
+        onActivated: ShotBrowserHelpers.useCache(getMediaFromClips(sessionData.currentTimelineSelection), text)
+    }
+
+   XsMenuModelItem {
+        text: "main_proxy0"
+        menuPath: "Quick Cache Selected"
+        hotkeyUuid: qc_selected_main_proxy0.uuid
+        menuItemPosition: 6
+        menuModelName: "timeline_clip_menu_"
+        onActivated: ShotBrowserHelpers.useCache(getMediaFromClips(sessionData.currentTimelineSelection), text)
+        Component.onCompleted: setMenuPathPosition("Quick Cache Selected", 3.6)
+    }
+
+
+    XsMenuModelItem {
         text: "Current"
-        menuPath: "Quick Cache|Selected"
+        hotkeyUuid: qc_offline_current.uuid
+        menuPath: "Quick Cache Offline"
+        menuItemPosition: 1
+        menuModelName: "timeline_clip_menu_"
+        onActivated: ShotBrowserHelpers.useCache(getOfflineTimeline())
+    }
+
+    XsMenuModelItem {
+        text: "movie_dneg"
+        hotkeyUuid: qc_offline_movie_dneg.uuid
+        menuPath: "Quick Cache Offline"
+        menuItemPosition: 2
+        menuModelName: "timeline_clip_menu_"
+        onActivated: ShotBrowserHelpers.useCache(getOfflineTimeline(), text)
+    }
+
+    XsMenuModelItem {
+        text: "client_movie"
+        hotkeyUuid: qc_offline_client_movie.uuid
+        menuPath: "Quick Cache Offline"
+        menuItemPosition: 3
+        menuModelName: "timeline_clip_menu_"
+        onActivated: ShotBrowserHelpers.useCache(getOfflineTimeline(), text)
+    }
+
+    XsMenuModelItem {
+        text: "review_proxy_1"
+        hotkeyUuid: qc_offline_review_proxy_1.uuid
+        menuPath: "Quick Cache Offline"
+        menuItemPosition: 4
+        menuModelName: "timeline_clip_menu_"
+        onActivated: ShotBrowserHelpers.useCache(getOfflineTimeline(), text)
+    }
+
+    XsMenuModelItem {
+        text: "review_proxy_2"
+        hotkeyUuid: qc_offline_review_proxy_2.uuid
+        menuPath: "Quick Cache Offline"
+        menuItemPosition: 5
+        menuModelName: "timeline_clip_menu_"
+        onActivated: ShotBrowserHelpers.useCache(getOfflineTimeline(), text)
+    }
+
+   XsMenuModelItem {
+        text: "main_proxy0"
+        hotkeyUuid: qc_offline_main_proxy0.uuid
+        menuPath: "Quick Cache Offline"
+        menuItemPosition: 6
+        menuModelName: "timeline_clip_menu_"
+        onActivated: ShotBrowserHelpers.useCache(getOfflineTimeline(), text)
+        Component.onCompleted: setMenuPathPosition("Quick Cache Offline", 3.5)
+    }
+
+
+
+
+    XsMenuModelItem {
+        text: "Current"
+        menuPath: "Quick Cache Selected"
         hotkeyUuid: qc_selected_current.uuid
         menuItemPosition: 1
         menuModelName: "media_list_menu_"
@@ -177,7 +505,8 @@ Item {
 
     XsMenuModelItem {
         text: "movie_dneg"
-        menuPath: "Quick Cache|Selected"
+        hotkeyUuid: qc_selected_movie_dneg.uuid
+        menuPath: "Quick Cache Selected"
         menuItemPosition: 2
         menuModelName: "media_list_menu_"
         onActivated: ShotBrowserHelpers.useCache(menuContext.mediaSelection, text)
@@ -185,7 +514,8 @@ Item {
 
     XsMenuModelItem {
         text: "client_movie"
-        menuPath: "Quick Cache|Selected"
+        hotkeyUuid: qc_selected_client_movie.uuid
+        menuPath: "Quick Cache Selected"
         menuItemPosition: 3
         menuModelName: "media_list_menu_"
         onActivated: ShotBrowserHelpers.useCache(menuContext.mediaSelection, text)
@@ -193,7 +523,8 @@ Item {
 
     XsMenuModelItem {
         text: "review_proxy_1"
-        menuPath: "Quick Cache|Selected"
+        hotkeyUuid: qc_selected_review_proxy_1.uuid
+        menuPath: "Quick Cache Selected"
         menuItemPosition: 4
         menuModelName: "media_list_menu_"
         onActivated: ShotBrowserHelpers.useCache(menuContext.mediaSelection, text)
@@ -201,7 +532,8 @@ Item {
 
     XsMenuModelItem {
         text: "review_proxy_2"
-        menuPath: "Quick Cache|Selected"
+        hotkeyUuid: qc_selected_review_proxy_2.uuid
+        menuPath: "Quick Cache Selected"
         menuItemPosition: 5
         menuModelName: "media_list_menu_"
         onActivated: ShotBrowserHelpers.useCache(menuContext.mediaSelection, text)
@@ -209,17 +541,18 @@ Item {
 
    XsMenuModelItem {
         text: "main_proxy0"
-        menuPath: "Quick Cache|Selected"
+        menuPath: "Quick Cache Selected"
+        hotkeyUuid: qc_selected_main_proxy0.uuid
         menuItemPosition: 6
         menuModelName: "media_list_menu_"
         onActivated: ShotBrowserHelpers.useCache(menuContext.mediaSelection, text)
-        Component.onCompleted: setMenuPathPosition("Quick Cache", 262)
+        Component.onCompleted: setMenuPathPosition("Quick Cache Selected", 262)
     }
 
     XsMenuModelItem {
         text: "Current"
         hotkeyUuid: qc_offline_current.uuid
-        menuPath: "Quick Cache|Offline"
+        menuPath: "Quick Cache Offline"
         menuItemPosition: 1
         menuModelName: "media_list_menu_"
         onActivated: ShotBrowserHelpers.useCache(getOffline())
@@ -227,7 +560,8 @@ Item {
 
     XsMenuModelItem {
         text: "movie_dneg"
-        menuPath: "Quick Cache|Offline"
+        menuPath: "Quick Cache Offline"
+        hotkeyUuid: qc_offline_movie_dneg.uuid
         menuItemPosition: 2
         menuModelName: "media_list_menu_"
         onActivated: ShotBrowserHelpers.useCache(getOffline(), text)
@@ -235,7 +569,8 @@ Item {
 
     XsMenuModelItem {
         text: "client_movie"
-        menuPath: "Quick Cache|Offline"
+        hotkeyUuid: qc_offline_client_movie.uuid
+        menuPath: "Quick Cache Offline"
         menuItemPosition: 3
         menuModelName: "media_list_menu_"
         onActivated: ShotBrowserHelpers.useCache(getOffline(), text)
@@ -243,7 +578,8 @@ Item {
 
     XsMenuModelItem {
         text: "review_proxy_1"
-        menuPath: "Quick Cache|Offline"
+        hotkeyUuid: qc_offline_review_proxy_1.uuid
+        menuPath: "Quick Cache Offline"
         menuItemPosition: 4
         menuModelName: "media_list_menu_"
         onActivated: ShotBrowserHelpers.useCache(getOffline(), text)
@@ -251,7 +587,9 @@ Item {
 
     XsMenuModelItem {
         text: "review_proxy_2"
-        menuPath: "Quick Cache|Offline"
+
+        hotkeyUuid: qc_offline_review_proxy_2.uuid
+        menuPath: "Quick Cache Offline"
         menuItemPosition: 5
         menuModelName: "media_list_menu_"
         onActivated: ShotBrowserHelpers.useCache(getOffline(), text)
@@ -259,12 +597,19 @@ Item {
 
    XsMenuModelItem {
         text: "main_proxy0"
-        menuPath: "Quick Cache|Offline"
+        hotkeyUuid: qc_offline_main_proxy0.uuid
+        menuPath: "Quick Cache Offline"
         menuItemPosition: 6
         menuModelName: "media_list_menu_"
         onActivated: ShotBrowserHelpers.useCache(getOffline(), text)
-        Component.onCompleted: setMenuPathPosition("Quick Cache", 262)
+        Component.onCompleted: setMenuPathPosition("Quick Cache Offline", 261)
     }
+
+
+
+
+
+
 
 
     XsMenuModelItem {

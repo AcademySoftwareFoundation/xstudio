@@ -442,7 +442,6 @@ caf::message_handler StackActor::message_handler() {
                     return;
                 }
             }
-
             mail(event_atom_v, item_atom_v, update, hidden).send(base_.event_group());
         },
 

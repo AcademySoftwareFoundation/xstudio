@@ -400,9 +400,13 @@ Item {
             function(path) {
                 if (path)
                     Future.promise(
-                        bookmarkModel.exportCSVFuture(path)
+                        theSessionData.getBookmarksFuture(sessionSelectionModel.selectedIndexes)
                     ).then(function(result) {
-                        dialogHelpers.errorDialogFunc("Export Notes to CSV", result)
+                        Future.promise(
+                            bookmarkModel.exportCSVFuture(path, true, true, result)
+                        ).then(function(result) {
+                            dialogHelpers.errorDialogFunc("Export Notes to CSV", result)
+                        })
                     })
             },
             defaultSessionFolder(),

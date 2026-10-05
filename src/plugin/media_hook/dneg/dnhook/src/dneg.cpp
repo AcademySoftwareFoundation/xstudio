@@ -608,6 +608,30 @@ class DNegMediaHook : public MediaHook {
                 }
             }
 
+            // Shot detection
+            // TODO: ColSci
+            // More robust shot detection might be needed, using dedicated metadata or other means
+            if (ext == ".exr" and context["SHOT"] == "IO") {
+                try {
+                    const utility::JsonStore &media = metadata.at("metadata").at("media");
+                    for (auto &item : media.items()) {
+                        if (utility::starts_with(item.key(), "@")) {
+                            const std::string &input_filename = item.value().at("headers").at(0).at("nuke/input/filename").at("value");
+
+                            if (std::regex_search(input_filename, match, show_shot_regex)) {
+                                if (context["SHOW"] == match[2])
+                                {
+                                    context["SHOT"] = match[3];
+                                    r["ocio_context"] = context;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                } catch (...) {
+                }
+            }
+
             // Extract bitdepth from tex files for color space assignment
             // TODO: ColSci
             // Should rely on color space metadata

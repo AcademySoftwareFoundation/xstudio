@@ -809,6 +809,46 @@ void OCIOEngine::get_ocio_displays_view_colourspaces(
     }
 }
 
+std::string OCIOEngine::get_icc_profile_path(
+    const utility::JsonStore &src_colour_mgmt_metadata,
+    const std::string &display,
+    const std::string &view) const {
+
+    auto ocio_config = get_ocio_config(src_colour_mgmt_metadata);
+
+#if OCIO_VERSION_HEX >= 0x02050000
+    try {
+        std::string cs_name = ocio_config->getDisplayViewColorSpaceName(display.c_str(), view.c_str());
+        if (cs_name == "<USE_DISPLAY_NAME>") {
+            cs_name = display;
+        }
+
+        const auto cs = ocio_config->getColorSpace(cs_name.c_str());
+        if (cs) {
+            const std::string icc_profile_name = cs->getInterchangeAttribute("icc_profile_name");
+            if (!icc_profile_name.empty()) {
+                return ocio_config->getCurrentContext()->resolveFileLocation(icc_profile_name.c_str());
+            }
+        }
+    } catch (const std::exception &e) {
+        spdlog::warn("OCIOEngine: Failed to get ICC profile path: {}", e.what());
+        return "";
+    }
+#endif
+
+    // Fallback to hard coded rules for DNEG
+    // TODO: ColSci
+    // Remove these rules when switch to OCIO 2.5 and 2.5 configs
+    if (display == "DisplayP3") {
+        return utility::xstudio_resources_dir("icc-profiles") + "/Display P3.icc";
+    } else if (display == "sRGB") {
+        // Do not explicitly write sRGB ICC profile as this is the default assumed
+        return "";
+    }
+
+    return "";
+}
+
 void OCIOEngine::update_shader_uniforms(
     std::any &user_data,
     utility::JsonStore &uniforms,

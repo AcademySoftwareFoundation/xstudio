@@ -1205,7 +1205,8 @@ caf::message_handler Module::message_handler() {
              const float submenu_position) {
              set_submenu_position_in_parent(menu_model_name, submenu, submenu_position);
          },
-         [=](reset_module_atom) { reset(); }});
+         [=](reset_module_atom) { reset(); },
+         [=](utility::parent_atom) -> caf::actor { return actor_cast<actor>(parent_actor_addr_); }});
 
     return h.or_else(playhead::PlayheadGlobalEventsActor::default_event_handler());
 }

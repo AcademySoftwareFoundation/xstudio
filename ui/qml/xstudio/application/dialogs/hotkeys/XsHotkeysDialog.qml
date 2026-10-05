@@ -170,11 +170,12 @@ XsWindow {
         }
     }
 
-    function showHotkeySetter(hotkeyUUID) {
+    function showHotkeySetter(hotkeyUUID, hotkeyCategory) {
 
         hotkeysModel.testHotkeyID = hotkeyUUID
         setterLoader.sourceComponent = hotkeySetterComponent
         setterLoader.item.hotkeyUUID = hotkeyUUID
+        setterLoader.item.hotkeyCategory = hotkeyCategory
         setterLoader.item.visible = true
     }
 

@@ -79,6 +79,7 @@ XsPopupMenu {
                 }
             }
         }
+
         return clipsWithBadMedia
     }
 

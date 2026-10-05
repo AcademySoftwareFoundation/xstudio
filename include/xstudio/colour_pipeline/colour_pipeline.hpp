@@ -203,6 +203,14 @@ namespace colour_pipeline {
             const media::AVFrameID &media_ptr,
             const thumbnail::ThumbnailBufferPtr &buf) = 0;
 
+        /* Get the current display and view in use */
+        virtual utility::JsonStore get_current_display_and_view() const = 0;
+
+        /** Get the path to the ICC profile corresponding to the given display
+        and view. Can be useful for JPG snapshot export. */
+        virtual std::string get_icc_profile_path(
+            const std::string &display, const std::string &view) const = 0;
+
         /* This function should return a unique string based on the current
         statue of the plugin plus RELEVANT properties of the media_ptr that
         influence its colourpsace transforms to display the corresponding image

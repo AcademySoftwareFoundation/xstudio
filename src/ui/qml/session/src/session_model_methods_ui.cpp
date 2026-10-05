@@ -1401,6 +1401,37 @@ QFuture<QUrl> SessionModel::getThumbnailURLFuture(const QModelIndex &index, cons
     });
 }
 
+
+QFuture<QList<QUuid>> SessionModel::getBookmarksFuture(
+        const QModelIndexList &indexes) {
+
+    return QtConcurrent::run([=]() {
+        auto result = QList<QUuid>();
+        scoped_actor sys{system()};
+
+        for (const auto &index : indexes) {
+            if (index.isValid()) {
+                nlohmann::json &j = indexToData(index);
+                // spdlog::warn("{}", j.at("type").dump(2));
+                if (j.at("type") != "ContainerDivider") {
+                    auto actor = actorFromString(system(), j.at("actor"));
+                    if (actor) {
+                        auto media = request_receive<std::vector<UuidActor>>(*sys, actor, playlist::get_media_atom_v);
+                        for(const auto &m: media) {
+                            auto mb = request_receive<utility::UuidList>(*sys, m.actor(), bookmark::get_bookmarks_atom_v);
+                            for(const auto &m : mb)
+                                result.emplace_back(QUuidFromUuid(m));
+                        }
+                    }
+                }
+            }
+        }
+
+        return result;
+    });
+
+}
+
 QFuture<bool> SessionModel::clearCacheFuture(const QModelIndexList &indexes) {
     return QtConcurrent::run([=]() {
         auto result = false;

@@ -1193,7 +1193,7 @@ utility::JsonStore QueryEngine::preprocess_terms(
         if (initial) {
             // set defaults if not specified
             if (query["context"]["visual_source"].empty())
-                query["context"]["visual_source"] = json::array({"SG Movie"});
+                query["context"]["visual_source"] = json::array({"movie_dneg"});
             if (query["context"]["audio_source"].empty())
                 query["context"]["audio_source"] = query["context"]["visual_source"];
             if (query["context"]["sequence_source"].empty())

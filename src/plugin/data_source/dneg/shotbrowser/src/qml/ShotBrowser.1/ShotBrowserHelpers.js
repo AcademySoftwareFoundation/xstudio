@@ -353,29 +353,27 @@ function refreshMetadata(indexes=[]) {
 }
 
 function useCache(indexes=[], sourceName=null) {
-	if(indexes.length) {
-		for(let i = 0; i< indexes.length; i++) {
-            let actoruuid = theSessionData.get(indexes[i], "imageActorUuidRole")
-            let image_source = theSessionData.searchRecursive(actoruuid, "actorUuidRole", indexes[i])
+	for(let i = 0; i < indexes.length; i++) {
+        let actoruuid = theSessionData.get(indexes[i], "imageActorUuidRole")
+        let image_source = theSessionData.searchRecursive(actoruuid, "actorUuidRole", indexes[i])
 
-            if(sourceName) {
-            	let found = theSessionData.getIndexesByName(indexes[i], sourceName, "MediaSource");
-            	if(found.length)
-            		image_source = found[0]
-            	else {
-		    		theSessionData.warnNotification(indexes[i], "Quick Cache Failed, MediaSource doesn't exist!")
-	        		continue;
-            	}
-            }
+        if(sourceName) {
+        	let found = theSessionData.getIndexesByName(indexes[i], sourceName, "MediaSource");
+        	if(found.length)
+        		image_source = found[0]
+        	else {
+	    		theSessionData.warnNotification(indexes[i], "Quick Cache Failed, MediaSource doesn't exist!")
+        		continue;
+        	}
+        }
 
-            if (image_source.valid) {
-	    		theSessionData.infoNotification(indexes[i], "Quick Caching - " + (sourceName ? sourceName : "Current"))
+        if (image_source.valid) {
+    		theSessionData.infoNotification(indexes[i], "Quick Caching - " + (sourceName ? sourceName : "Current"))
 
-			    Future.promise(ShotBrowserEngine.remapCachePathFuture(image_source)).then(
-			        function(result) {},
-			        function() {}
-			    )
-			}
+		    Future.promise(ShotBrowserEngine.remapCachePathFuture(image_source)).then(
+		        function(result) {},
+		        function() {}
+		    )
 		}
 	}
 }

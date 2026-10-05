@@ -264,7 +264,7 @@ Rectangle {
 
     property var tlIndexWatcher: timelineIndex
     onTlIndexWatcherChanged: initTimeline(true)
-    
+
     function initTimeline(retry) {
         if (!timelineIndex.valid) {
             // if the user has selected something that is not a timeline (playlist,
@@ -285,7 +285,7 @@ Rectangle {
                     }}(), 200);
 
         } else {
-            timelineModel.srcModel = theSessionData            
+            timelineModel.srcModel = theSessionData
             have_timeline = true
             updateConformSourceIndex()
             callbackTimer.setTimeout(function() { return function() {
@@ -1928,8 +1928,8 @@ Rectangle {
                     timelineSelection.select(index, ItemSelectionModel.ClearAndSelect)
                 }
 
-                if (rippleMode) {
-                    // for ripple mode, we only need to keep the leftmost clip for any 
+                if (rippleMode && mode != "track") {
+                    // for ripple mode, we only need to keep the leftmost clip for any
                     // given track in the selection because the ripple will be applied to all clips on that track.
                     let selectedIndexes = timelineSelection.selectedIndexes
                     let leftmostIndexes = []
@@ -1942,10 +1942,12 @@ Rectangle {
                             trackMap[trackNum] = idx
                         }
                     }
-                    for (let key in trackMap) {
-                        leftmostIndexes.push(trackMap[key])
+                    if (trackMap.length != 0) {
+                        for (let key in trackMap) {
+                            leftmostIndexes.push(trackMap[key])
+                        }
+                        timelineSelection.select(helpers.createItemSelection(leftmostIndexes), ItemSelectionModel.ClearAndSelect)
                     }
-                    timelineSelection.select(helpers.createItemSelection(leftmostIndexes), ItemSelectionModel.ClearAndSelect)
                 }
 
                 snapCacheKey = helpers.makeQUuid()

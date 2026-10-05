@@ -2232,7 +2232,7 @@ void PlaylistActor::add_media(
                     .then(
                         [=](bool) {},
                         [=](error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            spdlog::debug("{} {}", __PRETTY_FUNCTION__, to_string(err));
                         });
 
                 // mail(utility::event_atom_v, add_media_atom_v,

@@ -841,7 +841,7 @@ void IvyMediaWorker::get_shotgun_version(
             .then(
                 [=](const JsonStore &jsn) mutable {
                     try {
-                        spdlog::warn("ivy {}", jsn.dump(2));
+                        spdlog::debug("ivy {}", jsn.dump(2));
                         get_shotgun_shot(
                             rp,
                             media,
@@ -1067,7 +1067,6 @@ void IvyDataSourceActor<T>::ivy_load_version_sources(
                         .send(media_actor);
                 }
 
-
                 const auto scope_uuid =
                     jsn.at("data").at("versions_by_id").at(0).at("scope").at("id").get<Uuid>();
 
@@ -1076,6 +1075,18 @@ void IvyDataSourceActor<T>::ivy_load_version_sources(
                     // check we want it..
                     if (i.at("type") == "METADATA" or i.at("type") == "THUMBNAIL") {
                         continue;
+                    }
+
+                    // [XSTUDIO-3509] - FEAT anim include an otio sidecar file with
+                    // some outputs (like playblasts). Here we store that path as 
+                    // metadata so we can potentially make use if it later.
+                    if (i.contains("name") && i.at("name") == "otio" && media_actor) {
+                        anon_mail(
+                            json_store::set_json_atom_v,
+                            utility::Uuid(),
+                            JsonStore(i.at("path")),
+                            IvyMetadataPath + "/version/otio_sidecar")
+                            .send(media_actor);
                     }
 
                     // need to filter unsupported leafs..

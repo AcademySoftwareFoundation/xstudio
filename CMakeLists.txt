@@ -225,7 +225,7 @@ if (USE_VCPKG)
     message(FATAL_ERROR "Failed to ensurepip.")
   else()
     execute_process(
-      COMMAND "${Python_EXECUTABLE}" -m pip install setuptools sphinx breathe sphinx-rtd-theme OpenTimelineIO-Plugins importlib_metadata zipp numpy pyyaml fileseq
+      COMMAND "${Python_EXECUTABLE}" -m pip install setuptools sphinx breathe sphinx-rtd-theme OpenTimelineIO-Plugins importlib_metadata zipp numpy pyyaml fileseq myst-parser
       RESULT_VARIABLE PIP_RESULT
     )
     if(PIP_RESULT)
@@ -266,14 +266,16 @@ if(INSTALL_XSTUDIO)
   add_subdirectory(extern/quickpromise)
   add_subdirectory(extern/quickfuture)
 
-  install(DIRECTORY include/xstudio
+  if (NOT APPLE)
+    install(DIRECTORY include/xstudio
           DESTINATION include)
 
-  # QML export headers are generated into the build tree (see cmake/macros.cmake)
-  install(DIRECTORY ${CMAKE_BINARY_DIR}/gen-include/xstudio
+    # QML export headers are generated into the build tree (see cmake/macros.cmake)
+    install(DIRECTORY ${CMAKE_BINARY_DIR}/gen-include/xstudio
           DESTINATION include)
 
-  INSTALL(DIRECTORY extern/ DESTINATION extern)
+    install(DIRECTORY extern/ DESTINATION extern)
+  endif()
 
   add_subdirectory(share/preference)
   add_subdirectory(share/snippets)
@@ -327,13 +329,13 @@ if(INSTALL_XSTUDIO)
 
 endif ()
 
-if (USE_VCPKG)
-  # To provide reliable ordering, we need to make this install script happen in a subdirectory.
-  # Otherwise, Qt deploy will happen before we have the rest of the application deployed.
-  add_subdirectory("scripts/qt_install")
-endif()
-
 if (WIN32)
+
+  if (USE_VCPKG)
+    # To provide reliable ordering, we need to make this install script happen in a subdirectory.
+    # Otherwise, Qt deploy will happen before we have the rest of the application deployed.
+    add_subdirectory("scripts/qt_install")
+  endif()
 
   include(InstallRequiredSystemLibraries)
 

@@ -1463,6 +1463,26 @@ Item::item_at_frame(const int track_frame) const {
     return {};
 }
 
+std::optional<Items::const_iterator>
+    Item::item_at_time_point(const utility::FrameRate time_point) const
+{
+    auto start    = trimmed_frame_start().duration();
+    auto duration = trimmed_frame_duration().duration();
+    if (time_point >= start or time_point < (start + duration)) {
+
+        for (auto it = cbegin(); it != cend(); it++) {
+            if ((start + it->trimmed_frame_duration().duration()) > time_point) {
+                return it;
+            } else {
+                start += it->trimmed_frame_duration().duration();
+            }
+        }
+
+    }
+    return {};
+}
+
+
 FrameRange Item::range_at_index(const int item_index) const {
     auto result = FrameRange();
     result.set_rate(trimmed_range().rate());
@@ -1504,6 +1524,36 @@ int Item::frame_at_index(const int item_index, const int item_frame) const {
         dur -= std::next(cbegin(), item_index)->trimmed_frame_start().frames();
 
     return frame_at_index(item_index) + dur;
+}
+
+std::optional<utility::FrameRange> Item::item_range(const utility::Uuid &item_id) const {
+
+    // given a clip (identified by its ID) what is its frame range in the timeline, stack
+    // or video track...
+
+    if (item_type_ == IT_VIDEO_TRACK || item_type_ == IT_AUDIO_TRACK) {
+        utility::FrameRate start;
+        int i = 0;
+        for (auto it = cbegin(); it != cend(); ++it) {
+            if (it->uuid() == item_id) {
+                return utility::FrameRange(start, it->trimmed_duration(), rate());
+            } else {
+                start += it->trimmed_duration();
+            }
+            ++i;
+        }
+
+    } else if (item_type_ == IT_STACK || item_type_ == IT_TIMELINE) {
+
+        for (auto it = cbegin(); it != cend(); ++it) {
+
+            auto r = it->item_range(item_id);
+            if (r) return r;
+
+        }
+    }
+    return {};
+
 }
 
 std::optional<int> Item::frame_at_item_frame(

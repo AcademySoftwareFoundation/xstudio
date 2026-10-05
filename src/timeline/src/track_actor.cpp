@@ -956,8 +956,8 @@ void TrackActor::insert_items(
                     for (const auto &ua : uav)
                         add_item(ua);
 
-                    // find insertion point..
-                    auto it = std::next(base_.item().begin(), index);
+                    // find insertion point..                    
+                    int insertion_index = index;
 
                     // insert items..
                     // our list will be out of order..
@@ -972,8 +972,11 @@ void TrackActor::insert_items(
                                 auto blind = request_receive<JsonStore>(
                                     *sys, ua.actor(), serialise_atom_v);
 
+                                auto it = insertion_index >= 0 ? std::next(base_.item().begin(), std::min(insertion_index, int(base_.item().size()))) : base_.item().end();
                                 auto tmp = base_.item().insert(it, i, blind);
-                                changes.insert(changes.begin(), tmp.begin(), tmp.end());
+                                if (insertion_index != -1) insertion_index++;
+                                it = insertion_index >= 0 ? std::next(base_.item().begin(), std::min(insertion_index, int(base_.item().size()))) : base_.item().end();
+                                changes.insert(changes.end(), tmp.begin(), tmp.end());
                                 found = true;
                                 break;
                             }
@@ -1014,7 +1017,7 @@ void TrackActor::insert_items_at_frame(
         // insert gap to fill space..
         UuidActorVector uav_plus_gap;
         auto track_end = base_.item().trimmed_frame_start().frames() +
-                         base_.item().trimmed_frame_duration().frames() - 1;
+                         base_.item().trimmed_frame_duration().frames();
         auto filler   = frame - track_end;
         auto gap_uuid = Uuid::generate();
         auto gap_actor =

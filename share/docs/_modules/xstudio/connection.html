@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>xstudio.connection &mdash; xStudio 1.3.0 documentation</title>
+  <title>xstudio.connection &mdash; xStudio 1.4.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=eafc0fe6" />
@@ -15,7 +15,7 @@
   
         <script src="../../_static/jquery.js?v=5d32c60e"></script>
         <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=1f29e9d3"></script>
+        <script src="../../_static/documentation_options.js?v=9172181d"></script>
         <script src="../../_static/doctools.js?v=888ff710"></script>
         <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
@@ -37,7 +37,7 @@
             xStudio
           </a>
               <div class="version">
-                1.3.0
+                1.4.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -118,7 +118,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">app_type</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">app_version</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_api</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">default_timeout_ms</span> <span class="o">=</span> <span class="mi">100000</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">default_timeout_ms</span> <span class="o">=</span> <span class="mi">10000</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">debug</span> <span class="o">=</span> <span class="n">debug</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="p">{}</span>
@@ -286,9 +286,11 @@
 <span class="sd">           forever (bool): Don&#39;t return until API shutsdown.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">keep_processing</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">connected</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">keep_processing</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">dequeue_messages</span><span class="p">(</span><span class="n">timeout</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">forever</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">forever</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">link</span><span class="o">.</span><span class="n">wait_for_xstudio_exit</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">connected</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">keep_processing</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">dequeue_messages</span><span class="p">(</span><span class="n">timeout</span><span class="p">)</span>
                 <span class="k">break</span></div>
 
 
@@ -536,38 +538,8 @@
 <a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.request_receive_timeout">[docs]</a>
     <span class="k">def</span> <span class="nf">request_receive_timeout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout_milli</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Send message and return response.&quot;&quot;&quot;</span>
-        <span class="n">req_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">response</span><span class="p">(</span><span class="n">req_id</span><span class="p">,</span> <span class="n">timeout_milli</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">link</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="n">timeout_milli</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span></div>
 
-
-<div class="viewcode-block" id="Connection.request">
-<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.request">[docs]</a>
-    <span class="k">def</span> <span class="nf">request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Send message and return promise.&quot;&quot;&quot;</span>
-        <span class="n">req_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">link</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">req_id</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="p">[</span><span class="n">req_id</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-
-        <span class="k">return</span> <span class="n">req_id</span></div>
-
-
-    <span class="k">def</span> <span class="nf">response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req_id</span><span class="p">,</span> <span class="n">timeout_milli</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">timeout_milli</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_dequeue_messages</span><span class="p">(</span><span class="n">timeout_milli</span><span class="p">,</span> <span class="n">req_id</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_response</span><span class="p">(</span><span class="n">req_id</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req_id</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">req_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="p">[</span><span class="n">req_id</span><span class="p">]</span>  <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="p">[</span><span class="n">req_id</span><span class="p">]</span>
-            <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="p">[</span><span class="n">req_id</span><span class="p">]</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">error</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
-
-        <span class="k">return</span> <span class="n">result</span>
 
 <div class="viewcode-block" id="Connection.spawn">
 <a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.spawn">[docs]</a>
@@ -634,11 +606,14 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
 
+        <span class="k">if</span> <span class="n">watch_for</span> <span class="ow">and</span> <span class="n">watch_for</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="p">[</span><span class="n">watch_for</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
         <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
 
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">link</span><span class="o">.</span><span class="n">dequeue_message_with_timeout</span><span class="p">(</span>
-                    <span class="n">absolute_receive_timeout</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">timeout_milli</span><span class="p">))</span>
+                    <span class="n">absolute_receive_timeout</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="mi">5000</span><span class="p">))</span>
                 <span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;Dequeue timeout&quot;</span><span class="p">:</span>
@@ -814,11 +789,6 @@
                 <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">plugins</span><span class="p">[</span><span class="n">pn</span><span class="p">]</span>
         <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Plugin with uuid </span><span class="si">{}</span><span class="s2"> was not found&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">plugin_uuid</span><span class="p">))</span></div>
 
-
-    <span class="k">def</span> <span class="nf">hud_plugins_onscreen_data2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">media_items</span><span class="p">):</span>
-        <span class="k">for</span> <span class="n">pn</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">plugins</span><span class="p">:</span>
-            <span class="nb">print</span> <span class="p">(</span><span class="n">pn</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">JsonStore</span><span class="p">()</span>
 
 <div class="viewcode-block" id="Connection.hud_plugins_onscreen_data">
 <a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.hud_plugins_onscreen_data">[docs]</a>

@@ -1670,9 +1670,7 @@ caf::message_handler TimelineActor::message_handler() {
 
         [=](bake_atom, const UuidVector &uuids) -> result<UuidActor> {
             auto rp = make_response_promise<UuidActor>();
-
             bake(rp, UuidSet(uuids.begin(), uuids.end()));
-
             return rp;
         },
 
@@ -1718,6 +1716,21 @@ caf::message_handler TimelineActor::message_handler() {
                 }
             }
             return result;
+        },
+
+        [=](insert_item_atom, UuidActor media, const bool replace_clip_under_playhead) ->result <bool> {
+            // This message handler allows auto insertion of a single media item.
+            // It's used by the ConformWorkerActor when the conform of a single
+            // media item has failed - in this case we want to just insert (or 
+            // replace) the media into the edit over the current clip that's 
+            // under the playhead
+            auto rp = make_response_promise<bool>();
+            if (replace_clip_under_playhead) {
+                auto_replace_media_at_playhead_clip(rp, media);
+            } else {
+                auto_insert_media_at_playhead_clip(rp, media);
+            }
+            return rp;
         },
 
         [=](insert_item_atom,
@@ -2217,6 +2230,13 @@ caf::message_handler TimelineActor::message_handler() {
             // convert timeline to otio string
             auto rp = make_response_promise<std::string>();
             export_otio_as_string(rp);
+            return rp;
+        },
+
+        [=](session::export_atom, bake_atom) -> result<std::string> {
+            // convert timeline to otio string
+            auto rp = make_response_promise<std::string>();
+            export_flattened_otio(rp);
             return rp;
         },
 
@@ -3355,6 +3375,79 @@ void TimelineActor::erase_items(
     }
 }
 
+void TimelineActor::export_flattened_otio(
+    caf::typed_response_promise<std::string> rp) {
+
+    // get list of video tracks
+    auto video_tracks = base_.item().find_all_uuid_actors(IT_VIDEO_TRACK);
+    UuidVector track_ids;
+    for (const auto &vt: video_tracks) {
+        track_ids.push_back(vt.uuid());
+    }
+    // bake the duplicate to a single video track
+    mail(bake_atom_v, track_ids).request(caf::actor_cast<caf::actor>(this), infinite).then(
+        [=](UuidActor baked_track) mutable {
+
+            // now make a duplicate timeline and add our baked track to it
+            JsonStore jsn;
+            auto dup = base_.duplicate();
+            dup.item().clear();
+
+            jsn["base"]   = dup.serialise();
+            jsn["actors"] = {};
+            auto timline_duplicate    = spawn<TimelineActor>(jsn, caf::actor_cast<caf::actor>(playlist_));
+
+            // create default stack
+            auto stack_item = Item(IT_STACK, "Stack", dup.item().rate());
+            auto stack = spawn<StackActor>(stack_item, stack_item);
+
+            // insert the stack into the duplicate timeline
+            mail(insert_item_atom_v, -1, UuidActorVector({UuidActor(stack_item.uuid(), stack)})).request(timline_duplicate, infinite).then(
+                [=](const utility::JsonStore &) mutable {
+
+                    // insert the baked track into the stack
+                    mail(insert_item_atom_v, -1, UuidActorVector({baked_track})).request(stack, infinite).then(
+                        [=](const utility::JsonStore &) mutable {
+
+                            // link the media actors from the original timeline to the duplicate timeline
+                            mail(link_media_atom_v, media_actors_, true).request(timline_duplicate, infinite).then(
+                                [=](bool) mutable {
+
+                                    // do the export to otio
+                                    mail(session::export_atom_v).request(timline_duplicate, infinite).then(
+                                        [=](const std::string & result) mutable {
+                                            send_exit(timline_duplicate, caf::exit_reason::user_shutdown);
+                                            rp.deliver(result);
+                                        },
+                                        [=](caf::error &err) mutable {
+                                            send_exit(timline_duplicate, caf::exit_reason::user_shutdown);
+                                            rp.deliver(err);
+                                        });
+                                },
+                                [=](caf::error &err) mutable {
+                                    send_exit(timline_duplicate, caf::exit_reason::user_shutdown);
+                                    rp.deliver(err);
+                                });
+
+                        },
+                        [=](caf::error &err) mutable {
+                            send_exit(timline_duplicate, caf::exit_reason::user_shutdown);
+                            send_exit(baked_track.actor(), caf::exit_reason::user_shutdown);
+                            rp.deliver(err);
+                        });
+                },
+                [=](caf::error &err) mutable {
+                    send_exit(timline_duplicate, caf::exit_reason::user_shutdown);
+                    send_exit(baked_track.actor(), caf::exit_reason::user_shutdown);
+                    send_exit(stack, caf::exit_reason::user_shutdown);
+                    rp.deliver(err);
+                });
+        },
+        [=](caf::error &err) mutable {
+            rp.deliver(err);
+        });
+}
+
 // create new track from bake list
 void TimelineActor::bake(caf::typed_response_promise<UuidActor> rp, const UuidSet &uuids) {
     // audio or video ?
@@ -4051,4 +4144,237 @@ void TimelineActor::paste_tracks_from_serialisation(
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         rp.deliver(make_error(xstudio_error::error, err.what()));
     }
+}
+
+void TimelineActor::auto_insert_media_at_playhead_clip(caf::typed_response_promise<bool> rp, UuidActor media)
+{
+
+    // When this is called we have a track to insert into, a clip and the duration of the clip. We do the insertion and adjust the 
+    // gap that follows the clip so that the items following the new clip aren't pushed along
+    auto third_step = [=](const FrameRange &cut_in_range, UuidActor track_to_insert_into, UuidActor &clip, const FrameRange clip_duration) mutable {
+
+        mail(insert_item_at_frame_atom_v, cut_in_range.frame_start().frames(), UuidActorVector({clip}))
+            .request(track_to_insert_into.actor(), infinite)
+            .then(
+                [=](const utility::JsonStore change) mutable { 
+
+                    // now we've added the clip, it has pushed all the items that follow
+                    // it along by the clip duration. We don't want that. We want to 
+                    // shrink the gap that follows the new clip so that the items 
+                    // following it don't move UNLESS the clip's end frame goes  
+                    // past the last frame of the gap that it was inserted into.
+                    mail(item_atom_v).request(track_to_insert_into.actor(), infinite)
+                        .then(
+                            [=](Item modified_track) mutable { 
+
+                                auto added_clip = find_item(modified_track.children(), clip.uuid());
+                                if (added_clip) {
+                                    auto it = *added_clip;
+                                    it++;
+                                    if (it != modified_track.end() && (*it).item_type() == IT_GAP)  {
+                                        auto gap_range = (*it).trimmed_range();
+                                        if (gap_range.duration() > clip_duration.duration()) {
+                                            gap_range.set_duration(gap_range.duration() - clip_duration.duration());
+                                            anon_mail(trimmed_range_atom_v, gap_range, gap_range).send((*it).actor());
+                                        } else {
+                                            // The gap wasn't bigger than the clip duration. Remove the gap altogether.
+                                            anon_mail(erase_item_atom_v, (*it).uuid(), false).send(track_to_insert_into.actor());
+                                        }
+                                    }
+                                }
+
+                                rp.deliver(true);
+
+                            },
+                            [=](caf::error &err) mutable { rp.deliver(err); });
+
+
+                },
+                [=](caf::error &err) mutable { rp.deliver(err); });
+
+    };
+
+
+    // Here we find a track that is selected that has a suitable gap that we can add the new clip
+    // into. If there's no such track we create a fresh, empty track
+    auto second_step = [=](const FrameRange cut_in_range, UuidActor new_clip, const FrameRange clip_duration) mutable{
+
+        UuidActor track_to_insert_into;
+        auto stack = base_.item().front();
+        std::vector<Item> selected_tracks;
+        for (const auto &track: stack) {
+            if (track.item_type() == IT_VIDEO_TRACK && std::find_if(
+                selection_.begin(),
+                selection_.end(),
+                [track](UuidActor const &selected) { return selected.uuid()==track.uuid(); }) != selection_.end()) {
+                selected_tracks.push_back(track);
+            }
+        }
+
+        if (!selected_tracks.size()) {
+            for (const auto &track: stack) {
+                if (track.item_type() == IT_VIDEO_TRACK && track.name() == "Added Media" && !track.locked()) {
+                    selected_tracks.push_back(track);
+                }
+            }
+        }   
+
+        for (auto &candidate_track: selected_tracks) {
+            // is there a Gap where we are trying to cut in ....
+            auto item_at_cut_in = candidate_track.item_at_time_point(cut_in_range.start());
+            if (item_at_cut_in && (*item_at_cut_in)->item_type() == IT_GAP) {
+                // we have a gap covering the cut in range, we're good to go
+                track_to_insert_into = UuidActor(candidate_track.uuid(), candidate_track.actor());
+                break;
+            } else if (candidate_track.trimmed_duration() <= cut_in_range.start()) {
+                // there's nothing where we are cutting in, we're good to go
+                track_to_insert_into = UuidActor(candidate_track.uuid(), candidate_track.actor());
+                break;
+            }
+        }
+
+        if (!track_to_insert_into) {
+            // no tracks selected or none that we can cut the clip into ... 
+            utility::Uuid track_uuid = utility::Uuid::generate();
+            auto new_track = spawn<TrackActor>("Added Media", base_.item().rate(), media::MediaType::MT_IMAGE, track_uuid);
+            track_to_insert_into = UuidActor(track_uuid, new_track);
+
+            // Add the track to the stack
+            auto stack = base_.item().front();
+            mail(insert_item_atom_v, 0, UuidActorVector({track_to_insert_into})).request(stack.actor(), infinite).then(
+                [=](const utility::JsonStore change) mutable { 
+                    // nothing to do here, we just needed to add the track
+                    third_step(cut_in_range, track_to_insert_into, new_clip, clip_duration);
+                },
+                [=](caf::error &err) mutable { rp.deliver(err); });
+        } else {
+            third_step(cut_in_range, track_to_insert_into, new_clip, clip_duration);
+        }
+
+    };
+
+    // get clip insertion in/out points and the duration of the new clip
+    auto first_step = [=]() mutable {
+
+        utility::Uuid clip_uuid = utility::Uuid::generate();
+        auto clip = spawn<ClipActor>(media, "", clip_uuid);
+        UuidActor new_clip(clip_uuid, clip);
+
+        mail(trimmed_range_atom_v).request(clip, infinite).then(
+            [=](const FrameRange &new_clip_range) mutable {
+
+                mail(playlist::get_playhead_atom_v).request(caf::actor_cast<caf::actor>(this), infinite).then(
+                    [=](UuidActor playhead) mutable {
+                        // get the playhead frame
+                        mail(playhead::position_atom_v).request(playhead.actor(), infinite).then(
+                            [=](const timebase::flicks playhead_position) mutable {
+
+                                std::optional<ResolvedItem> clip = base_.item().resolve_time(
+                                    FrameRate(playhead_position));
+
+                                if (clip) {
+
+                                    auto clip_range = base_.item().item_range((*clip).first.uuid());
+                                    if (clip_range) {
+
+                                        second_step(*clip_range, new_clip, new_clip_range);
+
+                                    }
+                                    
+                                } else {
+                                    rp.deliver(make_error(xstudio_error::error, "Unable to find clip under playhead."));
+                                }
+
+                            },
+                            [=](caf::error &err) mutable {
+                                rp.deliver(err);
+                            });
+
+                    },
+                    [=](caf::error &err) mutable {
+                        rp.deliver(err);
+                    });
+            },
+            [=](caf::error &err) mutable {
+                rp.deliver(err);
+            });
+    };
+
+    first_step();
+
+}
+
+void TimelineActor::auto_replace_media_at_playhead_clip(caf::typed_response_promise<bool> rp, UuidActor media)
+{
+
+    auto second_step = [=](const FrameRange cut_in_range, const Item clip) mutable{
+
+        utility::Uuid clip_uuid = utility::Uuid::generate();
+        auto new_clip = spawn<ClipActor>(media, "", clip_uuid);
+        UuidActorVector new_items({UuidActor(clip_uuid, new_clip)});
+
+        mail(trimmed_range_atom_v).request(new_clip, infinite).then(
+            [=](const FrameRange &clip_dur) mutable {
+
+                if (clip_dur.duration() < cut_in_range.duration()) {
+                    utility::Uuid gap_uuid = utility::Uuid::generate();
+                    auto gap = spawn<GapActor>("Gap", FrameRateDuration(cut_in_range.duration()-clip_dur.duration(), base_.item().rate()), gap_uuid);
+                    new_items.push_back(UuidActor(gap_uuid, gap));
+                }
+                caf::actor track_to_insert_into = find_parent_actor(base_.item(), clip.uuid());
+                if (!track_to_insert_into) {
+                    rp.deliver(make_error(xstudio_error::error, "Unable to find parent track for clip."));
+                    return;
+                }
+                mail(insert_item_atom_v, clip.uuid(), new_items).request(track_to_insert_into, infinite).then(
+                    [=](const utility::JsonStore &) mutable {
+                        anon_mail(erase_item_atom_v, clip.uuid(), false).send(track_to_insert_into);
+                        rp.deliver(true);
+                    },
+                    [=](caf::error & err) mutable {
+                        rp.deliver(err);
+                    });
+
+            },
+            [=](caf::error & err) mutable {
+                rp.deliver(err);
+            });
+
+    };
+
+    // get clip insertion in/out points
+    auto first_step = [=]() mutable {
+
+        mail(playlist::get_playhead_atom_v).request(caf::actor_cast<caf::actor>(this), infinite).then(
+        [=](UuidActor playhead) mutable {
+            // get the playhead frame
+            mail(playhead::position_atom_v).request(playhead.actor(), infinite).then(
+                [=](const timebase::flicks playhead_position) mutable {
+
+                    std::optional<ResolvedItem> clip = base_.item().resolve_time(
+                        FrameRate(playhead_position));
+
+                    if (clip) {
+
+                        auto clip_range = base_.item().item_range((*clip).first.uuid());
+                        if (clip_range) {
+                            second_step(*clip_range, (*clip).first);
+                        }
+                        
+                    } else {
+                        rp.deliver(make_error(xstudio_error::error, "Unable to find clip under playhead."));
+                    }
+
+                },
+                [=](caf::error &err) mutable {
+                    rp.deliver(err);
+                });
+
+        },
+        [=](caf::error &err) mutable {
+            rp.deliver(err);
+        });};
+
+    first_step();
+
 }

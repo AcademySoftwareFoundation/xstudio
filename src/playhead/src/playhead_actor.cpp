@@ -474,6 +474,30 @@ void PlayheadActor::init() {
             return mail(atom).delegate(hero_sub_playhead_.actor());
         },
 
+        [=](media::source_offset_frames_atom, bool all) -> result<utility::JsonStore> {
+
+            auto responder = utility::AutoResponder<utility::JsonStore>(
+                sub_playheads_.size(), this);
+            responder.result() = nlohmann::json(std::vector<int>(sub_playheads_.size(), 0));
+            
+            for (size_t i = 0; i < sub_playheads_.size(); ++i) {
+
+                const int idx = i;
+                mail(media::source_offset_frames_atom_v)
+                    .request(sub_playheads_[i].actor(), infinite)
+                    .then(
+                    [=](int64_t offset) mutable {
+                        responder.result()[idx] = offset;
+                        responder.decrement();
+                    },
+                    [=](caf::error &err) mutable {
+                        responder.decrement(err);
+                    });
+            }
+
+            return responder.response_promise();
+        },
+
         [=](media::source_offset_frames_atom atom, caf::actor sub_playhead, const int offset) {
             // pass up to the main playhead that the offset has changed
             if (sub_playhead == hero_sub_playhead_) {
@@ -630,6 +654,10 @@ void PlayheadActor::init() {
             auto rp = make_response_promise<timebase::flicks>();
             update_duration(rp);
             return rp;
+        },
+
+        [=](playhead::position_atom) -> result<timebase::flicks> {
+            return position();
         },
 
         [=](playhead::duration_flicks_atom, bool offscreen) -> result<timebase::flicks> {
@@ -1480,39 +1508,7 @@ void PlayheadActor::init() {
 
         [=](utility::serialise_atom) -> result<JsonStore> {
             auto rp = make_response_promise<JsonStore>();
-
-            // We need to update the offsets per sub-playhead before completing
-            // serialisation ...
-            auto ct = std::make_shared<int>(sub_playheads_.size());
-            source_alignment_values_->set_value(std::vector<int>(sub_playheads_.size(), 0));
-            if (sub_playheads_.empty()) {
-                rp.deliver(serialise());
-                return rp;
-            }
-
-            for (size_t idx = 0; idx < sub_playheads_.size(); ++idx) {
-
-                mail(media::source_offset_frames_atom_v)
-                    .request(sub_playheads_[idx].actor(), infinite)
-                    .then(
-                        [=](const int64_t offset) mutable {
-                            auto r = source_alignment_values_->value();
-                            if (idx < r.size())
-                                r[idx] = offset;
-                            source_alignment_values_->set_value(r);
-                            (*ct)--;
-                            if (!(*ct)) {
-                                rp.deliver(serialise());
-                            }
-                        },
-                        [=](const error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                            (*ct)--;
-                            if (!(*ct)) {
-                                rp.deliver(serialise());
-                            }
-                        });
-            }
+            rp.deliver(serialise());
             return rp;
         },
 
@@ -1537,8 +1533,7 @@ void PlayheadActor::init() {
                             self()->home_system().registry().template get<caf::actor>(
                                 viewport_layouts_manager);
 
-                        // following desrialisation, we set-up the compare mode and set the
-                        // frame offsets per sub-playhead
+                        // following desrialisation, we set-up the compare mode
                         mail(playhead::compare_mode_atom_v, compare_mode_->value())
                             .request(layouts_manager, infinite)
                             .then(
@@ -1550,25 +1545,6 @@ void PlayheadActor::init() {
                                     new_source_list();
                                     align_clip_frame_numbers();
                                     align_audio_playhead();
-
-                                    auto offset_frames = source_alignment_values_->value();
-                                    const bool manual_align =
-                                        auto_align_mode() == AAM_ALIGN_MANUAL;
-                                    size_t idx = 0;
-                                    for (auto &sub_playhead : sub_playheads_) {
-                                        if (idx < offset_frames.size()) {
-                                            if (manual_align && idx < source_actors_.size())
-                                                manual_source_offsets_
-                                                    [source_actors_[idx].uuid()] =
-                                                        offset_frames[idx];
-                                            anon_mail(
-                                                media::source_offset_frames_atom_v,
-                                                (int64_t)offset_frames[idx],
-                                                false)
-                                                .send(sub_playhead.actor());
-                                        }
-                                        idx++;
-                                    }
                                     notify_loop_end_changed();
                                     notify_loop_start_changed();
                                     mail(utility::event_atom_v, loop_atom_v, loop())
@@ -2653,9 +2629,9 @@ void PlayheadActor::align_clip_frame_numbers() {
         // We therefore do not need to align or trim - we just extend the duration
         // of video tracks to match the longest.
         const AutoAlignMode align_mode =
-            timeline_mode() ? AAM_ALIGN_OFF : auto_align_mode();
-        const bool align  = align_mode == AAM_ALIGN_FRAMES || align_mode == AAM_ALIGN_TRIM;
-        const bool trim   = align_mode == AAM_ALIGN_TRIM;
+            timeline_mode() ? AAM_ALIGN_MANUAL : auto_align_mode();
+        const bool align  = align_mode == AAM_ALIGN_AUTO || align_mode == AAM_ALIGN_AUTO_TRIM;
+        const bool trim   = align_mode == AAM_ALIGN_AUTO_TRIM;
         const bool manual = align_mode == AAM_ALIGN_MANUAL;
 
         // Use timecode to align the sources - if we are trimming, we use trim to the latest
@@ -2772,16 +2748,6 @@ void PlayheadActor::align_clip_frame_numbers() {
             request_receive_wait<int64_t>(
                 *sys, hero_sub_playhead_.actor(), timeout, media::source_offset_frames_atom_v),
             false);
-
-        // reflect the offsets that were actually applied in the
-        // "Source Alignment Frames" attribute
-        std::vector<int> applied_offsets;
-        applied_offsets.reserve(sub_playheads_.size());
-        for (const auto &sub_playhead : sub_playheads_) {
-            applied_offsets.push_back(static_cast<int>(request_receive_wait<int64_t>(
-                *sys, sub_playhead.actor(), timeout, media::source_offset_frames_atom_v)));
-        }
-        source_alignment_values_->set_value(applied_offsets, false);
 
         // the cached frames display might need updating
         rebuild_cached_frames_status();
@@ -3027,21 +2993,6 @@ void PlayheadActor::attribute_changed(const utility::Uuid &attr_uuid, const int 
     } else if (attr_uuid == loop_range_enabled_->uuid()) {
         notify_loop_start_changed();
         notify_loop_end_changed();
-    } else if (attr_uuid == source_alignment_values_->uuid()) {
-
-        if (!timeline_mode() && auto_align_mode() == AAM_ALIGN_MANUAL) {
-            // per-source offsets set through the attribute - remember them
-            // against the media of each sub-playhead and re-apply
-            const auto vals = source_alignment_values_->value();
-            for (size_t i = 0; i < vals.size() && i < source_actors_.size(); ++i) {
-                manual_source_offsets_[source_actors_[i].uuid()] = vals[i];
-            }
-            align_clip_frame_numbers();
-            align_audio_playhead();
-            anon_mail(duration_flicks_atom_v).send(this);
-            anon_mail(jump_atom_v).send(this);
-        }
-
     } else if (attr_uuid == source_offset_frames_->uuid()) {
         if (!timeline_mode() && auto_align_mode() == AAM_ALIGN_MANUAL) {
             // remember the offset against the hero media so it persists

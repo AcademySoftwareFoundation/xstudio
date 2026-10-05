@@ -307,9 +307,9 @@ const auto SequenceTermValues = R"([
         { "name": "source" }
     ])"_json;
 
+        // { "name": "SG Movie" },
+        // { "name": "SG Frames" },
 const auto SourceTermValues = R"([
-        { "name": "SG Movie" },
-        { "name": "SG Frames" },
         { "name": "main_proxy0" },
         { "name": "main_proxy1" },
         { "name": "main_proxy2" },

@@ -649,7 +649,7 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                                 }
                             }
                             if (ritems.empty()) {
-                                spdlog::warn(
+                                spdlog::debug(
                                     "Media has no matching clip {} project: {}, shot:  "
                                     "{}, meta_shot: {}",
                                     to_string(i.item_.uuid()),

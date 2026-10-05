@@ -307,14 +307,14 @@ Item {
     property alias volume: __volume.value
 
     /* This gives us a 'model' with one row - the row is the attribute data
-    for the "Auto Align" attribute of the current playhead. We use it below
+    for the "Frame Align" attribute of the current playhead. We use it below
     to build the Auto Align button */
     XsFilterModel {
         id: auto_align_attr_data
         sourceModel: playhead_attrs_model
         sortAscending: true
         Component.onCompleted: {
-            setRoleFilter("Auto Align", "title")
+            setRoleFilter("Frame Align", "title")
         }
     }
     property alias autoAlignAttrData: auto_align_attr_data

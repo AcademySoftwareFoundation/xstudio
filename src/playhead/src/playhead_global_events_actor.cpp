@@ -111,6 +111,9 @@ void PlayheadGlobalEventsActor::init() {
         [=](broadcast::leave_broadcast_atom, caf::actor joiner) {
             return mail(broadcast::leave_broadcast_atom_v, joiner).delegate(event_group_);
         },
+        [=](utility::parent_atom) -> caf::actor {
+            return caf::actor_cast<caf::actor>(this);
+        },
         [=](ui::viewport::viewport_playhead_atom) -> caf::actor {
             return global_active_playhead_;
         },

@@ -24,7 +24,6 @@ XsGradientRectangle {
     property color textColorNormal: XsStyleSheet.primaryTextColor
     property color hintColor: XsStyleSheet.hintColor
 
-    property real iconTextBtnWidth: btnWidth*2.2
     property real btnWidth: XsStyleSheet.primaryButtonStdWidth
     property real btnHeight: XsStyleSheet.widgetStdHeight+4
     property real panelPadding: XsStyleSheet.panelPadding
@@ -48,6 +47,11 @@ XsGradientRectangle {
     property bool hideMarkers: false
     property string timeMode: "timecode"
     property real verticalScale: 1.0
+
+    property bool buttonsShowText: width > 1450
+    property real iconTextBtnWidth: buttonsShowText ? btnWidth*2.2 : btnWidth
+
+    Behavior on iconTextBtnWidth {NumberAnimation {duration: 150}}
 
     // persist these properties between sessions
     XsStoredPanelProperties {
@@ -389,6 +393,12 @@ XsGradientRectangle {
                     }
                 }
 
+                Item{
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    Layout.maximumWidth: 12
+                }
+
                 XsPrimaryButton{
                     Layout.leftMargin: 16
                     Layout.preferredWidth: iconTextBtnWidth
@@ -396,7 +406,7 @@ XsGradientRectangle {
                     imgSrc: "qrc:/icons/waves.svg"
                     text: "Ripple"
                     toolTip: "Ripple"
-                    showBoth: true
+                    showBoth: buttonsShowText
                     font.pixelSize: XsStyleSheet.fontSize
                     isActive: theTimeline.rippleMode
                     onClicked: {
@@ -411,7 +421,7 @@ XsGradientRectangle {
                     imgSrc: "qrc:/icons/filter_none.svg"
                     text: "Overwrite"
                     toolTip: "Overwrite"
-                    showBoth: true
+                    showBoth: buttonsShowText
                     font.pixelSize: XsStyleSheet.fontSize
                     isActive: theTimeline.overwriteMode
                     onClicked: {
@@ -426,7 +436,7 @@ XsGradientRectangle {
                     imageDiv.rotation: 90
                     text: "Snap"
                     toolTip: "Snap"
-                    showBoth: true
+                    showBoth: buttonsShowText
                     font.pixelSize: XsStyleSheet.fontSize
                     isActive: theTimeline.snapMode
                     onClicked: theTimeline.snapMode = !theTimeline.snapMode
@@ -435,7 +445,7 @@ XsGradientRectangle {
                 Item{
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
-                    Layout.maximumWidth: 24
+                    Layout.maximumWidth: 12
                 }
 
                 XsPrimaryButton{
@@ -445,7 +455,7 @@ XsGradientRectangle {
                     imgSrc: "qrc:/icons/crop_free.svg"
                     text: "Fit All"
                     toolTip: "Fit All"
-                    showBoth: true
+                    showBoth: buttonsShowText
                     font.pixelSize: XsStyleSheet.fontSize
                     font.family: XsStyleSheet.fontFamily
                     onClicked:  theTimeline.fitItems()
@@ -456,7 +466,7 @@ XsGradientRectangle {
                     imgSrc: "qrc:/icons/fit_screen.svg"
                     text: "Selected"
                     toolTip: "Fit Selected"
-                    showBoth: true
+                    showBoth: buttonsShowText
                     font.pixelSize: XsStyleSheet.fontSize
                     enabled: theTimeline.timelineSelection.selectedIndexes.length
                     onClicked:  theTimeline.fitItems(theTimeline.timelineSelection.selectedIndexes)
@@ -467,7 +477,7 @@ XsGradientRectangle {
                     imgSrc: "qrc:/icons/laps.svg"
                     text: "Loop"
                     toolTip: "Loop Selection"
-                    showBoth: true
+                    showBoth: buttonsShowText
                     font.pixelSize: XsStyleSheet.fontSize
                     onClicked: theTimeline.loopSelection = !theTimeline.loopSelection
                     isActive: theTimeline.loopSelection
@@ -478,7 +488,7 @@ XsGradientRectangle {
                     imgSrc: "qrc:/icons/center_focus_weak.svg"
                     text: "Focus"
                     toolTip: "Focus Selection"
-                    showBoth: true
+                    showBoth: buttonsShowText
                     font.pixelSize: XsStyleSheet.fontSize
                     onClicked: theTimeline.focusSelection = !theTimeline.focusSelection
                     isActive: theTimeline.focusSelection
@@ -486,7 +496,7 @@ XsGradientRectangle {
                 Item{
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
-                    Layout.maximumWidth: 24
+                    Layout.maximumWidth: 12
                 }
 
                 XsPrimaryButton{
@@ -496,7 +506,7 @@ XsGradientRectangle {
                     imgSrc: "qrc:/icons/stacks.svg"
                     text: "Flatten"
                     toolTip: "Flatten Selected Tracks"
-                    showBoth: true
+                    showBoth: buttonsShowText
                     font.pixelSize: XsStyleSheet.fontSize
                     enabled: theTimeline.timelineSelection.selectedIndexes.length
                     onClicked: {
@@ -510,7 +520,7 @@ XsGradientRectangle {
                     imgSrc: "qrc:/icons/splitscreen_add.svg"
                     text: "Insert"
                     toolTip: "Insert Track Above"
-                    showBoth: true
+                    showBoth: buttonsShowText
                     font.pixelSize: XsStyleSheet.fontSize
                     enabled: theTimeline.timelineSelection.selectedIndexes.length
                     onClicked:  theTimeline.insertTrackAbove(theTimeline.timelineSelection.selectedIndexes)
@@ -521,7 +531,7 @@ XsGradientRectangle {
                     imgSrc: "qrc:/icons/library_add.svg"
                     text: "Duplicate"
                     toolTip: "Duplicate Selected"
-                    showBoth: true
+                    showBoth: buttonsShowText
                     font.pixelSize: XsStyleSheet.fontSize
                     onClicked: theTimeline.duplicate(theTimeline.timelineSelection.selectedIndexes)
                     enabled: theTimeline.timelineSelection.selectedIndexes.length
@@ -531,79 +541,86 @@ XsGradientRectangle {
                     Layout.fillWidth: true
                 }
 
-                RowLayout {
-                    Layout.alignment: Qt.AlignVCenter
-                    spacing: 0
-                    enabled: haveCurrentClip
+
+                ColumnLayout {
+
+                    spacing: 2
 
                     XsText{
-                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                        Layout.rightMargin: 4
+                        Layout.alignment: Qt.AlignHCenter
                         text: "Cut Range"
                         font.pixelSize: 10
-                        horizontalAlignment: Text.AlignRight
+                        horizontalAlignment: Text.AlignHCenter
                     }
 
-                    XsTextField {
-                        Layout.preferredWidth: editBoxWidth
-                        Layout.preferredHeight: editBoxHeight
-                        text: cutRangeIn
-                        font.pixelSize: 10
-                        horizontalAlignment: TextInput.AlignHCenter
-                        onEditingFinished: setCutRange(text, 0)
-                        
+                    RowLayout {
+                        Layout.alignment: Qt.AlignVCenter
+                        spacing: 2
+                        XsTextField {
+                            Layout.preferredWidth: editBoxWidth
+                            Layout.preferredHeight: editBoxHeight
+                            text: cutRangeIn
+                            font.pixelSize: 10
+                            horizontalAlignment: TextInput.AlignHCenter
+                            onEditingFinished: setCutRange(text, 0)
+                            
+                        }
+                        XsText {
+                            text: "-"
+                            font.pixelSize: 10
+                        }
+                        XsTextField {
+                            Layout.preferredWidth: editBoxWidth
+                            Layout.preferredHeight: editBoxHeight
+                            text: cutRangeOut
+                            font.pixelSize: 10
+                            horizontalAlignment: TextInput.AlignHCenter
+                            onEditingFinished: setCutRange(text, 1)
+
+                        }
                     }
+                }
+
+                ColumnLayout {
+
+                    Layout.leftMargin: 10
+                    spacing: 2
                     XsText {
-                        text: " - "
-                        font.pixelSize: 10
-                    }
-                    XsTextField {
-                        Layout.preferredWidth: editBoxWidth
-                        Layout.preferredHeight: editBoxHeight
-                        text: cutRangeOut
-                        font.pixelSize: 10
-                        horizontalAlignment: TextInput.AlignHCenter
-                        onEditingFinished: setCutRange(text, 1)
-
-                    }
-
-                    Item {
-                        Layout.preferredWidth: 20
-                    }
-
-                    XsText {
-                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                        Layout.rightMargin: 4
+                        Layout.alignment: Qt.AlignHCenter
                         text: "Handles"
-                        horizontalAlignment: Text.AlignRight
+                        horizontalAlignment: Text.AlignHCenter
                         font.pixelSize: 10
                     }
 
-                    XsTextField {
-                        Layout.preferredWidth: editBoxWidth
-                        Layout.preferredHeight: editBoxHeight
-                        text: inHandle
-                        font.pixelSize: 10
-                        horizontalAlignment: TextInput.AlignHCenter
-                        onEditingFinished: setCutRange(text, 2)
-                    }
-                    XsText {
-                        text: " / "
-                        font.pixelSize: 10
-                    }
-                    XsTextField {
-                        Layout.preferredWidth: editBoxWidth
-                        Layout.preferredHeight: editBoxHeight
-                        text: outHandle
-                        font.pixelSize: 10
-                        horizontalAlignment: TextInput.AlignHCenter
-                        onEditingFinished: setCutRange(text, 3)
-                    }
-                    
-                    Item {
-                        Layout.preferredWidth: 8
-                    }
+                    RowLayout {
 
+                        spacing: 2
+                        XsTextField {
+                            Layout.preferredWidth: editBoxWidth
+                            Layout.preferredHeight: editBoxHeight
+                            text: inHandle
+                            font.pixelSize: 10
+                            horizontalAlignment: TextInput.AlignHCenter
+                            onEditingFinished: setCutRange(text, 2)
+                        }
+                        XsText {
+                            text: "/"
+                            font.pixelSize: 10
+                        }
+                        XsTextField {
+                            Layout.preferredWidth: editBoxWidth
+                            Layout.preferredHeight: editBoxHeight
+                            text: outHandle
+                            font.pixelSize: 10
+                            horizontalAlignment: TextInput.AlignHCenter
+                            onEditingFinished: setCutRange(text, 3)
+                        }
+                    }                
+
+                }
+
+                Item {
+                    Layout.preferredWidth: 8
                 }
 
             }
