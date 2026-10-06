@@ -508,7 +508,12 @@ caf::uri xstudio::utility::parse_cli_posix_path(
 
 #ifdef _WIN32
     std::string abspath = path;
-    if (abspath[0] == '\\') {
+    // A single leading '\' is stripped for root-relative paths, but a UNC path
+    // ('\\server\share' or '//server/share') must keep both leading
+    // separators, otherwise the server name is lost and the path collapses to
+    // a drive-relative one.
+    if (not abspath.empty() and abspath[0] == '\\' and
+        (abspath.size() < 2 or (abspath[1] != '\\' and abspath[1] != '/'))) {
         abspath.erase(abspath.begin());
     }
 #else
@@ -604,10 +609,14 @@ caf::uri xstudio::utility::posix_path_to_uri(
     // (empty hostname), or file://hostname/path.
 
 #ifdef _WIN32
-    // Handle Windows UNC paths: \\server\share\path -> file://server/share/path
-    if (p.size() >= 2 && p[0] == '\\' && p[1] == '\\') {
-        // Find the server name (between first \\ and next \)
-        size_t server_end = p.find('\\', 2);
+    // Handle Windows UNC paths -> file://server/share/path.  Both separator
+    // styles are accepted: a UNC path is valid with either, and it reaches us
+    // as '//server/share/...' from the command line (run_xstudio.bat
+    // //host/...) or from std::filesystem's generic_string(), and as
+    // '\\server\share\...' from native Windows APIs.
+    if (p.size() >= 2 && (p[0] == '\\' || p[0] == '/') && (p[1] == '\\' || p[1] == '/')) {
+        // Find the server name (between the leading separators and the next one)
+        size_t server_end = p.find_first_of("\\/", 2);
         if (server_end != std::string::npos) {
             std::string server     = p.substr(2, server_end - 2);
             std::string share_path = p.substr(server_end + 1);

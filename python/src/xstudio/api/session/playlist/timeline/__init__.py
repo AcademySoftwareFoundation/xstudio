@@ -508,7 +508,7 @@ class Timeline(Item, NotificationHandler, JsonStoreHandler):
         """Get the parent playlist of the timeline
 
         Returns:
-            source(PlayheadList): Currently playing this.
+            source(Playlist): Currently playing this.
         """
         from xstudio.api.session.playlist import Playlist
         result =  self.connection.request_receive(self.remote, get_playlist_atom())[0]
