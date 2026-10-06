@@ -56,6 +56,9 @@ class Timeline : public utility::Container {
     [[nodiscard]] bool empty() const { return media_list_.empty(); }
     void clear() { media_list_.clear(); }
 
+    [[nodiscard]] AudioMode audio_mode() const { return audio_mode_; }
+    void set_audio_mode(const AudioMode am) { audio_mode_ = am; }
+
     [[nodiscard]] utility::UuidList media() const { return media_list_.uuids(); }
     [[nodiscard]] utility::UuidVector media_vector() const { return media_list_.uuid_vector(); }
     void insert_media(
@@ -107,9 +110,11 @@ class Timeline : public utility::Container {
     // }
 
   private:
+
     Item item_;
     utility::UuidListContainer media_list_;
     utility::UuidSet focus_list_;
+    AudioMode audio_mode_;
 
     // utility::UuidListContainer tracks_;
     // utility::FrameRateDuration start_time_;

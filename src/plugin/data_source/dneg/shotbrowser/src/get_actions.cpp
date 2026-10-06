@@ -2114,11 +2114,19 @@ void ShotBrowser::get_data_sequence(
                                                 QueryEngine::cache_name("Sequence", project_id),
                                                 total,
                                                 engine().lookup());
+
                                             engine().set_reference_cache(
                                                 QueryEngine::cache_name(
                                                     "Reference", project_id),
                                                 total,
                                                 engine().cache());
+
+                                            engine().set_lookup(
+                                                QueryEngine::cache_name("Reference", project_id),
+                                                *engine().get_cache(QueryEngine::cache_name("Reference", project_id)),
+                                                engine().lookup());
+
+
                                             engine().set_shot_sequence_lookup(
                                                 QueryEngine::cache_name(
                                                     "ShotSequence", project_id),

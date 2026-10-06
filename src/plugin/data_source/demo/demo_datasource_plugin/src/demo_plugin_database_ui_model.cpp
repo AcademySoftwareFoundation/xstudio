@@ -403,7 +403,7 @@ int DemoPluginVersionsModel::rowCount(const QModelIndex &parent) const { return 
 QVariant DemoPluginVersionsModel::data(const QModelIndex &index, int role) const {
 
     auto p = DemoPlugin::data_model_role_names.find(static_cast<DATA_MODEL_ROLE>(role));
-    if (index.row() < data_.size() && p != DemoPlugin::data_model_role_names.end()) {
+    if (index.row() < int(data_.size()) && p != DemoPlugin::data_model_role_names.end()) {
         try {
             return xstudio::ui::qml::json_to_qvariant(data_[index.row()][p->second]);
         } catch (...) {

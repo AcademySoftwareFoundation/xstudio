@@ -55,9 +55,8 @@ XsMenuItemNew {
 		doRescan()
 	}
 
-	XsModelProperty {
+	XsPreference {
         id: __snapshot_paths
-        role: "valueRole"
         index: globalStoreModel.searchRecursive("/core/snapshot/paths", "pathRole")
     }
 	property alias snapshot_paths: __snapshot_paths.value

@@ -131,7 +131,7 @@ utility::JsonStore DemoPlugin::qml_item_callback(
                                 const std::string fr = j["frame_range"];
 
                                 static const std::regex frame_range("^([0-9]+)\\-([0-9]+)$");
-                                int in_frame  = 0;
+                                /*int in_frame  = 0;
                                 int out_frame = 0;
                                 std::cmatch m;
                                 if (std::regex_search(fr.c_str(), m, frame_range)) {
@@ -140,7 +140,7 @@ utility::JsonStore DemoPlugin::qml_item_callback(
                                         out_frame = std::stoi(m[2].str());
                                     } catch (...) {
                                     }
-                                }
+                                }*/
 
                                 auto _uri = caf::make_uri(path);
                                 if (!_uri) {
@@ -633,7 +633,7 @@ void DemoPlugin::initialise_database() {
                             try {
                                 if (result.is_array()) {
                                     std::vector<std::string> job_choices;
-                                    for (int i = 0; i < result.size(); ++i) {
+                                    for (size_t i = 0; i < result.size(); ++i) {
                                         job_choices.push_back(result[i].get<std::string>());
                                     }
                                     current_project_->set_role_data(

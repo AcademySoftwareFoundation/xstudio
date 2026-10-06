@@ -118,9 +118,7 @@ GridLayout {
         Layout.preferredWidth: horizontal ? 70 : -1
 
         onClicked: {
-            action_attribute = annotations_visible
-                ? ["HideVisibility", view.name]
-                : ["ShowVisibility", view.name]
+            annotations_visible = !annotations_visible
         }
     }
 

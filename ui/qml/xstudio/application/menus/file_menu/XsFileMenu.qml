@@ -208,6 +208,16 @@ Item {
     }
 
     XsMenuModelItem {
+        text: "Add Session From Clipboard"
+        menuPath: "File"
+        menuItemPosition: 6.5
+        menuModelName: "main menu bar"
+        onActivated: {
+            file_functions.addSessionFromClipboard()
+        }
+    }
+
+    XsMenuModelItem {
         menuItemType: "divider"
         menuPath: "File"
         menuItemPosition: 7

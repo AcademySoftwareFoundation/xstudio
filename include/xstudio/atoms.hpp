@@ -299,6 +299,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_simple_types, FIRST_CUSTOM_ID)
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::Notification))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::playhead::SelectionMode))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::timeline::ItemType))
+    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::timeline::AudioMode))    
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::ColourTriplet))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (spdlog::level::level_enum))
 
@@ -711,6 +712,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_session_atoms, FIRST_CUSTOM_ID + (200 * 4))
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, split_item_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, split_item_at_frame_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, trimmed_range_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, audio_mode_atom)    
 
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, item_flag_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, metadata_selection_atom)
@@ -727,7 +729,8 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_session_atoms, FIRST_CUSTOM_ID + (200 * 4))
 
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, item_selection_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, item_type_atom)
-
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, clip_edited_status_atom)
+    
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::bookmark, remove_annotation_atom)
 
 
@@ -836,6 +839,9 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_playback_atoms, FIRST_CUSTOM_ID + (200 * 5))
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, global_ocio_controls_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, colour_pipe_linearise_data_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, colour_pipe_display_data_atom)
+    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, get_colourspace_info_atom)
+    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, get_current_display_and_view_atom)
+    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, get_icc_profile_path_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, skip_to_bookmark_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, skip_to_media_atom)
 
@@ -960,6 +966,12 @@ template <class Inspector> bool inspect(Inspector &f, ItemType &x) {
     using int_t = std::underlying_type_t<ItemType>;
     auto getter = [&x] { return static_cast<int_t>(x); };
     auto setter = [&x](int_t val) { x = static_cast<ItemType>(val); };
+    return f.apply(getter, setter);
+}
+template <class Inspector> bool inspect(Inspector &f, AudioMode &x) {
+    using int_t = std::underlying_type_t<AudioMode>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<AudioMode>(val); };
     return f.apply(getter, setter);
 }
 } // namespace xstudio::timeline

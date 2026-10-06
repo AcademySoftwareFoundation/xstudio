@@ -75,6 +75,24 @@ xSTUDIO's Compare Mode system provides some useful features when applied to a mu
     Comparing media in modes other than *Off* or *String* your computer will be working harder during playback as it is decoding and storing frames for all of your selected media/video tracks at the same time. xSTUDIO is optimised to get the most out of your system and in many cases you may be able to compare several sources without imapcting performance, but if you try to compare too many sources at once playback performance may eventually be affected.
 
 
+Lining up Frame Numbers in Compare Modes
+----------------------------------------
+
+When comparing several media clips one may need to consider how the frame numbers are aligned between clips when each clip may have a different duration or start on a different frame. The behaviour is controlled by the 'Frame Align' mode which is controlled via the Viewport Info Toolbar
+
+.. figure:: ../images/frame-align-01.png
+    :alt: Frame Align Modes
+    :figclass: align-center
+    :align: center
+    :scale: 100 %
+
+    The Frame Align mode selector is left-most in the Viewport Info Bar. The associalted 'Offset' widget is immediately to the right.
+
+The Frame Align modes work as follows:
+    * **Manual** - When you multi-select media, to start with the frame ranges of each of the media items are lined up on their first frame. You can then adjust the frame offset for each source via the **'Offset'** widget found just to the right of the Frame Align mode selector. Left mouse-click, hold and drag from the Offset widget left and right to scrub the offset value or type a value into the box. The offset is applied to the 'hero' media source in your selection. The hero source in the selection is changed through the number keys on your keyboard, or cycled with the Up/Down arrow keys - you can also click on the corresponding image tile when in a Grid compare mode to select which media source is being affected by the Offset value. Double click on the Offset widget to zero the offset (and double click again to restore the last non-zero offset value). Note that the offsets for each media item are stored and persist withing the session.
+    * **Auto** - xSTUDIO will use the timecode or (for frame based media like EXR or JPG) the frame number of the media to line up the timing on each media item being compared. The total duration of the playhead's timeline is set to include all frames of all sources. Thus if one source is longer than another the playback framerange is extended to show all the frames of the longer source and the shorter source will have its frames held in that region.
+    * **Auto (Trim)** - This is similar to Auto except that the frame range is trimmed to match the latest start frame and the earliest end frame accross all media sources. So if one media source is longer than another you will not see the extra frames of the longer clip during playback.
+
 Compare Modes Walkthrough
 -------------------------------------
 

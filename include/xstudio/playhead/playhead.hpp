@@ -143,10 +143,9 @@ class PlayheadBase : public module::Module {
 
     inline static const std::vector<std::tuple<AutoAlignMode, std::string, std::string, bool>>
         auto_align_mode_names = {
-            {AAM_ALIGN_OFF, "Off", "Off", true},
-            {AAM_ALIGN_FRAMES, "On", "On", true},
-            {AAM_ALIGN_TRIM, "On (Trim)", "Trim", true},
-            {AAM_ALIGN_MANUAL, "Manual", "Man.", true}};
+            {AAM_ALIGN_MANUAL, "Manual", "Manual", true},
+            {AAM_ALIGN_AUTO, "Auto", "Auto", true},
+            {AAM_ALIGN_AUTO_TRIM, "Auto (Trim)", "Trim", true}};
 
     utility::TimeSourceMode play_rate_mode_{utility::TimeSourceMode::DYNAMIC};
     utility::FrameRate playhead_rate_;
@@ -197,6 +196,7 @@ class PlayheadBase : public module::Module {
     module::JsonAttribute *cached_frames_;
     module::IntegerVecAttribute *bookmarked_frames_;
     module::IntegerVecAttribute *media_transition_frames_;
+    module::JsonAttribute *compared_timeline_ids_;
 
     module::IntegerAttribute *max_compare_sources_;
     module::BooleanAttribute *restore_play_state_after_scrub_;
@@ -230,9 +230,13 @@ class PlayheadBase : public module::Module {
     module::BooleanAttribute *user_is_frame_scrubbing_;
     module::BooleanAttribute *pinned_source_mode_;
     module::StringAttribute *compare_mode_;
-    module::IntegerVecAttribute *source_alignment_values_;
 
     bool was_playing_when_scrub_started_ = {false};
     std::set<std::string> active_viewports_;
+
+    // per-source compare offsets (media uuid -> frame offset), applied by
+    // align_clip_frame_numbers() when auto align mode is 'Manual'
+    std::map<utility::Uuid, int64_t> manual_source_offsets_;
+
 };
 } // namespace xstudio::playhead

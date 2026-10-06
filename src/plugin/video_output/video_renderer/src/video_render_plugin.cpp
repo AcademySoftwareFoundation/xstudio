@@ -80,6 +80,11 @@ VideoRenderPlugin::VideoRenderPlugin(
     render_audio->expose_in_ui_attrs_group("video_render_attrs");
     render_audio->set_preference_path("/plugin/video_render/render_audio");
 
+    include_annotations_ =
+        add_boolean_attribute("include_annotations", "include_annotations", false);
+    include_annotations_->expose_in_ui_attrs_group("video_render_attrs");
+    include_annotations_->set_preference_path("/plugin/video_render/include_annotations");
+
     auto frame_rate = add_string_attribute("frame_rate", "frame_rate", "24.0");
     frame_rate->expose_in_ui_attrs_group("video_render_attrs");
     frame_rate->set_preference_path("/plugin/video_render/frame_rate");
@@ -155,7 +160,14 @@ caf::message_handler VideoRenderPlugin::message_handler_extensions() {
                         auto p          = queued_jobs_.begin();
                         current_worker_ = *p;
                         queued_jobs_.erase(p);
+                        // pin annotation visibility on the offscreen viewport
+                        // for this job before it starts rendering
+                        update_annotations_visibility_override();
                         mail(utility::user_start_action_atom_v).send(current_worker_.actor());
+                    } else {
+                        // no job running - lift the annotation visibility
+                        // override from the offscreen viewport
+                        update_annotations_visibility_override();
                     }
                     if (overall_status_->value() != "Error") {
                         if (current_worker_)
@@ -170,6 +182,19 @@ caf::message_handler VideoRenderPlugin::message_handler_extensions() {
                     make_offscreen_viewport(rp);
                     return rp;
                 },
+
+                [=](session::render_to_video_atom,
+                    const utility::Uuid &job_id,
+                    const bool cancel) -> result<bool> {
+
+                    if (cancel) {
+                        remove_job(job_id);
+                        return true;
+                    }
+                    return false;
+
+                },
+
                 [=](session::render_to_video_atom,
                     const std::string &render_item_name,
                     const utility::Uuid &parent_playlist_item_id,
@@ -216,6 +241,7 @@ caf::message_handler VideoRenderPlugin::message_handler_extensions() {
                                         ocio_view,
                                         auto_check_output,
                                         timecode);
+
                                     rp.deliver(result);
 
                                 } catch (std::exception &e) {
@@ -228,6 +254,12 @@ caf::message_handler VideoRenderPlugin::message_handler_extensions() {
                 },
                 [=](broadcast::join_broadcast_atom atom, caf::actor subscriber) {
                     return mail(atom, subscriber).delegate(event_group_);
+                },
+                [=](colour_pipeline::colour_pipeline_atom, const utility::Uuid &container_to_be_rendered_uuid) {
+                    // this message handler lets us set-up the OCIO display and view
+                    // dropdowns to show the appropriate options for the container (
+                    // playlist, timeline, contact sheet) with the given uuid.
+                    update_ocio_choices(container_to_be_rendered_uuid);
                 },
                 [=](utility::event_atom,
                     const utility::JsonStore &status,
@@ -441,7 +473,7 @@ void VideoRenderPlugin::make_offscreen_viewport(caf::typed_response_promise<bool
     auto studio_ui = system().registry().template get<caf::actor>(studio_ui_registry);
 
     // tell the studio actor to create an offscreen viewport.
-    mail(offscreen_viewport_atom_v, "vid_render_offscreen_viewport", false)
+    mail(offscreen_viewport_atom_v, OFFSCREEN_VIEWPORT_NAME, false)
         .request(studio_ui, infinite)
         .then(
             [=](caf::actor offscreen_vp) mutable {
@@ -453,6 +485,7 @@ void VideoRenderPlugin::make_offscreen_viewport(caf::typed_response_promise<bool
                     .request(offscreen_viewport_, infinite)
                     .then(
                         [=](caf::actor colour_pipeline) mutable {
+
                             colour_pipeline_ = colour_pipeline;
 
                             // Turn off the feature in OCIO plugin where it dynamically picks
@@ -735,6 +768,34 @@ void VideoRenderPlugin::playback_render_output(
             handle_error);
 }
 
+void VideoRenderPlugin::update_annotations_visibility_override() {
+
+    // Pin (or clear) the per-viewport annotation visibility override on our
+    // offscreen viewport to match the job that is about to render, so the
+    // export is decoupled from the session-shared annotations "Visibility"
+    // toggle. Sending FORCE/CLEAR from here (a single sender) guarantees
+    // their ordering between consecutive jobs.
+    auto annotations_plugin =
+        system().registry().template get<caf::actor>("ANNOTATIONS_CORE_PLUGIN");
+    if (!annotations_plugin)
+        return;
+
+    std::string action = "CLEAR_VISIBILITY_OVERRIDE";
+    if (current_worker_) {
+        auto p = job_include_annotations_.find(current_worker_.uuid());
+        action = (p != job_include_annotations_.end() && p->second)
+                     ? "FORCE_SHOW_ANNOTATIONS"
+                     : "FORCE_HIDE_ANNOTATIONS";
+    }
+
+    anon_mail(
+        ui::viewport::annotation_atom_v,
+        ui::viewport::viewport_atom_v,
+        OFFSCREEN_VIEWPORT_NAME,
+        action)
+        .send(annotations_plugin);
+}
+
 utility::Uuid VideoRenderPlugin::create_render_job(
     const std::string &render_item_name,
     const utility::Uuid &parent_playlist_item_id,
@@ -758,6 +819,11 @@ utility::Uuid VideoRenderPlugin::create_render_job(
     // make a worker actor that executes the rendering and sends status
     // updates to the plugin actor (i.e. this class)
     utility::Uuid job_id = utility::Uuid::generate();
+
+    // capture the "include annotations" setting at submit time so queued jobs
+    // are not affected by later changes to the checkbox
+    job_include_annotations_[job_id] =
+        include_annotations_ && include_annotations_->value();
     auto worker          = spawn<VideoRenderWorker>(
         job_id,
         render_item_name,
@@ -788,7 +854,8 @@ utility::Uuid VideoRenderPlugin::create_render_job(
 
     // handler for worker exit (worker self exists when its render has
     // completed or is cancelled)
-    monitor(worker, [this, worker](const error &err) {
+    monitor(worker, [this, worker, job_id](const error &err) {
+        job_include_annotations_.erase(job_id);
         if (current_worker_ == worker) {
             current_worker_ = utility::UuidActor();
             anon_mail(utility::user_start_action_atom_v)

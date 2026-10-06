@@ -84,6 +84,8 @@ template <class T> class AutoResponderBase {
         }
     }
 
+    void increment(int ct) { count_ += ct; }
+
     void decrement(int ct) {
         count_ -= ct;
         if (count_ <= 0 && rp_.pending()) {
@@ -161,6 +163,8 @@ template <class T> class AutoResponder : private std::shared_ptr<AutoResponderBa
 
 
     T &result() { return this->get()->result(); }
+
+    void increment(int ct = 1) { this->get()->increment(ct); }
 
     void decrement(int ct = 1) { this->get()->decrement(ct); }
 
@@ -655,6 +659,7 @@ std::string forward_remap_file_path(const std::string &path);
 std::string reverse_remap_file_path(const std::string &path);
 
 void add_remap_file_path(const std::string &from, const std::string &to);
+void add_regex_mapping(const std::pair<std::regex, std::string> from, const std::pair<std::regex, std::string> to);
 
 // The json store here must be an array. Each element in the array must be
 // another array of 2 strings and a boolean.

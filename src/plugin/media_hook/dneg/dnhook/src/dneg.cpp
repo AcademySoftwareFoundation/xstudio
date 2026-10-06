@@ -608,6 +608,30 @@ class DNegMediaHook : public MediaHook {
                 }
             }
 
+            // Shot detection
+            // TODO: ColSci
+            // More robust shot detection might be needed, using dedicated metadata or other means
+            if (ext == ".exr" and context["SHOT"] == "IO") {
+                try {
+                    const utility::JsonStore &media = metadata.at("metadata").at("media");
+                    for (auto &item : media.items()) {
+                        if (utility::starts_with(item.key(), "@")) {
+                            const std::string &input_filename = item.value().at("headers").at(0).at("nuke/input/filename").at("value");
+
+                            if (std::regex_search(input_filename, match, show_shot_regex)) {
+                                if (context["SHOW"] == match[2])
+                                {
+                                    context["SHOT"] = match[3];
+                                    r["ocio_context"] = context;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                } catch (...) {
+                }
+            }
+
             // Extract bitdepth from tex files for color space assignment
             // TODO: ColSci
             // Should rely on color space metadata
@@ -656,7 +680,10 @@ class DNegMediaHook : public MediaHook {
                     r["input_view"]    = "Film";
                 }
             } else if (input_category == "edit_ref" || input_category == "movie_media") {
-                if (is_cms1_config) {
+                if ( context["SHOW"] == "SWD" && is_cms1_config) {
+                    r["input_colorspace"] = "Client_HDR-ST2100";
+                }
+                else if (is_cms1_config) {
                     // If Client view is not available on the show, fallback to DNEG for
                     // linearisation
                     r["input_colorspace"] = "Client_Graded_Rec709:Client_Rec709:DNEG_Rec709";
@@ -688,7 +715,7 @@ class DNegMediaHook : public MediaHook {
             // * regular scene-linear workflow media
             // * external display-linear workflow media
             if (has_untonemapped_view) {
-                if (input_category == "edit_ref" || input_category == "movie_media") {
+                if (context["SHOW"] != "SWD" && (input_category == "edit_ref" || input_category == "movie_media")) {
                     r["untonemapped_colorspace"] = "disp_Rec709-G24";
                     r["untonemapped_view"]       = "Un-tone-mapped";
                 } else if (

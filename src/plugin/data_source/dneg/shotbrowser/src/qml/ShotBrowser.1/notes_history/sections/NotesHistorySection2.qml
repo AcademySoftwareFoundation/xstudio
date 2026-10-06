@@ -50,7 +50,7 @@ Rectangle{
                 font.hintingPreference: Font.PreferNoHinting
                 color: XsStyleSheet.primaryTextColor
 
-                text: contentRole
+                text: attachmentsRole && attachmentsRole.length ? "Please see annotations.\n\n"+contentRole : contentRole
                 padding: panelPadding
                 wrapMode: TextEdit.Wrap
             }

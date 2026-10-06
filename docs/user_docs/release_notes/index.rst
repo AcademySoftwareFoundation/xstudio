@@ -5,15 +5,30 @@
 Release Notes
 =============
 
-======
-v1.3.0
-======
-
-**Overview**
+========
+Overview
+========
 
 xSTUDIO is a high performance playback and review tool designed by and for Visual Effects, Animation and Post Production professionals. The application can load and play large collections of media files. The efficient playback engine allows you to quickly load and play high resolution image formats with a wide range of file formats and encoding. Intuitive tools allow you to create and organise playlists and media sub-sets within playlists to build interactive review sessions, image and video reference libraries. A multi-track timeline editing interface provides the facility for loading or creating edits from simple to complex. xSTUDIO's python and C++ APIs provide powerful tools for customisation and integration with production pipelines and asset management systems. xSTUDIO is designed to be a flexible tool that can be used in a variety of ways in the production process - from dailies review, to VFX shot review, to grading and colour management, to client presentation and more.
 
-**New in this version (v1.3.x)**
+======
+v1.4.x
+======
+
+**New in this version (v1.4.x)**
+
+- Compare multiple timelines at once, with a shared playhead and a choice of viewport compare modes. 
+- When comparing multiple sources with A/B, Grid mode etc. you can manually set the frame offset for each source to achieve alignment, which will then persist with the session. Auto alignment (with or without trim) based on timecode is available as before.
+- Split timeline clips at the playhead with a hotkey, and import OpenTimelineIO image-sequence trims in media-frame space.
+- Improved filesystem browser navigation and thumbnail handling.
+- Expanded the Python API for viewport control, playhead and timeline access, and plugin event handling.
+- Improved annotation rendering and export workflows, plus color-management behavior for offscreen renders and thumbnails.
+- Improved media compatibility, including Blender multilayer EXR decoding and PDF playback fixes.
+- Improved URI handling for media sources on http, server and filesystem paths.
+- Added portable Windows packaging and improved macOS signing support, including Finder's Open With integration.
+- Added independent hotkeys for numeric keypad keys and improved Escape-key workflow resets.
+
+**Features available since v1.3.x**
 
 - Filesystem Browser Interface
 - User configurable hotkeys
@@ -21,8 +36,6 @@ xSTUDIO is a high performance playback and review tool designed by and for Visua
 - ‘Onion-skinning’ plugin for visualisation of animated draw-overs
 - Better optimisation of image (frame) based loading
 - Improved mask rendering & API
-- Improved build workflow for Mac, Linux and Windows
-- Updated Documentation and Release Notes
 - Code cleanup: passes ‘Clang tidy’ and -Werror (gcc)
 
 **Features available since v1.2.x**

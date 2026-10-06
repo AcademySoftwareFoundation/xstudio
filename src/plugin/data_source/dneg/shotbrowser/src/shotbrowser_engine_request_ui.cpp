@@ -547,6 +547,8 @@ QFuture<QString> ShotBrowserEngine::getPlaylistNotesFuture(const int id) {
 QFuture<QString> ShotBrowserEngine::getPlaylistVersionsFuture(const int id) {
     REQUEST_BEGIN()
 
+
+    // std::this_thread::sleep_for(3s);
     scoped_actor sys{system()};
 
     auto vers = request_receive_wait<JsonStore>(

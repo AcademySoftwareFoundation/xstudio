@@ -90,6 +90,10 @@ RowLayout {
 		return helpers.makePersistent(DelegateModel.model.modelIndex(index))
 	}
 
+	function nmodelIndex() {
+		return DelegateModel.model.modelIndex(index)
+	}
+
     Timer {
         id: updateTimer
         interval: 500
@@ -189,7 +193,7 @@ RowLayout {
 	    }
 
 	    onDraggingStarted: (mode)=> {
-	    	control.draggingStarted(modelIndex(), control, mode)
+	    	control.draggingStarted(nmodelIndex(), control, mode)
 	    	isDragging = true
 	    }
 		onDragging: control.dragging(modelIndex(), control, mode, x / scaleX, y / scaleY / config.itemHeight)

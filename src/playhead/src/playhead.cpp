@@ -49,9 +49,9 @@ void PlayheadBase::add_attributes() {
     playing_ = add_boolean_attribute("playing", "playing", false);
 
     auto_align_mode_ =
-        add_string_choice_attribute("Auto Align", "Algn.", auto_align_mode_names);
+        add_string_choice_attribute("Frame Align", "Frame Align", auto_align_mode_names);
 
-    auto_align_mode_->set_value("Off");
+    auto_align_mode_->set_value("Manual");
 
     max_compare_sources_ =
         add_integer_attribute("Max Compare Sources", "Max Compare Sources", 16, 4, 32);
@@ -93,12 +93,11 @@ void PlayheadBase::add_attributes() {
     duration_frames_      = add_integer_attribute("Duration Frames", "Duration Frames", 0);
     duration_seconds_     = add_float_attribute("Duration Seconds", "Duration Seconds", 0.0);
     cached_frames_        = add_json_attribute("Cached Frames");
+    compared_timeline_ids_ = add_json_attribute("Compared Timeline Ids", "Compared Timeline Ids", nlohmann::json::array());
     bookmarked_frames_    = add_int_vec_attribute("Bookmarked Frames");
     playhead_volume_      = add_float_attribute("Volume", "Volume", 100.0);
 
     media_transition_frames_ = add_int_vec_attribute("Media Transition Frames");
-
-    source_alignment_values_ = add_int_vec_attribute("Source Alignment Frames");
 
     current_frame_timecode_ = add_string_attribute("Timecode", "Timecode", "");
 
@@ -167,11 +166,18 @@ JsonStore PlayheadBase::serialise() const {
     jsn["position"]                = position_.count();
     jsn["compare_mode"]            = compare_mode_->value();
     jsn["auto_align_mode"]         = auto_align_mode_->value();
-    jsn["source_alignment_values"] = source_alignment_values_->value();
     jsn["loop_range_enabled"]      = loop_range_enabled_->value();
     jsn["loop_mode"]               = loop_mode_->value();
     jsn["loop_start"]              = loop_start_.count();
     jsn["loop_end"]                = loop_end_.count();
+
+    if (manual_source_offsets_.size()) {
+        nlohmann::json so;
+        for (const auto &p: manual_source_offsets_) {
+            so[to_string(p.first)] = p.second;
+        }
+        jsn["source_alignment_values"] = so;
+    }
 
     return jsn;
 }
@@ -182,9 +188,35 @@ void PlayheadBase::deserialise(const JsonStore &jsn) {
         return;
     velocity_->set_value(jsn.value("velocity", velocity_->value()));
     compare_mode_->set_value(jsn.value("compare_mode", compare_mode_->value()), false);
-    auto_align_mode_->set_value(jsn.value("auto_align_mode", auto_align_mode_->value()), false);
-    source_alignment_values_->set_value(
-        jsn.value("source_alignment_values", source_alignment_values_->value()));
+
+    std::string aam = jsn.value("auto_align_mode", auto_align_mode_->value());
+
+    {
+        // Oct 2026 - the frame alignement playhead modes have been renamed, so we
+        // account for this here
+        static const std::map<std::string, std::string> old_to_new_aam_names(
+            {{"Off", "Manual"},
+            {"On", "Auto"},
+            {"On (Trim)", "Auto (Trim)"}}
+        );
+        const auto p = old_to_new_aam_names.find(aam);
+        if (p != old_to_new_aam_names.end()) aam = p->second;
+    }
+
+    auto_align_mode_->set_value(aam, false);
+
+    try {
+        // store manual offsets - this maps media source uuids to a frame offset
+        // that was set by the user when comparing multiple sources
+        if (jsn.contains("source_alignment_values") && jsn["source_alignment_values"].is_object()) {
+            for (const auto &[key, value] : jsn["source_alignment_values"].items()) {
+                manual_source_offsets_[utility::Uuid(key)] = value.get<int>();
+            }        
+        }
+    } catch (std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+
     position_   = timebase::flicks(jsn.value("position", position_.count()));
     loop_start_ = timebase::flicks(jsn.value("loop_start", loop_start_.count()));
     loop_end_   = timebase::flicks(jsn.value("loop_end", loop_end_.count()));
@@ -675,7 +707,7 @@ void PlayheadBase::revert_throttle() {
 
 AutoAlignMode PlayheadBase::auto_align_mode() const {
 
-    AutoAlignMode rt      = AAM_ALIGN_OFF;
+    AutoAlignMode rt      = AAM_ALIGN_MANUAL;
     const std::string aam = auto_align_mode_->value();
 
     for (auto opt : auto_align_mode_names) {

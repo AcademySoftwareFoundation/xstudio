@@ -37,6 +37,25 @@ function revealMediaInShotgrid(indexes=[]) {
 	}
 }
 
+function createReferencePlaylists(project_id) {
+	// get list of reference stems.
+	let context = createContext()
+
+	Future.promise(
+	    ShotBrowserEngine.getReferenceStemsFuture(project_id)
+	).then(function(sequences) {
+		if(sequences.length) {
+			context["theSessionData"].createDivider("Reference Playlists")
+			for(let i=0; i<sequences.length; i++) {
+				context["theSessionData"].createPlaylist(sequences[i]["name"])
+			}
+		} else {
+    		context["theSessionData"].warnNotification(context["theSessionData"].index(0,0), "No Reference Sequences Found")
+		}
+	});
+}
+
+
 function resolvePlaylistLink(indexes=[]) {
 	// get metadata from playlists..
 	let resolved = []
@@ -101,7 +120,10 @@ function revealInShotgrid(indexes=[]) {
 }
 
 function loadAnnotations(indexes=[]) {
+
+	let context = createContext()
     let images = []
+
 
 	if(indexes.length) {
 		indexes = mapIndexesToResultModel(indexes)
@@ -123,19 +145,19 @@ function loadAnnotations(indexes=[]) {
 	}
 
 	if(images.length) {
-        if(!sessionSelectionModel.currentIndex.valid) {
-            var index = theSessionData.createPlaylist("Add Media")
+        if(!context["sessionSelectionModel"].currentIndex.valid) {
+            var index = context["theSessionData"].createPlaylist("Add Media")
             Future.promise(index.model.handleDropFuture(Qt.CopyAction, {"text/uri-list": images}, index)).then(function(quuids){
-                mediaSelectionModel.selectFirstNewMedia(index, quuids)
+               context["mediaSelectionModel"].selectFirstNewMedia(index, quuids)
             })
         }
         else {
-            let index = sessionSelectionModel.currentIndex
-			if(mediaSelectionModel.selectedIndexes.length && nextItem(mediaSelectionModel.selectedIndexes[0]).valid)
-				index = nextItem(mediaSelectionModel.selectedIndexes[0])
+            let index = context["sessionSelectionModel"].currentIndex
+			if(context["mediaSelectionModel"].selectedIndexes.length && nextItem(context["mediaSelectionModel"].selectedIndexes[0]).valid)
+				index = nextItem(context["mediaSelectionModel"].selectedIndexes[0])
 
             Future.promise(index.model.handleDropFuture(Qt.CopyAction, {"text/uri-list": images}, index)).then(function(quuids){
-                mediaSelectionModel.selectFirstNewMedia(index, quuids)
+                context["mediaSelectionModel"].selectFirstNewMedia(index, quuids)
             })
         }
 	}
@@ -331,23 +353,27 @@ function refreshMetadata(indexes=[]) {
 }
 
 function useCache(indexes=[], sourceName=null) {
-	if(indexes.length) {
-		for(let i = 0; i< indexes.length; i++) {
-            let actoruuid = theSessionData.get(indexes[i], "imageActorUuidRole")
-            let image_source = theSessionData.searchRecursive(actoruuid, "actorUuidRole", indexes[i])
+	for(let i = 0; i < indexes.length; i++) {
+        let actoruuid = theSessionData.get(indexes[i], "imageActorUuidRole")
+        let image_source = theSessionData.searchRecursive(actoruuid, "actorUuidRole", indexes[i])
 
-            if(sourceName) {
-            	let found = theSessionData.getIndexesByName(indexes[i], sourceName, "MediaSource");
-            	if(found.length)
-            		image_source = found[0]
-            }
+        if(sourceName) {
+        	let found = theSessionData.getIndexesByName(indexes[i], sourceName, "MediaSource");
+        	if(found.length)
+        		image_source = found[0]
+        	else {
+	    		theSessionData.warnNotification(indexes[i], "Quick Cache Failed, MediaSource doesn't exist!")
+        		continue;
+        	}
+        }
 
-            if (image_source.valid) {
-			    Future.promise(ShotBrowserEngine.remapCachePathFuture(image_source)).then(
-			        function(result) {},
-			        function() {}
-			    )
-			}
+        if (image_source.valid) {
+    		theSessionData.infoNotification(indexes[i], "Quick Caching - " + (sourceName ? sourceName : "Current"))
+
+		    Future.promise(ShotBrowserEngine.remapCachePathFuture(image_source)).then(
+		        function(result) {},
+		        function() {}
+		    )
 		}
 	}
 }
@@ -423,22 +449,22 @@ function nextItem(index) {
 	return index.model.index(index.row + 1, 0, index.parent)
 }
 
-function compareMediaCallback(playlist_uuid, uuids) {
+function compareMediaCallback(context, playlist_uuid, uuids) {
 	// find selected media.
 
     if(uuids.length) {
-        let plindex =  theSessionData.searchRecursive(playlist_uuid,"actorUuidRole")
+        let plindex =  context["theSessionData"].searchRecursive(playlist_uuid,"actorUuidRole")
 	 	let tmp = []
 
-	 	for(let i=0;i<mediaSelectionModel.selectedIndexes.length;i++)
-		 	tmp.push(mediaSelectionModel.model.get(mediaSelectionModel.selectedIndexes[i], "actorUuidRole"))
+	 	for(let i=0;i<context["mediaSelectionModel"].selectedIndexes.length;i++)
+		 	tmp.push(context["mediaSelectionModel"].model.get(context["mediaSelectionModel"].selectedIndexes[i], "actorUuidRole"))
 
-		let first_new_index = mediaSelectionModel.selectedIndexes.length
+		let first_new_index = context["mediaSelectionModel"].selectedIndexes.length
 
 	 	for(let i=0;i<uuids.length;i++)
 		 	tmp.push(helpers.QVariantFromUuidString(uuids[i]))
 
-    	mediaSelectionModel.selectNewMedia(plindex, tmp, first_new_index)
+    	context["mediaSelectionModel"].selectNewMedia(plindex, tmp, first_new_index)
 
     	// find index of first new item.
 		// let first_new = plindex.model.searchRecursive(helpers.QVariantFromUuidString(uuids[0]), "actorUuidRole")
@@ -453,15 +479,15 @@ function compareMediaCallback(playlist_uuid, uuids) {
     }
 }
 
-function conformToNewSequenceCallback(playlist_uuid, uuids) {
+function conformToNewSequenceCallback(context, playlist_uuid, uuids) {
    if(uuids.length) {
-        let plindex = theSessionData.searchRecursive(playlist_uuid,"actorUuidRole")
+        let plindex = context["theSessionData"].searchRecursive(playlist_uuid,"actorUuidRole")
 		// console.log(plindex)
 		let indexes = []
 		for(let i=0;i<uuids.length;i++) {
-			indexes.push(theSessionData.searchRecursive(uuids[i],"actorUuidRole", plindex))
+			indexes.push(context["theSessionData"].searchRecursive(uuids[i],"actorUuidRole", plindex))
 		}
-		appWindow.conformTool().conformToNewSequence(indexes, plindex)
+		context["appWindow"].conformTool().conformToNewSequence(indexes, plindex)
 	}
 }
 
@@ -502,19 +528,19 @@ function getNextMediaUuid() {
 	return media_uuid
 }
 
-function replaceMediaCallback(playlist_uuid, uuids) {
+function replaceMediaCallback(context, playlist_uuid, uuids) {
 	// find selected media.
-    if(uuids.length && mediaSelectionModel.selectedIndexes.length) {
-        let mi = mediaSelectionModel.selectedIndexes[0]
+    if(uuids.length && context["mediaSelectionModel"].selectedIndexes.length) {
+        let mi = context["mediaSelectionModel"].selectedIndexes[0]
 
         // select playlist.
-        let plindex =  theSessionData.searchRecursive(playlist_uuid,"actorUuidRole")
-		sessionSelectionModel.setCurrentIndex(
+        let plindex =  context["theSessionData"].searchRecursive(playlist_uuid,"actorUuidRole")
+		context["sessionSelectionModel"].setCurrentIndex(
 			plindex,
 			ItemSelectionModel.ClearAndSelect)
 
-		mediaSelectionModel.selectNewMedia(plindex, uuids, -1, ItemSelectionModel.Select)
-    	mediaSelectionModel.model.removeRows(mi.row, 1, mi.parent)
+		context["mediaSelectionModel"].selectNewMedia(plindex, uuids, -1, ItemSelectionModel.Select)
+    	context["mediaSelectionModel"].model.removeRows(mi.row, 1, mi.parent)
     }
 }
 
@@ -536,18 +562,18 @@ function replaceSelectedResults(indexes=[]) {
 	}
 }
 
-function selectFirstMediaCallback(playlist_uuid, uuids) {
+function selectFirstMediaCallback(context, playlist_uuid, uuids) {
     if(uuids.length) {
-        let plindex =  theSessionData.searchRecursive(playlist_uuid,"actorUuidRole")
-		sessionSelectionModel.setCurrentIndex(
+        let plindex =  context["theSessionData"].searchRecursive(playlist_uuid,"actorUuidRole")
+		context["sessionSelectionModel"].setCurrentIndex(
 			plindex,
 			ItemSelectionModel.ClearAndSelect)
-    	mediaSelectionModel.selectFirstNewMedia(plindex, uuids)
+    	context["mediaSelectionModel"].selectFirstNewMedia(plindex, uuids)
     }
 }
 
-function _conformMediaCallback(playlist_uuid, uuids, conformTrackIndex) {
-	let sindex = theSessionData.searchRecursive(playlist_uuid,"actorUuidRole")
+function _conformMediaCallback(context, playlist_uuid, uuids, conformTrackIndex) {
+	let sindex = context["theSessionData"].searchRecursive(playlist_uuid,"actorUuidRole")
 	if(uuids.length && sindex.model.get(sindex, "typeRole") == "Timeline") {
 		// get indexes from media uuids.
 		let tmp = []
@@ -558,33 +584,33 @@ function _conformMediaCallback(playlist_uuid, uuids, conformTrackIndex) {
 	            tmp.push(mi)
 	        else {
 	        	// retry after delay and UI hasn't updated yet...
-	        	delayCallback(1000, function() {_conformMediaCallback(playlist_uuid, uuids, conformTrackIndex)})
+	        	delayCallback(1000, function() {_conformMediaCallback(context, playlist_uuid, uuids, conformTrackIndex)})
 	        	return
 	        }
         }
 
         if(tmp.length)
-			appWindow.conformTool().conformToSequence(tmp, sindex, "Added Media", conformTrackIndex)
+			context["appWindow"].conformTool().conformToSequence(tmp, sindex, "Added Media", conformTrackIndex)
     	else
 	        console.log("appWindow.conformTool().conformToSequence", tmp, sindex, "Added Media", conformTrackIndex)
 	}
 }
 
 
-function conformMediaCallback(playlist_uuid, uuids) {
-	let sindex = theSessionData.searchRecursive(playlist_uuid,"actorUuidRole")
-    let clipIndex = theSessionData.getTimelineClipIndex(sindex, currentPlayhead.logicalFrame)
-    _conformMediaCallback(playlist_uuid, uuids, theSessionData.getTimelineTrackIndex(clipIndex))
+function conformMediaCallback(context, playlist_uuid, uuids) {
+	let sindex = context["theSessionData"].searchRecursive(playlist_uuid,"actorUuidRole")
+    let clipIndex = context["theSessionData"].getTimelineClipIndex(sindex, currentPlayhead.logicalFrame)
+    _conformMediaCallback(context, playlist_uuid, uuids, context["theSessionData"].getTimelineTrackIndex(clipIndex))
 }
 
-function conformMediaToConformTrackCallback(playlist_uuid, uuids) {
-	let sindex = theSessionData.searchRecursive(playlist_uuid,"actorUuidRole")
-    let clipIndex = theSessionData.getTimelineClipIndex(sindex, currentPlayhead.logicalFrame)
-    _conformMediaCallback(playlist_uuid, uuids, theSessionData.index(-1,-1))
+function conformMediaToConformTrackCallback(context, playlist_uuid, uuids) {
+	let sindex = context["theSessionData"].searchRecursive(playlist_uuid,"actorUuidRole")
+    let clipIndex = context["theSessionData"].getTimelineClipIndex(sindex, currentPlayhead.logicalFrame)
+    _conformMediaCallback(context, playlist_uuid, uuids, context["theSessionData"].index(-1,-1))
 }
 
-function replaceConformMediaCallback(playlist_uuid, uuids) {
-	let sindex = theSessionData.searchRecursive(playlist_uuid,"actorUuidRole")
+function replaceConformMediaCallback(context, playlist_uuid, uuids) {
+	let sindex = context["theSessionData"].searchRecursive(playlist_uuid,"actorUuidRole")
 	if(uuids.length && sindex.model.get(sindex, "typeRole") == "Timeline") {
 		// get indexes from media uuids.
 		let tmp = []
@@ -595,16 +621,16 @@ function replaceConformMediaCallback(playlist_uuid, uuids) {
 	            tmp.push(mi)
 	        else {
 	        	// retry after delay and UI hasn't updated yet...
-	        	delayCallback(1000, function() {replaceConformMediaCallback(playlist_uuid, uuids)})
+	        	delayCallback(1000, function() {replaceConformMediaCallback(context, playlist_uuid, uuids)})
 	        	return
 	        }
 	    }
 
         // we use the current active clip to select the conform track.
-        let clipIndex = theSessionData.getTimelineClipIndex(sindex, currentPlayhead.logicalFrame)
+        let clipIndex = context["theSessionData"].getTimelineClipIndex(sindex, currentPlayhead.logicalFrame)
         // assumes clips are not nested..
-		appWindow.createConformTool()
-		appWindow.conformTool().replaceToSequence(tmp, sindex, theSessionData.getTimelineTrackIndex(clipIndex))
+		context["appWindow"].createConformTool()
+		context["appWindow"].conformTool().replaceToSequence(tmp, sindex, context["theSessionData"].getTimelineTrackIndex(clipIndex))
 	}
 }
 
@@ -620,30 +646,30 @@ function delayCallback(delayTime, cb) {
      timer.start();
 }
 
-function selectTimelineNoSelectCallback(playlist_index, uuids) {
+function selectTimelineNoSelectCallback(context, playlist_index, uuids) {
 	delayCallback(1000, function() {
-     	selectTimelineCallback(playlist_index, uuids, 4, false)
+     	selectTimelineCallback(context, playlist_index, uuids, 4, false)
 	});
 }
 
-function selectTimelineCallback(playlist_index, uuids, wait=4, select=true) {
-	playlist_index = theSessionData.getPlaylistIndex(playlist_index)
+function selectTimelineCallback(context, playlist_index, uuids, wait=4, select=true) {
+	playlist_index = context["theSessionData"].getPlaylistIndex(playlist_index)
     if(uuids.length) {
 		// make the playlist expand itself in the playlist panels
 		// theSessionData.set(playlist_index, true, "expandedRole")
-    	let tindex = theSessionData.searchRecursive(helpers.QVariantFromUuidString(uuids[0]), "actorUuidRole", playlist_index)
+    	let tindex = context["theSessionData"].searchRecursive(helpers.QVariantFromUuidString(uuids[0]), "actorUuidRole", playlist_index)
     	if(tindex.valid) {
 
-			appWindow.createConformTool()
+			context["appWindow"].createConformTool()
 
 			// prepare timeline...
-			appWindow.conformTool().conformPrepareSequence(tindex, false)
+			context["appWindow"].conformTool().conformPrepareSequence(tindex, false)
 
 			// this puts the timeline into timeline panels
 			// give timeline time to prepare or it gets upset.
 			if(select) {
 				delayCallback(1000, function() {
-					sessionSelectionModel.setCurrentIndex(
+					context["sessionSelectionModel"].setCurrentIndex(
 						helpers.makePersistent(tindex),
 						ItemSelectionModel.ClearAndSelect)
 					// viewedMediaSetIndex = helpers.makePersistent(tindex)
@@ -651,7 +677,7 @@ function selectTimelineCallback(playlist_index, uuids, wait=4, select=true) {
 			}
 		} else if(wait) {
 			delayCallback(1000, function() {
-		     	selectTimelineCallback(playlist_index, uuids, wait-1, select)
+		     	selectTimelineCallback(context, playlist_index, uuids, wait-1, select)
 			});
 		} else {
 			console.log("Failed to get timeline index", uuids, playlist_index)
@@ -695,12 +721,15 @@ function addToNewPlaylist(indexes=[], media_uuid=null, callback=null) {
 }
 
 
-function loadShotGridPlaylist(shotgrid_playlist_id, name, context={}) {
+function loadShotGridPlaylist(shotgrid_playlist_id, name=null, query_context={}) {
+
+	// capture inherited context so it doesn't go out of scope if the delgate is destroyed..
+	let context = createContext()
 
 	// console.log("createPlaylist", name)
-	let plindex = theSessionData.createPlaylist(name, true, false)
+	let plindex = context["theSessionData"].createPlaylist(name, true, false)
 
-	let notify_uuid = theSessionData.processingNotification(plindex, "Loading ShotGrid Playlist")
+	let notify_uuid = context["theSessionData"].processingNotification(plindex, "Loading ShotGrid Playlist")
 
 	// mark playlist as busy.
     // plindex.model.set(plindex, true, "busyRole")
@@ -713,10 +742,16 @@ function loadShotGridPlaylist(shotgrid_playlist_id, name, context={}) {
     // }
 
 	// get versions..
+
     Future.promise(ShotBrowserEngine.getPlaylistVersionsFuture(shotgrid_playlist_id)).then(function(json_string) {
         try {
             var data = JSON.parse(json_string)
             if(data["data"]){
+        		// take name from playlist..
+            	if(name == null) {
+            		context["theSessionData"].set(plindex, data['data']['attributes']['code'], "nameRole")
+            	}
+
             	// inject shotgrid json into playlist
                 Future.promise(plindex.model.setJSONFuture(plindex, JSON.stringify(data['data']), "/metadata/shotgun/playlist")).then(
                     function(result) {
@@ -731,7 +766,7 @@ function loadShotGridPlaylist(shotgrid_playlist_id, name, context={}) {
                     }
                 )
 
-                data["context"] = context
+                data["context"] = query_context
 
                 // add versions to playlist.
                 Future.promise(ShotBrowserEngine.addVersionToPlaylistFuture(JSON.stringify(data), pl_actor_uuid)).then(
@@ -750,18 +785,18 @@ function loadShotGridPlaylist(shotgrid_playlist_id, name, context={}) {
 						// selects the playlist so it is what's showing in
 						// the viewport
 						// sessionSelectionModel.setCurrentIndex(plindex, ItemSelectionModel.ClearAndSelect)
-						theSessionData.infoNotification(plindex, "Loaded ShotGrid Playlist", 5, notify_uuid)
+						context["theSessionData"].infoNotification(plindex, "Loaded ShotGrid Playlist", 5, notify_uuid)
                         // ShotgunHelpers.handle_response(json_string)
                     },
                     function() {
-						theSessionData.warnNotification(plindex, "Failed Loading ShotGrid Playlist", 10, notify_uuid)
+						context["theSessionData"].warnNotification(plindex, "Failed Loading ShotGrid Playlist", 10, notify_uuid)
                     }
                 )
             } else {
-				theSessionData.warnNotification(plindex, "Failed Loading ShotGrid Playlist", 10, notify_uuid)
+				context["theSessionData"].warnNotification(plindex, "Failed Loading ShotGrid Playlist", 10, notify_uuid)
             }
 	        } catch(err) {
-				theSessionData.warnNotification(plindex, "Failed Loading ShotGrid Playlist", 10, notify_uuid)
+				context["theSessionData"].warnNotification(plindex, "Failed Loading ShotGrid Playlist", 10, notify_uuid)
 
 			    // plindex.model.set(plindex, false, "busyRole")
     			// console.log("loadShotgridPlaylist", err, json_string)
@@ -830,7 +865,18 @@ function addSequencesToCurrentMediaContainer(indexes=[], viewed=true, callback=s
 	addSequencesToPlaylist(indexes, current_pl, "ShotBrowser Sequence", callback)
 }
 
+function createContext() {
+	return {
+		"theSessionData": theSessionData,
+		"mediaSelectionModel": mediaSelectionModel,
+		"sessionSelectionModel": sessionSelectionModel,
+		"appWindow": appWindow
+	}
+}
+
 function addSequencesToPlaylist(indexes, playlist_index=null, playlist_name ="ShotBrowser Sequence", callback=selectTimelineCallback) {
+	let context = createContext()
+
 	indexes = mapIndexesToResultModel(indexes)
 
 	if(indexes.length) {
@@ -849,17 +895,21 @@ function addSequencesToPlaylist(indexes, playlist_index=null, playlist_name ="Sh
 			if(path != "") {
 				let meta = m.get(indexes[i], "jsonRole");
 				if(!playlist_index || !playlist_index.valid)
-					playlist_index = theSessionData.createPlaylist(playlist_name)
+					playlist_index = context["theSessionData"].createPlaylist(playlist_name)
 
 				// wait...
 				delayCallback(1000, function() {
-			        Future.promise(theSessionData.importTimelineFuture(playlist_index, path)).then(
+			        Future.promise(context["theSessionData"].importTimelineFuture(playlist_index, path)).then(
 			            function(tindex){
 			            	// inject shotgrid metadata ?
 			            	// all a bit hacky ..
-			            	theSessionData.setJSONObject(tindex, meta, "/metadata/shotgun/version")
+			            	context["theSessionData"].setJSONObject(tindex, meta, "/metadata/shotgun/version")
+							if (("attributes" in meta) && ("code" in meta["attributes"])) {
+								// set the sequence name to match the ivy stalkname
+								context["theSessionData"].set(tindex,  meta["attributes"]["code"], "nameRole")
+							}
 
-			            	callback(playlist_index, [theSessionData.get(tindex, "actorUuidRole")])
+			            	callback(context, playlist_index, [context["theSessionData"].get(tindex, "actorUuidRole")])
 			            },
 				        function(err) {
 					    	dialogHelpers.errorDialogFunc("Add Sequence", err)
@@ -874,6 +924,9 @@ function addSequencesToPlaylist(indexes, playlist_index=null, playlist_name ="Sh
 }
 
 function addToPlaylist(indexes=[], playlist_uuid=null, before_uuid=null, playlist_name = theSessionData.getNextName("Playlist {}"), callback=null) {
+
+	let context = createContext()
+
 	indexes = mapIndexesToResultModel(indexes)
 
 	let shotgrid_playlists = []
@@ -909,10 +962,9 @@ function addToPlaylist(indexes=[], playlist_uuid=null, before_uuid=null, playlis
 		}
 
 		if(data["data"].length) {
-
 			// we call this for playlists.. and need special handling..
 			if(playlist_uuid == null) {
-				let plindex = theSessionData.createPlaylist(playlist_name)
+				let plindex = context["theSessionData"].createPlaylist(playlist_name)
 		  	    playlist_uuid =  helpers.QVariantFromUuidString(plindex.model.get(plindex, "actorUuidRole"))
 			}
 
@@ -921,7 +973,7 @@ function addToPlaylist(indexes=[], playlist_uuid=null, before_uuid=null, playlis
 	                try {
 	                    var data = JSON.parse(json_string)
 	                    if(callback)
-		                    callback(playlist_uuid, data)
+		                    callback(context, playlist_uuid, data)
 
 	                    // app_window.sessionFunction.setActivePlaylist(index)
 	                    // app_window.requestActivate()
@@ -1350,21 +1402,43 @@ function untagResultVersions(tagid, results) {
 
 
 function updateSnapshotFolders(project) {
-	let found = false;
+	let local_path = "file:///jobs/"+project+"/REF/xstudio/snapshots";
+	let sync_path = "file:///jobs/SITE/xstudiofs/" + project;
+	let has_local = helpers.urlExists(local_path);
+	let has_sync = helpers.urlExists(sync_path);
+	let create_local = has_local;
+	let create_sync = has_sync;
 
 	if(project) {
 		snapshot_paths.forEach(function (item, index) {
-			if(item.name == project)
-				found = true;
+			if(item.path == local_path)
+				create_local = false;
+			if(item.path == sync_path)
+				create_sync = false;
 		})
 
-		if(!found && helpers.urlExists("file:///jobs/"+project+"/REF/xstudio/snapshots")) {
+		snapshot_paths.forEach(function (item, index) {
+			if(item.path == sync_path && !has_local && item.name.endsWith(" SYNC")) {
+				let tmp = JSON.parse(JSON.stringify(snapshot_paths))
+				tmp[index].name = project
+				snapshot_paths = tmp
+			}
+		})
+
+		if(create_local) {
             let v = JSON.parse(JSON.stringify(snapshot_paths))
-            v.push({'path': "file:///jobs/"+project+"/REF/xstudio/snapshots", "name": project})
+            v.push({'path': local_path, "name": project})
+            snapshot_paths = v
+		}
+
+		if(create_sync) {
+            let v = JSON.parse(JSON.stringify(snapshot_paths))
+            v.push({'path': sync_path, "name": has_local ? project + " SYNC" : project})
             snapshot_paths = v
 		}
 	}
 }
+
 
 
 function markAsHero(mediaSelection, state) {

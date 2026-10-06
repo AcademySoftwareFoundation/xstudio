@@ -72,3 +72,16 @@ utility::JsonStore Clip::serialise() const {
 
     return jsn;
 }
+
+int Clip::clip_has_been_edited() const {
+
+    int rt = 0;
+    static const auto original_start_ptr = nlohmann::json::json_pointer("/original_cut_range/start");
+    static const auto original_duration_ptr = nlohmann::json::json_pointer("/original_cut_range/duration");
+    auto orig_start    = item_.prop().value(original_start_ptr, -INT_MAX);
+    auto orig_duration = item_.prop().value(original_duration_ptr, -INT_MAX);
+    if (orig_start != -INT_MAX and orig_duration != -INT_MAX) {
+        rt = int((item_.trimmed_range().frame_duration().frames()) != orig_duration or item_.trimmed_range().frame_start().frames() != orig_start);
+    }
+    return rt;
+}

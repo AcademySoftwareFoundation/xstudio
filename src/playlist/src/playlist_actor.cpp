@@ -367,6 +367,8 @@ caf::message_handler PlaylistActor::default_event_handler() {
                     create_contact_sheet_atom,
                     const utility::UuidActor &) {},
                 [=](utility::event_atom, create_timeline_atom, const utility::UuidActor &) {},
+                [=](utility::event_atom, notification_atom, const caf::actor &,const JsonStore &jsn) {},
+
                 [=](utility::event_atom,
                     media_content_changed_atom,
                     const utility::UuidActorVector &) {},
@@ -397,6 +399,11 @@ caf::message_handler PlaylistActor::message_handler() {
                 // spdlog::warn("delayed update {}", delayed_add_media_.size());
                 delayed_add_media_.clear();
             }
+        },
+
+        [=](utility::event_atom, notification_atom, const JsonStore &jsn) {
+            auto src     = caf::actor_cast<caf::actor>(current_sender());
+            mail(utility::event_atom_v, notification_atom_v, src, jsn).send(base_.event_group());
         },
 
         [=](utility::event_atom,
@@ -680,15 +687,19 @@ caf::message_handler PlaylistActor::message_handler() {
             // so that the duration of the media is known. This is because the playhead will
             // update and build a timeline as soon as the playlist notifies of change, so the
             // duration and frame rate must be known up-front
+            auto rp           = make_response_promise<bool>();
             std::vector<UuidActor> media_actors;
             for (const auto &media : ma) {
                 if (!media_.count(media.uuid())) {
                     media_actors.push_back(media);
                 }
             }
+            if (media_actors.empty()) {
+                rp.deliver(true);
+                return rp;
+            }
             auto source_count = std::make_shared<int>();
             (*source_count)   = media_actors.size();
-            auto rp           = make_response_promise<bool>();
 
             // add to lis first, then lazy update..
 
@@ -1080,6 +1091,31 @@ caf::message_handler PlaylistActor::message_handler() {
             media::media_display_info_atom,
             const utility::JsonStore &,
             caf::actor_addr &) {},
+
+        [=](utility::event_atom, timeline::audio_mode_atom, const timeline::AudioMode am) {
+            // forwarding audio mode change event from timeline to session
+            mail(
+                utility::event_atom_v,
+                timeline::audio_mode_atom_v,
+                am,
+                caf::actor_cast<caf::actor>(current_sender()),
+                caf::actor_cast<caf::actor>(this))
+                .send(base_.event_group());
+        },
+
+        [=](xstudio::utility::event_atom atom1,
+            xstudio::utility::change_atom atom2,
+            xstudio::timeline::clip_edited_status_atom atom3,
+            const utility::Uuid &clip_id,
+            const int status,
+            const utility::Uuid &track_id,
+            const utility::Uuid &stack_id,
+            const utility::Uuid &timeline_id) {
+            // forwarding clip edited status change event from timeline to session
+            // there MUST be a better way!!!
+            /*mail(atom1, atom2, atom3, clip_id, status, track_id, stack_id, timeline_id, base_.uuid())
+                .send(base_.event_group());*/
+        },        
 
         [=](utility::event_atom, utility::change_atom, media::rotation_atom, float) {},
 
@@ -2196,7 +2232,7 @@ void PlaylistActor::add_media(
                     .then(
                         [=](bool) {},
                         [=](error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            spdlog::debug("{} {}", __PRETTY_FUNCTION__, to_string(err));
                         });
 
                 // mail(utility::event_atom_v, add_media_atom_v,

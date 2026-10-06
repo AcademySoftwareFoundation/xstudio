@@ -82,6 +82,8 @@ RowLayout {
                     text: root.text
                     fromValue: integer_min
                     toValue: integer_max
+                    value: model.value
+                    onValueEdited: (newValue) => { model.value = newValue }
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                 }

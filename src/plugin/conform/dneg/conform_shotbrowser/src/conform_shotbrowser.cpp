@@ -649,7 +649,7 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                                 }
                             }
                             if (ritems.empty()) {
-                                spdlog::warn(
+                                spdlog::debug(
                                     "Media has no matching clip {} project: {}, shot:  "
                                     "{}, meta_shot: {}",
                                     to_string(i.item_.uuid()),
@@ -788,8 +788,14 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                     // from check clip metadata (FEAT ANIM)
                     if (not is_valid and not found_project.empty()) {
                         auto cm = i.prop(); // DNEG_MEDIA_STALK_DNUUID ?
-                        if (cm.contains("media_stalk_dnuuid") or
-                            cm.contains("DNEG_MEDIA_STALK_DNUUID")) {
+
+                        // we dynamically write DNEG_MEDIA_STALK_DNUUID back into clips.
+                        // so we can't reliably use this to determine if we're using edit ref mode.
+                        // check clip name it shouldn't have a dot in it..
+                        // should be check media_reference is pointing to an edit ref ?
+
+                        if (std::string::npos == i.name().find_first_of(".") and (cm.contains("media_stalk_dnuuid") or
+                            cm.contains("DNEG_MEDIA_STALK_DNUUID"))) {
                             project = found_project;
 
                             cut_start = i.trimmed_frame_start().frames();

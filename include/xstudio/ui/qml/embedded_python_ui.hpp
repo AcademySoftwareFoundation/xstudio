@@ -84,6 +84,7 @@ class EMBEDDED_PYTHON_QML_EXPORT EmbeddedPythonUI
     using super = caf::mixin::actor_object<JSONTreeModel>;
     enum Roles {
         nameRole = JSONTreeModel::Roles::LASTROLE,
+        menuHotKeyRole,
         menuPathRole,
         scriptPathRole,
         snippetTypeRole,

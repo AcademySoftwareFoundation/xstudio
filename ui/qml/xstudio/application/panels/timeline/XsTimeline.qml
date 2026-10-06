@@ -66,11 +66,9 @@ Rectangle {
     // property bool selectionIsEnabled: false
     property bool loopSelection: false
     property bool focusSelection: false
-    property alias timeline_items: list_view.model
     property alias timelineModel: list_view.model
 
     property alias timelineMarkerMenu: markerMenu
-    property alias timelineProperty: timelineProperty
     property string editMode: "Select"
     property bool rippleMode: false
     property bool overwriteMode: true
@@ -80,6 +78,7 @@ Rectangle {
     property bool scrollingModeActive: false
     property var conformSourceIndex: null
     property bool have_timeline: true
+    property var timelinePlayheadSelectionIndex: null
 
     property int snapLine: -1
     property int cutLine: -1
@@ -119,33 +118,15 @@ Rectangle {
         }
     }
 
-    XsModelProperty {
-        // XsModelProperty is able to 'watch' an index and emits onIndexChanged
-        // when the index goes invalid. We use this to watch whether the active
-        // timeline is deleted - if so we run viewedMediaSetChanged which will
-        // clear our model and index because otherwise Qt crashes as it seems
-        // to hang on to items that have been deleted from the model.
-        id: timelineProperty
-        index: timeline_items.rootIndex
-        role: "propertyRole"
-        onValueChanged: {updateConformSourceIndex();viewedMediaSetChanged()}
-        onIndexChanged: {
-            if(!index || !index.valid) {
-                // perhaps the timeline we were viewing has been deleted?
-                viewedMediaSetChanged()
-            }
-        }
-    }
-
     function updateConformSourceIndex() {
         // resolve to track index.
-        let m = timeline_items.srcModel
+        let m = timelineModel.srcModel
         if(m == theSessionData) {
-            let current = m.get(timeline_items.rootIndex, "propertyRole")
+            let current = m.get(timelineIndex, "propertyRole")
             let tindex = getVideoTrackIndex(1)
 
             if(current != undefined) {
-                let stack = m.index(0, 0, timeline_items.rootIndex)
+                let stack = m.index(0, 0, timelineIndex)
                 let ncsi = m.search(helpers.QVariantFromUuidString(current.conform_track_uuid), "idRole", stack, 0)
                 if(ncsi.valid) {
                     tindex = helpers.makePersistent(ncsi)
@@ -158,9 +139,9 @@ Rectangle {
 
     onConformSourceIndexChanged: {
         if(conformSourceIndex && conformSourceIndex.valid) {
-            let m = timeline_items.srcModel
+            let m = timelineModel.srcModel
             if(m == theSessionData) {
-                let current = m.get(timeline_items.rootIndex, "propertyRole")
+                let current = m.get(timelineIndex, "propertyRole")
                 let tid = m.get(conformSourceIndex, "idRole")
 
                 if(current == undefined || current.conform_track_uuid != helpers.QUuidToQString(tid)) {
@@ -170,7 +151,7 @@ Rectangle {
                         current.conform_track_uuid = helpers.QUuidToQString(tid)
                     }
 
-                    m.set(timeline_items.rootIndex, current, "propertyRole")
+                    m.set(timelineIndex, current, "propertyRole")
                 }
             }
         }
@@ -259,11 +240,11 @@ Rectangle {
 
             let selectedItems = timelineSelection.selectedIndexes
             sessionData.currentTimelineSelection = timelineSelection.selectedIndexes
-            theSessionData.setTimelineSelection(timeline_items.rootIndex, selectedItems)
+            theSessionData.setTimelineSelection(timelineIndex, selectedItems)
 
             // build list of media.
             let mediaIndexes = []
-            let tindex = theSessionData.getTimelineIndex(timeline_items.rootIndex)
+            let tindex = theSessionData.getTimelineIndex(timelineIndex)
             let mediaListIndex = theSessionData.index(0, 0, tindex)
 
             for(let i =0; i< selectedItems.length; i++) {
@@ -281,68 +262,42 @@ Rectangle {
         }
     }
 
-    function initTimeline(retry=true) {
-            let timelineIndex = theSessionData.index(2, 0, viewedMediaSetProperties.index)
+    property var tlIndexWatcher: timelineIndex
+    onTlIndexWatcherChanged: initTimeline(true)
 
-            if (theSessionData.rowCount(timelineIndex) == 0) {
-                // the timeline item data hasn't been 'fetched' from the backend.
-                // We can force this to happen, but it will be asynchronous so
-                // we need a small delay to allow it to complete before we set
-                // the index on timeline_items (which triggers the build of
-                // the timeline UI components)
-                timeline_items.srcModel = null_list
-                theSessionData.fetchMore(timelineIndex)
-                callbackTimer.setTimeout(function() { return function() {
-                        initTimeline()
-                        }}(), 200);
-
-            } else {
-                timeline_items.srcModel = theSessionData
-                timeline_items.rootIndex = helpers.makePersistent(timelineIndex)
-                have_timeline = true
-                updateConformSourceIndex()
-                callbackTimer.setTimeout(function() { return function() {
-                    fitItems()
-                    }}(), 200);
-            }
-    }
-
-    function viewedMediaSetChanged() {
-
-        if(viewedMediaSetProperties.index.valid && viewedMediaSetProperties.values.typeRole == "Timeline") {
-            forceActiveFocus()
-
-            if (theSessionData.index(2, 0, viewedMediaSetProperties.index) == timeline_items.rootIndex)
-                return
-
-            callbackTimer.setTimeout(function() { return function() {
-                    initTimeline()
-                    }}(), 50);
-
-        } else if (!timeline_items.rootIndex.valid) {
+    function initTimeline(retry) {
+        if (!timelineIndex.valid) {
             // if the user has selected something that is not a timeline (playlist,
             // subset etc.), we do  not update our index here (unless the timeline
             // has been deleted or something). So the NLE continues to show the last
             // timeline that we interacted with. This is so the user can hop
             // bewtween individual media and the playlist without the playlist
             // interface clearing
-            timeline_items.srcModel = []
+            timelineModel.srcModel = []
             updateConformSourceIndex()
             have_timeline = false
+        } else if (theSessionData.rowCount(timelineIndex) == 0) {
+
+            timelineModel.srcModel = null_list
+            theSessionData.fetchMore(timelineIndex)
+            callbackTimer.setTimeout(function() { return function() {
+                    timeline.initTimeline(false)
+                    }}(), 200);
+
+        } else {
+            timelineModel.srcModel = theSessionData
+            have_timeline = true
+            updateConformSourceIndex()
+            callbackTimer.setTimeout(function() { return function() {
+                fitItems()
+                }}(), 200);
+                    let sind = theSessionData.searchRecursive("PlayheadSelection", "typeRole", timelineIndex.parent)
+            if (sind.valid) {
+                timelinePlayheadSelectionIndex = helpers.makePersistent(sind)
+            }
+
         }
-    }
 
-    Component.onCompleted: {
-        viewedMediaSetChanged()
-        //clipMenu.debugSetMenuPathPosition("Debug", 20.0)
-        //trackMenu.debugSetMenuPathPosition("Debug", 20.0)
-    }
-
-    Connections {
-      target: viewedMediaSetProperties
-      function onIndexChanged() {
-        viewedMediaSetChanged()
-      }
     }
 
     Connections {
@@ -350,7 +305,7 @@ Rectangle {
         function onMakeTimelineSelection(timeline_index, timeline_item_indeces) {
             // this connection lets items remote from the Timeline UI (like the
             // Notes panel) control the selection of items in the Timeline UI.
-            if (timeline_index == timeline_items.rootIndex.parent) {
+            if (timeline_index == timelineIndex.parent) {
                 focusSelection = true
                 timelineSelection.select(
                     helpers.createItemSelection(timeline_item_indeces),
@@ -365,8 +320,8 @@ Rectangle {
     }
 
     function addTrack(type, sync=true, name=null) {
-        let m = timeline_items.srcModel
-        let stack_index = m.index(0, 0, timeline_items.rootIndex)
+        let m = timelineModel.srcModel
+        let stack_index = m.index(0, 0, timelineIndex)
         if(type == "Video Track")
             return addItem(type, stack_index, 0, name || "Video Track", sync)
         else if(type == "Audio Track")
@@ -439,6 +394,7 @@ Rectangle {
     // will be set by the derived type
     XsTimelineMenu {
         id: timelineMenu
+        theTimeline: timeline
         Component.onCompleted: {
             helpers.setMenuPathPosition("Debug", "timeline_menu_", 100)
         }
@@ -450,10 +406,12 @@ Rectangle {
 
     XsTimelineClipMenu {
         id: clipMenu
+        theTimeline: timeline
     }
 
     XsTimelineTrackMenu {
         id: trackMenu
+        theTimeline: timeline
     }
 
     XsPopupMenu {
@@ -556,21 +514,92 @@ Rectangle {
     }
 
 
-    function fitToMedia(indexes) {
+    function setClipToFullMediaLength(indexes) {
         for(let i=0; i<indexes.length; ++i) {
             let type = theSessionData.get(indexes[i],"typeRole")
             if(type == "Clip" && !theSessionData.get(indexes[i], "lockedRole")) {
+
                 let ts = theSessionData.get(indexes[i],"trimmedStartRole")
                 let td = theSessionData.get(indexes[i],"trimmedDurationRole")
 
                 let as = theSessionData.get(indexes[i],"availableStartRole")
                 let ad = theSessionData.get(indexes[i],"availableDurationRole")
 
-                if(ts != as)
-                    theSessionData.set(indexes[i], as, "activeStartRole")
+                if(ts != as || td != ad) {
 
-                if(td != ad)
+                    let clip_metadata = theSessionData.get(indexes[i],"propertyRole")
+
+                    if (!clip_metadata.hasOwnProperty("original_cut_range")) {
+                        // if 'original_cut_range' doesn't exist, then the user
+                        // has not previously edited the clip, so we store the current
+                        // cut range as the original cut range
+                        clip_metadata["custom_cut_range"] = {"start": ts, "duration": td}
+                        clip_metadata["original_cut_range"] = {"start": ts, "duration": td}
+                    } else if (clip_metadata["original_cut_range"].start != ts
+                        && clip_metadata["original_cut_range"].duration != td) {
+                        // if the original cut range is different to the current cut range,
+                        // then the user has previously edited the clip, so we store the current
+                        // cut range as the custom cut range
+                        clip_metadata["custom_cut_range"] = {"start": ts, "duration": td}
+                    }
+
+                    // now we actually set the clip to the full media length
+                    theSessionData.set(indexes[i], as, "activeStartRole")
                     theSessionData.set(indexes[i], ad, "activeDurationRole")
+
+                    theSessionData.set(indexes[i], clip_metadata, "propertyRole")
+
+                }
+            }
+        }
+    }
+
+    function restoreClipsToOriginalEdit(indexes) {
+        for(let i=0; i<indexes.length; ++i) {
+            let type = theSessionData.get(indexes[i],"typeRole")
+            if(type == "Clip" && !theSessionData.get(indexes[i], "lockedRole")) {
+
+                let clip_metadata = theSessionData.get(indexes[i],"propertyRole")
+                if (clip_metadata.hasOwnProperty("original_cut_range")) {
+
+                    let ast = theSessionData.get(indexes[i], "activeStartRole")
+                    let adr = theSessionData.get(indexes[i], "activeDurationRole")
+
+                    if (ast != clip_metadata.original_cut_range.start ||
+                        adr != clip_metadata.original_cut_range.duration) {
+
+                        let as = theSessionData.get(indexes[i],"availableStartRole")
+                        let ad = theSessionData.get(indexes[i],"availableDurationRole")
+                        if (ast != as || adr != ad) {
+                            // if the current cut range is different to the full media range,
+                            // then we store the current cut range as the custom cut range
+                            clip_metadata["custom_cut_range"] = {"start": ast, "duration": adr}
+                            theSessionData.set(indexes[i], clip_metadata, "propertyRole")
+                        }
+
+                        theSessionData.set(indexes[i], clip_metadata.original_cut_range.start, "activeStartRole")
+                        theSessionData.set(indexes[i], clip_metadata.original_cut_range.duration, "activeDurationRole")
+
+                    }
+                } else {
+                    console.log("No original cut range has been set for clip " + theSessionData.get(indexes[i], "nameRole"))
+                }
+
+            }
+        }
+    }
+
+    function restoreClipsToPreviousEdit(indexes) {
+        for(let i=0; i<indexes.length; ++i) {
+            let type = theSessionData.get(indexes[i],"typeRole")
+            if(type == "Clip" && !theSessionData.get(indexes[i], "lockedRole")) {
+                let clip_metadata = theSessionData.get(indexes[i],"propertyRole")
+                if (clip_metadata.hasOwnProperty("custom_cut_range")) {
+                    theSessionData.set(indexes[i], clip_metadata.custom_cut_range.start, "activeStartRole")
+                    theSessionData.set(indexes[i], clip_metadata.custom_cut_range.duration, "activeDurationRole")
+                } else {
+                    console.log("No custom cut range has been set for clip " + theSessionData.get(indexes[i], "nameRole"))
+                }
             }
         }
     }
@@ -605,9 +634,9 @@ Rectangle {
     // we let the user deal with Y scale / position..
     function fitItems(indexes=[]) {
         if(!indexes.length)
-            indexes = [timeline_items.rootIndex]
+            indexes = [timelineIndex]
         let r = theSessionData.timelineRect(indexes)
-        let tr = theSessionData.timelineRect([timeline_items.rootIndex])
+        let tr = theSessionData.timelineRect([timelineIndex])
         // cap width to timeline
         let bwidth = Math.min(r.width * 1.2, tr.width)
         scaleX = (list_view.width - trackHeaderWidth)/ bwidth
@@ -633,8 +662,8 @@ Rectangle {
 
     // currently video track 2, one up from bottom
     function getVideoTrackIndex(ind) {
-        let m = timeline_items.srcModel
-        let stack_index = m.index(0, 0, timeline_items.rootIndex)
+        let m = timelineModel.srcModel
+        let stack_index = m.index(0, 0, timelineIndex)
         let bottom_v = 0;
 
         for(let i = 0;i<m.rowCount(stack_index);i++){
@@ -661,7 +690,7 @@ Rectangle {
     }
 
     function focusItems(items) {
-        theSessionData.setTimelineFocus(timeline_items.rootIndex, items)
+        theSessionData.setTimelineFocus(timelineIndex, items)
     }
 
     function rightAlignItems(indexes) {
@@ -735,7 +764,7 @@ Rectangle {
 
     function splitClips(indexes=[], frame=timelinePlayhead.logicalFrame) {
         if(!indexes.length) {
-            let cind = theSessionData.getTimelineClipIndex(timeline_items.rootIndex, timelinePlayhead.logicalFrame)
+            let cind = theSessionData.getTimelineClipIndex(timelineIndex, timelinePlayhead.logicalFrame)
             if(cind.valid)
                 indexes = [cind]
         }
@@ -848,7 +877,7 @@ Rectangle {
         let vbottom = Math.min(vtop + height - 1, vmax)
 
         let vclips = theSessionData.getTimelineVideoClipIndexesFromRect(
-            timeline_items.rootIndex,
+            timelineIndex,
             vleft,
             vtop,
             vright,
@@ -874,7 +903,7 @@ Rectangle {
         atop = Math.max(atop, amin)
 
         let aclips = theSessionData.getTimelineAudioClipIndexesFromRect(
-            timeline_items.rootIndex,
+            timelineIndex,
             aleft,
             atop,
             aright,
@@ -966,6 +995,28 @@ Rectangle {
 
     XsHotkey {
         context: hotkey_area_id
+        sequence:  "Ctrl+C"
+        name: "Timeline Copy Selected Items to Clipboard"
+        description: "Copies the selected items in the timeline to the clipboard"
+        onActivated: {
+            clipboard.text = theSessionData.copyTimelineItemsToClipboard(timelineSelection.selectedIndexes, timelineIndex)
+        }
+        componentName: "Timeline"
+    }
+
+    XsHotkey {
+        context: hotkey_area_id
+        sequence:  "Ctrl+V"
+        name: "Timeline Paste Items from Clipboard"
+        description: "Pastes the items from the clipboard into the timeline"
+        onActivated: {
+            theSessionData.pasteFromClipboard(clipboard.text, timelineIndex)
+        }
+        componentName: "Timeline"
+    }
+
+    XsHotkey {
+        context: hotkey_area_id
         sequence:  "Ctrl+Z"
         name: "Timeline Redo"
         description: "Re-does the last undone edit in the timeline"
@@ -981,7 +1032,7 @@ Rectangle {
         name: "Change Clip Colour"
         description: "Change Active Clip Colour"
         onActivated: {
-            let clipIndex = theSessionData.getTimelineClipIndex(timeline_items.rootIndex, timelinePlayhead.logicalFrame);
+            let clipIndex = theSessionData.getTimelineClipIndex(timelineIndex, timelinePlayhead.logicalFrame);
             if(clipIndex.valid) {
                 let colours = flagColours.map(obj => Object.values(obj)[0])
                 colours[0] = ""
@@ -1306,7 +1357,7 @@ Rectangle {
         onActivated: {
             if(!timeline.timelineSelection.selectedIndexes.length){
                 // transportBar.skipToNext(true)
-                timelinePlayhead.logicalFrame = theSessionData.getNextTimelineClipFrame(timeline_items.rootIndex, timelinePlayhead.logicalFrame)
+                theSessionData.jumpToNextClip(timelineIndex, true)
             }
             else
                 updateItemSelectionHorizontal(-1,1)
@@ -1320,7 +1371,7 @@ Rectangle {
         exclusive: theTimeline.have_timeline && isPlayheadActive
         onActivated: {
             if(!timeline.timelineSelection.selectedIndexes.length) {
-                timelinePlayhead.logicalFrame = theSessionData.getPreviousTimelineClipFrame(timeline_items.rootIndex, timelinePlayhead.logicalFrame)
+                theSessionData.jumpToNextClip(timelineIndex, false)
             }
             else
                 updateItemSelectionHorizontal(1,-1)
@@ -1676,7 +1727,7 @@ Rectangle {
                 } else if(button == Qt.LeftButton) {
                     if(pressed && scalingModeActive) {
                         isScaling = scalingModeActive
-                        minScaleX = ((list_view.width - trackHeaderWidth) / theSessionData.timelineRect([timeline_items.rootIndex]).width)/2
+                        minScaleX = ((list_view.width - trackHeaderWidth) / theSessionData.timelineRect([timelineIndex]).width)/2
                         initialValue = scaleX
                         initialPosition = Qt.point(mouseX, mouseY)
                     } else if(pressed && scrollingModeActive) {
@@ -1781,7 +1832,7 @@ Rectangle {
                         if(!updateRegionTimer.running)
                             updateRegionTimer.start()
                     } else {
-                        if(editMode == "Move" || editMode == "Roll") {
+                        if(editMode == "Move" || editMode == "Trim" || editMode == "Roll") {
                             showHandles(mouse.x, mouse.y)
                         } else if(editMode == "Cut") {
                             // calculate timeline frame posisiton.
@@ -1791,7 +1842,7 @@ Rectangle {
 
                             if(snapMode) {
                                 let matched = theSessionData.snapTo(
-                                    timeline_items.rootIndex,
+                                    timelineIndex,
                                     list_view.playheadFrame,
                                     newCut, 0, 0, 10 / scaleX, snapCacheKey)
                                 if(matched.length) {
@@ -1841,7 +1892,7 @@ Rectangle {
                     } else {
                         tmp -= 0.2
                     }
-                    scaleX = Math.max((list_view.width - trackHeaderWidth) / theSessionData.timelineRect([timeline_items.rootIndex]).width, tmp)
+                    scaleX = Math.max((list_view.width - trackHeaderWidth) / theSessionData.timelineRect([timelineIndex]).width, tmp)
                     list_view.itemAtIndex(0).jumpToFrame(timelinePlayhead.logicalFrame, ListView.Center)
                     wheel.accepted = true
                 } else if(Math.abs(deltaX) > Math.abs(deltaY)) {
@@ -1866,14 +1917,37 @@ Rectangle {
                             return
 
                         if("Clip" == item_type)
-                            theSessionData.updateTimelineItemDragFlag([hovered.modelIndex()], editMode == "Roll", rippleMode, overwriteMode)
+                            theSessionData.updateTimelineItemDragFlag([hovered.modelIndex()], editMode, rippleMode, overwriteMode)
                     }
                 }
             }
 
             function draggingStarted(index, item, mode) {
+
                 if(!timelineSelection.selectedIndexes.includes(index)) {
                     timelineSelection.select(index, ItemSelectionModel.ClearAndSelect)
+                }
+
+                if (rippleMode && mode != "track") {
+                    // for ripple mode, we only need to keep the leftmost clip for any
+                    // given track in the selection because the ripple will be applied to all clips on that track.
+                    let selectedIndexes = timelineSelection.selectedIndexes
+                    let leftmostIndexes = []
+                    let trackMap = {}
+                    for (let i = 0; i < selectedIndexes.length; i++) {
+                        let idx = selectedIndexes[i]
+                        if (idx.model.get(idx, "typeRole") != "Clip") continue;
+                        let trackNum = idx.parent.row
+                        if (!(trackNum in trackMap) || idx.model.get(idx, "trimmedStartRole") < trackMap[trackNum].model.get(idx, "trimmedStartRole")) {
+                            trackMap[trackNum] = idx
+                        }
+                    }
+                    if (trackMap.length != 0) {
+                        for (let key in trackMap) {
+                            leftmostIndexes.push(trackMap[key])
+                        }
+                        timelineSelection.select(helpers.createItemSelection(leftmostIndexes), ItemSelectionModel.ClearAndSelect)
+                    }
                 }
 
                 snapCacheKey = helpers.makeQUuid()
@@ -2107,12 +2181,12 @@ Rectangle {
             ListView {
                 anchors.fill: parent
                 interactive: false
-                id:list_view
+                id: list_view
                 model: DelegateModel {
-                    // id: timeline_items
+                    // id: timelineModel
                     property var srcModel: theSessionData
                     model: srcModel
-                    rootIndex: helpers.qModelIndex()
+                    rootIndex: timelineIndex
                     delegate: DelegateChooser {
                         role: "typeRole"
 
@@ -2241,7 +2315,7 @@ Rectangle {
                     let new_indexes = theSessionData.moveRows(
                         data,
                         -1, // insertion row: make invalid so always inserts on the end
-                        timeline_items.rootIndex.parent,
+                        timelineIndex.parent,
                         true
                     )
                     if(dragReplace.visible) {

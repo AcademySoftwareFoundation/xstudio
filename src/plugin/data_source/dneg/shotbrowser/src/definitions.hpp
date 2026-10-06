@@ -294,6 +294,7 @@ const auto SequenceShotFields = std::vector<std::string>(
      "code",
      "sg_asset_type",
      "sg_current_stage",
+     "sg_cut_order",
      "sg_dnbreakdown_assemblies",
      "sg_dnbreakdown_envprop_variants",
      "sg_dnuuid",
@@ -301,6 +302,7 @@ const auto SequenceShotFields = std::vector<std::string>(
      "sg_primary_shot_location",
      "sg_shot_type",
      "sg_status_list",
+     "sg_transition_type",
      "sg_unit",
      "tags"});
 
@@ -323,6 +325,7 @@ const auto ShotFields = std::vector<std::string>(
      "sg_primary_shot_location",
      "sg_shot_type",
      "sg_status_list",
+     "sg_transition_type",
      "sg_unit",
      "tags"});
 
@@ -423,6 +426,7 @@ const auto TwigTypeCodes = xstudio::utility::JsonStore(R"([
     {"id": "lng", "name": "lensgrid"},
     {"id": "ladj", "name": "lighting_adjust"},
     {"id": "look", "name": "look"},
+    {"id": "mls", "name": "mlsource"},
     {"id": "mtdd", "name": "material_data_driven"},
     {"id": "mtddcfg", "name": "material_data_driven_config"},
     {"id": "mtpc", "name": "material_plus_config"},

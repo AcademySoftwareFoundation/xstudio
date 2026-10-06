@@ -134,36 +134,32 @@ GlobalUIModelData::GlobalUIModelData(caf::actor_config &cfg) : caf::event_based_
     }
 
     set_down_handler([=](down_msg &msg) {
-        // has a client exited?
-        for (auto p : models_) {
-            auto c = p.second->clients_.begin();
-            while (c != p.second->clients_.end()) {
-                if (caf::actor_cast<caf::actor_addr>(*c) == msg.source) {
-                    c = p.second->clients_.erase(c);
-                } else {
-                    c++;
-                }
-            }
-            std::vector<std::pair<std::string, utility::Uuid>> dead_menu_nodes;
-            auto w = p.second->menu_watchers_.begin();
-            while (w != p.second->menu_watchers_.end()) {
-                auto watcher = w->second.begin();
-                while (watcher != w->second.end()) {
-                    if (caf::actor_cast<caf::actor_addr>(*watcher) == msg.source) {
-                        watcher = w->second.erase(watcher);
-                    } else {
-                        watcher++;
-                    }
-                }
-                if (w->second.empty()) {
-                    dead_menu_nodes.emplace_back(p.first, w->first);
-                }
-                w++;
-            }
-            for (const auto &d : dead_menu_nodes) {
-                remove_node(d.first, d.second);
-            }
-        }
+
+        // Handling the exit of an actor that we are monitoring is crucial. 
+        // There are two cases - 
+
+        // 1) an actor that is adding menu items to a menu model and wants
+        //    to know when the user has clicked on a menu item that it 
+        //    created (a watcher) - eg. qml XsMenuModelItem(cpp = UIModelData)
+        // 2) An actor that is a 'client' of a menu model, in other words a 
+        //    UI component that exposes the menu data so that the graphical
+        //    menu items can be created in the UI - e.g. qml XsMenusModel( cpp = MenusModelData)
+
+        // If an XsMenuModelItem is destroyed in the UI, we must remove its a
+        // associated entry in the menu model here - this allows us to make 
+        // fully dynamic menus driven by Repeaters and other logic in the QML
+        // layer. When we have menus built in this way by a Repeater, we may
+        // get many XsMenuModelItem being destroyed at once when a Repeater
+        // re-evaluates its content. This results in many down_msg being 
+        // received here in quick succession. To make it more efficient, we
+        // batch the handling of these messages by adding the address of the 
+        // actor that's existed to dead_clients_ and then sending a timed
+        // message to ourselves to do the cleanup.
+        cleanup_timepoint_ = utility::clock::now();
+        exiting_clients_and_watchers_.insert(msg.source);
+        mail(cleanup_timepoint_).delay(std::chrono::milliseconds(50)).send(this);
+
+
     });
 
     behavior_.assign(
@@ -182,6 +178,8 @@ GlobalUIModelData::GlobalUIModelData(caf::actor_config &cfg) : caf::event_based_
                 register_model(model_name, model_data, client);
                 return model_data_as_json(model_name);
             } catch (std::exception &e) {
+                spdlog::warn(
+                    "GlobalUIModelData register '{}' failed: {}", model_name, e.what());
                 return caf::make_error(xstudio_error::error, e.what());
             }
         },
@@ -382,7 +380,8 @@ GlobalUIModelData::GlobalUIModelData(caf::actor_config &cfg) : caf::event_based_
             for (const auto &model_name : models_to_be_fully_broadcasted_) {
 
                 const auto model_data = model_data_as_json(model_name);
-                for (auto &client : models_[model_name]->clients_) {
+                for (auto &c : models_[model_name]->clients_) {
+                    auto client = caf::actor_cast<caf::actor>(c);
                     if (client)
                         anon_send(
                             client,
@@ -411,6 +410,11 @@ GlobalUIModelData::GlobalUIModelData(caf::actor_config &cfg) : caf::event_based_
             const bool due_to_focus_change) {
             if (pressed)
                 hotkey_pressed(kotkey_uuid, context, window);
+        },
+        [=](const utility::clock::time_point &cleanup_tp) 
+        {            
+            if (cleanup_tp != cleanup_timepoint_) return;
+            do_cleanup_for_exited_clients();
         },
         [=](const caf::error &err) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -461,7 +465,8 @@ void GlobalUIModelData::set_data(
         if (changed) { //} && !role.empty()) {
 
             if (!role.empty()) {
-                for (auto &client : models_[model_name]->clients_) {
+                for (auto &c : models_[model_name]->clients_) {
+                    auto client = caf::actor_cast<caf::actor>(c);
                     if (client)
                         mail(
                             utility::event_atom_v,
@@ -474,7 +479,8 @@ void GlobalUIModelData::set_data(
                             .send(client);
                 }
             } else {
-                for (auto &client : models_[model_name]->clients_) {
+                for (auto &c : models_[model_name]->clients_) {
+                    auto client = caf::actor_cast<caf::actor>(c);
                     if (client) {
                         mail(
                             utility::event_atom_v, set_node_data_atom_v, model_name, path, data)
@@ -490,7 +496,8 @@ void GlobalUIModelData::set_data(
                 auto p = models_[model_name]->menu_watchers_.find(uuid);
                 if (p != models_[model_name]->menu_watchers_.end()) {
                     auto &watchers = p->second;
-                    for (auto watcher : watchers) {
+                    for (auto w : watchers) {
+                        auto watcher = caf::actor_cast<caf::actor>(w);
                         if (watcher)
                             mail(
                                 utility::event_atom_v,
@@ -558,7 +565,8 @@ void GlobalUIModelData::set_data(
 
             std::string path = path_from_node(node);
 
-            for (auto &client : models_[model_name]->clients_) {
+            for (auto &c : models_[model_name]->clients_) {
+                auto client = caf::actor_cast<caf::actor>(c);
                 if (client != setter)
                     mail(
                         utility::event_atom_v,
@@ -578,7 +586,8 @@ void GlobalUIModelData::set_data(
                 auto p = models_[model_name]->menu_watchers_.find(uuid);
                 if (p != models_[model_name]->menu_watchers_.end()) {
                     auto &watchers = p->second;
-                    for (auto watcher : watchers) {
+                    for (auto w : watchers) {
+                        auto watcher = caf::actor_cast<caf::actor>(w);
                         // we don't notify the thing that is setting this data
                         // as it will update it's local data
                         if (watcher != setter)
@@ -621,7 +630,7 @@ void GlobalUIModelData::insert_attribute_data_into_model(
             }
         }
         if (!already_a_client) {
-            p->second->clients_.push_back(client);
+            p->second->clients_.insert(caf::actor_cast<caf::actor_addr>(client));
             monitor(client);
         }
 
@@ -630,6 +639,8 @@ void GlobalUIModelData::insert_attribute_data_into_model(
         models_[model_name] = std::make_shared<ModelData>(model_name, blank_model, client);
         monitor(client);
     }
+
+    register_client_with_model(client, model_name);
 
     utility::JsonTree *parent_node = &(models_[model_name]->data_);
     try {
@@ -709,7 +720,7 @@ void GlobalUIModelData::remove_attribute_data_from_model(
         utility::JsonTree *model_data = &(models_[model_name]->data_);
         auto &clients                 = models_[model_name]->clients_;
         for (auto c = clients.begin(); c != clients.end(); ++c) {
-            if (*c == client) {
+            if (*c == caf::actor_cast<caf::actor_addr>(client)) {
                 clients.erase(c);
                 break;
             }
@@ -766,7 +777,7 @@ void GlobalUIModelData::register_model(
         }
 
         if (!already_a_client) {
-            p->second->clients_.push_back(client);
+            p->second->clients_.insert(caf::actor_cast<caf::actor_addr>(client));
             monitor(client);
         }
 
@@ -806,34 +817,11 @@ void GlobalUIModelData::register_model(
     } else {
 
         auto new_model_data = std::make_shared<ModelData>(model_name, model_data, client);
-
-        // If we are adding a new model - check if there is a model with a wildcard
-        // If there is, we duplicate that wildcard model data into the new
-        // model that we're adding as a starting point.
-        //
-        // This specifically means that if there is a C++ plugin that has created
-        // menu items in a model named 'MyModel*' then any models created
-        // in the UI layer called 'MyModel<something>' will include the menu
-        // items created in the backend.
-        for (auto &p : models_) {
-
-            if (p.first.find("*") == p.first.size() - 1) {
-
-                std::string match_name(p.first, 0, (p.first.size() - 1));
-                if (model_name.find(match_name) == 0) {
-                    new_model_data->data_ = p.second->data_;
-                    new_model_data->clients_.insert(
-                        new_model_data->clients_.begin(),
-                        p.second->clients_.begin(),
-                        p.second->clients_.end());
-                    new_model_data->menu_watchers_ = p.second->menu_watchers_;
-                }
-            }
-        }
-
         models_[model_name] = new_model_data;
         monitor(client);
     }
+
+    register_client_with_model(client, model_name);
 }
 
 utility::JsonStore GlobalUIModelData::model_data_as_json(const std::string &model_name) const {
@@ -932,8 +920,9 @@ void GlobalUIModelData::insert_rows(
         }
 
         // caf::scoped_actor sys(system());
-        for (auto &client : models_[model_name]->clients_) {
+        for (auto &c : models_[model_name]->clients_) {
 
+            auto client = caf::actor_cast<caf::actor>(c);
             // if we know 'requester', then the requester does not want to
             // get the change event as it has already updated its local model
             if (client && client != requester) {
@@ -977,7 +966,10 @@ void GlobalUIModelData::remove_rows(
         const auto model_data_json = model_data_as_json(model_name);
 
         caf::scoped_actor sys(system());
-        for (auto &client : models_[model_name]->clients_) {
+        for (auto &c : models_[model_name]->clients_) {
+
+            auto client = caf::actor_cast<caf::actor>(c);
+
             // if we know 'requester', then the requester does not want to
             // get the change event as it has already updated its local model
             if (client != requester) {
@@ -1070,7 +1062,8 @@ void GlobalUIModelData::node_activated(
                 auto p = models_[model_name]->menu_watchers_.find(uuid);
                 if (p != models_[model_name]->menu_watchers_.end()) {
                     auto &watchers = p->second;
-                    for (auto watcher : watchers) {
+                    for (auto w : watchers) {
+                        auto watcher = caf::actor_cast<caf::actor>(w);
                         mail(
                             utility::event_atom_v,
                             menu_node_activated_atom_v,
@@ -1227,7 +1220,8 @@ void GlobalUIModelData::insert_into_menu_model(
                         for (auto it = new_data.begin(); it != new_data.end(); it++) {
                             if (!old_data.contains(it.key()) ||
                                 old_data[it.key()] != it.value()) {
-                                for (auto &client : models_[model_name]->clients_) {
+                                for (auto &c : models_[model_name]->clients_) {
+                                    auto client = caf::actor_cast<caf::actor>(c);
                                     if (client)
                                         mail(
                                             utility::event_atom_v,
@@ -1249,9 +1243,10 @@ void GlobalUIModelData::insert_into_menu_model(
                 do_ordering(menu_model_data->parent());
 
             auto &watchers = models_[model_name]->menu_watchers_[menu_uuid];
-            if (std::find(watchers.begin(), watchers.end(), watcher) == watchers.end()) {
-                watchers.push_back(watcher);
+            if (watchers.find(caf::actor_cast<caf::actor_addr>(watcher)) == watchers.end()) {
+                watchers.insert(caf::actor_cast<caf::actor_addr>(watcher));
             }
+            register_watcher_with_model(watcher, model_name);
             monitor(watcher);
 
             if (!already_defined || needs_reorering)
@@ -1559,7 +1554,8 @@ void GlobalUIModelData::reset_model(
         check_model_is_registered(model_name, true);
         models_[model_name]->data_ = utility::json_to_tree(data, "children");
         const auto model_data      = model_data_as_json(model_name);
-        for (auto &client : models_[model_name]->clients_) {
+        for (auto &c : models_[model_name]->clients_) {
+            auto client = caf::actor_cast<caf::actor>(c);
             if (client == excluded_client)
                 continue;
             anon_send(client, utility::event_atom_v, model_data_atom_v, model_name, model_data);
@@ -1569,6 +1565,80 @@ void GlobalUIModelData::reset_model(
     } catch (std::exception &e) {
         spdlog::warn("{} {} for model {}", __PRETTY_FUNCTION__, e.what(), model_name);
     }
+}
+
+void GlobalUIModelData::register_watcher_with_model(caf::actor watcher, const std::string &model_name) 
+{
+    if (models_.find(model_name) == models_.end()) {
+        spdlog::warn(
+            "GlobalUIModelData register_watcher_with_model: '{}' is not a registered model",
+            model_name);
+        return;
+    }
+    models_per_watcher_[caf::actor_cast<caf::actor_addr>(watcher)].insert(models_[model_name]);
+}
+
+void GlobalUIModelData::register_client_with_model(caf::actor client, const std::string &model_name) 
+{
+    if (models_.find(model_name) == models_.end()) {
+        spdlog::warn(
+            "GlobalUIModelData register_client_with_model: '{}' is not a registered model",
+            model_name);
+        return;
+    }
+    models_per_client_[caf::actor_cast<caf::actor_addr>(client)].insert(models_[model_name]);
+}
+
+void GlobalUIModelData::do_cleanup_for_exited_clients() {
+
+    // has a client exited?
+    for (auto exiting_actor : exiting_clients_and_watchers_) {
+
+        auto m = models_per_client_.find(exiting_actor);
+        if (m != models_per_client_.end()) {
+
+            for (auto &model: m->second) {
+                auto cc = model->clients_.find(exiting_actor);
+                if (cc != model->clients_.end()) {
+                    model->clients_.erase(cc);
+                }
+            }
+        }
+
+        m = models_per_watcher_.find(exiting_actor);
+        if (m != models_per_watcher_.end()) {
+
+            for (auto &model: m->second) {
+
+                std::vector<std::pair<std::string, utility::Uuid>> dead_menu_nodes;                
+
+                // menu_watchers_ is a map of menu item IDs and actors that are
+                // watching that menu item. We erase entries for the actor that
+                // is exiting. If we do an erase and then there are no actors 
+                // watching the menu item, we assume the menu item is no longer 
+                // needed and we erase it from the model. This mechanism allows
+                // us to add and remove items from menus in xSTUDIO dynamically,
+                // (using XsMenuModelItem and a Repeater, say)  
+                auto w = model->menu_watchers_.begin();
+                while (w != model->menu_watchers_.end()) {
+                    auto ww = w->second.find(exiting_actor);
+                    if (ww != w->second.end()) {
+                        w->second.erase(ww);
+                        if (w->second.empty()) {
+                            dead_menu_nodes.emplace_back(model->name_, w->first);
+                        }
+                    }
+                    w++;
+                }
+                for (const auto &d : dead_menu_nodes) {
+                   remove_node(d.first, d.second);
+                }
+
+            }
+        }
+    }
+    exiting_clients_and_watchers_.clear();
+
 }
 
 #ifdef __GNUC__ // Check if GCC compiler is being used

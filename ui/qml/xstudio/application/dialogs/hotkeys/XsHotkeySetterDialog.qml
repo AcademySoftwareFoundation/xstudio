@@ -20,7 +20,7 @@ XsWindow {
 
     property var liveKeys: []
     property var liveModifiers: []
-
+    property var hotkeyCategory: ""
     property var currSequence: hotkeyReference.key.concat(hotkeyReference.modifiers)
 
     property var liveSequence: liveKeys.concat(liveModifiers)    
@@ -133,7 +133,7 @@ XsWindow {
 
         XsText {
             Layout.alignment: Qt.AlignLeft|Qt.AlignVCenter
-            text: hotkeyReference.context
+            text: hotkeyCategory
             font.bold: true
         }
 

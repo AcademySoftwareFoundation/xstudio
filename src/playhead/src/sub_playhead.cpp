@@ -235,6 +235,26 @@ void SubPlayhead::init() {
 
         [=](utility::event_atom, utility::change_atom, media::rotation_atom, float) {},
 
+        [=](xstudio::utility::event_atom,
+            xstudio::utility::change_atom,
+            xstudio::timeline::clip_edited_status_atom,
+            const utility::Uuid &,
+            const int ,
+            const utility::Uuid &,
+            const utility::Uuid &,
+            const utility::Uuid &) {
+            // timeline clip edited status change event 
+        },
+
+        [=](xstudio::utility::event_atom,
+            xstudio::utility::change_atom,
+            xstudio::timeline::clip_edited_status_atom,
+            const utility::Uuid &,
+            const int ,
+            const utility::Uuid &) {
+            // timeline clip edited status change event 
+        },
+
         [=](utility::event_atom,
             media::current_media_source_atom,
             UuidActor &a,
@@ -718,6 +738,14 @@ void SubPlayhead::init() {
             up_to_date_            = false;
             last_change_timepoint_ = utility::clock::now();
             anon_mail(source_atom_v).send(this);
+        },
+
+        [=](utility::event_atom, timeline::audio_mode_atom, const timeline::AudioMode am) {
+            if (media_type_ == media::MediaType::MT_AUDIO) {
+                up_to_date_            = false;
+                last_change_timepoint_ = utility::clock::now();
+                anon_mail(source_atom_v).send(this);
+            }
         },
 
         [=](utility::event_atom, media::media_status_atom, const media::MediaStatus) {

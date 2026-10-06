@@ -157,14 +157,39 @@ ComboBox { id: widget
     XsPopup{
         id: popupOptions
         width: widget.width
-        height: Math.min(contentItem.implicitHeight, widget.Window.height - topMargin - bottomMargin )
         padding: 1
-        y: widget.height
+
+        // Room above and below the control inside the window, measured
+        // each time the popup opens.
+        property real spaceAbove: 0
+        property real spaceBelow: widget.Window.height
+
+        // Open below the control if the full list fits there. Otherwise
+        // flip above if it fits there. Otherwise open on the side with
+        // more room, capped to that room, and let the scrollbar do the rest.
+        function place() {
+            var win = widget.Window.window
+            if (win && win.contentItem) {
+                var pos = widget.mapToItem(win.contentItem, 0, 0)
+                spaceAbove = pos.y
+                spaceBelow = win.contentItem.height - pos.y - widget.height
+            }
+            var wanted = contentItem.implicitHeight
+            var above = wanted > spaceBelow && (wanted <= spaceAbove || spaceAbove > spaceBelow)
+            var h = Math.max(0, Math.min(wanted, above ? spaceAbove : spaceBelow))
+            // Set y before height: XsPopup re-runs the window level
+            // repositioning on height changes using the current y.
+            y = above ? -h : widget.height
+            height = h
+        }
+
+        onAboutToShow: place()
 
         contentItem:
         ListView { id: listView
             clip: true
             implicitHeight: contentHeight + (popupOptions.topPadding + popupOptions.bottomPadding)
+            onImplicitHeightChanged: if (popupOptions.visible) popupOptions.place()
             model: widget.popup.visible ? widget.delegateModel: null
             currentIndex: widget.highlightedIndex
             snapMode: ListView.SnapToItem

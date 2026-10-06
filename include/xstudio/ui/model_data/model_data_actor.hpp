@@ -137,6 +137,12 @@ class GlobalUIModelData : public caf::event_based_actor {
         const utility::JsonStore &data,
         caf::actor excluded_client);
 
+    void register_watcher_with_model(caf::actor watcher, const std::string &model_name);
+
+    void register_client_with_model(caf::actor watcher, const std::string &model_name);
+
+    void do_cleanup_for_exited_clients();
+
     struct ModelData {
         ModelData()                   = default;
         ModelData(const ModelData &o) = default;
@@ -148,14 +154,14 @@ class GlobalUIModelData : public caf::event_based_actor {
             : name_(name),
               data_(utility::json_to_tree(data, "children")),
               preference_path_(std::move(preference_path)) {
-            clients_.push_back(client);
+            clients_.insert(caf::actor_cast<caf::actor_addr>(client));
         }
         std::string name_;
         std::string sort_key_;
         utility::JsonTree data_;
         std::string preference_path_;
-        std::vector<caf::actor> clients_;
-        std::map<utility::Uuid, std::vector<caf::actor>> menu_watchers_;
+        std::set<caf::actor_addr> clients_;
+        std::map<utility::Uuid, std::set<caf::actor_addr>> menu_watchers_;
         bool pending_prefs_update_ = {false};
         std::set<utility::Uuid> hotkeys_;
     };
@@ -170,6 +176,11 @@ class GlobalUIModelData : public caf::event_based_actor {
 
     std::map<std::string, ModelDataPtr> models_;
     std::set<std::string> models_to_be_fully_broadcasted_;
+    std::set<caf::actor_addr> exiting_clients_and_watchers_;
+    std::map<caf::actor_addr, std::set<ModelDataPtr>> models_per_watcher_;
+    std::map<caf::actor_addr, std::set<ModelDataPtr>> models_per_client_;
+
+    utility::clock::time_point cleanup_timepoint_;
 
     caf::behavior behavior_;
 };

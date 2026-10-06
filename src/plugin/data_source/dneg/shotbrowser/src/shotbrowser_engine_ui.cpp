@@ -633,13 +633,35 @@ QFuture<QUrl> ShotBrowserEngine::remapCachePathFuture(const QPersistentModelInde
     return QtConcurrent::run([=]() {
         const auto orig          = uri_to_posix_path(UriFromQUrl(path), false);
         static const auto pathre = std::regex(R"(^/jobs/(([^/]+)/.+)$)");
+        static const auto sequencere = std::regex(R"(^/jobs/([^/]+)(/.+\.)(\{:\d*d\})(\..+)$)");
         std::cmatch m;
 
         if (std::regex_match(orig.c_str(), m, pathre) and m[2] != site) {
             const auto npath = std::string("/jobs/") + site + "/" + std::string(m[1]);
-
             // remap path to cache.
+
             utility::add_remap_file_path(orig, npath);
+
+            // spdlog::warn("{} {}", orig, npath);
+
+            std::cmatch ms;
+            if(std::regex_match(orig.c_str(), ms, sequencere)) {
+                const auto to_re = std::string("/jobs/") + ms[1].str() + ms[2].str() + "(\\d+)" + ms[4].str();
+                const auto to_sub = std::string("/jobs/") + site + "/" + ms[1].str() + ms[2].str() + "$1" + ms[4].str();
+
+                const auto from_re = std::string("/jobs/") + site + "/" + ms[1].str() + ms[2].str() + "(\\d+)" + ms[4].str();
+                const auto from_sub = std::string("/jobs/") + ms[1].str() + ms[2].str() + "$1" + ms[4].str();
+
+                // spdlog::warn("{}", to_re);
+                // spdlog::warn("{}", to_sub);
+                // spdlog::warn("{}", from_re);
+                // spdlog::warn("{}", from_sub);
+
+                utility::add_regex_mapping(
+                    std::make_pair(std::regex(to_re), to_sub),
+                    std::make_pair(std::regex(from_re), from_sub)
+                );
+            }
 
             // trigger remote loading of source by daemon.
             auto socket = new QUdpSocket();
@@ -655,6 +677,7 @@ QFuture<QUrl> ShotBrowserEngine::remapCachePathFuture(const QPersistentModelInde
 
             // switch current media source ?
             anon_mail(media::current_media_source_atom_v, source_uuid).send(media_actor);
+            anon_mail(media::invalidate_cache_atom_v).delay(1s).send(media_actor);
 
             return QUrlFromUri(posix_path_to_uri(npath, false, true));
         }
@@ -662,7 +685,6 @@ QFuture<QUrl> ShotBrowserEngine::remapCachePathFuture(const QPersistentModelInde
         return path;
     });
 }
-
 
 QFuture<QString> ShotBrowserEngine::requestFileTransferFuture(
     const QVariantList &qitems,
@@ -801,6 +823,42 @@ ShotBrowserEngine::getIvyVersionFuture(const QString &project, const QUuid &stal
         }
 
         return result;
+    });
+}
+
+
+QFuture<QVariant> ShotBrowserEngine::getReferenceStemsFuture(const int project_id) {
+    return QtConcurrent::run([=]() {
+        // run shotgun query to get data..
+        auto result = R"([])"_json;
+
+        try {
+            scoped_actor sys{system()};
+            auto episode_filter =
+                FilterBy().And(
+                    Number("project.Project.id").is(project_id),
+                    Text("code").is("REFERENCE"));
+
+            auto jsn = request_receive<JsonStore>(
+                *sys, backend_, shotgun_entity_search_atom_v,
+                "CustomEntity20",
+                JsonStore(episode_filter),
+                std::vector<std::string>({"sg_sequences", "id","code"}),
+                std::vector<std::string>({"id"}),
+                1,
+                1
+            );
+            const auto ptr = json::json_pointer("/data/0/relationships/sg_sequences/data");
+
+            if(jsn.contains(ptr))
+                result =jsn.at(ptr);
+
+
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+
+        return mapFromValue(result);
     });
 }
 

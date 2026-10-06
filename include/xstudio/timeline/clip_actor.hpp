@@ -44,5 +44,6 @@ class ClipActor : public caf::event_based_actor {
 
     std::map<int, std::shared_ptr<const media::AVFrameID>> audio_ptr_cache_;
     std::map<int, std::shared_ptr<const media::AVFrameID>> image_ptr_cache_;
+
 };
 } // namespace xstudio::timeline

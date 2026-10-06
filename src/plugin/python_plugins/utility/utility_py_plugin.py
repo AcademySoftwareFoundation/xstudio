@@ -36,7 +36,7 @@ class UtilityPythonPlugin(PluginBase):
 
         self.flip_flop_menu_id = self.insert_menu_item(
             menu_model_name="media_list_menu_",
-            menu_text="Set Flip/Flop",
+            menu_text="Flip/Flop",
             menu_path="Media Settings",
             menu_item_position=1.0,
             attr_id=self.flip_flop_attr.uuid,
@@ -44,7 +44,7 @@ class UtilityPythonPlugin(PluginBase):
 
         self.set_submenu_position(
             menu_model_name="media_list_menu_",
-            submenu_path="Media Settings|Set Flip/Flop",
+            submenu_path="Media Settings|Flip/Flop",
             menu_item_position=3.9)
 
         self.connect_to_ui()

@@ -63,6 +63,11 @@ Item {
         attributeTitle: "action_attribute"
         model: annotations_model_data
     }
+    XsAttributeValue {
+        id: annotations_visible_attr
+        attributeTitle: "Visibility"
+        model: annotations_model_data
+    }
 
     property alias currentTool: active_tool.value
     property alias toolChoices: tool_types_choices.value
@@ -71,7 +76,8 @@ Item {
     property var current_tool_properties
 
     onCurrentToolChanged: {
-        action_attr.value = ["ShowVisibility", view.name]
+        // picking a tool re-enables annotation visibility
+        annotations_visible_attr.value = true
 
         if(currentTool === "Draw") 
         {

@@ -74,6 +74,12 @@ Item {
     }
 
     XsAttributeValue {
+        id: __playheadComparedTimelineIds
+        attributeTitle: "Compared Timeline Ids"
+        model: playhead_attrs_model
+    }
+
+    XsAttributeValue {
         id: __playheadBookmarkedFrames
         attributeTitle: "Bookmarked Frames"
         model: playhead_attrs_model
@@ -270,6 +276,7 @@ Item {
     property alias frameRate: __playheadFrameRate.value
     property alias playing: __playheadPlaying.value
     property alias cachedFrames: __playheadCachedFrames.value
+    property alias comparedTimelineIds: __playheadComparedTimelineIds.value
     property alias bookmarkedFrames: __playheadBookmarkedFrames.value
     property alias bookmarkedFrameColours: __playheadBookmarkedFrameColours.value
     property alias loopStartFrame: __playheadLoopStartFrame.value
@@ -300,14 +307,14 @@ Item {
     property alias volume: __volume.value
 
     /* This gives us a 'model' with one row - the row is the attribute data
-    for the "Auto Align" attribute of the current playhead. We use it below
+    for the "Frame Align" attribute of the current playhead. We use it below
     to build the Auto Align button */
     XsFilterModel {
         id: auto_align_attr_data
         sourceModel: playhead_attrs_model
         sortAscending: true
         Component.onCompleted: {
-            setRoleFilter("Auto Align", "title")
+            setRoleFilter("Frame Align", "title")
         }
     }
     property alias autoAlignAttrData: auto_align_attr_data

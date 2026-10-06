@@ -202,10 +202,10 @@ class BOOKMARK_QML_EXPORT BookmarkModel : public caf::mixin::actor_object<JSONTr
     [[nodiscard]] int length() const { return rowCount(); }
 
     Q_INVOKABLE QFuture<QString> exportCSVFuture(
-        const QUrl &path, const bool with_annotations = true, const bool with_images = true);
+        const QUrl &path, const bool with_annotations = true, const bool with_images = true, const QList<QUuid> &bookmarks = QList<QUuid>());
     Q_INVOKABLE QString exportCSV(
-        const QUrl &path, const bool with_annotations = true, const bool with_images = true) {
-        return exportCSVFuture(path, with_annotations, with_images).result();
+        const QUrl &path, const bool with_annotations = true, const bool with_images = true, const QList<QUuid> &bookmarks = QList<QUuid>()) {
+        return exportCSVFuture(path, with_annotations, with_images, bookmarks).result();
     }
 
     Q_INVOKABLE [[nodiscard]] QString

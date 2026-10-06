@@ -34,6 +34,7 @@ ShotBrowserResultModel::ShotBrowserResultModel(QObject *parent) : JSONTreeModel(
              "createdDateRole",
              "dateSubmittedToClientRole",
              "departmentRole",
+             "descriptionRole",
              "detailRole",
              "entityRole",
              "frameRangeRole",
@@ -453,6 +454,7 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
                  pipelineStatusFullRole,
                  playlistTypeRole,
                  subjectRole,
+                 descriptionRole,
                  versionNameRole});
 
             for (auto r : troles)
@@ -716,6 +718,10 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
         case JSONTreeModel::Roles::JSONRole:
         case Roles::detailRole:
             result = QVariantMapFromJson(j);
+            break;
+
+        case Roles::descriptionRole:
+            result = QString::fromStdString(j.at("attributes").at("description").get<std::string>());
             break;
 
         case JSONTreeModel::Roles::JSONTextRole:

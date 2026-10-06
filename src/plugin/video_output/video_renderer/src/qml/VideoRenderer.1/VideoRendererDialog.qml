@@ -240,6 +240,13 @@ XsWindow {
     property alias load_on_completion: __load_on_completion.value
 
     XsAttributeValue {
+        id: __include_annotations
+        attributeTitle: "include_annotations"
+        model: video_render_attrs
+    }
+    property alias include_annotations: __include_annotations.value
+
+    XsAttributeValue {
         id: __frame_rates
         attributeTitle: "frame_rates"
         model: video_render_attrs
@@ -540,6 +547,21 @@ XsWindow {
                 checked: load_on_completion
                 onClicked: {
                     load_on_completion = !load_on_completion
+                }
+            }
+
+            XsText {
+                text: "Include Annotations"
+                Layout.alignment: Qt.AlignRight
+            }
+
+            XsCheckBox {
+
+                Layout.alignment: Qt.AlignLeft
+                Layout.preferredHeight: widgetHeight
+                checked: include_annotations == true
+                onClicked: {
+                    include_annotations = !include_annotations
                 }
             }
 

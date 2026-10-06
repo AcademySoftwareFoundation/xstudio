@@ -28,13 +28,20 @@ PlayheadGlobalEventsActor::PlayheadGlobalEventsActor(caf::actor_config &cfg)
     // order to fully populate their toolbar. Also we need a playhead to exist
     // so that playhead related hotkeys are registere. Therefore we create a
     // dummy playhead here as a stand-in until real playheads are created by the session.
-    global_active_playhead_ =
-        spawn<PlayheadActor>("DummyPlayhead", playhead::INDEPENDENT_AUDIO);
-    link_to(global_active_playhead_);
+    //
+    // The dummy is linked to us, so it must stay referenced for as long as we
+    // live: if its last strong reference is dropped it exits with reason
+    // 'unreachable' and the link propagates that exit to us, and from us to
+    // the GlobalActor. Hold it in its own member, not only in
+    // global_active_playhead_, which is reassigned once a real playhead exists.
+    dummy_playhead_ = spawn<PlayheadActor>("DummyPlayhead", playhead::INDEPENDENT_AUDIO);
+    link_to(dummy_playhead_);
+    global_active_playhead_ = dummy_playhead_;
 }
 
 void PlayheadGlobalEventsActor::on_exit() {
     global_active_playhead_ = caf::actor();
+    dummy_playhead_         = caf::actor();
     viewports_.clear();
     system().registry().erase(global_playhead_events_actor);
 }
@@ -104,6 +111,9 @@ void PlayheadGlobalEventsActor::init() {
         [=](broadcast::leave_broadcast_atom, caf::actor joiner) {
             return mail(broadcast::leave_broadcast_atom_v, joiner).delegate(event_group_);
         },
+        [=](utility::parent_atom) -> caf::actor {
+            return caf::actor_cast<caf::actor>(this);
+        },
         [=](ui::viewport::viewport_playhead_atom) -> caf::actor {
             return global_active_playhead_;
         },
@@ -128,6 +138,10 @@ void PlayheadGlobalEventsActor::init() {
 
         [=](jump_atom, const int frame) {
             return mail(jump_atom_v, frame).delegate(global_active_playhead_);
+        },
+
+        [=](jump_atom, const int frame, const bool force_audio_scrub) {
+            return mail(jump_atom_v, frame, force_audio_scrub).delegate(global_active_playhead_);
         },
 
         [=](step_atom, const int frame) {

@@ -20,15 +20,16 @@ using namespace caf;
 
 using sce = shotgun_client_error;
 
-ShotgunClientActor::ShotgunClientActor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {
-    init();
-}
+ShotgunClientActor::ShotgunClientActor(caf::actor_config &cfg,
+    const time_t &connection_timeout,
+    const time_t &read_timeout,
+    const time_t &write_timeout
+) : caf::event_based_actor(cfg) {
 
-void ShotgunClientActor::init() {
     spdlog::debug("Created ShotgunClientActor");
     print_on_exit(this, "ShotgunClientActor");
 
-    http_ = spawn<HTTPClientActor>(CPPHTTPLIB_CONNECTION_TIMEOUT_SECOND, 20, 20);
+    http_ = spawn<HTTPClientActor>(connection_timeout, read_timeout, write_timeout);
 
     link_to(http_);
 

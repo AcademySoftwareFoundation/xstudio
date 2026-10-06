@@ -339,6 +339,19 @@ ColumnLayout{
             Layout.preferredWidth: btnWidth
             Layout.fillHeight: true
 
+            imgSrc: "qrc:/icons/imagesmode.svg"
+            toolTip: "Not Compact Mode"
+            isActive: !prefs.compactMode
+            onClicked: prefs.compactMode = !prefs.compactMode
+        }
+
+
+        XsPrimaryButton{
+            Layout.leftMargin: 2
+            Layout.rightMargin: 2
+            Layout.preferredWidth: btnWidth
+            Layout.fillHeight: true
+
             imgSrc: "qrc:///shotbrowser_icons/add_link.svg"
             toolTip: "Link Mode"
             isActive: linkMode

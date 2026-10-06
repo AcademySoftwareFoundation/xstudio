@@ -37,6 +37,7 @@ Rectangle{ id: frame
     required property string pipelineStatusFullRole
     required property string authorRole
     required property string thumbRole
+    required property string descriptionRole
     required property string clientFilenameRole
     required property string clientVersionRole
     required property string projectRole
@@ -64,8 +65,11 @@ Rectangle{ id: frame
 
     property bool compactMode: false
 
+    property alias textHeightDiff: sec2.textHeightDiff
 
-    property bool isHovered: mArea.containsMouse || versionArrowBtn.hovered || sec1.playerMA.containsMouse || iconState.containsMouse
+    property alias descriptionClicked: sec2.descriptionClicked
+
+    property bool isHovered: mArea.containsMouse || versionArrowBtn.hovered || sec1.playerMA.containsMouse || iconState.containsMouse || sec2.descriptionHovered
 
     signal playMovie(path: var)
 
@@ -168,6 +172,8 @@ Rectangle{ id: frame
 
             RowLayout{
                 Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.maximumHeight: XsStyleSheet.widgetStdHeight
                 Layout.minimumHeight: XsStyleSheet.widgetStdHeight
                 spacing: itemSpacing
                 visible: compactMode
@@ -260,7 +266,8 @@ Rectangle{ id: frame
             Rectangle{
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                Layout.preferredHeight: XsStyleSheet.widgetStdHeight
+                Layout.maximumHeight: XsStyleSheet.widgetStdHeight
+                Layout.minimumHeight: XsStyleSheet.widgetStdHeight
                 color: XsStyleSheet.widgetBgNormalColor
 
                 visible: !compactMode
@@ -287,7 +294,7 @@ Rectangle{ id: frame
 
             RowLayout{
                 Layout.fillWidth: true
-                Layout.preferredHeight: (XsStyleSheet.widgetStdHeight * rowCount) + (spacing * (rowCount-1))
+                Layout.preferredHeight: (XsStyleSheet.widgetStdHeight * rowCount) + (spacing * rowCount)
                 spacing: itemSpacing
                 x: spacing
                 visible: !compactMode
@@ -297,7 +304,7 @@ Rectangle{ id: frame
                 ShotHistorySection1{
                     id: sec1
                     Layout.minimumWidth: 154
-                    Layout.preferredWidth: 154
+                    Layout.maximumWidth: 154
                     Layout.fillHeight: true
                 }
 
@@ -311,7 +318,7 @@ Rectangle{ id: frame
                 ShotHistorySection3{
                     id: sec3
                     Layout.minimumWidth: 157
-                    Layout.preferredWidth: 157
+                    Layout.maximumWidth: 157
                     Layout.fillHeight: true
                 }
             }

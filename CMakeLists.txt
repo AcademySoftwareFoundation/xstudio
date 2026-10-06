@@ -3,7 +3,7 @@ cmake_policy(VERSION 3.26)
 #cmake_minimum_required(VERSION 3.28 FATAL_ERROR)
 #cmake_policy(VERSION 3.28)
 
-set(XSTUDIO_GLOBAL_VERSION "1.3.0" CACHE STRING "Version string")
+set(XSTUDIO_GLOBAL_VERSION "1.4.0" CACHE STRING "Version string")
 set(XSTUDIO_GLOBAL_NAME xStudio)
 
 # set(CMAKE_OSX_DEPLOYMENT_TARGET "14.5" CACHE STRING "Minimum OS X deployment version" FORCE)
@@ -97,6 +97,9 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fpic")
 
 set(TEST_RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/test_resource")
 set(ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+
+# Generated headers (e.g. QML export headers) live in the build tree, not the source tree.
+include_directories(${CMAKE_BINARY_DIR}/gen-include)
 
 if(WIN32)
   set(CMAKE_CXX_STANDARD 20)
@@ -222,7 +225,7 @@ if (USE_VCPKG)
     message(FATAL_ERROR "Failed to ensurepip.")
   else()
     execute_process(
-      COMMAND "${Python_EXECUTABLE}" -m pip install setuptools sphinx breathe sphinx-rtd-theme OpenTimelineIO-Plugins importlib_metadata zipp numpy pyyaml fileseq
+      COMMAND "${Python_EXECUTABLE}" -m pip install setuptools sphinx breathe sphinx-rtd-theme OpenTimelineIO-Plugins importlib_metadata zipp numpy pyyaml fileseq myst-parser
       RESULT_VARIABLE PIP_RESULT
     )
     if(PIP_RESULT)
@@ -263,10 +266,16 @@ if(INSTALL_XSTUDIO)
   add_subdirectory(extern/quickpromise)
   add_subdirectory(extern/quickfuture)
 
-  install(DIRECTORY include/xstudio
+  if (NOT APPLE)
+    install(DIRECTORY include/xstudio
           DESTINATION include)
 
-  INSTALL(DIRECTORY extern/ DESTINATION extern)
+    # QML export headers are generated into the build tree (see cmake/macros.cmake)
+    install(DIRECTORY ${CMAKE_BINARY_DIR}/gen-include/xstudio
+          DESTINATION include)
+
+    install(DIRECTORY extern/ DESTINATION extern)
+  endif()
 
   add_subdirectory(share/preference)
   add_subdirectory(share/snippets)
@@ -308,17 +317,25 @@ if(INSTALL_XSTUDIO)
       EXPORT_LINK_INTERFACE_LIBRARIES
     )
 
+    # Also export the targets into the build tree, next to the generated
+    # xStudioConfig.cmake, so out-of-tree plugins can consume the build
+    # directory directly (xStudio_DIR=<build dir>) without installing.
+    export(EXPORT xstudio
+      FILE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake
+      NAMESPACE xstudio::
+    )
+
   endif()
 
 endif ()
 
-if (USE_VCPKG)
-  # To provide reliable ordering, we need to make this install script happen in a subdirectory.
-  # Otherwise, Qt deploy will happen before we have the rest of the application deployed.
-  add_subdirectory("scripts/qt_install")
-endif()
-
 if (WIN32)
+
+  if (USE_VCPKG)
+    # To provide reliable ordering, we need to make this install script happen in a subdirectory.
+    # Otherwise, Qt deploy will happen before we have the rest of the application deployed.
+    add_subdirectory("scripts/qt_install")
+  endif()
 
   include(InstallRequiredSystemLibraries)
 

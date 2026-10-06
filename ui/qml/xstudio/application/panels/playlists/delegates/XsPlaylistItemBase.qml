@@ -5,6 +5,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQml.Models 2.15
 import QuickFuture 1.0
+import QtQuick.Effects
 
 import xstudio.qml.helpers 1.0
 import xStudio 1.0
@@ -23,12 +24,28 @@ Item {
     property bool isDragReorderTarget: drag_drop_handler.isDragTarget && canReceiveDrag && incomingDragSource == "PlayList"
     property bool dragToEnd: false
     property bool isDivider: false
+    property int timlineCompareIndex: -1
 
     property var incomingDragSource
 
     property var metadataChanged: metadataChangedRole
     property var placeHolder: placeHolderRole
     property var decoratorModel: []
+
+    // if multiple timelines are compared, we track it here and update our
+    // decorations accordingly
+    property var comparedTimelineIds: currentPlayhead.comparedTimelineIds
+    onComparedTimelineIdsChanged: {
+        let timline_compared = -1
+        for (var i = 0; i < comparedTimelineIds.length; ++i) {
+            if (helpers.QUuidFromUuidString(comparedTimelineIds[i]) == actorUuidRole) {
+                timline_compared = i
+            }
+        }
+        if (timlineCompareIndex != timline_compared) {
+            timlineCompareIndex = timline_compared
+        }
+    }
 
     function updateDecorations() {
         if(typeRole == "Playlist" && !placeHolder) {
@@ -333,14 +350,29 @@ Item {
             }
         }
 
-        XsIcon {
+        Item {
+
             Layout.fillHeight: true
             Layout.preferredWidth: height
             Layout.margins: 2
 
-            source: "qrc:/icons/desktop_windows.svg"
-            visible: isViewed
-            imgOverlayColor: XsStyleSheet.accentColor
+            XsIcon {
+
+                anchors.fill: parent
+                source: "qrc:/icons/desktop_windows.svg"
+                visible: isViewed || timlineCompareIndex != -1
+                imgOverlayColor: XsStyleSheet.accentColor
+
+                XsText {
+                    anchors.centerIn: parent
+                    id: idx_label
+                    visible: timlineCompareIndex != -1
+                    text: "" + (timlineCompareIndex + 1)
+
+                }
+
+            }
+
         }
 
         Repeater {

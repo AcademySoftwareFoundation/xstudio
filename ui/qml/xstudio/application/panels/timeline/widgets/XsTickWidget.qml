@@ -55,10 +55,14 @@ Rectangle {
         }
         onPressed: mouse => {
 
-            // here we make sure the viewport is attached to the correct
-            // playhead - we want the 'main' playhead of the timeline not the
-            // auxillary one which is used for showing individual clips
-            viewportCurrentMediaContainerIndex = timelineModel.rootIndex.parent
+            if (!multiTimelineMode) {
+
+                // here we make sure the viewport is attached to the correct
+                // playhead - we want the 'main' playhead of the timeline not the
+                // auxillary one which is used for showing individual clips
+                viewportCurrentMediaContainerIndex = timelineModel.rootIndex.parent
+
+            }
 
             // we ensure the timeline playhead is back in 'pinned' mode. This
             // means, regardless of the media selection, the playhead source
@@ -112,4 +116,19 @@ Rectangle {
             width: 1
         }
     }
+
+    Rectangle {
+        anchors.fill: timelineTitle
+        color: trackBackground
+        anchors.margins: -1
+    }
+
+    XsText {
+        id: timelineTitle
+        anchors.centerIn: parent
+        text: timelineName
+    }
+
+
+
 }

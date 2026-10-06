@@ -23,6 +23,7 @@ class PathRemapper {
     void configure(const utility::JsonStore &jsn);
 
     void add_path_mapping(const std::string &from, const std::string &to);
+    void add_regex_mapping(const std::pair<std::regex, std::string> from, const std::pair<std::regex, std::string> to);
 
   private:
     std::string remap(const std::string &path, const bool forwards);

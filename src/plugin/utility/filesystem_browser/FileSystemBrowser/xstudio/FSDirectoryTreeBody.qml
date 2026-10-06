@@ -13,8 +13,10 @@ Item {
     id: treeRoot
     
     // Properties to communicate with parent
-    property var currentPath: "/"
-    property string baseRootPath: "/"
+    readonly property bool isMSWin: Qt.platform.os === "windows"
+    readonly property string pathSep: isMSWin ? "\\" : "/"
+    property var currentPath: pathSep
+    property string baseRootPath: pathSep
 
     Connections {
         target: root
@@ -31,7 +33,6 @@ Item {
     // Auto-expand logic
     property string pendingExpandPath: ""
     property bool isSyncing: false
-    readonly property string pathSep: Qt.platform.os === "windows" ? "\\" : "/"
     property bool wasClicked: false
 
     Timer {
@@ -49,8 +50,8 @@ Item {
 
 
     function getPathDepth(p) {
-        if (!p || p === "/") return 0;
-        var parts = p.split("/");
+        if (!p || p === pathSep) return 0;
+        var parts = p.split(pathSep);
         var count = 0;
         for(var i=0; i<parts.length; i++) {
             if (parts[i]) count++;
@@ -60,13 +61,13 @@ Item {
 
     onCurrentPathChanged: {
         // Start sync process
-        if (currentPath && currentPath !== "/") {
+        if (currentPath && currentPath !== pathSep) {
             pendingExpandPath = currentPath;
             isSyncing = true;
             syncToPath();
 
             if (!currentPath.startsWith(baseRootPath))
-                baseRootPath = "/"
+                baseRootPath = pathSep
         }
     }
 
@@ -92,11 +93,11 @@ Item {
             
             var match = false;
             if (pendingExpandPath === np) match = true;
-            else if (pendingExpandPath.indexOf(np + "/") === 0) match = true;
-            else if (np === "/" && pendingExpandPath.indexOf("/") === 0) match = true; // Root always matches
+            else if (pendingExpandPath.indexOf(np + pathSep) === 0) match = true;
+            else if (np === pathSep && pendingExpandPath.indexOf(pathSep) === 0) match = true; // Root always matches
             
             if (match) {
-                if (np.length > deepestLen || (np === "/" && deepestLen === 0)) {
+                if (np.length > deepestLen || (np === pathSep && deepestLen === 0)) {
                     deepestLen = np.length;
                     deepestIndex = i;
                 }
@@ -172,47 +173,40 @@ Item {
     ListModel {
         id: treeModel
     }
-    
-    onBaseRootPathChanged: {
-        treeModel.clear();
-        var rootName = baseRootPath === "/" ? "Root" : (baseRootPath.split("/").pop() || baseRootPath);
-        treeModel.append({
-            "name": rootName,
-            "path": baseRootPath,
-            "level": 0,
-            "expanded": false,
-            "hasChildren": true,
-            "isLoading": false
-        });
-        expandNode(0);
-        
-        if (currentPath && currentPath.indexOf(baseRootPath) === 0 && currentPath !== baseRootPath) {
-             pendingExpandPath = currentPath;
-             isSyncing = true;
-             syncToPath();
-        }
-    }
 
-    Component.onCompleted: {
-        // Init with root
-        var rootName = baseRootPath === "/" ? "Root" : (baseRootPath.split("/").pop() || baseRootPath);
-        treeModel.append({
-            "name": rootName,
-            "path": baseRootPath,
-            "level": 0,
-            "expanded": false,
-            "hasChildren": true, // Assume root has children
-            "isLoading": false
-        });
-        // Immediately expand root
-        expandNode(0);
-        
-        if (currentPath && currentPath.indexOf(baseRootPath) === 0 && currentPath !== baseRootPath) {
-             pendingExpandPath = currentPath;
-             isSyncing = true;
-             syncToPath();
+    function initTree() {
+        treeModel.clear();
+        if (isMSWin) {
+
+            // this call with 'path'= '\' will get us the drive names on Windows.
+            console.log("baseRootPath", baseRootPath)
+            sendCommand({"action": "get_subdirs", "path": baseRootPath})
+
+        } else {
+            var rootName = baseRootPath === pathSep ? "Root" : (baseRootPath.split(pathSep).pop() || baseRootPath);
+            treeModel.append({
+                "name": rootName,
+                "path": baseRootPath,
+                "level": 0,
+                "expanded": false,
+                "hasChildren": true,
+                "isLoading": false
+            });
+            expandNode(0);
+
+            if (currentPath && currentPath.indexOf(baseRootPath) === 0 && currentPath !== baseRootPath) {
+                pendingExpandPath = currentPath;
+                isSyncing = true;
+                syncToPath();
+            }
+
         }
+        
     }
+    
+    onBaseRootPathChanged: initTree()
+
+    Component.onCompleted: initTree()
     
     function expandNode(index) {
         var node = treeModel.get(index);
@@ -285,6 +279,23 @@ Item {
         
         var path = result.path;
         var dirs = result.dirs;
+
+        if (isMSWin && treeModel.count == 0) {
+            // tree is empty
+            // dirs should be the Windows drive names
+            for(var j=0; j<dirs.length; j++) {
+                var d = dirs[j];
+                treeModel.append({
+                    "name": d.name,
+                    "path": d.path,
+                    "level": 0,
+                    "expanded": false,
+                    "hasChildren": d.has_subdir, 
+                    "isLoading": false
+                });
+            }
+            return
+        }
         
         var foundIndex = -1;
         for(var i=0; i<treeModel.count; i++) {
@@ -383,7 +394,7 @@ Item {
             Layout.fillWidth: true
             Layout.preferredHeight: visible ? XsStyleSheet.widgetStdHeight : 0
             color: XsStyleSheet.panelBgColor
-            visible: treeRoot.baseRootPath !== "/"
+            visible: treeRoot.baseRootPath !== pathSep
             
             RowLayout {
                 anchors.fill: parent
@@ -413,7 +424,7 @@ Item {
                     imgSrc: "qrc:/icons/home.svg"
                     Layout.preferredHeight: 16
                     Layout.preferredWidth: 16
-                    onClicked: treeRoot.baseRootPath = "/"
+                    onClicked: treeRoot.baseRootPath = pathSep
 					imageDiv.height: height-2
 					imageDiv.width: width-2
                 }
@@ -516,7 +527,7 @@ Item {
                         id: scanButton
                         Layout.preferredWidth: 60
                         Layout.fillHeight: true
-                        Layout.margins: 5
+                        Layout.margins: 2
                         property var hovered: mma.containsMouse
                         property var pressed: mma.pressed
                         radius: 4
@@ -534,8 +545,8 @@ Item {
                             hoverEnabled: true
                             acceptedButtons: Qt.LeftButton
                             onClicked: {
+                                wasClicked = true;
                                 sendCommand({"action": "force_scan", "path": model.path})
-                                wasClicked = true
                             }
                         }
                         visible: isHovered && !model.isLoading

@@ -26,12 +26,14 @@ SessionModel::SessionModel(QObject *parent) : super(parent) {
          {"actorRole"},
          {"actorUuidRole"},
          {"audioActorUuidRole"},
+         {"audioModeRole"},
          {"availableDurationRole"},
          {"availableStartRole"},
          {"bitDepthRole"},
          {"bookmarkUuidsRole"},
          {"busyRole"},
          {"clipMediaUuidRole"},
+         {"clipEditedStatusRole"},
          {"containerUuidRole"},
          {"enabledRole"},
          {"errorRole"},
@@ -547,6 +549,20 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                 }
                 break;
 
+            case Roles::audioModeRole:
+                if (j.count("audio_mode")) {
+                    if (j.at("audio_mode").is_null()) {
+                        requestData(
+                            QVariant::fromValue(QUuidFromUuid(j.at("actor_uuid"))),
+                            actorUuidRole,
+                            getPlaylistIndex(index),
+                            index,
+                            role);
+                    } else {
+                        result = QVariant::fromValue(j.at("audio_mode").get<double>());
+                    }
+                }
+                break;
             case Roles::pixelAspectRole:
                 if (j.count("pixel_aspect")) {
                     if (j.at("pixel_aspect").is_null()) {
@@ -793,6 +809,21 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                 }
                 break;
 
+            case Roles::clipEditedStatusRole:
+                if (j.count("clip_edited_status")) {
+                    if (j.at("clip_edited_status").is_null()) {
+                        requestData(
+                            QVariant::fromValue(QUuidFromUuid(j.at("id"))),
+                            idRole,
+                            index,
+                            index,
+                            role);
+                    } else {
+                        result = QVariant::fromValue(j.at("clip_edited_status").get<int>());
+                    }
+                }
+                break;
+
             case Roles::flagColourRole:
                 if (j.count("placeholder")) {
                     result = QString("");
@@ -946,7 +977,6 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                     }
                 }
                 break;
-
 
             case Roles::activeDurationRole:
                 if (j.count("active_range")) {
@@ -1115,6 +1145,10 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                 result         = true;
                 break;
 
+            case Roles::clipEditedStatusRole:
+                result = false; // read-only data
+                break;
+
             case activeStartRole:
                 if (j.count("active_range")) {
                     auto fr = FrameRange();
@@ -1138,8 +1172,9 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                         // probably pointless, as this will trigger from the backend update
                         roles.push_back(trimmedStartRole);
                         roles.push_back(activeRangeValidRole);
-                        if (actor)
+                        if (actor) {
                             anon_mail(timeline::active_range_atom_v, fr).send(actor);
+                        }
                     }
                 }
                 break;
@@ -1194,8 +1229,9 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                         // probably pointless, as this will trigger from the backend update
                         roles.push_back(trimmedDurationRole);
                         roles.push_back(activeRangeValidRole);
-                        if (actor)
+                        if (actor) {
                             anon_mail(timeline::active_range_atom_v, fr).send(actor);
+                        }
                     }
                 }
                 break;
@@ -1365,6 +1401,15 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                 if (image_source_actor) {
                     anon_mail(media::pixel_aspect_atom_v, value.get<double>())
                         .send(image_source_actor);
+                }
+            } break;
+
+            case audioModeRole: {
+                if (type == "Timeline") {
+                    anon_mail(timeline::audio_mode_atom_v, static_cast<timeline::AudioMode>(value.get<int>()))
+                        .send(actor);
+                    j["audio_mode"] = value;
+                    result    = true;
                 }
             } break;
 

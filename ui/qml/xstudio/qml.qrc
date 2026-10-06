@@ -106,6 +106,7 @@
 	    <file>application/panels/timeline/menus/XsTimelineClipMenu.qml</file>
 	    <file>application/panels/timeline/menus/XsTimelineMenu.qml</file>
 	    <file>application/panels/timeline/XsTimelinePanel.qml</file>
+	    <file>application/panels/timeline/XsTimelinePanelParent.qml</file>
 	    <file>application/panels/timeline/menus/XsTimelineTrackMenu.qml</file>
 
 	    <file>application/panels/python/XsPythonPanel.qml</file>
@@ -309,9 +310,9 @@
 	</qresource>
 
 	<qresource prefix="/icons">
+		<file alias="account_tree.svg">assets/icons/account_tree.svg</file>
 		<file alias="ad_group.svg">assets/icons/ad_group.svg</file>
 		<file alias="add.svg">assets/icons/add.svg</file>
-		<file alias="account_tree.svg">assets/icons/account_tree.svg</file>
 		<file alias="arrow_circle_up.svg">assets/icons/arrow_circle_up.svg</file>
 		<file alias="arrow_drop_down.svg">assets/icons/arrow_drop_down.svg</file>
 		<file alias="arrow_range.svg">assets/icons/arrow_range.svg</file>
@@ -360,15 +361,17 @@
 		<file alias="filter_none.svg">assets/icons/filter_none.svg</file>
 		<file alias="fit_screen.svg">assets/icons/fit_screen.svg</file>
 		<file alias="fit_select.svg">assets/icons/fit_select.svg</file>
-		<file alias="format_size.svg">assets/icons/format_size.svg</file>
 		<file alias="folder.svg">assets/icons/folder.svg</file>
 		<file alias="folder_open.svg">assets/icons/folder_open.svg</file>
+		<file alias="format_size.svg">assets/icons/format_size.svg</file>
 		<file alias="frame_inspect.svg">assets/icons/frame_inspect.svg</file>
 		<file alias="functions.svg">assets/icons/functions.svg</file>
 		<file alias="grid_view.svg">assets/icons/grid_view.svg</file>
 		<file alias="help.svg">assets/icons/help.svg</file>
-		<file alias="home.svg">assets/icons/home.svg</file>
 		<file alias="history.svg">assets/icons/history.svg</file>
+		<file alias="home.svg">assets/icons/home.svg</file>
+		<file alias="horizontal_align_center.svg">assets/icons/horizontal_align_center.svg</file>
+		<file alias="hourglass.svg">assets/icons/hourglass.svg</file>
 		<file alias="image.svg">assets/icons/image.svg</file>
 		<file alias="imagesmode.svg">assets/icons/imagesmode.svg</file>
 		<file alias="info.svg">assets/icons/info.svg</file>
@@ -403,8 +406,8 @@
 		<file alias="output.svg">assets/icons/output.svg</file>
 		<file alias="pan.svg">assets/icons/pan.svg</file>
 		<file alias="pause.svg">assets/icons/pause.svg</file>
-		<file alias="person.svg">assets/icons/person.svg</file>
 		<file alias="pending.svg">assets/icons/pending.svg</file>
+		<file alias="person.svg">assets/icons/person.svg</file>
 		<file alias="photo_camera.svg">assets/icons/photo_camera.svg</file>
 		<file alias="play_arrow.svg">assets/icons/play_arrow.svg</file>
 		<file alias="play_circle.svg">assets/icons/play_circle.svg</file>
@@ -414,9 +417,9 @@
 		<file alias="radio_button_unchecked.svg">assets/icons/radio_button_unchecked.svg</file>
 		<file alias="rectangle.svg">assets/icons/rectangle.svg</file>
 		<file alias="redo.svg">assets/icons/redo.svg</file>
+		<file alias="refresh.svg">assets/icons/refresh.svg</file>
 		<file alias="repartition.svg">assets/icons/repartition.svg</file>
 		<file alias="repeat.svg">assets/icons/repeat.svg</file>
-		<file alias="refresh.svg">assets/icons/refresh.svg</file>
 		<file alias="reset_image.svg">assets/icons/reset_image.svg</file>
 		<file alias="reset_tv.svg">assets/icons/reset_tv.svg</file>
 		<file alias="restart.svg">assets/icons/restart.svg</file>
@@ -427,6 +430,8 @@
 		<file alias="search_off.svg">assets/icons/search_off.svg</file>
 		<file alias="select.svg">assets/icons/select.svg</file>
 		<file alias="settings.svg">assets/icons/settings.svg</file>
+		<file alias="share.svg">assets/icons/share.svg</file>
+		<file alias="share_off.svg">assets/icons/share_off.svg</file>
 		<file alias="shield_person.svg">assets/icons/shield_person.svg</file>
 		<file alias="skip_next.svg">assets/icons/skip_next.svg</file>
 		<file alias="skip_previous.svg">assets/icons/skip_previous.svg</file>
@@ -438,8 +443,8 @@
 		<file alias="splitscreen_add.svg">assets/icons/splitscreen_add.svg</file>
 		<file alias="stacks.svg">assets/icons/stacks.svg</file>
 		<file alias="sticky_note.svg">assets/icons/sticky_note.svg</file>
-		<file alias="stylus_note.svg">assets/icons/stylus_note.svg</file>
 		<file alias="stylus.svg">assets/icons/stylus.svg</file>
+		<file alias="stylus_note.svg">assets/icons/stylus_note.svg</file>
 		<file alias="swap_horiz.svg">assets/icons/swap_horiz.svg</file>
 		<file alias="swap_vert.svg">assets/icons/swap_vert.svg</file>
 		<file alias="sync.svg">assets/icons/sync.svg</file>

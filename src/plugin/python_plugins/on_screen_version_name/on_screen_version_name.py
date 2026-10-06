@@ -62,6 +62,14 @@ class OnScreenVersionName(HUDPlugin):
             )
         self.font_colour.expose_in_ui_attrs_group("on_screen_version_name")
 
+        self.show_parent = self.add_attribute(
+            "Show Parent Container",
+            False,
+            register_as_preference=True
+            )
+
+        self.show_parent.expose_in_ui_attrs_group("on_screen_version_name")
+
         self.auto_hide = self.add_attribute(
             "Auto Hide",
             True,
@@ -107,6 +115,7 @@ class OnScreenVersionName(HUDPlugin):
         self.add_hud_settings_attribute(self.font_size)
         self.add_hud_settings_attribute(self.hide_timeout)
         self.add_hud_settings_attribute(self.auto_hide)
+        self.add_hud_settings_attribute(self.show_parent)
         self.add_hud_settings_attribute(self.font_colour)
 
         # here we provide the QML code to instance the item that will draw
@@ -128,16 +137,20 @@ class OnScreenVersionName(HUDPlugin):
         # going on-screen. We use it to build data that we return which will
         # subsequently be available in the property 'media_item_hud_data'
         # in our QML item that draws the HUD graphics.
+        content = ""
+
         if media_item:
+            if self.show_parent.value() and self.connection.api.session.viewed_container:
+                content += self.connection.api.session.viewed_container.name + " - "
+
             idx = self.index_into_data.value()
             # display_info is an array of values corresponding to the columns
             # of the Media List Panel in the xSTUDIO UI (the columns are fully
             # user-configurable, by the way)
-            return media_item.display_info[idx] \
-                if idx < len(media_item.display_info) \
-                   else ""
-        else:
-            return ""
+            if idx < len(media_item.display_info):
+                content += media_item.display_info[idx]
+
+        return content
 
 
 # This method is required by xSTUDIO

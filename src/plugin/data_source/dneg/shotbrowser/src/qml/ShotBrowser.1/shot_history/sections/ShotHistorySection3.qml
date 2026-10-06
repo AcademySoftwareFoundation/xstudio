@@ -7,15 +7,17 @@ import ShotBrowser 1.0
 
 Rectangle{
     color: "transparent"
+    id: control
 
     ColumnLayout {
         anchors.fill: parent
         spacing: itemSpacing
 
         RowLayout {
+            Layout.alignment: Qt.AlignTop
             Layout.fillWidth: true
             Layout.maximumHeight: XsStyleSheet.widgetStdHeight
-            Layout.preferredHeight: XsStyleSheet.widgetStdHeight
+            Layout.minimumHeight: XsStyleSheet.widgetStdHeight
 
             spacing: itemSpacing
 
@@ -35,90 +37,81 @@ Rectangle{
         }
 
         ShotHistoryTextRow{ id: prodDiv
+            Layout.alignment: Qt.AlignTop
             Layout.fillWidth: true
-            Layout.preferredHeight: XsStyleSheet.widgetStdHeight
             Layout.maximumHeight: XsStyleSheet.widgetStdHeight
+            Layout.minimumHeight: XsStyleSheet.widgetStdHeight
             text: productionStatusFullRole
             textColor: XsStyleSheet.primaryTextColor
             textDiv.width: width
         }
 
-        Rectangle{ id: siteDiv
+        RowLayout { id: siteDiv
             Layout.fillWidth: true
-            Layout.minimumHeight: XsStyleSheet.widgetStdHeight
-            color: XsStyleSheet.widgetBgNormalColor
+            Layout.alignment: Qt.AlignTop
+            Layout.minimumHeight: XsStyleSheet.widgetStdHeight-1
+            Layout.maximumHeight: XsStyleSheet.widgetStdHeight-1
 
-            Grid{ id: siteGrid
-                width: parent.width - itemSpacing*(siteModel.count-1)
-                height: parent.height
-                anchors.verticalCenter: parent.verticalCenter
-                rows: 1
-                columns: siteModel.count
-                spacing: itemSpacing
-                flow: Grid.LeftToRight
+            readonly property var panelColorLight: Qt.lighter(panelColor, 1.5)
 
-                Repeater{
-                    model: siteModel
+            spacing: itemSpacing
 
-                    XsPrimaryButton{
+            Repeater{
+                model: ListModel {
+                        id: siteModel
+                        ListElement{siteName:"chn"; siteColour:"#508f00"}
+                        ListElement{siteName:"lon"; siteColour:"#2b7ffc"}
+                        ListElement{siteName:"mtl"; siteColour:"#979700"}
+                        ListElement{siteName:"mum"; siteColour:"#ef9526"}
+                        ListElement{siteName:"syd"; siteColour:"#008a46"}
+                    }
 
-                        property int onDisk: {
-                            if(index==0) onSiteChn
-                            else if(index==1) onSiteLon
-                            else if(index==2) onSiteMtl
-                            else if(index==3) onSiteMum
-                            else if(index==4) onSiteSyd
-                            // else if(index==5) onSiteVan
-                            else false
+                Rectangle{
+                    Layout.alignment: Qt.AlignTop
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+
+                    // Layout.minimumHeight: siteDiv.height - 1
+                    // Layout.maximumHeight: siteDiv.height - 1
+                    // Layout.minimumWidth: (control.width - itemSpacing * 1.5 * (siteModel.count-1)) / siteModel.count
+                    // Layout.maximumWidth: (control.width - itemSpacing * 1.5 * (siteModel.count-1)) / siteModel.count
+
+                    property int onDisk: {
+                        if(index==0) onSiteChn
+                        else if(index==1) onSiteLon
+                        else if(index==2) onSiteMtl
+                        else if(index==3) onSiteMum
+                        else if(index==4) onSiteSyd
+                        else false
+                    }
+
+                    opacity: 0.5
+
+                    gradient: Gradient {
+                        GradientStop { position: 0.4;
+                            color: !onDisk ? siteDiv.panelColorLight : onDisk == 1 ? siteDiv.panelColorLight : siteColour
                         }
+                        GradientStop { position: 0.8;
+                            color: !onDisk ? siteDiv.panelColorLight : Qt.darker(siteColour, 1)
+                        }
+                        GradientStop { position: 1.0;
+                            color: !onDisk ? siteDiv.panelColorLight : Qt.darker(siteColour, 1)
+                        }
+                    }
 
-                        property real desiredWidth: siteGrid.width/siteModel.count > 40? 40 : siteGrid.width/siteModel.count
-
-                        width: desiredWidth
-                        height: siteGrid.height
-
-                        isUnClickable: true
-                        enabled: false
+                    XsLabel {
+                        anchors.fill: parent
                         text: siteName
-                        textDiv.color: onDisk? XsStyleSheet.primaryTextColor : XsStyleSheet.hintColor
                         font.pixelSize: textSize/1.4
                         font.weight: Font.Medium
-
-                        bgDiv.opacity: enabled? 1.0 : 0.5
-                        forcedBgColorNormal: onDisk ? onDisk == 1? "transparent"
-                            : Qt.darker(siteColour, 1)
-                            : Qt.lighter(panelColor, 1.1)
-
-                        Rectangle{
-                            width: parent.width
-                            height: parent.height
-                            anchors.bottom: parent.bottom
-                            visible: parent.onDisk && parent.onDisk == 1
-                            opacity: parent.enabled? 1.0 : 0.5
-                            z:-1
-                            // border.width: itemSpacing
-                            // border.color: siteColour
-                            gradient: Gradient {
-                                GradientStop { position: 0.4; color: Qt.lighter(panelColor, 1.1) }
-                                GradientStop { position: 0.8; color: Qt.darker(siteColour, 1)   }
-                                GradientStop { position: 1.0; color: Qt.darker(siteColour, 1)   }
-                            }
-                        }
-
                     }
                 }
-
-                ListModel{
-                    id: siteModel
-                    ListElement{siteName:"chn"; siteColour:"#508f00"}
-                    ListElement{siteName:"lon"; siteColour:"#2b7ffc"}
-                    ListElement{siteName:"mtl"; siteColour:"#979700"}
-                    ListElement{siteName:"mum"; siteColour:"#ef9526"}
-                    ListElement{siteName:"syd"; siteColour:"#008a46"}
-                    // ListElement{siteName:"van"; siteColour:"#7a1a39"}
-                }
-
             }
+        }
+
+        Item{
+            Layout.fillWidth: true
+            Layout.fillHeight: true
         }
     }
 }

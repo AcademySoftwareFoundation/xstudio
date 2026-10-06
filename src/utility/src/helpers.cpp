@@ -88,6 +88,10 @@ void xstudio::utility::add_remap_file_path(const std::string &from, const std::s
     s_remapper.add_path_mapping(from, to);
 }
 
+void xstudio::utility::add_regex_mapping(const std::pair<std::regex, std::string> from, const std::pair<std::regex, std::string> to) {
+    s_remapper.add_regex_mapping(from, to);
+}
+
 std::string xstudio::utility::forward_remap_file_path(const std::string &path) {
     return s_remapper.forwards(path);
 }
@@ -495,6 +499,8 @@ caf::uri xstudio::utility::parse_cli_posix_path(
     const std::regex xstudio_spec(R"(^(.*\{.+\}.*?)(=([-0-9x,]+))?$)", std::regex::optimize);
     const std::regex xstudio_shake(
         R"(^(.+\.)([#@]+)(\..+?)(=([-0-9x,]+))?$)", std::regex::optimize);
+    const std::regex xstudio_shake_no_dot_before_hash(
+        R"(^([^#@]+)([#@]+)(\..+?)(=([-0-9x,]+))?$)", std::regex::optimize);
     const std::regex xstudio_prefix_spec(
         R"(^(.*\.)([-0-9x,]+)(\{.+\}.*)$)", std::regex::optimize);
     const std::regex xstudio_prefix_shake(
@@ -544,7 +550,7 @@ caf::uri xstudio::utility::parse_cli_posix_path(
             throw std::runtime_error("No frames specified.");
         }
 
-    } else if (std::regex_match(abspath.c_str(), m, xstudio_shake)) {
+    } else if (std::regex_match(abspath.c_str(), m, xstudio_shake) || std::regex_match(abspath.c_str(), m, xstudio_shake_no_dot_before_hash)) {
         size_t pad_c = 0;
         if (m[2].str() == "#") {
             pad_c = 4;
@@ -553,7 +559,7 @@ caf::uri xstudio::utility::parse_cli_posix_path(
         }
 
         uri = posix_path_to_uri(m[1].str() + "{:0" + std::to_string(pad_c) + "d}" + m[3].str());
-        // spdlog::error("posix_path_to_uri {}", to_string(uri));
+       // spdlog::error("posix_path_to_uri {}", to_string(uri));
 
         if (not m[5].str().empty()) {
             frame_list = FrameList(m[5].str());

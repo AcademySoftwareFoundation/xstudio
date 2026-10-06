@@ -708,6 +708,7 @@ void SessionModel::receivedData(
             {Roles::audioActorUuidRole, "audio_actor_uuid"},
             {Roles::bitDepthRole, "bit_depth"},
             {Roles::bookmarkUuidsRole, "bookmark_uuids"},
+            {Roles::clipEditedStatusRole, "clip_edited_status"},
             {Roles::flagColourRole, "flag"},
             {Roles::flagTextRole, "flag_text"},
             {Roles::formatRole, "format"},
@@ -720,6 +721,7 @@ void SessionModel::receivedData(
             {Roles::notificationRole, "notification"},
             {Roles::timecodeAsFramesRole, "timecode_as_frames"},
             {Roles::pathShakeRole, "path_shake"},
+            {Roles::audioModeRole, "audio_mode"},
             {Roles::pixelAspectRole, "pixel_aspect"},
             {Roles::rotationRole, "rotation"},
             {Roles::rateFPSRole, "rate"},
@@ -1045,7 +1047,8 @@ nlohmann::json SessionModel::playlistTreeToJson(
                     "actor": null,
                     "busy": false,
                     "media_count": 0,
-                    "error_count": 0
+                    "error_count": 0,
+                    "audio_mode": null
                 })"_json);
 
                 n["type"]           = type;
@@ -1214,6 +1217,7 @@ nlohmann::json SessionModel::containerDetailToJson(
             result["bookmark_uuids"]     = nullptr;
             result["media_display_info"] = nullptr;
             result["rotation"]           = nullptr;
+            result["notification"]       = nullptr;
         } else if (detail.type_ == "MediaSource") {
             result["thumbnail_url"]      = nullptr;
             result["rate"]               = nullptr;
@@ -1371,6 +1375,7 @@ nlohmann::json SessionModel::timelineItemToJson(
     case timeline::IT_TIMELINE:
         break;
     case timeline::IT_CLIP:
+        result["clip_edited_status"] = nullptr;
         break;
     }
 

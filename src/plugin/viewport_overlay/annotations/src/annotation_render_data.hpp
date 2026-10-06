@@ -7,6 +7,14 @@
 
 namespace xstudio::ui::viewport {
 
+// Per-viewport override of the global annotations Visibility toggle. Stored
+// as an int in a per-viewport atomic; set via the FORCE_SHOW_ANNOTATIONS /
+// FORCE_HIDE_ANNOTATIONS / CLEAR_VISIBILITY_OVERRIDE actions on the
+// AnnotationsCore (annotation_atom, viewport_atom, viewport_name, action)
+// message handler. VO_FORCE_SHOW bypasses the global hide for that viewport,
+// VO_FORCE_HIDE always hides, VO_DEFAULT keeps the global behaviour.
+enum AnnotationsVisibilityOverride { VO_DEFAULT = 0, VO_FORCE_SHOW = 1, VO_FORCE_HIDE = 2 };
+
 enum class HandleHoverState {
     NotHovered,
     HoveredInCaptionArea,
@@ -28,6 +36,10 @@ class LaserStrokesRenderDataSet : public utility::BlindDataObject {
         for (const auto &l : laser_strokes) {
             laser_strokes_.emplace_back(std::make_shared<canvas::Stroke>(*l));
         }
+    }
+
+    void add_laser_stroke(const std::shared_ptr<ui::canvas::Stroke> &laser_stroke) {
+        laser_strokes_.emplace_back(std::make_shared<canvas::Stroke>(*laser_stroke));
     }
 
     const StrokeVec &laser_strokes() const { return laser_strokes_; }

@@ -440,8 +440,18 @@ void to_json_tile_description_value(nlohmann::json &root, const T *value) {
 bool dump_json_headers(const Imf::Header &h, nlohmann::json &root) {
     for (Imf::Header::ConstIterator i = h.begin(); i != h.end(); ++i) {
         try {
-            if (auto ta = dynamic_cast<const Imf::StringAttribute *>(&i.attribute()))
-                to_json_value(root[i.name()], ta);
+            if (auto ta = dynamic_cast<const Imf::StringAttribute *>(&i.attribute())) {
+                if (ta->value().size() > 2048) {
+                    // exr metadata fields are not size limited. Some pipelines are using
+                    // this to store large amounts of data in the exr file. It's unlikely
+                    // such data will be usable in xSTUDIO and it tends to severely bloat 
+                    // the json blobs that store metadata.
+                    root[i.name()]["type"]  = ta->typeName();
+                    root[i.name()]["value"] = "<NOT LOADED: TOO LARGE>";
+                } else {
+                    to_json_value(root[i.name()], ta);
+                }
+            }
 
             else if (auto ta = dynamic_cast<const Imf::FloatAttribute *>(&i.attribute()))
                 to_json_value(root[i.name()], ta);

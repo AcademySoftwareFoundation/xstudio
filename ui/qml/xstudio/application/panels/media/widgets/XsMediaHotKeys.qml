@@ -45,6 +45,16 @@ XsHotkeyArea {
     property alias set_media_fps_hotkey: open_in_quickview_hotkey
     property alias set_media_aspect_hotkey: set_media_aspect_hotkey
 
+
+    XsHotkey {
+        name: "Fookey"
+        description: "Test"
+        context: "any"
+        componentName: "Media List"
+        onActivated: (context) => { console.log("Fookey activated in context: ",context) }
+    }
+
+
     XsHotkey {
         id: set_media_aspect_hotkey
         name: "Set Media Pixel Aspect"
@@ -240,7 +250,7 @@ XsHotkeyArea {
     XsHotkey {
         id: select_offline_hotkey
         name: "Select Offline Media"
-        description: "Sellect Offline Media in playlist/subset"
+        description: "Select Offline Media in playlist/subset"
         context: hotkey_area.context
         componentName: "Media List"
         onActivated: media_list_functions.selectAllOffline()

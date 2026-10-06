@@ -151,8 +151,10 @@ Item{
     function setProjectIndex(force = false) {
         if(ShotBrowserEngine.ready && (force || (projectIndex == null || !projectIndex.valid))) {
             let pi = getProjectIndexFromName(projectPref.value)
-            if(pi.valid)
+            if(pi.valid) {
+                ShotBrowserHelpers.updateSnapshotFolders(projectPref.value);
                 projectIndex = pi
+            }
             else
                 projectIndex = null
         }
@@ -288,6 +290,7 @@ Item{
         property string category: "Tree"
         property string quickLoad: ""
         property bool hideEmpty: false
+        property bool compactMode: false
         property bool showHidden: true
         property bool showHiddenPresets: false
         property bool showUnit: false
@@ -341,6 +344,7 @@ Item{
                 "showCompletion",
                 "showType",
                 // "presetHidden",
+                "compactMode",
                 "shotTreeHidden",
                 "assetTreeHidden",
                 "showVisibility",
@@ -569,9 +573,8 @@ Item{
         sourceModel: ShotBrowserEngine.presetsModel
     }
 
-    XsModelProperty {
+    XsPreference {
         id: __snapshot_paths
-        role: "valueRole"
         index: globalStoreModel.searchRecursive("/core/snapshot/paths", "pathRole")
     }
     property alias snapshot_paths: __snapshot_paths.value

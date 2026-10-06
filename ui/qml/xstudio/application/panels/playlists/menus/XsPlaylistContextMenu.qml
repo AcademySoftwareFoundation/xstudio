@@ -4,6 +4,7 @@ import QtQuick
 import xStudio 1.0
 import xstudio.qml.models 1.0
 import xstudio.qml.clipboard 1.0
+import xstudio.qml.viewport 1.0
 import "."
 
 XsPopupMenu {
@@ -184,14 +185,27 @@ XsPopupMenu {
     Repeater {
         model: DelegateModel {
             model: embeddedPython.playlistMenuModel
-            delegate: Item {XsMenuModelItem {
-                text: nameRole
-                menuPath: menuPathRole
-                menuItemPosition: (index*0.01)+8
-                menuModelName: contextMenu.menu_model_name
-                onActivated: embeddedPython.pyEvalFile(scriptPathRole)
-                panelContext: contextMenu.panelContext
-            }}
+            delegate: Item {
+                XsHotkey {
+                    id: hk
+                    name: nameRole
+                    description: nameRole
+                    componentName: "Playlist Snippets"
+                    onActivated: embeddedPython.pyEvalFile(scriptPathRole)
+                    sequence: menuHotKeyRole || null
+                    context: ""+contextMenu.panelContext
+                }
+
+                XsMenuModelItem {
+                    hotkeyUuid: hk.uuid
+                    text: nameRole
+                    menuPath: menuPathRole
+                    menuItemPosition: (index*0.01)+8
+                    menuModelName: contextMenu.menu_model_name
+                    onActivated: embeddedPython.pyEvalFile(scriptPathRole)
+                    panelContext: contextMenu.panelContext
+                }
+            }
         }
     }
 

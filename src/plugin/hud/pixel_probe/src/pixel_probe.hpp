@@ -65,8 +65,6 @@ class PixelProbeHUD : public plugin::HUDPluginBase {
 
     bool is_enabled_ = {false};
 
-    media_reader::ImageBufPtr current_image_;
-    utility::JsonStore pixel_unpack_uniforms_;
 };
 
 } // namespace xstudio::ui::viewport

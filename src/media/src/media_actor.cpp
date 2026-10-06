@@ -142,7 +142,9 @@ caf::message_handler MediaActor::default_event_handler() {
             media_reader::get_thumbnail_atom,
             const thumbnail::ThumbnailBufferPtr &) {},
         [=](utility::event_atom, media::media_display_info_atom, const utility::JsonStore &) {
-        }};
+        },
+        [=](utility::event_atom, notification_atom, const JsonStore &) {}
+    };
 }
 
 caf::message_handler MediaActor::message_handler() {
@@ -1507,6 +1509,17 @@ caf::message_handler MediaActor::message_handler() {
             update_human_readable_details(rp);
             return rp;
         },
+
+        [=](media_display_info_atom, const bool) {
+            pending_media_display_info_ = false;
+
+            mail(
+                utility::event_atom_v,
+                media_display_info_atom_v,
+                media_list_columns_info_)
+                .send(base_.event_group());
+        },
+
         [=](media_display_info_atom) -> result<utility::JsonStore> {
             auto rp = make_response_promise<utility::JsonStore>();
             mail(human_readable_info_atom_v, true)
@@ -1891,9 +1904,9 @@ void MediaActor::update_human_readable_details(
 
                     // The uri for frame based formats is a bit ugly ... here replace the frame
                     // expr with some hashes
-                    static std::regex re(R"(\.\{\:[0-9]*d\}\.)");
+                    static std::regex re(R"(\{\:[0-9]*d\}\.)");
                     const auto filepath =
-                        std::regex_replace(uri_to_posix_path(ref.uri()), re, ".#.");
+                        std::regex_replace(uri_to_posix_path(ref.uri()), re, "#.");
                     r["File Path - MediaSource (Image)"] = filepath;
                     r["File Name - MediaSource (Image)"] =
                         fs::path(filepath).filename().string();
@@ -2111,12 +2124,15 @@ void MediaActor::build_media_list_info(caf::typed_response_promise<utility::Json
                 // Thus if we add lots of media at once (e.g. building a playlist) xstudio can
                 // freeze due to all these recursive searches. We therefore don't want to emit
                 // these events until some time after the media item has been created.
-                if ((utility::clock::now() - creation_time_) > std::chrono::seconds(5)) {
+                if (not pending_media_display_info_ and (utility::clock::now() - creation_time_) > std::chrono::seconds(5)) {
                     mail(
                         utility::event_atom_v,
                         media_display_info_atom_v,
                         media_list_columns_info_)
                         .send(base_.event_group());
+                } else if(not pending_media_display_info_) {
+                    pending_media_display_info_ = true;
+                    anon_mail(media_display_info_atom_v, true).delay(5s).send(this);
                 }
             }
             rp.deliver(*result);

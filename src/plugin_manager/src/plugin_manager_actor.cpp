@@ -393,6 +393,7 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
             const std::string name,
             const utility::JsonStore &json,
             const std::string class_name) -> result<caf::actor> {
+
             /*if (base_plugins_.find(name) == base_plugins_.end()) {
                 base_plugins_[name] = spawn<plugin::StandardPlugin>(name, json);
                 link_to(base_plugins_[name]);

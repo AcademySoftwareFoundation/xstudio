@@ -169,11 +169,13 @@ AnnotationsRenderer::AnnotationsRenderer(
     std::atomic_bool &cursor_blink,
     std::atomic_bool &hide_all,
     std::atomic_int *hide_strokes,
-    std::atomic_bool *hide_all2)
+    std::atomic_bool *hide_all2,
+    std::atomic_int *visibility_override)
     : viewport_name_(std::move(viewport_name)),
       cursor_blink_(cursor_blink),
       hide_all_(hide_all),
       hide_strokes_(hide_strokes),
+      visibility_override_(visibility_override),
       hide_per_viewport_(hide_all2) {
     canvas_renderer_.reset(new ui::opengl::OpenGLCanvasRenderer());
     texthandle_renderer_.reset(new CaptionHandleRenderer());
@@ -186,7 +188,12 @@ void AnnotationsRenderer::render_image_overlay(
     const float device_pixel_ratio,
     const xstudio::media_reader::ImageBufPtr &frame) {
 
-    if (hide_all_ || *hide_per_viewport_)
+    // per-viewport override of the global Visibility toggle (see
+    // AnnotationsVisibilityOverride)
+    const int vis_override = visibility_override_ ? visibility_override_->load() : VO_DEFAULT;
+    if (vis_override == VO_FORCE_HIDE)
+        return;
+    if ((hide_all_ && vis_override != VO_FORCE_SHOW) || *hide_per_viewport_)
         return;
 
     // 'live' annotation edit data (strokes & shapes under construction) is
@@ -207,8 +214,16 @@ void AnnotationsRenderer::render_image_overlay(
         auto my_annotation = dynamic_cast<const Annotation *>(bookmark->annotation_.get());
 
         bool hide_strokes = false;
-        if (*hide_strokes_ == 2 && live_canvas_data &&
+        if (*hide_strokes_ == 1) {
+            // DONT_RENDER_STROKES: the video-stream encoder wants NO strokes on
+            // its viewport - the web client renders every committed stroke as
+            // vectors instead, so hide them all here (live and laser strokes are
+            // already suppressed by the same flag elsewhere).
+            hide_strokes = true;
+        } else if (
+            *hide_strokes_ == 2 && live_canvas_data &&
             live_canvas_data->skip_annotation_uuid() == bookmark->detail_.uuid_) {
+            // DONT_RENDER_LIVE_STROKES: hide only the annotation being edited.
             hide_strokes = true;
         }
         if (my_annotation && live_canvas_data) {
@@ -302,9 +317,18 @@ void AnnotationsRenderer::render_viewport_overlay(
     const float viewport_du_dpixel,
     const float device_pixel_ratio) {
 
-    // Laser strokes are intentionally drawn regardless of the Display Mode
-    // (Always / Only When Paused) and the user-visibility toggles — they
-    // are transient pointing aids and must always be visible while drawn.
+    // Laser strokes are transient pointing aids: they are drawn regardless of
+    // the Display Mode (Always / Only When Paused) and the user-visibility
+    // toggles, so they stay visible on the local viewport while drawn.
+    //
+    // The one exception is the stroke-suppression flag the video-stream
+    // encoder sets on its viewport (DONT_RENDER_STROKES /
+    // DONT_RENDER_LIVE_STROKES). Laser strokes ARE live strokes that the web
+    // client renders itself (the sync plugin forwards laser_stroke_atom
+    // updates), so baking them into the stream too would draw them twice on
+    // the client. Honour that flag here, exactly as render_image_overlay does.
+    if (hide_strokes_ && *hide_strokes_ != 0)
+        return;
 
     if (on_screen_frames) {
 

@@ -37,7 +37,7 @@ class Connection(object):
         self.app_type = None
         self.app_version = None
         self._api = None
-        self.default_timeout_ms = 100000
+        self.default_timeout_ms = 10000
         self.debug = debug
 
         self.responses = {}
@@ -176,9 +176,11 @@ class Connection(object):
            forever (bool): Don't return until API shutsdown.
         """
         self.keep_processing = True
-        while self.connected and self.keep_processing:
-            self.dequeue_messages(timeout)
-            if not forever:
+        if forever:
+            self.link.wait_for_xstudio_exit()
+        else:
+            while self.connected and self.keep_processing:
+                self.dequeue_messages(timeout)
                 break
 
     def add_broadcast_handler(self, broadcast, sender, handler):
@@ -387,46 +389,7 @@ class Connection(object):
 
     def request_receive_timeout(self, timeout_milli, *args):
         """Send message and return response."""
-        req_id = self.request(*args)
-        return self.response(req_id, timeout_milli)
-
-    def request(self, *args):
-        """Send message and return promise."""
-        req_id = self.link.request(*args)
-        if req_id:
-            self.responses[req_id] = None
-
-        return req_id
-
-    def response(self, req_id, timeout_milli=None):
-        """"""
-        if timeout_milli is not None:
-            try:
-                self._dequeue_messages(timeout_milli, req_id)
-            except TimeoutError:
-                # _dequeue_messages files every response it dequeues into
-                # self.responses, whatever request it was watching for - only
-                # its break is specific to watch_for. So another consumer of
-                # this connection's queue may have taken our response and
-                # stored it correctly while we were still waiting. Not having
-                # dequeued it ourselves is not the same as no answer arriving,
-                # and callers treat a timeout as evidence an actor is
-                # unresponsive.
-                if self.responses.get(req_id) is None:
-                    raise
-
-        return self._response(req_id)
-
-    def _response(self, req_id):
-        """"""
-        result = None
-        if req_id in self.responses and self.responses[req_id]  is not None:
-            result = self.responses[req_id]
-            del self.responses[req_id]
-            if isinstance(result[0], error):
-                raise RuntimeError(str(result[0]))
-
-        return result
+        return self.link.request(timeout_milli, *args)
 
     def spawn(self, *args):
         """Spawn remote actor
@@ -481,11 +444,14 @@ class Connection(object):
         """
         start = time.perf_counter()
 
+        if watch_for and watch_for in self.responses and self.responses[watch_for] is not None:
+            return
+
         while True:
 
             try:
                 msg = self.link.dequeue_message_with_timeout(
-                    absolute_receive_timeout(int(timeout_milli))
+                    absolute_receive_timeout(int(5000))
                 )
             except Exception as e:
                 if str(e) == "Dequeue timeout":
@@ -646,11 +612,6 @@ class Connection(object):
             if self.plugins[pn].uuid == plugin_uuid:
                 return self.plugins[pn]
         raise Exception("Plugin with uuid {} was not found".format(plugin_uuid))
-
-    def hud_plugins_onscreen_data2(self, media_items):
-        for pn in self.plugins:
-            print (pn)
-        return JsonStore()
 
     def hud_plugins_onscreen_data(self, media_items):
         """This method is called by the xstudio offscreen viewport(s) when they

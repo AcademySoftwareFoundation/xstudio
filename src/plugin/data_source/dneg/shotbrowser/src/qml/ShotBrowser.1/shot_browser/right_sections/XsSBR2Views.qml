@@ -85,14 +85,22 @@ XsListView{ id: listDiv
                 roleValue: "Version"
 
                   ShotHistoryListDelegate{
+                    compactMode: prefs.compactMode
                     modelDepth: chooserModel.notifyModel.depthAtRow(index)
                     width: listDiv.width - rightSpacing
-                    height: XsStyleSheet.widgetStdHeight*4
                     delegateModel: chooserModel
                     popupMenu: versionResultPopup
                     groupingEnabled: resultsBaseModel.isGrouped
                     isPlaylist: listDiv.isPlaylist
                     onPlayMovie: (path) => listDiv.playMovie(path)
+
+                    property bool wasHovered: false
+                    onDescriptionClickedChanged: {
+                        if(descriptionClicked)
+                            wasHovered = true
+                    }
+
+                    height: compactMode ? XsStyleSheet.widgetStdHeight+2 : ((XsStyleSheet.widgetStdHeight + 1) *  4) + (wasHovered ? Math.max(textHeightDiff, 0) : 0)
                 }
             }
 

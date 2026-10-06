@@ -1,24 +1,22 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Windows 10/11 &mdash; xStudio 1.3.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
-      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=eafc0fe6" />
+  <title>Windows 10/11 &mdash; xStudio 1.4.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=1f29e9d3"></script>
-        <script src="../../_static/doctools.js?v=888ff710"></script>
-        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=9172181d"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -39,9 +37,6 @@
           <a href="../../index.html" class="icon icon-home">
             xStudio
           </a>
-              <div class="version">
-                1.3.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -102,103 +97,126 @@
              
   <section id="windows-10-11">
 <h1>Windows 10/11<a class="headerlink" href="#windows-10-11" title="Link to this heading"></a></h1>
+<p><strong>These instructions take advantage of a convenient build script that streamlines the whole build process. For an alternative, more granular build steps try <a class="reference internal" href="windows_old.html"><span class="std std-doc">these instructions</span></a></strong></p>
+<section id="step-1-install-the-build-tools">
+<h2>Step 1: Install the build tools<a class="headerlink" href="#step-1-install-the-build-tools" title="Link to this heading"></a></h2>
 <section id="enable-long-path-support-if-you-haven-t-already">
-<h2>Enable long path support (if you haven’t already)<a class="headerlink" href="#enable-long-path-support-if-you-haven-t-already" title="Link to this heading"></a></h2>
+<h3>Enable long path support (if you haven’t already)<a class="headerlink" href="#enable-long-path-support-if-you-haven-t-already" title="Link to this heading"></a></h3>
 <p>Find instructions here: <a class="reference external" href="https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation?tabs=registry">Maximum File Path Limitation</a></p>
 </section>
 <section id="install-git">
-<h2>Install git<a class="headerlink" href="#install-git" title="Link to this heading"></a></h2>
+<h3>Install git<a class="headerlink" href="#install-git" title="Link to this heading"></a></h3>
 <p>Get it here: <a class="reference external" href="https://git-scm.com/download/win">Git Download</a></p>
 </section>
 <section id="install-ms-visual-studio-2022">
-<h2>Install MS Visual Studio 2022<a class="headerlink" href="#install-ms-visual-studio-2022" title="Link to this heading"></a></h2>
+<h3>Install MS Visual Studio 2022<a class="headerlink" href="#install-ms-visual-studio-2022" title="Link to this heading"></a></h3>
 <p>Get it here: <a class="reference external" href="https://visualstudio.microsoft.com/vs/">Microsoft Visual Studio</a>
 Ensure CMake tools for Windows is included on install. <a class="reference external" href="https://learn.microsoft.com/en-us/cpp/build/cmake-projects-in-visual-studio?view=msvc-170#installation">CMake projects in Visual Studio</a>
 The “CMake tools” component bundles <code class="docutils literal notranslate"><span class="pre">cmake</span></code> and <code class="docutils literal notranslate"><span class="pre">ninja</span></code> (xSTUDIO’s CMake generator) along with the MSVC compiler, so no separate install is needed.
 Restart your machine after Visual Studio finishes installing.</p>
 </section>
-<section id="download-and-install-qt-6-5-3-sdk">
-<h2>Download and install Qt 6.5.3 SDK<a class="headerlink" href="#download-and-install-qt-6-5-3-sdk" title="Link to this heading"></a></h2>
-<p>Follow <a class="reference internal" href="downloading_qt.html"><span class="std std-doc">these instructions</span></a></p>
-</section>
 <section id="download-and-install-the-nsis-tool">
-<h2>Download and install the NSIS tool<a class="headerlink" href="#download-and-install-the-nsis-tool" title="Link to this heading"></a></h2>
+<h3>Download and install the NSIS tool<a class="headerlink" href="#download-and-install-the-nsis-tool" title="Link to this heading"></a></h3>
 <p>NSIS is a packaging system that lets us build xSTUDIO into a Windows installer exe file. Follow the download link on the <a class="reference external" href="https://nsis.sourceforge.io/Download">NSIS homepage</a>. This will download an installer .exe file. Run this program and follow through the steps in the installer wizard with the default installation options until you hit ‘Finish’. You can close the NSIS window, it doesn’t need to be running for the next steps.</p>
 </section>
-<section id="download-the-vcpkg-repo">
-<h2>Download the VCPKG repo<a class="headerlink" href="#download-the-vcpkg-repo" title="Link to this heading"></a></h2>
-<p>Start a Windows Powershell to continue these instructions, where you must run a handfull of powershell commands to build xSTUDIO. Windows Powershell is pre-installed, to start it type Powershell into the Search bar in the Start menu. You will need a location to build xSTUDIO from. We recommend making a folder in your home space, called something like ‘dev’, as follows:</p>
+<section id="prepare-a-build-folder">
+<h3>Prepare a build folder<a class="headerlink" href="#prepare-a-build-folder" title="Link to this heading"></a></h3>
+<p>Start a Windows Powershell to continue these instructions, where you must run a handfull of powershell commands to build xSTUDIO. Windows Powershell is pre-installed, to start it type Powershell into the Search bar in the Start menu - select the ‘Run as Administrator’ option under the ‘Open’ button that appears in the options that are offered if you can.</p>
+<p>You will need a location to build xSTUDIO from. We recommend making a folder in your home space, for example, called something like ‘dev’, as follows:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>mkdir dev
 cd dev
 </pre></div>
 </div>
-<p>To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo and run the bootstrap script before we build xstudio. Run these commands in the Powershell:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/microsoft/vcpkg.git
-git -C vcpkg checkout c2aeddd80357b17592e59ad965d2adf65a19b22f
-./vcpkg/bootstrap-vcpkg.bat
-</pre></div>
-</div>
 </section>
 <section id="download-the-xstudio-repo">
-<h2>Download the xSTUDIO repo<a class="headerlink" href="#download-the-xstudio-repo" title="Link to this heading"></a></h2>
-<p>Download from github in the usual manner. Enter the root folder of the repo and ensure you are building from the correct branch. Example terminal commands might be as follows, to build from the develop branch:</p>
+<h3>Download the xSTUDIO repo<a class="headerlink" href="#download-the-xstudio-repo" title="Link to this heading"></a></h3>
+<p>Open a Windows PowerShell terminal and navigate (using the ‘cd’ command) to a suitable location on your file system for building xSTUDIO. Then run these commands.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/AcademySoftwareFoundation/xstudio.git
 cd xstudio
-git checkout develop
 </pre></div>
 </div>
 </section>
-<section id="tell-cmake-where-qt-is-installed">
-<h2>Tell CMake where Qt is installed<a class="headerlink" href="#tell-cmake-where-qt-is-installed" title="Link to this heading"></a></h2>
-<p>CMake needs to know where your Qt 6.5.3 SDK is installed. Create a <code class="docutils literal notranslate"><span class="pre">CMakeUserPresets.json</span></code> file alongside <code class="docutils literal notranslate"><span class="pre">CMakePresets.json</span></code> in the repo root. This file is gitignored, so your local path won’t be committed. The user preset should have a different name from the tracked preset it inherits from, and add <code class="docutils literal notranslate"><span class="pre">Qt6_DIR</span></code> to <code class="docutils literal notranslate"><span class="pre">cacheVariables</span></code>. For example, if user Mary Jane downloaded Qt into the root of her C: drive:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>{
-  &quot;version&quot;: 3,
-  &quot;configurePresets&quot;: [
-    {
-      &quot;name&quot;: &quot;WinNinjaReleaseLocal&quot;,
-      &quot;inherits&quot;: &quot;WinNinjaRelease&quot;,
-      &quot;cacheVariables&quot;: {
-        &quot;Qt6_DIR&quot;: &quot;C:/Qt/6.5.3/msvc2019_64/lib/cmake/Qt6&quot;
-      }
-    }
-  ]
-}
+</section>
+<section id="step-2-run-build-script">
+<h2>Step 2: Run Build Script<a class="headerlink" href="#step-2-run-build-script" title="Link to this heading"></a></h2>
+<p>You can build xSTUDIO by running a single command which executes a script that takes care of all the steps needed to download xSTUDIO’s dependencies, build them, and then continue to build xSTUDIO. Note that you may need administrator priveleges to run the script.</p>
+<p>To run the build script simply type this command:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>scripts\build_windows.ps1
 </pre></div>
 </div>
-<p>See the <a class="reference external" href="https://cmake.org/cmake/help/latest/manual/cmake-presets.7.html">CMake presets documentation</a> for the full format reference.</p>
+<p><strong>N.B. The first time that you run this script expect it to take several hours to complete. This is because it downloads many dependencies of xSTUDIO and builds them from the source code which can take a long time. The build of xSTUDIO itself will take from 2 minutes to 10 minutes, depending on your system’s speed and memory.</strong></p>
+<p>On completion a Windows installer .exe file that will install xSTUDIO onto your system will be found at this location:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>./build/xSTUDIO-1.4.0-win64.exe
+</pre></div>
+</div>
 </section>
-<section id="set-up-the-build-environment">
-<h2>Set up the build environment<a class="headerlink" href="#set-up-the-build-environment" title="Link to this heading"></a></h2>
-<p>The <code class="docutils literal notranslate"><span class="pre">cmake</span></code> and <code class="docutils literal notranslate"><span class="pre">ninja</span></code> tools, along with the MSVC compiler, are bundled with Visual Studio 2022’s “CMake tools” component but are not on your <code class="docutils literal notranslate"><span class="pre">PATH</span></code> by default. Make them available in your PowerShell session by entering the Visual Studio Developer Shell:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>Import-Module &quot;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\Microsoft.VisualStudio.DevShell.dll&quot;
-Enter-VsDevShell -VsInstallPath &quot;C:\Program Files\Microsoft Visual Studio\2022\Community&quot; -Arch amd64 -SkipAutomaticLocation
+<section id="for-developers-development-cycle-and-portable-build-no-installer">
+<h2>For Developers - Development Cycle and Portable Build (No Installer)<a class="headerlink" href="#for-developers-development-cycle-and-portable-build-no-installer" title="Link to this heading"></a></h2>
+<p><strong>For your first time build of xSTUDIO follow the instructions above</strong></p>
+<p>Any time you return to doing xSTUDIO devlopment, we assume you will open a new PowerShell terminal. The <code class="docutils literal notranslate"><span class="pre">cmake</span></code> and <code class="docutils literal notranslate"><span class="pre">ninja</span></code> tools, along with the MSVC compiler, are bundled with Visual Studio 2022’s “CMake tools” component but are not on your <code class="docutils literal notranslate"><span class="pre">PATH</span></code> by default. Make them available in your PowerShell session by entering the Visual Studio Developer Shell:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>Import-Module "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+Enter-VsDevShell -VsInstallPath "C:\Program Files\Microsoft Visual Studio\2022\Community" -Arch amd64 -SkipAutomaticLocation
 </pre></div>
 </div>
 <p>After running those two commands, <code class="docutils literal notranslate"><span class="pre">cmake</span></code> and <code class="docutils literal notranslate"><span class="pre">ninja</span></code> will resolve directly from the command line for the rest of the session, and the build commands below work as shown.</p>
-</section>
 <section id="build-xstudio">
-<h2>Build xSTUDIO<a class="headerlink" href="#build-xstudio" title="Link to this heading"></a></h2>
-<p>Note that the first cmake command below <em><strong>may take several hours to complete</strong></em>. This is because xSTUDIO’s dependencies (particularly ffmpeg) take a long time to download and build from the source code, which is what VCPKG is doing.</p>
-<p>Configure:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cmake -B build --preset WinNinjaReleaseLocal
+<h3>Build xSTUDIO<a class="headerlink" href="#build-xstudio" title="Link to this heading"></a></h3>
+<p>When making and testing code changes, run this command from the root of the xSTUDIO repo to do the build.</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cmake --build build
 </pre></div>
 </div>
-<p>Build:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cmake --build build --target package
-</pre></div>
-</div>
-<blockquote>
-<div><p><strong>Note:</strong> <code class="docutils literal notranslate"><span class="pre">--target</span> <span class="pre">package</span></code> produces the NSIS installer and is significantly slower than a plain build. When iterating during development, drop the <code class="docutils literal notranslate"><span class="pre">--target</span> <span class="pre">package</span></code> flag and just run <code class="docutils literal notranslate"><span class="pre">cmake</span> <span class="pre">--build</span> <span class="pre">build</span></code>.</p>
-</div></blockquote>
-<p>RelWithDebInfo and Debug variants are also available — see <a class="reference download internal" download="" href="../../_downloads/320813cbeeb16ba523e52d06672cf078/CMakePresets.json"><span class="xref download myst">CMakePresets.json</span></a> for the full list.</p>
-<p>If the build is successful, you should have an executable in the ‘build’ folder called something like ‘xSTUDIO-1.2.0-win64.exe’. This can be executed to start the xSTUDIO installer.</p>
+<p>This builds xSTUDIO without generating the full installer package, and is generally pretty quick. To get the full installer package add <strong>–target package</strong> to the command but note that adding this step is quite slow.</p>
 </section>
-<section id="running-xstudio-from-the-build-tree-dev-workflow">
-<h2>Running xSTUDIO from the build tree (dev workflow)<a class="headerlink" href="#running-xstudio-from-the-build-tree-dev-workflow" title="Link to this heading"></a></h2>
+<section id="running-xstudio-from-the-build-tree">
+<h3>Running xSTUDIO from the build tree<a class="headerlink" href="#running-xstudio-from-the-build-tree" title="Link to this heading"></a></h3>
 <p>For a quick dev run without going through the installer, the build generates a launcher at <code class="docutils literal notranslate"><span class="pre">build/run_xstudio.bat</span></code>. Arguments are forwarded to xstudio:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>.\build\run_xstudio.bat path\to\session.xst
 </pre></div>
 </div>
+</section>
+<section id="portable-build-no-installer">
+<h3>Portable build (no installer)<a class="headerlink" href="#portable-build-no-installer" title="Link to this heading"></a></h3>
+<p>As an alternative to the NSIS installer you can build a relocatable, no-install folder plus a zip archive:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cmake --build build --target portable
+</pre></div>
+</div>
+<p>This produces:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">build/portable/xSTUDIO-&lt;version&gt;-win64/</span></code> - the staged package (kept for inspection), run it via <code class="docutils literal notranslate"><span class="pre">xstudio.bat</span></code> or <code class="docutils literal notranslate"><span class="pre">bin\xstudio.exe</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">build/xSTUDIO-&lt;version&gt;-win64-portable.zip</span></code> - the same folder as a single archive</p></li>
+</ul>
+<p>Notes:</p>
+<ul class="simple">
+<li><p>Like <code class="docutils literal notranslate"><span class="pre">--target</span> <span class="pre">package</span></code>, the <code class="docutils literal notranslate"><span class="pre">portable</span></code> target re-runs the full install including <code class="docutils literal notranslate"><span class="pre">windeployqt</span></code>, so it is about as slow.</p></li>
+<li><p>The folder is relocatable, but not data-isolated: preferences, autosaves and thumbnails are still written under the Windows user profile (see the package’s <code class="docutils literal notranslate"><span class="pre">README.txt</span></code> for the exact paths).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.xst</span></code> file associations and Start-menu entries are installer-only and are not part of the portable package.</p></li>
+</ul>
+</section>
+<section id="running-the-unit-tests">
+<h3>Running the unit tests<a class="headerlink" href="#running-the-unit-tests" title="Link to this heading"></a></h3>
+<p>The tests are not built by default. Add <code class="docutils literal notranslate"><span class="pre">BUILD_TESTING=ON</span></code> when you configure:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cmake -B build --preset WinNinjaReleaseLocal -DBUILD_TESTING=ON
+</pre></div>
+</div>
+<p>Build as normal, or build a single test target while you are working on it:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cmake --build build
+cmake --build build --target helpers_test
+</pre></div>
+</div>
+<p>Then run the tests with ctest:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>ctest --test-dir build --output-on-failure
+</pre></div>
+</div>
+<p>Each test is registered as <code class="docutils literal notranslate"><span class="pre">&lt;component&gt;_&lt;target&gt;</span></code>, so <code class="docutils literal notranslate"><span class="pre">helpers_test</span></code> in <code class="docutils literal notranslate"><span class="pre">src/utility/test</span></code> becomes <code class="docutils literal notranslate"><span class="pre">utility_helpers_test</span></code>. You can run a single test with <code class="docutils literal notranslate"><span class="pre">-R</span></code>, and run them in parallel with <code class="docutils literal notranslate"><span class="pre">-j</span></code>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>ctest --test-dir build --output-on-failure -R utility_helpers_test
+ctest --test-dir build --output-on-failure -j 8
+</pre></div>
+</div>
+<blockquote>
+<div><p><strong>Note:</strong> the DLL search path is set up for each test when you configure, so the test executables will run directly from ctest or from your IDE. You do not need to set up an environment first.</p>
+</div></blockquote>
+<p>Some tests currently fail or time out on Windows, and on Linux too, so a clean run is not expected yet.</p>
+</section>
 </section>
 </section>
 

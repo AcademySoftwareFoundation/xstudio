@@ -70,6 +70,13 @@ class OCIOColourPipeline : public ColourPipeline {
         const media::AVFrameID &media_ptr,
         const thumbnail::ThumbnailBufferPtr &buf) override;
 
+    // Get the current display and view settings for the viewport
+    utility::JsonStore get_current_display_and_view() const override;
+
+    // Get the path to the ICC profile corresponding to the given display and view
+    std::string get_icc_profile_path(
+        const std::string &display, const std::string &view) const override;
+
     // GUI handling
 
     void register_hotkeys() override;

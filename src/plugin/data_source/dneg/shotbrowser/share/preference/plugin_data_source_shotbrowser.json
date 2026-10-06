@@ -505,36 +505,6 @@
                     "description": "Additional Presets Paths",
                     "path": "/plugin/data_source/shotbrowser/preset_paths",
                     "value": ["/tools/SITE/data/xStudio/shotbrowser/presets", "${HOME}/xStudio/presets", "/tools/${SHOW}/xStudio/presets"]
-                },
-                "project_presets": {
-                    "context": [
-                        "PLUGIN"
-                    ],
-                    "datatype": "json",
-                    "default_value": [],
-                    "description": "Project presets.",
-                    "path": "/plugin/data_source/shotbrowser/project_presets",
-                    "value": null
-                },
-                "site_presets": {
-                    "context": [
-                        "PLUGIN"
-                    ],
-                    "datatype": "json",
-                    "default_value": [],
-                    "description": "Site presets.",
-                    "path": "/plugin/data_source/shotbrowser/site_presets",
-                    "value": null
-                },
-                "user_presets": {
-                    "context": [
-                        "PLUGIN"
-                    ],
-                    "datatype": "json",
-                    "default_value": [],
-                    "description": "User presets.",
-                    "path": "/plugin/data_source/shotbrowser/user_presets",
-                    "value": null
                 }
             }
         }
