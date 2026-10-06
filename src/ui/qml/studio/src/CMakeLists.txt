@@ -13,9 +13,15 @@ SET(LINK_DEPS
 	xstudio::ui::qt::viewport_widget
 	xstudio::utility
 	xstudio::session
+	xstudio::timeline
 )
 
 SET(EXTRAMOC
+	${ROOT_DIR}/include/xstudio/ui/qml/web_bridge_ui.hpp
 )
 
 create_qml_component(studio ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}" "${EXTRAMOC}")
+
+if(BUILD_WEBENGINE)
+	target_compile_definitions(studio_qml PRIVATE BUILD_WEBENGINE)
+endif()

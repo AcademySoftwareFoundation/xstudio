@@ -7,6 +7,10 @@ find_package(OpenSSL)
 find_package(ZLIB)
 find_package(fmt REQUIRED)
 
+if(BUILD_WEBENGINE)
+	find_package(Qt6 COMPONENTS WebEngineQuick REQUIRED)
+endif()
+
 if(NOT ${OTIO_SUBMODULE})
 	find_package(OpenTime REQUIRED)
 	find_package(OpenTimelineIO REQUIRED)
@@ -84,6 +88,11 @@ target_link_libraries(${PROJECT_NAME}
 		OpenSSL::SSL
 		ZLIB::ZLIB
 )
+
+if(BUILD_WEBENGINE)
+	target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::WebEngineQuick)
+	target_compile_definitions(${PROJECT_NAME} PRIVATE BUILD_WEBENGINE)
+endif()
 
 if(WIN32)
     target_link_libraries(${PROJECT_NAME} PRIVATE dbghelp)

@@ -39,6 +39,7 @@ option(USE_VCPKG "Use Vcpkg for package management" OFF)
 option(BUILD_PYSIDE_WIDGETS "Build xstudio player as PySide widget" OFF)
 option(OPENIMAGEIO_PLUGIN "Include the OpenImageIO PLugin" ON)
 option(BMD_DECKLINK_PLUGIN "Include the Blackmagic DeckLink SDI Card Video Output Plugin" ON)
+option(BUILD_WEBENGINE "Include the embedded web browser panel (experimental, requires Qt WebEngine)" OFF)
 
 if(WIN32)
     set(USE_VCPKG ON)
