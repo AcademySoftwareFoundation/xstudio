@@ -49,7 +49,7 @@ CMake needs to know where your Qt 6.5.3 SDK is installed. Create a `CMakeUserPre
       "version": 3,
       "configurePresets": [
         {
-          "name": "MacOSNinjaReleaseLocal",
+          "name": "MacOSReleaseLocal",
           "inherits": "MacOSNinjaRelease",
           "cacheVariables": {
             "Qt6_DIR": "/Users/maryjane/Qt/6.5.3/macos/lib/cmake/Qt6"
@@ -62,9 +62,9 @@ For an Intel Mac, inherit from `MacOSIntelNinjaRelease` instead. See the [CMake 
 
 ### Build xSTUDIO
 
-Run the configure command. Note that this cmake command ***may take several hours to complete***. This is because xSTUDIO's dependencies (particularly ffmpeg) take a long time to download and build from the source code, which is what VCPKG is doing.
+Run the configure command. Note that this cmake command ***may take several hours to complete***. This is because xSTUDIO's dependencies (particularly ffmpeg) take a long time to download and build from the source code, which is what VCPKG is doing. However, the very time consuming step only needs to happen once on your first time build.
 
-    cmake -B build --preset MacOSNinjaReleaseLocal
+    cmake -B build --preset MacOSReleaseLocal
 
 When this has finished, you can build xSTUDIO with:
 
