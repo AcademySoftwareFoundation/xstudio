@@ -1,6 +1,7 @@
 project(media_reader_ffmpeg VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
 set(SOURCES
+	audio_pts_rescaler.cpp
 	ffmpeg_stream.cpp
 	ffmpeg_decoder.cpp
 	ffmpeg.cpp
