@@ -17,6 +17,7 @@ Covers changes after commit `eb3d235e`.
 - Escape hotkey acts as a workflow reset: it resets the viewport and exits fullscreen.
 - Media panel scroll features and additional hotkeys.
 - Filesystem browser feature additions and improvements.
+- Interface layouts can be exported to and imported from a file (File > Export > Layouts ... and File > Import > Layouts ...), provided by the new `layout_io` Python plugin.
 - macOS: "Open With" support in the Finder context menu.
 - Apple modifier key names are displayed in the UI.
 - Portable Windows packaging target and a Windows build automation script (`scripts/build_windows.ps1`).
