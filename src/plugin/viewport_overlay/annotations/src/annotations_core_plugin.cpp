@@ -117,6 +117,11 @@ caf::message_handler AnnotationsCore::message_handler_extensions() {
                     hide_strokes_per_viewport_[viewport_name] = new std::atomic_int(0);
                 }
                 *(hide_strokes_per_viewport_[viewport_name]) = 1;
+                // The stream viewport may already have rendered its (single,
+                // while paused) frame before this message arrived - seed the
+                // frame-change anchor now so clients get the current frame's
+                // snapshot instead of waiting for the next frame change.
+                maybe_broadcast_streamed_frame(viewport_name, false);
             } else if (action == "DO_RENDER_STROKES") {
                 if (hide_strokes_per_viewport_.find(viewport_name) ==
                     hide_strokes_per_viewport_.end()) {
@@ -129,6 +134,28 @@ caf::message_handler AnnotationsCore::message_handler_extensions() {
                     hide_strokes_per_viewport_[viewport_name] = new std::atomic_int(0);
                 }
                 *(hide_strokes_per_viewport_[viewport_name]) = 2;
+            } else if (
+                action == "FORCE_SHOW_ANNOTATIONS" || action == "FORCE_HIDE_ANNOTATIONS" ||
+                action == "CLEAR_VISIBILITY_OVERRIDE") {
+                // per-viewport override of the global annotations Visibility
+                // toggle - lets a consumer that owns a viewport (e.g. an
+                // offscreen render/export viewport) pin annotation visibility
+                // regardless of the (session-shared) Visibility attribute.
+                if (visibility_override_per_viewport_.find(viewport_name) ==
+                    visibility_override_per_viewport_.end()) {
+                    visibility_override_per_viewport_[viewport_name] =
+                        new std::atomic_int(VO_DEFAULT);
+                }
+                *(visibility_override_per_viewport_[viewport_name]) =
+                    action == "FORCE_SHOW_ANNOTATIONS"   ? VO_FORCE_SHOW
+                    : action == "FORCE_HIDE_ANNOTATIONS" ? VO_FORCE_HIDE
+                                                         : VO_DEFAULT;
+            } else if (action == "BROADCAST_ANNOTATIONS") {
+                // A sync client joined or reconnected: broadcast a fresh
+                // authoritative frame-scope snapshot (with the layout table)
+                // so it doesn't depend on the sync plugin's cached copy.
+                broadcast_committed_annotation(
+                    AnnotationBasePtr(), utility::Uuid(), media_reader::ImageBufPtr());
             }
         },
         [=](utility::event_atom,
@@ -188,6 +215,9 @@ void AnnotationsCore::receive_annotation_data(const utility::JsonStore &d) {
     } else if (event == "PaintEnd") {
         if (user_edit_data->item_type == Canvas::ItemType::Laser) {
             broadcast_live_laser_stroke(user_id, true);
+            // the stroke is now complete (mouse released): move it into the
+            // fading set, which is what starts the fade.
+            commit_laser_stroke(user_edit_data);
         } else {
             broadcast_live_stroke(user_edit_data, user_id, true);
             push_live_edit_to_bookmark(user_edit_data);
@@ -214,8 +244,9 @@ void AnnotationsCore::receive_annotation_data(const utility::JsonStore &d) {
     } else if (event == "ToolChanged") {
         clear_live_caption(user_edit_data);
         if (user_edit_data->item_type == Canvas::ItemType::Laser &&
-            !user_edit_data->laser_strokes.empty()) {
+            user_edit_data->live_laser_stroke) {
             broadcast_live_laser_stroke(user_id, true);
+            commit_laser_stroke(user_edit_data);
             user_edit_data->item_type = Canvas::ItemType::None;
         }
     } else if (event == "PaintUndo") {
@@ -357,7 +388,7 @@ void AnnotationsCore::start_stroke_or_shape(
 
         auto c = payload["paint"]["rgba"].get<std::vector<float>>();
         utility::ColourTriplet colour(c[0], c[1], c[2]);
-        user_edit_data->laser_strokes.emplace_back(
+        user_edit_data->live_laser_stroke.reset(
             Stroke::Brush(colour, size, 0.0f, c[3], 0.0f, 1.0f));
         user_edit_data->item_type = Canvas::ItemType::Laser;
 
@@ -373,12 +404,10 @@ void AnnotationsCore::start_stroke_or_shape(
 
     if (user_edit_data->live_stroke && payload.contains("id")) {
         user_edit_data->live_stroke->set_id(payload["id"].get<std::string>());
-    } else if (
-        user_edit_data->item_type == Canvas::ItemType::Laser &&
-        !user_edit_data->laser_strokes.empty()) {
+    } else if (user_edit_data->live_laser_stroke) {
         const std::string id = payload.contains("id") ? payload["id"].get<std::string>()
                                                       : to_string(utility::Uuid::generate());
-        user_edit_data->laser_strokes.back()->set_id(id);
+        user_edit_data->live_laser_stroke->set_id(id);
     }
 }
 
@@ -453,8 +482,8 @@ void AnnotationsCore::modify_stroke_or_shape(
 
     } else if (user_edit_data->item_type == Canvas::ItemType::Laser) {
 
-        if (!user_edit_data->laser_strokes.empty()) {
-            user_edit_data->laser_strokes.back()->add_points(points);
+        if (user_edit_data->live_laser_stroke) {
+            user_edit_data->live_laser_stroke->add_points(points);
         }
     }
 }
@@ -1009,9 +1038,13 @@ void AnnotationsCore::pick_image_to_annotate(
     // that we're about to start adding a stroke to so it can send annotations
     // data to web clients (so that they can render the annotation locally)
     if (user_edit_data->edited_bookmark_id.is_null()) {
-        annotation_about_to_be_edited(annotation_to_add_to, next_bookmark_uuid_);
+        annotation_about_to_be_edited(
+            annotation_to_add_to, next_bookmark_uuid_, user_edit_data->annotated_image);
     } else {
-        annotation_about_to_be_edited(annotation_to_add_to, user_edit_data->edited_bookmark_id);
+        annotation_about_to_be_edited(
+            annotation_to_add_to,
+            user_edit_data->edited_bookmark_id,
+            user_edit_data->annotated_image);
     }
 }
 
@@ -1068,6 +1101,14 @@ utility::BlindDataObjectPtr AnnotationsCore::onscreen_render_data(
     for (const auto &p : live_edit_data_) {
 
         const auto &user_edit_data = p.second;
+        // the in-progress stroke (full opacity) ...
+        if (user_edit_data->live_laser_stroke) {
+            if (!data) {
+                data = new LaserStrokesRenderDataSet();
+            }
+            data->add_laser_stroke(user_edit_data->live_laser_stroke);
+        }
+        // ... and the committed strokes that are fading out.
         if (!user_edit_data->laser_strokes.empty()) {
             if (!data) {
                 data = new LaserStrokesRenderDataSet();
@@ -1086,7 +1127,9 @@ utility::BlindDataObjectPtr AnnotationsCore::onscreen_render_data(
     const bool is_hero_image,
     const bool images_are_in_grid_layout) const {
 
-    if (hide_all_drawings_)
+    const int vis_override = visibility_override(viewport_name);
+    if (vis_override == VO_FORCE_HIDE ||
+        (hide_all_drawings_ && vis_override != VO_FORCE_SHOW))
         return utility::BlindDataObjectPtr();
 
     PerImageAnnotationRenderDataSet *data = nullptr;
@@ -1157,6 +1200,8 @@ void AnnotationsCore::images_going_on_screen(
 
     viewport_current_images_[viewport_name] = images;
 
+    maybe_broadcast_streamed_frame(viewport_name, playhead_playing);
+
     if (hide_all_per_viewport_.find(viewport_name) == hide_all_per_viewport_.end()) {
         hide_all_per_viewport_[viewport_name] = new std::atomic_bool(false);
     }
@@ -1169,11 +1214,11 @@ void AnnotationsCore::images_going_on_screen(
     bool images_went_off_the_screen = false;
     auto p                          = live_edit_data_.begin();
     while (p != live_edit_data_.end()) {
-        // Keep entries that still own fading laser strokes — they are
-        // viewport overlays unrelated to the annotated image, and must
-        // outlive frame changes until fully faded.
+        // Keep entries that still own an in-progress or fading laser stroke —
+        // they are viewport overlays unrelated to the annotated image, and
+        // must outlive frame changes until fully faded.
         if (p->second->viewport_name == viewport_name &&
-            p->second->item_type != Canvas::ItemType::Laser &&
+            !p->second->live_laser_stroke &&
             p->second->laser_strokes.empty()) {
             bool still_on_screen = false;
             for (int i = 0; i < images->num_onscreen_images(); ++i) {
@@ -1234,12 +1279,18 @@ AnnotationsCore::make_overlay_renderer(const std::string &viewport_name) {
         hide_all_per_viewport_[viewport_name] = new std::atomic_bool(false);
     }
 
+    if (visibility_override_per_viewport_.find(viewport_name) ==
+        visibility_override_per_viewport_.end()) {
+        visibility_override_per_viewport_[viewport_name] = new std::atomic_int(VO_DEFAULT);
+    }
+
     return plugin::ViewportOverlayRendererPtr(new AnnotationsRenderer(
         viewport_name,
         cursor_blink_,
         hide_all_drawings_,
         hide_strokes_per_viewport_[viewport_name],
-        hide_all_per_viewport_[viewport_name]));
+        hide_all_per_viewport_[viewport_name],
+        visibility_override_per_viewport_[viewport_name]));
 }
 
 AnnotationBasePtr AnnotationsCore::build_annotation(const utility::JsonStore &anno_data) {
@@ -1264,12 +1315,9 @@ void AnnotationsCore::undo(LiveEditData &user_edit_data) {
         AnnotationBasePtr modified_annotation(mod_annotation);
         update_bookmark_annotation(bookmark_for_undo_id, modified_annotation, false);
 
-        if (current_edited_annotation_uuid_ != bookmark_for_undo_id) {
-            annotation_about_to_be_edited(modified_annotation, bookmark_for_undo_id);
-        } else {
-            mail(utility::event_atom_v, annotation_data_atom_v, modified_annotation)
-                .send(live_edit_event_group_);
-        }
+        current_edited_annotation_uuid_ = bookmark_for_undo_id;
+        broadcast_committed_annotation(
+            modified_annotation, bookmark_for_undo_id, user_edit_data->annotated_image);
 
     } else {
 
@@ -1290,12 +1338,9 @@ void AnnotationsCore::redo(LiveEditData &user_edit_data) {
         AnnotationBasePtr modified_annotation(mod_annotation);
         update_bookmark_annotation(bookmark_for_undo_id, modified_annotation, false);
 
-        if (current_edited_annotation_uuid_ != bookmark_for_undo_id) {
-            annotation_about_to_be_edited(modified_annotation, bookmark_for_undo_id);
-        } else {
-            mail(utility::event_atom_v, annotation_data_atom_v, modified_annotation)
-                .send(live_edit_event_group_);
-        }
+        current_edited_annotation_uuid_ = bookmark_for_undo_id;
+        broadcast_committed_annotation(
+            modified_annotation, bookmark_for_undo_id, user_edit_data->annotated_image);
 
     } else {
 
@@ -1314,12 +1359,18 @@ void AnnotationsCore::broadcast_live_stroke(
 
     AnnotationBasePtr anno_ptr(anno);
 
+    int image_index = 0;
+    std::vector<Imath::M44f> layout_table;
+    streaming_grid_layout(user_edit_data->annotated_image, image_index, layout_table);
+
     mail(
         utility::event_atom_v,
         annotation_data_atom_v,
         anno_ptr,
         user_id,
-        stroke_completed)
+        stroke_completed,
+        image_index,
+        layout_table)
         .send(live_edit_event_group_);
 
     if (draw_events_event_group_) {
@@ -1358,12 +1409,11 @@ void AnnotationsCore::broadcast_live_laser_stroke(
     if (p == live_edit_data_.end())
         return;
     const auto &user_edit_data = p->second;
-    if (user_edit_data->item_type != Canvas::ItemType::Laser ||
-        user_edit_data->laser_strokes.empty())
+    if (!user_edit_data->live_laser_stroke)
         return;
 
     Annotation *anno = new Annotation();
-    anno->canvas().append_item(*(user_edit_data->laser_strokes.back()));
+    anno->canvas().append_item(*(user_edit_data->live_laser_stroke));
 
     mail(
         utility::event_atom_v,
@@ -1372,6 +1422,203 @@ void AnnotationsCore::broadcast_live_laser_stroke(
         user_id,
         stroke_completed)
         .send(live_edit_event_group_);
+}
+
+const media_reader::ImageBufDisplaySetPtr *AnnotationsCore::streaming_images() const {
+
+    // Prefer the streaming (offscreen) viewport - the surface the web client
+    // overlays - identified by the stroke-suppression flag the encoder set on
+    // it. Its per-cell layout matches any viewport in the same compare mode.
+    for (const auto &hs : hide_strokes_per_viewport_) {
+        if (hs.second && hs.second->load() != 0) {
+            auto it = viewport_current_images_.find(hs.first);
+            if (it != viewport_current_images_.end() && it->second &&
+                it->second->num_onscreen_images() > 0) {
+                return &it->second;
+            }
+        }
+    }
+    // No fallback to other viewports: their grid layout transforms depend on
+    // THEIR aspect, so a snapshot gathered from the main viewport carries a
+    // slightly different table than one from the stream viewport - clients
+    // re-scale every stroke when the two alternate. Better no table (callers
+    // reuse the last one sent) than a wrong one.
+    return nullptr;
+}
+
+void AnnotationsCore::streaming_grid_layout(
+    const media_reader::ImageBufPtr &annotated_image,
+    int &image_index,
+    std::vector<Imath::M44f> &layout_table) const {
+
+    image_index = 0;
+    layout_table.clear();
+
+    const media_reader::ImageBufDisplaySetPtr *images = streaming_images();
+    if (!images) {
+        // Stream viewport unknown right now: reuse the last table broadcast
+        // for it rather than sending none - an empty table makes clients fall
+        // back to identity and momentarily re-scale every stroke.
+        layout_table = last_streamed_layout_table_;
+        return;
+    }
+
+    const int n = (*images)->num_onscreen_images();
+    for (int i = 0; i < n; ++i) {
+        const auto &im = (*images)->onscreen_image(i);
+        layout_table.push_back(im.layout_transform());
+        if (annotated_image &&
+            im.frame_id().key() == annotated_image.frame_id().key()) {
+            image_index = i;
+        }
+    }
+}
+
+void AnnotationsCore::maybe_broadcast_streamed_frame(
+    const std::string &viewport_name, const bool playhead_playing) {
+
+    // Streaming viewport (the one the encoder flagged for stroke suppression):
+    // the stream carries no strokes, so the web clients depend entirely on our
+    // broadcasts. Called from images_going_on_screen AND from the
+    // DONT_RENDER_STROKES handler: while paused the stream viewport renders
+    // its first frame exactly once, and that render can beat the (async)
+    // DONT_RENDER_STROKES message - without the second call site the anchor
+    // would stay silent until the first frame change, leaving joining clients
+    // with no strokes.
+    // Best-effort by design: this runs inside the playhead's show handler, so
+    // an escaped exception would kill the plugin actor and abort xSTUDIO. A
+    // missed broadcast only delays the web update until the next anchor.
+    try {
+        auto hs = hide_strokes_per_viewport_.find(viewport_name);
+        if (hs == hide_strokes_per_viewport_.end() || !hs->second ||
+            hs->second->load() == 0)
+            return;
+        auto imit = viewport_current_images_.find(viewport_name);
+        if (imit == viewport_current_images_.end() || !imit->second)
+            return;
+        const auto &images = imit->second;
+
+        std::vector<Imath::M44f> layout_table;
+        std::vector<std::string> frame_keys;
+        layout_table.reserve(images->num_onscreen_images());
+        frame_keys.reserve(images->num_onscreen_images());
+        for (int i = 0; i < images->num_onscreen_images(); ++i) {
+            layout_table.push_back(images->onscreen_image(i).layout_transform());
+            frame_keys.push_back(to_string(images->onscreen_image(i).frame_id().key()));
+        }
+
+        if (playhead_playing) {
+            // No frame anchors during playback (clients hide strokes while
+            // playing); clearing the keys makes the first paused frame
+            // broadcast its snapshot.
+            last_streamed_frame_keys_.clear();
+        } else if (!frame_keys.empty() && frame_keys != last_streamed_frame_keys_) {
+            // FRAME-CHANGE ANCHOR: the streamed frame changed - broadcast
+            // the new frame's full snapshot (which carries the layout
+            // table), flagged so clients apply it in sync with the
+            // playout-delayed video instead of immediately.
+            last_streamed_frame_keys_ = frame_keys;
+            if (!layout_table.empty())
+                last_streamed_layout_table_ = layout_table;
+            broadcast_committed_annotation(
+                AnnotationBasePtr(),
+                utility::Uuid(),
+                media_reader::ImageBufPtr(),
+                /*frame_changed=*/true);
+        } else if (!layout_table.empty() && layout_table != last_streamed_layout_table_) {
+            // Same frame, new layout (compare-mode/grid switch): a
+            // layout-only update re-maps the clients' stored strokes
+            // without touching the stroke sets.
+            last_streamed_layout_table_ = layout_table;
+            mail(utility::event_atom_v, annotation_data_atom_v, layout_table)
+                .send(live_edit_event_group_);
+        }
+    } catch (const std::exception &e) {
+        spdlog::warn(
+            "{} streamed-frame broadcast failed: {}", __PRETTY_FUNCTION__, e.what());
+    }
+}
+
+void AnnotationsCore::broadcast_committed_annotation(
+    const bookmark::AnnotationBasePtr &anno,
+    const utility::Uuid &bookmark_uuid,
+    const media_reader::ImageBufPtr &annotated_image,
+    const bool frame_changed) {
+
+    // Best-effort: called from paint/undo/show handlers - an escaped exception
+    // here would kill the plugin actor and abort xSTUDIO. A missed snapshot is
+    // recovered by the next anchor.
+    try {
+
+    int edited_image_index = 0;
+    std::vector<Imath::M44f> layout_table;
+    streaming_grid_layout(annotated_image, edited_image_index, layout_table);
+    // Keep the last-broadcast cache fresh so snapshots gathered while the
+    // stream viewport is momentarily unknown reuse this table (see
+    // streaming_grid_layout) instead of dropping to empty/identity.
+    if (!layout_table.empty())
+        last_streamed_layout_table_ = layout_table;
+
+    // Authoritative frame-scope snapshot: every annotation on the streaming
+    // viewport's on-screen images. For the annotation just modified we use the
+    // caller's fresh pointer, not the (possibly stale, queued-write) one held
+    // by the image's bookmark list.
+    std::vector<bookmark::AnnotationBasePtr> annotations;
+    std::vector<int> image_indices;
+    bool edited_found = false;
+
+    const media_reader::ImageBufDisplaySetPtr *images = streaming_images();
+    if (!images && !anno) {
+        // Blind gather: we cannot see the streamed frame (e.g. a client joined
+        // before the stream viewport rendered its first frame - the stream
+        // starts ON client connect) and there is no fresh annotation to relay.
+        // Broadcasting an empty snapshot here would wipe the strokes clients
+        // just received from the sync plugin's cache replay. Stay silent: the
+        // frame-change anchor fires as soon as the stream viewport renders its
+        // first paused frame and delivers the real snapshot.
+        return;
+    }
+    if (images) {
+        const int n = (*images)->num_onscreen_images();
+        for (int i = 0; i < n; ++i) {
+            const auto &im = (*images)->onscreen_image(i);
+            for (const auto &bookmark : im.bookmarks()) {
+                if (bookmark->detail_.uuid_ == bookmark_uuid) {
+                    edited_found = true;
+                    if (anno) {
+                        annotations.push_back(anno);
+                        image_indices.push_back(i);
+                    }
+                } else if (
+                    dynamic_cast<const Annotation *>(bookmark->annotation_.get())) {
+                    // Only OUR annotation type: other plugins' annotations
+                    // (e.g. Grading bookmarks) have no strokes to stream and
+                    // an unspecified user_data() contract on the sync side.
+                    annotations.push_back(bookmark->annotation_);
+                    image_indices.push_back(i);
+                }
+            }
+        }
+    }
+    // A brand-new bookmark is not attached to the images yet (queued write) -
+    // its annotation must still be part of the snapshot.
+    if (!edited_found && anno) {
+        annotations.push_back(anno);
+        image_indices.push_back(edited_image_index);
+    }
+
+    mail(
+        utility::event_atom_v,
+        annotation_data_atom_v,
+        annotations,
+        image_indices,
+        layout_table,
+        frame_changed)
+        .send(live_edit_event_group_);
+
+    } catch (const std::exception &e) {
+        spdlog::warn("{} snapshot broadcast failed: {}", __PRETTY_FUNCTION__, e.what());
+    }
 }
 
 void AnnotationsCore::make_bookmark_for_annotations(
@@ -1528,7 +1775,8 @@ void AnnotationsCore::clear_annotation(LiveEditData &user_edit_data) {
         bookmark_is_empty);
 
     // for Sync plugin, broadcast new state of annotation after clear
-    mail(utility::event_atom_v, annotation_data_atom_v, anno_ptr).send(live_edit_event_group_);
+    broadcast_committed_annotation(
+        anno_ptr, user_edit_data->edited_bookmark_id, user_edit_data->annotated_image);
 
     if (!bookmark_is_empty) {
         update_bookmark_annotation(user_edit_data->edited_bookmark_id, anno_ptr, false);
@@ -1590,6 +1838,13 @@ void AnnotationsCore::push_live_edit_to_bookmark(LiveEditData &user_edit_data) {
     AnnotationBasePtr anno_ptr(mod_annotation);
     update_bookmark_annotation(user_edit_data->edited_bookmark_id, anno_ptr, false);
 
+    // Post-mutation snapshot for the sync/web clients: anno_ptr holds the
+    // annotation WITH the just-committed stroke/caption, regardless of the
+    // queued bookmark write above. This is the message that lets a web client
+    // retire its local prediction copy of the stroke (read-your-writes).
+    broadcast_committed_annotation(
+        anno_ptr, user_edit_data->edited_bookmark_id, user_edit_data->annotated_image);
+
     // user_edit_data->live_canvas->full_clear();
     if (concat) {
         // really awkward! We've just made a new bookmark. This will be 'broadcast'
@@ -1618,20 +1873,29 @@ void AnnotationsCore::start_cursor_blink() {
     }
 }
 
+void AnnotationsCore::commit_laser_stroke(LiveEditData &user_edit_data) {
+    // move the in-progress stroke into the fading set. Until now it was held
+    // in live_laser_stroke at full opacity; once in laser_strokes it starts
+    // fading on the next animation tick.
+    if (user_edit_data->live_laser_stroke) {
+        user_edit_data->laser_strokes.push_back(
+            std::move(user_edit_data->live_laser_stroke));
+    }
+}
+
 void AnnotationsCore::fade_all_laser_strokes() {
 
     int n = 0;
     for (auto &p : live_edit_data_) {
-        bool drawing  = p.second->item_type == Canvas::ItemType::Laser;
+        // An in-progress stroke (mouse still held) is kept in live_laser_stroke
+        // and must not fade. We still count it so the animation loop (and its
+        // per-tick redraw) stays alive while the user is drawing.
+        if (p.second->live_laser_stroke)
+            n++;
         auto &strokes = p.second->laser_strokes;
         auto q        = strokes.begin();
         while (q != strokes.end()) {
-            bool fully_faded = (*q)->fade(0.01f);
-            // Only the back element while drawing must be preserved — it's
-            // the active stroke and erasing it would invalidate the back()
-            // reference used by modify_stroke_or_shape.
-            bool is_active = drawing && (std::next(q) == strokes.end());
-            if (fully_faded && !is_active) {
+            if ((*q)->fade(0.01f)) {
                 q = strokes.erase(q);
             } else {
                 n++;
@@ -1639,25 +1903,22 @@ void AnnotationsCore::fade_all_laser_strokes() {
             }
         }
     }
-    // laser strokes have all faded to nothing.
+    // no in-progress or fading laser strokes remain.
     if (!n)
         laser_stroke_animation_ = false;
 }
 
 void AnnotationsCore::annotation_about_to_be_edited(
-    const AnnotationBasePtr &anno, const utility::Uuid &anno_uuid) {
+    const AnnotationBasePtr &anno,
+    const utility::Uuid &anno_uuid,
+    const media_reader::ImageBufPtr &annotated_image) {
 
-    if (anno && anno_uuid != current_edited_annotation_uuid_) {
-        current_edited_annotation_uuid_ = anno_uuid;
-        mail(utility::event_atom_v, annotation_data_atom_v, anno).send(live_edit_event_group_);
-    } else if (anno_uuid != current_edited_annotation_uuid_) {
-        current_edited_annotation_uuid_ = anno_uuid;
-        mail(
-            utility::event_atom_v,
-            annotation_data_atom_v,
-            anno_uuid.is_null() ? AnnotationBasePtr() : AnnotationBasePtr(new Annotation))
-            .send(live_edit_event_group_);
-    }
+    // Tracking only. Snapshots for the sync/web clients are broadcast by the
+    // authoritative anchors instead: frame change (images_going_on_screen),
+    // stroke commit (push_live_edit_to_bookmark), undo/redo/clear and client
+    // join - an edit-start broadcast is redundant with those and just adds
+    // message churn while drawing.
+    current_edited_annotation_uuid_ = anno_uuid;
 }
 
 

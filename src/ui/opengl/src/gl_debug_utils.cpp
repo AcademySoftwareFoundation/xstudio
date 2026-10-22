@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-#ifdef __linux__
-#include <GL/gl.h>
+#ifdef __apple__
+#include <OpenGL/gl3.h>
 #else
 #include <GL/glew.h>
+#include <GL/gl.h>
 #endif
 #include <ImfRgbaFile.h>
 #include <vector>

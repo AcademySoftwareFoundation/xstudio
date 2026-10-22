@@ -16,8 +16,9 @@ from xstudio.api.session.playlist.subset import Subset
 from xstudio.api.session.playlist.contact_sheet import ContactSheet
 from xstudio.api.session.playlist.timeline import Timeline
 from xstudio.api.auxiliary import NotificationHandler
+from xstudio.api.auxiliary.json_store import JsonStoreHandler
 
-class Session(Container, NotificationHandler):
+class Session(Container, NotificationHandler, JsonStoreHandler):
     """Session object."""
 
     def __init__(self, connection, remote, uuid=None):
@@ -143,6 +144,9 @@ class Session(Container, NotificationHandler):
         """
 
         result = self.connection.request_receive(self.remote, active_media_container_atom())[0]
+        if not result.actor:
+            return None
+
         c = Container(self.connection, result.actor)
 
         if c.type == "Timeline":
@@ -533,19 +537,20 @@ class Session(Container, NotificationHandler):
         frame_for_frame=False,
         video_codec_opts="-c:v libx264 -pix_fmt yuv420p -preset medium -tune film",
         audio_codec_opts="-c:a aac -ac 2 -ar 44100",
+        intermediate_bit_depth=8,
         auto_check_output=False,
         ocio_display="sRGB",
         ocio_view="Raw",
         timecode="",
         status_callback=None
         ):
-        """Render a playlist, timeline, subset or contact sheet to a quicktime 
+        """Render a playlist, timeline, subset or contact sheet to a quicktime
         or image sequence (jpg, tiff, png etc)
         Args:
             container(Playlist/Timeline/Subset/ContactSheet): The item to render
-            output_file_path(str): Filesystem path to the output video file. For 
-                frame based image sequences use # characters for frame number and 
-                padding to zeros. E.g. /Users/ted/Video/my_render.####.jpg for 4 
+            output_file_path(str): Filesystem path to the output video file. For
+                frame based image sequences use # characters for frame number and
+                padding to zeros. E.g. /Users/ted/Video/my_render.####.jpg for 4
                 digit padded frame numbers
             output_audio_path(str): Filesystem path to the output audio file. This
                 option ONLY applies if you are outputting frame based image sequences.
@@ -562,7 +567,7 @@ class Session(Container, NotificationHandler):
             frame_for_frame(bool): If the media or timeline frame rate is different
                 to the output frame rate, frames will map 1:1 to the output
                 if this is True. If False, the output will match the input in
-                terms of duration. For example if rendering out at 12fps and the 
+                terms of duration. For example if rendering out at 12fps and the
                 media is 24 fps then using True for this flag will result in an output
                 that is twice as long and half the speed of the input. Otherwise
                 the output will be the same duration as the input and every
@@ -572,18 +577,22 @@ class Session(Container, NotificationHandler):
                 H264 encoding.
             audio_codec_opts(str): FFMpeg audio codec options. For example use
                 "--c:a aac -ac 2 -ar 44100" for AAC 44.1kHz encoding.
+            intermediate_bit_depth(int): Bit depth to use for the image buffers
+                that are passed to ffmpeg for the encoding stage. Options are
+                8 or 16. 16 bit is more computationally expensive but is
+                required if your output media has a higher bit depth than 8.
             auto_check_output(bool): Use True to immediately launch a quickview
                 window with the render result when it has completed.
             ocio_display(str): The OCIO display profile to apply when generating
                 the output
             ocio_view(str): The OCIO view to apply when generating the output
-            timecode(str/int): For containerised media a timecode string like 
+            timecode(str/int): For containerised media a timecode string like
                 "00:00:41:17" will inject timecode data into the output file. For
                 frame based media a frame number here will set the start frame
                 numbering for the output image file sequence.
-            status_callback(function(Uuid, dict)): An optional callback function. This 
+            status_callback(function(Uuid, dict)): An optional callback function. This
                 callback will be executed when the status of the render job has
-                changed. The status is provided as a dictionary including a 
+                changed. The status is provided as a dictionary including a
                 'status' field which is set to 'Complete' when the job is
                 finished successfully.
 
@@ -620,8 +629,9 @@ class Session(Container, NotificationHandler):
             in_frame,
             out_frame,
             frame_rate if frame_rate != None else container.media[0].media_source().rate,
+            frame_for_frame,
             video_codec_opts,
-            "8",
+            "16" if intermediate_bit_depth == 16 else "8",
             audio_codec_opts,
             "Via Python",
             ocio_display,
@@ -644,6 +654,19 @@ class Session(Container, NotificationHandler):
                     )
 
         return job_id
+
+    def cancel_render_job(self, job_id):
+        """Cancel a render job
+
+        Args:
+            job_id(Uuid): The uuid of the render job to cancel
+        """
+        vid_renderer = self.connection.api.plugin_manager.get_plugin_instance(
+            Uuid("4147f82d-1006-4025-ac04-79c81cd5e7b7")
+            )
+        if not isinstance(job_id, Uuid):
+            job_id = Uuid(job_id)
+        self.connection.send(vid_renderer, render_to_video_atom(), job_id, True)
 
     def __vid_renderer_events(self, event_message_content):
 

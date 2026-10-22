@@ -142,9 +142,11 @@ PlayheadActor::PlayheadActor(
 
     init();
     set_parent_actor_addr(actor_cast<caf::actor_addr>(this));
-    playlist_selection_addr_ = caf::actor_cast<caf::actor_addr>(playlist_selection);
-    anon_mail(playlist::selection_actor_atom_v, playlist_selection)
-        .send(actor_cast<caf::actor>(this));
+    if (playlist_selection) {
+        playlist_selection_addr_ = caf::actor_cast<caf::actor_addr>(playlist_selection);
+        anon_mail(playlist::selection_actor_atom_v, playlist_selection)
+            .send(actor_cast<caf::actor>(this));
+    }
 
     // for every attribute we expose it in frontend model data, where the id
     // of the model data set is the uuid of the module here. This means if we have
@@ -351,7 +353,12 @@ void PlayheadActor::init() {
             return mail(jump_atom_v, (int)frame).delegate(caf::actor_cast<caf::actor>(this));
         },
 
-        [=](jump_atom, const int frame) -> result<bool> {
+        [=](jump_atom, const int frame) {
+            return mail(jump_atom_v, frame, false).delegate(caf::actor_cast<caf::actor>(this));
+        },
+
+        [=](jump_atom, const int frame, bool force_audio_scrub) -> result<bool> {
+
             auto rp = make_response_promise<bool>();
             // by requesting duration from self we ensure that we have updated
             // internal data about source duration, incase this jump message
@@ -366,9 +373,16 @@ void PlayheadActor::init() {
                                 .then(
 
                                     [=](const timebase::flicks flicks) mutable {
+                                        const bool user_is_scrubbing = user_is_frame_scrubbing_->value();
+                                        if (force_audio_scrub && !user_is_scrubbing) {
+                                            user_is_frame_scrubbing_->set_value(true);
+                                        }
                                         set_position(flicks);
                                         update_child_playhead_positions(true);
                                         rp.deliver(true);
+                                        if (force_audio_scrub && !user_is_scrubbing) {
+                                            user_is_frame_scrubbing_->set_value(false);
+                                        }
                                     },
                                     [=](const error &err) mutable { rp.deliver(err); });
                         } else {
@@ -460,6 +474,30 @@ void PlayheadActor::init() {
             return mail(atom).delegate(hero_sub_playhead_.actor());
         },
 
+        [=](media::source_offset_frames_atom, bool all) -> result<utility::JsonStore> {
+
+            auto responder = utility::AutoResponder<utility::JsonStore>(
+                sub_playheads_.size(), this);
+            responder.result() = nlohmann::json(std::vector<int>(sub_playheads_.size(), 0));
+            
+            for (size_t i = 0; i < sub_playheads_.size(); ++i) {
+
+                const int idx = i;
+                mail(media::source_offset_frames_atom_v)
+                    .request(sub_playheads_[i].actor(), infinite)
+                    .then(
+                    [=](int64_t offset) mutable {
+                        responder.result()[idx] = offset;
+                        responder.decrement();
+                    },
+                    [=](caf::error &err) mutable {
+                        responder.decrement(err);
+                    });
+            }
+
+            return responder.response_promise();
+        },
+
         [=](media::source_offset_frames_atom atom, caf::actor sub_playhead, const int offset) {
             // pass up to the main playhead that the offset has changed
             if (sub_playhead == hero_sub_playhead_) {
@@ -469,6 +507,25 @@ void PlayheadActor::init() {
                 // the cached frames display might need updating
                 rebuild_cached_frames_status();
             }
+        },
+
+        [=](media::source_offset_frames_atom,
+            const utility::Uuid &media_uuid,
+            const int offset) -> result<bool> {
+            // set the compare offset for the source playing the given media.
+            // The offset is remembered against the media uuid so it survives
+            // selection and compare mode changes while auto align is 'Manual'.
+            return set_manual_source_offset(media_uuid, offset);
+        },
+
+        [=](media::source_offset_frames_atom,
+            const int sub_playhead_index,
+            const int offset) -> result<bool> {
+            // as above, addressing the source by its (selection) index
+            if (sub_playhead_index < 0 ||
+                sub_playhead_index >= static_cast<int>(source_actors_.size()))
+                return make_error(xstudio_error::error, "Source index out of range");
+            return set_manual_source_offset(source_actors_[sub_playhead_index].uuid(), offset);
         },
 
         [=](media_events_group_atom) -> caf::actor { return playhead_media_events_group_; },
@@ -597,6 +654,10 @@ void PlayheadActor::init() {
             auto rp = make_response_promise<timebase::flicks>();
             update_duration(rp);
             return rp;
+        },
+
+        [=](playhead::position_atom) -> result<timebase::flicks> {
+            return position();
         },
 
         [=](playhead::duration_flicks_atom, bool offscreen) -> result<timebase::flicks> {
@@ -1167,6 +1228,9 @@ void PlayheadActor::init() {
             // timeline change event ... ignore as its taken care of by sub playhead
         },
 
+        [=](utility::event_atom, timeline::audio_mode_atom, const timeline::AudioMode am) {
+        },
+
         [=](utility::event_atom,
             media_source_atom,
             utility::UuidActor media,
@@ -1390,6 +1454,17 @@ void PlayheadActor::init() {
 
         [=](utility::event_atom, media::media_display_info_atom, const utility::JsonStore &) {},
 
+        [=](xstudio::utility::event_atom,
+            xstudio::utility::change_atom,
+            xstudio::timeline::clip_edited_status_atom,
+            const utility::Uuid &,
+            const int ,
+            const utility::Uuid &,
+            const utility::Uuid &,
+            const utility::Uuid &) {
+            // timeline clip edited status change event 
+        },
+
         // controls creation and destruction of children
         [&](utility::event_atom, utility::change_atom) {
             if (current_sender() != this) {
@@ -1433,39 +1508,7 @@ void PlayheadActor::init() {
 
         [=](utility::serialise_atom) -> result<JsonStore> {
             auto rp = make_response_promise<JsonStore>();
-
-            // We need to update the offsets per sub-playhead before completing
-            // serialisation ...
-            auto ct = std::make_shared<int>(sub_playheads_.size());
-            source_alignment_values_->set_value(std::vector<int>(sub_playheads_.size(), 0));
-            if (sub_playheads_.empty()) {
-                rp.deliver(serialise());
-                return rp;
-            }
-
-            for (size_t idx = 0; idx < sub_playheads_.size(); ++idx) {
-
-                mail(media::source_offset_frames_atom_v)
-                    .request(sub_playheads_[idx].actor(), infinite)
-                    .then(
-                        [=](const int64_t offset) mutable {
-                            auto r = source_alignment_values_->value();
-                            if (idx < r.size())
-                                r[idx] = offset;
-                            source_alignment_values_->set_value(r);
-                            (*ct)--;
-                            if (!(*ct)) {
-                                rp.deliver(serialise());
-                            }
-                        },
-                        [=](const error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                            (*ct)--;
-                            if (!(*ct)) {
-                                rp.deliver(serialise());
-                            }
-                        });
-            }
+            rp.deliver(serialise());
             return rp;
         },
 
@@ -1490,8 +1533,7 @@ void PlayheadActor::init() {
                             self()->home_system().registry().template get<caf::actor>(
                                 viewport_layouts_manager);
 
-                        // following desrialisation, we set-up the compare mode and set the
-                        // frame offsets per sub-playhead
+                        // following desrialisation, we set-up the compare mode
                         mail(playhead::compare_mode_atom_v, compare_mode_->value())
                             .request(layouts_manager, infinite)
                             .then(
@@ -1503,17 +1545,6 @@ void PlayheadActor::init() {
                                     new_source_list();
                                     align_clip_frame_numbers();
                                     align_audio_playhead();
-
-                                    auto offset_frames = source_alignment_values_->value();
-                                    size_t idx         = 0;
-                                    for (auto &sub_playhead : sub_playheads_) {
-                                        if (idx < offset_frames.size())
-                                            anon_mail(
-                                                media::source_offset_frames_atom_v,
-                                                (int64_t)offset_frames[idx++],
-                                                false)
-                                                .send(sub_playhead.actor());
-                                    }
                                     notify_loop_end_changed();
                                     notify_loop_start_changed();
                                     mail(utility::event_atom_v, loop_atom_v, loop())
@@ -1726,7 +1757,7 @@ void PlayheadActor::make_audio_child_playhead(const int source_index) {
         }
     };
 
-    if (timeline_mode()) {
+    if (timeline_mode() && PlayheadBase::uuid() != TIMELINE_COMPARE_PLAYHEAD_UUID) {
         // Are we already hooked up to the timeline as the audio source?
         if (audio_src_ == timeline_actor_ && audio_playhead_)
             return;
@@ -2597,8 +2628,11 @@ void PlayheadActor::align_clip_frame_numbers() {
         // in timeline_mode we always comparing video tracks from the same timeline.
         // We therefore do not need to align or trim - we just extend the duration
         // of video tracks to match the longest.
-        const bool align = timeline_mode() ? false : auto_align_mode() != AAM_ALIGN_OFF;
-        const bool trim  = timeline_mode() ? false : auto_align_mode() == AAM_ALIGN_TRIM;
+        const AutoAlignMode align_mode =
+            timeline_mode() ? AAM_ALIGN_MANUAL : auto_align_mode();
+        const bool align  = align_mode == AAM_ALIGN_AUTO || align_mode == AAM_ALIGN_AUTO_TRIM;
+        const bool trim   = align_mode == AAM_ALIGN_AUTO_TRIM;
+        const bool manual = align_mode == AAM_ALIGN_MANUAL;
 
         // Use timecode to align the sources - if we are trimming, we use trim to the latest
         // start frame and the earliest end frame across all sources. If not we do the reverse,
@@ -2656,6 +2690,28 @@ void PlayheadActor::align_clip_frame_numbers() {
                     true // reset the any duration override that might have been applied
                 );
             }
+        } else if (manual) {
+
+            // apply user-set per-source offsets, keyed against the media each
+            // sub-playhead is playing so offsets survive selection changes
+            for (size_t i = 0; i < sub_playheads_.size(); ++i) {
+
+                int64_t offset = 0;
+                if (i < source_actors_.size()) {
+                    auto p = manual_source_offsets_.find(source_actors_[i].uuid());
+                    if (p != manual_source_offsets_.end())
+                        offset = p->second;
+                }
+
+                request_receive_wait<bool>(
+                    *sys,
+                    sub_playheads_[i].actor(),
+                    timeout,
+                    media::source_offset_frames_atom_v,
+                    offset,
+                    true // reset the duration
+                );
+            }
         } else {
 
             for (const auto &sub_playhead : sub_playheads_) {
@@ -2708,6 +2764,34 @@ void PlayheadActor::align_clip_frame_numbers() {
         // which isn't really an error
         spdlog::critical("{} {}", __PRETTY_FUNCTION__, e.what());
     }
+}
+
+bool PlayheadActor::set_manual_source_offset(
+    const utility::Uuid &media_uuid, const int64_t offset) {
+
+    // the offset is remembered even if the media is not in the current
+    // selection (or auto align is not 'Manual' yet) so it can take effect
+    // when it is
+    manual_source_offsets_[media_uuid] = offset;
+
+    bool in_selection = false;
+    for (const auto &source : source_actors_) {
+        if (source.uuid() == media_uuid) {
+            in_selection = true;
+            break;
+        }
+    }
+
+    if (!timeline_mode() && auto_align_mode() == AAM_ALIGN_MANUAL && in_selection) {
+        align_clip_frame_numbers();
+        align_audio_playhead();
+        anon_mail(duration_flicks_atom_v).send(this);
+        // force broadcast of image buffers so the offset change shows
+        // in the viewport
+        anon_mail(jump_atom_v).send(this);
+    }
+
+    return in_selection;
 }
 
 void PlayheadActor::move_playhead_to_last_viewed_frame_of_current_source() {
@@ -2910,6 +2994,17 @@ void PlayheadActor::attribute_changed(const utility::Uuid &attr_uuid, const int 
         notify_loop_start_changed();
         notify_loop_end_changed();
     } else if (attr_uuid == source_offset_frames_->uuid()) {
+        if (!timeline_mode() && auto_align_mode() == AAM_ALIGN_MANUAL) {
+            // remember the offset against the hero media so it persists
+            // across selection changes
+            for (size_t i = 0; i < sub_playheads_.size() && i < source_actors_.size(); ++i) {
+                if (sub_playheads_[i] == hero_sub_playhead_) {
+                    manual_source_offsets_[source_actors_[i].uuid()] =
+                        source_offset_frames_->value();
+                    break;
+                }
+            }
+        }
         mail(media::source_offset_frames_atom_v, source_offset_frames_->value(), false)
             .request(hero_sub_playhead_.actor(), infinite)
             .then(

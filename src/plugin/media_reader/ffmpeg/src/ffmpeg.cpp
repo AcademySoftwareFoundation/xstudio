@@ -143,6 +143,10 @@ int yuv_tex_lookup_8bit(
 
 vec4 fetch_rgba_pixel(ivec2 image_coord)
 {
+
+    if (image_coord.x < image_bounds_min.x || image_coord.x >= image_bounds_max.x) return vec4(0.0,0.0,0.0,0.0);
+	if (image_coord.y < image_bounds_min.y || image_coord.y >= image_bounds_max.y) return vec4(0.0,0.0,0.0,0.0);
+
 	ivec3 yuv;
 	float a = 1.0;
 

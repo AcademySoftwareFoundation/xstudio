@@ -573,7 +573,7 @@ ApplicationWindow {
         viewsModel.register_view("qrc:/application/panels/playlists/XsPlaylists.qml", "Playlists", 1.0)
         viewsModel.register_view("qrc:/application/panels/media/XsMediaPanel.qml", "Media", 2.0)
         viewsModel.register_view("qrc:/application/panels/viewport/XsViewportPanel.qml", "Viewport", 3.0)
-        viewsModel.register_view("qrc:/application/panels/timeline/XsTimelinePanel.qml", "Timeline", 4.0)
+        viewsModel.register_view("qrc:/application/panels/timeline/XsTimelinePanelParent.qml", "Timeline", 4.0)
         viewsModel.register_view("divider", "divider", 5.0)
         // grading = 6.0
         // annotation = 7.0

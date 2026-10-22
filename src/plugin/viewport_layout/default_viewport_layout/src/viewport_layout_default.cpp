@@ -33,7 +33,7 @@ DefaultViewportLayout::DefaultViewportLayout(
             "A/B",
             101.0,
             playhead::AssemblyMode::AM_TEN,
-            playhead::AutoAlignMode::AAM_ALIGN_FRAMES);
+            playhead::AutoAlignMode::AAM_ALIGN_AUTO);
         add_layout_mode("String", 100.0, playhead::AssemblyMode::AM_STRING);
     }
 }

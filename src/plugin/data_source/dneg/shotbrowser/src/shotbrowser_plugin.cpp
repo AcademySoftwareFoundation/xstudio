@@ -41,7 +41,7 @@ ShotBrowser::ShotBrowser(caf::actor_config &cfg, const utility::JsonStore &init_
     // print_on_exit(this, "MediaHookActor");
     secret_source_ = actor_cast<caf::actor_addr>(this);
 
-    shotgun_ = spawn<ShotgunClientActor>();
+    shotgun_ = spawn<ShotgunClientActor>(CPPHTTPLIB_CONNECTION_TIMEOUT_SECOND, 60, 60);
     link_to(shotgun_);
 
     // we need to recieve authentication updates.
@@ -1066,10 +1066,8 @@ void ShotBrowser::update_preferences(const JsonStore &js) {
 
         // we ignore after initial setup..
         if (engine().system_presets().at("children").empty()) {
-            // auto project_presets = preference_value<JsonStore>(
-            //     js, "/plugin/data_source/shotbrowser/project_presets");
+
             auto site_presets = JsonStore(R"([])"_json);
-            // preference_value<JsonStore>(js, "/plugin/data_source/shotbrowser/site_presets");
 
             auto preset_paths =
                 preference_value<JsonStore>(js, "/plugin/data_source/shotbrowser/preset_paths");
@@ -1122,25 +1120,26 @@ void ShotBrowser::update_preferences(const JsonStore &js) {
                             "Failed to Read {} {} {}", __PRETTY_FUNCTION__, path, err.what());
                     }
                 } else {
-                    user_presets = preference_value<JsonStore>(
-                        js, "/plugin/data_source/shotbrowser/user_presets");
+                    // user_presets = preference_value<JsonStore>(
+                    //     js, "/plugin/data_source/shotbrowser/user_presets");
 
-                    auto uorp = preference_overridden_path(
-                        js, "/plugin/data_source/shotbrowser/user_presets");
-                    if (ends_with(uorp, "application-v2.json")) {
+                    // auto uorp = preference_overridden_path(
+                    //     js, "/plugin/data_source/shotbrowser/user_presets");
 
-                        auto prefs = GlobalStoreHelper(system());
-                        prefs.set_overridden_path(
-                            replace_once(uorp, "/application-v2.json", "/plugin-v2.json"),
-                            "/plugin/data_source/shotbrowser/user_presets",
-                            false);
-                        prefs.save("PLUGIN");
-                    }
+                    // if (ends_with(uorp, "application-v2.json")) {
 
-                    // force save as we're using the new file now..
-                    anon_mail(json_store::sync_atom_v, true)
-                        .delay(1s)
-                        .send(caf::actor_cast<caf::actor>(this));
+                    //     auto prefs = GlobalStoreHelper(system());
+                    //     prefs.set_overridden_path(
+                    //         replace_once(uorp, "/application-v2.json", "/plugin-v2.json"),
+                    //         "/plugin/data_source/shotbrowser/user_presets",
+                    //         false);
+                    //     prefs.save("PLUGIN");
+                    // }
+
+                    // // force save as we're using the new file now..
+                    // anon_mail(json_store::sync_atom_v, true)
+                    //     .delay(1s)
+                    //     .send(caf::actor_cast<caf::actor>(this));
                 }
             }
 
@@ -1947,7 +1946,57 @@ void ShotBrowser::do_add_media_sources_from_ivy(
     // to acquire MediaDetail) to the MediaActor - we only call it
     // when we've fully 'built' each MediaSourceActor in our 'sources'
     // list -0 see the request/then handler below where it is used
+    auto find_source = [](const std::vector<std::string> &prefs, const std::vector<std::pair<utility::Uuid, std::string>>
+                                    &names) -> std::string {
+        auto name = std::string();
+
+        for (const auto &pref : prefs) {
+            for (const auto &i : names) {
+                if (i.second == pref) {
+                    name = i.second;
+                    break;
+                }
+            }
+            if (not name.empty())
+                break;
+        }
+
+        // do partial match
+        for (const auto &pref : prefs) {
+            for (const auto &i : names) {
+                if (std::string::npos != i.second.find(pref)) {
+                    name = i.second;
+                    break;
+                }
+            }
+            if (not name.empty())
+                break;
+        }
+
+        if (name.empty()) {
+            for (const auto &i : names) {
+                if (i.second == "movie_dneg") {
+                    name = i.second;
+                    break;
+                }
+            }
+        }
+
+        // if (name.empty()) {
+        //     for (const auto &i : names) {
+        //         if (i.second == "SG Movie") {
+        //             name = i.second;
+        //             break;
+        //         }
+        //     }
+        // }
+
+        return name;
+    };
+
+
     auto finalise = [=]() {
+
         mail(media::add_media_source_atom_v, *good_sources)
             .request(ivy_media_task_data->media_actor_, infinite)
             .then(
@@ -1961,37 +2010,7 @@ void ShotBrowser::do_add_media_sources_from_ivy(
                         .then(
                             [=](const std::vector<std::pair<utility::Uuid, std::string>>
                                     &names) {
-                                auto name = std::string();
-
-                                for (const auto &pref :
-                                     ivy_media_task_data->preferred_visual_sources_) {
-                                    for (const auto &i : names) {
-                                        if (i.second == pref) {
-                                            name = pref;
-                                            break;
-                                        }
-                                    }
-                                    if (not name.empty())
-                                        break;
-                                }
-
-                                if (name.empty()) {
-                                    for (const auto &i : names) {
-                                        if (i.second == "movie_dneg") {
-                                            name = i.second;
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                if (name.empty()) {
-                                    for (const auto &i : names) {
-                                        if (i.second == "SG Movie") {
-                                            name = i.second;
-                                            break;
-                                        }
-                                    }
-                                }
+                                auto name = find_source(ivy_media_task_data->preferred_visual_sources_, names);
 
                                 if (not name.empty())
                                     anon_mail(
@@ -2000,6 +2019,14 @@ void ShotBrowser::do_add_media_sources_from_ivy(
                                         media::MT_IMAGE,
                                         true)
                                         .send(ivy_media_task_data->media_actor_);
+                                else if(not ivy_media_task_data->preferred_visual_sources_.empty())
+                                    anon_mail(
+                                        playhead::media_source_atom_v,
+                                        ivy_media_task_data->preferred_visual_sources_.at(0),
+                                        media::MT_IMAGE,
+                                        false)
+                                        .send(ivy_media_task_data->media_actor_);
+
                             },
                             [=](error &err) {
                                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -2010,37 +2037,7 @@ void ShotBrowser::do_add_media_sources_from_ivy(
                         .then(
                             [=](const std::vector<std::pair<utility::Uuid, std::string>>
                                     &names) {
-                                auto name = std::string();
-
-                                for (const auto &pref :
-                                     ivy_media_task_data->preferred_audio_sources_) {
-                                    for (const auto &i : names) {
-                                        if (i.second == pref) {
-                                            name = pref;
-                                            break;
-                                        }
-                                    }
-                                    if (not name.empty())
-                                        break;
-                                }
-
-                                if (name.empty()) {
-                                    for (const auto &i : names) {
-                                        if (i.second == "movie_dneg") {
-                                            name = i.second;
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                if (name.empty()) {
-                                    for (const auto &i : names) {
-                                        if (i.second == "SG Movie") {
-                                            name = i.second;
-                                            break;
-                                        }
-                                    }
-                                }
+                                auto name = find_source(ivy_media_task_data->preferred_audio_sources_, names);
 
                                 if (not name.empty())
                                     anon_mail(
@@ -2049,10 +2046,18 @@ void ShotBrowser::do_add_media_sources_from_ivy(
                                         media::MT_AUDIO,
                                         true)
                                         .send(ivy_media_task_data->media_actor_);
+                                else if(not ivy_media_task_data->preferred_audio_sources_.empty())
+                                    anon_mail(
+                                        playhead::media_source_atom_v,
+                                        ivy_media_task_data->preferred_audio_sources_.at(0),
+                                        media::MT_AUDIO,
+                                        false)
+                                        .send(ivy_media_task_data->media_actor_);
                             },
                             [=](error &err) {
                                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                             });
+
                     continue_processing_job_queue();
                 },
                 [=](error &err) {
@@ -2079,6 +2084,7 @@ void ShotBrowser::do_add_media_sources_from_ivy(
             .request(ivy, infinite)
             .then(
                 [=](const utility::UuidActorVector &sources) {
+
                     // we want to make sure the 'MediaDetail' has been fetched on the
                     // sources before adding to the parent MediaActor - this means we
                     // don't build up a massive queue of IO heavy MediaDetail fetches

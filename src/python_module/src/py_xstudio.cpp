@@ -125,6 +125,11 @@ PYBIND11_MODULE(__pybind_xstudio, m) {
         .value("IT_TIMELINE", timeline::ItemType::IT_TIMELINE)
         .export_values();
 
+    py::enum_<timeline::AudioMode>(m, "AudioMode")
+        .value("AM_USE_AUDIO_STACK", timeline::AudioMode::AM_USE_AUDIO_STACK)
+        .value("AM_USE_VIDEO_STACK", timeline::AudioMode::AM_USE_VIDEO_STACK)
+        .export_values();
+
     py::enum_<global::StatusType>(m, "StatusType")
         .value("ST_NONE", global::StatusType::ST_NONE)
         .value("ST_BUSY", global::StatusType::ST_BUSY)

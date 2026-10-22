@@ -154,6 +154,7 @@ const auto ValidTerms = R"_({
         "Author",
         "Client Filename",
         "Completion Location",
+        "Cut Order Siblings",
         "Disable Global",
         "dnTag",
         "Entity",
@@ -190,6 +191,7 @@ const auto ValidTerms = R"_({
         "Sent To",
         "Sequence",
         "Shot Alternative",
+        "Shot Sequence",
         "Shot Status",
         "Shot Type",
         "Shot",
@@ -254,7 +256,8 @@ const auto OrderByTermValues = R"([
         {"name": "Version ASC"},
         {"name": "Version DESC"},
         {"name": "Pipeline Status ASC"},
-        {"name": "Pipeline Status DESC"}
+        {"name": "Pipeline Status DESC"},
+        {"name": "Cut Order ASC"}
     ])"_json;
 
 const auto BoolTermValues = R"([{"name": "True"},{"name": "False"}])"_json;
@@ -304,9 +307,9 @@ const auto SequenceTermValues = R"([
         { "name": "source" }
     ])"_json;
 
+        // { "name": "SG Movie" },
+        // { "name": "SG Frames" },
 const auto SourceTermValues = R"([
-        { "name": "SG Movie" },
-        { "name": "SG Frames" },
         { "name": "main_proxy0" },
         { "name": "main_proxy1" },
         { "name": "main_proxy2" },
@@ -335,6 +338,7 @@ const auto TermProperties = R"_({
     "Author": { "negated": null, "livelink": false },
     "Client Filename": { "negated": false, "livelink": null },
     "Completion Location": { "negated": false, "livelink": null },
+    "Cut Order Siblings":  { "negated": null, "livelink": true },
     "Department": { "negated": false, "livelink": null },
     "Disable Global": { "negated": null, "livelink": null },
     "dnTag": { "negated": false, "livelink": null },
@@ -380,6 +384,7 @@ const auto TermProperties = R"_({
     "Sent To": { "negated": null, "livelink": null },
     "Sequence": { "negated": false, "livelink": false },
     "Shot Alternative": { "negated": null, "livelink": true },
+    "Shot Sequence": { "negated": null, "livelink": false },
     "Shot Status": { "negated": false, "livelink": null },
     "Shot Type": { "negated": false, "livelink": false },
     "Shot": { "negated": false, "livelink": false },
@@ -397,13 +402,14 @@ const auto TermProperties = R"_({
 
 const std::set<std::string> TermHasProjectKey = {
     "Asset",     "asset",     "Author",    "episode",    "Episode",      "group",
-    "Group",     "playlist",  "Playlist",  "Recipient",  "sequence",     "Sequence",
+    "Group",     "playlist",  "Playlist",  "Recipient",  "sequence",     "Sequence", "shot sequence", "Shot Sequence",
     "shot",      "Shot",      "Shot Type", "Asset Type", "ShotSequence", "ShotSequenceList",
     "AssetList", "stage",     "Stage",     "unit",       "Unit",         "user",
     "User",      "Reference", "reference"};
 
 const std::set<std::string> TermHasNoModel = {
     "Client Filename",
+    "Cut Order Siblings",
     "dnTag",
     "Entity",
     "Exclude Self",
@@ -534,6 +540,9 @@ class QueryEngine {
 
     static std::vector<std::string> get_sequence_name(
         const int project_id, const int shot_id, const utility::JsonStore &lookup);
+
+    static utility::JsonStore get_sequence_shots(
+        const int project_id, const std::string &sequence, const utility::JsonStore &lookup);
 
     static std::vector<std::string>
     get_asset_name(const int project_id, const int asset_id, const utility::JsonStore &lookup);

@@ -71,7 +71,7 @@ XsGradientRectangle {
 		anchors.fill: parent
 		anchors.leftMargin: 11
 		anchors.rightMargin: 5
-		anchors.bottomMargin: 5
+		anchors.bottomMargin: show_clip_handles ? 2 : 5
 		elide: Qt.ElideMiddle
 		text: !isDragging ? name : dragValue > 0 ? "+" + dragValue : dragValue
 		z:2
@@ -80,6 +80,42 @@ XsGradientRectangle {
 	    verticalAlignment: isDragging ? Text.AlignVCenter : Text.AlignBottom
 		opacity: 0.8
 	}
+
+	property var inHandle: (start - availableStart)
+	property var outHandle: (availableDuration - duration) - inHandle
+
+	XsText {
+		anchors.left: parent.left
+		anchors.top: parent.top
+		anchors.leftMargin: 4
+		anchors.topMargin: 2
+		verticalAlignment: Text.AlignTop
+		horizontalAlignment: Text.AlignLeft
+		text: "" + inHandle
+		visible: handlesVisisble
+		font.pixelSize: 8
+	}
+
+	XsText {
+		id: outFrames
+		anchors.right: parent.right
+		anchors.top: parent.top
+		anchors.rightMargin: 4
+		anchors.topMargin: 2
+		verticalAlignment: Text.AlignTop
+		horizontalAlignment: Text.AlignRight
+		text: "" + outHandle
+		visible: handlesVisisble
+		font.pixelSize: 8
+	}
+
+	TextMetrics {
+		id: handlesSize
+		font:   outFrames.font
+		text: "" + outHandle + inHandle
+	}
+
+	property bool handlesVisisble: show_clip_handles && (handlesSize.width < control.width-20 && (inHandle || outHandle))
 
 	readonly property int dragWidth: 8
 
@@ -350,6 +386,20 @@ XsGradientRectangle {
 	            }
             }
         }
+	}
+
+	// Indicates if clip has been edited since it was added to the timeline
+	// (or since timeline was loaded)
+	Rectangle {
+		width: 6
+		height: 6
+		radius: 3
+		color: "cyan"
+		opacity: 0.7
+		anchors.right: parent.right
+		anchors.bottom: parent.bottom
+		anchors.margins: 2
+		visible: show_edit_indicator && (clipEditedStatusRole ? (control.width > 8) : false)
 	}
 
 	Rectangle {

@@ -22,17 +22,17 @@ set(QML_FILES
 if(APPLE)
     set_target_properties(quickfuture
         PROPERTIES
-        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/PlugIns/xstudio/qml/QuickFuture"
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/qml/QuickFuture"
     )
 else()
     set_target_properties(quickfuture
         PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickFuture"
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickFuture")
-endif()
 
-install(FILES ${QML_FILES} DESTINATION share/xstudio/plugin/qml/QuickFuture)
-install(TARGETS quickfuture LIBRARY DESTINATION share/xstudio/plugin/qml/QuickFuture)
+    install(FILES ${QML_FILES} DESTINATION share/xstudio/plugin/qml/QuickFuture)
+    install(TARGETS quickfuture LIBRARY DESTINATION share/xstudio/plugin/qml/QuickFuture)
+endif()
 
 if(WIN32)
     # On Windows the dll must be present in the qml/QuickFuture folder
@@ -49,7 +49,7 @@ set(QML_FUTURE_FILES
 )
 
 if (APPLE)
-    set(QML_DEST_DIR ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/PlugIns/xstudio/qml/QuickFuture)
+    set(QML_DEST_DIR ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/qml/QuickFuture)
 else()
     set(QML_DEST_DIR ${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickFuture)
 endif()

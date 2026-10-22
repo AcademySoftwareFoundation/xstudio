@@ -1,7 +1,6 @@
 find_package(OpenColorIO)
 find_package(OpenEXR)
 find_package(Imath)
-find_package(GLEW REQUIRED)
 
 # Temporary hack - OCIO package is not found/defined by 'modern' .cmake
 # package and as such cmake doesn't distinguish the OCIO headers as system
@@ -12,7 +11,6 @@ include_directories(SYSTEM ${OCIO_INCLUDE_DIRS})
 SET(LINK_DEPS
 	xstudio::colour_pipeline
 	xstudio::module
-	GLEW::GLEW
 	OpenColorIO::OpenColorIO
 	OpenEXR::OpenEXR
 	Imath::Imath
@@ -20,6 +18,9 @@ SET(LINK_DEPS
 
 create_plugin_with_alias(colour_pipeline_ocio xstudio::colour_pipeline::ocio ${XSTUDIO_GLOBAL_VERSION}  "${LINK_DEPS}")
 
-add_resource(xstudio-config-v2.1.0_aces-v1.3_ocio-v2.1.ocio ${CMAKE_CURRENT_SOURCE_DIR}/../resources ${PROJECT_NAME} ocio-configs)
+add_resource(xstudio-config-v2.1.0_aces-v1.3_ocio-v2.1.ocio ${CMAKE_CURRENT_SOURCE_DIR}/../resources/ocio-configs ${PROJECT_NAME} ocio-configs)
+
+add_resource("Display P3.icc" ${CMAKE_CURRENT_SOURCE_DIR}/../resources/icc-profiles ${PROJECT_NAME} icc-profiles)
+add_resource("sRGB2014.icc" ${CMAKE_CURRENT_SOURCE_DIR}/../resources/icc-profiles ${PROJECT_NAME} icc-profiles)
 
 add_python_plugin(ocio_python_plugin)

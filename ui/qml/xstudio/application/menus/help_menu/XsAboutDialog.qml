@@ -57,23 +57,20 @@ XsWindow {
 <i>Architect</i><BR>
 Chas Jarrett<P>
 
-<i>Lead Engineers</i><BR>
+<i>Lead Developers</i><BR>
 Al Crate and Ted Waine<P>
 
-<i>UI Developer</i><BR>
-Ron Kurian Maniangat<P>
-
 <i>Developers</i><BR>
+Olaf Razzoli<P>
+
+<i>Contributing Developers</i><BR>
 Remi Achard, Clement Jovet and Tomas Berzinskas<P>
 
-<i>UI / UX</i><BR>
-Alex Tibbs<P>
-
 <i>Project Management</i><BR>
-Carly Russell-Swain, Hannah Costello and Sam Melamed<P>
+Carly Russell-Swain<P>
 
 <i>Thanks To</i><BR>
-Jason Brown, Richard Jenns and Katherine Roberts<BR>
+Ron Kurian Maniangat, Alex Tibbs, Sam Melamed, Hannah Costello,<BR> Jason Brown, Richard Jenns and Katherine Roberts<P>
 `
 
                     textFormat: Text.RichText
@@ -88,41 +85,6 @@ Jason Brown, Richard Jenns and Katherine Roberts<BR>
                     Layout.fillWidth: true
                     // gradient: styleGradient.accent_gradient
                     color: XsStyleSheet.accentColor
-                }
-
-                Text {
-                    text:'<style>a:link { color:'+XsStyleSheet.accentColor+'; }</style>Overpass Font Copyright (c) 2016 by Red Hat, Inc. All rights reserved.<BR>This Font Software is licensed under the SIL Open Font License, Version 1.1.<BR><a href="http://scripts.sil.org/OFL">http://scripts.sil.org/OFL</a>'
-                    textFormat: Text.RichText
-                    font.family: XsStyleSheet.fontFamily
-                    font.pixelSize: 10
-                    font.hintingPreference: Font.PreferNoHinting
-                    // anchors.top: btmDivLine.bottom
-                    // anchors.left: parent.left
-                    // color: XsStyleSheet.mainColor
-                    onLinkActivated: Qt.openUrlExternally(link)
-                    MouseArea {
-                        anchors.fill: parent
-                        acceptedButtons: Qt.NoButton // we don't want to eat clicks on the Text
-                        cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor
-                    }
-                }
-
-                Text {
-                    text:'<style>a:link { color:'+XsStyleSheet.accentColor+'; }</style>Open Source Icon Library Feather <a href="https://feathericons.com">https://feathericons.com</a><BR>is licensed under the <a href="https://github.com/colebemis/feather/blob/master/LICENSE">MIT License</a>.'
-                    textFormat: Text.RichText
-                    font.family: XsStyleSheet.fontFamily
-                    font.pixelSize: 10
-                    font.hintingPreference: Font.PreferNoHinting
-                    // anchors.top: overPassText.bottom
-                    // anchors.bottom: parent.bottom
-                    // anchors.left: parent.left
-                    color: XsStyleSheet.primaryTextColor
-                    onLinkActivated: Qt.openUrlExternally(link)
-                    MouseArea {
-                        anchors.fill: parent
-                        acceptedButtons: Qt.NoButton // we don't want to eat clicks on the Text
-                        cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor
-                    }
                 }
             }
         }

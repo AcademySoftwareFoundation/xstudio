@@ -73,8 +73,9 @@ class Subset(Container, JsonStoreHandler):
         """Get the parent playlist of the ContactSheet/Subset object
 
         Returns:
-            source(PlayheadList): Currently playing this.
+            source(Playlist): Currently playing this.
         """
+        from xstudio.api.session.playlist import Playlist
         result =  self.connection.request_receive(self.remote, get_playlist_atom())[0]
-        return PlayheadList(self.connection, result)
+        return Playlist(self.connection, result)
 

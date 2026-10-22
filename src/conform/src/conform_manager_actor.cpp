@@ -652,35 +652,66 @@ void ConformWorkerActor::process_request(
                                     }
                                 }
                             } else {
-                                // unconformed media.
-                                // add to unconformed track.
-                                try {
-                                    // spdlog::warn("Unconformed {}", to_string(media.uuid()));
-                                    request_receive<UuidActor>(
-                                        *sys,
-                                        result.request_.container_.actor(),
-                                        playlist::add_media_atom_v,
-                                        media,
-                                        Uuid());
 
-                                    auto detail =
-                                        request_receive<std::pair<Uuid, MediaReference>>(
+                                // unconformed media.
+                                
+                                // Special case: If we're trying to add
+                                // a SINGLE clip and haven't been able to conform
+                                // it we simply align it over the current clip
+                                // under the playhead.
+                                //
+                                // Otherwise we just add to the head of the
+                                // Unconformed Media track
+
+                                if (request.items_.size() == 1) {
+
+                                    try {
+
+                                        auto replacemode =
+                                            result.request_.operations_.value("replace_clip", false);
+
+                                        // get the timeline to do auto-insertion
+                                        request_receive<bool>(
                                             *sys,
-                                            media.actor(),
-                                            media::media_reference_atom_v,
+                                            result.request_.container_.actor(),
+                                            timeline::insert_item_atom_v,
+                                            media,
+                                            replacemode);
+
+                                    } catch (const std::exception &err) {
+                                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                                    }
+
+                                } else {
+
+                                    try {
+                                        // spdlog::warn("Unconformed {}", to_string(media.uuid()));
+                                        request_receive<UuidActor>(
+                                            *sys,
+                                            result.request_.container_.actor(),
+                                            playlist::add_media_atom_v,
+                                            media,
                                             Uuid());
 
-                                    auto clip = timeline::Item(
-                                        timeline::IT_CLIP, "", unconformed_track.rate());
+                                        auto detail =
+                                            request_receive<std::pair<Uuid, MediaReference>>(
+                                                *sys,
+                                                media.actor(),
+                                                media::media_reference_atom_v,
+                                                Uuid());
 
-                                    auto media_prop          = R"({"media_uuid": null})"_json;
-                                    media_prop["media_uuid"] = media.uuid();
-                                    clip.set_prop(media_prop);
-                                    unconformed_track.push_back(clip);
-                                    unconformed_track.refresh();
+                                        auto clip = timeline::Item(
+                                            timeline::IT_CLIP, "", unconformed_track.rate());
 
-                                } catch (const std::exception &err) {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                                        auto media_prop          = R"({"media_uuid": null})"_json;
+                                        media_prop["media_uuid"] = media.uuid();
+                                        clip.set_prop(media_prop);
+                                        unconformed_track.push_back(clip);
+                                        unconformed_track.refresh();
+
+                                    } catch (const std::exception &err) {
+                                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                                    }
                                 }
                             }
                         }

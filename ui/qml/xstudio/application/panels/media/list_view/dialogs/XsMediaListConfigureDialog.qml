@@ -169,9 +169,8 @@ metadata with media that isn't from your pipeline.`
 
 
     function flattenJSON(obj, path, result) {
-
         for (var key in obj) {
-            if (typeof obj[key] == 'object') {
+            if (obj[key] != null && typeof obj[key] == 'object') {
                 flattenJSON(obj[key], path + key + "/", result)
             } else {
                 result.push([path + key, obj[key]])

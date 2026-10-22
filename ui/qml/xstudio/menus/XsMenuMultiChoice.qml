@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls.Basic
+import QtQuick.Layouts
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -10,9 +11,8 @@ XsPopup {
     // a list of strings 'choices'
 
     id: the_popup
+    height: view.height+ (topPadding+bottomPadding)
     width: view.width
-
-    implicitHeight: view.height+ (topPadding+bottomPadding)
 
     property var menu_model
     property var menu_model_index
@@ -35,18 +35,23 @@ XsPopup {
     property var _currentChoice: typeof current_choice !== "undefined" ? current_choice : typeof value !== "undefined" ? value : ""
     property var _choices_enabled: typeof combo_box_options_enabled !== "undefined" ? combo_box_options_enabled : []
 
-    XsListView {
+    property real minWidth: 20
+
+    // awkward solution to make all items in the list view the
+    // same width ... the width of the widest item in the view!
+    function setMinWidth(mw) {
+        if (mw > minWidth) {
+            minWidth = mw
+        }
+    }
+
+    Flickable {
 
         id: view
-        orientation: ListView.Vertical
-        spacing: 0
         width: minWidth
-        height: maxMenuHeight(contentHeight)
-        contentHeight: contentItem.childrenRect.height
+        height: maxMenuHeight(layout.height)
+        contentHeight: layout.height
         contentWidth: minWidth
-        snapMode: ListView.SnapOneItem
-        // currentIndex: -1
-        property real minWidth: 20
         clip: true
 
         ScrollBar.vertical: XsScrollBar {
@@ -63,6 +68,9 @@ XsPopup {
             animatedGlow: visible
         }
 
+        property real minWidth: 20
+        property real indent: 0
+
         // awkward solution to make all items in the list view the
         // same width ... the width of the widest item in the view!
         function setMinWidth(mw) {
@@ -71,42 +79,60 @@ XsPopup {
             }
         }
 
-        model: DelegateModel {
+        // awkward solution to make all items indent to the maximum indent
+        function setIndent(i) {
+            if (i > indent) {
+                indent = i
+            }
+        }
 
-            model: _choices
+        property alias repeater: repeater
 
-            delegate: XsMenuItemToggle{
+        ColumnLayout {
 
-                // isRadioButton: true
-                // radioSelectedChoice: current_choice
-                // label: choices[index]
+            id: layout
+            spacing: 0
+            Repeater {
 
-                // onChecked: {
-                //     label= choices[index]
-                //     current_choice = label
-                //     radioSelectedChoice = current_choice
-                // }
+                id: repeater
+                model: DelegateModel {
 
-                isRadioButton: true
-                actualValue: _choices[index]
-                radioSelectedChoice: _currentChoice
-                onClicked:{
-                    if (typeof current_choice!== "undefined") {
-                        current_choice = name
-                    } else if (value) {
-                        value = name
+                    model: _choices
+
+                    delegate: XsMenuItemToggle{
+
+                        // isRadioButton: true
+                        // radioSelectedChoice: current_choice
+                        // label: choices[index]
+
+                        // onChecked: {
+                        //     label= choices[index]
+                        //     current_choice = label
+                        //     radioSelectedChoice = current_choice
+                        // }
+
+                        isRadioButton: true
+                        actualValue: _choices[index]
+                        radioSelectedChoice: _currentChoice
+                        onClicked:{
+                            if (typeof current_choice!== "undefined") {
+                                current_choice = name
+                            } else if (value) {
+                                value = name
+                            }
+                            the_popup.closeAll()
+                        }
+
+                        parent_menu: the_popup
+                        width: view.minWidth
+                        onMinWidthChanged: {
+                            view.setMinWidth(minWidth)
+                        }
+                        enabled: (is_enabled && index >= 0) ?_choices_enabled.length > index ? _choices_enabled[index] : true : false
+
+                        property var name: _choices[index]
                     }
-                    the_popup.closeAll()
                 }
-
-                parent_menu: the_popup
-                width: view.minWidth
-                onMinWidthChanged: {
-                    view.setMinWidth(minWidth)
-                }
-                enabled: (is_enabled && index >= 0) ?_choices_enabled.length > index ? _choices_enabled[index] : true : false
-
-                property var name: _choices[index]
 
             }
 

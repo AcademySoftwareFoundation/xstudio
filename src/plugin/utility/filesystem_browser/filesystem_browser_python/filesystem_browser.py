@@ -49,7 +49,7 @@ def get_windows_drives():
     bitmask = windll.kernel32.GetLogicalDrives()
     for letter in range(26):
         if bitmask & (1 << letter):
-            drives.append(f"{chr(65 + letter)}:/")
+            drives.append(f"{chr(65 + letter)}:\\")
     return drives
 
 # PySide6 dependency removed

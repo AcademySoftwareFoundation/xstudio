@@ -187,6 +187,9 @@ class ShotBrowserEngine : public QMLActor {
     QString getEpisodes(const int project_id) { return getEpisodesFuture(project_id).result(); }
     QFuture<QString> getEpisodesFuture(const int project_id);
 
+    QVariant getReferenceStems(const int project_id) {return getReferenceStemsFuture(project_id).result();}
+    QFuture<QVariant> getReferenceStemsFuture(const int project_id);
+
     QString getUsers(const int project_id = -1) { return getUsersFuture(project_id).result(); }
     QFuture<QString> getUsersFuture(const int project_id = -1);
 

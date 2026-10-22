@@ -1,24 +1,22 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Compare Modes &mdash; xStudio 1.3.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
-      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=eafc0fe6" />
+  <title>Compare Modes &mdash; xStudio 1.4.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=1f29e9d3"></script>
-        <script src="../../_static/doctools.js?v=888ff710"></script>
-        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=9172181d"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -39,9 +37,6 @@
           <a href="../../index.html" class="icon icon-home">
             xStudio
           </a>
-              <div class="version">
-                1.3.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -61,6 +56,7 @@
 <li class="toctree-l4"><a class="reference internal" href="#comparing-media-in-playlists-and-subsets">Comparing Media in Playlists and Subsets</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#comparing-media-in-contact-sheets">Comparing Media in Contact Sheets</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#comparing-media-in-sequences-timelines">Comparing Media in Sequences (Timelines)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#lining-up-frame-numbers-in-compare-modes">Lining up Frame Numbers in Compare Modes</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#compare-modes-walkthrough">Compare Modes Walkthrough</a></li>
 </ul>
 </li>
@@ -108,7 +104,8 @@
   <section id="compare-modes">
 <span id="id1"></span><h1>Compare Modes<a class="headerlink" href="#compare-modes" title="Link to this heading"></a></h1>
 <figure class="align-center" id="id2">
-<a class="reference internal image-reference" href="../../_images/compare-modes-01.png"><img alt="The xSTUDIO Compare Modes Menu" src="../../_images/compare-modes-01.png" style="width: 504.59999999999997px; height: 313.8px;" /></a>
+<a class="reference internal image-reference" href="../../_images/compare-modes-01.png"><img alt="The xSTUDIO Compare Modes Menu" height="314" src="../../_images/compare-modes-01.png" width="505" />
+</a>
 <figcaption>
 <p><span class="caption-text">The xSTUDIO Compare Modes Menu</span><a class="headerlink" href="#id2" title="Link to this image"></a></p>
 </figcaption>
@@ -186,6 +183,25 @@
 <p class="admonition-title">Note</p>
 <p>Comparing media in modes other than <em>Off</em> or <em>String</em> your computer will be working harder during playback as it is decoding and storing frames for all of your selected media/video tracks at the same time. xSTUDIO is optimised to get the most out of your system and in many cases you may be able to compare several sources without imapcting performance, but if you try to compare too many sources at once playback performance may eventually be affected.</p>
 </div>
+</section>
+<section id="lining-up-frame-numbers-in-compare-modes">
+<h2>Lining up Frame Numbers in Compare Modes<a class="headerlink" href="#lining-up-frame-numbers-in-compare-modes" title="Link to this heading"></a></h2>
+<p>When comparing several media clips one may need to consider how the frame numbers are aligned between clips when each clip may have a different duration or start on a different frame. The behaviour is controlled by the ‘Frame Align’ mode which is controlled via the Viewport Info Toolbar</p>
+<figure class="align-center" id="id4">
+<a class="reference internal image-reference" href="../../_images/frame-align-01.png"><img alt="Frame Align Modes" height="282" src="../../_images/frame-align-01.png" width="1161" />
+</a>
+<figcaption>
+<p><span class="caption-text">The Frame Align mode selector is left-most in the Viewport Info Bar. The associalted ‘Offset’ widget is immediately to the right.</span><a class="headerlink" href="#id4" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<dl class="simple">
+<dt>The Frame Align modes work as follows:</dt><dd><ul class="simple">
+<li><p><strong>Manual</strong> - When you multi-select media, to start with the frame ranges of each of the media items are lined up on their first frame. You can then adjust the frame offset for each source via the <strong>‘Offset’</strong> widget found just to the right of the Frame Align mode selector. Left mouse-click, hold and drag from the Offset widget left and right to scrub the offset value or type a value into the box. The offset is applied to the ‘hero’ media source in your selection. The hero source in the selection is changed through the number keys on your keyboard, or cycled with the Up/Down arrow keys - you can also click on the corresponding image tile when in a Grid compare mode to select which media source is being affected by the Offset value. Double click on the Offset widget to zero the offset (and double click again to restore the last non-zero offset value). Note that the offsets for each media item are stored and persist withing the session.</p></li>
+<li><p><strong>Auto</strong> - xSTUDIO will use the timecode or (for frame based media like EXR or JPG) the frame number of the media to line up the timing on each media item being compared. The total duration of the playhead’s timeline is set to include all frames of all sources. Thus if one source is longer than another the playback framerange is extended to show all the frames of the longer source and the shorter source will have its frames held in that region.</p></li>
+<li><p><strong>Auto (Trim)</strong> - This is similar to Auto except that the frame range is trimmed to match the latest start frame and the earliest end frame accross all media sources. So if one media source is longer than another you will not see the extra frames of the longer clip during playback.</p></li>
+</ul>
+</dd>
+</dl>
 </section>
 <section id="compare-modes-walkthrough">
 <h2>Compare Modes Walkthrough<a class="headerlink" href="#compare-modes-walkthrough" title="Link to this heading"></a></h2>

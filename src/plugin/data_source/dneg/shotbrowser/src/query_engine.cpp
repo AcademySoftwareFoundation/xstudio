@@ -416,6 +416,10 @@ void QueryEngine::merge_presets(nlohmann::json &destination, const nlohmann::jso
                 group_ids.insert(i.value("id", utility::Uuid()));
         }
 
+
+        auto add_to_end = R"([])"_json;
+
+
         for (auto it = destination.begin(); it != destination.end();) {
             if (it->value("type", "") == "group") {
                 if (not group_ids.count(it->value("id", utility::Uuid())) and
@@ -528,10 +532,8 @@ void QueryEngine::merge_presets(nlohmann::json &destination, const nlohmann::jso
                                 (*it)["userdata"] = "tree";
                             }
 
-                            destination.push_back(*it);
+                            add_to_end.push_back(*it);
                             it = destination.erase(it);
-
-                            // it++;
                         }
                     }
                 } else {
@@ -561,6 +563,9 @@ void QueryEngine::merge_presets(nlohmann::json &destination, const nlohmann::jso
                 it++;
             }
         }
+
+        for(const auto &i: add_to_end)
+            destination.push_back(i);
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
@@ -1122,6 +1127,8 @@ utility::JsonStore QueryEngine::preprocess_terms(
                         field = "sg_dneg_version";
                     else if (val == "Pipeline Status")
                         field = "sg_status_list";
+                    else if (val == "Cut Order")
+                        field = "entity.Shot.sg_cut_order";
                 } else if (entity == "Notes") {
                     if (val == "Created")
                         field = "created_at";
@@ -1186,7 +1193,7 @@ utility::JsonStore QueryEngine::preprocess_terms(
         if (initial) {
             // set defaults if not specified
             if (query["context"]["visual_source"].empty())
-                query["context"]["visual_source"] = json::array({"SG Movie"});
+                query["context"]["visual_source"] = json::array({"movie_dneg"});
             if (query["context"]["audio_source"].empty())
                 query["context"]["audio_source"] = query["context"]["visual_source"];
             if (query["context"]["sequence_source"].empty())
@@ -1572,6 +1579,10 @@ void QueryEngine::add_version_term_to_filter(
         qry->push_back(Number("sg_dneg_version").less_than(std::stoi(value)));
     } else if (term == "Newer Version") {
         qry->push_back(Number("sg_dneg_version").greater_than(std::stoi(value)));
+    } else if (term == "Cut Order Siblings") {
+        qry->push_back(Number("entity.Shot.sg_cut_order").between(std::stoi(value) - 20, std::stoi(value) + 20));
+    } else if (term == "Shot Sequence") {
+        qry->push_back(RelationType("entity").in(get_sequence_shots(project_id, value, lookup)));
     } else if (term == "Id") {
         if (negated)
             qry->push_back(Number("id").is_not(std::stoi(value)));
@@ -1756,17 +1767,31 @@ void QueryEngine::add_version_term_to_filter(
         try {
             auto seq  = R"({"type": "Sequence", "id":0})"_json;
             auto seqs = std::vector<JsonStore>();
-            // if no match force failing query. or we'll get EVERYTHING
-            try {
-                seq["id"] =
-                    resolve_query_value("Sequence", JsonStore(value), project_id, lookup)
-                        .get<int>();
-                seqs.push_back(seq);
-            } catch (const std::exception &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-                seqs.push_back(seq);
+
+            if(value == "All") {
+               if(lookup.count(cache_name("Reference", project_id))) {
+                    const auto &values = lookup.at(cache_name("Reference", project_id));
+                    for( const auto &i: values) {
+                        seq["id"] = i.at("id");
+                        seqs.push_back(seq);
+                    }
+                }
+            } else if (value == "Global") {
+
+            } else {
+                // if no match force failing query. or we'll get EVERYTHING
+                try {
+                    seq["id"] =
+                        resolve_query_value("Sequence", JsonStore(value), project_id, lookup)
+                            .get<int>();
+                    seqs.push_back(seq);
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    seqs.push_back(seq);
+                }
             }
-            qry->push_back(RelationType("entity").in(seqs));
+            if(not seqs.empty())
+                qry->push_back(RelationType("entity").in(seqs));
         } catch (const std::exception &err) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
             throw XStudioError("Invalid query term " + term + " " + value);
@@ -2274,7 +2299,7 @@ void QueryEngine::set_asset_type_cache(
 void QueryEngine::set_reference_cache(
     const std::string &key, const utility::JsonStore &data, utility::JsonStore &cache) {
     // auto tmp = R"([{"name":"", "id": 0}])"_json;
-    auto tmp = R"([{"name":"", "id": 0}])"_json;
+    auto tmp = R"([{"name":"", "id": 0}, {"name": "All", "id":1}, {"name": "Global", "id":2}])"_json;
     static const auto episode =
         json::json_pointer("/relationships/custom_entity20_sg_sequences_custom_entity20s/data");
 
@@ -2408,6 +2433,32 @@ JsonStore QueryEngine::data_from_field(const JsonStore &data) {
 
     return {result};
 }
+
+utility::JsonStore QueryEngine::get_sequence_shots(
+    const int project_id, const std::string &sequence, const utility::JsonStore &lookup) {
+    const auto key    = cache_name("ShotSequence", project_id);
+
+    auto result = JsonStore(R"([])"_json);
+
+    if (lookup.count(key)) {
+        const auto &ss = lookup.at(key);
+
+        auto shot_entity = R"({"type": "Shot", "id": 0})"_json;
+
+        for(const auto & [shot_id, value]: ss.items()) {
+            for(const auto &s: value) {
+                if(s.at("name") == sequence) {
+                    shot_entity["id"] = std::stoi(shot_id);
+                    result.push_back(shot_entity);
+                    break;
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
 
 std::vector<std::string> QueryEngine::get_sequence_name(
     const int project_id, const int shot_id, const utility::JsonStore &lookup) {
@@ -2554,7 +2605,10 @@ utility::JsonStore QueryEngine::get_livelink_value(
                     result = nlohmann::json("Shot-" + std::to_string(shot_id));
                 }
             }
-
+        } else if (metadata.contains(json::json_pointer("/metadata/shotgun/shot")) and term == "Cut Order Siblings") {
+            result = nlohmann::json(std::to_string(metadata.at(
+                json::json_pointer(
+                    "/metadata/shotgun/shot/attributes/sg_cut_order")).get<int>()));
         } else if (metadata.contains(json::json_pointer("/metadata/shotgun/version"))) {
 
 
@@ -2638,7 +2692,7 @@ utility::JsonStore QueryEngine::get_livelink_value(
                     if (not asset_name.empty())
                         result = nlohmann::json(asset_name);
                 }
-            } else if (term == "Sequence") {
+            } else if (term == "Sequence" || term == "Shot Sequence") {
                 auto type = metadata.at(
                     json::json_pointer(
                         "/metadata/shotgun/version/relationships/entity/data/type"));

@@ -435,7 +435,11 @@ Item{
         menuPath: "More"
         menuItemPosition: 1
         menuModelName: "media_list_menu_"
-        onActivated: (menuContext) =>  conformToSequence(menuContext.mediaSelection, viewportCurrentMediaContainerIndex, "Conformed Media")
+        onActivated: (menuContext) => {
+            if (theSessionData.lastTimelineIndex.valid) {
+                conformToSequence(menuContext.mediaSelection, theSessionData.lastTimelineIndex, "Conformed Media")
+            }
+        }
     }
 
 
@@ -544,7 +548,9 @@ Item{
                     menuPath: "Auto-Conform"
                     menuItemPosition: index
                     menuModelName: "timeline_track_menu_"
-                    onActivated: (menuContext) =>  autoConformSelectionTimeline(text, menuContext.theTimeline.conformSourceIndex, menuContext.theTimeline.timelineSelection.selectedIndexes[0])
+                    onActivated: (menuContext) =>  {
+                        autoConformSelectionTimeline(text, menuContext.theTimeline.conformSourceIndex, menuContext.theTimeline.timelineSelection.selectedIndexes[0])
+                    }
                 }
 
                 XsMenuModelItem {

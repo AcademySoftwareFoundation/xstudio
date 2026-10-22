@@ -69,6 +69,7 @@ class ShotBrowserResultModel : public JSONTreeModel {
         createdDateRole,
         dateSubmittedToClientRole,
         departmentRole,
+        descriptionRole,
         detailRole,
         entityRole,
         frameRangeRole,

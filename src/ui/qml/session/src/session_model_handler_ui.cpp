@@ -163,6 +163,29 @@ void SessionModel::init(caf::actor_system &_system) {
                 }
             },
 
+            [=](utility::event_atom,
+                utility::change_atom,
+                timeline::clip_edited_status_atom,
+                const int status) {
+                try {
+                    auto src     = caf::actor_cast<caf::actor>(self()->current_sender());
+                    auto src_str = actorToString(system(), src);
+                    // src_str); search from index..
+                    receivedData(
+                        json(src_str), actorRole, QModelIndex(), clipEditedStatusRole, json(status));
+                } catch (...) {
+                }
+            },
+
+            [=](utility::event_atom, utility::notification_atom, const caf::actor &src, const JsonStore &digest) {
+                try {
+                    auto src_str = actorToString(system(), src);
+                    receivedData(
+                        json(src_str), actorRole, QModelIndex(), notificationRole, digest);
+                } catch (...) {
+                }
+            },
+
             [=](utility::event_atom, utility::notification_atom, const JsonStore &digest) {
                 try {
                     auto src     = caf::actor_cast<caf::actor>(self()->current_sender());
@@ -454,12 +477,9 @@ void SessionModel::init(caf::actor_system &_system) {
 
             [=](utility::event_atom,
                 ui::viewport::viewport_playhead_atom,
-                utility::Uuid playhead_uuid) {
-                // this comes from the backend SessionActor
-                if (QUuidFromUuid(playhead_uuid) != on_screen_playhead_uuid_) {
-                    on_screen_playhead_uuid_ = QUuidFromUuid(playhead_uuid);
-                    emit onScreenPlayheadUuidChanged();
-                }
+                const utility::Uuid &uuid) {
+                on_screen_playhead_uuid_ = QUuidFromUuid(uuid);
+                emit onScreenPlayheadUuidChanged();
             },
 
             [=](utility::event_atom,
@@ -501,6 +521,34 @@ void SessionModel::init(caf::actor_system &_system) {
                 // spdlog::warn("{}", data_.dump(2));
             },
 
+            [=](utility::event_atom, timeline::audio_mode_atom, const timeline::AudioMode am) {
+                // direct from timeline. The timeline's parent playlist forwards the same message with
+                // additional info - see handler immediately below
+            },
+
+            [=](utility::event_atom, timeline::audio_mode_atom, timeline::AudioMode audioMode, caf::actor timeline_actor, caf::actor playlist_actor) {
+
+                // I've got to admit this stuff is a bit insane. We need to update a value in the model (the timeline
+                // audio mode). We need to find the timeline in the model (ideally without recursively searching
+                // then entire thing - hence finding playlist first which is not that deep in the model).
+                auto playlist_actor_str = actorToString(system(), playlist_actor);
+                auto playlist_actor_qstr = QVariant::fromValue(QStringFromStd(playlist_actor_str));
+                auto playlist_index = searchRecursive(playlist_actor_qstr, actorRole, QModelIndex(), 0, 2);
+                if (playlist_index.isValid()) {
+
+                    auto timeline_actor_str = actorToString(system(), timeline_actor);
+                    auto timeline_actor_qstr = QVariant::fromValue(QStringFromStd(timeline_actor_str));
+                    auto timeline_index = searchRecursive(timeline_actor_qstr, actorRole, playlist_index, 0, 2);
+                    if (timeline_index.isValid()) {
+
+                        nlohmann::json &j = indexToData(timeline_index);
+                        if (!j.contains("audio_mode") || j["audio_mode"].is_null() || j["audio_mode"].get<int>() != static_cast<int>(audioMode)) {
+                            j["audio_mode"] = static_cast<int>(audioMode);
+                            emit dataChanged(timeline_index, timeline_index, QVector<int>({audioModeRole}));
+                        }
+                    }
+                }
+            },
 
             [=](utility::event_atom,
                 playlist::move_container_atom,
@@ -1163,7 +1211,69 @@ void SessionModel::init(caf::actor_system &_system) {
                 }
             },
 
+            [=](xstudio::utility::event_atom atom1,
+            xstudio::utility::change_atom atom2,
+            xstudio::timeline::clip_edited_status_atom atom3,
+            const utility::Uuid &clip_id,
+            const int status,
+            const utility::Uuid &track_id) {
+                // we're subscribed to events from tracks, if I understand correctly
+                // However this message gets forwarded again from the timeline
+                // so we handle that re-forwarded message below.
+            },
+
+            [=](xstudio::utility::event_atom atom1,
+            xstudio::utility::change_atom atom2,
+            xstudio::timeline::clip_edited_status_atom atom3,
+            const utility::Uuid &clip_id,
+            const int status,
+            const utility::Uuid &track_id,
+            const utility::Uuid &stack_id,
+            const utility::Uuid &timeline_id) {
+                // coming from timeline (via playlist) to session. 
+                // Yes these UI updates from the backend are a bit of a mess, but it works for now.
+                QModelIndex timeline_index = searchRecursive(
+                    QVariant::fromValue(QUuidFromUuid(timeline_id)), idRole, QModelIndex(), 0, -1);
+                if (timeline_index.isValid()) {
+                    if (timeline_index.isValid()) {
+                        QModelIndex stack_index = searchRecursive(
+                            QVariant::fromValue(QUuidFromUuid(stack_id)),
+                            idRole,
+                            timeline_index,
+                            0,
+                            1);
+                        if (stack_index.isValid()) {
+
+                            QModelIndex track_index = searchRecursive(
+                                QVariant::fromValue(QUuidFromUuid(track_id)),
+                                idRole,
+                                stack_index,
+                                0,
+                                1);
+                            if (track_index.isValid()) {
+
+                                QModelIndex clip_index = searchRecursive(
+                                    QVariant::fromValue(QUuidFromUuid(clip_id)),
+                                    idRole,
+                                    track_index,
+                                    0,
+                                    1);
+                                if (clip_index.isValid()) {
+
+                                    nlohmann::json &j = indexToData(clip_index);
+                                    j["clip_edited_status"] = status;
+                                    emit dataChanged(
+                                        clip_index,
+                                        clip_index,
+                                        QVector<int>({clipEditedStatusRole}));
+                                }
+                            }
+                        }
+                    }
+                }
+            },  
+
             [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-            [=](caf::message) { spdlog::warn("Unexpected message"); }};
+            [=](caf::message msg) { spdlog::warn("Unexpected message: {}", to_string(msg)); }};
     });
 }

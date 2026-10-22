@@ -173,7 +173,7 @@ WipeViewportLayout::WipeViewportLayout(
     wipe_position_->expose_in_ui_attrs_group("wipe_layout_attrs");
 
     add_layout_mode(
-        "Wipe", 2.0, playhead::AssemblyMode::AM_TEN, playhead::AutoAlignMode::AAM_ALIGN_FRAMES);
+        "Wipe", 2.0, playhead::AssemblyMode::AM_TEN, playhead::AutoAlignMode::AAM_ALIGN_AUTO);
 
     add_viewport_layout_qml_overlay(
         "Wipe",
