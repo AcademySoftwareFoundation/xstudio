@@ -5,6 +5,7 @@
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/ui/qml/hotkey_ui.hpp"
+#include "xstudio/utility/logging.hpp"
 
 using namespace caf;
 using namespace xstudio;
@@ -346,7 +347,7 @@ void HotkeysUI::setTestSequence(const QVariant &test_sequence) {
                         }
                     },
                     [=](const error &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
         }
     } catch (const std::exception &err) {

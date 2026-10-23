@@ -64,7 +64,7 @@ class PlayLoopActor : public caf::event_based_actor {
                             }
                         },
                         [=](const caf::error &e) {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(e));
+                            log_caf_error(e);
                         });
             });
         anon_mail(step_atom_v).delay(std::chrono::milliseconds(5)).send(this);
@@ -295,7 +295,7 @@ void PlayheadActor::init() {
             return rp;
         },
 
-        [=](const error &err) { spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err)); },
+        [=](const error &err) { log_caf_error(err); },
 
         [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
@@ -727,7 +727,7 @@ void PlayheadActor::init() {
                                     .send(selection_actor);
                         },
                         [=](caf::error &err) {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                         });
             } else {
                 switch_key_playhead(playhead_idx);
@@ -1201,7 +1201,7 @@ void PlayheadActor::init() {
                                 current_media_changed(media_actor, true);
                         },
                         [=](const error &err) {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                         });
             }
         },
@@ -1370,7 +1370,7 @@ void PlayheadActor::init() {
                     .then(
                         [=](timebase::flicks) mutable { rp.deliver(true); },
                         [=](const error &err) mutable {
-                            spdlog::warn("{} duration {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err, spdlog::level::warn, "duration");
                             rp.deliver(err);
                         });
             } else {
@@ -1386,15 +1386,12 @@ void PlayheadActor::init() {
                                 .then(
                                     [=](timebase::flicks) mutable { rp.deliver(true); },
                                     [=](const error &err) mutable {
-                                        spdlog::warn(
-                                            "{} duration {}",
-                                            __PRETTY_FUNCTION__,
-                                            to_string(err));
+                                        log_caf_error(err, spdlog::level::warn, "duration");
                                         rp.deliver(err);
                                     });
                         },
                         [=](const error &err) mutable {
-                            spdlog::warn("{} Fan {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err, spdlog::level::warn, "Fan");
                             rp.deliver(err);
                         });
             }
@@ -1427,7 +1424,7 @@ void PlayheadActor::init() {
                             updating_source_list_ = false;
                         },
                         [=](const error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                         });
             } else {
                 updating_source_list_ = true;
@@ -1552,7 +1549,7 @@ void PlayheadActor::init() {
                                     rp.deliver(true);
                                 },
                                 [=](caf::error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    log_caf_error(err);
                                     rp.deliver(err);
                                 });
 
@@ -1562,7 +1559,7 @@ void PlayheadActor::init() {
                             .send(viewport_events_group_);
                     },
                     [=](caf::error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                         rp.deliver(err);
                     });
             return rp;
@@ -1654,8 +1651,7 @@ void PlayheadActor::connect_to_playlist_selection_actor(
                                                 rp.deliver(true);
                                             },
                                             [=](const caf::error &e) mutable {
-                                                spdlog::warn(
-                                                    "{} {}", __PRETTY_FUNCTION__, to_string(e));
+                                                log_caf_error(e);
                                                 rp.deliver(false);
                                             });
                                 } else {
@@ -1663,12 +1659,12 @@ void PlayheadActor::connect_to_playlist_selection_actor(
                                 }
                             },
                             [=](const error &err) mutable {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err);
                                 rp.deliver(false);
                             });
                 },
                 [=](const error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                 });
     } else {
         rp.deliver(false);
@@ -2136,7 +2132,7 @@ void PlayheadActor::switch_key_playhead(int idx) {
                         media_transition_frames_->set_value(media_frame_ranges);
                     },
                     [=](const caf::error &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
 
             // kick the key sub-playhead to re-broadcast its current Media, which thisw
@@ -2249,7 +2245,7 @@ void PlayheadActor::notify_loop_end_changed() {
                     .send(event_group_);
             },
             [=](const error &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 }
 
@@ -2274,7 +2270,7 @@ void PlayheadActor::notify_loop_start_changed() {
                     .send(event_group_);
             },
             [=](const error &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 }
 
@@ -2285,7 +2281,7 @@ void PlayheadActor::notify_offset_changed() {
         .then(
             [=](const int64_t offset) { source_offset_frames_->set_value(offset, false); },
             [=](const error &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 }
 
@@ -2318,7 +2314,7 @@ void PlayheadActor::update_duration(caf::typed_response_promise<timebase::flicks
                 rp.deliver(duration);
             },
             [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(err);
             });
 
@@ -2331,7 +2327,7 @@ void PlayheadActor::update_duration(caf::typed_response_promise<timebase::flicks
                     .send(event_group_);
             },
             [=](const error &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 }
 
@@ -2355,7 +2351,7 @@ void PlayheadActor::jump_to_source(const utility::Uuid &media_uuid) {
                         }
                     },
                     [=](caf::error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
         }
     }
@@ -2486,11 +2482,11 @@ void PlayheadActor::rebuild_cached_frames_status() {
                                 update_cached_frames_status();
                             },
                             [=](const error &err) {
-                                spdlog::warn("A {} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err, spdlog::level::warn, "A");
                             });
                 },
                 [=](const error &err) {
-                    spdlog::warn("B {} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err, spdlog::level::warn, "B");
                 });
     } else {
         all_frame_ids_.clear();
@@ -3018,7 +3014,7 @@ void PlayheadActor::attribute_changed(const utility::Uuid &attr_uuid, const int 
                     }
                 },
                 [=](caf::error &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                 });
     } else if (attr_uuid == compare_mode_->uuid()) {
 
@@ -3049,7 +3045,7 @@ void PlayheadActor::attribute_changed(const utility::Uuid &attr_uuid, const int 
                     // set_auto_align_mode(mode.first);
                 },
                 [=](caf::error &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                 });
 
         // broadcast the compare mode to viewport(s) that are attached to this
@@ -3284,13 +3280,12 @@ void PlayheadActor::update_source_multichoice(
                                         updating_source_list_ = false;
                                     },
                                     [=](error &err) mutable {
-                                        spdlog::warn(
-                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                        log_caf_error(err);
                                         updating_source_list_ = false;
                                     });
                         },
                         [=](error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                         });
             },
             [=](error &err) mutable {
@@ -3317,7 +3312,7 @@ void PlayheadActor::update_stream_multichoice(
     };
 
     auto receive_error = [=](error &err) mutable {
-        spdlog::debug("{} {}", __PRETTY_FUNCTION__, to_string(err));
+        log_caf_error(err, spdlog::level::debug);
         clear_attr();
     };
 
@@ -3419,7 +3414,7 @@ void PlayheadActor::switch_media_source(
                     },
                     [=](error &err) mutable {
                         if (to_string(err) != "No frames")
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                     });
         }
     };
@@ -3446,7 +3441,7 @@ void PlayheadActor::switch_media_source(
             },
             [=](error &err) mutable {
                 if (to_string(err) != "No frames")
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
             });
 }
 
@@ -3457,7 +3452,7 @@ void PlayheadActor::switch_media_stream(
     bool apply_to_all_selected) {
 
     auto error_handler = [=](error &err) mutable {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+        log_caf_error(err);
     };
 
     auto apply_to_all = [=]() {
@@ -3476,7 +3471,7 @@ void PlayheadActor::switch_media_stream(
                     },
                     [=](error &err) mutable {
                         if (to_string(err) != "No frames")
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                     });
         }
     };
@@ -3664,7 +3659,11 @@ void PlayheadActor::apply_compare_prefs() {
                             std::string compare_mode = j[0].get<std::string>();
                             std::string align        = j[1].get<std::string>();
                             compare_mode_->set_value(compare_mode);
-                            auto_align_mode_->set_value(align);
+
+                            // xSTUDIO v1.4 auto align mode names were changed for 
+                            // better clarity. Remap to new names here in case user
+                            // has old prefs for their default modes
+                            auto_align_mode_->set_value(old_to_new_align_mode(align));
                         }
 
                     } catch (std::exception &e) {

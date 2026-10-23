@@ -415,7 +415,7 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
                             media_source_changed(media_source.uuid(), colour_params);
                         },
                         [=](const caf::error &err) {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            utility::log_caf_error(err);
                         });
             }
         },

@@ -172,6 +172,11 @@ class ShotBrowser : public plugin::StandardPlugin {
     void refresh_metadata(
         caf::typed_response_promise<utility::JsonStore> rp, const utility::Uuid &uuid);
 
+    void download_shotgrid_annotations(
+        caf::typed_response_promise<utility::JsonStore> rp,
+        const std::string &entity,
+        const int entity_id);
+
     void download_shotgrid_media(
         caf::typed_response_promise<utility::JsonStore> rp,
         const std::string &entity,

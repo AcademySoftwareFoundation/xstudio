@@ -17,6 +17,7 @@
 #include "xstudio/thumbnail/thumbnail.hpp"
 #include "xstudio/thumbnail/thumbnail_disk_cache_actor.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/utility/logging.hpp"
 
 using namespace caf;
 using namespace xstudio::thumbnail;
@@ -511,7 +512,7 @@ ThumbnailDiskCacheActor::ThumbnailDiskCacheActor(caf::actor_config &cfg)
                     .then(
                         [=](const DiskCacheStat &dcs) { cache_ = dcs; },
                         [=](const caf::error &err) {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                         });
             } catch (const std::exception &err) {
                 return make_error(xstudio_error::error, err.what());
@@ -573,7 +574,7 @@ void ThumbnailDiskCacheActor::request_generation_of_thumbnail(
                                     cache_.evict(max_cache_size_, max_cache_count_));
                             },
                             [=](const caf::error &err) mutable {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err);
                             });
                 }
             },
@@ -587,7 +588,7 @@ void ThumbnailDiskCacheActor::evict_thumbnails(const std::vector<size_t> &hashes
             .then(
                 [=](const bool) {},
                 [=](const caf::error &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                 });
     }
 }

@@ -189,7 +189,7 @@ void PlayheadBase::deserialise(const JsonStore &jsn) {
     velocity_->set_value(jsn.value("velocity", velocity_->value()));
     compare_mode_->set_value(jsn.value("compare_mode", compare_mode_->value()), false);
 
-    std::string aam = jsn.value("auto_align_mode", auto_align_mode_->value());
+    std::string aam = old_to_new_align_mode(jsn.value("auto_align_mode", auto_align_mode_->value()));
 
     {
         // Oct 2026 - the frame alignement playhead modes have been renamed, so we
@@ -954,4 +954,17 @@ void PlayheadBase::menu_item_activated(
 
         hotkey_pressed(set_loop_out_, "", "");
     }
+}
+
+std::string PlayheadBase::old_to_new_align_mode(std::string old) {
+    // Oct 2026 - the frame alignement playhead modes have been renamed, so we
+    // account for this here
+    static const std::map<std::string, std::string> old_to_new_aam_names(
+        {{"Off", "Manual"},
+        {"On", "Auto"},
+        {"On (Trim)", "Auto (Trim)"}}
+    );
+    const auto p = old_to_new_aam_names.find(old);
+    if (p != old_to_new_aam_names.end()) old = p->second;
+    return old;
 }

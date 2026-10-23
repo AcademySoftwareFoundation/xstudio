@@ -94,8 +94,8 @@ caf::message_handler AnnotationsCore::message_handler_extensions() {
         },
         [=](utility::event_atom,
             ui::viewport::annotation_atom,
-            const utility::JsonStore &data) { 
-            receive_annotation_data(data); 
+            const utility::JsonStore &data) {
+            receive_annotation_data(data);
 
             if (draw_events_event_group_) {
                 // use anon_mail here, so the event 'source' is draw_events_event_group_ and not
@@ -233,6 +233,8 @@ void AnnotationsCore::receive_annotation_data(const utility::JsonStore &d) {
         set_caption_property(payload, user_edit_data);
     } else if (event == "CaptionTextEntry") {
         caption_text_entered(payload, user_edit_data);
+    } else if (event == "CaptionPasteToNote") {
+        push_live_caption_to_note(user_edit_data);
     } else if (event == "CaptionEndEdit") {
         clear_live_caption(user_edit_data);
     } else if (event == "CaptionKeyPress") {
@@ -747,6 +749,11 @@ void AnnotationsCore::caption_mouse_pressed(
             HandleHoverState::HoveredOnDeleteHandle) {
             remove_live_caption(user_edit_data);
             return;
+        } else if (
+            user_edit_data->caption_handle_over_state_ ==
+            HandleHoverState::HoveredOnPasteHandle) {
+            push_live_caption_to_note(user_edit_data);
+            return;
         }
 
 
@@ -796,6 +803,12 @@ xstudio::ui::viewport::HandleHoverState mouse_hover(
 
     const Imath::V2f cp_move   = capt.bounding_box().min - pos;
     const Imath::V2f cp_resize = pos - capt.bounding_box().max;
+
+    const Imath::V2f cp_paste =
+        Imath::V2f(
+            capt.bounding_box().min.x,
+            capt.bounding_box().max.y + handle_size.y * viewport_pixel_scale) - pos;
+
     const Imath::V2f cp_delete =
         pos - Imath::V2f(
                   capt.bounding_box().max.x,
@@ -805,6 +818,8 @@ xstudio::ui::viewport::HandleHoverState mouse_hover(
 
     if (handle_extent.intersects(cp_move)) {
         return xstudio::ui::viewport::HandleHoverState::HoveredOnMoveHandle;
+    } else if (handle_extent.intersects(cp_paste)) {
+        return xstudio::ui::viewport::HandleHoverState::HoveredOnPasteHandle;
     } else if (handle_extent.intersects(cp_resize)) {
         return xstudio::ui::viewport::HandleHoverState::HoveredOnResizeHandle;
     } else if (handle_extent.intersects(cp_delete)) {
@@ -968,6 +983,19 @@ void AnnotationsCore::remove_live_caption(LiveEditData &user_edit_data) {
     update_bookmark_annotation(
         user_edit_data->edited_bookmark_id, AnnotationBasePtr(mod_annotation), false);
 }
+
+void AnnotationsCore::push_live_caption_to_note(LiveEditData &user_edit_data) {
+    if (user_edit_data->live_caption and not user_edit_data->live_caption->text().empty()) {
+
+        bookmark::BookmarkDetail detail = get_bookmark_detail(user_edit_data->edited_bookmark_id);
+        const bool bookmark_is_empty    = !(detail.note_ && !detail.note_->empty());
+        auto text = bookmark_is_empty ? std::string("") : (*detail.note_) + "\n";
+        text += user_edit_data->live_caption->text() + "\n";
+        auto change = bookmark::BookmarkDetail();
+        change.note_ = text;
+        update_bookmark_detail(user_edit_data->edited_bookmark_id, change);
+    }
+ }
 
 void AnnotationsCore::clear_live_caption(LiveEditData &user_edit_data) {
 
@@ -1376,7 +1404,7 @@ void AnnotationsCore::broadcast_live_stroke(
     if (draw_events_event_group_) {
         // Here we send the whole, serialised annotation data. This can be consumed
         // by a Python plugin implementing annotation event syncing, for example.
-        // TODO: full python bindings for AnnotationBasePtr to avoid expensive 
+        // TODO: full python bindings for AnnotationBasePtr to avoid expensive
         // serialisation
         const bool is_shape = user_edit_data->item_type == Canvas::ItemType::Square ||
                             user_edit_data->item_type == Canvas::ItemType::Circle ||
@@ -1385,7 +1413,6 @@ void AnnotationsCore::broadcast_live_stroke(
                             user_edit_data->item_type == Canvas::ItemType::Ellipse;
 
         if (!is_shape || stroke_completed) {
-            
             utility::Uuid plugin_uuid;
             utility::JsonStore anno_json = anno_ptr->serialise(plugin_uuid);
             anno_json["user_id"] = user_id;
@@ -1398,7 +1425,7 @@ void AnnotationsCore::broadcast_live_stroke(
                 user_id,
                 stroke_completed)
                 .send(draw_events_event_group_);
-        }        
+        }
     }
 }
 

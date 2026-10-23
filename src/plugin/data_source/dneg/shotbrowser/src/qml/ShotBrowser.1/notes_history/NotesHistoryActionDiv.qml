@@ -19,25 +19,47 @@ RowLayout{
     property int parentWidth: width
     readonly property int cellWidth: parentWidth / children.length
 
+    property bool targetIsTimeline: viewedMediaSetProperties.values.typeRole == "Timeline" && currentPlayhead.pinnedSourceMode
+
     XsPrimaryButton{
-        text: "Add"
+        text: targetIsTimeline ? "Add to Timeline" : "Add"
+        Layout.fillHeight: true
+        Layout.preferredWidth: cellWidth
+        onClicked: ShotBrowserHelpers.addToCurrent(resultsSelectionModel.selectedIndexes, {"addMode":addMode.value})
+        hiddenToolTip: targetIsTimeline ? "Load the selected media into new track(s) in the timeline - new clips will be conformed over the current on-screen clip where possible (otherwise new clips are added to a new 'Unconformed' video track)." : "Add selected search results to the current playlist."
+        hiddenToolTipMaxWidth: 400
+    }
+
+    XsPrimaryButton{
+        text: "Add With Notes"
         clip:true
         Layout.fillHeight: true
         Layout.preferredWidth: cellWidth
-        onClicked: ShotBrowserHelpers.addToCurrent(resultsSelectionModel.selectedIndexes, true, addMode.value)
+        onClicked: ShotBrowserHelpers.addToCurrent(resultsSelectionModel.selectedIndexes, {"addMode":addMode.value, "with_notes": true})
+        hiddenToolTip: targetIsTimeline ? "Load the selected media into new track(s) in the timeline - new clips will be conformed over the current on-screen clip where possible (otherwise new clips are added to a new 'Unconformed' video track)." : "Add selected search results to the current playlist."
+        hiddenToolTipMaxWidth: 400
     }
 
-    XsPrimaryButton{
-        text: "Replace"
-        Layout.fillHeight: true
-        Layout.preferredWidth: cellWidth
-        onClicked: ShotBrowserHelpers.replaceSelectedResults(resultsSelectionModel.selectedIndexes)
-    }
+    // XsPrimaryButton{
+    //     text: targetIsTimeline ? "Replace in Timeline" : "Replace"
+    //     Layout.fillHeight: true
+    //     Layout.preferredWidth: cellWidth
+    //     onClicked: ShotBrowserHelpers.replaceSelectedResults(resultsSelectionModel.selectedIndexes)
+    //     hiddenToolTip: targetIsTimeline ? "Load the selected into the timeline by REPLACING the current on-screen clip where possible (otherwise new clips are added to a new 'Unconformed' video track)." : "Replace the selected media in your current playlist with the selected search results above."
+    //     hiddenToolTipMaxWidth: 400
+    // }
+    // XsPrimaryButton{
+    //     enabled: !targetIsTimeline
+    //     text: "Replace"
+    //     Layout.fillHeight: true
+    //     Layout.preferredWidth: cellWidth
+    //     onClicked: ShotBrowserHelpers.replaceSelectedResults(resultsSelectionModel.selectedIndexes)
+    // }
 
-    XsPrimaryButton{
-        text: "Compare"
-        Layout.fillHeight: true
-        Layout.preferredWidth: cellWidth
-        onClicked: ShotBrowserHelpers.compareSelectedResults(resultsSelectionModel.selectedIndexes)
-    }
+    // XsPrimaryButton{
+    //     text: "Compare"
+    //     Layout.fillHeight: true
+    //     Layout.preferredWidth: cellWidth
+    //     onClicked: ShotBrowserHelpers.compareSelectedResults(resultsSelectionModel.selectedIndexes)
+    // }
 }

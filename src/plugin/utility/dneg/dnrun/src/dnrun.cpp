@@ -562,11 +562,11 @@ void DNRunPluginActor<T>::send_uri_request_to_plugin(
                             }
                         },
                         [=](error &err) mutable {
-                            spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err, spdlog::level::err);
                         });
             },
             [=](error &err) mutable {
-                spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err, spdlog::level::err);
             });
 }
 

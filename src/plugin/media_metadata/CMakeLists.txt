@@ -4,4 +4,8 @@ if (${OPENIMAGEIO_PLUGIN})
     add_src_and_test(openimageio)
 endif()
 
+if (${EXIF_PLUGIN})
+    add_src_and_test(exif)
+endif()
+
 build_studio_plugins("${STUDIO_PLUGINS}")

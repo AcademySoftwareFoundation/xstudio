@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "xstudio/atoms.hpp"
+#include "xstudio/bookmark/bookmark_actor.hpp"
+#include "xstudio/utility/notification_handler.hpp"
 
 #include "shotbrowser_engine_ui.hpp"
 #include "model_ui.hpp"
@@ -868,5 +870,59 @@ QFuture<QUrl> ShotBrowserEngine::downloadImageFuture(
                     .get<std::string>()));
         }
         return QUrl();
+    });
+}
+
+QFuture<QVariant> ShotBrowserEngine::downloadAnnotationsFuture(
+    const int entity_id,
+    const QString &entity) {
+
+    auto backend = backend_;
+
+    return QtConcurrent::run([=]() {
+        if (backend) {
+            scoped_actor sys{system()};
+            auto req = JsonStore(GetDownloadAnnotations);
+
+            req["entity_id"]    = entity_id;
+            req["entity"]       = StdFromQString(entity);
+
+            return mapFromValue(
+                request_receive_wait<JsonStore>(
+                    *sys, backend, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req));
+        }
+        return QVariant();
+    });
+}
+
+QFuture<QVariant> ShotBrowserEngine::assignAnnotationsFuture(
+    const int entity_id,
+    const QString &entity,
+    const QUuid &media_quuid) {
+
+    auto backend = backend_;
+    const auto media_uuid = UuidFromQUuid(media_quuid);
+
+    return QtConcurrent::run([=]() {
+        if (backend) {
+            scoped_actor sys{system()};
+
+            auto session = request_receive<caf::actor>(*sys, system().registry().template get<caf::actor>(studio_registry), session::session_atom_v);
+            auto bookmarks = request_receive<caf::actor>(*sys, session, bookmark::get_bookmark_atom_v);
+            auto media_actor = request_receive<caf::actor>(*sys, session, playlist::get_media_atom_v, media_uuid);
+
+            auto req = JsonStore(GetDownloadAnnotations);
+
+            req["entity_id"]    = entity_id;
+            req["entity"]       = StdFromQString(entity);
+
+            auto jsn = request_receive_wait<JsonStore>(
+                    *sys, backend, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req);
+
+            std::ignore = request_receive<UuidActorVector>(*sys, bookmarks, session::import_atom_v, UuidActor(media_uuid, media_actor), jsn);
+
+            return mapFromValue(jsn);
+        }
+        return QVariant();
     });
 }

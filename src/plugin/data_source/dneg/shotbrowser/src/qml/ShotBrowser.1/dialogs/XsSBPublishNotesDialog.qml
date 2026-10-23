@@ -28,7 +28,7 @@ XsWindow{
     property bool invalidPublish: false
 
     property alias notifyOwner: notifyCreatorCB.checked
-    property alias combineNotes: combineNotesCB.checked
+    // property alias combineNotes: combineNotesCB.checked
     property alias addFrameTimeCode: addFrameTimeCodeCB.checked
     property alias addPlaylistName: addPlaylistNameCB.checked
     property alias addNoteType: addNoteTypeCB.checked
@@ -129,7 +129,7 @@ XsWindow{
                     mediaUuids,
                     notifyOwner,
                     getNotifyGroups(),
-                    combineNotes,
+                    true, //combineNotes,
                     addFrameTimeCode,
                     addPlaylistName,
                     addNoteType,
@@ -149,7 +149,7 @@ XsWindow{
                 mediaUuids,
                 notifyOwner,
                 getNotifyGroups(),
-                combineNotes,
+                true, //combineNotes,
                 addFrameTimeCode,
                 addPlaylistName,
                 addNoteType,
@@ -501,22 +501,22 @@ XsWindow{
             }
         }
 
-        XsTextWithCheckBox {
-            id: combineNotesCB
-            Layout.fillWidth: true
-            Layout.preferredHeight: itemHeight
-            Layout.topMargin: itemHeight
+        // XsTextWithCheckBox {
+        //     id: combineNotesCB
+        //     Layout.fillWidth: true
+        //     Layout.preferredHeight: itemHeight
+        //     Layout.topMargin: itemHeight
 
-            text: "Combine multiple notes"
-            checked: prefs.value.combine
+        //     text: "Combine multiple notes"
+        //     checked: prefs.value.combine
 
-            onCheckedChanged: {
-                if(prefs.value.combine != checked) {
-                    updatePublish()
-                    prefs.storePreference("combine", checked)
-                }
-            }
-        }
+        //     onCheckedChanged: {
+        //         if(prefs.value.combine != checked) {
+        //             updatePublish()
+        //             prefs.storePreference("combine", checked)
+        //         }
+        //     }
+        // }
 
         XsTextWithCheckBox {
             id: addFrameTimeCodeCB
