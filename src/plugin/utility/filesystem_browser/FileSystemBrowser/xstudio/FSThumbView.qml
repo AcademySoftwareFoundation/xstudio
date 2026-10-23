@@ -34,6 +34,9 @@ Flickable {
     property var yMin: 0
     property var smallResultSet: scanResultsModel.numMediaFiles < 2000
 
+    property var thumbWidth: 160
+    property var thumbHeight: 120
+
     // When the user is scrolling we delay update of the windowBottom/windowTop 
     // properties until scrolling has stopped for 200ms, to avoid excessive 
     // thumbnail loading/unloading during scroll

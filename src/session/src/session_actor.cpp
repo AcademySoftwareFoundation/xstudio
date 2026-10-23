@@ -17,6 +17,7 @@
 #include "xstudio/global_store/global_store.hpp"
 #include "xstudio/json_store/json_store_actor.hpp"
 #include "xstudio/bookmark/bookmarks_actor.hpp"
+#include "xstudio/playhead/playhead_actor.hpp"
 #include "xstudio/playlist/playlist_actor.hpp"
 #include "xstudio/session/session_actor.hpp"
 #include "xstudio/utility/helpers.hpp"
@@ -612,7 +613,22 @@ void SessionActor::init() {
     ioactor_ = spawn<SessionIOActor>();
     link_to(ioactor_);
 
-    // // monitor serilise targets.
+    /* Here we create a playhead used exclusively for comparing multiple timelines,
+    which is a special 'mode' activated when the user selects multiple timelines
+    in the playlists */
+    timeline_compare_playhead_ = UuidActor(
+        playhead::PlayheadActor::TIMELINE_COMPARE_PLAYHEAD_UUID,
+        spawn<playhead::PlayheadActor>(
+            std::string("Multi Timeline Compare Playhead"),
+            playhead::GLOBAL_AUDIO,
+            caf::actor(),
+            playhead::PlayheadActor::TIMELINE_COMPARE_PLAYHEAD_UUID));
+
+    link_to(timeline_compare_playhead_.actor());
+    anon_mail(module::change_attribute_request_atom_v, "Compare", int(module::Attribute::Value), utility::JsonStore("Grid"))
+        .send(timeline_compare_playhead_.actor());
+
+        // // monitor serilise targets.
     // set_down_handler([=](down_msg &msg) {
     //     // find in playhead list..
     //     // if they don't unsubscribe we blow their data..!
@@ -739,7 +755,10 @@ caf::message_handler SessionActor::message_handler() {
         [=](timeline::item_selection_atom) -> UuidActorVector { return selection_; },
 
         [=](timeline::item_selection_atom, const UuidActorVector &selection) {
+
             selection_ = selection;
+            check_multi_timeline_mode();            
+
         },
 
         [=](get_push_playlist_atom) {
@@ -1623,52 +1642,7 @@ caf::message_handler SessionActor::message_handler() {
                                 .send(base_.event_group());
                         });
 
-                    // we need to ensure that the Playlist/Subset/Timeline has a playhead and
-                    // that this playhead is broadcast to viewport so they can attach to it.
-                    mail(playlist::create_playhead_atom_v)
-                        .request(viewedContainer_.actor(), infinite)
-                        .then(
-                            [=](utility::UuidActor &playhead) {
-                                // this is a bit nasty - I need to know if this SessionActor
-                                // is the *current* session (it could be a session that's being
-                                // imported)
-                                mail(session::session_atom_v)
-                                    .request(
-                                        system().registry().template get<caf::actor>(
-                                            studio_registry),
-                                        infinite)
-                                    .then(
-                                        [=](caf::actor session) {
-                                            // If  we are not THE active session. Don't try and
-                                            // switch
-                                            // the global playhead ...
-                                            if (caf::actor_cast<caf::actor>(this) != session)
-                                                return;
-
-                                            // this actually broadcasts, via the global playhead
-                                            // events actor, the new playhead to all viewports
-                                            // so they can attach to the playhead
-                                            auto playhead_events_actor =
-                                                system().registry().template get<caf::actor>(
-                                                    global_playhead_events_actor);
-
-                                            anon_mail(
-                                                ui::viewport::viewport_playhead_atom_v,
-                                                playhead.actor())
-                                                .send(playhead_events_actor);
-                                        },
-                                        [=](caf::error &err) {});
-
-
-                                mail(
-                                    utility::event_atom_v,
-                                    ui::viewport::viewport_playhead_atom_v,
-                                    playhead.uuid())
-                                    .send(base_.event_group());
-                            },
-                            [=](caf::error &err) {
-
-                            });
+                    setOnScreenPlayhead(true);
                 }
                 base_.set_viewed_playlist_uuid(viewedContainer_.uuid());
                 mail(
@@ -1750,6 +1724,26 @@ caf::message_handler SessionActor::message_handler() {
             mail(utility::event_atom_v, playlist::add_media_atom_v, uav)
                 .send(base_.event_group());
         },
+
+        [=](utility::event_atom, timeline::audio_mode_atom, const timeline::AudioMode am, caf::actor timeline, caf::actor playlist) {
+            // forwarded from timeline via playlist
+        },
+
+        [=](utility::event_atom, timeline::audio_mode_atom, const timeline::AudioMode am) {
+            // from timeline
+        },
+
+        [=](xstudio::utility::event_atom atom1,
+            xstudio::utility::change_atom atom2,
+            xstudio::timeline::clip_edited_status_atom atom3,
+            const utility::Uuid &clip_id,
+            const int status,
+            const utility::Uuid &track_id,
+            const utility::Uuid &stack_id,
+            const utility::Uuid &timeline_id,
+            const utility::Uuid &playlist_id) {
+            // coming from timeline (via playlist) to session. ignore.
+        },        
 
         [=](utility::event_atom,
             media::media_display_info_atom,
@@ -2028,9 +2022,9 @@ caf::message_handler SessionActor::message_handler() {
         [=](utility::event_atom,
             ui::viewport::viewport_playhead_atom,
             caf::actor live_playhead) {
+
             // the main, globally active playhead that pushes images to the
             // viewport (apart from QuickView windows) has changed....
-
             if (live_playhead) {
                 // we want to get the playlist/subset/timeline that owns this
                 // new playhead
@@ -2039,10 +2033,32 @@ caf::message_handler SessionActor::message_handler() {
                     .then(
                         [=](caf::actor_addr playhead_owner) {
                             // the playhead owner is a Playlist, Subset or Timeline
-                            anon_mail(
-                                session::viewport_active_media_container_atom_v,
-                                caf::actor_cast<caf::actor>(playhead_owner))
-                                .send(this);
+                            if (playhead_owner) {
+                                // from this message, we connect to the playlist
+                                // playhead etc.
+                                anon_mail(
+                                    session::viewport_active_media_container_atom_v,
+                                    caf::actor_cast<caf::actor>(playhead_owner))
+                                    .send(this);
+                            } else if (live_playhead) {
+                                // No parent playhead
+                                mail(utility::uuid_atom_v).request(live_playhead, infinite).then(
+                                    [=](const utility::Uuid & plyheaid) {
+                                        std::cerr << "plyheaid " << to_string(plyheaid) << "\n";
+                                        mail(
+                                            utility::event_atom_v,
+                                            ui::viewport::viewport_playhead_atom_v,
+                                            plyheaid)
+                                            .send(base_.event_group());
+                                    },
+                                    [=](caf::error &err) {});
+                            } else {
+                                mail(
+                                    utility::event_atom_v,
+                                    ui::viewport::viewport_playhead_atom_v,
+                                    utility::Uuid())
+                                    .send(base_.event_group());
+                            }
                         },
                         [=](caf::error &err) {});
             } else {
@@ -2653,4 +2669,184 @@ void SessionActor::gather_media_sources_add_media(
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                 rp.deliver(err);
             });
+}
+
+void SessionActor::check_multi_timeline_mode() {
+
+    /*
+
+        The intention here is that if the user is viewing a timeline and has then
+        selected one or more other timelines in the session (via Playlists panel
+        in the UI) then we go into ,multi-timeline compare mode. This is achieved
+        via a special playhead owned by the SessionActor which we set-up to 
+        compare the timelines.
+
+        Using a map here to preserve the ordering of the selection since the
+        type_atom request to each of the selected containers will 
+        return a result asynchronously
+    
+    */
+    auto clear_multi_select_playhead = [=]() mutable {
+
+        anon_mail(
+            playhead::source_atom_v,
+            UuidActor(),
+            utility::UuidActorVector())
+            .send(timeline_compare_playhead_.actor());
+
+        setOnScreenPlayhead(false);
+    };
+
+    bool viewed_timeline_is_selected = false;
+    for (auto & p: selection_) {
+        if (viewedContainer_ == p) {
+            viewed_timeline_is_selected = true;
+            break;
+        }
+    }
+    if (!viewed_timeline_is_selected) {
+        clear_multi_select_playhead();
+        return;
+    }
+
+    auto ct = std::make_shared<int>(selection_.size());
+    auto selected_timelines = std::make_shared<std::map<int,utility::UuidActor>>();
+
+    auto do_check = [=]() mutable {
+
+        auto update_playhead = [=]() mutable {
+            (*ct)--;
+            if (!*ct) {
+                if (selected_timelines->size() > 1) {
+
+                    utility::UuidActorVector s;
+                    for (const auto &p: *selected_timelines) {
+                        s.push_back(p.second);
+                    }
+
+                    // This message sets up the playhead to play each timeline
+                    // at the same time
+                    anon_mail(playhead::source_atom_v, viewedContainer_, s)
+                        .send(timeline_compare_playhead_.actor());
+
+                    // We now also need to activate our playhead (set it to
+                    // be the viewed playhead)
+                    auto playhead_events_actor =
+                        system().registry().template get<caf::actor>(global_playhead_events_actor);
+
+                    anon_mail(ui::viewport::viewport_playhead_atom_v, timeline_compare_playhead_.actor()).send(playhead_events_actor);
+
+
+                } else {
+                    // Not in multi-compare mode. Clear plahead.
+                    clear_multi_select_playhead();
+                }
+            }
+        };
+
+        for (int i = 0; i < int(selection_.size()); ++i) {
+            auto container_actor = selection_[i];
+            if (container_actor == viewedContainer_) {
+                update_playhead();
+                continue;
+            }
+            mail(utility::type_atom_v).request(container_actor.actor(), infinite).then(
+                [=](const std::string &type) mutable {
+                    if (type == "Timeline") {
+                        // selected_timelines respects selection order, except
+                        // for the  viewedContainer_ which will always be the
+                        // first item in selected_timelines
+                        (*selected_timelines)[i+1] = container_actor;
+                    }
+                    update_playhead();
+                },
+                [=](const caf::error &err) mutable {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    update_playhead();
+                });
+        }
+
+    };
+    
+    if (viewedContainer_.actor()) {
+        mail(utility::type_atom_v).request(viewedContainer_.actor(), infinite)
+            .then(
+                [=](const std::string &container_type) mutable {
+                    if (container_type == "Timeline") {
+                        // ensures the currently viewed timeline is the first
+                        // in the list of selected timelines (so it's first
+                        // item in list of sources that playhead sets up for
+                        // comparison)
+                        (*selected_timelines)[0] = viewedContainer_;
+                        do_check();
+                    } else {
+                        clear_multi_select_playhead();
+                    }
+                },
+                [=](error &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                });
+    }
+
+}
+
+void SessionActor::setOnScreenPlayhead(const bool check_if_current_session) {
+
+    // we need to ensure that the Playlist/Subset/Timeline has a playhead and
+    // that this playhead is broadcast to viewport so they can attach to it.
+    mail(playlist::create_playhead_atom_v)
+        .request(viewedContainer_.actor(), infinite)
+        .then(
+            [=](utility::UuidActor &playhead) {
+
+                if (check_if_current_session) {
+                    // this is a bit nasty - I need to know if this SessionActor
+                    // is the *current* session (it could be a session that's being
+                    // imported)
+                    mail(session::session_atom_v)
+                        .request(
+                            system().registry().template get<caf::actor>(
+                                studio_registry),
+                            infinite)
+                        .then(
+                            [=](caf::actor session) {
+                                // If  we are not THE active session. Don't try and
+                                // switch
+                                // the global playhead ...
+                                if (caf::actor_cast<caf::actor>(this) != session)
+                                    return;
+
+                                // this actually broadcasts, via the global playhead
+                                // events actor, the new playhead to all viewports
+                                // so they can attach to the playhead
+                                auto playhead_events_actor =
+                                    system().registry().template get<caf::actor>(
+                                        global_playhead_events_actor);
+
+                                anon_mail(
+                                    ui::viewport::viewport_playhead_atom_v,
+                                    playhead.actor())
+                                    .send(playhead_events_actor);
+                            },
+                            [=](caf::error &err) {});
+                } else {
+                    auto playhead_events_actor =
+                        system().registry().template get<caf::actor>(
+                            global_playhead_events_actor);
+
+                    anon_mail(
+                        ui::viewport::viewport_playhead_atom_v,
+                        playhead.actor()).send(playhead_events_actor);                    
+                }
+
+                mail(
+                    utility::event_atom_v,
+                    ui::viewport::viewport_playhead_atom_v,
+                    playhead.uuid())
+                    .send(base_.event_group());
+            },
+            [=](caf::error &err) {
+
+            });
+
 }

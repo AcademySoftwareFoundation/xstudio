@@ -220,23 +220,23 @@ class Playhead(ModuleBase):
         self.attrs_by_name_["Compare"].set_value(compare_mode)
 
     @property
-    def auto_align_mode(self):
-        """Get the auto align mode. e.g. "Off", "On", "On (Trim)", "Manual"
+    def frame_align_mode(self):
+        """Get the frame align mode. e.g. "Manual", "Auto", "Auto (Trim)"
 
         Returns:
-            auto_align_mode(str): The auto align mode.
+            frame_align_mode(str): The auto align mode.
         """
-        return self.attrs_by_name_["Auto Align"].value()
+        return self.attrs_by_name_["Frame Align"].value()
 
-    @auto_align_mode.setter
-    def auto_align_mode(self, align_mode):
-        """Set the auto align mode. In "Manual" mode per-source compare
+    @frame_align_mode.setter
+    def frame_align_mode(self, align_mode):
+        """Set the frame align mode. In "Manual" mode per-source compare
         offsets set via set_source_offset_frames are preserved across
         selection and compare mode changes.
 
         Args:
-            align_mode(str): "Off", "On", "On (Trim)" or "Manual"."""
-        self.attrs_by_name_["Auto Align"].set_value(align_mode)
+            align_mode(str): "Manual", "Auto", or "Auto (Trim)"."""
+        self.attrs_by_name_["Frame Align"].set_value(align_mode)
 
     @property
     def source_alignment_frames(self):
@@ -246,12 +246,14 @@ class Playhead(ModuleBase):
         Returns:
             source_alignment_frames(list(int)): Per-source frame offsets.
         """
-        return self.attrs_by_name_["Source Alignment Frames"].value()
+        import json
+        return json.loads(self.connection.request_receive(
+            self.remote, source_offset_frames_atom(), True)[0].dump())
 
     def set_source_offset_frames(self, source, offset):
         """Set the compare frame offset for one of the compared sources.
         A positive offset plays the source earlier. The offset only sticks
-        while auto_align_mode is "Manual" - other align modes recompute
+        while auto_align_mode is "Off" - other align modes recompute
         offsets on selection changes.
 
         Args:

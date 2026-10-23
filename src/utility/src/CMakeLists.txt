@@ -20,7 +20,6 @@ SET(LINK_DEPS
 	nlohmann_json::nlohmann_json
 	spdlog::spdlog
 	fmt::fmt
-	ZLIB::ZLIB
 )
 
 SET(STATIC_LINK_DEPS
@@ -29,7 +28,6 @@ SET(STATIC_LINK_DEPS
 	nlohmann_json::nlohmann_json
 	spdlog::spdlog
 	fmt::fmt
-	ZLIB::ZLIB
 )
 
 if(APPLE)
@@ -48,9 +46,10 @@ endif()
 
 create_component_static(utility ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}" "${STATIC_LINK_DEPS}")
 
-# OpenSSL is an implementation detail of md5_hash — keep it off the public link
-# interface so downstream consumers (plugins) don't need to find_package(OpenSSL).
+# OpenSSL (md5_hash) and ZLIB (json_store compression via zstr) are implementation
+# details — keep them off the public link interface so downstream consumers
+# (plugins) don't need to find_package(OpenSSL) / find_package(ZLIB).
 if(INSTALL_XSTUDIO)
-	target_link_libraries(utility PRIVATE OpenSSL::Crypto)
+	target_link_libraries(utility PRIVATE OpenSSL::Crypto ZLIB::ZLIB)
 endif()
-target_link_libraries(utility_static PRIVATE OpenSSL::Crypto)
+target_link_libraries(utility_static PRIVATE OpenSSL::Crypto ZLIB::ZLIB)

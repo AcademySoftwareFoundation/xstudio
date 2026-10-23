@@ -66,6 +66,7 @@ class ModuleAttribute:
                 converted_val,
                 JsonStore(attribute_role_data)
             )[0]
+        self.__name = None
 
     def role_data(self, role_name):
 
@@ -132,14 +133,16 @@ class ModuleAttribute:
     @property
     def name(self):
 
-        return self.connection.request_receive(
-            self.parent_remote,
-            attribute_value_atom(),
-            self.uuid,
-            int(AttributeRole.Title)
-            )[0].get()
+        if not self.__name:
+            self.__name = self.connection.request_receive(
+                self.parent_remote,
+                attribute_value_atom(),
+                self.uuid,
+                int(AttributeRole.Title)
+                )[0].get()
+        return self.__name
 
-    def set_value(self, value):
+    def set_value(self, value, notify=None):
 
         if isinstance(value, list):
             pass
@@ -151,11 +154,19 @@ class ModuleAttribute:
         elif not isinstance(value, JsonStore):
             value = JsonStore(value)
 
-        self.connection.send(
-            self.parent_remote,
-            attribute_value_atom(),
-            self.uuid,
-            value)
+        if notify == None:
+            self.connection.send(
+                self.parent_remote,
+                attribute_value_atom(),
+                self.uuid,
+                value)
+        else:
+            self.connection.send(
+                self.parent_remote,
+                attribute_value_atom(),
+                self.uuid,
+                value,
+                notify)
 
     def add_to_preferences(self):
 

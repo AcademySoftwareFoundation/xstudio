@@ -30,6 +30,9 @@ class AnnotationsCore : public plugin::StandardPlugin {
         const std::string viewport_name,
         const bool playhead_playing) override;
 
+    void maybe_broadcast_streamed_frame(
+        const std::string &viewport_name, const bool playhead_playing);
+
     utility::BlindDataObjectPtr onscreen_render_data(
         const media_reader::ImageBufPtr &,
         const std::string & /*viewport_name*/,
@@ -56,7 +59,11 @@ class AnnotationsCore : public plugin::StandardPlugin {
     // some overlay graphics needed.
     struct LiveEdit {
         media_reader::ImageBufPtr annotated_image;
+        // committed laser strokes that are fading out (mouse already released)
         std::vector<std::shared_ptr<ui::canvas::Stroke>> laser_strokes;
+        // the in-progress laser stroke (mouse still held); never fades and is
+        // moved into laser_strokes on completion. Mirrors live_stroke.
+        std::shared_ptr<ui::canvas::Stroke> live_laser_stroke;
         std::shared_ptr<ui::canvas::Stroke> live_stroke;
         std::shared_ptr<ui::canvas::Caption> live_caption;
         ui::canvas::Canvas::ItemType item_type = {ui::canvas::Canvas::ItemType::None};
@@ -147,12 +154,53 @@ class AnnotationsCore : public plugin::StandardPlugin {
     void broadcast_live_laser_stroke(
         const utility::Uuid &user_id, const bool stroke_completed = false);
 
+    // The on-screen image set of the streaming (offscreen) viewport - the one
+    // the video encoder flagged for stroke suppression - or, failing that, any
+    // viewport with images (the cell layout is view-independent). Null when no
+    // viewport is known.
+    const media_reader::ImageBufDisplaySetPtr *streaming_images() const;
+
+    // For the streaming (offscreen) viewport, build the per-cell layout table
+    // (each on-screen image's layout_transform, indexed by cell) and set
+    // `image_index` to the cell whose frame matches `annotated_image`. Lets the
+    // web client position streamed strokes per grid cell without a per-stroke
+    // matrix. In single-image mode the table is one identity entry and
+    // image_index is 0. Empty table when no streaming viewport / on-screen
+    // images are known.
+    void streaming_grid_layout(
+        const media_reader::ImageBufPtr &annotated_image,
+        int &image_index,
+        std::vector<Imath::M44f> &layout_table) const;
+
+    // Broadcast an authoritative post-mutation snapshot of EVERY annotation on
+    // the streaming viewport's on-screen images (frame scope), substituting
+    // `anno` for `bookmark_uuid` - the images can hold a stale pointer for the
+    // annotation that was just modified, because bookmark writes are queued.
+    // The web client replaces its committed stroke set wholesale with this
+    // snapshot; its own in-flight strokes ride a separate prediction overlay
+    // until their id appears in one of these snapshots.
+    // `frame_changed` marks a snapshot triggered by the streamed FRAME
+    // changing (not an edit): clients apply it in sync with the delayed video
+    // (holding the previous frame's strokes over the playout window) instead
+    // of immediately.
+    void broadcast_committed_annotation(
+        const bookmark::AnnotationBasePtr &anno,
+        const utility::Uuid &bookmark_uuid,
+        const media_reader::ImageBufPtr &annotated_image,
+        const bool frame_changed = false);
+
+    // move the in-progress laser stroke into the fading set; this is what
+    // starts the fade (called when the stroke is complete / mouse released)
+    void commit_laser_stroke(LiveEditData &user_edit_data);
+
     void start_cursor_blink();
 
     void fade_all_laser_strokes();
 
     void annotation_about_to_be_edited(
-        const bookmark::AnnotationBasePtr &anno, const utility::Uuid &anno_uuid);
+        const bookmark::AnnotationBasePtr &anno,
+        const utility::Uuid &anno_uuid,
+        const media_reader::ImageBufPtr &annotated_image = media_reader::ImageBufPtr());
 
     void remove_bookmark(const utility::Uuid &bookmark_id) {
         plugin::StandardPlugin::remove_bookmark(bookmark_id);
@@ -195,6 +243,19 @@ class AnnotationsCore : public plugin::StandardPlugin {
     std::map<std::string, Imath::M44f> viewport_transforms_;
     std::map<std::string, media_reader::ImageBufDisplaySetPtr> viewport_current_images_;
 
+    // Last per-cell layout table broadcast for the streaming viewport - used to
+    // broadcast the table only when the layout actually changes (compare-mode /
+    // grid switch, or first frame on screen), so the web client knows the cell
+    // layout before any annotation event happens.
+    std::vector<Imath::M44f> last_streamed_layout_table_;
+
+    // Frame keys of the streaming viewport's on-screen images when we last
+    // broadcast a frame-change snapshot. The stream never carries strokes, so
+    // clients depend on a snapshot arriving when the streamed frame changes -
+    // this dedupes that anchor. Cleared during playback so the first paused
+    // frame always broadcasts.
+    std::vector<std::string> last_streamed_frame_keys_;
+
     module::StringAttribute *note_category_{nullptr};
     module::StringAttribute *note_colour_{nullptr};
 
@@ -205,6 +266,15 @@ class AnnotationsCore : public plugin::StandardPlugin {
     std::atomic_bool cursor_blink_;
     std::map<std::string, std::atomic_int *> hide_strokes_per_viewport_;
     std::map<std::string, std::atomic_bool *> hide_all_per_viewport_;
+    std::map<std::string, std::atomic_int *> visibility_override_per_viewport_;
+
+    // current AnnotationsVisibilityOverride for the given viewport
+    // (VO_DEFAULT if none has been set)
+    int visibility_override(const std::string &viewport_name) const {
+        auto p = visibility_override_per_viewport_.find(viewport_name);
+        return p != visibility_override_per_viewport_.end() ? p->second->load()
+                                                            : (int)VO_DEFAULT;
+    }
     caf::actor live_edit_event_group_;
     caf::actor draw_events_event_group_;
     utility::Uuid current_edited_annotation_uuid_;

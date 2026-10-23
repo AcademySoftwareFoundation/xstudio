@@ -35,7 +35,8 @@ class BookmarksActor : public caf::event_based_actor {
     void csv_export(
         caf::typed_response_promise<std::pair<std::string, std::vector<std::byte>>> rp,
         const session::ExportFormat ef,
-        const caf::uri &path);
+        const caf::uri &path,
+        const utility::UuidVector &bookmarks=utility::UuidVector());
 
     void monitor_bookmark(const caf::actor &actor);
 

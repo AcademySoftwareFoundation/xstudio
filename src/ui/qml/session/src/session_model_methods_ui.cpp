@@ -44,16 +44,28 @@ QString SessionModel::getNextName(const QString &nameTemplate) const {
     return result;
 }
 
-void SessionModel::setSessionSelection(const QModelIndexList &indexes) const {
+void SessionModel::setSessionSelection(const QModelIndexList &indexes) {
     try {
         UuidActorVector selection;
 
+        QModelIndexList timelines;
         for (auto &i : indexes) {
             selection.emplace_back(UuidActor(
                 UuidFromQUuid(i.data(actorUuidRole).toUuid()),
                 actorFromQString(system(), i.data(actorRole).toString())));
+
+            if (i.isValid() && i.data(typeRole) == QString("Timeline")) {
+                timelines.push_back(i);
+            }
+
         }
         anon_mail(timeline::item_selection_atom_v, selection).send(session_actor_);
+
+        if (timelines != multi_select_timeline_indeces_) {
+            multi_select_timeline_indeces_ = timelines;
+            emit selectedTimelinesIndecesChanged();
+        }
+
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
@@ -238,6 +250,10 @@ void SessionModel::updateCurrentMediaContainerIndexFromBackend() {
 
         if (r != current_playlist_index_) {
             current_playlist_index_ = r;
+            if (data(current_playlist_index_, typeRole) == QString("Timeline")) {
+                last_timeline_index_ = current_playlist_index_;
+                emit lastTimelineIndexChanged();
+            }
             emit currentMediaContainerChanged();
         }
 
@@ -1383,6 +1399,37 @@ QFuture<QUrl> SessionModel::getThumbnailURLFuture(const QModelIndex &index, cons
 
         return QUrl(thumburl);
     });
+}
+
+
+QFuture<QList<QUuid>> SessionModel::getBookmarksFuture(
+        const QModelIndexList &indexes) {
+
+    return QtConcurrent::run([=]() {
+        auto result = QList<QUuid>();
+        scoped_actor sys{system()};
+
+        for (const auto &index : indexes) {
+            if (index.isValid()) {
+                nlohmann::json &j = indexToData(index);
+                // spdlog::warn("{}", j.at("type").dump(2));
+                if (j.at("type") != "ContainerDivider") {
+                    auto actor = actorFromString(system(), j.at("actor"));
+                    if (actor) {
+                        auto media = request_receive<std::vector<UuidActor>>(*sys, actor, playlist::get_media_atom_v);
+                        for(const auto &m: media) {
+                            auto mb = request_receive<utility::UuidList>(*sys, m.actor(), bookmark::get_bookmarks_atom_v);
+                            for(const auto &m : mb)
+                                result.emplace_back(QUuidFromUuid(m));
+                        }
+                    }
+                }
+            }
+        }
+
+        return result;
+    });
+
 }
 
 QFuture<bool> SessionModel::clearCacheFuture(const QModelIndexList &indexes) {

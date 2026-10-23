@@ -11,14 +11,18 @@
 namespace xstudio::shotgun_client {
 class ShotgunClientActor : public caf::event_based_actor {
   public:
-    ShotgunClientActor(caf::actor_config &cfg);
+    ShotgunClientActor(
+        caf::actor_config &cfg,
+        const time_t &connection_timeout = CPPHTTPLIB_CONNECTION_TIMEOUT_SECOND,
+        const time_t &read_timeout       = 10,
+        const time_t &write_timeout      = 10
+    );
     ~ShotgunClientActor() override = default;
 
     [[nodiscard]] const char *name() const override { return NAME.c_str(); }
 
   private:
     inline static const std::string NAME = "ShotgunClientActor";
-    void init();
     caf::behavior make_behavior() override { return behavior_; }
 
     template <typename T> void authenticate(T rp, std::function<void()> lambda) {

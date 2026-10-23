@@ -29,10 +29,9 @@ void py_playhead(py::module_ &m) {
         .export_values();
 
     py::enum_<playhead::AutoAlignMode>(m, "AutoAlignMode")
-        .value("AAM_ALIGN_OFF", playhead::AutoAlignMode::AAM_ALIGN_OFF)
-        .value("AAM_ALIGN_FRAMES", playhead::AutoAlignMode::AAM_ALIGN_FRAMES)
-        .value("AAM_ALIGN_TRIM", playhead::AutoAlignMode::AAM_ALIGN_TRIM)
         .value("AAM_ALIGN_MANUAL", playhead::AutoAlignMode::AAM_ALIGN_MANUAL)
+        .value("AAM_ALIGN_AUTO", playhead::AutoAlignMode::AAM_ALIGN_AUTO)
+        .value("AAM_ALIGN_AUTO_TRIM", playhead::AutoAlignMode::AAM_ALIGN_AUTO_TRIM)
         .export_values();
 
     py::enum_<playhead::LoopMode>(m, "LoopMode")

@@ -442,7 +442,6 @@ caf::message_handler StackActor::message_handler() {
                     return;
                 }
             }
-
             mail(event_atom_v, item_atom_v, update, hidden).send(base_.event_group());
         },
 
@@ -604,6 +603,51 @@ caf::message_handler StackActor::message_handler() {
             return rp;
         },
 
+        [=](duplicate_atom, const utility::UuidVector &selection_for_duplication) -> result<UuidActorVector> {
+
+            // called from TimelineActor ... we duplicate any tracks in 'selection_for_duplication'
+            // or any tracks with clips in 'selection_for_duplication' (but replacing clips that are
+            // not in selection_for_duplication with Gaps).
+            auto rp = make_response_promise<UuidActorVector>();
+
+            bool in_selection = false;
+            for (const auto &i : selection_for_duplication) {
+                auto item = find_item(base_.item().children(), i);
+                if (item) {
+                    in_selection = true;
+                }
+            }
+
+            if (not in_selection) {
+                rp.deliver(UuidActor());
+            } else {
+
+                if (actors_.empty()) {
+                    rp.deliver(UuidActorVector());
+                } else {
+                    // duplicate all children and relink against items.
+                    scoped_actor sys{system()};
+                    UuidActorVector r;
+
+                    for (const auto &i : base_.children()) {
+                        auto ua =
+                            request_receive<UuidActor>(
+                                *sys,
+                                actors_[i.uuid()],
+                                duplicate_atom_v,
+                                selection_for_duplication
+                            );
+                        if (ua) {
+                            r.push_back(ua);
+                        }
+                    }
+                    rp.deliver(r);
+                }
+            }
+            return rp;
+
+        },
+
         [=](duplicate_atom) -> result<UuidActor> {
             auto rp = make_response_promise<UuidActor>();
             JsonStore jsn;
@@ -634,6 +678,13 @@ caf::message_handler StackActor::message_handler() {
 
         [=](event_atom, change_atom) {
             mail(event_atom_v, change_atom_v).send(base_.event_group());
+        },
+
+        [=](event_atom, change_atom, clip_edited_status_atom, const utility::Uuid clip_id, const int edited_status, const utility::Uuid track_id) {
+
+            // event coming from a clip via track. Pass up to timeline
+            mail(event_atom_v, change_atom_v, clip_edited_status_atom_v, clip_id, edited_status, track_id, base_.item().uuid()).send(base_.event_group());
+
         },
 
         [=](serialise_atom) -> result<JsonStore> {
@@ -726,6 +777,7 @@ void StackActor::insert_items(
             vector_to_caf_actor_vector(uav), infinite, item_atom_v)
             .then(
                 [=](std::vector<Item> items) mutable {
+
                     // items are valid for insertion ?
                     for (const auto &i : items) {
                         if (not base_.item().valid_child(i))

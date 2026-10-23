@@ -49,7 +49,6 @@ XsWindow{
         studio.setupSnapshotViewport("")
     }
 
-
     onProjectIdChanged: ShotBrowserEngine.cacheProject(projectId)
 
     onNotesCountChanged:{

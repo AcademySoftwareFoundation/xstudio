@@ -204,6 +204,9 @@ class HELPER_QML_EXPORT MenuModelItem : public caf::mixin::actor_object<QObject>
 
     virtual void init(caf::actor_system &system);
 
+    Q_PROPERTY(
+        QObject *panelContext READ panelContext WRITE setPanelContext NOTIFY
+            panelContextChanged)
     Q_PROPERTY(QString menuPath READ menuPath WRITE setMenuPath NOTIFY menuPathChanged)
     Q_PROPERTY(QString text READ text WRITE setText NOTIFY textChanged)
     Q_PROPERTY(
@@ -227,9 +230,6 @@ class HELPER_QML_EXPORT MenuModelItem : public caf::mixin::actor_object<QObject>
             customMenuQmlChanged)
     Q_PROPERTY(QVariant userData READ userData WRITE setUserData NOTIFY userDataChanged)
     Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
-    Q_PROPERTY(
-        QObject *panelContext READ panelContext WRITE setPanelContext NOTIFY
-            panelContextChanged)
     Q_PROPERTY(
         QString menuToolTip READ menuToolTip WRITE setMenuToolTip NOTIFY menuToolTipChanged)
 

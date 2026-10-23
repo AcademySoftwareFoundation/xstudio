@@ -147,11 +147,26 @@ Rectangle {
             Component {
                 id: selection_index
                 XsMediaTextItem {
-                    text: selectionIndex ? selectionIndex : ""
+                    text: selectionIndex && !notify.visible ? selectionIndex : ""
                     width: size
                     height: itemRowHeight
                     leftMargin: 2
                     isIndex: true
+                    // notify widget
+                    property bool forcedHover: hovered
+
+                    XsNotification {
+                        id: notify
+                        hovered: forcedHover
+                        anchors.centerIn: parent
+
+                        width: Math.min(parent.width, parent.height) - 5
+                        height: Math.min(parent.width, parent.height) - 5
+                        visible: notificationRole !== undefined && notificationRole.length
+                        text: notificationRole !== undefined && notificationRole.length ? notificationRole[0].text : ""
+                        type: notificationRole !== undefined && notificationRole.length ? notificationRole[0].type : ""
+                        percentage: notificationRole !== undefined && notificationRole.length ? notificationRole[0].progress_percent || 0.0 : 0.0
+                    }
                 }
             }
             Component {

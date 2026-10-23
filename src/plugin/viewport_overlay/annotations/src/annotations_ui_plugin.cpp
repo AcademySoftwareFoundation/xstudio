@@ -252,6 +252,12 @@ void AnnotationsUI::attribute_changed(const utility::Uuid &attribute_uuid, const
 
         if (current_tool() != Dropper) {
 
+            // picking a drawing tool re-enables annotation visibility (no-op
+            // if already visible)
+            annotations_visible_->set_value(true);
+            // the event is sent unconditionally as we may be restoring the
+            // transient hide from Dropper colour-picking, which does not go
+            // through the Visibility attribute
             utility::JsonStore payload;
             send_event("ShowDrawings", payload);
             pixel_patch_.hide();
@@ -314,21 +320,22 @@ void AnnotationsUI::attribute_changed(const utility::Uuid &attribute_uuid, const
                 undo(viewport);
             } else if (action == "Redo") {
                 redo(viewport);
-            } else if (action == "HideVisibility") {
-                annotations_visible_->set_value(false);
-                colour_picker_hide_drawings_->set_value(true, false);
-                utility::JsonStore payload;
-                send_event("HideDrawings", payload);
-            } else if (action == "ShowVisibility") {
-                annotations_visible_->set_value(true);
-                colour_picker_hide_drawings_->set_value(false, false);
-                utility::JsonStore payload;
-                send_event("ShowDrawings", payload);
             }
 
             action_attribute_->set_role_data(
                 module::Attribute::Value, std::vector<std::string>(), false);
         }
+
+    } else if (attribute_uuid == annotations_visible_->uuid()) {
+
+        // "Visibility" is the single source of truth for the global show/hide
+        // of annotations - it can be set from the toolbox button, the hotkey,
+        // tool selection or externally (e.g. the sync plugin when a review
+        // client toggles visibility). All side-effects of the toggle happen
+        // here so every writer behaves identically.
+        colour_picker_hide_drawings_->set_value(!annotations_visible_->value(), false);
+        utility::JsonStore payload;
+        send_event(annotations_visible_->value() ? "ShowDrawings" : "HideDrawings", payload);
 
     } else if (attribute_uuid == display_mode_attribute_->uuid()) {
 
@@ -490,10 +497,7 @@ void AnnotationsUI::hotkey_pressed(
         last_tool_ = current_tool();
         active_tool_->set_value(tool_name(Dropper));
     } else if (hotkey_uuid == toggle_visibility_hotkey_) {
-        const std::string visibility_action =
-            annotations_visible_->value() ? "HideVisibility" : "ShowVisibility";
-        action_attribute_->set_role_data(
-            module::Attribute::Value, std::vector<std::string>{visibility_action, context});
+        annotations_visible_->set_value(!annotations_visible_->value());
     }
 }
 

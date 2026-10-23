@@ -32,11 +32,11 @@ class py_context : public py_config {
 
     virtual ~py_context();
 
-    std::optional<message> py_build_message(const py::args &xs);
+    std::optional<message> py_build_message(const py::args &xs, int skip_args=1);
     void py_send(const py::args &xs);
     void py_join(const py::args &xs);
     void py_leave(const py::args &xs);
-    uint64_t py_request(const py::args &xs);
+    py::tuple py_request(const py::args &xs);
     void py_send_exit(const py::args &xs);
     py::tuple
     tuple_from_message(const message_id mid, const strong_actor_ptr sender, const message &msg);
@@ -47,6 +47,7 @@ class py_context : public py_config {
     execute_event_callback(const caf::message &msg, const xstudio::utility::Uuid &callback_id);
     void erase_func(py::function &callback_func);
 
+    void py_wait_for_xstudio_exit();
     py::tuple py_dequeue();
     py::tuple py_dequeue_with_timeout(xstudio::utility::absolute_receive_timeout timeout);
     xstudio::utility::Uuid py_add_message_callback(const py::args &xs);
@@ -67,6 +68,13 @@ class py_context : public py_config {
     bool connect_local(caf::actor actor);
     std::string host() { return host_; }
     uint16_t port() { return port_; }
+    void xstudio_down() { 
+      {
+        std::lock_guard l(mutex_);
+        remote_has_exited_ = true;
+      }
+      cv_.notify_one();
+    }
 
 
   public:
@@ -93,8 +101,12 @@ class py_context : public py_config {
     scoped_actor self_;
     actor remote_;
     actor embedded_python_actor_;
+    actor exit_monitor_;
     py::function my_func;
-    std::thread my_thread;
+
+    bool remote_has_exited_;
+    std::mutex mutex_;
+    std::condition_variable cv_;
 
     caf::actor message_callback_handler_actor_;
     std::map<xstudio::utility::Uuid, py::function> message_callback_funcs_;

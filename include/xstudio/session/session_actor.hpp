@@ -110,6 +110,8 @@ class SessionActor : public caf::event_based_actor {
     }
 
     void check_media_hook_plugin_version(const utility::JsonStore &jsn, const caf::uri &path);
+    void check_multi_timeline_mode();
+    void setOnScreenPlayhead(const bool check_if_current_session);
 
     utility::NotificationHandler notification_;
 
@@ -126,6 +128,7 @@ class SessionActor : public caf::event_based_actor {
     // store gui conext information
     utility::UuidActor viewedContainer_;
     utility::UuidActor inspectedContainer_;
+    utility::UuidActor timeline_compare_playhead_;
 
     utility::UuidActorVector selection_;
 

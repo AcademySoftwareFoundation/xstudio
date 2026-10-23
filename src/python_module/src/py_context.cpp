@@ -13,6 +13,25 @@
 
 namespace caf::python {
 
+class ExitMonitor: public caf::event_based_actor {
+  public:
+    ExitMonitor(caf::actor_config &cfg, py_context *context)
+    : caf::event_based_actor(cfg), context_(context) {
+
+        behavior_.assign(
+            [=](node_down_msg &_msg) {
+                context_->xstudio_down();
+            });
+    }
+
+    ~ExitMonitor() override = default;
+
+    caf::behavior behavior_;
+    py_context *context_;
+
+    caf::behavior make_behavior() override { return behavior_; }
+};
+
 /* This actor receives event messages from actors (xstudio components) that
 Python plugins want to get messages from. It then sends the message back
 to the py_context object which has registered the python callback functions
@@ -135,16 +154,19 @@ py_context::py_context(int argc, char **argv)
 
 py_context::~py_context() {
     // shutdown system
+    if (exit_monitor_) {
+        self_->send_exit(exit_monitor_, caf::exit_reason::user_shutdown);
+    }
     disconnect();
 }
 
-std::optional<message> py_context::py_build_message(const py::args &xs) {
+std::optional<message> py_context::py_build_message(const py::args &xs, int skip_args) {
     if (xs.size() < 2) {
         set_py_exception("Too few arguments to call build_message");
         return {};
     }
     auto i = xs.begin();
-    ++i;
+    while (skip_args--) ++i;
     message_builder mb;
     for (; i != xs.end(); ++i) {
         std::string type_name = PyEval_GetFuncName((*i).ptr());
@@ -323,20 +345,95 @@ void py_context::execute_event_callback(
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
 
-uint64_t py_context::py_request(const py::args &xs) {
+static std::mutex mmm;
+
+py::tuple py_context::py_request(const py::args &xs) {
+
+    // this is called from Connection Python class
+
+    py::tuple result;
     if (xs.size() < 2) {
         set_py_exception("Too few arguments to call CAF.request");
-        return 0;
+        return result;
     }
     auto i    = xs.begin();
+    auto timeout_milliseconds = (*i).cast<int64_t>();
+    ++i;
     auto dest = (*i).cast<actor>();
-    auto msg  = py_build_message(xs);
+    auto msg  = py_build_message(xs, 2);
 
     if (msg) {
+
+        // send the request - this gives us a message id which we use to
+        // retrieve the result from the mailbox.
+
+        // Note: the GIL is held here, so as far as I know it's impossible for
+        // another request to be made before we get the result that we are
+        // looking for (in other words messages coming in out-of-order or 
+        // other async issues should not trouble us)
         auto reqhan = self_->request(dest, caf::infinite, *msg);
-        return reqhan.id().request_id().integer_value();
+
+        if (self_->has_next_message()) {
+            // Not sure if we'll ever get the message back here but just in case
+            mailbox_element_ptr ptr = self_->next_message();
+            if (ptr) {
+                if (ptr->mid.request_id().integer_value() == reqhan.id().request_id().integer_value()) {
+                    if (ptr->content().match_element<caf::error>(0)) {
+                        set_py_exception(to_string(ptr->content().get_as<caf::error>(0)));
+                        return py::tuple{}; 
+                    }
+                    return tuple_from_message(ptr->mid, ptr->sender, std::move(ptr->content()));
+                }
+            }
+        }
+
+        // loop here until we time-out or we get the result we're looking for.
+        while (1) {
+
+            auto t0 = std::chrono::high_resolution_clock::now();
+            auto to = t0 + std::chrono::milliseconds(timeout_milliseconds);
+            {
+                // Note: I have tried releasing the GIL here, so that other 
+                // python threads can proceed. However, sometimes we get a 
+                // lockup when  the scoped release goes of our scope and it 
+                // tries to re-acquire the GIL - not been able to resolve this
+                // so far.
+                // py::gil_scoped_release release;        
+
+                // blocking wait with timeout
+                if (!self_->await_data(to)) {
+                    set_py_exception(R"(Dequeue timeout)");
+                    return py::tuple{};
+                }
+
+            }
+            mailbox_element_ptr ptr = self_->next_message();
+            if (ptr) {
+                if (ptr->mid.request_id().integer_value() == reqhan.id().request_id().integer_value()) {
+                    if (ptr->content().match_element<caf::error>(0)) {
+                        set_py_exception(to_string(ptr->content().get_as<caf::error>(0)));
+                        return py::tuple{}; 
+                    }
+                    return tuple_from_message(ptr->mid, ptr->sender, std::move(ptr->content()));
+                } else {
+                    //std::cerr << "Missed message " << to_string(ptr->content()) << "\n";
+                }
+            }
+
+            timeout_milliseconds -= std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()-t0).count();
+            if (timeout_milliseconds < 0) {
+                set_py_exception(R"(Dequeue timeout)");
+                return py::tuple{};
+            }
+        }
     }
-    return 0;
+    return py::tuple{};
+}
+
+void py_context::py_wait_for_xstudio_exit() {
+    py::gil_scoped_release release;
+    std::unique_lock lk(mutex_);
+    cv_.wait(lk, [this]{ return remote_has_exited_; });
 }
 
 #ifdef __GNUC__ // Check if GCC compiler is being used
@@ -356,6 +453,7 @@ void py_context::py_send_exit(const py::args &xs) {
 
 py::tuple py_context::tuple_from_message(
     const message_id mid, const strong_actor_ptr sender, const message &msg) {
+
     py::tuple result(msg.size() + 2);
     // spdlog::warn("is_async {}, is_request {}, is_response {} msg size {}",
     // mid.is_async(), mid.is_request(), mid.is_response(), msg.size());
@@ -420,18 +518,22 @@ py::tuple
 py_context::py_dequeue_with_timeout(xstudio::utility::absolute_receive_timeout timeout) {
     mailbox_element_ptr ptr = nullptr;
 
-    if (self_->has_next_message()) {
-        // std::cout << "has message already" << std::endl;
-        ptr = self_->next_message();
-    }
+    {
+        //py::gil_scoped_release release;
 
-    while (!ptr) {
-        if (!self_->await_data(timeout.value())) {
-            set_py_exception(R"(Dequeue timeout)");
-            return py::tuple{};
+        if (self_->has_next_message()) {
+            // std::cout << "has message already" << std::endl;
+            ptr = self_->next_message();
         }
-        // std::cout << "got message" << std::endl;
-        ptr = self_->next_message();
+
+        while (!ptr) {
+            if (!self_->await_data(timeout.value())) {
+                set_py_exception(R"(Dequeue timeout)");
+                return py::tuple{};
+            }
+            // std::cout << "got message" << std::endl;
+            ptr = self_->next_message();
+        }
     }
     return tuple_from_message(ptr->mid, ptr->sender, std::move(ptr->content()));
 }
@@ -509,11 +611,15 @@ bool py_context::connect_remote(std::string host, uint16_t port) {
     embedded_python_actor_ =
         system_.registry().template get<caf::actor>(xstudio::embedded_python_registry);
 
+    exit_monitor_ = system_.spawn<ExitMonitor>(this);
+
     auto actor = system_.middleman().remote_actor(host, port);
     if (actor) {
         remote_ = *actor;
         host_   = host;
         port_   = port;
+        system_.monitor(remote_.node(), caf::actor_cast<caf::actor_addr>(exit_monitor_));
+        remote_has_exited_ = false;
     }
     return static_cast<bool>(actor);
 }

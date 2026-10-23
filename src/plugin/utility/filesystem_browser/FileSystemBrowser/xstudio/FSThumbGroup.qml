@@ -14,7 +14,7 @@ Item {
     property var thumbsModelIndex
 
     //Layout.preferredHeight: num_thumbnail_rows*130 + header.height + 10
-    implicitHeight: Math.ceil(file_count/scanResultsModel.numThumbnailCols)*120 + header.height
+    implicitHeight: Math.ceil(file_count/scanResultsModel.numThumbnailCols)*thumbHeight + header.height
 
     property bool strictlyVisible: (y < thumbFlickable.windowTop) && (y+height) > (thumbFlickable.windowBottom)
     property bool visibleInFlickable: smallResultSet || ((y < thumbFlickable.windowTopMore) && (y+height) > (thumbFlickable.windowBottomMore))
@@ -53,29 +53,35 @@ Item {
         rootIndex: thumbsModelIndex//visibleInFlickable ? thumbsModelIndex : undefined
         delegate: FSThumbItem {
             rooty: thumbGroup.y + header.height
-            width: 160
-            height: 120
+            width: thumbWidth
+            height: thumbHeight
         }
     }
+
+    property int underMouseRow: -1
 
     Connections {
         target: mouseArea
         enabled: thumbGroup.strictlyVisible
         function onPositionChanged(mouse) {
             var pt = mouseArea.mapToItem(thumbGroup, mouse.x, mouse.y)
-            var row = Math.floor((pt.y-40)/120)
-            var col = Math.floor(pt.x/160)
-            var index = scanResultsModel.index(row*scanResultsModel.numThumbnailCols + col, 0, thumbsModelIndex)
-            if (index.valid) {
-                var item = thumbRepeater.itemAt(index.row)
-                if (item) {
-                    underMouseIndex = index
-                    return true
+            var row = Math.floor((pt.y-header.height)/thumbHeight)
+            var col = Math.floor(pt.x/thumbWidth)
+            let ur = row*scanResultsModel.numThumbnailCols + col
+            if (ur != underMouseRow) {
+                underMouseRow = ur
+                var index = scanResultsModel.index(ur, 0, thumbsModelIndex)
+                if (index.valid) {
+                    var item = thumbRepeater.itemAt(index.row)
+                    if (item) {
+                        underMouseIndex = index
+                        return
+                    }
                 }
+                underMouseRow = -1
             }
-            if (pt.y > 0 && pt.y < header.height && pt.x > 0 && pt.x < header.width) {
+            if (pt.y > 0 && pt.y < header.height && pt.x > 0 && pt.x < header.width && underMouseIndex != thumbsModelIndex) {
                 underMouseIndex = thumbsModelIndex
-                return true
             }
         }
         function onPressed() {

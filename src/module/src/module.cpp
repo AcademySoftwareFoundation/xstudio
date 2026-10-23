@@ -618,6 +618,39 @@ caf::message_handler Module::message_handler() {
 
          [=](attribute_value_atom,
              const utility::Uuid &attr_uuid,
+             const utility::JsonStore &value,
+             const bool notify) -> result<bool> {
+
+             try {
+
+                 for (const auto &p : attributes_) {
+                     if (p->uuid() == attr_uuid) {
+
+                         if (value.is_null() &&
+                             p->role_data_as_json(Attribute::Value).is_null()) {
+                             // attribute role data class currently triggers its 'notify'
+                             // mechanism when setting null to null. Needs a fix.
+                             return false;
+                         }
+                         p->set_role_data(Attribute::Value, value, notify);
+                         return true;
+                     }
+                 }
+
+                 const std::string err = std::string("Request for set attribute on module \"") +
+                                         name_ +
+                                         std::string("\" using unknown attribute uuid.");
+                 throw std::runtime_error(err.c_str());
+
+             } catch (std::exception &e) {
+
+                 std::cerr << e.what() << "\n";
+                 return caf::make_error(xstudio_error::error, e.what());
+             }
+         },
+
+         [=](attribute_value_atom,
+             const utility::Uuid &attr_uuid,
              const utility::JsonStore &value) -> result<bool> {
              try {
 
@@ -1172,7 +1205,8 @@ caf::message_handler Module::message_handler() {
              const float submenu_position) {
              set_submenu_position_in_parent(menu_model_name, submenu, submenu_position);
          },
-         [=](reset_module_atom) { reset(); }});
+         [=](reset_module_atom) { reset(); },
+         [=](utility::parent_atom) -> caf::actor { return actor_cast<actor>(parent_actor_addr_); }});
 
     return h.or_else(playhead::PlayheadGlobalEventsActor::default_event_handler());
 }

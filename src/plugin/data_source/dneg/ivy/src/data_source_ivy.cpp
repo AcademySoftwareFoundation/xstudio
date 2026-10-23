@@ -442,6 +442,7 @@ template <typename T> caf::message_handler IvyDataSourceActor<T>::message_handle
             const caf::uri &uri,
             const FrameRate &media_rate,
             const bool create_playlist) -> result<UuidActorVector> {
+
             if (uri.scheme() != "ivy")
                 return UuidActorVector();
 
@@ -466,7 +467,7 @@ IvyDataSourceActor<T>::IvyDataSourceActor(caf::actor_config &cfg, const utility:
 
     data_source_.set_parent_actor_addr(actor_cast<caf::actor_addr>(this));
 
-    http_ = spawn<http_client::HTTPClientActor>(CPPHTTPLIB_CONNECTION_TIMEOUT_SECOND, 20, 20);
+    http_ = spawn<http_client::HTTPClientActor>(CPPHTTPLIB_CONNECTION_TIMEOUT_SECOND, 60, 60);
     link_to(http_);
 
     try {
@@ -627,6 +628,7 @@ void IvyMediaWorker::add_media_source(
             auto actor     = std::string();
             auto character = std::string();
             auto language  = std::string();
+            auto camera    = std::string();
 
             for (const auto &nt : jsn.at("version").at("name_tags")) {
                 if (nt.at("name") == "label") {
@@ -641,11 +643,13 @@ void IvyMediaWorker::add_media_source(
                     character = nt.at("value");
                 } else if (nt.at("name") == "language") {
                     language = nt.at("value");
+                } else if (nt.at("name") == "camera_type") {
+                    camera = nt.at("value");
                 }
             }
 
-            if (not actor.empty() or not character.empty() or not language.empty()) {
-                name = join_as_string({type, actor, character, language, label}, "-", true);
+            if (not actor.empty() or not character.empty() or not language.empty() or not camera.empty()) {
+                name = join_as_string({type, actor, character, camera, language, label}, "-", true);
             } else if (not label.empty() and not type.empty()) {
                 name = label + "-" + type;
             } else if (
@@ -837,7 +841,7 @@ void IvyMediaWorker::get_shotgun_version(
             .then(
                 [=](const JsonStore &jsn) mutable {
                     try {
-                        spdlog::warn("ivy {}", jsn.dump(2));
+                        spdlog::debug("ivy {}", jsn.dump(2));
                         get_shotgun_shot(
                             rp,
                             media,
@@ -1063,7 +1067,6 @@ void IvyDataSourceActor<T>::ivy_load_version_sources(
                         .send(media_actor);
                 }
 
-
                 const auto scope_uuid =
                     jsn.at("data").at("versions_by_id").at(0).at("scope").at("id").get<Uuid>();
 
@@ -1072,6 +1075,18 @@ void IvyDataSourceActor<T>::ivy_load_version_sources(
                     // check we want it..
                     if (i.at("type") == "METADATA" or i.at("type") == "THUMBNAIL") {
                         continue;
+                    }
+
+                    // [XSTUDIO-3509] - FEAT anim include an otio sidecar file with
+                    // some outputs (like playblasts). Here we store that path as 
+                    // metadata so we can potentially make use if it later.
+                    if (i.contains("name") && i.at("name") == "otio" && media_actor) {
+                        anon_mail(
+                            json_store::set_json_atom_v,
+                            utility::Uuid(),
+                            JsonStore(i.at("path")),
+                            IvyMetadataPath + "/version/otio_sidecar")
+                            .send(media_actor);
                     }
 
                     // need to filter unsupported leafs..
@@ -1285,6 +1300,7 @@ void IvyDataSourceActor<T>::ivy_load_file(
                                         (*count)--;
                                         if (not ua.uuid().is_null()) {
                                             auto uuid  = utility::Uuid::generate();
+
                                             auto media = spawn<media::MediaActor>(
                                                 i.at("version").at("name"),
                                                 uuid,

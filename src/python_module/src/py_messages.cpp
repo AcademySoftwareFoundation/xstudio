@@ -189,6 +189,9 @@ void py_config::add_messages() {
     add_message_type<xstudio::timeline::ItemType>(
         "ItemType", "xstudio::timeline::ItemType", nullptr);
 
+    add_message_type<xstudio::timeline::AudioMode>(
+        "AudioMode", "xstudio::timeline::AudioMode", nullptr);
+
     add_message_type<xstudio::utility::FrameRange>(
         "FrameRange", "xstudio::utility::FrameRange", &register_frame_range_class);
 

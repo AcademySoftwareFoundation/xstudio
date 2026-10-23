@@ -494,6 +494,22 @@ class HELPER_QML_EXPORT Helpers : public QObject {
     Helpers(QQmlEngine *engine, QObject *parent = nullptr) : QObject(parent), engine_(engine) {}
     ~Helpers() override = default;
 
+    // Logging from QML into the xstudio log (terminal, --log-file and the Log
+    // panel). console.* only reaches stderr; use these when the message must
+    // be in the log at a chosen level, e.g. helpers.logWarning("...").
+    Q_INVOKABLE void logDebug(const QString &msg) const {
+        spdlog::debug("QML: {}", StdFromQString(msg));
+    }
+    Q_INVOKABLE void logInfo(const QString &msg) const {
+        spdlog::info("QML: {}", StdFromQString(msg));
+    }
+    Q_INVOKABLE void logWarning(const QString &msg) const {
+        spdlog::warn("QML: {}", StdFromQString(msg));
+    }
+    Q_INVOKABLE void logError(const QString &msg) const {
+        spdlog::error("QML: {}", StdFromQString(msg));
+    }
+
     Q_INVOKABLE [[nodiscard]] bool openURL(const QUrl &url) const {
         return openURLFuture(url).result();
     }
@@ -846,7 +862,7 @@ class HELPER_QML_EXPORT Helpers : public QObject {
     Q_INVOKABLE void moduleCallback(const QString &module_actor, const QVariant cb_data);
 
     Q_INVOKABLE QFuture<QVariant>
-    pythonAsyncCallback(const QString pluginName, const QString method, QVariant args);
+    pythonAsyncCallback(const QString pluginName, const QString method, QVariant args = QVariant()) const;
 
     Q_INVOKABLE QVariant pluginCallback(const QUuid &plugin_uuid, const QVariant cb_data);
 

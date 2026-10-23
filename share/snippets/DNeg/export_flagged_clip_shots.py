@@ -35,10 +35,33 @@ def export_flagged_clip_shots(item=XSTUDIO.api.session.viewed_container):
         if i[0] not in result:
             result[i[0]] = set()
 
+        shot = None
+
         try:
-            result[i[0]].add(i[1].media.metadata["metadata"]["shotgun"]["shot"]["attributes"]["code"])
+            shot = i[1].item_prop["DNEG_shot"]
         except:
             pass
+
+        if shot is None:
+            try:
+                shot = i[1].item_prop["dneg"]["shot"]
+            except:
+                pass
+
+        if shot is None:
+            try:
+                shot = i[1].item_prop["metadata"]["external"]["DNeg"]["shot"]
+            except:
+                pass
+
+        if shot is None:
+            try:
+                shot = i[1].media.metadata["metadata"]["shotgun"]["shot"]["attributes"]["code"]
+            except:
+                pass
+
+        if shot is not None:
+            result[i[0]].add(shot)
 
     for i in sorted(result.keys()):
         print(i+":")

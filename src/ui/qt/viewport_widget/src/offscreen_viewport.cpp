@@ -6,6 +6,7 @@
 #include <GL/gl.h>
 #endif
 
+#include <vector>
 #include <filesystem>
 #include <caf/actor_registry.hpp>
 
@@ -19,7 +20,9 @@
 #include "xstudio/thumbnail/enums.hpp"
 
 #include <ImfRgbaFile.h>
-#include <vector>
+#include <ImfStringAttribute.h>
+
+#include <QColorSpace>
 #include <QStringList>
 #include <QWidget>
 #include <QByteArray>
@@ -496,6 +499,34 @@ OffscreenViewport::OffscreenViewport(const std::string name, bool sync_with_main
                     return true;
                 },
 
+                [=](render_viewport_to_image_atom,
+                    const int width,
+                    const int height,
+                    const media_reader::ImageBufPtr &image_to_use) -> result<thumbnail::ThumbnailBufferPtr> {
+                    thumbnail::ThumbnailBufferPtr r;
+                    try {
+
+                        media_reader::ImageBufPtr output_image;
+                        renderToImageBuffer(
+                            width,
+                            height,
+                            output_image,
+                            ImageFormat::RGBA_16F,
+                            true,
+                            utility::clock::now(),
+                            image_to_use,
+                            false,
+                            false);
+
+                        r = rgb96thumbFromHalfFloatImage(output_image);
+                        r->convert_to(thumbnail::TF_RGB24);
+
+                    } catch (std::exception &e) {
+                        return caf::make_error(xstudio_error::error, e.what());
+                    }
+                    return r;
+                },
+                
                 // event coming from session actor
                 [=](utility::event_atom, session::session_atom, caf::actor session) {
                     session_actor_addr_ = actorToQString(system(), session);
@@ -743,6 +774,15 @@ void OffscreenViewport::exportToEXR(const media_reader::ImageBufPtr &buf, const 
     box.max.y           = dim.y - 1;
     header.dataWindow() = header.displayWindow() = box;
     header.compression()                         = Imf::PIZ_COMPRESSION;
+
+    utility::JsonStore color_metadata = getColorMetadataExport();
+    if (color_metadata.contains("display") and color_metadata.contains("view")) {
+        // TODO: ColSci
+        // Flexibility on the metadata key names
+        header.insert("xStudio/ocio_display", Imf::StringAttribute(color_metadata["display"].get<std::string>()));
+        header.insert("xStudio/ocio_view", Imf::StringAttribute(color_metadata["view"].get<std::string>()));
+    }
+
     Imf::RgbaOutputFile outFile(utility::uri_to_posix_path(path).c_str(), header);
     Imf::Rgba *bptr = (Imf::Rgba *)buf->buffer();
     bptr += (dim.y - 1) * dim.x; // move to final scanline
@@ -760,12 +800,15 @@ void OffscreenViewport::exportToCompressedFormat(
     const std::string &ext,
     const bool has_alpha) {
 
+    QImage im;
+
     if (has_alpha) {
 
-        QImage im(
+        im = QImage(
             buf->image_size_in_pixels().x,
             buf->image_size_in_pixels().y,
             QImage::Format_RGBA16FPx4);
+
         const size_t scanline_width = buf->image_size_in_pixels().x * 4;
         const half *src             = reinterpret_cast<const half *>(buf->buffer());
         src += (buf->image_size_in_pixels().y - 1) * buf->image_size_in_pixels().x *
@@ -775,11 +818,6 @@ void OffscreenViewport::exportToCompressedFormat(
 
             memcpy(im.scanLine(y), src, scanline_width * sizeof(half));
             src -= scanline_width;
-        }
-
-        QImageWriter writer(xstudio::utility::uri_to_posix_path(path).c_str());
-        if (!writer.write(im)) {
-            throw std::runtime_error(writer.errorString().toStdString().c_str());
         }
 
     } else {
@@ -795,7 +833,7 @@ void OffscreenViewport::exportToCompressedFormat(
         const int height = r->height();
 
         const auto *in_px = (const uint8_t *)r->data().data();
-        QImage im(width, height, QImage::Format_RGB888);
+        im = QImage(width, height, QImage::Format_RGB888);
 
         // In fact QImage is a bit funky and won't let us write whole scanlines so
         // have to do it pixel by pixel
@@ -805,24 +843,74 @@ void OffscreenViewport::exportToCompressedFormat(
                 in_px += 3;
             }
         }
+    }
 
-        /*int compLevel =
-            ext == "TIF" || ext == "TIFF" ? std::max(compression, 1) : (10 - compression) *
-           10;*/
-        // TODO : check m_filePath for extension, if not, add to it. Do it on QML side after
-        // merging with new UI branch
+    // Add color metadata to the exported image
+    utility::JsonStore color_metadata = getColorMetadataExport();
+    if (color_metadata.contains("display") and color_metadata.contains("view")) {
+        // TODO: ColSci
+        // Flexibility on the metadata key names
+        im.setText("xStudio/ocio_display", QString::fromStdString(color_metadata["display"].get<std::string>()));
+        im.setText("xStudio/ocio_view", QString::fromStdString(color_metadata["view"].get<std::string>()));
+    }
 
-        if (path.empty()) {
-            QApplication::clipboard()->setImage(im, QClipboard::Clipboard);
-            return;
-        }
-
-        QImageWriter writer(xstudio::utility::uri_to_posix_path(path).c_str());
-        // writer.setCompression(compLevel);
-        if (!writer.write(im)) {
-            throw std::runtime_error(writer.errorString().toStdString().c_str());
+    // Add ICC profile metadata to the exported image
+    if (color_metadata.contains("icc_profile_path")) {
+        QFile f(color_metadata["icc_profile_path"].get<std::string>().c_str());
+        f.open(QIODevice::ReadOnly);
+        QColorSpace colorSpace = QColorSpace::fromIccProfile(f.readAll());
+        if (colorSpace.isValid()) {
+            im.setColorSpace(colorSpace);
         }
     }
+
+    if (path.empty()) {
+        QApplication::clipboard()->setImage(im, QClipboard::Clipboard);
+        return;
+    }
+
+    QImageWriter writer(xstudio::utility::uri_to_posix_path(path).c_str());
+    /*int compLevel =
+        ext == "TIF" || ext == "TIFF" ? std::max(compression, 1) : (10 - compression) *
+        10;*/
+    // TODO : check m_filePath for extension, if not, add to it. Do it on QML side after
+    // merging with new UI branch
+    // writer.setCompression(compLevel);
+
+    if (!writer.write(im)) {
+        throw std::runtime_error(writer.errorString().toStdString().c_str());
+    }
+}
+
+utility::JsonStore OffscreenViewport::getColorMetadataExport() {
+    utility::JsonStore res;
+
+    if (xstudio_viewport_->colour_pipeline()) {
+        try {
+            scoped_actor sys{as_actor()->home_system()};
+
+            res = utility::request_receive<utility::JsonStore>(
+                *sys,
+                xstudio_viewport_->colour_pipeline(),
+                colour_pipeline::get_current_display_and_view_atom_v
+            );
+
+            if (res.contains("display") && res.contains("view")) {
+
+                res["icc_profile_path"] = utility::request_receive<std::string>(
+                    *sys,
+                    xstudio_viewport_->colour_pipeline(),
+                    colour_pipeline::get_icc_profile_path_atom_v,
+                    res["display"].get<std::string>(),
+                    res["view"].get<std::string>()
+                );
+            }
+        } catch (std::exception &e) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+        }
+    }
+
+    return res;
 }
 
 void OffscreenViewport::renderViewportUnderQML() {

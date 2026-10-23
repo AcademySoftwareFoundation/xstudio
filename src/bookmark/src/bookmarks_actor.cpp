@@ -534,6 +534,33 @@ caf::message_handler BookmarksActor::message_handler() {
             return rp;
         },
 
+        [=](bookmark_detail_atom, const std::vector<utility::Uuid> bookmark_uuids, const bool)
+            -> result<std::vector<BookmarkDetail>> {
+
+            auto bookmark_actors = std::vector<caf::actor>();
+            for(const auto &i: bookmark_uuids) {
+                if(bookmarks_.count(i))
+                    bookmark_actors.push_back(bookmarks_.at(i));
+            }
+
+
+            if (bookmark_actors.empty())
+                return std::vector<BookmarkDetail>();
+
+            auto rp = make_response_promise<std::vector<BookmarkDetail>>();
+
+            fan_out_request<policy::select_all>(
+                bookmark_actors, infinite, bookmark_detail_atom_v)
+                .then(
+                    [=](const std::vector<BookmarkDetail> details) mutable {
+                        rp.deliver(details);
+                    },
+                    [=](error &err) mutable { rp.deliver(std::move(err)); });
+
+            return rp;
+        },
+
+
         [=](bookmark_detail_atom, const std::vector<utility::Uuid> associated_uuids)
             -> result<std::vector<BookmarkDetail>> {
             if (bookmarks_.empty())
@@ -648,14 +675,15 @@ caf::message_handler BookmarksActor::message_handler() {
 
         [=](session::export_atom,
             const session::ExportFormat ef,
-            const caf::uri &path) -> result<std::pair<std::string, std::vector<std::byte>>> {
+            const caf::uri &path,
+            const utility::UuidVector &bookmarks) -> result<std::pair<std::string, std::vector<std::byte>>> {
             auto rp = make_response_promise<std::pair<std::string, std::vector<std::byte>>>();
 
             switch (ef) {
             case session::ExportFormat::EF_CSV:
             case session::ExportFormat::EF_CSV_WITH_ANNOTATIONS:
             case session::ExportFormat::EF_CSV_WITH_IMAGES:
-                csv_export(rp, ef, path);
+                csv_export(rp, ef, path, bookmarks);
                 break;
             case session::ExportFormat::EF_DIGEST_WITH_ANNOTATIONS:
                 rp.deliver(make_error(
@@ -760,6 +788,18 @@ void csv_exporter(
     auto image_count = 1;
 
     for (const auto &i : details) {
+        // skip grading notes.
+        if(i.user_type_ and *(i.user_type_) == "Grading")
+            continue;
+
+        // spdlog::warn("owner_ {}", i.owner_ ? to_string(i.owner_->uuid()) : "");
+        // spdlog::warn("enabled_ {}", i.enabled_ ? std::to_string(*(i.enabled_)) : "");
+        // spdlog::warn("visible_ {}", i.visible_ ? std::to_string(*(i.visible_)) : "");
+        // spdlog::warn("user_type_ {}", i.user_type_ ? *(i.user_type_) : "");
+        // spdlog::warn("logical_start_frame_ {}", i.logical_start_frame_ ? std::to_string(*(i.logical_start_frame_)) : "");
+        // spdlog::warn("owner_ {}", i.owner_ ? to_string(i.owner_->actor()) : "");
+        // spdlog::warn("actor_addr_ {}", to_string(i.actor_addr_));
+
         std::string image = "";
 
         auto has_annotation = i.has_annotation_ ? *(i.has_annotation_) : false;
@@ -862,9 +902,10 @@ void csv_exporter(
 void BookmarksActor::csv_export(
     caf::typed_response_promise<std::pair<std::string, std::vector<std::byte>>> rp,
     const session::ExportFormat ef,
-    const caf::uri &path) {
+    const caf::uri &path,
+    const UuidVector &bookmarks) {
     // collect all bookmark details..
-    mail(bookmark_detail_atom_v, UuidVector())
+    mail(bookmark_detail_atom_v, bookmarks, true)
         .request(actor_cast<caf::actor>(this), infinite)
         .then(
             [=](const std::vector<BookmarkDetail> &details) mutable {

@@ -303,6 +303,20 @@ caf::message_handler ClipActor::message_handler() {
             return jsn;
         },
 
+        [=](item_prop_atom, const JsonStore &value, const std::string &key, bool) -> JsonStore {
+            auto prop = base_.item().prop();
+            try {
+                prop[key] = value;
+            } catch (const std::exception &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+            }
+            auto jsn = base_.item().set_prop(prop);
+            if (not jsn.is_null())
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
+
+            return jsn;
+        },
+
         [=](item_prop_atom, const JsonStore &value, const std::string &path) -> JsonStore {
             auto prop = base_.item().prop();
             try {
@@ -314,16 +328,54 @@ caf::message_handler ClipActor::message_handler() {
             auto jsn = base_.item().set_prop(prop);
             if (not jsn.is_null())
                 mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
+
             return jsn;
         },
 
         [=](item_prop_atom) -> JsonStore { return base_.item().prop(); },
 
-        [=](active_range_atom, const FrameRange &fr) -> JsonStore {
+        // ignore from media actor
+        [=](utility::event_atom, notification_atom, const JsonStore &) {},
+
+        [=](active_range_atom, const FrameRange &fr) {
+
+            return mail(active_range_atom_v, fr, true).delegate(actor_cast<caf::actor>(this));            
+
+        },
+
+        [=](clip_edited_status_atom) -> int {
+            return base_.clip_has_been_edited();
+        },
+
+        [=](active_range_atom, const FrameRange &fr, const bool user_edit) -> JsonStore {
+
+            const bool was_edited = base_.clip_has_been_edited();
+
+            if (user_edit && !base_.item().prop().contains("original_cut_range") && base_.item().trimmed_range().frame_duration().frames()) {
+                // on first user edit, store the trimmed range as 'original_cut_range' so we can
+                // restore the cut to it's original state if we ever need to
+                JsonStore store_range;
+                store_range["start"] = base_.item().trimmed_range().frame_start().frames();
+                store_range["duration"] = base_.item().trimmed_range().frame_duration().frames();
+                auto prop = base_.item().prop();
+                prop["original_cut_range"] = store_range;
+                auto jsn = base_.item().set_prop(prop);
+                if (not jsn.is_null())
+                    mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
+            }
+
             auto jsn = base_.item().set_active_range(fr);
-            if (not jsn.is_null())
+            if (not jsn.is_null()) {
                 mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
+            }
+
+            if (was_edited != base_.clip_has_been_edited()) {
+                // send a message to the session model to update the clip edited status role
+                mail(event_atom_v, change_atom_v, clip_edited_status_atom_v, base_.item().uuid(), base_.clip_has_been_edited()).send(base_.event_group());
+            }
+
             return jsn;
+
         },
 
         [=](available_range_atom, const FrameRange &fr) -> JsonStore {
@@ -333,7 +385,7 @@ caf::message_handler ClipActor::message_handler() {
             return jsn;
         },
 
-        [=](active_range_atom) -> std::optional<FrameRange> {
+        [=](active_range_atom)  {
             return base_.item().active_range();
         },
 

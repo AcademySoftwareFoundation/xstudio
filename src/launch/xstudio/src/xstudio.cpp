@@ -165,10 +165,30 @@ void xstudioQtMessageHandler(
     QByteArray localMsg  = msg.toLocal8Bit();
     const char *file     = context.file ? context.file : "";
     const char *function = context.function ? context.function : "";
+    const char *category = context.category ? context.category : "";
 
-    if (!strcmp("qml", context.category)) {
-        // qml messages are type = QtDebugMsg but we always want to see these.
-        spdlog::info("QML: {} ({}:{}, {})", localMsg.constData(), file, context.line, function);
+    if (!strcmp("qml", category)) {
+        // console.log() arrives as QtDebugMsg but we always want to see it, so
+        // it maps to info. Warnings and errors from QML keep their severity so
+        // console.warn()/console.error() land in the log at the matching level.
+        switch (type) {
+        case QtWarningMsg:
+            spdlog::warn(
+                "QML: {} ({}:{}, {})", localMsg.constData(), file, context.line, function);
+            break;
+        case QtCriticalMsg:
+            spdlog::error(
+                "QML: {} ({}:{}, {})", localMsg.constData(), file, context.line, function);
+            break;
+        case QtFatalMsg:
+            spdlog::critical(
+                "QML: {} ({}:{}, {})", localMsg.constData(), file, context.line, function);
+            break;
+        default:
+            spdlog::info(
+                "QML: {} ({}:{}, {})", localMsg.constData(), file, context.line, function);
+            break;
+        }
         return;
     }
 

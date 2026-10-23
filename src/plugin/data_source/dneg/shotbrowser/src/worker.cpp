@@ -303,7 +303,10 @@ MediaWorker::MediaWorker(caf::actor_config &cfg, const caf::actor_addr source)
                 }
 
                 // request movie .. THESE MUST NOT RETURN error on fail.
-                add_media_step_1(rp, media, jsn, media_rate);
+                add_media_step_3(rp, media, jsn, UuidActorVector());
+
+
+                // add_media_step_1(rp, media, jsn, media_rate);
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                 rp.deliver(make_error(xstudio_error::error, err.what()));

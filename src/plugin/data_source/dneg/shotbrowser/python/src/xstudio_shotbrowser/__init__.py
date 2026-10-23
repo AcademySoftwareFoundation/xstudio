@@ -13,12 +13,15 @@ class ShotBrowser(ActorConnection):
         """
 
         ac = connection.get_actor_from_registry("SHOTBROWSER")
+        # extra long timeout for ShotBrowser, as it can take a while to get data from ShotGrid
+        self.default_timeout_ms = 60000
 
         ActorConnection.__init__(self, ac.connection, ac.remote)
 
     def get_data(self, data_type, project_id=-1):
         request = {"operation": "GetData", "type": data_type, "project_id": project_id}
-        return self.connection.request_receive(
+        return self.connection.request_receive_timeout(
+        self.default_timeout_ms,
         self.remote,
         get_data_atom(),
         JsonStore(request)
@@ -26,7 +29,8 @@ class ShotBrowser(ActorConnection):
 
     def get_projects(self):
         request = {"operation": "GetData", "type": "project", "project_id": 0}
-        return self.connection.request_receive(
+        return self.connection.request_receive_timeout(
+        self.default_timeout_ms,
         self.remote,
         get_data_atom(),
         JsonStore(request)
@@ -34,7 +38,8 @@ class ShotBrowser(ActorConnection):
 
     def get_project_sequence(self, project_id):
         request = {"operation": "GetData", "type": "sequence", "project_id": project_id}
-        return self.connection.request_receive(
+        return self.connection.request_receive_timeout(
+        self.default_timeout_ms,
         self.remote,
         get_data_atom(),
         JsonStore(request)
@@ -42,7 +47,8 @@ class ShotBrowser(ActorConnection):
 
     def get_project_episode(self, project_id):
         request = {"operation": "GetData", "type": "episode", "project_id": project_id}
-        return self.connection.request_receive(
+        return self.connection.request_receive_timeout(
+        self.default_timeout_ms,
         self.remote,
         get_data_atom(),
         JsonStore(request)
@@ -50,7 +56,8 @@ class ShotBrowser(ActorConnection):
 
     def get_project_shot(self, project_id):
         request = {"operation": "GetData", "type": "sequence_shot", "project_id": project_id}
-        return self.connection.request_receive(
+        return self.connection.request_receive_timeout(
+        self.default_timeout_ms,
         self.remote,
         get_data_atom(),
         JsonStore(request)
@@ -58,7 +65,8 @@ class ShotBrowser(ActorConnection):
 
     def is_shotgrid_login_allowed(self):
         request = {"operation": "GetData", "type": "is_shotgrid_login_allowed"}
-        return bool(self.connection.request_receive(
+        return bool(self.connection.request_receive_timeout(
+        self.default_timeout_ms,
         self.remote,
         get_data_atom(),
         JsonStore(request)
@@ -69,11 +77,11 @@ class ShotBrowser(ActorConnection):
         shot = self.get_project_shot(project_id)
         return seq.get() + shot.get()
 
-
     def update_entity(self, entity, record_id, body, fields=None):
         if fields is None:
             fields = []
-        return self.connection.request_receive(
+        return self.connection.request_receive_timeout(
+            self.default_timeout_ms,
             self.remote,
             shotgun_update_entity_atom(),
             entity,
@@ -82,7 +90,8 @@ class ShotBrowser(ActorConnection):
             VectorString([] if fields is None else fields))[0]
 
     def get_entity(self, entity, record_id, fields=None):
-        return self.connection.request_receive(
+        return self.connection.request_receive_timeout(
+            self.default_timeout_ms,
             self.remote,
             shotgun_entity_atom(),
             entity,
@@ -90,7 +99,8 @@ class ShotBrowser(ActorConnection):
             VectorString([] if fields is None else fields))[0]
 
     def get_entities_search(self, entity, conditions, fields=None, sort=None, page=1, page_size=4999):
-        return self.connection.request_receive(
+        return self.connection.request_receive_timeout(
+            self.default_timeout_ms,
             self.remote,
             shotgun_entity_search_atom(),
             entity,

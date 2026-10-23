@@ -39,6 +39,8 @@ Button {
     property color borderColorHovered: bgColorPressed
     property color borderColorNormal: "transparent"
     property real borderWidth: 1
+    property alias hiddenToolTip: infoButton.tooltipText
+    property alias hiddenToolTipMaxWidth: infoButton.maxWidth
 
     focusPolicy: Qt.NoFocus
     hoverEnabled: true
@@ -67,6 +69,7 @@ Button {
 
             width: Math.min(parent.width, (imageDiv.visible ? imageDiv.width:0) + (textDiv.visible ? textDiv.textWidth+10:0))
             height: parent.height
+
 
             XsIcon {
                 id: imageDiv
@@ -98,6 +101,19 @@ Button {
                 width: Math.min(parent.width-(imageDiv.visible ? imageDiv.width:0), textDiv.textWidth+10)
             }
         }
+
+        XsInfoButton {
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.leftMargin: 5
+            id: infoButton
+            tooltipText: hiddenToolTip
+            maxWidth: parent.width*0.8
+            visible: tooltipText != "" && isHovered
+            height: 20
+            width: visible ? 20 : 0
+        }
+
     }
 
     XsToolTip{

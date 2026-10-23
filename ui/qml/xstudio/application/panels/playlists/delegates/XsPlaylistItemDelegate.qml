@@ -42,7 +42,6 @@ XsPlaylistItemBase {
         // playlists are one level in at row=0, column=0.
         rootIndex: subItemsModelIndex
         delegate: chooser
-
     }
 
     DelegateChooser {

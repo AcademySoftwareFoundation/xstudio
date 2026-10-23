@@ -201,59 +201,67 @@ void PixelProbeHUD::update_onscreen_info(
         colour_pipeline = get_colour_pipeline_actor(viewport_name);
     }
 
+    auto pick_image_pixel = [=](const media_reader::ImageBufPtr &im, const Imath::V4f &pointer) -> bool {
+        if (!im) return false;
+        utility::JsonStore pixel_unpack_uniforms = im->shader_params();
+        pixel_unpack_uniforms.merge(im.colour_pipe_uniforms());
+
+        // Convert pointer_position to normalised image coordinates
+        // (image width always spans -1.0, 1.0 in x)
+        const float a = 1.0f / image_aspect(im);
+        Imath::V4f p  = pointer * im.layout_transform().inverse();
+        Imath::V2f p0(p.x / p.w, p.y / p.w);
+        if (p0.x >= -1.0f && p0.x <= 1.0f && p0.y >= -a && p0.y <= a) {
+
+            // pointer is inside image boundary
+            Imath::V2i image_coord(
+                int(round((p0.x + 1.0f) * 0.5f * im->image_size_in_pixels().x)),
+                int(round((p0.y / a + 1.0f) * 0.5f * im->image_size_in_pixels().y)));
+
+
+            // here we get the RGB, YUV value at the image coordinate
+            const auto pixel_info = im->pixel_info(image_coord, pixel_unpack_uniforms);
+
+            if (!viewport_name.empty()) {
+                // update our attribute that tracks which viewport the
+                // mouse pointer is in - used to reveal/hide the pixel
+                // info overlay per viewport
+                pixel_info_current_viewport_->set_value(viewport_name);
+            }
+
+            // we send the pixel info to the colour pipeline to add it's own colourspace
+            // transforms and info, if it needs/wants to
+            mail(colour_pipeline::pixel_info_atom_v, pixel_info, im.frame_id())
+                .request(colour_pipeline, infinite)
+                .then(
+                    [=](const media_reader::PixelInfo &extended_info) mutable {
+                        make_pixel_info_onscreen_text(extended_info);
+                    },
+                    [=](caf::error &err) {
+
+                    });
+            return true;
+        }
+        return false;
+    };
+
     if (onscreen_image_set && visible() && colour_pipeline) {
 
         Imath::V4f pointer(pointer_position.x, pointer_position.y, 0.0, 1.0f);
-        bool ptr_in_image = false;
-        // loop over on-screen images
-        for (int i = 0; i < onscreen_image_set->num_onscreen_images(); ++i) {
-            const auto &im = onscreen_image_set->onscreen_image(i);
-            if (im) {
 
-                if (im != current_image_) {
-                    current_image_         = im;
-                    pixel_unpack_uniforms_ = im->shader_params();
-                    pixel_unpack_uniforms_.merge(im.colour_pipe_uniforms());
-                }
-
-                // Convert pointer_position to normalised image coordinates
-                // (image width always spans -1.0, 1.0 in x)
-                const float a = 1.0f / image_aspect(im);
-                Imath::V4f p  = pointer * im.layout_transform().inverse();
-                Imath::V2f p0(p.x / p.w, p.y / p.w);
-                if (p0.x >= -1.0f && p0.x <= 1.0f && p0.y >= -a && p0.y <= a) {
-
-                    // pointer is inside image boundary
-                    Imath::V2i image_coord(
-                        int(round((p0.x + 1.0f) * 0.5f * im->image_size_in_pixels().x)),
-                        int(round((p0.y / a + 1.0f) * 0.5f * im->image_size_in_pixels().y)));
-
-
-                    // here we get the RGB, YUV value at the image coordinate
-                    const auto pixel_info = im->pixel_info(image_coord, pixel_unpack_uniforms_);
-                    ptr_in_image          = true;
-
-                    if (!viewport_name.empty()) {
-                        // update our attribute that tracks which viewport the
-                        // mouse pointer is in - used to reveal/hide the pixel
-                        // info overlay per viewport
-                        pixel_info_current_viewport_->set_value(viewport_name);
-                    }
-
-                    // we send the pixel info to the colour pipeline to add it's own colourspace
-                    // transforms and info, if it needs/wants to
-                    mail(colour_pipeline::pixel_info_atom_v, pixel_info, im.frame_id())
-                        .request(colour_pipeline, infinite)
-                        .then(
-                            [=](const media_reader::PixelInfo &extended_info) mutable {
-                                make_pixel_info_onscreen_text(extended_info);
-                            },
-                            [=](caf::error &err) {
-
-                            });
+        // use hero image first, so in A/B mode for example we pick the pixel for 
+        // the on-screen image.
+        bool ptr_in_image = pick_image_pixel(onscreen_image_set->hero_image(), pointer);
+        // If pointer is not over 'hero' image (e.g. grid compare mode) then
+        // we loop over all images to try and find one where the pointer is 
+        // hovered...
+        if (!ptr_in_image) {
+            for (int i = 0; i < onscreen_image_set->num_onscreen_images(); ++i) {
+                if (pick_image_pixel(onscreen_image_set->onscreen_image(i), pointer)) {
+                    ptr_in_image = true;
                     break;
                 }
-            }
+            }                
         }
         if (!ptr_in_image) {
             // empty info
