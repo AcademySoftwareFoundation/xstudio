@@ -97,7 +97,7 @@ Rectangle{
                                     indexes.push(quickResults.index(j,0))
                                 }
                                 if(action == "playlist")
-                                    ShotBrowserHelpers.addToCurrent(indexes, false, addMode.value)
+                                    ShotBrowserHelpers.addToCurrent(indexes, {"viewed": false, "addMode": addMode.value})
                                 else if(action == "new playlist")
                                     ShotBrowserHelpers.addToNewPlaylist(indexes)
                                 else if(action == "sequence") {
@@ -111,7 +111,7 @@ Rectangle{
                                             seq_map[seq].push(indexes[j])
                                     }
                                     for(let key in seq_map) {
-                                        ShotBrowserHelpers.addToPlaylist(seq_map[key], null, null, key, ShotBrowserHelpers.conformToNewSequenceCallback)
+                                        ShotBrowserHelpers.addToPlaylist(seq_map[key], {"playlist_name": key, "callback": ShotBrowserHelpers.conformToNewSequenceCallback})
                                     }
                                 }
                             }
@@ -126,7 +126,7 @@ Rectangle{
                                     indexes.push(quickResults.index(j,0))
 
                                 if(action == "playlist")
-                                    ShotBrowserHelpers.addToCurrent(indexes, false, addMode.value);
+                                    ShotBrowserHelpers.addToCurrent(indexes, {"viewed": false, "addMode": addMode.value});
                                 else if(action == "new playlist")
                                     ShotBrowserHelpers.addToNewPlaylist(indexes);
                                 else if(action == "sequence") {

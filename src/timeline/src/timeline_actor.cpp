@@ -859,11 +859,11 @@ void timeline_importer(
                                     media;
                             },
                             [=](error &err) {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err);
                             });
                 }
             },
-            [=](error &err) { spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err)); });
+            [=](error &err) { log_caf_error(err); });
 
     float count = 0.0;
     for (const auto &cl : clips) {
@@ -1094,7 +1094,7 @@ void timeline_importer(
         .request(dst.actor(), infinite)
         .receive(
             [&](const UuidActor &ua) mutable { history_actor = ua.actor(); },
-            [=](error &err) { spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err)); });
+            [=](error &err) { log_caf_error(err); });
 
     // disable history whilst populating
     // should we clear it ?
@@ -1121,7 +1121,7 @@ void timeline_importer(
         .request(dst.actor(), infinite)
         .receive(
             [&](const Item &item) mutable { stack_actor = item.actor(); },
-            [=](error &err) { spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err)); });
+            [=](error &err) { log_caf_error(err); });
 
     if (stack_actor) {
         // set stack actor rate via avaliable range
@@ -1276,11 +1276,7 @@ caf::message_handler TimelineActor::message_handler() {
                     .await(
                         [=](std::vector<bool> items) mutable { rp.deliver(true); },
                         [=](error &err) mutable {
-                            spdlog::warn(
-                                "{} {} {}",
-                                __PRETTY_FUNCTION__,
-                                to_string(err),
-                                base_.item().name());
+                            log_caf_error(err, spdlog::level::warn, base_.item().name());
                             rp.deliver(false);
                         });
             }
@@ -1719,17 +1715,69 @@ caf::message_handler TimelineActor::message_handler() {
         },
 
         [=](insert_item_atom, UuidActor media, const bool replace_clip_under_playhead) ->result <bool> {
+
             // This message handler allows auto insertion of a single media item.
             // It's used by the ConformWorkerActor when the conform of a single
             // media item has failed - in this case we want to just insert (or 
             // replace) the media into the edit over the current clip that's 
             // under the playhead
             auto rp = make_response_promise<bool>();
-            if (replace_clip_under_playhead) {
-                auto_replace_media_at_playhead_clip(rp, media);
-            } else {
-                auto_insert_media_at_playhead_clip(rp, media);
-            }
+
+            utility::Uuid clip_uuid = utility::Uuid::generate();
+            auto new_clip = utility::UuidActor(clip_uuid, spawn<ClipActor>(media, "", clip_uuid));
+
+            auto do_replace = [=]() mutable {
+                if (replace_clip_under_playhead) {
+                    auto_replace_media_at_playhead_clip(rp, new_clip);
+                } else {
+                    auto_insert_media_at_playhead_clip(rp, new_clip);
+                }
+            };
+
+            // here we check for special metadata to suggest how to trim head and tail
+            // frames for the clip. This would normally be set on the media by the
+            // data source plugin that creates the media, but if it's not present we just insert the clip without trimming.
+            mail(json_store::get_json_atom_v, "/metadata/conform/suggested_clip_range")
+                .request(media.actor(), std::chrono::seconds(5))
+                .then(
+                    [=](const JsonStore &frame_handles) mutable {
+
+                        try {
+                            if (not frame_handles.is_null() && 
+                                frame_handles.contains("start_frame") &&
+                                frame_handles.contains("duration_frames")) {
+
+                                const auto start_frame = frame_handles.at("start_frame").get<int>();
+                                const auto duration = frame_handles.at("duration_frames").get<int>();
+
+                                auto trimmed_range = utility::FrameRange(
+                                    start_frame*base_.item().rate(), 
+                                    duration*base_.item().rate(),
+                                    base_.item().rate());
+
+                                mail(active_range_atom_v, trimmed_range, true).request(new_clip.actor(), infinite).then(
+                                    [=](const JsonStore &jsn) mutable {
+                                        do_replace();
+                                    },
+                                    [=](error &err) mutable {
+                                        spdlog::debug("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                        do_replace();
+                                    });
+                                return;
+                            }
+
+                        } catch (const std::exception &e) {
+                            spdlog::debug("{} {}", __PRETTY_FUNCTION__, e.what());
+                        }                             
+                        do_replace();
+
+                    },
+                    [=](error &/*err*/) mutable {
+                        //spdlog::debug("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        do_replace();
+                    });
+
+            
             return rp;
         },
 
@@ -1988,7 +2036,7 @@ caf::message_handler TimelineActor::message_handler() {
                             before_uuid);
                     },
                     [=](error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                         rp.deliver(false);
                     });
 
@@ -2271,7 +2319,7 @@ caf::message_handler TimelineActor::message_handler() {
                     .then(
                         [=](bool) mutable { rp.deliver(playhead_); },
                         [=](caf::error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                             rp.deliver(playhead_);
                         });
             };
@@ -2286,7 +2334,7 @@ caf::message_handler TimelineActor::message_handler() {
                 .then(
                     [=](bool) mutable { finalise(); },
                     [=](caf::error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                         finalise();
                     });
 
@@ -2666,11 +2714,7 @@ caf::message_handler TimelineActor::message_handler() {
                                     rp.deliver(true);
                                 },
                                 [=](error &err) mutable {
-                                    spdlog::warn(
-                                        "{} {} {}",
-                                        __PRETTY_FUNCTION__,
-                                        to_string(err),
-                                        base_.item().name());
+                                    log_caf_error(err, spdlog::level::warn, base_.item().name());
                                     rp.deliver(false);
                                 });
                     },
@@ -2766,10 +2810,7 @@ caf::message_handler TimelineActor::message_handler() {
                                                     rp.deliver(jsn);
                                                 },
                                                 [=](caf::error &err) mutable {
-                                                    spdlog::warn(
-                                                        "{} {}",
-                                                        __PRETTY_FUNCTION__,
-                                                        to_string(err));
+                                                    log_caf_error(err);
                                                     rp.deliver(jsn);
                                                 });
 
@@ -3230,7 +3271,7 @@ void TimelineActor::sort_by_media_display_info(
                     }
                 },
                 [=](error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                 });
     }
 }
@@ -4104,14 +4145,14 @@ void TimelineActor::paste_tracks_from_serialisation(
 
                                 },
                                 [=](caf::error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    log_caf_error(err);
                                     auto_responder.decrement(err);
                                 });
 
 
                     },
                     [=](caf::error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                         auto_responder.decrement(err);
                     });
         };
@@ -4146,7 +4187,7 @@ void TimelineActor::paste_tracks_from_serialisation(
     }
 }
 
-void TimelineActor::auto_insert_media_at_playhead_clip(caf::typed_response_promise<bool> rp, UuidActor media)
+void TimelineActor::auto_insert_media_at_playhead_clip(caf::typed_response_promise<bool> rp, UuidActor new_clip)
 {
 
     // When this is called we have a track to insert into, a clip and the duration of the clip. We do the insertion and adjust the 
@@ -4197,7 +4238,7 @@ void TimelineActor::auto_insert_media_at_playhead_clip(caf::typed_response_promi
 
     // Here we find a track that is selected that has a suitable gap that we can add the new clip
     // into. If there's no such track we create a fresh, empty track
-    auto second_step = [=](const FrameRange cut_in_range, UuidActor new_clip, const FrameRange clip_duration) mutable{
+    auto second_step = [=](const FrameRange cut_in_range, const FrameRange clip_duration) mutable{
 
         UuidActor track_to_insert_into;
         auto stack = base_.item().front();
@@ -4256,11 +4297,7 @@ void TimelineActor::auto_insert_media_at_playhead_clip(caf::typed_response_promi
     // get clip insertion in/out points and the duration of the new clip
     auto first_step = [=]() mutable {
 
-        utility::Uuid clip_uuid = utility::Uuid::generate();
-        auto clip = spawn<ClipActor>(media, "", clip_uuid);
-        UuidActor new_clip(clip_uuid, clip);
-
-        mail(trimmed_range_atom_v).request(clip, infinite).then(
+        mail(trimmed_range_atom_v).request(new_clip.actor(), infinite).then(
             [=](const FrameRange &new_clip_range) mutable {
 
                 mail(playlist::get_playhead_atom_v).request(caf::actor_cast<caf::actor>(this), infinite).then(
@@ -4277,7 +4314,7 @@ void TimelineActor::auto_insert_media_at_playhead_clip(caf::typed_response_promi
                                     auto clip_range = base_.item().item_range((*clip).first.uuid());
                                     if (clip_range) {
 
-                                        second_step(*clip_range, new_clip, new_clip_range);
+                                        second_step(*clip_range, new_clip_range);
 
                                     }
                                     
@@ -4304,16 +4341,13 @@ void TimelineActor::auto_insert_media_at_playhead_clip(caf::typed_response_promi
 
 }
 
-void TimelineActor::auto_replace_media_at_playhead_clip(caf::typed_response_promise<bool> rp, UuidActor media)
+void TimelineActor::auto_replace_media_at_playhead_clip(caf::typed_response_promise<bool> rp, UuidActor new_clip)
 {
-
     auto second_step = [=](const FrameRange cut_in_range, const Item clip) mutable{
 
-        utility::Uuid clip_uuid = utility::Uuid::generate();
-        auto new_clip = spawn<ClipActor>(media, "", clip_uuid);
-        UuidActorVector new_items({UuidActor(clip_uuid, new_clip)});
+        UuidActorVector new_items({new_clip});
 
-        mail(trimmed_range_atom_v).request(new_clip, infinite).then(
+        mail(trimmed_range_atom_v).request(new_clip.actor(), infinite).then(
             [=](const FrameRange &clip_dur) mutable {
 
                 if (clip_dur.duration() < cut_in_range.duration()) {

@@ -122,7 +122,7 @@ void blocking_loader(
                     .receive(
                         [=](bool) {},
                         [=](error &err) {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                         });
 
                 if (auto_gather)
@@ -153,7 +153,7 @@ void blocking_loader(
                         .receive(
                             [=](const bool) mutable {},
                             [=](error &err) {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err);
                             });
                     batched_media_to_add.clear();
                 }
@@ -172,7 +172,7 @@ void blocking_loader(
             .receive(
                 [=](const bool) mutable {},
                 [=](error &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                 });
     }
     // event_msg.set_complete();
@@ -755,8 +755,7 @@ caf::message_handler PlaylistActor::message_handler() {
                                         }
                                     },
                                     [=](error &err) mutable {
-                                        spdlog::warn(
-                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                        log_caf_error(err);
                                         (*source_count)--;
                                         if (!(*source_count)) {
                                             // we're done!
@@ -768,7 +767,7 @@ caf::message_handler PlaylistActor::message_handler() {
                                     });
                         },
                         [=](error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                             (*source_count)--;
                             if (!(*source_count)) {
                                 // we're done!
@@ -815,8 +814,7 @@ caf::message_handler PlaylistActor::message_handler() {
                                             .send(actor_cast<caf::actor>(this));
                                     },
                                     [=](error &err) mutable {
-                                        spdlog::warn(
-                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                        log_caf_error(err);
                                     });
                         }
                     },
@@ -854,8 +852,7 @@ caf::message_handler PlaylistActor::message_handler() {
                                             .send(actor_cast<caf::actor>(this));
                                     },
                                     [=](error &err) mutable {
-                                        spdlog::warn(
-                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                        log_caf_error(err);
                                     });
                         }
                     },
@@ -893,8 +890,7 @@ caf::message_handler PlaylistActor::message_handler() {
                                             .send(actor_cast<caf::actor>(this));
                                     },
                                     [=](error &err) mutable {
-                                        spdlog::warn(
-                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                        log_caf_error(err);
                                     });
                         }
                     },
@@ -1428,7 +1424,7 @@ caf::message_handler PlaylistActor::message_handler() {
                         rp.deliver(cr.tree_.children_uuid(true));
                     },
                     [=](error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
             return rp;
         },
@@ -1550,7 +1546,7 @@ caf::message_handler PlaylistActor::message_handler() {
                 .then(
                     [=](bool) mutable { rp.deliver(playhead_); },
                     [=](caf::error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                         rp.deliver(playhead_);
                     });
 
@@ -1568,7 +1564,7 @@ caf::message_handler PlaylistActor::message_handler() {
                         }
                     },
                     [=](error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
 
             return rp;
@@ -1861,7 +1857,7 @@ caf::message_handler PlaylistActor::message_handler() {
                                     .send(actor_cast<caf::actor>(this));
                         },
                         [=](error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                         });
             } else {
                 for (const auto &i : uuids)
@@ -2001,17 +1997,13 @@ caf::message_handler PlaylistActor::message_handler() {
                                                         },
 
                                                         [=](error &err) mutable {
-                                                            spdlog::warn(
-                                                                "{} {}",
-                                                                __PRETTY_FUNCTION__,
-                                                                to_string(err));
+                                                            log_caf_error(err);
                                                             rp.deliver(std::move(err));
                                                         });
                                             }
                                         },
                                         [=](error &err) mutable {
-                                            spdlog::warn(
-                                                "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                            log_caf_error(err);
                                             rp.deliver(std::move(err));
                                         });
                             },
@@ -2082,10 +2074,7 @@ caf::message_handler PlaylistActor::message_handler() {
                                                         rp.deliver(jsn);
                                                     },
                                                     [=](caf::error &err) mutable {
-                                                        spdlog::warn(
-                                                            "{} {}",
-                                                            __PRETTY_FUNCTION__,
-                                                            to_string(err));
+                                                        log_caf_error(err);
                                                         rp.deliver(jsn);
                                                     });
 
@@ -2232,7 +2221,7 @@ void PlaylistActor::add_media(
                     .then(
                         [=](bool) {},
                         [=](error &err) mutable {
-                            spdlog::debug("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err, spdlog::level::debug);
                         });
 
                 // mail(utility::event_atom_v, add_media_atom_v,
@@ -2244,8 +2233,7 @@ void PlaylistActor::add_media(
                     open_media_reader(ua.actor());
             },
             [=](error &err) mutable {
-                spdlog::warn(
-                    "{} {} {}", __PRETTY_FUNCTION__, to_string(err), to_string(ua.actor()));
+                log_caf_error(err, spdlog::level::warn, to_string(ua.actor()));
                 send_content_changed_event();
                 base_.send_changed();
                 rp.deliver(ua);
@@ -2667,7 +2655,7 @@ void PlaylistActor::sort_by_media_display_info(
                     }
                 },
                 [=](error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                 });
     }
 }
@@ -2733,7 +2721,7 @@ void PlaylistActor::duplicate(
                     // spdlog::info("duplicate_containers {:.3} seconds.", sw);
                 },
                 [=](error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                 });
     } else {
         duplicate_containers(rp, UuidActor(uuid, actor), UuidUuidMap());
@@ -2882,24 +2870,18 @@ void PlaylistActor::recursive_add_media_with_subsets(
                                                     .then(
                                                         [=](bool) mutable { check_deliver(); },
                                                         [=](caf::error &err) mutable {
-                                                            spdlog::warn(
-                                                                "{} {}",
-                                                                __PRETTY_FUNCTION__,
-                                                                to_string(err));
+                                                            log_caf_error(err);
                                                             check_deliver();
                                                         });
                                             },
                                             [=](caf::error &err) mutable {
-                                                spdlog::warn(
-                                                    "{} {}",
-                                                    __PRETTY_FUNCTION__,
-                                                    to_string(err));
+                                                log_caf_error(err);
                                                 check_deliver();
                                             });
                                 }
                             },
                             [=](caf::error &err) mutable {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err);
                                 check_deliver();
                             });
                 }

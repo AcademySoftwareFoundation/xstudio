@@ -188,7 +188,7 @@ void SubPlayhead::init() {
             return mail(clear_precache_queue_atom_v, uuid_).delegate(pre_reader_);
         },
 
-        [=](const error &err) { spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err)); },
+        [=](const error &err) { log_caf_error(err); },
 
         [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
@@ -292,7 +292,7 @@ void SubPlayhead::init() {
                         }
                     },
                     [=](const error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                         rp.deliver(timebase::flicks(0));
                     });
             return rp;
@@ -319,7 +319,7 @@ void SubPlayhead::init() {
                         }
                     },
                     [=](const error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                         rp.deliver(timebase::flicks(0));
                     });
             return rp;
@@ -780,7 +780,7 @@ void SubPlayhead::init() {
                             .send(parent_);
                     },
                     [=](const error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
         },
 
@@ -1360,7 +1360,7 @@ void SubPlayhead::broadcast_image_frame(
                     anon_mail(jump_atom_v, caf::actor_cast<caf::actor_addr>(this))
                         .send(parent_);
                 }
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 }
 
@@ -1443,7 +1443,7 @@ void SubPlayhead::broadcast_audio_frame(
                     .send(parent_);
             },
             [=](const caf::error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 }
 
@@ -1503,7 +1503,7 @@ void SubPlayhead::broadcast_audio_samples() {
                     .send(parent_);
             },
             [=](const caf::error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 }
 
@@ -1672,7 +1672,7 @@ void SubPlayhead::request_future_frames() {
                     .send(parent_);
             },
             [=](const caf::error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 }
 
@@ -2382,12 +2382,12 @@ void SubPlayhead::full_bookmarks_update(caf::typed_response_promise<bool> done) 
                         },
                         [=](const error &err) mutable {
                             done.deliver(false);
-                            spdlog::warn("A {} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err, spdlog::level::warn, "A");
                         });
             },
             [=](const error &err) mutable {
                 done.deliver(false);
-                spdlog::warn("B {} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err, spdlog::level::warn, "B");
             });
 }
 
@@ -2528,19 +2528,18 @@ void SubPlayhead::fetch_bookmark_annotations(
                                         },
                                         [=](const error &err) mutable {
                                             rp.deliver(false);
-                                            spdlog::warn(
-                                                "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                            log_caf_error(err);
                                         });
                             }
                         },
                         [=](const error &err) mutable {
                             rp.deliver(false);
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                         });
             },
             [=](const error &err) mutable {
                 rp.deliver(false);
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 }
 
@@ -2620,11 +2619,7 @@ void SubPlayhead::bookmark_changed(const utility::UuidActor bookmark) {
                 }
             },
             [=](const caf::error &err) mutable {
-                spdlog::warn(
-                    "{} {} {}",
-                    __PRETTY_FUNCTION__,
-                    to_string(err),
-                    to_string(bookmark.uuid()));
+                log_caf_error(err, spdlog::level::warn, to_string(bookmark.uuid()));
             });
 }
 

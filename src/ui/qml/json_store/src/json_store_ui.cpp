@@ -8,6 +8,7 @@
 #include "xstudio/atoms.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/utility/logging.hpp"
 
 using namespace caf;
 using namespace xstudio;
@@ -73,7 +74,7 @@ void JsonStoreUI::subscribe(caf::actor actor) {
                 set_json_string(QStringFromStd(json.dump(4)), true);
             },
             [&](const caf::error &e) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(e));
+                log_caf_error(e);
             });
 }
 

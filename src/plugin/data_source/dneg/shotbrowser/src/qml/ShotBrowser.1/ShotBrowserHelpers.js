@@ -368,11 +368,14 @@ function useCache(indexes=[], sourceName=null) {
         }
 
         if (image_source.valid) {
-    		theSessionData.infoNotification(indexes[i], "Quick Caching - " + (sourceName ? sourceName : "Current"))
-
+        	let uuid = theSessionData.processingNotification(indexes[i], "Quick Caching - " + (sourceName ? sourceName : "Current"))
 		    Future.promise(ShotBrowserEngine.remapCachePathFuture(image_source)).then(
-		        function(result) {},
-		        function() {}
+		        function(result) {
+		    		theSessionData.infoNotification(indexes[i], "Quick Caching - " + (sourceName ? sourceName : "Current"), 10, uuid)
+		        },
+		        function(error) {
+		    		theSessionData.warnNotification(indexes[i], "Quick Cache Failed, Media not found!", 20, uuid)
+		        }
 		    )
 		}
 	}
@@ -509,7 +512,8 @@ function compareSelectedResults(indexes=[]) {
 	        if(next.valid) {
 				media_uuid = mediaSelectionModel.model.get(next, "actorUuidRole")
 	        }
-			addToCurrentMediaContainer(indexes, media_uuid, true, compareMediaCallback)
+
+			addToCurrentMediaContainer(indexes, {"before_uuid": media_uuid, "callback": compareMediaCallback})
 		}
 	}
 }
@@ -557,7 +561,7 @@ function replaceSelectedResults(indexes=[]) {
 		    if(next.valid) {
 				media_uuid = mediaSelectionModel.model.get(next, "actorUuidRole")
 		    }
-			addToCurrentMediaContainer([indexes[0]], media_uuid, true, replaceMediaCallback)
+			addToCurrentMediaContainer([indexes[0]], {"before_uuid": media_uuid, "callback": replaceMediaCallback})
 		}
 	}
 }
@@ -685,27 +689,39 @@ function selectTimelineCallback(context, playlist_index, uuids, wait=4, select=t
     }
 }
 
-function addToSequence(indexes=[], viewed=true) {
+function addToSequence(indexes=[],  options= {"viewed": true} ) {
+	let viewed = options.viewed ?? true;
 	let current_pl = viewed ? viewedMediaSetProperties.values.actorUuidRole : inspectedMediaSetProperties.values.actorUuidRole
+
+	options["playlist_uuid"] = current_pl
+
 	if(viewed)
-		addToPlaylist(indexes, current_pl, null, theSessionData.getNextName("Playlist {}"), conformMediaCallback)
+		options["callback"] = conformMediaCallback
 	else
-		addToPlaylist(indexes, current_pl, null, theSessionData.getNextName("Playlist {}"), conformMediaToConformTrackCallback)
+		options["callback"] = conformMediaToConformTrackCallback
+
+	addToPlaylist(indexes, options)
 }
 
 function replaceToSequence(indexes=[], callback=replaceConformMediaCallback) {
 	let current_pl = viewedMediaSetProperties.values.actorUuidRole
 
-	addToPlaylist(indexes, current_pl, null, theSessionData.getNextName("Playlist {}"), callback)
+	addToPlaylist(indexes, {"playlist_uuid": current_pl, "callback":callback})
 }
 
-function addToCurrentMediaContainer(indexes=[], media_uuid=null, viewed=true, callback=selectFirstMediaCallback) {
+function addToCurrentMediaContainer(indexes=[], options= {"before_uuid": null, "callback": selectFirstMediaCallback, "viewed":true}) {
+	let viewed = options.viewed ?? true;
+	let callback = options.callback ?? selectFirstMediaCallback;
+
 	let current_pl = viewed ? viewedMediaSetProperties.values.actorUuidRole : inspectedMediaSetProperties.values.actorUuidRole
 
-	addToPlaylist(indexes, current_pl, media_uuid, theSessionData.getNextName("Playlist {}"), callback)
+	options["playlist_uuid"] = current_pl
+	options["callback"] = callback
+
+	addToPlaylist(indexes, options)
 }
 
-function addToNewPlaylist(indexes=[], media_uuid=null, callback=null) {
+function addToNewPlaylist(indexes=[], options= {"before_uuid": null, "callback": null}) {
 	// we can probably be smarter..
 	// as we can at least determine the preset used ?
 	let playlistname = "Playlist {}"
@@ -716,8 +732,9 @@ function addToNewPlaylist(indexes=[], media_uuid=null, callback=null) {
 			playlistname = cc.project_name + " - " + cc.preset_name
 		}
 	}
+	options["playlist_name"] = theSessionData.getNextName(playlistname)
 
-	addToPlaylist(indexes, null, media_uuid, theSessionData.getNextName(playlistname), callback)
+	addToPlaylist(indexes, options)
 }
 
 
@@ -823,9 +840,12 @@ function loadShotgridPlaylists(indexes=[]) {
 	}
 }
 
-function addToCurrent(indexes=[], viewed=true, addMode="After") {
+function addToCurrent(indexes=[], options={"viewed":true, "addMode":"After"}) {
+	let viewed = options.viewed ?? true;
+	let addMode = options.addMode ?? "After";
+
 	if(viewedMediaSetProperties.values.typeRole == "Timeline") {
-		addToSequence(indexes, viewed)
+		addToSequence(indexes, options)
 	} else {
 		// shouldn't this be before media uuid ?
 
@@ -842,7 +862,10 @@ function addToCurrent(indexes=[], viewed=true, addMode="After") {
 			//  null uuid == end.
 		}
 
-        addToCurrentMediaContainer(indexes, afterMediaUuid, viewed)
+		options["before_uuid"] =  afterMediaUuid;
+		options["viewed"] = viewed;
+
+		addToCurrentMediaContainer(indexes, options);
 	}
 }
 
@@ -904,8 +927,14 @@ function addSequencesToPlaylist(indexes, playlist_index=null, playlist_name ="Sh
 			            	// inject shotgrid metadata ?
 			            	// all a bit hacky ..
 			            	context["theSessionData"].setJSONObject(tindex, meta, "/metadata/shotgun/version")
-							if (("attributes" in meta) && ("code" in meta["attributes"])) {
-								// set the sequence name to match the ivy stalkname
+
+							let sequenceName = context["theSessionData"].get(tindex, "nameRole")
+							// regex will idenfiy an otio file with a creation date encoded in it's name
+							const regex = /.+(\d{4}-?\d{2}-?\d{2})/
+							if (!regex.test(sequenceName) && ("attributes" in meta) && ("code" in meta["attributes"])) {
+								// Some OTIO publishes have long and descriptive names, often with a date encoded in
+								// the name, but other OTIO publishes are less usefully named like 'source.otio'. For
+								// the latter case we use the stemname for the Seuqence that's being created.
 								context["theSessionData"].set(tindex,  meta["attributes"]["code"], "nameRole")
 							}
 
@@ -923,7 +952,13 @@ function addSequencesToPlaylist(indexes, playlist_index=null, playlist_name ="Sh
 	}
 }
 
-function addToPlaylist(indexes=[], playlist_uuid=null, before_uuid=null, playlist_name = theSessionData.getNextName("Playlist {}"), callback=null) {
+function addToPlaylist(indexes=[], options = {"playlist_uuid": null, "before_uuid":null, "playlist_name":null, "callback":null, "with_notes": false}) {
+
+	let playlist_uuid = options.playlist_uuid ?? null;
+	let before_uuid = options.before_uuid ?? null;
+	let playlist_name = options.playlist_name ??  theSessionData.getNextName("Playlist {}");
+	let callback = options.callback ??  null;
+	let with_notes = options.with_notes ??  false;
 
 	let context = createContext()
 
@@ -950,9 +985,13 @@ function addToPlaylist(indexes=[], playlist_uuid=null, before_uuid=null, playlis
 			} else if(m.get(indexes[i], "typeRole") == "Note") {
 				let project_id = m.get(indexes[i],"projectIdRole")
 				let version_ids = m.get(indexes[i], "linkedVersionsRole")
+				let attachment = m.get(indexes[i], "annotationRole")
+
 				if(version_ids.length && project_id) {
 					let tmp = JSON.parse(ShotBrowserEngine.getVersions(project_id, version_ids))
 					for(let j=0; j<tmp["data"].length; j++) {
+						if(with_notes && attachment != undefined)
+							tmp["data"][j]["attachment"] = attachment;
 						data["data"].push(tmp["data"][j])
 					}
 		        }

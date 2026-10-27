@@ -41,7 +41,7 @@ void ContactSheetActor::init() {
         .then(
             [=](caf::actor grp) { join_broadcast(this, grp); },
             [=](caf::error &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 
 
@@ -114,11 +114,11 @@ void ContactSheetActor::init() {
                                     }
                                 },
                                 [=](caf::error &err) {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    log_caf_error(err);
                                 });
                     },
                     [=](caf::error &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
 
             return playhead_;
@@ -133,7 +133,7 @@ void ContactSheetActor::init() {
                         anon_mail(playhead::source_atom_v, media).send(playhead_.actor());
                     },
                     [=](caf::error &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
         }};
 }

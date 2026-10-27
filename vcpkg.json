@@ -5,6 +5,7 @@
     "stduuid",
     "reproc",
     "nlohmann-json",
+    "exiv2",
     "glew",
     "freetype",
     "libjpeg-turbo",

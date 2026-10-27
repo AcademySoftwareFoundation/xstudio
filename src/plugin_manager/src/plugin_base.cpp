@@ -4,6 +4,7 @@
 #include "xstudio/plugin_manager/plugin_base.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/media_reader/image_buffer_set.hpp"
+#include "xstudio/utility/logging.hpp"
 
 using namespace xstudio;
 using namespace xstudio::bookmark;
@@ -23,6 +24,8 @@ StandardPlugin::StandardPlugin(
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
+    // one line per unexpected message, and the sender gets the same error as
+    // from any other actor (CAF's print_and_drop)
     set_default_handler(
         [this](caf::scheduled_actor *, caf::message &msg) -> caf::skippable_result {
             spdlog::warn(
@@ -30,17 +33,7 @@ StandardPlugin::StandardPlugin(
                 Module::name(),
                 to_string(current_sender()),
                 to_string(msg));
-
-            if (current_sender()) {
-                mail(utility::name_atom_v)
-                    .request(caf::actor_cast<caf::actor>(current_sender()), infinite)
-                    .then(
-                        [=](std::string __name) {
-                            std::cerr << "Message came from " << __name << "\n";
-                        },
-                        [=](caf::error &err) { std::cerr << "Can't get name of sender.\n"; });
-            }
-            return message{};
+            return caf::make_error(caf::sec::unexpected_message);
         });
 
 #pragma GCC diagnostic pop
@@ -210,16 +203,15 @@ void StandardPlugin::on_screen_media_changed(caf::actor media) {
                                         on_screen_media_changed(media, media_ref, params);
                                     },
                                     [=](error &err) mutable {
-                                        spdlog::debug(
-                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                        utility::log_caf_error(err, spdlog::level::debug);
                                     });
                         },
                         [=](error &err) mutable {
-                            spdlog::debug("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            utility::log_caf_error(err, spdlog::level::debug);
                         });
             },
             [=](error &err) mutable {
-                spdlog::debug("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                utility::log_caf_error(err, spdlog::level::debug);
             });
 }
 
@@ -229,7 +221,7 @@ void StandardPlugin::session_changed(caf::actor session) {
         .then(
             [=](caf::actor bookmark_manager) { bookmark_manager_ = bookmark_manager; },
             [=](error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                utility::log_caf_error(err);
             });
 }
 
@@ -444,7 +436,7 @@ void StandardPlugin::current_viewed_playhead_changed(caf::actor viewed_playhead)
                     anon_mail(playhead::redraw_viewport_atom_v).send(viewed_playhead);
                 },
                 [=](error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    utility::log_caf_error(err);
                 });
 
         mail(playhead::media_atom_v)
@@ -454,7 +446,7 @@ void StandardPlugin::current_viewed_playhead_changed(caf::actor viewed_playhead)
                     on_screen_media_changed(current_media_actor);
                 },
                 [=](error &err) mutable {
-                    // spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    // utility::log_caf_error(err);
                 });
     }
 }
@@ -633,7 +625,7 @@ void StandardPlugin::cancel_other_drawing_tools() {
                 }
             },
             [=](error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                utility::log_caf_error(err);
             });
 }
 
@@ -743,12 +735,12 @@ void StandardPlugin::update_bookmark_annotation(
                                 }
                             },
                             [=](error &err) mutable {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                utility::log_caf_error(err);
                             });
                 }
             },
             [=](error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                utility::log_caf_error(err);
             });*/
 }
 

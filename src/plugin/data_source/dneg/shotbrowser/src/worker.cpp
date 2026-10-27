@@ -2,15 +2,18 @@
 
 #include "worker.hpp"
 #include "definitions.hpp"
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/media/media_actor.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/uuid.hpp"
+#include "xstudio/utility/logging.hpp"
 
 using namespace xstudio;
 using namespace xstudio::utility;
+using namespace std::chrono_literals;
 
 namespace {
 bool server_path_or_local(const caf::uri &uri) {
@@ -35,7 +38,7 @@ bool server_path_or_local(const caf::uri &uri) {
 
 void MediaWorker::add_media_step_1(
     caf::typed_response_promise<bool> rp,
-    caf::actor media,
+    const utility::UuidActor &media,
     const JsonStore &jsn,
     const FrameRate &media_rate) {
     mail(media::add_media_source_atom_v, jsn, media_rate, true)
@@ -45,14 +48,14 @@ void MediaWorker::add_media_step_1(
                 add_media_step_2(rp, media, jsn, media_rate, movie_source);
             },
             [=](error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(err);
             });
 }
 
 void MediaWorker::add_media_step_2(
     caf::typed_response_promise<bool> rp,
-    caf::actor media,
+    const utility::UuidActor &media,
     const JsonStore &jsn,
     const FrameRate &media_rate,
     const UuidActor &movie_source) {
@@ -85,28 +88,46 @@ void MediaWorker::add_media_step_2(
                 }
             },
             [=](error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(err);
             });
 }
 
 void MediaWorker::add_media_step_3(
     caf::typed_response_promise<bool> rp,
-    caf::actor media,
+    const utility::UuidActor &media,
     const JsonStore &jsn,
     const UuidActorVector &srcs) {
     mail(media::add_media_source_atom_v, srcs)
-        .request(media, infinite)
+        .request(media.actor(), infinite)
         .then(
             [=](const bool) mutable {
+
+                if(jsn.contains("attachment")) {
+
+                    scoped_actor sys{system()};
+
+                    auto session = request_receive<caf::actor>(*sys, system().registry().template get<caf::actor>(studio_registry), session::session_atom_v);
+                    auto bookmarks = request_receive<caf::actor>(*sys, session, bookmark::get_bookmark_atom_v);
+
+                    auto req = JsonStore(GetDownloadAnnotations);
+                    req["entity_id"]    = jsn.at("attachment").at("id");
+                    req["entity"]       = jsn.at("attachment").at("type");
+                    // get blob.
+                    auto note_jsn = request_receive_wait<JsonStore>(
+                            *sys, caf::actor_cast<caf::actor>(data_source_), 120s, data_source::get_data_atom_v, req);
+                    anon_mail(session::import_atom_v, media, note_jsn).delay(1s).send(bookmarks);
+                }
+
                 rp.deliver(true);
+
                 // push metadata to media actor.
                 anon_mail(
                     json_store::set_json_atom_v,
                     utility::Uuid(),
                     jsn,
                     ShotgunMetadataPath + "/version")
-                    .send(media);
+                    .send(media.actor());
 
                 anon_mail(
                     json_store::set_json_atom_v,
@@ -114,7 +135,7 @@ void MediaWorker::add_media_step_3(
                     JsonStore(
                         R"({"icon": "qrc:/shotbrowser_icons/shot_grid.svg", "tooltip": "ShotGrid Version"})"_json),
                     "/ui/decorators/shotgrid")
-                    .send(media);
+                    .send(media.actor());
 
                 // dispatch delayed shot data.
                 try {
@@ -135,25 +156,26 @@ void MediaWorker::add_media_step_3(
                                             utility::Uuid(),
                                             jsn,
                                             ShotgunMetadataPath + "/shot")
-                                            .send(media);
+                                            .send(media.actor());
                                 } catch (const std::exception &err) {
                                     spdlog::warn("A {} {}", __PRETTY_FUNCTION__, err.what());
                                 }
                             },
                             [=](const error &err) mutable {
-                                spdlog::warn(
-                                    "B {} {} {} {}",
-                                    __PRETTY_FUNCTION__,
-                                    to_string(err),
-                                    shotreq.dump(2),
-                                    to_string(caf::actor_cast<caf::actor>(data_source_)));
+                                log_caf_error(
+                                    err,
+                                    spdlog::level::warn,
+                                    fmt::format(
+                                        "B {} {}",
+                                        shotreq.dump(2),
+                                        to_string(caf::actor_cast<caf::actor>(data_source_))));
                             });
                 } catch (const std::exception &err) {
                     spdlog::warn("C {} {}", __PRETTY_FUNCTION__, err.what());
                 }
             },
             [=](error &err) mutable {
-                spdlog::warn("D {} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err, spdlog::level::warn, "D");
                 rp.deliver(err);
             });
 }
@@ -282,7 +304,7 @@ MediaWorker::MediaWorker(caf::actor_config &cfg, const caf::actor_addr source)
         },
 
         [=](playlist::add_media_atom,
-            caf::actor media,
+            const UuidActor &media,
             JsonStore jsn,
             const FrameRate &media_rate) -> result<bool> {
             auto rp = make_response_promise<bool>();

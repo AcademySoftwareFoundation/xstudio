@@ -1,0 +1,14 @@
+{
+	"core": {
+		"logging": {
+			"log_file": {
+				"path": "/core/logging/log_file",
+				"default_value": "",
+				"description": "Write the session log to this file. Takes precedence over the --log-file command line option. Environment variables such as ${HOME} are expanded. The file receives every log level, is written line by line and starts afresh on each run, the previous runs are kept next to it as .1 to .10.",
+				"value": "",
+				"datatype": "string",
+				"context": ["APPLICATION"]
+			}
+		}
+	}
+}
