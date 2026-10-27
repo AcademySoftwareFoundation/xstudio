@@ -253,7 +253,7 @@ void QMLViewport::sendPointerEvent(EventType t, QMouseEvent *event, int force_mo
         renderer_actor ? renderer_actor->std_name() : "",
         std::make_pair(0, 0),
         PointerEvent::WheelDeltaType::NotSet,
-        qtInputTypeToOurs(event->deviceType()),
+        Signature::InputType::Mouse, //qtInputTypeToOurs(event->deviceType()),
         (float)point.pressure(),
         (double)point.timestamp(),
         qtPointerTypeToOurs(point.device()->pointerType()));
@@ -522,26 +522,29 @@ bool QMLViewport::event(QEvent *event) {
 
 void QMLViewport::wheelEvent(QWheelEvent *event) {
 
+    auto delta_x = event->pixelDelta().x() != 0 ? event->pixelDelta().x() : event->angleDelta().x();
+    auto delta_y = event->pixelDelta().y() != 0 ? event->pixelDelta().y() : event->angleDelta().y();
+
     // make a mouse wheel event and pass to viewport to process
     PointerEvent ev(
         EventType::MouseWheel,
-        static_cast<Signature::Button>((int)event->buttons()),
+        Signature::Button::None,
         int(round(float(event->position().x()) * window()->effectiveDevicePixelRatio())),
         int(round(float(event->position().y()) * window()->effectiveDevicePixelRatio())),
         int(round(float(width()) * window()->effectiveDevicePixelRatio())),
         int(round(float(height()) * window()->effectiveDevicePixelRatio())),
         qtModifierToOurs(event->modifiers()),
         renderer_actor ? renderer_actor->std_name() : "",
-        std::make_pair(event->angleDelta().rx(), event->angleDelta().ry()),
+        std::make_pair(delta_x, delta_y),
         PointerEvent::WheelDeltaType::Angle,
-        qtInputTypeToOurs(event->deviceType()));
+        Signature::InputType::Mouse);
 
     if (renderer_actor && !renderer_actor->pointerEvent(ev) && renderer_actor->playhead()) {
         // If viewport hasn't acted on the mouse wheel event (because user pref
         // to zoom with mouse wheel is false), assume that we can instead use it
         // to step the playhead
         anon_mail(playhead::play_atom_v, false).send(renderer_actor->playhead());
-        anon_mail(playhead::step_atom_v, event->angleDelta().ry() > 0 ? 1 : -1)
+        anon_mail(playhead::step_atom_v, delta_y > 0 ? 1 : (delta_y < 0 ? -1 : 0))
             .send(renderer_actor->playhead());
     }
 
