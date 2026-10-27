@@ -45,6 +45,7 @@ static const std::set<int> shader_supported_pix_formats = {
     AV_PIX_FMT_YUV420P10LE, AV_PIX_FMT_YUV444P,      AV_PIX_FMT_YUVJ444P,
     AV_PIX_FMT_YUV444P10LE, AV_PIX_FMT_YUVA444P10LE, AV_PIX_FMT_YUV422P12LE,
     AV_PIX_FMT_YUV444P12LE, AV_PIX_FMT_YUVA422P12LE, AV_PIX_FMT_YUVA444P12LE,
+    AV_PIX_FMT_YUVA420P,    AV_PIX_FMT_YUVA422P,     AV_PIX_FMT_YUVA444P,
     AV_PIX_FMT_GBRP10LE,    AV_PIX_FMT_GBRP12LE,     AV_PIX_FMT_GBRAP10LE,
     AV_PIX_FMT_GBRAP12LE,   AV_PIX_FMT_GBRAP16LE,    AV_PIX_FMT_GBRAP16LE,
     AV_PIX_FMT_RGBF32LE};
@@ -256,6 +257,81 @@ static int setup_video_buffer(AVCodecContext *ctx, AVFrame *ffmpeg_frame_, int /
 
 } // namespace
 
+namespace xstudio::media_reader::ffmpeg {
+
+// The SWS_CS_* coefficient set matching a stream's colourspace. Only needed where
+// sws does the YUV to RGB conversion itself - everywhere else our own shader does
+// it, from the matrix built in set_shader_pix_format_info.
+int sws_colourspace_from_av(const AVColorSpace colorspace) {
+    switch (colorspace) {
+    case AVCOL_SPC_BT709:
+        return SWS_CS_ITU709;
+    case AVCOL_SPC_FCC:
+        return SWS_CS_FCC;
+    case AVCOL_SPC_SMPTE240M:
+        return SWS_CS_SMPTE240M;
+    case AVCOL_SPC_BT2020_NCL:
+    case AVCOL_SPC_BT2020_CL:
+        return SWS_CS_BT2020;
+    case AVCOL_SPC_BT470BG:
+    case AVCOL_SPC_SMPTE170M:
+    default:
+        return SWS_CS_ITU601;
+    }
+}
+
+// For pixel formats our shader can't unpack directly (packed YUV like uyvy422/v210,
+// big-endian RGB etc), pick the closest shader-supported format that is a lossless (or
+// near lossless) repack. This preserves bit depth and, for YUV, the original code
+// values so that they can be inspected with the pixel probe. Returns AV_PIX_FMT_NONE
+// if there is no sensible match, in which case we fall back to 8 bit RGBA.
+AVPixelFormat shader_friendly_pix_format(const AVPixelFormat src) {
+    const AVPixFmtDescriptor *d = av_pix_fmt_desc_get(src);
+    if (!d || d->nb_components < 3 ||
+        (d->flags & (AV_PIX_FMT_FLAG_PAL | AV_PIX_FMT_FLAG_BITSTREAM | AV_PIX_FMT_FLAG_FLOAT |
+                     AV_PIX_FMT_FLAG_BAYER)))
+        return AV_PIX_FMT_NONE;
+
+    const int depth     = d->comp[0].depth;
+    const bool has_a    = d->flags & AV_PIX_FMT_FLAG_ALPHA;
+    const bool is_rgb   = d->flags & AV_PIX_FMT_FLAG_RGB;
+    const int chroma_w  = d->log2_chroma_w;
+    const int chroma_h  = d->log2_chroma_h;
+
+    if (is_rgb) {
+        if (depth <= 8)
+            return AV_PIX_FMT_NONE; // handled by RGBA
+        if (depth > 16)
+            return AV_PIX_FMT_NONE;
+        return has_a ? AV_PIX_FMT_RGBA64LE : AV_PIX_FMT_RGB48LE;
+    }
+
+    // YUV
+    if (depth <= 8) {
+        if (has_a) {
+            if (chroma_h)
+                return AV_PIX_FMT_YUVA420P;
+            return chroma_w ? AV_PIX_FMT_YUVA422P : AV_PIX_FMT_YUVA444P;
+        }
+        if (chroma_h)
+            return AV_PIX_FMT_YUV420P;
+        return chroma_w ? AV_PIX_FMT_YUV422P : AV_PIX_FMT_YUV444P;
+    } else if (depth <= 10) {
+        if (has_a)
+            return AV_PIX_FMT_YUVA444P10LE;
+        if (chroma_h)
+            return AV_PIX_FMT_YUV420P10LE;
+        return chroma_w ? AV_PIX_FMT_YUV422P10LE : AV_PIX_FMT_YUV444P10LE;
+    } else if (depth <= 12) {
+        if (has_a)
+            return chroma_w ? AV_PIX_FMT_YUVA422P12LE : AV_PIX_FMT_YUVA444P12LE;
+        return chroma_w ? AV_PIX_FMT_YUV422P12LE : AV_PIX_FMT_YUV444P12LE;
+    }
+    return AV_PIX_FMT_NONE;
+}
+} // namespace xstudio::media_reader::ffmpeg
+
+
 ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
 
     ImageBufPtr image_buffer;
@@ -281,24 +357,72 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
                 ffmpeg_pixel_format);
         }
 
-        image_buffer.reset(new ImageBuffer());
-        auto buffer = (uint8_t *)image_buffer->allocate(
-            4 * ffmpeg_frame_->width * ffmpeg_frame_->height * 2);
-        // not one of the ffmpeg pixel formats that our shader can deal with, so convert to
+        // Try to repack to a planar/16bit format the shader can unpack (keeps bit depth and
+        // YUV code values), otherwise convert to 8 bit RGBA.
+        AVPixelFormat dst_fmt = shader_friendly_pix_format((AVPixelFormat)ffmpeg_pixel_format);
+        if (dst_fmt != AV_PIX_FMT_NONE) {
+            sws_context_ = sws_getCachedContext(
+                sws_context_,
+                ffmpeg_frame_->width,
+                ffmpeg_frame_->height,
+                (AVPixelFormat)ffmpeg_pixel_format,
+                ffmpeg_frame_->width,
+                ffmpeg_frame_->height,
+                dst_fmt,
+                0,
+                nullptr,
+                nullptr,
+                nullptr);
+            if (!sws_context_)
+                dst_fmt = AV_PIX_FMT_NONE;
+        }
+        if (dst_fmt == AV_PIX_FMT_NONE) {
+            dst_fmt      = AV_PIX_FMT_RGBA;
+            sws_context_ = sws_getCachedContext(
+                sws_context_,
+                ffmpeg_frame_->width,
+                ffmpeg_frame_->height,
+                (AVPixelFormat)ffmpeg_pixel_format,
+                ffmpeg_frame_->width,
+                ffmpeg_frame_->height,
+                dst_fmt,
+                0,
+                nullptr,
+                nullptr,
+                nullptr);
 
-        // something we can
-        sws_context_ = sws_getCachedContext(
-            sws_context_,
-            ffmpeg_frame_->width,
-            ffmpeg_frame_->height,
-            (AVPixelFormat)ffmpeg_pixel_format,
-            ffmpeg_frame_->width,
-            ffmpeg_frame_->height,
-            AV_PIX_FMT_RGBA,
-            0,
-            nullptr,
-            nullptr,
-            nullptr);
+            // Here sws is doing the YUV to RGB conversion itself, rather than just
+            // repacking for our own shader to convert. Left to itself it assumes
+            // BT.601 (SWS_CS_DEFAULT) whatever the stream actually says, which gives
+            // visibly wrong colour for BT.709 and BT.2020 media, so tell it what the
+            // stream really is.
+            if (sws_context_) {
+                int *inv_table = nullptr, *table = nullptr;
+                int src_range = 0, dst_range = 0, brightness = 0, contrast = 0, saturation = 0;
+
+                if (sws_getColorspaceDetails(
+                        sws_context_,
+                        &inv_table,
+                        &src_range,
+                        &table,
+                        &dst_range,
+                        &brightness,
+                        &contrast,
+                        &saturation) >= 0) {
+
+                    sws_setColorspaceDetails(
+                        sws_context_,
+                        sws_getCoefficients(
+                            sws_colourspace_from_av(ffmpeg_frame_->colorspace)),
+                        ffmpeg_frame_->color_range == AVCOL_RANGE_JPEG ? 1 : 0,
+                        table,
+                        1, // RGB output is always full range
+                        brightness,
+                        contrast,
+                        saturation);
+                }
+            }
+        }
 
         if (!sws_context_) {
             const char *fmt_name = av_get_pix_fmt_name((AVPixelFormat)ffmpeg_pixel_format);
@@ -316,9 +440,33 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
             }
         }
 
-        const std::array<int, 8> out_linesize({4 * ffmpeg_frame_->width, 0, 0, 0, 0, 0, 0, 0});
-        std::array<uint8_t *, 8> planes(
-            {buffer, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr});
+        std::array<ptrdiff_t, 4> dst_linesizes_pd = {0, 0, 0, 0};
+        std::array<size_t, 4> dst_planesizes      = {0, 0, 0, 0};
+        std::array<size_t, 4> dst_offsets         = {0, 0, 0, 0};
+        std::array<int, 4> dst_linesizes          = {0, 0, 0, 0};
+        size_t dst_total                          = 0;
+
+        if (av_image_fill_linesizes(dst_linesizes.data(), dst_fmt, ffmpeg_frame_->width) < 0)
+            throw std::runtime_error("Failed to compute converted image line sizes.");
+        for (int i = 0; i < 4; ++i) {
+            dst_linesizes[i]    = FFALIGN(dst_linesizes[i], 32);
+            dst_linesizes_pd[i] = dst_linesizes[i];
+        }
+        if (av_image_fill_plane_sizes(
+                dst_planesizes.data(), dst_fmt, ffmpeg_frame_->height, dst_linesizes_pd.data()) <
+            0)
+            throw std::runtime_error("Failed to compute converted image plane sizes.");
+        for (int i = 0; i < 4; ++i) {
+            dst_offsets[i] = dst_total;
+            dst_total += dst_planesizes[i];
+        }
+
+        image_buffer.reset(new ImageBuffer());
+        auto buffer = (uint8_t *)image_buffer->allocate(dst_total + 4096);
+
+        std::array<uint8_t *, 4> planes;
+        for (int i = 0; i < 4; ++i)
+            planes[i] = dst_planesizes[i] ? buffer + dst_offsets[i] : nullptr;
 
         sws_scale(
             sws_context_,
@@ -327,18 +475,18 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
             0,
             ffmpeg_frame_->height,
             planes.data(),
-            out_linesize.data());
+            dst_linesizes.data());
 
-        jsn["y_linesize"]           = out_linesize[0];
-        jsn["u_linesize"]           = 0;
-        jsn["v_linesize"]           = 0;
-        jsn["a_linesize"]           = 0;
-        jsn["y_plane_bytes_offset"] = 0;
-        jsn["u_plane_bytes_offset"] = 0;
-        jsn["v_plane_bytes_offset"] = 0;
-        jsn["a_plane_bytes_offset"] = 0;
+        jsn["y_linesize"]           = dst_linesizes[0];
+        jsn["u_linesize"]           = dst_linesizes[1];
+        jsn["v_linesize"]           = dst_linesizes[2];
+        jsn["a_linesize"]           = dst_linesizes[3];
+        jsn["y_plane_bytes_offset"] = dst_offsets[0];
+        jsn["u_plane_bytes_offset"] = dst_offsets[1];
+        jsn["v_plane_bytes_offset"] = dst_offsets[2];
+        jsn["a_plane_bytes_offset"] = dst_offsets[3];
 
-        ffmpeg_pixel_format = AV_PIX_FMT_RGBA;
+        ffmpeg_pixel_format = dst_fmt;
 
     } else {
 

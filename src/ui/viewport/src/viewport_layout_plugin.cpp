@@ -8,6 +8,7 @@
 #include "xstudio/ui/viewport/viewport_renderer_base.hpp"
 #include "xstudio/utility/string_helpers.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/utility/logging.hpp"
 
 using namespace xstudio;
 using namespace xstudio::utility;
@@ -323,7 +324,7 @@ void ViewportLayoutPlugin::add_layout_mode(
                 }
             },
             [=](caf::error &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 }
 
@@ -447,11 +448,11 @@ void ViewportLayoutManager::spawn_plugins() {
                         .then(
                             [=](caf::actor) {},
                             [=](caf::error &err) {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err);
                             });
                 }
             },
             [=](caf::error &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 }

@@ -223,24 +223,18 @@ Item{
 
 	function compareSelection(task, selection) {
     	for(let i=0; i< selection.length; i++) {
+            let pl_index = selection[i].model.getContainerIndex(selection[i])
             Future.promise(
-                engine.conformItemsFuture(task,
-                    selection[i].model.getContainerIndex(selection[i]),
-                    selection[i], true, false)
+                engine.conformItemsFuture(task, pl_index, selection[i], true, false)
             ).then(
             	function(media_uuid_list) {
-                    // create new selection.
-        			// console.log(media_uuid_list)
+                    // Select original item and results of the conform
+                    // so that their selection order keeps them together
+                    let tmp = [selection[i].model.get(selection[i], "actorUuidRole")]
+                    for(let j=0;j<media_uuid_list.length;j++)
+                        tmp.push(helpers.QVariantFromUuidString(media_uuid_list[j]))
 
-                    let tmp = []
-                    for(let i=0;i<selection.length;i++)
-                        tmp.push(selection[i].model.get(selection[i], "actorUuidRole"))
-
-                    for(let i=0;i<media_uuid_list.length;i++)
-                        tmp.push(helpers.QVariantFromUuidString(media_uuid_list[i]))
-
-                    mediaSelectionModel.selectNewMedia(selection[i].model.getContainerIndex(selection[i]), tmp)
-
+                    mediaSelectionModel.selectNewMedia(pl_index, tmp, -1, ItemSelectionModel.Select)
             	},
             	function() {
             	}
@@ -441,7 +435,11 @@ Item{
         menuPath: "More"
         menuItemPosition: 1
         menuModelName: "media_list_menu_"
-        onActivated: (menuContext) =>  conformToSequence(menuContext.mediaSelection, viewportCurrentMediaContainerIndex)
+        onActivated: (menuContext) => {
+            if (theSessionData.lastTimelineIndex.valid) {
+                conformToSequence(menuContext.mediaSelection, theSessionData.lastTimelineIndex, "Conformed Media")
+            }
+        }
     }
 
 
@@ -550,7 +548,9 @@ Item{
                     menuPath: "Auto-Conform"
                     menuItemPosition: index
                     menuModelName: "timeline_track_menu_"
-                    onActivated: (menuContext) =>  autoConformSelectionTimeline(text, menuContext.theTimeline.conformSourceIndex, menuContext.theTimeline.timelineSelection.selectedIndexes[0])
+                    onActivated: (menuContext) =>  {
+                        autoConformSelectionTimeline(text, menuContext.theTimeline.conformSourceIndex, menuContext.theTimeline.timelineSelection.selectedIndexes[0])
+                    }
                 }
 
                 XsMenuModelItem {

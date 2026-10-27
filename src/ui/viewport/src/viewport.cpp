@@ -1203,6 +1203,12 @@ caf::message_handler Viewport::message_handler() {
 
                 [=](viewport_reset_atom) { reset(); },
 
+                [=](viewport_reset_atom, const bool only_synced_viewports) { 
+                    if (sync_to_main_viewport_->value()) {
+                        reset(); 
+                    }
+                },
+
                 [=](fit_mode_atom, const bool reset) { revert_fit_zoom_to_previous(); },
 
                 [=](viewport_pan_atom) -> Imath::V2f { return pan(); },

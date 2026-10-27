@@ -187,6 +187,9 @@ class ShotBrowserEngine : public QMLActor {
     QString getEpisodes(const int project_id) { return getEpisodesFuture(project_id).result(); }
     QFuture<QString> getEpisodesFuture(const int project_id);
 
+    QVariant getReferenceStems(const int project_id) {return getReferenceStemsFuture(project_id).result();}
+    QFuture<QVariant> getReferenceStemsFuture(const int project_id);
+
     QString getUsers(const int project_id = -1) { return getUsersFuture(project_id).result(); }
     QFuture<QString> getUsersFuture(const int project_id = -1);
 
@@ -443,6 +446,7 @@ class ShotBrowserEngine : public QMLActor {
         const QString &entity_name,
         const QString &project_name,
         const QString &parent_name);
+
     QUrl downloadMedia(
         const int entity_id,
         const QString &entity_name,
@@ -455,6 +459,40 @@ class ShotBrowserEngine : public QMLActor {
             return {};
         }
     }
+
+    QVariant downloadAnnotations(
+        const int entity_id,
+        const QString &entity) {
+        try {
+            return downloadAnnotationsFuture(entity_id, entity).result();
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+            return {};
+        }
+    }
+
+    QFuture<QVariant> downloadAnnotationsFuture(
+        const int entity_id,
+        const QString &entity);
+
+
+    QVariant assignAnnotations(
+        const int entity_id,
+        const QString &entity,
+        const QUuid &media_uuid) {
+        try {
+            return assignAnnotationsFuture(entity_id, entity, media_uuid).result();
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+            return {};
+        }
+    }
+
+    QFuture<QVariant> assignAnnotationsFuture(
+        const int entity_id,
+        const QString &entity,
+        const QUuid &media_uuid);
+
 
     QFuture<QUrl> downloadImageFuture(
         const int entity_id,

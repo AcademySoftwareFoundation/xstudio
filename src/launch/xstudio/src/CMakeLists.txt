@@ -14,15 +14,26 @@ else()
 	include_directories(${CMAKE_SOURCE_DIR}/extern/otio/OpenTimelineIO/src)
 endif()
 
+# The reworked crash report is only built and tested on Linux so far; Windows
+# and MacOS keep the previous handler, see the platform files.
 if(WIN32)
 set(SOURCES
 	xstudio.cpp
+	platform/windows/crash_handler.cpp
 	xstudio_win_resource.rc
+	../../../../ui/qml/xstudio/qml.qrc
+	)
+elseif(APPLE)
+set(SOURCES
+	xstudio.cpp
+	platform/macos/crash_handler.cpp
 	../../../../ui/qml/xstudio/qml.qrc
 	)
 else()
 set(SOURCES
 	xstudio.cpp
+	crash_report.cpp
+	platform/posix/crash_handler.cpp
 	../../../../ui/qml/xstudio/qml.qrc
 	)
 endif()
@@ -44,6 +55,28 @@ if(NOT WIN32)
 endif()
 
 default_options_local(${PROJECT_NAME})
+
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+# the crash report names the build; the hash is taken when cmake runs
+find_package(Git QUIET)
+set(XSTUDIO_GIT_HASH "unknown")
+if(GIT_FOUND)
+	execute_process(
+		COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+		OUTPUT_VARIABLE _git_hash
+		OUTPUT_STRIP_TRAILING_WHITESPACE
+		RESULT_VARIABLE _git_result
+		ERROR_QUIET)
+	if(_git_result EQUAL 0)
+		set(XSTUDIO_GIT_HASH "${_git_hash}")
+	endif()
+endif()
+target_compile_definitions(${PROJECT_NAME}
+	PRIVATE
+		XSTUDIO_GIT_HASH="${XSTUDIO_GIT_HASH}"
+		XSTUDIO_BUILD_TYPE="$<CONFIG>")
 
 target_link_libraries(${PROJECT_NAME}
 	PRIVATE
@@ -86,9 +119,9 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 if(WIN32)
-    target_link_libraries(${PROJECT_NAME} PRIVATE dbghelp)
+    target_link_libraries(${PROJECT_NAME} PRIVATE dbghelp) # add psapi with the reworked handler
 elseif(NOT APPLE)
-	target_link_libraries(${PROJECT_NAME} PUBLIC uuid)
+	target_link_libraries(${PROJECT_NAME} PUBLIC uuid ${CMAKE_DL_LIBS})
 endif()
 
 if(WIN32)
@@ -125,14 +158,17 @@ elseif(APPLE)
 		RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/MacOS"
 		OUTPUT_NAME "${PROJECT_NAME}.bin"
 		LINK_DEPENDS_NO_SHARED true
+		INSTALL_RPATH "@executable_path/../Frameworks"
+		BUILD_RPATH   "@executable_path/../Frameworks"
 	)
 
 	add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources")
 
+	configure_file("${CMAKE_CURRENT_SOURCE_DIR}/Info.plist" "${CMAKE_CURRENT_BINARY_DIR}/Info.plist")
 	add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
-        ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/")
+        ${CMAKE_CURRENT_BINARY_DIR}/Info.plist "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/")
 
 	add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
@@ -149,12 +185,6 @@ elseif(APPLE)
     find_program(macdeployqt_exe macdeployqt HINTS "${_qt_bin_dir}")
         configure_file(macdeploy.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/macdeploy.cmake @ONLY)
     install(SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/macdeploy.cmake)
-
-    # Add custom command to fix library paths after build
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -DAPP_BUNDLE_DIR=${CMAKE_BINARY_DIR}/xSTUDIO.app
-            -P ${CMAKE_CURRENT_SOURCE_DIR}/fixup_macos_bundle.cmake
-    )
 
 else()
 

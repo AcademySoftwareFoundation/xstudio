@@ -3,6 +3,7 @@ import QtQuick
 import xStudio 1.0
 import xstudio.qml.helpers 1.0
 import xstudio.qml.models 1.0
+import xstudio.qml.viewport 1.0
 
 XsPopupMenu {
 
@@ -17,11 +18,15 @@ XsPopupMenu {
     function addMarker(new_name, button) {
         if (button == "Add") {
             theTimeline.markerModel().addMarker(
-              panelContext.timelinePlayhead.logicalFrame,
+              timelinePlayhead.logicalFrame,
               theTimeline.timelineModel.model.get(theTimeline.timelineModel.rootIndex, "rateFPSRole"),
               new_name
             );
         }
+
+        // When hitting Return within the dialog instead of pressing the "Add" button the
+        // keyboard focus is in limbo, so force it back to the the timeline
+        theTimeline.forceActiveFocus()
     }
 
     function createTracks(items, video=true) {
@@ -40,6 +45,7 @@ XsPopupMenu {
 
     Component.onCompleted: {
         helpers.setMenuPathPosition("Time Mode", "timeline_menu_", 1.9)
+        helpers.setMenuPathPosition("Audio Mode", "timeline_menu_", 1.95)
         // need to reorder snippet menus..
         let rc = embeddedPython.sequenceMenuModel.rowCount();
         for(let i=0; i < embeddedPython.sequenceMenuModel.rowCount(); i++) {
@@ -56,6 +62,7 @@ XsPopupMenu {
         menuItemPosition: 1
         menuModelName: timelineMenu.menu_model_name
         panelContext: timelineMenu.panelContext
+        hotkeyUuid: add_marker_hotkey.uuid
         onActivated: {
             dialogHelpers.textInputDialog(
                 timelineMenu.addMarker,
@@ -64,7 +71,16 @@ XsPopupMenu {
                 "Marker",
                 ["Cancel", "Add"])
         }
-    }
+        onHotkeyActivated: {
+           if (theTimeline.have_timeline && isPlayheadActive)
+               dialogHelpers.textInputDialog(
+                   timelineMenu.addMarker,
+                   "Add Marker",
+                   "Enter a name.",
+                   "Marker",
+                   ["Cancel", "Add"])
+        }
+   }
 
    XsMenuModelItem {
         text: qsTr("Hide Markers")
@@ -102,27 +118,51 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
+        text: qsTr("Play Audio from Audio Tracks")
+        menuPath: "Audio Mode"
+        menuItemPosition: 1.0
+        menuModelName: timelineMenu.menu_model_name
+        panelContext: timelineMenu.panelContext
+
+        menuItemType: "toggle"
+        isChecked: timelineProperties.values.audioModeRole == 0
+        onActivated: timelineProperties.values.audioModeRole = 0
+    }
+
+    XsMenuModelItem {
+        text: qsTr("Play Audio from Video Tracks")
+        menuPath: "Audio Mode"
+        menuItemPosition: 2.0
+        menuModelName: timelineMenu.menu_model_name
+        panelContext: timelineMenu.panelContext
+
+        menuItemType: "toggle"
+        isChecked: timelineProperties.values.audioModeRole == 1
+        onActivated: timelineProperties.values.audioModeRole = 1
+    }
+
+    XsMenuModelItem {
         menuItemType: "divider"
         menuPath: ""
         menuItemPosition: 2
         menuModelName: timelineMenu.menu_model_name
     }
 
-    XsMenuModelItem {
-        text: qsTr("Track Templates")
-        menuPath: ""
-        menuItemPosition: 3
-        menuModelName: timelineMenu.menu_model_name
-        panelContext: timelineMenu.panelContext
-      }
+    // XsMenuModelItem {
+    //     text: "Track Templates"
+    //     menuPath: ""
+    //     menuItemPosition: 3
+    //     menuModelName: timelineMenu.menu_model_name
+    //     panelContext: timelineMenu.panelContext
+    //   }
 
-    XsMenuModelItem {
-        text: qsTr("User Track Templates")
-        menuPath: ""
-        menuItemPosition: 4
-        menuModelName: timelineMenu.menu_model_name
-        panelContext: timelineMenu.panelContext
-      }
+    // XsMenuModelItem {
+    //     text: "User Track Templates"
+    //     menuPath: ""
+    //     menuItemPosition: 4
+    //     menuModelName: timelineMenu.menu_model_name
+    //     panelContext: timelineMenu.panelContext
+    //   }
 
     XsMenuModelItem {
         text: "Snippet"
@@ -135,14 +175,27 @@ XsPopupMenu {
     Repeater {
         model: DelegateModel {
             model: embeddedPython.sequenceMenuModel
-            delegate: Item {XsMenuModelItem {
-                text: nameRole
-                menuPath: menuPathRole
-                menuItemPosition: (index*0.01)+80
-                menuModelName: timelineMenu.menu_model_name
-                onActivated: embeddedPython.pyEvalFile(scriptPathRole)
-                panelContext: timelineMenu.panelContext
-            }}
+            delegate: Item {
+                XsHotkey {
+                    id: hk
+                    name: nameRole
+                    description: nameRole
+                    componentName: "Sequence Snippets"
+                    onActivated: embeddedPython.pyEvalFile(scriptPathRole)
+                    sequence: menuHotKeyRole || null
+                    context: ""+timelineMenu.panelContext
+                }
+
+                XsMenuModelItem {
+                    hotkeyUuid: hk.uuid
+                    text: nameRole
+                    menuPath: menuPathRole
+                    menuItemPosition: (index*0.01)+80
+                    menuModelName: timelineMenu.menu_model_name
+                    onActivated: embeddedPython.pyEvalFile(scriptPathRole)
+                    panelContext: timelineMenu.panelContext
+                }
+            }
         }
     }
 
@@ -183,6 +236,10 @@ XsPopupMenu {
                     createTracks(modelData["video tracks"])
                     createTracks(modelData["audio tracks"], false)
                 }
+                Component.onCompleted: {
+                    if(!index)
+                        setMenuPathPosition("Track Templates", 3)
+                }
             }
         }
     }
@@ -204,6 +261,10 @@ XsPopupMenu {
                 onActivated: {
                     createTracks(modelData["video tracks"])
                     createTracks(modelData["audio tracks"], false)
+                }
+                Component.onCompleted: {
+                    if(!index)
+                        setMenuPathPosition("User Track Templates", 4)
                 }
             }
         }

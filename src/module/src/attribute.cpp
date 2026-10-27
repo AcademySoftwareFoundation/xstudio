@@ -89,6 +89,12 @@ bool Attribute::belongs_to_groups(const std::vector<std::string> &group_names) c
     return rt;
 }
 
+// Deliberately out-of-line -- see the comment on the declaration in
+// attribute.hpp. This must stay in libmodule so that the any_cast inside
+// get_role_data<utility::Uuid>() is instantiated exactly once, in the same
+// image that set the role data in Attribute's constructor.
+utility::Uuid Attribute::uuid() const { return get_role_data<utility::Uuid>(UuidRole); }
+
 std::string Attribute::role_name(const int role) {
     const auto &p = role_names.find(role);
     if (p != role_names.end()) {

@@ -324,6 +324,12 @@ Item {
         defaultMediaFolder = folder
     }
 
+    function addSessionFromClipboard() {
+        if (clipboard.text) {
+            doImportSession(helpers.QUrlFromPosixPath(clipboard.text))
+        }
+    }
+
     function addMediaFromClipboard() {
         if (clipboard.data) {
             var index = sessionSelectionModel.currentIndex
@@ -394,9 +400,13 @@ Item {
             function(path) {
                 if (path)
                     Future.promise(
-                        bookmarkModel.exportCSVFuture(path)
+                        theSessionData.getBookmarksFuture(sessionSelectionModel.selectedIndexes)
                     ).then(function(result) {
-                        dialogHelpers.errorDialogFunc("Export Notes to CSV", result)
+                        Future.promise(
+                            bookmarkModel.exportCSVFuture(path, true, true, result)
+                        ).then(function(result) {
+                            dialogHelpers.errorDialogFunc("Export Notes to CSV", result)
+                        })
                     })
             },
             defaultSessionFolder(),

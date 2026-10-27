@@ -232,13 +232,25 @@ std::string Hotkey::hotkey_sequence() const {
         r = "Shift+" + r;
     }
     if ((modifiers_ & MetaModifier) == MetaModifier) {
+#ifdef __apple__
+        r = "Ctrl+" + r;
+#else
         r = "Meta+" + r;
+#endif
     }
     if ((modifiers_ & AltModifier) == AltModifier) {
+#ifdef __apple__
+        r = "Opt+" + r;
+#else
         r = "Alt+" + r;
+#endif
     }
     if ((modifiers_ & ControlModifier) == ControlModifier) {
+#ifdef __apple__
+        r = "Cmd+" + r;
+#else
         r = "Ctrl+" + r;
+#endif
     }
     return r;
 }
@@ -262,14 +274,16 @@ void Hotkey::sequence_to_key_and_modifier(
             modifier |= ControlModifier;
         } else {
             for (const auto &q : ui::Hotkey::key_names) {
-                if (q.second == D) {
+                const std::string qD = utility::replace_all(q.second, " ", "");
+                const std::string qd = utility::to_lower(qD);
+                if (qd == d) {
                     keycode = q.first;
                     break;
                 }
             }
         }
     }
-    if (keycode == -1) {
+    if (keycode == -1 and not modifier) {
         throw std::runtime_error(
             fmt::format("Unable to identify key name in hotkey sequence '{}'", sequence)
                 .c_str());
@@ -288,7 +302,8 @@ void Hotkey::sequence_to_key_and_modifier(
     }
 
     for (const auto &p : seq) {
-        const std::string d = utility::to_lower(p);
+        const std::string D = utility::replace_all(p, " ", "");
+        const std::string d = utility::to_lower(D);
         if (d == "shift") {
             modifier |= ShiftModifier;
         } else if (d == "meta") {
@@ -299,14 +314,16 @@ void Hotkey::sequence_to_key_and_modifier(
             modifier |= ControlModifier;
         } else {
             for (const auto &q : ui::Hotkey::key_names) {
-                if (q.second == p) {
+                const std::string qD = utility::replace_all(q.second, " ", "");
+                const std::string qd = utility::to_lower(qD);
+                if (qd == d) {
                     keycode = q.first;
                     break;
                 }
             }
         }
     }
-    if (keycode == -1) {
+    if (keycode == -1 and not modifier) {
         std::string ss;
         for (const auto &s : seq) {
             if (!ss.empty()) {
@@ -315,6 +332,6 @@ void Hotkey::sequence_to_key_and_modifier(
             ss += s;
         }
         throw std::runtime_error(
-            fmt::format("Unable to identify key name in hotkey sequence \"{}\"", ss).c_str());
+            fmt::format("Unable to identify key name in hotkey sequence '{}'", ss).c_str());
     }
 }

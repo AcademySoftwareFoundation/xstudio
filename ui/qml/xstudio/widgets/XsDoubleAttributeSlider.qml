@@ -56,7 +56,7 @@ Rectangle {
                 verticalAlignment: Qt.AlignVCenter
                 anchors.fill: parent
                 onEditingFinished: {
-(                   setValue(parseFloat(text))
+                    setValue(parseFloat(text))
                 }
             }
         }

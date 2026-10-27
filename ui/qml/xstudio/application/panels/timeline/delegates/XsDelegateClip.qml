@@ -90,6 +90,10 @@ RowLayout {
 		return helpers.makePersistent(DelegateModel.model.modelIndex(index))
 	}
 
+	function nmodelIndex() {
+		return DelegateModel.model.modelIndex(index)
+	}
+
     Timer {
         id: updateTimer
         interval: 500
@@ -188,14 +192,14 @@ RowLayout {
 	    	updateMediaIndex()
 	    }
 
-	    onDraggingStarted: {
-	    	control.draggingStarted(modelIndex(), control, mode)
+	    onDraggingStarted: (mode)=> {
+	    	control.draggingStarted(nmodelIndex(), control, mode)
 	    	isDragging = true
 	    }
 		onDragging: control.dragging(modelIndex(), control, mode, x / scaleX, y / scaleY / config.itemHeight)
 		onDoubleTapped: control.doubleTapped(control, mode)
 		onTapped: control.tapped(button, x, y, modifiers, control)
-		onDraggingStopped: {
+		onDraggingStopped: (mode)=> {
 			control.draggingStopped(modelIndex(), control, mode)
 	    	isDragging = false
 		}

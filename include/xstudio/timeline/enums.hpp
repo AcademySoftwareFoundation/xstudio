@@ -2,6 +2,7 @@
 #pragma once
 
 namespace xstudio::timeline {
+    
 typedef enum {
     IT_NONE        = 0x0L,
     IT_GAP         = 0x1L,
@@ -11,4 +12,10 @@ typedef enum {
     IT_STACK       = 0x5L,
     IT_TIMELINE    = 0x6L
 } ItemType;
+
+typedef enum {
+    AM_USE_AUDIO_STACK = 0x0L,
+    AM_USE_VIDEO_STACK = 0x1L
+} AudioMode;
+
 }

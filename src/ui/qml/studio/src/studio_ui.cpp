@@ -528,3 +528,10 @@ void StudioUI::setupSnapshotViewport(const QString &playhead_addr) {
         spdlog::warn("{} {} ", __PRETTY_FUNCTION__, e.what());
     }
 }
+
+void StudioUI::resetViewports() {
+
+    auto ph_events_actor = system().registry().template get<caf::actor>(global_playhead_events_actor);
+    anon_mail(viewport::viewport_reset_atom_v).send(ph_events_actor);
+
+}

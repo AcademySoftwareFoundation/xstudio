@@ -22,9 +22,19 @@ Item {
     XsHotkey {
         sequence: ";"
         name: "Create new note"
-        description: "Creates a new empty note on the current frame"
+        description: "Creates a new empty note on the current frame, but only if one doesn't already exist."
         context: "any"
         onActivated: {
+            // get a list of all bookmarks for the viewed media
+            let bms = bookmarkModel.searchRecursiveList(currentOnScreenMediaData.values.actorUuidRole, "ownerRole",
+                                                        bookmarkModel.index(-1,-1), 0, -1, -1)
+            for (const bm of bms) {
+                if (bookmarkModel.get(bm, "startFrameRole") == currentPlayhead.mediaFrame &&
+                    bookmarkModel.get(bm, "noteRole") == ""  &&
+                    ! bookmarkModel.get(bm, "hasAnnotationRole"))
+                    return
+            }
+
             if(bookmarkModel.insertRows(bookmarkModel.rowCount(), 1)) {
                 // set owner..
                 var nm = currentOnScreenMediaData.values.nameRole

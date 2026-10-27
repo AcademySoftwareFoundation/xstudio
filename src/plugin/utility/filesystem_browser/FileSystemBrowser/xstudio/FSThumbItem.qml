@@ -74,7 +74,6 @@ Item {
                     Image {
                         anchors.fill: parent
                         property var thumbSource: thumbSrcRoot + thumbnailFrame
-                        onThumbSourceChanged: console.log("thumbSource", thumbSource)
                         source: (visibleInFlickable || loaded) ? thumbSource : ""
                         fillMode: Image.PreserveAspectFit
                         asynchronous: true

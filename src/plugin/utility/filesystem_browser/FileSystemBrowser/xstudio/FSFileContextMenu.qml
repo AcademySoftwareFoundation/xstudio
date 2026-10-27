@@ -57,11 +57,15 @@ XsPopupMenu {
         menuPath: ""
         menuItemPosition: 5
         onActivated: {
-            if (itemPath) {
-                helpers.showURIS([helpers.QUrlFromPosixPath(itemPath)])
-            } else if (selectedItemsPaths.length > 0) {
-                helpers.showURIS([helpers.QUrlFromPosixPath(selectedItemsPaths[0])])
+            let path = itemPath ? itemPath : selectedItemsPaths[0]
+            // extract first frame if it is a sequence
+            const match = path.match(/(\{:([0-9]+)d\})\.[^=]+(=(\d+)[,-][0-9,-]+)$/)
+            if (match) {
+                let pad = parseInt(match[2], 10)
+                path = path.replace(match[1], match[4].padStart(pad, "0"))
+                path = path.replace(match[3], "")
             }
+            helpers.showURIS([helpers.QUrlFromPosixPath(path, false, false)])
         }
         menuModelName: fileContextMenu.menu_model_name
     }

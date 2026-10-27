@@ -4,7 +4,6 @@
 import os
 import re
 import threading
-import queue
 import time
 import pathlib
 from datetime import datetime
@@ -12,7 +11,6 @@ try:
     import pwd
 except ImportError:
     pwd = None
-import json
 from concurrent.futures import ThreadPoolExecutor
 
 try:
@@ -23,13 +21,16 @@ except ImportError:
 class FileScanner:
     def __init__(self, config=None):
         self.config = config or {}
-        self.extensions = set(self.config.get("extensions", [".mov", ".exr", ".png", ".mp4", ".jpg", ".jpeg", ".dpx", ".tiff", ".tif"]))
         self.ignore_dirs = set(self.config.get("ignore_dirs", [".git", ".svn", "__pycache__"]))
-        self.non_sequence_extensions = set(self.config.get("non_sequence_extensions", [".mov", ".mp4"]))
+        self.extensions = set(self.config.get("extensions", [".exr", ".png", ".jpg", ".jpeg", ".dpx", ".tiff", ".tif", ".mov", ".mp4", ".mxf"]))
+        self.non_sequence_extensions = set(self.config.get("non_sequence_extensions", [".mov", ".mp4", ".mxf"])) & self.extensions
         self.version_regex = re.compile(self.config.get("version_regex", r"_v(\d+)"))
         self.max_workers = self.config.get("thread_count", 4)
         self.max_depth = self.config.get("max_depth", 6)
-        
+        self.follow_symlinks = self.config.get("follow_symlinks", False)
+
+        self.expand_sequences = False
+
         self.cancel_event = threading.Event()
         self.executor = ThreadPoolExecutor(max_workers=self.max_workers)
 
@@ -171,7 +172,7 @@ class FileScanner:
                     if self.cancel_event.is_set():
                         break
                     
-                    if entry.is_dir(follow_symlinks=False):
+                    if entry.is_dir(follow_symlinks=self.follow_symlinks):
                         if entry.name not in self.ignore_dirs and not entry.name.startswith('.'):
                             subdirs.append(entry.path)
                             # Also add directory as an item
@@ -241,6 +242,12 @@ class FileScanner:
         final_items = []
         sequence_candidate_paths = []
         
+        if not fileseq or self.expand_sequences:
+            # Treat everything as singles
+            for p, name, st, is_dir in raw_files:
+                final_items.append(self._make_item(p, name, st, start_path, is_directory=is_dir, depth=depth))
+            return self._group_versions(final_items)
+
         # Split into sequence candidates and singles
         for p, name, st, is_dir in raw_files:
             if is_dir:
@@ -255,40 +262,16 @@ class FileScanner:
                 sequence_candidate_paths.append(p)
             
         # Use fileseq to find sequences among candidates
-        # Import moved to top level or check self.HAS_FILESEQ? 
-        # The file has 'try: import fileseq ...' at top level
-        
+        # (fileseq module availability checked above)
+
         sequences = []
-        if fileseq and sequence_candidate_paths:
+        if sequence_candidate_paths:
             try:
                 sequences = fileseq.findSequencesInList(sequence_candidate_paths)
             except Exception as e:
                 sequences = [] # Fallback?
 
-        if not fileseq and sequence_candidate_paths:
-             # Fallback: Treat all as singles
-             for p in sequence_candidate_paths:
-                 info = path_map.get(p)
-                 if info:
-                    final_items.append(self._make_item(p, info[0], info[1], start_path, depth=depth))
-
         for seq in sequences:
-            # Check if we should explode this sequence (if it's actually versioned files matching config)
-            explode = False
-            
-            # If length is 1, it's virtually a single file, but fileseq wraps it.
-            # If length > 1, check if it matches version regex but shouldn't?
-            # Existing logic:
-            if len(seq) > 1:
-                try:
-                    # If the basename doesn't match version regex, but one file does??
-                    # This logic seems to prevent detecting a sequence if the naming is ambiguous?
-                    # Let's keep existing logic but careful.
-                    # Actually, if len > 1, it IS a sequence usually.
-                    pass
-                except Exception as e:
-                    pass
-            
             if len(seq) == 1:
                  # Treat as single file
                  str_p = str(seq[0])

@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Sam Richards
 
 from xstudio.plugin import PluginBase
-from xstudio.core import JsonStore, FrameList, add_media_atom, Uuid, event_atom
+from xstudio.core import Uuid, event_atom
 from xstudio.core import KeyboardModifier
 import os
 from enum import Enum
@@ -11,10 +11,8 @@ import json
 import threading
 import time
 import subprocess
-import shutil
-import pathlib
-import atexit
 import traceback
+
 class HostApp(Enum):
     generic = 1
     xstudio = 2
@@ -51,7 +49,7 @@ def get_windows_drives():
     bitmask = windll.kernel32.GetLogicalDrives()
     for letter in range(26):
         if bitmask & (1 << letter):
-            drives.append(f"{chr(65 + letter)}:/")
+            drives.append(f"{chr(65 + letter)}:\\")
     return drives
 
 # PySide6 dependency removed
@@ -372,6 +370,15 @@ class FilesystemBrowserPlugin(PluginBase):
         )
         self.current_path_attr.expose_in_ui_attrs_group("Filesystem Browser")
 
+        # Attribute overriding if frames are consolidated into sequences
+        self.expand_sequences_attr = self.add_attribute(
+            "expand_sequences",
+            False,
+            {"title": "expand_sequences"},
+            register_as_preference=False
+        )
+        self.expand_sequences_attr.expose_in_ui_attrs_group("Filesystem Browser")
+
         # Attribute for commands from QML
         self.command_attr = self.add_attribute(
             "command_channel",
@@ -388,9 +395,6 @@ class FilesystemBrowserPlugin(PluginBase):
             register_as_preference=False
         )
         self.preview_media_uuid.expose_in_ui_attrs_group("Filesystem Browser")
-
-        # Action to toggle the panel
-        self.toggle_action_uuid = "2669e4a3-7186-4556-9818-80949437b018"
 
         self.toggle_browser_action = self.register_hotkey(
             self.toggle_browser, # hotkey_callback
@@ -659,6 +663,14 @@ class FilesystemBrowserPlugin(PluginBase):
         )
         self.extensions_attr.expose_in_ui_attrs_group("Filesystem Browser Settings")
 
+        self.non_sequence_extensions_attr = self.add_attribute(
+            "Non-Sequence Extensions",
+            ", ".join(self.config.get("non_sequence_extensions", [])),
+            {"title": "Non-Sequence Extensions", "category": "Filesystem Browser"},
+            register_as_preference=True
+        )
+        self.non_sequence_extensions_attr.expose_in_ui_attrs_group("Filesystem Browser Settings")
+
         self.ignore_dirs_attr = self.add_attribute(
             "Ignore Directories",
             ", ".join(self.config.get("ignore_dirs", [])),
@@ -703,6 +715,12 @@ class FilesystemBrowserPlugin(PluginBase):
     @property
     def extensions(self):
         val = self.extensions_attr.value()
+        if not val: return []
+        return [item.strip() for item in val.split(',') if item.strip()]
+
+    @property
+    def non_sequence_extensions(self):
+        val = self.non_sequence_extensions_attr.value()
         if not val: return []
         return [item.strip() for item in val.split(',') if item.strip()]
 
@@ -905,6 +923,9 @@ class FilesystemBrowserPlugin(PluginBase):
             except Exception as e:
                 import traceback
                 _dbg(f"BATCH ERROR: {e}\n{traceback.format_exc()}")
+        elif attribute.uuid == self.expand_sequences_attr.uuid and role == AttributeRole.Value:
+            if hasattr(self, 'scanner'):
+                self.scanner.expand_sequences = attribute.value()
 
     def _manual_scan_required(self):
         """Called when a path is selected that is shallow enough to require 
@@ -981,11 +1002,14 @@ class FilesystemBrowserPlugin(PluginBase):
         max_depth = custom_depth if custom_depth is not None else self.depth_limit_attr.value()
         config = {
             "extensions": list(self.extensions),
+            "non_sequence_extensions": list(self.non_sequence_extensions),
             "ignore_dirs": list(self.ignore_dirs),
-            "max_depth": max_depth
+            "max_depth": max_depth,
+            "follow_symlinks": self.config.get("follow_symlinks", False)
         }
         
         self.scanner = FileScanner(config)
+        self.scanner.expand_sequences = self.expand_sequences_attr.value()
         with self.results_lock:
             self.current_scan_results = []
         self.pending_scan_results = []
@@ -1145,7 +1169,7 @@ class FilesystemBrowserPlugin(PluginBase):
         """Fetch subdirectories for the given path and update attribute."""
         result = {"path": path, "dirs": []}
         try:
-            if path == "/" and sys.platform == "win32":
+            if (path == "/" or path == "\\") and sys.platform == "win32":
                 drivenames = get_windows_drives()
                 result["dirs"] = [{"name": d, "path": d, "has_subdir": True} for d in drivenames]
             elif os.path.exists(path) and os.path.isdir(path):
@@ -1161,16 +1185,21 @@ class FilesystemBrowserPlugin(PluginBase):
                             continue
                             
                         if entry.is_dir():
-                            # Does this hit performance of the tree? 
-                            has_subdir = False
-                            try:
-                                with os.scandir(entry.path) as sub_it:
-                                    for sub_entry in sub_it:
-                                        if sub_entry.is_dir():
-                                            has_subdir = True
-                                            break
-                            except Exception:
-                                pass
+                            # Does this hit performance of the tree?
+                            # Yes, massively for me so commenting out (ken@mcgaugh.co.uk)
+                            # Perhaps this could be run in another thread so that it
+                            # doesn't block the directory tree UI from expanding down
+                            # to the current path.
+                            has_subdir = True
+                            #has_subdir = False
+                            #try:
+                            #    with os.scandir(entry.path) as sub_it:
+                            #        for sub_entry in sub_it:
+                            #            if sub_entry.is_dir():
+                            #                has_subdir = True
+                            #                break
+                            #except Exception:
+                            #    pass
                             dirs.append({
                                 "name": entry.name,
                                 "path": entry.path,

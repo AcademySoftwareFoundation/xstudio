@@ -31,8 +31,15 @@ Item {
 
     property var previewing: previewMediaUuid != helpers.QVariantFromUuidString("") ? previewMediaUuid == currentPlayhead.mediaUuid : false
 
-    # uri requires triple slash before drive letter on Windows, since this is the root.
+    // uri requires triple slash before drive letter on Windows, since this is the root.
     property var thumbSrcRoot: Qt.platform.os === "windows" ? "image://thumbnail/file:///" : "image://thumbnail/file://"
+
+    property string treeBaseRootPath: "/"
+
+    onVisibleChanged: {
+        if (!visible)
+            sendCommand({"action": "stop_scan"})
+    }
 
     FileSystemBrowserScanResultsModel {
         id: __scanResultsModel
@@ -174,13 +181,15 @@ Item {
                     let idx = scanResultsModel.index(j, 0, selectedItems[i])
                     if (scanResultsModel.get(idx, "is_folder")) continue;
                     else {
-                        v.push(helpers.QUrlFromPosixPath(scanResultsModel.get(idx, "path")))
-                        v2.push(scanResultsModel.get(idx, "path"))
+                        let path = scanResultsModel.get(idx, "path")
+                        v.push(helpers.QUrlFromPosixPath(path))
+                        v2.push(path)
                     }
                 }
             } else {
-                v.push(helpers.QUrlFromPosixPath(scanResultsModel.get(selectedItems[i], "path")))
-                v2.push(scanResultsModel.get(selectedItems[i], "path"))
+                let path = scanResultsModel.get(selectedItems[i], "path")
+                v.push(helpers.QUrlFromPosixPath(path))
+                v2.push(path)
             }
         }
         selectedItemsUrls = v
@@ -442,6 +451,23 @@ Item {
         model: pluginData
     }
     
+    XsAttributeValue {
+        id: scanned_dirs_attr
+        attributeTitle: "scanned_dirs"
+        model: pluginData
+        role: "value"
+        onValueChanged: {
+             try {
+                 var val = value
+                 if (val && val !== "[]") {
+                     scannedDirsList = JSON.parse(val)
+                 } else {
+                     scannedDirsList = []
+                 }
+             } catch(e) { }
+        }
+    }
+    
     // Filters
     XsAttributeValue { 
         id: filter_time_attr
@@ -543,7 +569,7 @@ Item {
             spacing: 0
             visible: root.viewMode != 3
             function getItemAtIndex(index) {
-                return fileListView.getItemAtIndex(index)
+                return fileTreeView.getItemAtIndex(index)
             }
 
             FSListHeader {
@@ -661,7 +687,7 @@ Item {
                                 
                     onReleased: (mouse)=> {
 
-                        if (underMouseIndex != -1 && mouse.button === Qt.LeftButton && mouse.modifiers == Qt.NoModifier) {    
+                        if (underMouseIndex != undefined && mouse.button === Qt.LeftButton && mouse.modifiers == Qt.NoModifier) {    
                             selectedItems = []
                             selectItem(underMouseIndex, 0)
                             
@@ -678,7 +704,7 @@ Item {
                     }
 
                     onDoubleClicked: (mouse) => {
-                        if (mouse.button === Qt.LeftButton && underMouseIndex != -1) {
+                        if (mouse.button === Qt.LeftButton && underMouseIndex != undefined) {
 
                             if (scanResultsModel.get(underMouseIndex, "is_folder")) {
                                 sendCommand({"action": "change_path", "path": scanResultsModel.get(underMouseIndex, "path")});
@@ -690,9 +716,10 @@ Item {
 
                     onClicked: (mouse) => {
 
-                        if (mouse.button === Qt.RightButton && underMouseIndex != -1) {
-                            let clickedItemPath = scanResultsModel.get(underMouseIndex, "path")
-                            thumbContextMenu.itemPath = clickedItemPath
+                        if (mouse.button === Qt.RightButton && underMouseIndex != undefined) {
+                            if (!selectedItems.includes(underMouseIndex)) {
+                                selectedItems = [underMouseIndex]
+                            }
                             thumbContextMenu.showMenu(
                                 mouseArea,
                                 mouse.x, mouse.y);
@@ -712,7 +739,7 @@ Item {
                         target: null
 
                         onActiveChanged: {
-                            if (active && underMouseIndex != -1) {
+                            if (active && underMouseIndex != undefined) {
                                 dragProxy.grabToImage(function(result) {
                                     let d = root.selectedItemsPaths.map(p => encodeURIComponent(p))
                                     dragProxy.Drag.mimeData = {"text/plain": d.join("\n")}
@@ -730,17 +757,24 @@ Item {
                 // Nothing found message
                 ColumnLayout {
 
-                    anchors.centerIn: parent
+                    anchors.margins: 30
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
                     spacing: 20
                     visible: scanResultsModel.numMediaFiles === 0 && !searching_attr.value && !deepScan
                     XsText {
+
                         id: msg
+                        Layout.fillWidth: true
                         text: "No media found in current folder."
                         color: "#666666"
                         font.pixelSize: 18
+                        wrapMode: Text.Wrap
+                        horizontalAlignment: Text.AlignHCenter
                     }
                     XsPrimaryButton {
-                        Layout.preferredWidth: 200
+                        Layout.preferredWidth: Math.min(parent.width, 200)
                         Layout.alignment: Qt.AlignHCenter
                         visible: scanResultsModel.numRootFolders && !deepScan
                         text: "Run Full Scan"
@@ -834,6 +868,14 @@ Item {
         id: thumbToolTip
         delay: 500
         maxWidth: 400
+
+        MouseArea {
+            anchors.fill: parent
+            propagateComposedEvents: true
+            onClicked: (mouse) => mouse.accepted = false
+            onPressed: (mouse) => mouse.accepted = false
+            onReleased: (mouse) => mouse.accepted = false
+        }
     }
 
 }

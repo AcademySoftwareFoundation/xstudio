@@ -39,7 +39,7 @@ def use_clip_range(item=XSTUDIO.api.session.viewed_container):
                                 cfr
                             ),
                             FrameRateDuration(
-                                end-start,
+                                (end-start)+1,
                                 cfr
                             )
                         )

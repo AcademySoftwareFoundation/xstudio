@@ -74,6 +74,9 @@ class TimelineActor : public caf::event_based_actor {
         const int index,
         const int count = 1);
 
+    void export_flattened_otio(
+        caf::typed_response_promise<std::string> rp);
+
     std::pair<utility::JsonStore, std::vector<timeline::Item>>
     remove_items(const int index, const int count = 1);
 
@@ -102,6 +105,20 @@ class TimelineActor : public caf::event_based_actor {
     void monitor_media(const caf::actor &actor);
 
     void duplicate_playhead(caf::actor duplicated_timeline);
+
+    void serialise_selection_for_clipboard(
+        caf::typed_response_promise<utility::JsonStore> rp, const utility::UuidVector &selected_items);
+
+    void paste_tracks_from_serialisation(
+        caf::typed_response_promise<utility::JsonStore> rp, const std::string &track_serialisation);
+
+    void auto_insert_media_at_playhead_clip(
+        caf::typed_response_promise<bool> rp,
+        utility::UuidActor media);
+
+    void auto_replace_media_at_playhead_clip(
+        caf::typed_response_promise<bool> rp,
+        utility::UuidActor media);
 
     Timeline base_;
     caf::actor change_event_group_;

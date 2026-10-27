@@ -46,9 +46,9 @@ Rectangle {
         height: XsStyleSheet.widgetStdHeight
 
         readonly property int btnCount: 6
-        readonly property int preferredBtnWidth: Math.min(110, parent.width / btnCount)
+        readonly property int preferredBtnWidth: Math.min(140, parent.width / btnCount)
         readonly property int preferredMenuWidth: Math.max(100, preferredBtnWidth)
-
+        
         Repeater {
             model: viewportPlayhead.autoAlignAttrData
             XsViewerMenuButton {

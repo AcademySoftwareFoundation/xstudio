@@ -124,11 +124,11 @@ void ColourOpPlugin::onscreen_source_colour_metadata_merge(
 
                             },
                             [=](caf::error &err) mutable {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                utility::log_caf_error(err);
                             });
                 },
                 [=](caf::error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    utility::log_caf_error(err);
                 });
     }
 }

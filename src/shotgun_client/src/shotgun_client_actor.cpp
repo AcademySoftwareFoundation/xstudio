@@ -20,15 +20,16 @@ using namespace caf;
 
 using sce = shotgun_client_error;
 
-ShotgunClientActor::ShotgunClientActor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {
-    init();
-}
+ShotgunClientActor::ShotgunClientActor(caf::actor_config &cfg,
+    const time_t &connection_timeout,
+    const time_t &read_timeout,
+    const time_t &write_timeout
+) : caf::event_based_actor(cfg) {
 
-void ShotgunClientActor::init() {
     spdlog::debug("Created ShotgunClientActor");
     print_on_exit(this, "ShotgunClientActor");
 
-    http_ = spawn<HTTPClientActor>(CPPHTTPLIB_CONNECTION_TIMEOUT_SECOND, 20, 20);
+    http_ = spawn<HTTPClientActor>(connection_timeout, read_timeout, write_timeout);
 
     link_to(http_);
 
@@ -475,7 +476,7 @@ void ShotgunClientActor::acquire_token_primary(
                         }
                     },
                     [=](error &) mutable {
-                        // spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        // log_caf_error(err);
                         // try using login
                         base_.expire_refresh_token();
                         while (not request_refresh_queue_.empty()) {
@@ -503,7 +504,7 @@ void ShotgunClientActor::acquire_token_primary(
                         acquire_token_primary(rp);
                     },
                     [=](error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                         base_.set_authenticated(false);
                         rp.deliver(std::move(err));
                     });
@@ -559,7 +560,7 @@ void ShotgunClientActor::acquire_token(
                     }
                 },
                 [=](error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     base_.set_failed_authentication();
                     base_.set_authenticated(false);
                     while (not request_acquire_queue_.empty()) {
@@ -652,7 +653,7 @@ void ShotgunClientActor::request_image(
                 }
             },
             [=](error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(std::move(err));
             });
 }
@@ -669,34 +670,34 @@ void ShotgunClientActor::request_attachment(
         path = std::string(fmt::format("/api/v1/entity/{}/{}?alt=original", entity, record_id));
     else
         path = std::string(
-            fmt::format("/api/v1/entity/{}/{}/{}?alt=original", entity, record_id, property)),
+            fmt::format("/api/v1/entity/{}/{}/{}?alt=original", entity, record_id, property));
 
-        mail(http_get_atom_v, base_.scheme_host_port(), path, base_.get_auth_headers())
-            // base_.get_auth_headers("video/webm"))
-            .request(http_, infinite)
-            .then(
-                [=](const httplib::Response &response) mutable {
-                    if (response.status == 200) {
-                        return rp.deliver(response.body);
+    mail(http_get_atom_v, base_.scheme_host_port(), path, base_.get_auth_headers())
+        .request(http_, infinite)
+        .then(
+            [=](const httplib::Response &response) mutable {
+                if (response.status == 200) {
+                    return rp.deliver(response.body);
+                }
+
+                try {
+                    auto jsn = nlohmann::json::parse(response.body);
+                    if (not check_failed_authenticate(jsn, rp, [=]() {
+                            request_attachment(entity, record_id, property, rp);
+                        })) {
+                        // missing thumbnail
+                        rp.deliver(make_error(sce::response_error, response.body));
                     }
 
-                    try {
-                        auto jsn = nlohmann::json::parse(response.body);
-                        if (not check_failed_authenticate(jsn, rp, [=]() {
-                                request_attachment(entity, record_id, property, rp);
-                            })) {
-                            // missing thumbnail
-                            rp.deliver(make_error(sce::response_error, response.body));
-                        }
-                    } catch (const std::exception &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-                        rp.deliver(make_error(sce::response_error, err.what()));
-                    }
-                },
-                [=](error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                    rp.deliver(std::move(err));
-                });
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    rp.deliver(make_error(sce::response_error, err.what()));
+                }
+            },
+            [=](error &err) mutable {
+                log_caf_error(err);
+                rp.deliver(std::move(err));
+            });
 }
 
 void ShotgunClientActor::request_text_search(
@@ -1161,7 +1162,7 @@ void ShotgunClientActor::upload_start(
                 }
             },
             [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(err);
             });
 }
@@ -1207,7 +1208,7 @@ void ShotgunClientActor::upload_transfer(
                 },
                 [=](error &err) mutable { rp.deliver(std::move(err)); });
     } else {
-        rp.deliver(make_error(sce::response_error, "Invalid uri"));
+        rp.deliver(make_error(sce::response_error, fmt::format("Invalid uri {}", url) ));
     }
 }
 void ShotgunClientActor::upload_finish(
@@ -1239,7 +1240,7 @@ void ShotgunClientActor::upload_finish(
                 }
             },
             [=](error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(std::move(err));
             });
 }

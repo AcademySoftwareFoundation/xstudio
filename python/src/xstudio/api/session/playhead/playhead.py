@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.core import play_atom, loop_atom, compare_mode_atom, play_forward_atom
 from xstudio.core import logical_frame_atom, play_rate_mode_atom, source_atom, media_atom
+from xstudio.core import source_offset_frames_atom
 from xstudio.core import simple_loop_start_atom, simple_loop_end_atom, use_loop_range_atom
 from xstudio.core import viewport_playhead_atom, media_logical_frame_atom, playhead_rate_atom
 from xstudio.core import JsonStore, change_attribute_value_atom, jump_atom
@@ -217,3 +218,53 @@ class Playhead(ModuleBase):
         Args:
             compare_mode(str): The compare mode."""
         self.attrs_by_name_["Compare"].set_value(compare_mode)
+
+    @property
+    def frame_align_mode(self):
+        """Get the frame align mode. e.g. "Manual", "Auto", "Auto (Trim)"
+
+        Returns:
+            frame_align_mode(str): The auto align mode.
+        """
+        return self.attrs_by_name_["Frame Align"].value()
+
+    @frame_align_mode.setter
+    def frame_align_mode(self, align_mode):
+        """Set the frame align mode. In "Manual" mode per-source compare
+        offsets set via set_source_offset_frames are preserved across
+        selection and compare mode changes.
+
+        Args:
+            align_mode(str): "Manual", "Auto", or "Auto (Trim)"."""
+        self.attrs_by_name_["Frame Align"].set_value(align_mode)
+
+    @property
+    def source_alignment_frames(self):
+        """Get the frame offsets currently applied to each compared source
+        (in selection order).
+
+        Returns:
+            source_alignment_frames(list(int)): Per-source frame offsets.
+        """
+        import json
+        return json.loads(self.connection.request_receive(
+            self.remote, source_offset_frames_atom(), True)[0].dump())
+
+    def set_source_offset_frames(self, source, offset):
+        """Set the compare frame offset for one of the compared sources.
+        A positive offset plays the source earlier. The offset only sticks
+        while auto_align_mode is "Off" - other align modes recompute
+        offsets on selection changes.
+
+        Args:
+            source(Media|Uuid|int): The media (or its uuid, or its index in
+                the current selection) to offset.
+            offset(int): Frame offset. Positive plays the source earlier.
+
+        Returns:
+            applied(bool): True if the source is in the current selection.
+        """
+        if isinstance(source, Media):
+            source = source.uuid
+        return self.connection.request_receive(
+            self.remote, source_offset_frames_atom(), source, offset)[0]

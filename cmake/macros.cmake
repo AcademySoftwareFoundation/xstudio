@@ -45,8 +45,8 @@ if (BUILD_TESTING)
 	macro(default_compile_options_gtest name)
 		target_compile_options(${name}
 			# PRIVATE -fvisibility=hidden
-			PRIVATE $<$<CONFIG:RelWithDebInfo>:-fno-omit-frame-pointer>
-			PRIVATE -Wno-deprecated
+			PRIVATE $<$<AND:$<CONFIG:RelWithDebInfo>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-fno-omit-frame-pointer>
+			PRIVATE $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wno-deprecated>
 			# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-variable>
 			# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-but-set-variable>
 			# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-parameter>
@@ -56,6 +56,10 @@ if (BUILD_TESTING)
 			PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wextra>
 			PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wpedantic>
 			PRIVATE ${GTEST_CFLAGS}
+			# Windows only. CAF and GTest headers together exceed MSVC's
+			# default object section limit, so test targets need /bigobj -
+			# as the non-test targets already do above.
+			PRIVATE $<$<PLATFORM_ID:Windows>:/bigobj>
 		)
 
 		target_compile_features(${name}
@@ -90,6 +94,7 @@ macro(default_options_local name)
 	target_include_directories(${name}
 	    PUBLIC
 	        $<BUILD_INTERFACE:${ROOT_DIR}/include>
+	        $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/gen-include>
 	        # $<INSTALL_INTERFACE:include>
 	    PRIVATE
 	        ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -101,7 +106,10 @@ macro(default_options_local name)
 		set_target_properties(${name}
 			PROPERTIES
 			LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Frameworks"
+			INSTALL_NAME_DIR "@rpath"
+			BUILD_WITH_INSTALL_NAME_DIR TRUE
 			INSTALL_RPATH "@executable_path/../Frameworks"
+			BUILD_RPATH   "@executable_path/../Frameworks"
 			INSTALL_RPATH_USE_LINK_PATH TRUE
 		)
 	elseif(UNIX)
@@ -129,6 +137,7 @@ macro(default_options name)
 
 	target_include_directories(${name} INTERFACE
   		$<BUILD_INTERFACE:${ROOT_DIR}/include>
+  		$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/gen-include>
   		$<BUILD_INTERFACE:${ROOT_DIR}/extern/include>
   		$<INSTALL_INTERFACE:include>
 		$<INSTALL_INTERFACE:extern/include>
@@ -146,6 +155,7 @@ macro(default_options_static name)
 	target_include_directories(${name}
 	    PUBLIC
 	        $<BUILD_INTERFACE:${ROOT_DIR}/include>
+	        $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/gen-include>
 	        # $<INSTALL_INTERFACE:include>
 	    PRIVATE
 	        ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -168,6 +178,7 @@ macro(default_plugin_options name)
 	target_include_directories(${name}
 	    PUBLIC
 	        $<BUILD_INTERFACE:${ROOT_DIR}/include>
+	        $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/gen-include>
 	        # $<INSTALL_INTERFACE:include>
 	    PRIVATE
 	        ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -225,7 +236,7 @@ macro(add_plugin_qml name _dir)
 				cmake_path(GET DIR FILENAME dirname)
 				add_custom_command(TARGET ${name}_COPY_QML POST_BUILD
 					COMMAND ${CMAKE_COMMAND} -E
-						copy_directory ${DIR} ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/PlugIns/xstudio/qml/${dirname})
+						copy_directory ${DIR} ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/qml/${dirname})
 			endif()
 		endforeach()
 	else()
@@ -250,8 +261,16 @@ endmacro()
 
 if (BUILD_TESTING)
 	macro(default_options_gtest name)
-		find_package(PkgConfig)
-		pkg_search_module(GTEST REQUIRED gtest_main)
+		if (WIN32)
+			# pkg-config is not available under MSVC, so take gtest from the
+			# vcpkg CONFIG package instead and publish it through the same
+			# variable everything else already links against.
+			find_package(GTest REQUIRED)
+			set(GTEST_LDFLAGS GTest::gtest GTest::gtest_main)
+		else()
+			find_package(PkgConfig)
+			pkg_search_module(GTEST REQUIRED gtest_main)
+		endif()
 		if (NOT CAF_FOUND)
 			find_package(CAF COMPONENTS core io)
 		endif (NOT CAF_FOUND)
@@ -260,6 +279,7 @@ if (BUILD_TESTING)
 		target_include_directories(${name}
 		    PUBLIC
 		        $<BUILD_INTERFACE:${ROOT_DIR}/include>
+		        $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/gen-include>
 		        # $<INSTALL_INTERFACE:include>
 		    PRIVATE
 		        ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -279,6 +299,7 @@ macro(default_options_qt name)
 	target_include_directories(${name}
 	    PUBLIC
 	        $<BUILD_INTERFACE:${ROOT_DIR}/include>
+	        $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/gen-include>
 	        # $<INSTALL_INTERFACE:include>
 	    PRIVATE
 	        ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -359,8 +380,6 @@ endmacro()
 
 macro(add_python_plugin NAME)
 
-	install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${NAME} DESTINATION share/xstudio/plugin-python)
-
 	add_custom_target(COPY_PY_PLUGIN_${NAME} ALL)
 
  	if (APPLE)
@@ -374,6 +393,8 @@ macro(add_python_plugin NAME)
         	copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/${NAME} ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/plugin-python/${NAME})
 
 	else()
+
+		install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${NAME} DESTINATION share/xstudio/plugin-python)
 
 		add_custom_command(TARGET COPY_PY_PLUGIN_${NAME} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E
@@ -579,6 +600,26 @@ macro(create_test PATH DEPS)
 
 	add_test(${PARENT}_${NAME} ${NAME})
 
+	if (WIN32)
+		# No rpath on Windows - without these on PATH every test exits 0xc0000135.
+		set(TEST_DLL_DIRS "${CMAKE_BINARY_DIR}/bin")
+		if (DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
+			list(APPEND TEST_DLL_DIRS "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin")
+		endif()
+
+		set(TEST_PATH_MODS "")
+		foreach(DLL_DIR ${TEST_DLL_DIRS})
+			file(TO_NATIVE_PATH "${DLL_DIR}" NATIVE_DLL_DIR)
+			list(APPEND TEST_PATH_MODS "PATH=path_list_prepend:${NATIVE_DLL_DIR}")
+		endforeach()
+
+		set_tests_properties(${PARENT}_${NAME} PROPERTIES
+			ENVIRONMENT_MODIFICATION "${TEST_PATH_MODS}")
+	endif()
+
+	# Unit tests - fail fast rather than wait out ctest's 1500s default.
+	set_tests_properties(${PARENT}_${NAME} PROPERTIES TIMEOUT 5)
+
 endmacro()
 
 macro(create_tests DEPS)
@@ -626,7 +667,7 @@ macro(create_qml_component_with_alias NAME ALIASNAME VERSION DEPS EXTRAMOC)
 
 	# Generate export header
 	include(GenerateExportHeader)
-	generate_export_header(${PROJECT_NAME} EXPORT_FILE_NAME "${ROOT_DIR}/include/xstudio/ui/qml/${PROJECT_NAME}_export.h")
+	generate_export_header(${PROJECT_NAME} EXPORT_FILE_NAME "${CMAKE_BINARY_DIR}/gen-include/xstudio/ui/qml/${PROJECT_NAME}_export.h")
 	target_link_libraries(${PROJECT_NAME}
 		PUBLIC ${DEPS}
 	)
@@ -634,10 +675,6 @@ macro(create_qml_component_with_alias NAME ALIASNAME VERSION DEPS EXTRAMOC)
 	set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
 	set_property(TARGET ${PROJECT_NAME} PROPERTY AUTOMOC ON)
 
-	## Add the directory containing the generated export header to the include directories
-	#target_include_directories(${PROJECT_NAME}
-	#	PUBLIC ${CMAKE_BINARY_DIR}  # Include the build directory
-	#)
 
 endmacro()
 

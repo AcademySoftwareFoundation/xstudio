@@ -34,6 +34,8 @@ class PlayheadActor : public caf::event_based_actor, public PlayheadBase {
 
     [[nodiscard]] const char *name() const override { return NAME.c_str(); }
 
+    static inline const utility::Uuid TIMELINE_COMPARE_PLAYHEAD_UUID = utility::Uuid("442f6169-a3b0-465d-850d-03280b224d70");
+
   private:
     inline static const std::string NAME = "PlayheadActor";
 
@@ -77,6 +79,7 @@ class PlayheadActor : public caf::event_based_actor, public PlayheadBase {
     void match_video_track_durations();
     void align_audio_playhead();
     void align_clip_frame_numbers();
+    bool set_manual_source_offset(const utility::Uuid &media_uuid, const int64_t offset);
     void move_playhead_to_last_viewed_frame_of_current_source();
     void move_playhead_to_last_viewed_frame_of_given_source(const utility::Uuid &source_uuid);
     void current_media_changed(caf::actor media_actor, const bool force = false);

@@ -9,6 +9,7 @@
 #include <vector>
 
 #include <QPdfDocument>
+#include <QPainter>
 
 #include "pdf.hpp"
 #include "xstudio/media_reader/media_reader.hpp"
@@ -169,10 +170,19 @@ ImageBufPtr PDFMediaReader::image(const media::AVFrameID &mptr) {
     auto height     = points_to_pixels(point_size.height());
 
     if (stream_id == "Pages RGB") {
+        // This is the primary stream, but if the PDF doesn't have
+        // an explicit background then we need to composite the
+        // rendered result over white.
         auto image =
-            pdf->render(mptr.frame(), QSize(width, height), QPdfDocumentRenderOptions());
+            pdf->render(mptr.frame(), QSize(width, height));
+        image.convertTo(QImage::Format_ARGB32_Premultiplied);
 
-        image.convertTo(QImage::Format_RGB888);
+        QImage composite(image.size(), image.format());
+        QPainter painter(&composite);
+        painter.fillRect(composite.rect(), Qt::white);
+        painter.drawImage(0, 0, image);
+        painter.end();
+        composite.convertTo(QImage::Format_RGB888);
 
         JsonStore jsn;
         jsn["width"]  = width;
@@ -185,12 +195,14 @@ ImageBufPtr PDFMediaReader::image(const media::AVFrameID &mptr) {
 
         byte *buffer = buf->buffer();
 
-        std::memcpy((char *)buffer, image.constBits(), width * height * 3);
+        std::memcpy((char *)buffer, composite.constBits(), width * height * 3);
     } else {
+        // This is the secondary stream with an alpha and is *not*
+        // composited over white, to retain its inherent transparency.
         auto image =
-            pdf->render(mptr.frame(), QSize(width, height), QPdfDocumentRenderOptions());
+            pdf->render(mptr.frame(), QSize(width, height));
 
-        image.convertTo(QImage::Format_RGBA8888);
+        image.convertTo(QImage::Format_RGBA8888_Premultiplied);
 
         JsonStore jsn;
         jsn["width"]  = width;
@@ -212,6 +224,8 @@ ImageBufPtr PDFMediaReader::image(const media::AVFrameID &mptr) {
 std::shared_ptr<thumbnail::ThumbnailBuffer>
 PDFMediaReader::thumbnail(const media::AVFrameID &mptr, const size_t thumb_size) {
     try {
+        // Same as the "Pages RGB" image stream above, but rendered
+        // to the requested thumbnail size.
         auto pdf = std::make_shared<QPdfDocument>();
 
         if (auto loaded = pdf->load(QStringFromStd(uri_to_posix_path(mptr.uri())));
@@ -224,12 +238,20 @@ PDFMediaReader::thumbnail(const media::AVFrameID &mptr, const size_t thumb_size)
         auto height     = (static_cast<uint32_t>(thumb_size / ratio) / 32) * 32;
 
         auto image =
-            pdf->render(mptr.frame(), QSize(thumb_size, height), QPdfDocumentRenderOptions());
+            pdf->render(mptr.frame(), QSize(thumb_size, height));
+        image.convertTo(QImage::Format_ARGB32_Premultiplied);
+
+        QImage composite(image.size(), image.format());
+        QPainter painter(&composite);
+        painter.fillRect(composite.rect(), Qt::white);
+        painter.drawImage(0, 0, image);
+        painter.end();
+        composite.convertTo(QImage::Format_RGB888);
+
         auto thumb = std::make_shared<thumbnail::ThumbnailBuffer>(
             thumb_size, height, thumbnail::TF_RGB24);
 
-        image.convertTo(QImage::Format_RGB888);
-        std::memcpy((char *)(thumb->data().data()), image.constBits(), thumb_size * height * 3);
+        std::memcpy((char *)(thumb->data().data()), composite.constBits(), thumb_size * height * 3);
 
         return thumb;
     } catch ([[maybe_unused]] std::exception &e) {

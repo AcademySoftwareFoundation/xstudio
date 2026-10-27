@@ -4,6 +4,7 @@ from xstudio.core import viewport_playhead_atom, quickview_media_atom
 from xstudio.core import UuidActorVec, UuidActor, viewport_atom
 from xstudio.core import get_global_playhead_events_atom, active_viewport_atom
 from xstudio.core import URI, render_viewport_to_image_atom
+from xstudio.core import viewport_scale_atom, viewport_pan_atom, V2f
 from xstudio.api.session.playhead import Playhead
 from xstudio.api.module import ModuleBase
 from xstudio.api.intrinsic.colour_pipeline import ColourPipeline
@@ -85,6 +86,47 @@ class Viewport(ModuleBase):
             position[1],
             size[0],
             size[1])
+
+    @property
+    def scale(self):
+        """Get the raw viewport scale (image_pixels / viewport_pixels).
+        A larger value means more zoomed in. At fit-to-window this is typically 5-15,
+        not 1.0 — capture a baseline at fit-to-window to normalise if needed.
+
+        Returns:
+            float: Raw scale value.
+        """
+        return self.connection.request_receive(self.remote, viewport_scale_atom())[0]
+
+    @scale.setter
+    def scale(self, value):
+        """Set the raw viewport scale.
+
+        Args:
+            value(float): Raw scale value (image_pixels / viewport_pixels).
+        """
+        self.connection.send(self.remote, viewport_scale_atom(), float(value))
+
+    @property
+    def pan(self):
+        """Get the viewport pan offset as an (x, y) tuple.
+
+        Returns:
+            tuple(float, float): Pan offset in viewport-space units.
+        """
+        v = self.connection.request_receive(self.remote, viewport_pan_atom())[0]
+        return (v.x, v.y)
+
+    @pan.setter
+    def pan(self, value):
+        """Set the viewport pan offset.
+
+        Args:
+            value(tuple(float, float) or V2f): Pan offset as (x, y).
+        """
+        if isinstance(value, (tuple, list)):
+            value = V2f(float(value[0]), float(value[1]))
+        self.connection.send(self.remote, viewport_pan_atom(), value)
 
     def set_playhead(self, playhead):
         """Set the playhead that is delivering frames to the viewport, i.e.

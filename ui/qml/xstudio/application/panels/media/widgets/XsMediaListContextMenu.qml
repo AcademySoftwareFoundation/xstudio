@@ -27,20 +27,6 @@ XsPopupMenu {
 
     ****************************************************************/
 
-    Clipboard {
-      id: clipboard
-    }
-
-    XsPreference {
-        id: sessionLinkPrefix
-        path: "/core/session/session_link_prefix"
-    }
-
-    XsPreference {
-        id: sessionRate
-        path: "/core/session/media_rate"
-    }
-
     Component.onCompleted: {
         // make sure the 'Add' sub-menu appears in the correct place
         helpers.setMenuPathPosition("Select", "media_list_menu_", 10)
@@ -50,7 +36,7 @@ XsPopupMenu {
         helpers.setMenuPathPosition("Copy To Clipboard|Selected Column", "media_list_menu_", 3)
         helpers.setMenuPathPosition("Reveal Source", "media_list_menu_", 60)
         helpers.setMenuPathPosition("Media Settings", "media_list_menu_", 1100)
-        helpers.setMenuPathPosition("Media Settings|Set Media Rotation", "media_list_menu_", 4)
+        helpers.setMenuPathPosition("Media Settings|Media Rotation", "media_list_menu_", 4)
         helpers.setMenuPathPosition("Media Actions", "media_list_menu_", 1200)
         helpers.setMenuPathPosition("Media Actions|Print", "media_list_menu_", 90)
         helpers.setMenuPathPosition("Snippet", "media_list_menu_", 1100)
@@ -173,7 +159,7 @@ XsPopupMenu {
 
     XsFlagMenuInserter {
         menuPath: "Media Settings"
-        text: qsTr("Set Media Colour")
+        text: qsTr("Media Colour")
         panelContext: btnMenu.panelContext
         menuModelName: btnMenu.menu_model_name
         menuPosition: 1
@@ -270,6 +256,16 @@ XsPopupMenu {
         panelContext: btnMenu.panelContext
     }
 
+    XsMenuModelItem {
+        menuPath: "Copy To Clipboard"
+        text: "Selected Media Names"
+        menuItemPosition: 3
+        menuModelName: btnMenu.menu_model_name
+        hotkeyUuid: hotkey_area.media_name_to_clipboard_hotkey.uuid
+        onActivated: media_list_functions.copyMediaNamesToClipboard()
+        panelContext: btnMenu.panelContext
+    }
+
     Repeater {
         model: DelegateModel {
             model:columns_root_model
@@ -280,14 +276,7 @@ XsPopupMenu {
                     menuItemPosition: index
                     menuModelName: btnMenu.menu_model_name
                     panelContext: btnMenu.panelContext
-                    onActivated: {
-                        let data = []
-                        for( let i=0;i<mediaSelectionModel.selectedIndexes.length; i++) {
-                            var fields = theSessionData.get(mediaSelectionModel.selectedIndexes[i], "mediaDisplayInfoRole")
-                            data.push(fields[index])
-                        }
-                        clipboard.text = data.join("\n")
-                    }
+                    onActivated: media_list_functions.copyColumnToClipboard(index)
                 }
             }
         }
@@ -403,9 +392,9 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
-        text: "Set Media FPS ..."
+        text: "Media FPS ..."
         menuPath: "Media Settings"
-        menuItemPosition: 2
+        menuItemPosition: 2.5
         menuModelName: btnMenu.menu_model_name
         onActivated: media_list_functions.setMediaFPS()
         panelContext: btnMenu.panelContext
@@ -413,7 +402,7 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
-        text: "Set Media Pixel Aspect ..."
+        text: "Media Pixel Aspect ..."
         menuPath: "Media Settings"
         menuItemPosition: 3
         menuModelName: btnMenu.menu_model_name
@@ -434,7 +423,7 @@ XsPopupMenu {
         Item {
             XsMenuModelItem {
                 text: "" + modelData
-                menuPath: "Media Settings|Set Media Rotation"
+                menuPath: "Media Settings|Media Rotation"
                 menuItemPosition: index
                 menuItemType: "toggle"
                 menuModelName: btnMenu.menu_model_name
@@ -447,7 +436,7 @@ XsPopupMenu {
 
     XsMenuModelItem {
         text: "Custom ..."
-        menuPath: "Media Settings|Set Media Rotation"
+        menuPath: "Media Settings|Media Rotation"
         menuItemPosition: 10.0
         menuModelName: btnMenu.menu_model_name
         onActivated: {
@@ -519,14 +508,27 @@ XsPopupMenu {
     Repeater {
         model: DelegateModel {
             model: embeddedPython.mediaMenuModel
-            delegate: Item {XsMenuModelItem {
-                text: nameRole
-                menuPath: "Snippet|"+menuPathRole
-                menuItemPosition: (index*0.01)+16
-                menuModelName: btnMenu.menu_model_name
-                onActivated: embeddedPython.pyEvalFile(scriptPathRole)
-                panelContext: btnMenu.panelContext
-            }}
+            delegate: Item {
+                XsHotkey {
+                    id: hk
+                    name: nameRole
+                    description: nameRole
+                    componentName: "Media Snippets"
+                    onActivated: embeddedPython.pyEvalFile(scriptPathRole)
+                    sequence: menuHotKeyRole || null
+                    context: ""+btnMenu.panelContext
+                }
+
+                XsMenuModelItem {
+                    hotkeyUuid: hk.uuid
+                    text: nameRole
+                    menuPath: "Snippet|"+menuPathRole
+                    menuItemPosition: (index*0.01)+16
+                    menuModelName: btnMenu.menu_model_name
+                    onActivated: embeddedPython.pyEvalFile(scriptPathRole)
+                    panelContext: btnMenu.panelContext
+                }
+            }
         }
     }
 
@@ -544,7 +546,9 @@ XsPopupMenu {
         menuItemPosition: 2010
         menuModelName: btnMenu.menu_model_name
         hotkeyUuid: hotkey_area.delete_selected_hotkey.uuid
-        onActivated: media_list_functions.deleteSelected()
+        onActivated: {
+            media_list_functions.deleteSelected()
+        }
         panelContext: btnMenu.panelContext
     }
 }

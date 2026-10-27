@@ -191,7 +191,19 @@ class Attribute {
 
     [[nodiscard]] bool belongs_to_groups(const std::vector<std::string> &group_name) const;
 
-    [[nodiscard]] utility::Uuid uuid() const { return get_role_data<utility::Uuid>(UuidRole); }
+    // NOT defined inline, deliberately. get_role_data<T>() ends in a
+    // std::any_cast, which matches on type_info IDENTITY, not on type name.
+    // typeinfo for utility::Uuid is emitted privately into every image that
+    // instantiates it, so an inline uuid() gives each plugin dylib its own
+    // any_cast<Uuid> site whose type_info differs from the one libmodule used
+    // when it created the role data -- the cast then throws bad_any_cast even
+    // though both sides are xstudio::utility::Uuid. Keeping the definition in
+    // libmodule means there is only ever one instantiation, so the cast cannot
+    // mismatch. Observed as: BlackMagic Decklink failing to spawn on macOS
+    // ("Attempt to get AttributeData with type ...UuidE as type ...UuidE" ->
+    // StudioUI::loadVideoOutputPlugin error("bad any cast")), which silently
+    // removed the SDI output button from the toolbar.
+    [[nodiscard]] utility::Uuid uuid() const;
 
     static std::string role_name(const int role);
     static std::string type_name(const int tp);

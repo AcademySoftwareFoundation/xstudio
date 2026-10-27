@@ -5,6 +5,7 @@
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/ui/qml/hotkey_ui.hpp"
+#include "xstudio/utility/logging.hpp"
 
 using namespace caf;
 using namespace xstudio;
@@ -163,8 +164,7 @@ void HotkeysUI::makeFilteredHotkeysData() {
                 other_hk.uuid() != hk.uuid()) {
                 clash_warning = fmt::format(
                     "clashes with hotkey '{}'",
-                    other_hk.hotkey_name(),
-                    other_hk.hotkey_sequence());
+                    other_hk.hotkey_name());
             }
         }
 
@@ -347,7 +347,7 @@ void HotkeysUI::setTestSequence(const QVariant &test_sequence) {
                         }
                     },
                     [=](const error &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
         }
     } catch (const std::exception &err) {
@@ -504,9 +504,10 @@ void HotkeyReferenceUI::init(caf::actor_system &system_) {
             [=](keypress_monitor::hotkey_event_atom, const std::vector<Hotkey> &hotkeys) {
                 // hotkeys have been updated
                 for (const auto &hk : hotkeys) {
-                    if (hk.uuid() == hotkey_.uuid()) {
-                        if (hk.hotkey_sequence() != hotkey_.hotkey_sequence()) {
-                            hotkey_ = hk;
+                    if (hk.uuid() == hotkey_.uuid() || StdFromQString(hotkey_name_) == hk.hotkey_name()) {
+                        bool seq_changed = hk.hotkey_sequence() != hotkey_.hotkey_sequence();
+                        hotkey_ = hk;
+                        if (seq_changed) {
                             Q_EMIT sequenceChanged();
                             Q_EMIT keyChanged();
                             Q_EMIT modifiersChanged();
@@ -516,9 +517,10 @@ void HotkeyReferenceUI::init(caf::actor_system &system_) {
             },
             [=](keypress_monitor::hotkey_event_atom, Hotkey &hotkey) {
                 // a hotkey has changed
-                if (hotkey.uuid() == hotkey_.uuid()) {
-                    if (hotkey.hotkey_sequence() != hotkey_.hotkey_sequence()) {
-                        hotkey_ = hotkey;
+                if (hotkey.uuid() == hotkey_.uuid() || StdFromQString(hotkey_name_) == hotkey.hotkey_name()) {
+                    bool seq_changed = hotkey.hotkey_sequence() != hotkey_.hotkey_sequence();
+                    hotkey_ = hotkey;
+                    if (seq_changed) {
                         Q_EMIT sequenceChanged();
                         Q_EMIT keyChanged();
                         Q_EMIT modifiersChanged();
@@ -537,8 +539,9 @@ void HotkeyReferenceUI::init(caf::actor_system &system_) {
                 // actual hotkey pressed or release ... we ignore
                 if (pressed && hotkey_uuid == hotkey_.uuid() &&
                     (exclusive_ || hotkey_.hotkey_origin() == "any" ||
-                     hotkey_.hotkey_origin() == context)) {
-                    activated(QStringFromStd(context));
+                     hotkey_.hotkey_origin() == context ||
+                     StdFromQString(context_) == context)) {
+                    activated(QStringFromStd(context), pressed);
                 }
             }};
     });
@@ -548,6 +551,9 @@ void HotkeyReferenceUI::setHotkeyName(const QString &name) {
 
     if (hotkeyName() == name)
         return;
+
+    hotkey_name_ = name;
+    emit hotkeyNameChanged();
 
     try {
 
@@ -559,7 +565,6 @@ void HotkeyReferenceUI::setHotkeyName(const QString &name) {
             *sys, keyboard_manager, ui::keypress_monitor::hotkey_atom_v, StdFromQString(name));
 
         emit sequenceChanged();
-        emit hotkeyNameChanged();
         emit uuidChanged();
         emit contextChanged();
         emit exclusiveChanged();
@@ -587,6 +592,8 @@ void HotkeyReferenceUI::setHotkeyUUID(const QUuid &uuid) {
 
         hotkey_ = request_receive<Hotkey>(
             *sys, keyboard_manager, ui::keypress_monitor::hotkey_atom_v, UuidFromQUuid(uuid));
+
+        hotkey_name_ = QStringFromStd(hotkey_.hotkey_name());
 
         emit sequenceChanged();
         emit hotkeyNameChanged();

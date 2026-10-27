@@ -20,6 +20,7 @@ ShotBrowserResultModel::ShotBrowserResultModel(QObject *parent) : JSONTreeModel(
     setRoleNames(
         std::vector<std::string>(
             {"addressingRole",
+             "annotationRole",
              "artistRole",
              "assetRole",
              "attachmentsRole",
@@ -34,6 +35,7 @@ ShotBrowserResultModel::ShotBrowserResultModel(QObject *parent) : JSONTreeModel(
              "createdDateRole",
              "dateSubmittedToClientRole",
              "departmentRole",
+             "descriptionRole",
              "detailRole",
              "entityRole",
              "frameRangeRole",
@@ -453,6 +455,7 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
                  pipelineStatusFullRole,
                  playlistTypeRole,
                  subjectRole,
+                 descriptionRole,
                  versionNameRole});
 
             for (auto r : troles)
@@ -508,8 +511,23 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
                     j.at("relationships").at("entity").at("data").at("name"));
             break;
 
-        case Roles::attachmentsRole:
-            result = mapFromValue(j.at("relationships").at("attachments").at("data"));
+        case Roles::attachmentsRole: {
+                auto filtered = JsonStore(R"([])"_json);
+                for(const auto &j : j.at("relationships").at("attachments").at("data")) {
+                    if(j.at("name") != "xStudioAnnotations")
+                        filtered.push_back(j);
+                }
+                result = mapFromValue(filtered);
+            }
+            break;
+
+        case Roles::annotationRole:
+            for(const auto &j : j.at("relationships").at("attachments").at("data")) {
+                if(j.at("name") == "xStudioAnnotations") {
+                    result = mapFromValue(j);
+                    break;
+                }
+            }
             break;
 
         case Roles::movieRole:
@@ -716,6 +734,10 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
         case JSONTreeModel::Roles::JSONRole:
         case Roles::detailRole:
             result = QVariantMapFromJson(j);
+            break;
+
+        case Roles::descriptionRole:
+            result = QString::fromStdString(j.at("attributes").at("description").get<std::string>());
             break;
 
         case JSONTreeModel::Roles::JSONTextRole:

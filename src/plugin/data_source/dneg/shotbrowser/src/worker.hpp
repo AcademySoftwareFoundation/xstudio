@@ -110,18 +110,18 @@ class MediaWorker : public caf::event_based_actor {
 
     void add_media_step_1(
         caf::typed_response_promise<bool> rp,
-        caf::actor media,
+        const utility::UuidActor &media,
         const utility::JsonStore &jsn,
         const utility::FrameRate &media_rate);
     void add_media_step_2(
         caf::typed_response_promise<bool> rp,
-        caf::actor media,
+        const utility::UuidActor &media,
         const utility::JsonStore &jsn,
         const utility::FrameRate &media_rate,
         const utility::UuidActor &movie_source);
     void add_media_step_3(
         caf::typed_response_promise<bool> rp,
-        caf::actor media,
+        const utility::UuidActor &media,
         const utility::JsonStore &jsn,
         const utility::UuidActorVector &srcs);
 

@@ -480,7 +480,7 @@ Rectangle {
 		    		Rectangle {
 		    			color: XsStyleSheet.accentColor
 		    			opacity: 0.3
-		    			visible: timelinePlayhead != undefined && timelinePlayhead.enableLoopRange
+		    			visible: timelinePlayhead.enableLoopRange != undefined ? timelinePlayhead.enableLoopRange : false
 		    			anchors.fill: parent
 		    			property int start: (timelinePlayhead.loopStartFrame - (frameTrack.offset  / control.scaleX)) * control.scaleX
 		    			property int end: (timelinePlayhead.loopEndFrame - (frameTrack.offset  / control.scaleX)) * control.scaleX

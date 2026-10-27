@@ -1,17 +1,39 @@
 {
     "extensions": [
-        ".mov",
-        ".mp4",
-        ".mkv",
-        ".mxf",
         ".exr",
         ".jpg",
         ".jpeg",
         ".png",
         ".dpx",
-        ".tiff",
         ".tif",
+        ".tiff",
+        ".cr2",
+        ".cr3",
+        ".dng",
+        ".arw",
+        ".nef",
+        ".mov",
+        ".mp4",
+        ".mkv",
+        ".mxf",
+        ".insv",
+        ".lrv",
         ".wav",
+        ".aif",
+        ".aiff",
+        ".mp3",
+        ".pdf"
+    ],
+    "non_sequence_extensions": [
+        ".mov",
+        ".mp4",
+        ".mkv",
+        ".mxf",
+        ".insv",
+        ".lrv",
+        ".wav",
+        ".aif",
+        ".aiff",
         ".mp3",
         ".pdf"
     ],
@@ -39,5 +61,6 @@
         "/snap"
     ],
     "max_recursion_depth": 6,
-    "auto_scan_threshold": 4
+    "auto_scan_threshold": 4,
+    "follow_symlinks": false
 }

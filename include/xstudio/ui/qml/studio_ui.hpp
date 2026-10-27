@@ -74,6 +74,8 @@ class STUDIO_QML_EXPORT StudioUI : public QMLActor {
 
     Q_INVOKABLE void loadVideoOutputPlugins();
 
+    Q_INVOKABLE void resetViewports();
+
   signals:
 
     void newSessionCreated(const QString &session_addr);

@@ -357,6 +357,7 @@ QModelIndexList SessionModel::moveRows(
     const bool doCopy) {
 
     QModelIndexList result;
+
     try {
         UuidVector media_uuids;
         Uuid target;

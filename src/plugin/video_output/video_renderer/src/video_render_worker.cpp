@@ -588,6 +588,8 @@ void VideoRenderWorker::start_render_task() {
                              soundcard_sample_rate_) /
                             1000000;
 
+                        audio_stream_position_ = playhead_position_;
+
                         // next step ... start FFMpeg
                         start_ffmpeg_process();
                     }
@@ -738,15 +740,12 @@ void VideoRenderWorker::start_ffmpeg_process() {
 
 #else
 
-    auto tmpdir = utility::get_env("TMPDIR");
-    if (!tmpdir) {
-        throw std::runtime_error("Failed to read $TMPDIR env var.");
-    }
+    // system temp directory for the ffmpeg FIFOs - honours $TMPDIR when set,
+    // falls back to /tmp otherwise (TMPDIR is typically unset on Linux)
+    const auto tmpdir = std::filesystem::temp_directory_path();
 
     output_yuv_filename_ = fmt::format(
-        "{}/xstdio_render_image_pipe_{}.yuv",
-        std::string(*tmpdir),
-        to_string(job_uuid_)); // utility::temp_file("test.yuv");
+        "{}/xstudio_render_image_pipe_{}.yuv", tmpdir.string(), to_string(job_uuid_));
     if (mkfifo(output_yuv_filename_.c_str(), 0666) == -1) {
         throw std::runtime_error(
             fmt::format(
@@ -758,7 +757,7 @@ void VideoRenderWorker::start_ffmpeg_process() {
     }
     if (!audio_codec_opts_.empty()) {
         output_audio_filename_ = fmt::format(
-            "{}/xsutdio_render_audio_pipe_{}.raw", std::string(*tmpdir), to_string(job_uuid_));
+            "{}/xstudio_render_audio_pipe_{}.raw", tmpdir.string(), to_string(job_uuid_));
         if (mkfifo(output_audio_filename_.c_str(), 0666) == -1) {
             throw std::runtime_error(
                 fmt::format(
@@ -1178,7 +1177,7 @@ void VideoRenderWorker::add_output_to_session() {
     }
 
     auto handle_error = [=](caf::error &err) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+        utility::log_caf_error(err);
         mail(utility::user_start_action_atom_v).send(renderer_plugin_);
         send_exit(caf::actor_cast<caf::actor>(this), caf::exit_reason::user_shutdown);
     };

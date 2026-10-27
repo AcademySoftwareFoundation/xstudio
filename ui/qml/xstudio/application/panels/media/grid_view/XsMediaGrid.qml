@@ -55,6 +55,18 @@ XsGridView {
 
         // what row is the on-screen media?
         var row = mediaListModelData.getRowWithMatchingRoleData(onScreenMediaUuid, "actorUuidRole")
+
+        return autoScrollToRow(row)
+    }
+
+    function autoScrollToSelectedMedia() {
+        if (visible && mediaSelectionModel.selectedIndexes.length) {
+            var row = mediaSelectionModel.selectedIndexes[0].row
+            return autoScrollToRow(row)
+        }
+    }
+
+    function autoScrollToRow(row) {
         if (row == -1) return
 
         var num_cols = Math.floor(width/cellWidth) > 0 ? Math.floor(width/cellWidth) : 1
@@ -66,7 +78,14 @@ XsGridView {
 
         autoScrollAnimator.to = Math.max(originY, Math.min(mid - mediaList.height/2, mediaList.contentHeight - mediaList.height))
         autoScrollAnimator.running = true
+    }
 
+    Connections {
+        target: panel
+        enabled: visible
+        function onFrameSelectedMedia() {
+            autoScrollToSelectedMedia()
+        }
     }
 
     XsLabel {
@@ -194,6 +213,7 @@ XsGridView {
                 // are these indeces from the same list as our list here?
                 if (data.length && data[0].parent == mediaListModelDataRoot) {
                     // do a move rows
+                    beforeMoveContentY = contentY
                     theSessionData.moveRows(
                         data,
                         dragTargetIndex.row,
@@ -256,6 +276,19 @@ XsGridView {
 
     }
 
+    // When we do a moveRows, the list view resets contentY to zero. Annoying.
+    // So here we try and preserve the scrolled position in that case
+    property real beforeMoveContentY: 0
+    onContentYChanged: {
+        if (contentY == 0) {
+            // check if this is a reset we want to undo
+            if (beforeMoveContentY != 0) {
+                contentY = beforeMoveContentY
+                beforeMoveContentY = 0
+            }
+        }
+    }
+
     property var autoScrollVelocity: 200
     function autoScroll(mouseY) {
         if ((height-mouseY) < 0 || mouseY < 0) {
@@ -300,5 +333,9 @@ XsGridView {
         function run() {
             if (!running && mediaList.contentY > originY) start()
         }
+    }
+
+    XsMediaScrollKeeper {
+        prefix: "G"
     }
 }

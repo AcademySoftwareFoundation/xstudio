@@ -415,7 +415,7 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
                             media_source_changed(media_source.uuid(), colour_params);
                         },
                         [=](const caf::error &err) {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            utility::log_caf_error(err);
                         });
             }
         },
@@ -468,7 +468,15 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
                 // when all the plugins are loaded.
             }
             return rp;
-        });
+        },
+        [=](get_current_display_and_view_atom atom) -> utility::JsonStore {
+            return get_current_display_and_view();
+        },
+        [=](get_icc_profile_path_atom atom,
+            const std::string &display, const std::string &view) -> std::string {
+            return get_icc_profile_path(display, view);
+        }
+    );
 }
 
 void ColourPipeline::attribute_changed(const utility::Uuid &attr_uuid, const int role) {

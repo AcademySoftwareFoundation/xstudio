@@ -88,6 +88,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::timeline, trimmed_range_atom);
     ADD_ATOM(xstudio::timeline, item_selection_atom);
     ADD_ATOM(xstudio::timeline, item_type_atom);
+    ADD_ATOM(xstudio::timeline, audio_mode_atom);
 
     ADD_ATOM(xstudio::thumbnail, cache_path_atom);
     ADD_ATOM(xstudio::thumbnail, cache_stats_atom);
@@ -179,6 +180,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::colour_pipeline, colour_pipeline_atom);
     ADD_ATOM(xstudio::colour_pipeline, get_colour_pipe_data_atom);
     ADD_ATOM(xstudio::colour_pipeline, get_colour_pipe_params_atom);
+    ADD_ATOM(xstudio::colour_pipeline, get_colourspace_info_atom);
 
     ADD_ATOM(xstudio::module, add_attribute_atom);
     ADD_ATOM(xstudio::module, attribute_role_data_atom);
@@ -389,6 +391,8 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::ui::viewport, active_viewport_atom);
     ADD_ATOM(xstudio::ui::viewport, render_viewport_to_image_atom);
     ADD_ATOM(xstudio::ui::viewport, viewport_mask_atom);
+    ADD_ATOM(xstudio::ui::viewport, viewport_scale_atom);
+    ADD_ATOM(xstudio::ui::viewport, viewport_pan_atom);
 
     ADD_ATOM(xstudio::ui, show_message_box_atom);
     ADD_ATOM(xstudio::ui, open_quickview_window_atom);

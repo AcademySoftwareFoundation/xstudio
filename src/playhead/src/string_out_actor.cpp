@@ -80,6 +80,8 @@ StringOutActor::StringOutActor(caf::actor_config &cfg, const utility::UuidActorV
         [=](utility::event_atom, timeline::item_atom, const utility::JsonStore &changes, bool) {
         },
 
+        [=](utility::event_atom, timeline::audio_mode_atom, const timeline::AudioMode am) {},
+
         [=](utility::event_atom, media::media_status_atom, const media::MediaStatus) {},
 
         [=](json_store::update_atom,

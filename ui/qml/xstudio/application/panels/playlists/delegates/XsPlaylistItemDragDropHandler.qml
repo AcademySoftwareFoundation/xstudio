@@ -55,8 +55,6 @@ XsDragDropHandler {
         } else if (source == "External" || source == "FileBrowser" || source == "External URIS") {
 
             canReceiveDrag = true
-            console.log("onDragEntered", source, data)
-
 
         } else if (source == "PlayList") {
 
@@ -131,7 +129,7 @@ XsDragDropHandler {
 
     onDropped: (mousePosition, source, data) => {
 
-        console.log("onDropped", source, data)
+        // console.log("onDropped", source, data)
 
         if (!isDragTarget) return
         isDragTarget = false

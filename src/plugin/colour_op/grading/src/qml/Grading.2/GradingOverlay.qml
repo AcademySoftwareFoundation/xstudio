@@ -78,15 +78,12 @@ Item {
     }
     // Event handling
 
-    XsHotkey {
-        sequence: "Escape"
-        name: "Cancel Current Shape"
-        description: "Complete current polygon or unselect current shape, when making a grading mask shape in the grading tool."
-        context: "any"
-        onActivated: {
+    XsHotkeyReference {
+        hotkeyName: "Escape"
+        exclusive: construction_polygon.item.under_construction
+        onActivated: (exclusive)=> {
             construction_polygon.item.cleanupPolygon()
         }
-        componentName: "GradingTool"
     }
 
     // indicates the 'current' (hero) image in multi image layours

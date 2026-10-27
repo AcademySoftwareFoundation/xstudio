@@ -15,6 +15,7 @@
 #include "xstudio/ui/mouse.hpp"
 #include "xstudio/ui/mouse.hpp"
 #include "xstudio/ui/viewport/mask.hpp"
+#include <Imath/ImathVec.h>
 #include "xstudio/utility/container.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/media_reference.hpp"
@@ -46,6 +47,7 @@ extern void register_URI_class(py::module &m, const std::string &name);
 extern void register_FrameRateDuration_class(py::module &m, const std::string &name);
 extern void register_vector3_class(py::module &m, const std::string &name);
 extern void register_matrix44_class(py::module &m, const std::string &name);
+extern void register_vector2_class(py::module &m, const std::string &name);
 extern void register_colour_triplet_class(py::module &m, const std::string &name);
 extern void register_uuid_actor_class(py::module &m, const std::string &name);
 extern void register_uuid_actor_vector_class(py::module &m, const std::string &name);
@@ -187,6 +189,9 @@ void py_config::add_messages() {
     add_message_type<xstudio::timeline::ItemType>(
         "ItemType", "xstudio::timeline::ItemType", nullptr);
 
+    add_message_type<xstudio::timeline::AudioMode>(
+        "AudioMode", "xstudio::timeline::AudioMode", nullptr);
+
     add_message_type<xstudio::utility::FrameRange>(
         "FrameRange", "xstudio::utility::FrameRange", &register_frame_range_class);
 
@@ -205,5 +210,7 @@ void py_config::add_messages() {
 
     add_message_type<xstudio::ui::viewport::Mask>(
         "Mask", "xstudio::ui::viewport::Mask", &register_mask_class);
+
+    add_message_type<Imath::V2f>("V2f", "Imath::V2f", &register_vector2_class);
 }
 } // namespace caf::python

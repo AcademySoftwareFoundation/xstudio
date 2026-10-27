@@ -260,7 +260,7 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
                             .send(caf::actor_cast<caf::actor>(this));
                     },
                     [=](const caf::error &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
         },
 
@@ -274,7 +274,7 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
                         anon_mail(atom, result).send(media_source);
                     },
                     [=](const caf::error &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
         },
 
@@ -305,7 +305,7 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
                             .send(caf::actor_cast<caf::actor>(this));
                     },
                     [=](const caf::error &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
         },
 
@@ -337,13 +337,12 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
                                             .send(media_source);
                                     },
                                     [=](const caf::error &err) {
-                                        spdlog::warn(
-                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                        log_caf_error(err);
                                     });
                         }
                     },
                     [=](const caf::error &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
         });
 }

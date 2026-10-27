@@ -513,6 +513,16 @@ Item {
             }
             return result;
         }
+
+        // Set the current selection to be just the single hero media currently being viewed
+        function soloSelection() {
+            if (!mediaSelectionModel.selectedIndexes.length) return;
+            var row = mediaListModelData.getRowWithMatchingRoleData(currentPlayhead.mediaUuid, "actorUuidRole")
+            mediaSelectionModel.select(
+                helpers.createItemSelection([mediaListModelData.rowToSourceIndex(row)]),
+                ItemSelectionModel.ClearAndSelect
+            )
+        }
     }
 
     // mediaListModelData will give us the filtered media list that is used

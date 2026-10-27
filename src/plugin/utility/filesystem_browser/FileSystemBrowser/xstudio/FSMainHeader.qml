@@ -43,6 +43,24 @@ Rectangle {
             hint: "Filter String ..."
         }
 
+        XsCheckBox {
+            id: expandCheck
+            Layout.alignment: Qt.AlignVCenter
+            text: "Expand Sequences"
+            checked: false
+            onCheckedChanged: {
+                if (deepScan)
+                    deepScan = false
+                sendCommand({"action": "change_path", "path": current_path_attr.value})
+            }
+        }
+
+        XsAttributeValue {
+            attributeTitle: "expand_sequences"
+            model: pluginData
+            value: expandCheck.checked
+        }
+
         XsPrimaryButton {
             Layout.fillHeight: true
             visible: searching_attr.value === true

@@ -8,7 +8,7 @@ xstudio::utility::to_sys_time_point(const std::string &datetime) {
 #ifdef _WIN32
 // TODO: Ahead to fix
 #else
-    in >> date::parse("%Y-%m-%dT%TZ", tp);
+    date::from_stream(in, "%Y-%m-%dT%TZ", tp);
 #endif
     return tp;
 }

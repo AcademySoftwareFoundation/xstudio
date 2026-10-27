@@ -49,6 +49,11 @@ class OpenGLShapeRenderer {
         const std::vector<GLPolygon> &polygons,
         const std::vector<GLPoint> &points);
     std::array<GLuint, 4> ssbo_id_{0, 0, 0, 0};
+    // Core profile requires a bound VAO for any draw call, even when the
+    // vertex shader sources no attributes (it uses gl_VertexID). Without this
+    // the draw fails with GL_INVALID_OPERATION when no VAO happens to be bound
+    // - e.g. when rendering the grading mask into an offscreen FBO.
+    GLuint vao_{0};
 #endif
 
     std::unique_ptr<xstudio::ui::opengl::GLShaderProgram> shader_;

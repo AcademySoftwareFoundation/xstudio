@@ -31,6 +31,8 @@ class Clip : public utility::Container {
 
     [[nodiscard]] bool valid_child(const Item &child) const { return item_.valid_child(child); }
 
+    [[nodiscard]] int clip_has_been_edited() const;
+
     [[nodiscard]] const utility::Uuid &media_uuid() const { return media_uuid_; }
     utility::JsonStore set_media_uuid(const utility::Uuid &media_uuid) {
         auto jsn          = item_.prop();

@@ -1,0 +1,21 @@
+{
+	"plugin":{
+		"media_metadata":{
+			"EXIF":{
+				"supported": {
+					"path": "/plugin/media_metadata/EXIF/supported",
+					"description": "Control plugin format support",
+					"datatype": "json",
+					"context": ["APPLICATION"],
+					"default_value": {
+					},
+					"value": {
+						"JPG":"MMC_FORCE",
+				        "JPEG": "MMC_FORCE",
+				        "PNG": "MMC_FORCE"
+					}
+				}
+			}
+		}
+	}
+}

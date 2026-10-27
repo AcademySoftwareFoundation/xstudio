@@ -374,99 +374,23 @@ int SessionModel::getTimelineFrameFromClip(
     return result;
 }
 
-int SessionModel::getNextTimelineClipFrame(const QModelIndex &timelineIndex, const int frame) {
-    auto result = frame;
+void SessionModel::jumpToNextClip(const QModelIndex &timelineIndex, const bool forwards) {
 
-    auto tactor = actorFromQString(system(), timelineIndex.data(actorRole).toString());
-    if (timeline_lookup_.count(tactor)) {
-        auto &item   = timeline_lookup_.at(tactor);
-        auto frstart = FrameRate(item.rate().to_flicks() * frame);
-        auto frdur   = FrameRate(
-            item.front().trimmed_duration().to_flicks() -
-            (frstart.to_flicks() - item.front().trimmed_start().to_flicks()));
+    try {
 
-        scoped_actor sys{system()};
-        try {
-            auto ri = request_receive<std::vector<std::optional<timeline::ResolvedItem>>>(
-                *sys, tactor, timeline::bake_atom_v, frstart, frdur);
-
-            if (not ri.empty()) {
-                auto fuuid = Uuid();
-                if (ri.front())
-                    fuuid = ri.front()->first.uuid();
-                // scan..
-                auto diff = FrameRate();
-                for (const auto &i : ri) {
-                    if ((fuuid.is_null() and i) or (not fuuid.is_null() and not i) or
-                        (not fuuid.is_null() and i and fuuid != i->first.uuid())) {
-
-                        result += diff / item.rate().to_flicks();
-                        break;
-                    }
-                    diff += item.rate();
-                }
-            }
-        } catch (...) {
+        scoped_actor sys(system());
+        auto tactor = actorFromQString(system(), timelineIndex.data(actorRole).toString());
+        auto playhead = request_receive<utility::UuidActor>(
+            *sys, tactor, playlist::get_playhead_atom_v);
+        if (playhead.actor()) {
+            anon_mail(playhead::skip_to_clip_atom_v, forwards).send(playhead.actor());
         }
+
+    } catch (std::exception & e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
 
-    return result;
 }
-
-int SessionModel::getPreviousTimelineClipFrame(
-    const QModelIndex &timelineIndex, const int frame) {
-    auto result = 0;
-
-    auto tactor = actorFromQString(system(), timelineIndex.data(actorRole).toString());
-    if (timeline_lookup_.count(tactor)) {
-        auto &item   = timeline_lookup_.at(tactor);
-        auto frstart = item.front().trimmed_start();
-        auto frdur   = FrameRate(
-            FrameRate(item.rate().to_flicks() * frame).to_flicks() - frstart.to_flicks());
-
-        scoped_actor sys{system()};
-        try {
-            auto ri = request_receive<std::vector<std::optional<timeline::ResolvedItem>>>(
-                *sys, tactor, timeline::bake_atom_v, frstart, frdur);
-
-            // slightly different behavior, as we jump to start of current clip before
-
-            if (not ri.empty()) {
-
-                // scan..
-                auto diff  = item.rate() * ri.size();
-                auto fuuid = Uuid();
-                if (ri.back())
-                    fuuid = ri.back()->first.uuid();
-
-                for (auto it = ri.rbegin(); it != ri.rend(); ++it) {
-                    if ((fuuid.is_null() and *it) or (not fuuid.is_null() and not*it) or
-                        (not fuuid.is_null() and *it and fuuid != (*it)->first.uuid())
-
-                    ) {
-                        // handle at front of clip..
-                        if (frame == static_cast<int>(diff / item.rate().to_flicks())) {
-                            auto prev = std::next(it, 1);
-                            if (prev != ri.rend()) {
-                                fuuid = Uuid();
-                                if (*prev)
-                                    fuuid = (*prev)->first.uuid();
-                            }
-                        } else {
-                            result = diff / item.rate().to_flicks();
-                            break;
-                        }
-                    }
-                    diff -= item.rate();
-                }
-            }
-        } catch (...) {
-        }
-    }
-
-    return result;
-}
-
 
 QModelIndex
 SessionModel::getTimelineClipIndex(const QModelIndex &timelineIndex, const int frame) {
@@ -2475,7 +2399,7 @@ void SessionModel::resetTimelineItemDragFlag(const QModelIndexList &items) {
 
 void SessionModel::updateTimelineItemDragFlag(
     const QModelIndexList &items,
-    const bool isRolling,
+    const QString &editMode,
     const bool isRipple,
     const bool isOverwrite) {
 
@@ -2491,14 +2415,16 @@ void SessionModel::updateTimelineItemDragFlag(
 
         auto data = orig_data;
 
-        if (isRolling) {
+        if (editMode == "Roll") {
             data["show_rolling"] = true;
+
+        } else if (editMode == "Move") {
+            data["show_drag_middle"] = true;
         } else {
             // if (not isOverwrite) {
             data["show_drag_left"]  = true;
             data["show_drag_right"] = true;
             // }
-            data["show_drag_middle"] = true;
 
             if (not isRipple and not isOverwrite) {
                 auto pre_index  = index(i.row() - 1, 0, i.parent());
@@ -2686,7 +2612,6 @@ void SessionModel::beginTimelineItemDrag(
             }
         }
 
-
         if (orig_data != data)
             setData(i, mapFromValue(data), userDataRole);
     }
@@ -2859,6 +2784,43 @@ void SessionModel::updateTimelineItemDrag(
                 setData(i, mapFromValue(data), userDataRole);
         }
     }
+}
+
+void SessionModel::pasteFromClipboard(const QString &clipboard_data, const QModelIndex &timeline_index) {
+
+    auto timeline = actorFromQString(system(), timeline_index.data(actorRole).toString());
+    scoped_actor sys(system());
+    try {
+        if (!clipboard_data.startsWith("COPIED_CLIPS")) {
+            spdlog::error("pasteFromClipboard error: invalid clipboard data for Timeline paste.");
+            return;
+        }
+        const std::string clipboard_data_str = clipboard_data.mid(QString("COPIED_CLIPS").length()).toStdString();
+        request_receive<utility::JsonStore>(*sys, timeline, timeline::insert_item_atom_v, clipboard_data_str);
+    } catch (std::exception &e) {
+        spdlog::error("pasteFromClipboard error: {}", e.what());
+    }
+
+}
+
+
+QString SessionModel::copyTimelineItemsToClipboard(const QModelIndexList &items, const QModelIndex &timeline_index) {
+    
+    auto selected_items = utility::UuidVector();
+
+    for (const auto &i : items) {
+        if (not i.isValid())
+            continue;
+
+        selected_items.push_back(UuidFromQUuid(i.data(idRole).toUuid()));
+    }
+    auto timeline = actorFromQString(system(), timeline_index.data(actorRole).toString());
+    scoped_actor sys(system());
+
+    auto serialisation = request_receive<utility::JsonStore>(
+        *sys, timeline, utility::serialise_atom_v, selected_items);
+
+    return QString("COPIED_CLIPS") + QString::fromStdString(serialisation.dump(2));
 }
 
 void SessionModel::endTimelineItemDrag(
@@ -3352,6 +3314,7 @@ void SessionModel::endTimelineItemDrag(
             flushChange();
         }
     }
+
 }
 
 

@@ -49,6 +49,13 @@ Item{
         propertyNames: ["is_list_view", "cellSize"]
     }
 
+    signal frameSelectedMedia()
+
+    // object in which to store container scroll positions
+    property var scrollKeeper
+    Component.onCompleted: scrollKeeper = new Object()
+
+
     /**************************************************************
     HotKeys
     ****************************************************************/

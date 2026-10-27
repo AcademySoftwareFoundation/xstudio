@@ -68,6 +68,7 @@ Flickable {
         thumbsModel: scanResultsModel
         property var is_folder: true
         property var name: ""
+        property var name_and_count: ""
         property var frames: ""
         property var owner: ""
         property var date_string: ""

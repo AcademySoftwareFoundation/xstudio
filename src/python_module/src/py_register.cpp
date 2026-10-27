@@ -33,6 +33,7 @@ CAF_POP_WARNINGS
 #include "xstudio/utility/frame_range.hpp"
 #include "xstudio/utility/notification_handler.hpp"
 #include "xstudio/ui/viewport/mask.hpp"
+#include <Imath/ImathVec.h>
 
 
 namespace py = pybind11;
@@ -278,6 +279,7 @@ void register_mediareference_class(py::module &m, const std::string &name) {
         .def("__str__", str_impl)
         .def("container", &utility::MediaReference::container)
         .def("frame_count", &utility::MediaReference::frame_count)
+        .def("frame_list", &utility::MediaReference::frame_list)
         .def("fill_partial_sequences", &utility::MediaReference::fill_partial_sequences)
         .def(
             "seconds",
@@ -327,6 +329,7 @@ void register_bookmark_detail_class(py::module &m, const std::string &name) {
         .def_readwrite("author", &bookmark::BookmarkDetail::author_)
         .def_readwrite("owner", &bookmark::BookmarkDetail::owner_)
         .def_readwrite("note", &bookmark::BookmarkDetail::note_)
+        .def_readwrite("subject", &bookmark::BookmarkDetail::subject_)
         .def_readwrite("created", &bookmark::BookmarkDetail::created_)
         .def_readonly("has_note", &bookmark::BookmarkDetail::has_note_)
         .def_readonly("has_annotation", &bookmark::BookmarkDetail::has_annotation_);
@@ -489,6 +492,19 @@ void register_matrix44_class(py::module &m, const std::string &name) {
         .def("__str__", str_impl);
 }
 
+void register_vector2_class(py::module &m, const std::string &name) {
+    auto str_impl = [](const Imath::V2f &v) {
+        return "V2f(" + std::to_string(v.x) + ", " + std::to_string(v.y) + ")";
+    };
+    py::class_<Imath::V2f>(m, name.c_str())
+        .def(py::init<>())
+        .def(py::init<float, float>())
+        .def_readwrite("x", &Imath::V2f::x)
+        .def_readwrite("y", &Imath::V2f::y)
+        .def("__str__", str_impl)
+        .def("__repr__", str_impl);
+}
+
 void register_colour_triplet_class(py::module &m, const std::string &name) {
     auto str_impl = [](const utility::ColourTriplet &x) { return to_string(x); };
     py::class_<utility::ColourTriplet>(m, name.c_str())
@@ -643,6 +659,7 @@ void register_frame_list_class(py::module &m, const std::string &name) {
         .def(py::init<>())
         .def(py::init<int, int, int>())
         .def(py::init<std::string>())
+        .def("frames", &utility::FrameList::frames)
         .def("__str__", str_impl);
 }
 

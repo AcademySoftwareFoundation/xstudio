@@ -88,6 +88,20 @@ class DemoPluginPython(PluginBase):
             menu_item_position=1.5,
             divider=True)
 
+        self.sub_menu = self.insert_menu_item(
+            menu_model_name="main menu bar",
+            menu_path="Demo Plugin",
+            menu_text="Subscribe to Draw Events",
+            menu_item_position=3.0,
+            user_data="draw_subscribe")
+
+        self.unsub_menu = self.insert_menu_item(
+            menu_model_name="main menu bar",
+            menu_path="Demo Plugin",
+            menu_text="Un-subscribe from Draw Events",
+            menu_item_position=4.0,
+            user_data="draw_unsubscribe")
+
         # expose our attributes in the UI layer
         self.connect_to_ui()
 
@@ -98,11 +112,25 @@ class DemoPluginPython(PluginBase):
         self.versions_table = self.database_tables[1]
 
         self.cpp_plugin_actor = None
+        self.draw_events_subscription_id = None
 
     def attribute_changed(self, attribute, role):
 
         if attribute == self.toggle_attribute:
             print ("ATTRIBUTE CHANGE", attribute.as_json())
+
+    def draw_event_handler(self, draw_event, user_id, stroke_completed):
+        pass
+        #print("DRAW EVENT", draw_event, user_id, stroke_completed)
+
+    def menu_item_activated(self, menu_item_data, user_data):
+        if not self.draw_events_subscription_id and menu_item_data.get("user_data") == "draw_subscribe":
+            self.draw_events_subscription_id = self.subscribe_to_annotation_draw_events(
+                self.draw_event_handler
+            )
+        elif self.draw_events_subscription_id and menu_item_data.get("user_data") == "draw_unsubscribe":
+            self.unsubscribe_from_event_group(self.draw_events_subscription_id)
+            self.draw_events_subscription_id = None
 
     def cb(self):
         self.create_qml_item(custom_qml)

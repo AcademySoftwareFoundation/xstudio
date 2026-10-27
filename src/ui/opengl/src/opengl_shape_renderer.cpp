@@ -869,12 +869,21 @@ void OpenGLShapeRenderer::init_gl() {
         shader_ = std::make_unique<ui::opengl::GLShaderProgram>(vertex_shader, frag_shader);
     }
 
+    if (vao_ == 0) {
+        glGenVertexArrays(1, &vao_);
+    }
+
     if (ssbo_id_ == std::array<GLuint, 4>{0, 0, 0, 0}) {
         glCreateBuffers(4, ssbo_id_.data());
     }
 }
 
 void OpenGLShapeRenderer::cleanup_gl() {
+
+    if (vao_ != 0) {
+        glDeleteVertexArrays(1, &vao_);
+        vao_ = 0;
+    }
 
     if (ssbo_id_ != std::array<GLuint, 4>{0, 0, 0, 0}) {
         glDeleteBuffers(4, ssbo_id_.data());
@@ -986,7 +995,9 @@ void OpenGLShapeRenderer::render_shapes(
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glBlendEquation(GL_FUNC_ADD);
 
+    glBindVertexArray(vao_);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
 
     // glEnable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);

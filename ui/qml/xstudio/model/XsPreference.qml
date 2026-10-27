@@ -4,8 +4,9 @@ import xstudio.qml.helpers 1.0
 XsPreferenceMap {
 	id: control
 	property string path: ""
+	property string dpath: globalStoreModel ? path : ""
 
-	onPathChanged: {
+	onDpathChanged: {
 		if(globalStoreModel)
 			index = helpers.makePersistent(globalStoreModel.searchRecursive(path, "pathRole"))
 	}

@@ -144,13 +144,19 @@ thumbnail::ThumbnailBufferPtr OCIOEngine::process_thumbnail(
 
     std::string _display = display;
     std::string _view    = view;
-    if (display.empty() or view.empty()) {
+    // Fill display and view INDEPENDENTLY. The dedicated 'thumbnail_processor'
+    // OCIO instance is never attached to a viewport/media source, so its Display
+    // attribute is empty; the old combined `display.empty() or view.empty()`
+    // check then reset _view to the config default view (e.g. Client-look),
+    // double-grading raw / display-referred media in thumbnails. Only fill in a
+    // value that is actually empty so a valid caller-supplied view survives.
+    if (_display.empty())
         _display = ocio_config->getDefaultDisplay();
-        _view    = ocio_config->getDefaultView(_display.c_str());
-    }
+    if (_view.empty())
+        _view = ocio_config->getDefaultView(_display.c_str());
 
     auto to_lin_group =
-        make_to_lin_processor(src_colour_mgmt_metadata, view, untonemapped_mode, false)
+        make_to_lin_processor(src_colour_mgmt_metadata, _view, untonemapped_mode, false)
             ->createGroupTransform();
     auto to_display_group =
         make_display_processor(src_colour_mgmt_metadata, _display, _view, false)
@@ -588,10 +594,16 @@ OCIO::TransformRcPtr OCIOEngine::display_transform(
     if (!bypass) {
         std::string _display = display;
         std::string _view    = view;
-        if (display.empty() or view.empty()) {
+        // Fill display and view INDEPENDENTLY (same fix as process_thumbnail):
+        // offscreen/snapshot viewport pipeline instances are never attached to
+        // a physical display so their Display attribute is empty; the combined
+        // `display.empty() or view.empty()` check then discarded a valid
+        // caller-supplied view (e.g. 'raw' for un-tone-mapped media) and
+        // double-graded offscreen renders such as annotation exports.
+        if (_display.empty())
             _display = ocio_config->getDefaultDisplay();
-            _view    = ocio_config->getDefaultView(_display.c_str());
-        }
+        if (_view.empty())
+            _view = ocio_config->getDefaultView(_display.c_str());
 
         OCIO::DisplayViewTransformRcPtr dt = OCIO::DisplayViewTransform::Create();
         dt->setSrc(working_space(src_colour_mgmt_metadata).c_str());
@@ -795,6 +807,46 @@ void OCIOEngine::get_ocio_displays_view_colourspaces(
             all_colourspaces.emplace_back(cs_name);
         }
     }
+}
+
+std::string OCIOEngine::get_icc_profile_path(
+    const utility::JsonStore &src_colour_mgmt_metadata,
+    const std::string &display,
+    const std::string &view) const {
+
+    auto ocio_config = get_ocio_config(src_colour_mgmt_metadata);
+
+#if OCIO_VERSION_HEX >= 0x02050000
+    try {
+        std::string cs_name = ocio_config->getDisplayViewColorSpaceName(display.c_str(), view.c_str());
+        if (cs_name == "<USE_DISPLAY_NAME>") {
+            cs_name = display;
+        }
+
+        const auto cs = ocio_config->getColorSpace(cs_name.c_str());
+        if (cs) {
+            const std::string icc_profile_name = cs->getInterchangeAttribute("icc_profile_name");
+            if (!icc_profile_name.empty()) {
+                return ocio_config->getCurrentContext()->resolveFileLocation(icc_profile_name.c_str());
+            }
+        }
+    } catch (const std::exception &e) {
+        spdlog::warn("OCIOEngine: Failed to get ICC profile path: {}", e.what());
+        return "";
+    }
+#endif
+
+    // Fallback to hard coded rules for DNEG
+    // TODO: ColSci
+    // Remove these rules when switch to OCIO 2.5 and 2.5 configs
+    if (display == "DisplayP3") {
+        return utility::xstudio_resources_dir("icc-profiles") + "/Display P3.icc";
+    } else if (display == "sRGB") {
+        // Do not explicitly write sRGB ICC profile as this is the default assumed
+        return "";
+    }
+
+    return "";
 }
 
 void OCIOEngine::update_shader_uniforms(

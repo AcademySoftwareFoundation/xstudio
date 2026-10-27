@@ -17,6 +17,7 @@
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/time_cache.hpp"
+#include "xstudio/utility/logging.hpp"
 
 using namespace std::chrono_literals;
 
@@ -127,7 +128,7 @@ ReaderHelper::ReaderHelper(
                             }
                         },
                         [=](error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                             rp.deliver(err);
                         });
             } catch (const std::exception &err) {

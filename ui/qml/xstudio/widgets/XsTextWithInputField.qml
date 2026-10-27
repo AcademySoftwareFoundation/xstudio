@@ -8,6 +8,7 @@ Item{ id: widget
 
     property alias label: labelDiv.text
     property alias value: valueDiv.text
+    property alias text: valueDiv.text
 
     // property alias hintingPreference: valueDiv.font.hintingPreference
     property alias echoMode: valueDiv.echoMode

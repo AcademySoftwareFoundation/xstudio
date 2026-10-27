@@ -16,7 +16,7 @@ RowLayout {
     height: XsStyleSheet.widgetStdHeight
 
     property var compare_options: ["Off", "A/B", "Grid", "Wipe", "Horizontal", "Vertical", "String", "PiP"]
-    property var align_options: ["Off", "On", "On (Trim)"]
+    property var align_options: ["Manual", "Auto", "Auto (Trim)"]
 
     property var value__: valueRole
 
@@ -77,7 +77,7 @@ RowLayout {
         XsLabel {
             Layout.leftMargin: 10
             Layout.alignment: Qt.AlignVCenter|Qt.AlignRight    
-            text: "Auto Align:"
+            text: "Frame Align:"
         }
 
         XsComboBox {

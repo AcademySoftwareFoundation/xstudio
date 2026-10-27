@@ -18,7 +18,6 @@ __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;          // 
 #include <thread>
 
 #ifndef _WIN32
-#include <execinfo.h>
 #include <unistd.h>
 #endif
 
@@ -66,9 +65,13 @@ CAF_PUSH_WARNINGS
 #include <QOpenGLContext>
 #include <QOffscreenSurface>
 #include <QOpenGLFunctions>
+#include <QEvent>
+#include <QFileOpenEvent>
 CAF_POP_WARNINGS
 
 #include "xstudio/ui/qml/studio_ui.hpp" //NOLINT
+
+#include "crash_handler.hpp"
 
 using namespace std;
 using namespace caf;
@@ -88,51 +91,6 @@ bool shutdown_xstudio = false;
 // this is required to overcome a very odd link
 // error on MaxOS (intel)
 uint32_t OPENSSL_ia32cap_P[4] = {0};
-#endif
-
-#ifdef _WIN32
-#include <DbgHelp.h>
-
-void handler(int sig) {
-    void *stack[10];
-    HANDLE process = GetCurrentProcess();
-    SymInitialize(process, nullptr, TRUE);
-
-    // Capture the call stack
-    WORD frames = CaptureStackBackTrace(0, 10, stack, nullptr);
-
-    // Print out the frames to stderr
-    fprintf(stderr, "Error: signal %d:\n", sig);
-    for (int i = 0; i < frames; ++i) {
-        DWORD64 address = reinterpret_cast<DWORD64>(stack[i]);
-        char symbolBuffer[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)];
-        SYMBOL_INFO *symbol  = reinterpret_cast<SYMBOL_INFO *>(symbolBuffer);
-        symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
-        symbol->MaxNameLen   = MAX_SYM_NAME;
-
-        if (SymFromAddr(process, address, nullptr, symbol)) {
-            fprintf(stderr, "%d: %s\n", i, symbol->Name);
-        } else {
-            fprintf(stderr, "%d: [Unknown Symbol]\n", i);
-        }
-    }
-
-    SymCleanup(process);
-    exit(1);
-}
-#else
-void handler(int sig) {
-    void *array[10];
-    size_t size;
-
-    // get void*'s for all entries on the stack
-    size = backtrace(array, 10);
-
-    // print out all the frames to stderr
-    fprintf(stderr, "Error: signal %d:\n", sig);
-    backtrace_symbols_fd(array, size, STDERR_FILENO);
-    exit(1);
-}
 #endif
 
 void my_handler(int s) {
@@ -163,10 +121,30 @@ void xstudioQtMessageHandler(
     QByteArray localMsg  = msg.toLocal8Bit();
     const char *file     = context.file ? context.file : "";
     const char *function = context.function ? context.function : "";
+    const char *category = context.category ? context.category : "";
 
-    if (!strcmp("qml", context.category)) {
-        // qml messages are type = QtDebugMsg but we always want to see these.
-        spdlog::info("QML: {} ({}:{}, {})", localMsg.constData(), file, context.line, function);
+    if (!strcmp("qml", category)) {
+        // console.log() arrives as QtDebugMsg but we always want to see it, so
+        // it maps to info. Warnings and errors from QML keep their severity so
+        // console.warn()/console.error() land in the log at the matching level.
+        switch (type) {
+        case QtWarningMsg:
+            spdlog::warn(
+                "QML: {} ({}:{}, {})", localMsg.constData(), file, context.line, function);
+            break;
+        case QtCriticalMsg:
+            spdlog::error(
+                "QML: {} ({}:{}, {})", localMsg.constData(), file, context.line, function);
+            break;
+        case QtFatalMsg:
+            spdlog::critical(
+                "QML: {} ({}:{}, {})", localMsg.constData(), file, context.line, function);
+            break;
+        default:
+            spdlog::info(
+                "QML: {} ({}:{}, {})", localMsg.constData(), file, context.line, function);
+            break;
+        }
         return;
     }
 
@@ -199,6 +177,77 @@ void xstudioQtMessageHandler(
         break;
     }
 }
+
+#ifdef __apple__
+class MacApplication : public QApplication {
+public:
+    MacApplication(int &argc, char **argv) : QApplication(argc, argv),
+                                             system{CafActorSystem::system()} {}
+
+  protected:
+    bool event(QEvent *event) override {
+        if (event->type() == QEvent::FileOpen) {
+            auto *openEvent = static_cast<QFileOpenEvent *>(event);
+            if (openEvent) {
+                try {
+                    scoped_actor self{system};
+
+                    const auto &glob_reg = system.registry().template
+                        get<caf::actor>(global_registry);
+                    auto session = request_receive<caf::actor>(
+                        *self, glob_reg, session::session_atom_v);
+
+                    // Get the playlist to push media to.
+                    auto playlist = request_receive<caf::actor>(
+                        *self, session, session::get_push_playlist_atom_v);
+
+                    // Add this media to the playlist
+                    const auto path    = fs::path(openEvent->file().toStdString());
+                    auto filename_stem = path.stem().string();
+                    const auto dotpos  = filename_stem.find(".");
+                    if (dotpos && dotpos != std::string::npos) {
+                        filename_stem = std::string(filename_stem, 0, dotpos);
+                    }
+
+                    auto uri = caf::uri_builder()
+                        .scheme("file")
+                        .host("localhost")
+                        .path(path.string()).make();
+
+                    auto media_ua = request_receive<UuidActor>(
+                        *self, playlist,
+                        playlist::add_media_atom_v, filename_stem, uri, utility::Uuid());
+
+                    // Select the newly added media
+                    auto playhead_selection_actor =
+                        request_receive<caf::actor>(
+                            *self, playlist, playlist::selection_actor_atom_v);
+                    auto selection = UuidVector{media_ua.uuid()};
+                    anon_mail(playlist::select_media_atom_v, selection)
+                        .send(playhead_selection_actor);
+
+                    // Make sure the playlist is the active and viewed container
+                    anon_mail(session::active_media_container_atom_v, playlist)
+                        .send(session);
+                    anon_mail(session::viewport_active_media_container_atom_v, playlist)
+                        .send(session);
+
+                } catch (const std::exception &e) {
+                    spdlog::error("A Failed to load media '{}'", e.what());
+                    return QApplication::event(event);
+                }
+            }
+
+            return true;
+        }
+        return QApplication::event(event);
+    }
+
+  private:
+    actor_system &system;
+};
+#endif
+
 
 int execute_xstudio_ui(
     const bool disble_vsync,
@@ -252,7 +301,11 @@ int execute_xstudio_ui(
         qInstallMessageHandler(xstudioQtMessageHandler);
     }
 
+#ifdef __apple__
+    MacApplication app(argc, argv);
+#else
     QApplication app(argc, argv);
+#endif
     app.setOrganizationName("DNEG");
     app.setOrganizationDomain("dneg.com");
     app.setApplicationVersion(PROJECT_VERSION);
@@ -685,7 +738,12 @@ struct CLIArguments {
 
     args::Flag debug                     = {misc, "debug", "Debugging mode", {"debug"}};
     args::ValueFlag<std::string> logfile = {
-        misc, "PATH", "Write session log to file", {"log-file"}};
+        misc,
+        "PATH",
+        "Write the session log to this file at debug level, line by line, starting a new "
+        "file on each run (previous runs are kept as .1 to .10). The preference "
+        "/core/logging/log_file takes precedence when it is set.",
+        {"log-file"}};
     args::Flag disable_vsync = {
         misc, "disable-vsync", "Disable sync to video refresh", {"disable-vsync"}};
 
@@ -724,11 +782,26 @@ struct Launcher {
         setenv("QML_IMPORT_TRACE", "0", true);
 #endif
 
-        signal(SIGSEGV, handler);
+        // crash reports go next to the user preferences
+        xstudio::launch::install_crash_handler(
+            (std::filesystem::path(preference_path()).parent_path() / "crash").string(),
+            argc,
+            argv);
         start_logger(
             cli_args.debug.Matched() ? spdlog::level::debug : spdlog::level::info,
             args::get(cli_args.logfile));
         prefs = load_preferences();
+
+        // the preference wins over the command line option
+        try {
+            const auto preferred_log_file =
+                expand_envvars(preference_value<std::string>(prefs, "/core/logging/log_file"));
+            if (not preferred_log_file.empty())
+                set_log_file(preferred_log_file);
+        } catch (const std::exception &e) {
+            spdlog::warn("Preference /core/logging/log_file not applied: {}", e.what());
+        }
+        xstudio::launch::set_crash_report_log_file(log_file());
 
         scoped_actor self{system};
 

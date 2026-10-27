@@ -6,6 +6,8 @@ from xstudio.api.auxiliary.helpers import get_event_group
 from xstudio.core import spawn_plugin_base_atom, viewport_playhead_atom
 from xstudio.core import get_global_playhead_events_atom, show_message_box_atom
 from xstudio.core import plugin_events_group_atom, get_event_group_atom, event_atom
+from xstudio.core import annotation_atom
+import json
 import sys
 import os
 import traceback
@@ -55,6 +57,7 @@ class PluginBase(ModuleBase):
         self.user_attr_handler_ = None
         self.__image_source_attr_id = None
         self.__current_playhead = None
+        self.__annotation_event_cb = None
 
     def add_attribute(
         self,
@@ -273,6 +276,46 @@ class PluginBase(ModuleBase):
             viewport_playhead_atom())[0]
         self.__connect_to_playhead(current_playhead)
 
+    def __annotation_event_msg_handler(self, msg):
+        if len(msg)==3 and isinstance(msg[2], JsonStore):
+            # the 3rd element in the message data should be an xSTUDIO JsonStore
+            # object. We convert it to a python dict via json.
+            self.__annotation_event_cb(json.loads(msg[2].dump()), None, None)
+        elif len(msg)==5 and isinstance(msg[2], JsonStore):
+            # the 3rd element in the message data should be an xSTUDIO JsonStore
+            # object. We convert it to a python dict via json.
+            self.__annotation_event_cb(json.loads(msg[2].dump()), user_id=msg[3], stroke_completed=msg[4])
+
+
+    def subscribe_to_annotation_draw_events(self, callback):
+        """Set-up a subscription to receive the granular draw events resulting
+        from user interaction with the annotation draw tools such as paint 
+        strokes, text caption editing and so-on. The full, serialised annotation
+        data
+
+         Args:
+            callback_method(Callable): The function which will be called
+            with event. The method must have the following signature:
+            def anno_event_callback(self, event_data, user_id, stroke_completed)
+
+        Returns:
+            uuid (callback id): A uuid for the subscription. Pass to
+            unsubscribe_from_event_group to cancel an event subscription
+        """
+        from inspect import signature
+        sig = signature(callback)
+        if len(sig.parameters) != 3:
+            raise Exception("Annotation draw event callback must take 3 arguments.")
+        anno_plugin = self.get_plugin("AnnotationsCore")
+        draw_events_group = self.connection.request_receive(
+            anno_plugin.remote,
+            get_event_group_atom(),
+            annotation_atom()
+            )[0]
+        self.__annotation_event_cb = callback
+        return self.connection.link.add_message_callback(
+            draw_events_group, self.__annotation_event_msg_handler
+            )
 
     def subscribe_to_plugin_events(self, plugin, callback_method):
         """Set-up a subscription to the events of an xstudio plugin.

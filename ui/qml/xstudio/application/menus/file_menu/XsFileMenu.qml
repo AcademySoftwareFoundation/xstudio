@@ -52,6 +52,13 @@ Item {
         description: "Closes the xSTUDIO session and application."
     }
 
+    XsHotkey {
+        id: preferences_hotkey
+        sequence: "Ctrl+,"
+        name: "Preferences"
+        description: "Open the preferences window."
+    }
+
     XsPreference {
         id: autoSavePath
         path: "/core/session/autosave/last_auto_save"
@@ -130,7 +137,7 @@ Item {
         model: file_functions.recentFiles
         Item {
             XsMenuModelItem {
-                text: file_functions.recentFiles[index]
+                text: file_functions.recentFiles[index].replace(/^file:\/\//, "")
                 menuPath: "File|Recent"
                 menuItemPosition: index
                 menuModelName: "main menu bar"
@@ -201,6 +208,16 @@ Item {
     }
 
     XsMenuModelItem {
+        text: "Add Session From Clipboard"
+        menuPath: "File"
+        menuItemPosition: 6.5
+        menuModelName: "main menu bar"
+        onActivated: {
+            file_functions.addSessionFromClipboard()
+        }
+    }
+
+    XsMenuModelItem {
         menuItemType: "divider"
         menuPath: "File"
         menuItemPosition: 7
@@ -266,14 +283,18 @@ Item {
         menuItemPosition: 1
         menuModelName: "main menu bar"
         menuItemType: "button"
+        hotkeyUuid: preferences_hotkey.uuid
         onActivated: {
+            prefs_loader.sourceComponent = prefs_dialog
+            prefs_loader.item.visible = true
+        }
+        onHotkeyActivated: {
             prefs_loader.sourceComponent = prefs_dialog
             prefs_loader.item.visible = true
         }
         Component.onCompleted: {
             setMenuPathPosition("File|Preferences", 10.0)
         }
-
     }
 
     XsMenuModelItem {
