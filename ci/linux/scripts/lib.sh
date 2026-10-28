@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
 # Shared helpers, sourced by every build script.
-# Containers run as root, so no sudo is needed.
-#
-# Dependency pins come from ENV (Dockerfile ARG <- just <- versions.env).
 set -euo pipefail
 
 # Parallelism: honour an explicit JOBS, otherwise 8 threads.
 export JOBS="${JOBS:-8}"
 
-# Where sources are downloaded and built. Wiped between deps to keep layers small.
+# Where sources are downloaded and built.
 export WORK="${WORK:-/tmp/xbuild}"
 mkdir -p "$WORK"
 

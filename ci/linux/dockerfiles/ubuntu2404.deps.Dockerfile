@@ -4,10 +4,10 @@
 # Output: xstudio-deps:ubuntu2404
 #
 # One Docker layer per source-built dependency installed under /usr/local.
-# Apt only supplies the toolchain and libs we do not vendor
+# dnf only supplies the toolchain and libs we do not vendor
 # (X11/GL, Boost, lame/opus/vpx…).
 #
-# Version pins: versions.env only. just sources it and passes --build-arg
+# Version pins: versions.env.
 # (ARG below have no defaults — do not put version numbers here).
 # Each ARG sits immediately before its RUN so bumping one pin only
 # invalidates that layer and the ones after it.
@@ -41,7 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libmp3lame-dev libopus-dev libvpx-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Shared helpers (cmake_build, fetch, …) — isolated layer for cache stability.
+# Shared helpers (cmake_build, fetch, …)
 COPY scripts/lib.sh /build/scripts/lib.sh
 
 # ---------------------------------------------------------------------------
@@ -64,55 +64,55 @@ RUN bash /build/scripts/00-build-tools.sh
 # 3) Source dependencies — one layer each, in build order
 # ---------------------------------------------------------------------------
 
-# OpenGL Extension Wrangler (viewport / GL).
+# GLEW.
 ARG GLEW_VERSION
 ENV GLEW_VERSION=${GLEW_VERSION}
 COPY scripts/deps/glew.sh /build/scripts/deps/glew.sh
 RUN bash /build/scripts/deps/glew.sh
 
-# nlohmann-json (JSONStore, prefs, CAF messages).
+# nlohmann-json.
 ARG JSON_VERSION
 ENV JSON_VERSION=${JSON_VERSION}
 COPY scripts/deps/json.sh /build/scripts/deps/json.sh
 RUN bash /build/scripts/deps/json.sh
 
-# fmt — before spdlog (SPDLOG_FMT_EXTERNAL).
+# fmt.
 ARG FMT_VERSION
 ENV FMT_VERSION=${FMT_VERSION}
 COPY scripts/deps/fmt.sh /build/scripts/deps/fmt.sh
 RUN bash /build/scripts/deps/fmt.sh
 
-# spdlog (xSTUDIO logging).
+# spdlog.
 ARG SPDLOG_VERSION
 ENV SPDLOG_VERSION=${SPDLOG_VERSION}
 COPY scripts/deps/spdlog.sh /build/scripts/deps/spdlog.sh
 RUN bash /build/scripts/deps/spdlog.sh
 
-# OpenEXR + Imath — before OTIO / OIIO.
+# OpenEXR + Imath.
 ARG OPENEXR_REF
 ENV OPENEXR_REF=${OPENEXR_REF}
 COPY scripts/deps/openexr.sh /build/scripts/deps/openexr.sh
 RUN bash /build/scripts/deps/openexr.sh
 
-# C++ Actor Framework (xSTUDIO actors).
+# C++ Actor Framework.
 ARG CAF_VERSION
 ENV CAF_VERSION=${CAF_VERSION}
 COPY scripts/deps/caf.sh /build/scripts/deps/caf.sh
 RUN bash /build/scripts/deps/caf.sh
 
-# OpenColorIO (colour pipeline).
+# OpenColorIO.
 ARG OCIO_VERSION
 ENV OCIO_VERSION=${OCIO_VERSION}
 COPY scripts/deps/ocio.sh /build/scripts/deps/ocio.sh
 RUN bash /build/scripts/deps/ocio.sh
 
-# OpenTimelineIO (timelines; needs Imath).
+# OpenTimelineIO.
 ARG OTIO_REF
 ENV OTIO_REF=${OTIO_REF}
 COPY scripts/deps/otio.sh /build/scripts/deps/otio.sh
 RUN bash /build/scripts/deps/otio.sh
 
-# FFmpeg codecs: nasm, x264, x265, fdk-aac — before FFmpeg.
+# FFmpeg codecs: nasm, x264, x265, fdk-aac.
 ARG NASM_VERSION
 ARG X264_REF
 ARG X265_VERSION
@@ -124,49 +124,49 @@ ENV NASM_VERSION=${NASM_VERSION} \
 COPY scripts/deps/codecs.sh /build/scripts/deps/codecs.sh
 RUN bash /build/scripts/deps/codecs.sh
 
-# FFmpeg (media reader / encode).
+# FFmpeg.
 ARG FFMPEG_VERSION
 ENV FFMPEG_VERSION=${FFMPEG_VERSION}
 COPY scripts/deps/ffmpeg.sh /build/scripts/deps/ffmpeg.sh
 RUN bash /build/scripts/deps/ffmpeg.sh
 
-# libjpeg-turbo (>= 2.1 required by OIIO) — before OIIO.
+# libjpeg-turbo (>= 2.1 required by OIIO).
 ARG LIBJPEGTURBO_VERSION
 ENV LIBJPEGTURBO_VERSION=${LIBJPEGTURBO_VERSION}
 COPY scripts/deps/libjpegturbo.sh /build/scripts/deps/libjpegturbo.sh
 RUN bash /build/scripts/deps/libjpegturbo.sh
 
-# LibRaw (RAW reading via OIIO).
+# LibRaw.
 ARG LIBRAW_VERSION
 ENV LIBRAW_VERSION=${LIBRAW_VERSION}
 COPY scripts/deps/libraw.sh /build/scripts/deps/libraw.sh
 RUN bash /build/scripts/deps/libraw.sh
 
-# libde265 (HEVC decoder) — before libheif.
+# libde265.
 ARG LIBDE265_VERSION
 ENV LIBDE265_VERSION=${LIBDE265_VERSION}
 COPY scripts/deps/libde265.sh /build/scripts/deps/libde265.sh
 RUN bash /build/scripts/deps/libde265.sh
 
-# libheif (HEIF/HEIC for OIIO).
+# libheif.
 ARG LIBHEIF_VERSION
 ENV LIBHEIF_VERSION=${LIBHEIF_VERSION}
 COPY scripts/deps/libheif.sh /build/scripts/deps/libheif.sh
 RUN bash /build/scripts/deps/libheif.sh
 
-# OpenImageIO — after EXR/OCIO/FFmpeg/jpeg/raw/heif (auto-detect).
+# OpenImageIO.
 ARG OIIO_VERSION
 ENV OIIO_VERSION=${OIIO_VERSION}
 COPY scripts/deps/oiio.sh /build/scripts/deps/oiio.sh
 RUN bash /build/scripts/deps/oiio.sh
 
-# fileseq C++ (FileSystemBrowser / find_package(FileSeq)).
+# fileseq C++.
 ARG FILESEQ_CPP_REF
 ENV FILESEQ_CPP_REF=${FILESEQ_CPP_REF}
 COPY scripts/deps/fileseq.sh /build/scripts/deps/fileseq.sh
 RUN bash /build/scripts/deps/fileseq.sh
 
-# Exiv2 0.28+ (EXIF plugin; CMake target Exiv2::exiv2lib).
+# Exiv2.
 ARG EXIV2_VERSION
 ENV EXIV2_VERSION=${EXIV2_VERSION}
 COPY scripts/deps/exiv2.sh /build/scripts/deps/exiv2.sh

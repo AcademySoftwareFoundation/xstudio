@@ -2,7 +2,6 @@
 #
 # xSTUDIO compile check — Ubuntu 24.04
 # Starts FROM the deps image (xstudio-deps:ubuntu2404).
-# Build context MUST be the repository root (not ci/linux/).
 
 ARG DEPS_IMAGE=xstudio-deps:ubuntu2404
 
@@ -31,5 +30,5 @@ COPY ci/linux/scripts/ /build/scripts/
 # xSTUDIO sources from the current checkout.
 COPY . /src/xstudio
 
-# cmake configure + build (no install / no package).
+# cmake configure + build.
 RUN bash /build/scripts/10-build-xstudio.sh

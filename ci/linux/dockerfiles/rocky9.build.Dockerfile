@@ -2,7 +2,6 @@
 #
 # xSTUDIO compile check — Rocky Linux 9
 # Starts FROM the deps image (xstudio-deps:rocky9).
-# Build context MUST be the repository root (not ci/linux/).
 
 ARG DEPS_IMAGE=xstudio-deps:rocky9
 
@@ -30,5 +29,5 @@ COPY ci/linux/scripts/ /build/scripts/
 # xSTUDIO sources from the current checkout.
 COPY . /src/xstudio
 
-# cmake configure + build (no install / no package).
+# cmake configure + build.
 RUN bash /build/scripts/10-build-xstudio.sh
