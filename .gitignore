@@ -1,5 +1,4 @@
 .gitignore
-.github
 *.sublime-project
 *.sublime-workspace
 ._*
