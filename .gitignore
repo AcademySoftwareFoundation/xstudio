@@ -4,6 +4,7 @@
 *.sublime-workspace
 ._*
 .vscode/
+
 .vs/
 .DS_Store
 __*__
@@ -13,6 +14,9 @@ python/src/xstudio/version.py
 *.egg-info/
 docs/Doxyfile
 docs/conf.py
+.cache/
+devenv/
+compile_commands.json
 build/
 __build/
 __build_debug/

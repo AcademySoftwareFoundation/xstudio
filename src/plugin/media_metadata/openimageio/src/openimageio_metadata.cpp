@@ -1,7 +1,11 @@
-#include "openimageio_metadata.hpp"
-
 #include <filesystem>
 #include <unordered_set>
+
+// fmt 8 + GCC/C++20 : déclarer la spécialisation fallback_formatter (ostream.h)
+// avant qu'OIIO n'instancie fallback_formatter<std::string> (fmtlib/fmt#2638)
+#include <fmt/ostream.h>
+
+#include "openimageio_metadata.hpp"
 
 #include <OpenImageIO/imageio.h>
 #include <OpenImageIO/typedesc.h>

@@ -110,6 +110,15 @@ else()
 endif()
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# libstdc++fs n'existe que pour GCC<9 / Clang<9 (std::filesystem ailleurs dans libstdc++)
+set(XSTUDIO_STDCXXFS "")
+if(UNIX AND NOT APPLE)
+  if((CMAKE_CXX_COMPILER_ID STREQUAL "GNU"   AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9) OR
+     (CMAKE_CXX_COMPILER_ID MATCHES "Clang"  AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9))
+    set(XSTUDIO_STDCXXFS stdc++fs)
+  endif()
+endif()
+
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_LINK_DEPENDS_NO_SHARED true)
 

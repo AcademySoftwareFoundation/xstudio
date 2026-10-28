@@ -7,7 +7,7 @@ SET(LINK_DEPS
 if(UNIX)
 	list(APPEND LINK_DEPS dl)
 	if (NOT APPLE)
-		list(APPEND LINK_DEPS stdc++fs)
+		list(APPEND LINK_DEPS ${XSTUDIO_STDCXXFS})
 	endif()
 endif()
 

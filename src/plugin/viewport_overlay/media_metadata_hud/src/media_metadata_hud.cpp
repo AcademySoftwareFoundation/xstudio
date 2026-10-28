@@ -571,7 +571,7 @@ MediaMetadataPtr MediaMetadataHUD::make_onscreen_data(
             Justification justification = JustifyLeft;
             VerticalJustification vjust = JustifyTop;
 
-            Imath::V4f anchor;
+            Imath::V4f anchor(0.f);
             const float inset = inset_->value() / 100.0f;
             if (p.first == plugin::TopLeft) {
                 anchor = Imath::V4f(-1.0 + inset, 1.0 - inset, 0.0, 1.0f);

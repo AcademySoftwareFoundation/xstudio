@@ -229,6 +229,9 @@ namespace colour_pipeline {
         virtual size_t fast_colour_transform_hash(const media::AVFrameID &media_ptr) = 0;
 
       protected:
+        // GCC 13 (-Woverloaded-virtual): keep the base virtual visible next to
+        // this extra CAF-promise overload.
+        using plugin::StandardPlugin::make_pre_draw_gpu_hook;
         void make_pre_draw_gpu_hook(
             const std::string &viewport_name,
             caf::typed_response_promise<plugin::GPUPreDrawHookPtr> rp);

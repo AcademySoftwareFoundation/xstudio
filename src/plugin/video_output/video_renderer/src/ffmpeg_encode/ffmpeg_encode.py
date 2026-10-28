@@ -98,7 +98,7 @@ class FFMpegEncoderPlugin(PluginBase):
             # for frame based output we expect the incoming filename to be 
             # something like "C:/Users/ted/my_frames.####.jpg", say- for 
             # ffmpeg we replace the hashes with '%04d'
-            m = re.match("^(.+[^\#])(\#+)(.+)$", output_file)
+            m = re.match(r"^(.+[^#])(#+)(.+)$", output_file)
             if not m:
                 raise Exception("A frame based output was chosen but '#' characters are missing for padded frame numbers.")
             output_file = "{}%0{}d{}".format(m.group(1), len(m.group(2)), m.group(3))
