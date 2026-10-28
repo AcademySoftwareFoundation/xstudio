@@ -6,6 +6,12 @@
 
 #include "ffmpeg_stream.hpp"
 #include "xstudio/media/media_error.hpp"
+#ifdef XSTUDIO_HAS_VIDEOTOOLBOX
+#include "vt_decoder.hpp"
+#endif
+
+#include <mutex>
+#include <set>
 
 #ifdef __GNUC__ // Check if GCC compiler is being used
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -258,6 +264,37 @@ static int setup_video_buffer(AVCodecContext *ctx, AVFrame *ffmpeg_frame_, int /
 } // namespace
 
 namespace xstudio::media_reader::ffmpeg {
+
+namespace {
+    // Each FFMpegDecoder (playback, thumbnails, media detail) opens its own streams,
+    // so to log a backend choice once per source rather than once per decoder,
+    // remember what has been logged.
+    bool first_time_for(const std::string &key) {
+        static std::mutex m;
+        static std::set<std::string> seen;
+        std::lock_guard<std::mutex> l(m);
+        return seen.insert(key).second;
+    }
+} // namespace
+
+VideoToolboxMode videotoolbox_mode_from_string(const std::string &value) {
+    if (value == "off")
+        return VideoToolboxMode::Off;
+    if (value == "only")
+        return VideoToolboxMode::Only;
+    return VideoToolboxMode::Prefer;
+}
+
+const char *to_string(const VideoToolboxMode mode) {
+    switch (mode) {
+    case VideoToolboxMode::Off:
+        return "off";
+    case VideoToolboxMode::Only:
+        return "only";
+    default:
+        return "prefer";
+    }
+}
 
 // The SWS_CS_* coefficient set matching a stream's colourspace. Only needed where
 // sws does the YUV to RGB conversion itself - everywhere else our own shader does
@@ -564,13 +601,13 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
     // See http://stash/projects/RND/repos/showsetup_data/pull-requests/794/overview
     const bool is_dneg_mov   = utility::ends_with(format_context_->url, ".dneg.mov");
     AVColorRange color_range = ffmpeg_frame_->color_range;
-    if (is_dneg_mov && codec_->id == AV_CODEC_ID_DNXHD) {
+    if (is_dneg_mov && avc_stream_->codecpar->codec_id == AV_CODEC_ID_DNXHD) {
         color_range = AVCOL_RANGE_MPEG;
     }
 
     set_shader_pix_format_info(
         jsn,
-        codec_->id,
+        avc_stream_->codecpar->codec_id,
         (AVPixelFormat)ffmpeg_pixel_format,
         color_range,
         ffmpeg_frame_->colorspace);
@@ -771,15 +808,39 @@ AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio() {
 }
 
 FFMpegStream::FFMpegStream(
-    AVFormatContext *fmt_ctx, AVStream *stream, int index, int thread_count, std::string path)
+    AVFormatContext *fmt_ctx,
+    AVStream *stream,
+    int index,
+    int thread_count,
+    std::string path,
+    VideoToolboxMode videotoolbox_mode)
     : stream_index_(index),
       format_context_(fmt_ctx),
       avc_stream_(stream),
-      source_path(std::move(path)) {
+      source_path(std::move(path)),
+      videotoolbox_mode_(videotoolbox_mode) {
 
     codec_type_   = avc_stream_->codecpar->codec_type;
     ffmpeg_frame_ = av_frame_alloc();
-    codec_        = avcodec_find_decoder(avc_stream_->codecpar->codec_id);
+    thread_count_ = thread_count;
+
+    // VideoToolbox gets first refusal on video streams (design D7). FFmpeg's decoder
+    // is only looked for if VideoToolbox doesn't take the stream, so a build without
+    // one (e.g. no h264 decoder) still opens streams VideoToolbox decodes.
+    if (codec_type_ == AVMEDIA_TYPE_VIDEO)
+        try_videotoolbox();
+
+    if (!vt_decoder_ && videotoolbox_error_.empty())
+        codec_ = avcodec_find_decoder(avc_stream_->codecpar->codec_id);
+
+#ifdef __APPLE__
+    // AAC through AudioToolbox when FFmpeg was built with it (design D10)
+    if (codec_type_ == AVMEDIA_TYPE_AUDIO &&
+        avc_stream_->codecpar->codec_id == AV_CODEC_ID_AAC) {
+        if (const AVCodec *aac_at = avcodec_find_decoder_by_name("aac_at"))
+            codec_ = aac_at;
+    }
+#endif
 
     codec_context_ = avcodec_alloc_context3(codec_);
 
@@ -808,28 +869,38 @@ FFMpegStream::FFMpegStream(
 #endif
         }
 
-    } else if (codec_type_ == AVMEDIA_TYPE_VIDEO && codec_) {
+    } else if (
+        codec_type_ == AVMEDIA_TYPE_VIDEO &&
+        (codec_ || vt_decoder_ || !videotoolbox_error_.empty())) {
 
         stream_type_ = VIDEO_STREAM;
 
-        if (codec_->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
-            codec_context_->thread_count = thread_count;
-            codec_context_->thread_type  = FF_THREAD_SLICE;
-        }
-        if (codec_->capabilities & AV_CODEC_CAP_FRAME_THREADS) {
-            codec_context_->thread_count = thread_count;
-            codec_context_->thread_type |= FF_THREAD_FRAME;
-        }
+        spdlog::debug(
+            "{} video stream {}: videotoolbox mode {}",
+            source_path,
+            stream_index_,
+            to_string(videotoolbox_mode_));
 
-        /** initialize the stream parameters with demuxer information */
-        AVC_CHECK_THROW(
-            avcodec_parameters_to_context(codec_context_, avc_stream_->codecpar),
-            "avcodec_parameters_to_context");
-        AVC_CHECK_THROW(avcodec_open2(codec_context_, codec_, nullptr), "avcodec_open2");
-
-        ffmpeg_frame_->width  = avc_stream_->codecpar->width;
-        ffmpeg_frame_->height = avc_stream_->codecpar->height;
-        ffmpeg_frame_->format = codec_context_->pix_fmt;
+        if (codec_) {
+            is_mjpeg = open_software_video_decoder();
+        } else {
+            // VideoToolbox decodes the stream (or should have, and frame requests
+            // will report why it can't). The context only carries the stream
+            // parameters and the pixel format frames come out in.
+            AVC_CHECK_THROW(
+                avcodec_parameters_to_context(codec_context_, avc_stream_->codecpar),
+                "avcodec_parameters_to_context");
+#ifdef XSTUDIO_HAS_VIDEOTOOLBOX
+            if (vt_decoder_) {
+                codec_context_->pix_fmt = vt_decoder_->output_pix_fmt();
+                // frames arrive in an ImageBuffer, as with setup_video_buffer
+                using_own_frame_allocation = true;
+            }
+#endif
+            ffmpeg_frame_->width  = avc_stream_->codecpar->width;
+            ffmpeg_frame_->height = avc_stream_->codecpar->height;
+            ffmpeg_frame_->format = codec_context_->pix_fmt;
+        }
 
         // store resolution and pixel aspect
         resolution_ = Imath::V2f(avc_stream_->codecpar->width, avc_stream_->codecpar->height);
@@ -837,21 +908,6 @@ FFMpegStream::FFMpegStream(
         if (sar.num && sar.den) {
             pixel_aspect_ = float(sar.num) / float(sar.den);
         }
-
-        // Note - gif decoder has AV_CODEC_CAP_DR1 flag, but it doesn't appear to work, i.e.
-        // if xstudio takes over ffmpeg_frame_ buffer mem allocation decoding doesn't work
-        // correctly and we get repeated frames in the stream decode
-        if (strcmp(codec_->name, "gif") && (codec_->capabilities & AV_CODEC_CAP_DR1)) {
-
-            // See Note 1 below
-            // codec_ allows us to allocated AVFrame buffers
-            codec_context_->get_buffer2 = setup_video_buffer;
-            using_own_frame_allocation  = true;
-            if (!strcmp(codec_->name, "mjpeg")) {
-                is_mjpeg = true;
-            }
-        }
-        codec_context_->opaque = this;
 
     } else if (codec_type_ == AVMEDIA_TYPE_AUDIO && codec_) {
         stream_type_ = AUDIO_STREAM;
@@ -905,6 +961,130 @@ FFMpegStream::FFMpegStream(
             frame_rate_ = xstudio::utility::FrameRate(timebase::k_flicks_24fps);
         }
     }
+}
+
+bool FFMpegStream::open_software_video_decoder() {
+
+    bool is_mjpeg = false;
+
+    if (codec_->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
+        codec_context_->thread_count = thread_count_;
+        codec_context_->thread_type  = FF_THREAD_SLICE;
+    }
+    if (codec_->capabilities & AV_CODEC_CAP_FRAME_THREADS) {
+        codec_context_->thread_count = thread_count_;
+        codec_context_->thread_type |= FF_THREAD_FRAME;
+    }
+
+    /** initialize the stream parameters with demuxer information */
+    AVC_CHECK_THROW(
+        avcodec_parameters_to_context(codec_context_, avc_stream_->codecpar),
+        "avcodec_parameters_to_context");
+    AVC_CHECK_THROW(avcodec_open2(codec_context_, codec_, nullptr), "avcodec_open2");
+
+    ffmpeg_frame_->width  = avc_stream_->codecpar->width;
+    ffmpeg_frame_->height = avc_stream_->codecpar->height;
+    ffmpeg_frame_->format = codec_context_->pix_fmt;
+
+    // Note - gif decoder has AV_CODEC_CAP_DR1 flag, but it doesn't appear to work, i.e.
+    // if xstudio takes over ffmpeg_frame_ buffer mem allocation decoding doesn't work
+    // correctly and we get repeated frames in the stream decode
+    if (strcmp(codec_->name, "gif") && (codec_->capabilities & AV_CODEC_CAP_DR1)) {
+
+        // See Note 1 below
+        // codec_ allows us to allocated AVFrame buffers
+        codec_context_->get_buffer2 = setup_video_buffer;
+        using_own_frame_allocation  = true;
+        if (!strcmp(codec_->name, "mjpeg")) {
+            is_mjpeg = true;
+        }
+    } else {
+        using_own_frame_allocation = false;
+    }
+    codec_context_->opaque = this;
+
+    return is_mjpeg;
+}
+
+void FFMpegStream::try_videotoolbox() {
+#ifdef XSTUDIO_HAS_VIDEOTOOLBOX
+    const char *codec_name = avcodec_get_name(avc_stream_->codecpar->codec_id);
+
+    if (videotoolbox_mode_ == VideoToolboxMode::Off) {
+        if (first_time_for(source_path + "|ffmpeg|off"))
+            spdlog::info(
+                "{}: {} video decoded by FFmpeg (VideoToolbox is off)",
+                source_path,
+                codec_name);
+        return;
+    }
+
+    std::string reason;
+    if (!VtDecoder::eligible(avc_stream_, reason)) {
+        if (first_time_for(source_path + "|ffmpeg"))
+            spdlog::info(
+                "{}: {} video decoded by FFmpeg ({})", source_path, codec_name, reason);
+        return;
+    }
+
+    std::unique_ptr<VtDecoder> vt = VtDecoder::create(avc_stream_, reason);
+    if (vt) {
+        if (first_time_for(source_path + "|videotoolbox"))
+            spdlog::info(
+                "{}: {} video decoded by VideoToolbox ({}, {})",
+                source_path,
+                codec_name,
+                vt->output_format_name(),
+                vt->using_hardware() ? "hardware" : "software");
+        vt_decoder_ = std::move(vt);
+        return;
+    }
+
+    // VideoToolbox should have taken the stream but couldn't
+    const bool can_fall_back = videotoolbox_mode_ == VideoToolboxMode::Prefer &&
+                               avcodec_find_decoder(avc_stream_->codecpar->codec_id);
+    if (can_fall_back) {
+        if (first_time_for(source_path + "|fallback"))
+            spdlog::warn(
+                "{}: VideoToolbox can't decode this {} video ({}); using FFmpeg's decoder",
+                source_path,
+                codec_name,
+                reason);
+    } else {
+        videotoolbox_error_ =
+            fmt::format("VideoToolbox decoding unavailable for {}: {}", codec_name, reason);
+        if (first_time_for(source_path + "|failed"))
+            spdlog::warn("{}: {}", source_path, videotoolbox_error_);
+    }
+#endif
+}
+
+void FFMpegStream::fall_back_to_software(const std::string &reason) {
+
+    vt_decoder_.reset();
+    const char *codec_name = avcodec_get_name(avc_stream_->codecpar->codec_id);
+    const AVCodec *codec   = videotoolbox_mode_ == VideoToolboxMode::Prefer
+                                 ? avcodec_find_decoder(avc_stream_->codecpar->codec_id)
+                                 : nullptr;
+    if (!codec) {
+        videotoolbox_error_ =
+            fmt::format("VideoToolbox decoding unavailable for {}: {}", codec_name, reason);
+        if (first_time_for(source_path + "|failed"))
+            spdlog::warn("{}: {}", source_path, videotoolbox_error_);
+        throw videotoolbox_unavailable_error(videotoolbox_error_);
+    }
+
+    if (first_time_for(source_path + "|fallback"))
+        spdlog::warn(
+            "{}: VideoToolbox can't decode this {} video ({}); using FFmpeg's decoder",
+            source_path,
+            codec_name,
+            reason);
+
+    codec_ = codec;
+    avcodec_free_context(&codec_context_);
+    codec_context_ = avcodec_alloc_context3(codec_);
+    open_software_video_decoder();
 }
 
 FFMpegStream::~FFMpegStream() {
@@ -1150,7 +1330,19 @@ int64_t FFMpegStream::receive_frame() {
 
     av_frame_unref(ffmpeg_frame_);
 
-    int rt = avcodec_receive_frame(codec_context_, ffmpeg_frame_);
+    if (!videotoolbox_error_.empty())
+        throw videotoolbox_unavailable_error(videotoolbox_error_);
+
+    int rt = 0;
+#ifdef XSTUDIO_HAS_VIDEOTOOLBOX
+    if (vt_decoder_) {
+        rt = vt_decoder_->receive_frame(ffmpeg_frame_);
+        // ProRes 4444 alpha is only known once the first frame header is seen
+        if (!rt)
+            codec_context_->pix_fmt = AVPixelFormat(ffmpeg_frame_->format);
+    } else
+#endif
+        rt = avcodec_receive_frame(codec_context_, ffmpeg_frame_);
 
     // std::cerr << source_path << " WAS " << ffmpeg_frame_->pts << "\n";
 
@@ -1172,15 +1364,57 @@ int64_t FFMpegStream::receive_frame() {
     return rt;
 }
 
-void FFMpegStream::send_flush_packet() { avcodec_send_packet(codec_context_, nullptr); }
+void FFMpegStream::send_flush_packet() {
+#ifdef XSTUDIO_HAS_VIDEOTOOLBOX
+    if (vt_decoder_) {
+        vt_decoder_->send_packet(nullptr);
+        return;
+    }
+#endif
+    if (videotoolbox_error_.empty())
+        avcodec_send_packet(codec_context_, nullptr);
+}
 
 int FFMpegStream::send_packet(AVPacket *avc_packet_) {
+
+    if (!videotoolbox_error_.empty()) {
+        av_packet_unref(avc_packet_);
+        throw videotoolbox_unavailable_error(videotoolbox_error_);
+    }
+
+#ifdef XSTUDIO_HAS_VIDEOTOOLBOX
+    if (vt_decoder_) {
+        int rt = vt_decoder_->send_packet(avc_packet_);
+        if (rt == AVERROR(ENOTSUP)) {
+            // e.g. packets without timestamps (design D8)
+            try {
+                fall_back_to_software("stream packets have no timestamps");
+            } catch (...) {
+                av_packet_unref(avc_packet_);
+                throw;
+            }
+        } else {
+            av_packet_unref(avc_packet_);
+            return rt;
+        }
+    }
+#endif
+
     int rt = avcodec_send_packet(codec_context_, avc_packet_);
     av_packet_unref(avc_packet_);
     return rt;
 }
 
-void FFMpegStream::flush_buffers() { avcodec_flush_buffers(codec_context_); }
+void FFMpegStream::flush_buffers() {
+#ifdef XSTUDIO_HAS_VIDEOTOOLBOX
+    if (vt_decoder_) {
+        vt_decoder_->flush();
+        return;
+    }
+#endif
+    if (videotoolbox_error_.empty())
+        avcodec_flush_buffers(codec_context_);
+}
 
 double FFMpegStream::duration_seconds() const {
 

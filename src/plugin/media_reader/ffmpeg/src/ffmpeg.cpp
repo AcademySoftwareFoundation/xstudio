@@ -384,6 +384,7 @@ plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
 FFMpegMediaReader::FFMpegMediaReader(const utility::JsonStore &prefs)
     : MediaReader("FFMPEG", prefs) {
     readers_per_source_ = 1;
+    videotoolbox_mode_  = VideoToolboxMode::Prefer;
     update_preferences(prefs);
 }
 
@@ -394,6 +395,21 @@ void FFMpegMediaReader::update_preferences(const utility::JsonStore &prefs) {
     try {
         supported_ =
             preference_value<JsonStore>(prefs, "/plugin/media_reader/FFMPEG/supported");
+    } catch (const std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+
+    try {
+        const auto mode = videotoolbox_mode_from_string(
+            preference_value<std::string>(prefs, "/plugin/media_reader/FFMPEG/videotoolbox"));
+        if (mode != videotoolbox_mode_) {
+            // Don't hand out a frame decoded under the previous mode, and decode
+            // with the new one from the next request on.
+            last_decoded_image_.reset();
+            decoder.reset();
+            thumbnail_decoder.reset();
+        }
+        videotoolbox_mode_ = mode;
     } catch (const std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
@@ -439,9 +455,14 @@ ImageBufPtr FFMpegMediaReader::image(const media::AVFrameID &mptr) {
             return last_decoded_image_;
         }
 
-        if (!decoder || decoder->path() != path || decoder->stream_id() != mptr.stream_id()) {
+        if (!decoder || decoder->path() != path || decoder->stream_id() != mptr.stream_id() ||
+            decoder->videotoolbox_mode() != videotoolbox_mode_) {
             decoder.reset(new FFMpegDecoder(
-                path, soundcard_sample_rate_, default_rate_, mptr.stream_id()));
+                path,
+                soundcard_sample_rate_,
+                default_rate_,
+                mptr.stream_id(),
+                videotoolbox_mode_));
         }
 
         decoder->decode_video_frame(mptr.frame(), rt);
@@ -455,6 +476,11 @@ ImageBufPtr FFMpegMediaReader::image(const media::AVFrameID &mptr) {
             last_decoded_image_ = rt;
         }
 
+    } catch (const videotoolbox_unavailable_error &e) {
+        // Always shown on the frame: the user needs to know why there's no picture
+        // (e.g. the 'only' preference, or a build without FFmpeg's decoder).
+        rt = make_blank_image();
+        rt->set_error(e.what());
     } catch (std::exception &e) {
         rt = make_blank_image();
         if (mptr.error() != "") {
@@ -513,7 +539,8 @@ AudioBufPtr FFMpegMediaReader::audio(const media::AVFrameID &mptr) {
 
 xstudio::media::MediaDetail FFMpegMediaReader::detail(const caf::uri &uri) const {
 
-    FFMpegDecoder t_decoder(uri_convert(uri), soundcard_sample_rate_, default_rate_);
+    FFMpegDecoder t_decoder(
+        uri_convert(uri), soundcard_sample_rate_, default_rate_, "", videotoolbox_mode_);
     // N.B. MediaDetail needs frame duration, so invert frame rate
     std::vector<media::StreamDetail> streams;
 
@@ -626,7 +653,11 @@ FFMpegMediaReader::thumbnail(const media::AVFrameID &mptr, const size_t thumb_si
         // DebugTimer d(path, mptr.frame());
         if (!thumbnail_decoder || thumbnail_decoder->path() != path) {
             thumbnail_decoder.reset(new FFMpegDecoder(
-                path, soundcard_sample_rate_, default_rate_, mptr.stream_id()));
+                path,
+                soundcard_sample_rate_,
+                default_rate_,
+                mptr.stream_id(),
+                videotoolbox_mode_));
         }
 
         std::shared_ptr<thumbnail::ThumbnailBuffer> rt =

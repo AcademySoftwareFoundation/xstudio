@@ -59,6 +59,26 @@ AVPixelFormat shader_friendly_pix_format(AVPixelFormat src);
 where sws does the YUV to RGB conversion rather than our own shader. */
 int sws_colourspace_from_av(AVColorSpace colorspace);
 
+/* Value of the /plugin/media_reader/FFMPEG/videotoolbox preference. Has no effect
+on platforms without VideoToolbox. */
+enum class VideoToolboxMode { Off, Prefer, Only };
+
+/* Parses the preference value ("off", "prefer", "only"). Unrecognised values give
+Prefer, the default. */
+VideoToolboxMode videotoolbox_mode_from_string(const std::string &value);
+
+const char *to_string(VideoToolboxMode mode);
+
+/* Thrown when a stream should have been decoded by VideoToolbox but can't be, and
+falling back to FFmpeg's decoder isn't allowed or possible. The reader reports it
+on the frame as an error. */
+class videotoolbox_unavailable_error : public std::runtime_error {
+  public:
+    using std::runtime_error::runtime_error;
+};
+
+class VtDecoder;
+
 typedef enum {
     VIDEO_STREAM     = 1,
     AUDIO_STREAM     = 2,
@@ -76,7 +96,8 @@ class FFMpegStream {
         AVStream *stream,
         int index,
         int thread_count,
-        std::string path);
+        std::string path,
+        VideoToolboxMode videotoolbox_mode = VideoToolboxMode::Off);
 
     virtual ~FFMpegStream();
 
@@ -126,6 +147,19 @@ class FFMpegStream {
 
     [[nodiscard]] bool is_attached_pic() const { return is_attached_pic_; }
 
+    /* True if VideoToolbox decodes this stream rather than FFmpeg. */
+    [[nodiscard]] bool decoded_by_videotoolbox() const { return bool(vt_decoder_); }
+
+    /* True if an FFmpeg decoder was opened for this stream. */
+    [[nodiscard]] bool uses_ffmpeg_decoder() const { return codec_ != nullptr; }
+
+    /* Name of the FFmpeg decoder opened for this stream, empty if none. */
+    [[nodiscard]] std::string ffmpeg_decoder_name() const { return codec_ ? codec_->name : ""; }
+
+    /* True once a frame of this stream has needed a CPU pixel format conversion
+    (swscale) before the shader could use it. */
+    [[nodiscard]] bool converted_on_cpu() const { return format_conversion_warning_issued; }
+
     [[nodiscard]] int stream_index() const { return stream_index_; }
 
     [[nodiscard]] bool is_drop_frame_timecode() const { return is_drop_frame_timecode_; }
@@ -153,6 +187,18 @@ class FFMpegStream {
     }
 
     void decode_attached_pic();
+
+    // Sets up vt_decoder_, or videotoolbox_error_ if VideoToolbox should decode the
+    // stream but can't and FFmpeg mustn't (design D7). No-op without VideoToolbox.
+    void try_videotoolbox();
+
+    // Opens codec_ (FFmpeg's decoder) on codec_context_ for a video stream.
+    // Returns true for mjpeg.
+    bool open_software_video_decoder();
+
+    // VideoToolbox rejected the stream's packets: carry on with FFmpeg's decoder
+    // if allowed, otherwise throw videotoolbox_unavailable_error.
+    void fall_back_to_software(const std::string &reason);
 
     // void setup_frame(ImageStorePtr & video_frame);
     int stream_index_;
@@ -190,5 +236,12 @@ class FFMpegStream {
 
     utility::FrameRate frame_rate_;
     ImageBufPtr attached_pic_;
+
+    VideoToolboxMode videotoolbox_mode_ = {VideoToolboxMode::Off};
+    int thread_count_                   = {0};
+    // shared_ptr so that this header needs no complete VtDecoder (and no
+    // VideoToolbox) on any platform
+    std::shared_ptr<VtDecoder> vt_decoder_;
+    std::string videotoolbox_error_;
 };
 } // namespace xstudio::media_reader::ffmpeg
