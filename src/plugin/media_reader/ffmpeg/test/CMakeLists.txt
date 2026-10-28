@@ -26,6 +26,12 @@ target_include_directories(ffmpeg_test
 )
 target_link_directories(ffmpeg_test PRIVATE ${FFMPEG_LIBRARY_DIRS})
 
+# Media written by videotoolbox_media/generate.sh (tests needing it skip when absent)
+target_compile_definitions(ffmpeg_test
+    PRIVATE VT_TEST_MEDIA_DIR="${CMAKE_BINARY_DIR}/test_media/videotoolbox"
+    PRIVATE $<$<PLATFORM_ID:Darwin>:XSTUDIO_HAS_VIDEOTOOLBOX=1>
+)
+
 add_test(ffmpeg_tests ffmpeg_test)
 
 set_target_properties(ffmpeg_test PROPERTIES LINK_DEPENDS_NO_SHARED true)

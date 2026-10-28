@@ -30,7 +30,8 @@ FFMpegDecoder::FFMpegDecoder(
     std::string path,
     const int soundcard_sample_rate,
     const utility::FrameRate default_rate,
-    std::string stream_id)
+    std::string stream_id,
+    VideoToolboxMode videotoolbox_mode)
     : movie_file_path_(std::move(path)),
       last_requested_frame_(-100),
       last_decoded_frame_(-100),
@@ -38,7 +39,8 @@ FFMpegDecoder::FFMpegDecoder(
       av_format_ctx_(nullptr),
       soundcard_sample_rate_(soundcard_sample_rate),
       stream_id_(std::move(stream_id)),
-      default_rate_(default_rate)
+      default_rate_(default_rate),
+      videotoolbox_mode_(videotoolbox_mode)
 
 {
     open_handles();
@@ -68,7 +70,8 @@ void FFMpegDecoder::open_handles() {
                 av_format_ctx_->streams[i],
                 i,
                 ffmpeg_threads,
-                movie_file_path_);
+                movie_file_path_,
+                videotoolbox_mode_);
 
         } catch ([[maybe_unused]] std::exception &e) {
         }
