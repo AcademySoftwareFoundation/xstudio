@@ -222,7 +222,9 @@ jobs:
 
   build-windows:
     name: Build (windows-x64)
-    runs-on: windows-latest
+    # windows-2022 = VS 2022 (matches ASWF docs). windows-latest is VS 2026 / MSVC 14.51,
+    # which breaks Qt 6.5.3 (removed stdext::checked_array_iterator).
+    runs-on: windows-2022
     timeout-minutes: 360
 
     env:
