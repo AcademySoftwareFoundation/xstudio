@@ -13,7 +13,7 @@ permissions:
   packages: write
 
 jobs:
-  compile:
+  compile-linux:
     name: compile (${{ matrix.deps_tag }})
     runs-on: ubuntu-latest
     timeout-minutes: 360
@@ -65,3 +65,44 @@ jobs:
       - name: Compile xSTUDIO
         working-directory: ci/linux
         run: just ${{ matrix.recipe_compile }}
+
+  compile-macos:
+    name: compile (macos-arm64)
+    runs-on: macos-latest
+    timeout-minutes: 360
+
+    env:
+      JOBS: "3"
+      QT_ROOT: ${{ github.workspace }}/.ci-cache/Qt
+      VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
+      # Binary package cache for vcpkg ports (ffmpeg, OIIO, …).
+      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Enable GitHub Actions cache backend for vcpkg
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - name: Read Qt version pin
+        id: pins
+        run: |
+          # shellcheck source=ci/macos/versions.env
+          source ci/macos/versions.env
+          echo "qt_version=${QT_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Qt SDK
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.QT_ROOT }}
+          key: qt-${{ steps.pins.outputs.qt_version }}-mac-clang64-imageformats-pdf
+
+      - name: Compile xSTUDIO
+        run: bash ci/macos/build.sh
