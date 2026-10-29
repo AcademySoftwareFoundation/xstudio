@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Configure and compile xSTUDIO from sources already present at $XSTUDIO_SRC
-# (copied by the build Dockerfile). Compile check only — no install/package.
+# Configure and build xSTUDIO from sources already present at $XSTUDIO_SRC
+# (copied by the build Dockerfile). Build check only — no install/package.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib.sh
 source "$HERE/lib.sh"
@@ -17,7 +17,7 @@ if [ ! -f "$SRC/CMakeLists.txt" ]; then
     exit 1
 fi
 
-log "Compiling xSTUDIO from ${SRC}"
+log "Building xSTUDIO from ${SRC}"
 
 # --- 2) Prefer pip pybind11 (>= 2.13) over the distro package ----------------
 PYBIND11_CMAKE_DIR="$(python3 -m pybind11 --cmakedir)"
@@ -43,4 +43,4 @@ cmake -S "$SRC" -B "$SRC/build" \
 log "Building xSTUDIO"
 cmake --build "$SRC/build" -j "$JOBS"
 
-log "Compile OK"
+log "Build OK"

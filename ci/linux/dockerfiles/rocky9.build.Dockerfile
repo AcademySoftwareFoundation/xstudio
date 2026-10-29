@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1.7
 #
-# xSTUDIO compile check — Rocky Linux 9
+# xSTUDIO build check — Rocky Linux 9
 # Starts FROM the deps image (xstudio-deps:rocky9).
 
 ARG DEPS_IMAGE=xstudio-deps:rocky9
 
-FROM ${DEPS_IMAGE} AS compile
+FROM ${DEPS_IMAGE} AS build
 
-# Compile parallelism (forwarded to cmake --build).
+# Build parallelism (forwarded to cmake --build).
 ARG JOBS=
 ENV JOBS=${JOBS}
 

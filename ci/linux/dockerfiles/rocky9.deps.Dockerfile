@@ -20,7 +20,7 @@ FROM ${ROCKY_IMAGE} AS deps
 ENV DISTRO=rocky9 \
     QT_ROOT=/opt/qt
 
-# Compile parallelism (empty -> 8 in lib.sh).
+# Build parallelism (empty -> 8 in lib.sh).
 ARG JOBS=
 ENV JOBS=${JOBS}
 

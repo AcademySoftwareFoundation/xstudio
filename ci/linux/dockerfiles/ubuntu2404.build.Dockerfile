@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1.7
 #
-# xSTUDIO compile check — Ubuntu 24.04
+# xSTUDIO build check — Ubuntu 24.04
 # Starts FROM the deps image (xstudio-deps:ubuntu2404).
 
 ARG DEPS_IMAGE=xstudio-deps:ubuntu2404
 
-FROM ${DEPS_IMAGE} AS compile
+FROM ${DEPS_IMAGE} AS build
 
-# Compile parallelism (forwarded to cmake --build).
+# Build parallelism (forwarded to cmake --build).
 ARG JOBS=
 ENV JOBS=${JOBS}
 

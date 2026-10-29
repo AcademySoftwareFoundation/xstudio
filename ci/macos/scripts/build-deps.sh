@@ -1,31 +1,25 @@
 #!/usr/bin/env bash
-# Compile-check xSTUDIO on macOS (Apple Silicon).
+# Install macOS build deps: Homebrew tools, Qt SDK, vcpkg + manifest ports.
+# No xSTUDIO configure/build here — see build-xstudio.sh.
 #
-# Mirrors the local build guide (docs/reference/build_guides/macos.md):
-# Homebrew tooling, Qt via aqtinstall, vcpkg at the builtin-baseline, then
-# cmake --preset MacOSNinjaRelease + build. No install / macdeployqt / tests.
-#
-# Usage (from repo root or anywhere):
-#   ci/macos/build.sh
+# Usage: ci/macos/scripts/build-deps.sh
 #
 # Overridable env:
 #   JOBS=3
 #   QT_ROOT=$HOME/Qt
 #   VCPKG_ROOT=<sibling-of-repo>/vcpkg
-#   SKIP_BREW=1          # skip brew install (tools already present)
+#   SKIP_BREW=1
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-VERSIONS_ENV="${SCRIPT_DIR}/versions.env"
+MACOS_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "${MACOS_DIR}/../.." && pwd)"
 
 log() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 
-# --- 1) Pinned versions -------------------------------------------------------
-# shellcheck source=versions.env
-source "${VERSIONS_ENV}"
-
+# shellcheck source=../versions.env
+source "${MACOS_DIR}/versions.env"
 : "${QT_VERSION:?QT_VERSION missing from ci/macos/versions.env}"
 : "${AQTINSTALL_VERSION:?AQTINSTALL_VERSION missing from ci/macos/versions.env}"
 
@@ -37,32 +31,28 @@ VCPKG_BASELINE="$(
 
 export JOBS="${JOBS:-3}"
 QT_ROOT="${QT_ROOT:-${HOME}/Qt}"
-# Preset CMAKE_TOOLCHAIN_FILE expects ${sourceDir}/../vcpkg
 VCPKG_ROOT="${VCPKG_ROOT:-$(cd "${REPO_ROOT}/.." && pwd)/vcpkg}"
 QT_MACOS="${QT_ROOT}/${QT_VERSION}/macos"
 QT6_DIR="${QT_MACOS}/lib/cmake/Qt6"
 
-log "Repo:        ${REPO_ROOT}"
-log "Qt root:     ${QT_ROOT} (version ${QT_VERSION})"
-log "vcpkg root:  ${VCPKG_ROOT} (baseline ${VCPKG_BASELINE})"
-log "Jobs:        ${JOBS}"
+log "Repo:       ${REPO_ROOT}"
+log "Qt root:    ${QT_ROOT} (version ${QT_VERSION})"
+log "vcpkg root: ${VCPKG_ROOT} (baseline ${VCPKG_BASELINE})"
+log "Jobs:       ${JOBS}"
 
-# --- 2) Homebrew build tools --------------------------------------------------
+# --- Homebrew -----------------------------------------------------------------
 if [ "${SKIP_BREW:-0}" != "1" ]; then
   log "Installing Homebrew packages"
   brew install cmake ninja pkg-config nasm autoconf autoconf-archive
 fi
-
 hash -r
 cmake --version | head -1
 ninja --version
 
-# --- 3) Qt SDK via aqtinstall -------------------------------------------------
-# Prefer an on-disk SDK (actions/cache hit or prior local install).
+# --- Qt SDK -------------------------------------------------------------------
 if [ -d "${QT6_DIR}" ]; then
   log "Qt already present at ${QT_MACOS} (skipping aqtinstall)"
 else
-  # Homebrew Python is PEP 668 managed — use a throwaway venv for aqtinstall.
   AQT_VENV="${REPO_ROOT}/.ci-cache/aqt-venv"
   log "Installing aqtinstall==${AQTINSTALL_VERSION} into ${AQT_VENV}"
   mkdir -p "$(dirname "${AQT_VENV}")"
@@ -84,7 +74,7 @@ if [ ! -d "${QT6_DIR}" ]; then
 fi
 log "Using Qt6_DIR=${QT6_DIR}"
 
-# --- 4) vcpkg at builtin-baseline (sibling of the repo) -----------------------
+# --- vcpkg bootstrap ----------------------------------------------------------
 if [ ! -x "${VCPKG_ROOT}/vcpkg" ] || \
    [ "$(git -C "${VCPKG_ROOT}" rev-parse HEAD 2>/dev/null || true)" != "${VCPKG_BASELINE}" ]; then
   log "Fetching vcpkg ${VCPKG_BASELINE}"
@@ -99,15 +89,14 @@ else
   log "vcpkg already at ${VCPKG_BASELINE}"
 fi
 
-# --- 5) Configure + compile ---------------------------------------------------
-cd "${REPO_ROOT}"
+# --- vcpkg manifest ports (ffmpeg, OIIO, …) -----------------------------------
+log "Installing vcpkg manifest dependencies (triplet arm-osx)"
+(
+  cd "${REPO_ROOT}"
+  "${VCPKG_ROOT}/vcpkg" install \
+    --triplet arm-osx \
+    --overlay-ports="${REPO_ROOT}/cmake/vcpkg_overlay_ports" \
+    --overlay-triplets="${REPO_ROOT}/cmake/vcpkg_triplets"
+)
 
-log "Configuring with preset MacOSNinjaRelease"
-cmake -S "${REPO_ROOT}" -B "${REPO_ROOT}/build" \
-  --preset MacOSNinjaRelease \
-  -DQt6_DIR="${QT6_DIR}"
-
-log "Building xSTUDIO"
-cmake --build "${REPO_ROOT}/build" -j "${JOBS}"
-
-log "macOS compile OK"
+log "macOS deps OK"
