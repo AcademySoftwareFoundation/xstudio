@@ -119,7 +119,14 @@ jobs:
 
       - name: sccache stats
         if: always()
-        run: ${{ env.SCCACHE_BIN_DIR }}/sccache --show-stats
+        # Build runs sccache inside Docker; dump is written for this step (host --show-stats would be empty).
+        run: |
+          if [ -f .ci-cache/sccache-show-stats.txt ]; then
+            cat .ci-cache/sccache-show-stats.txt
+          else
+            echo "No sccache stats file (build container did not write .ci-cache/sccache-show-stats.txt)"
+            exit 1
+          fi
 
   build-macos:
     name: Build (macos-arm64)
