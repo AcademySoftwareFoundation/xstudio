@@ -65,4 +65,4 @@ docker run --rm \
   -e QT_ROOT=/opt/qt \
   -e XSTUDIO_SRC=/src/xstudio \
   "${DEPS_IMAGE}" \
-  bash -lc "${pkg_setup} && bash /src/xstudio/ci/linux/scripts/build-xstudio.sh; status=\$?; /sccache-bin/sccache --show-stats || true; chown -R ${HOST_UID}:${HOST_GID} /sccache; exit \$status"
+  bash -lc "${pkg_setup} && bash /src/xstudio/ci/linux/scripts/build-xstudio.sh; status=\$?; chown -R ${HOST_UID}:${HOST_GID} /sccache; exit \$status"
