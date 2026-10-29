@@ -124,40 +124,66 @@ _deps distro: _require-engine
       publish_tag="$local_tag"
     fi
 
-    # Best-effort pull for layer cache (GHCR / prior local builds).
-    {{ engine }} pull "$publish_tag" 2>/dev/null || true
+    # Buildx on ephemeral runners starts with an empty layer cache. A plain
+    # `docker pull` does NOT seed it — BuildKit only reuses remote layers when
+    # they are declared via --cache-from.
+    cache_args=()
+    if [ -z "{{ nocache_flag }}" ]; then
+      cache_args+=(--cache-from "type=registry,ref=${publish_tag}")
+      # Inline cache metadata so the next registry --cache-from can match layers.
+      cache_args+=(--cache-to "type=inline")
+      if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+        scope="xstudio-deps-${lock_name}"
+        cache_args+=(--cache-from "type=gha,scope=${scope}")
+        cache_args+=(--cache-to "type=gha,mode=max,scope=${scope}")
+      fi
+    fi
 
-    {{ engine }} build \
-      -f "$df" \
-      {{ nocache_flag }} \
-      --build-arg JOBS="{{ JOBS }}" \
-      --build-arg CMAKE_VERSION="$CMAKE_VERSION" \
-      --build-arg NINJA_VERSION="$NINJA_VERSION" \
-      --build-arg PYBIND11_VERSION="$PYBIND11_VERSION" \
-      --build-arg AQTINSTALL_VERSION="$AQTINSTALL_VERSION" \
-      --build-arg QT_VERSION="$QT_VERSION" \
-      --build-arg OPENEXR_REF="$OPENEXR_REF" \
-      --build-arg CAF_VERSION="$CAF_VERSION" \
-      --build-arg OCIO_VERSION="$OCIO_VERSION" \
-      --build-arg OTIO_REF="$OTIO_REF" \
-      --build-arg FILESEQ_CPP_REF="$FILESEQ_CPP_REF" \
-      --build-arg FFMPEG_VERSION="$FFMPEG_VERSION" \
-      --build-arg OIIO_VERSION="$OIIO_VERSION" \
-      --build-arg LIBRAW_VERSION="$LIBRAW_VERSION" \
-      --build-arg LIBDE265_VERSION="$LIBDE265_VERSION" \
-      --build-arg LIBHEIF_VERSION="$LIBHEIF_VERSION" \
-      --build-arg EXIV2_VERSION="$EXIV2_VERSION" \
-      --build-arg GLEW_VERSION="$GLEW_VERSION" \
-      --build-arg JSON_VERSION="$JSON_VERSION" \
-      --build-arg SPDLOG_VERSION="$SPDLOG_VERSION" \
-      --build-arg FMT_VERSION="$FMT_VERSION" \
-      --build-arg LIBJPEGTURBO_VERSION="$LIBJPEGTURBO_VERSION" \
-      --build-arg X264_REF="$X264_REF" \
-      --build-arg X265_VERSION="$X265_VERSION" \
-      --build-arg FDKAAC_REF="$FDKAAC_REF" \
-      --build-arg NASM_VERSION="$NASM_VERSION" \
-      -t "$publish_tag" \
+    common_args=(
+      -f "$df"
+      {{ nocache_flag }}
+      --build-arg "JOBS={{ JOBS }}"
+      --build-arg "CMAKE_VERSION=$CMAKE_VERSION"
+      --build-arg "NINJA_VERSION=$NINJA_VERSION"
+      --build-arg "PYBIND11_VERSION=$PYBIND11_VERSION"
+      --build-arg "AQTINSTALL_VERSION=$AQTINSTALL_VERSION"
+      --build-arg "QT_VERSION=$QT_VERSION"
+      --build-arg "OPENEXR_REF=$OPENEXR_REF"
+      --build-arg "CAF_VERSION=$CAF_VERSION"
+      --build-arg "OCIO_VERSION=$OCIO_VERSION"
+      --build-arg "OTIO_REF=$OTIO_REF"
+      --build-arg "FILESEQ_CPP_REF=$FILESEQ_CPP_REF"
+      --build-arg "FFMPEG_VERSION=$FFMPEG_VERSION"
+      --build-arg "OIIO_VERSION=$OIIO_VERSION"
+      --build-arg "LIBRAW_VERSION=$LIBRAW_VERSION"
+      --build-arg "LIBDE265_VERSION=$LIBDE265_VERSION"
+      --build-arg "LIBHEIF_VERSION=$LIBHEIF_VERSION"
+      --build-arg "EXIV2_VERSION=$EXIV2_VERSION"
+      --build-arg "GLEW_VERSION=$GLEW_VERSION"
+      --build-arg "JSON_VERSION=$JSON_VERSION"
+      --build-arg "SPDLOG_VERSION=$SPDLOG_VERSION"
+      --build-arg "FMT_VERSION=$FMT_VERSION"
+      --build-arg "LIBJPEGTURBO_VERSION=$LIBJPEGTURBO_VERSION"
+      --build-arg "X264_REF=$X264_REF"
+      --build-arg "X265_VERSION=$X265_VERSION"
+      --build-arg "FDKAAC_REF=$FDKAAC_REF"
+      --build-arg "NASM_VERSION=$NASM_VERSION"
+      -t "$publish_tag"
       "{{ linux_dir }}"
+    )
+
+    if {{ engine }} buildx version >/dev/null 2>&1; then
+      echo "==> buildx build (cache-from registry${GITHUB_ACTIONS:+ + gha}): $publish_tag"
+      {{ engine }} buildx build "${cache_args[@]}" "${common_args[@]}" --load
+    else
+      # Classic builder: local pull can act as layer cache.
+      {{ engine }} pull "$publish_tag" 2>/dev/null || true
+      echo "==> docker build: $publish_tag"
+      BUILDKIT_INLINE_CACHE=1 {{ engine }} build \
+        --cache-from "$publish_tag" \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        "${common_args[@]}"
+    fi
 
     # Keep a local short tag as well when publishing under a registry name.
     if [ "$publish_tag" != "$local_tag" ]; then

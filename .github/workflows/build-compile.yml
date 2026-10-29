@@ -21,11 +21,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - recipe_deps: ubuntu24-deps
-            recipe_compile: ubuntu24-compile
+          - recipe_compile: ubuntu24-compile
             deps_tag: ubuntu2404
-          - recipe_deps: rocky9-deps
-            recipe_compile: rocky9-compile
+          - recipe_compile: rocky9-compile
             deps_tag: rocky9
 
     env:
@@ -58,11 +56,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build dependency image
-        working-directory: ci/linux
-        run: just ${{ matrix.recipe_deps }}
-
-      - name: Compile xSTUDIO
+      # `_compile` already depends on `_deps` (registry + GHA BuildKit cache).
+      - name: Build deps image and compile xSTUDIO
         working-directory: ci/linux
         run: just ${{ matrix.recipe_compile }}
 

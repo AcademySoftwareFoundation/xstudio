@@ -62,13 +62,20 @@ ninja --version
 if [ -d "${QT6_DIR}" ]; then
   log "Qt already present at ${QT_MACOS} (skipping aqtinstall)"
 else
-  log "Installing aqtinstall==${AQTINSTALL_VERSION}"
-  python3 -m pip install --user --quiet "aqtinstall==${AQTINSTALL_VERSION}"
+  # Homebrew Python is PEP 668 managed — use a throwaway venv for aqtinstall.
+  AQT_VENV="${REPO_ROOT}/.ci-cache/aqt-venv"
+  log "Installing aqtinstall==${AQTINSTALL_VERSION} into ${AQT_VENV}"
+  mkdir -p "$(dirname "${AQT_VENV}")"
+  python3 -m venv "${AQT_VENV}"
+  # shellcheck disable=SC1091
+  source "${AQT_VENV}/bin/activate"
+  python3 -m pip install --quiet "aqtinstall==${AQTINSTALL_VERSION}"
 
   log "Installing Qt ${QT_VERSION} (clang_64 + qtimageformats + qtpdf) into ${QT_ROOT}"
   python3 -m aqt install-qt mac desktop "${QT_VERSION}" clang_64 \
     --modules qtimageformats qtpdf \
     --outputdir "${QT_ROOT}"
+  deactivate
 fi
 
 if [ ! -d "${QT6_DIR}" ]; then
