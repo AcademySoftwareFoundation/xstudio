@@ -125,7 +125,8 @@ jobs:
     env:
       JOBS: "4"
       BUILD_TESTING: "OFF"
-      QT_ROOT: ${{ github.workspace }}/.ci-cache/Qt
+      # Qt must live outside the source tree: CMake rejects INTERFACE includes under CMAKE_SOURCE_DIR.
+      QT_ROOT: ${{ github.workspace }}/../.ci-cache/Qt
       VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
       VCPKG_BINARY_SOURCES: "clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,readwrite"
       SCCACHE_DIR: ${{ github.workspace }}/.ci-cache/sccache
@@ -216,7 +217,8 @@ jobs:
     env:
       JOBS: "4"
       BUILD_TESTING: "OFF"
-      QT_ROOT: ${{ github.workspace }}/.ci-cache/Qt
+      # Qt must live outside the source tree: CMake rejects INTERFACE includes under CMAKE_SOURCE_DIR.
+      QT_ROOT: ${{ github.workspace }}/../.ci-cache/Qt
       VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
       VCPKG_BINARY_SOURCES: "clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,readwrite"
       SCCACHE_DIR: ${{ github.workspace }}/.ci-cache/sccache
