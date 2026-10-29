@@ -23,8 +23,9 @@ ENV STUDIO_PLUGINS=${STUDIO_PLUGINS}
 ARG BUILD_TESTING=OFF
 ENV BUILD_TESTING=${BUILD_TESTING}
 
-# Qt link-time libs + gtest (kept out of the deps image).
-RUN dnf -y install libxkbcommon-devel gtest-devel \
+# Qt link-time libs + gtest (gtest is in EPEL on Rocky 9; kept out of deps image).
+RUN dnf -y install epel-release \
+    && dnf -y install libxkbcommon-devel gtest-devel \
     && dnf clean all
 
 # Build scripts (build-xstudio.sh, run-tests.sh, lib.sh, …).

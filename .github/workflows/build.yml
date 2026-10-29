@@ -180,7 +180,6 @@ jobs:
       JOBS: "4"
       BUILD_TESTING: "ON"
       QT_ROOT: ${{ github.workspace }}/.ci-cache/Qt
-      VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
     steps:
@@ -228,10 +227,14 @@ jobs:
 
       - name: Build deps
         shell: pwsh
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
         run: .\ci\windows\scripts\build-deps.ps1
 
       - name: Build xSTUDIO
         shell: pwsh
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
         run: .\ci\windows\scripts\build-xstudio.ps1
 
       - name: Run unit tests
