@@ -59,8 +59,8 @@ ENV CMAKE_VERSION=${CMAKE_VERSION} \
     PYBIND11_VERSION=${PYBIND11_VERSION} \
     AQTINSTALL_VERSION=${AQTINSTALL_VERSION} \
     QT_VERSION=${QT_VERSION}
-COPY scripts/00-build-tools.sh /build/scripts/00-build-tools.sh
-RUN bash /build/scripts/00-build-tools.sh
+COPY scripts/build-tools.sh /build/scripts/build-tools.sh
+RUN bash /build/scripts/build-tools.sh
 
 # ---------------------------------------------------------------------------
 # 3) Source dependencies — in build order

@@ -24,11 +24,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libxkbcommon-dev libfontconfig-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Build scripts (10-build-xstudio.sh, lib.sh, …).
+# Build scripts (build-xstudio.sh, lib.sh, …).
 COPY ci/linux/scripts/ /build/scripts/
 
 # xSTUDIO sources from the current checkout.
 COPY . /src/xstudio
 
 # cmake configure + build.
-RUN bash /build/scripts/10-build-xstudio.sh
+RUN bash /build/scripts/build-xstudio.sh

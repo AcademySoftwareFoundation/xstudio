@@ -23,11 +23,11 @@ ENV STUDIO_PLUGINS=${STUDIO_PLUGINS}
 RUN dnf -y install libxkbcommon-devel \
     && dnf clean all
 
-# Build scripts (10-build-xstudio.sh, lib.sh, …).
+# Build scripts (build-xstudio.sh, lib.sh, …).
 COPY ci/linux/scripts/ /build/scripts/
 
 # xSTUDIO sources from the current checkout.
 COPY . /src/xstudio
 
 # cmake configure + build.
-RUN bash /build/scripts/10-build-xstudio.sh
+RUN bash /build/scripts/build-xstudio.sh
