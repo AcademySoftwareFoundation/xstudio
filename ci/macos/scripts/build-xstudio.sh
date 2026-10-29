@@ -5,7 +5,7 @@
 # Usage: ci/macos/scripts/build-xstudio.sh
 #
 # Overridable env:
-#   JOBS=3
+#   JOBS=1
 #   QT_ROOT=$HOME/Qt
 #   VCPKG_ROOT=<sibling-of-repo>/vcpkg
 
@@ -21,7 +21,7 @@ log() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 source "${MACOS_DIR}/versions.env"
 : "${QT_VERSION:?QT_VERSION missing from ci/macos/versions.env}"
 
-export JOBS="${JOBS:-3}"
+export JOBS="${JOBS:-1}"
 QT_ROOT="${QT_ROOT:-${HOME}/Qt}"
 VCPKG_ROOT="${VCPKG_ROOT:-$(cd "${REPO_ROOT}/.." && pwd)/vcpkg}"
 QT6_DIR="${QT_ROOT}/${QT_VERSION}/macos/lib/cmake/Qt6"
@@ -40,7 +40,8 @@ fi
 log "Configuring with preset MacOSNinjaRelease"
 cmake -S "${REPO_ROOT}" -B "${REPO_ROOT}/build" \
   --preset MacOSNinjaRelease \
-  -DQt6_DIR="${QT6_DIR}"
+  -DQt6_DIR="${QT6_DIR}" \
+  -DBUILD_TESTING="${BUILD_TESTING:-OFF}"
 
 log "Building xSTUDIO"
 cmake --build "${REPO_ROOT}/build" -j "${JOBS}"

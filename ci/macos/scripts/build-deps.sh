@@ -5,7 +5,7 @@
 # Usage: ci/macos/scripts/build-deps.sh
 #
 # Overridable env:
-#   JOBS=3
+#   JOBS=1
 #   QT_ROOT=$HOME/Qt
 #   VCPKG_ROOT=<sibling-of-repo>/vcpkg
 #   SKIP_BREW=1
@@ -29,7 +29,7 @@ VCPKG_BASELINE="$(
 )"
 : "${VCPKG_BASELINE:?could not read builtin-baseline from vcpkg.json}"
 
-export JOBS="${JOBS:-3}"
+export JOBS="${JOBS:-1}"
 QT_ROOT="${QT_ROOT:-${HOME}/Qt}"
 VCPKG_ROOT="${VCPKG_ROOT:-$(cd "${REPO_ROOT}/.." && pwd)/vcpkg}"
 QT_MACOS="${QT_ROOT}/${QT_VERSION}/macos"

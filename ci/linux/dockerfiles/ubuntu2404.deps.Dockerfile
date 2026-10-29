@@ -20,7 +20,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     DISTRO=ubuntu2404 \
     QT_ROOT=/opt/qt
 
-# Build parallelism (empty -> 8 in lib.sh).
+# Build parallelism (empty -> 1 in lib.sh).
 ARG JOBS=
 ENV JOBS=${JOBS}
 

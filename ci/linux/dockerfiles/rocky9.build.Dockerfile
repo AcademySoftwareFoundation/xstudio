@@ -7,7 +7,7 @@ ARG DEPS_IMAGE=xstudio-deps:rocky9
 
 FROM ${DEPS_IMAGE} AS build
 
-# Build parallelism (forwarded to cmake --build).
+# Build parallelism (forwarded to cmake --build / ctest).
 ARG JOBS=
 ENV JOBS=${JOBS}
 
@@ -19,11 +19,15 @@ ENV BMD_DECKLINK=${BMD_DECKLINK}
 ARG STUDIO_PLUGINS=
 ENV STUDIO_PLUGINS=${STUDIO_PLUGINS}
 
-# Qt link-time libs kept out of the deps image (stable deps cache).
-RUN dnf -y install libxkbcommon-devel \
+# Build and register GTest unit tests when ON.
+ARG BUILD_TESTING=OFF
+ENV BUILD_TESTING=${BUILD_TESTING}
+
+# Qt link-time libs + gtest (kept out of the deps image).
+RUN dnf -y install libxkbcommon-devel gtest-devel \
     && dnf clean all
 
-# Build scripts (build-xstudio.sh, lib.sh, …).
+# Build scripts (build-xstudio.sh, run-tests.sh, lib.sh, …).
 COPY ci/linux/scripts/ /build/scripts/
 
 # xSTUDIO sources from the current checkout.
@@ -31,3 +35,6 @@ COPY . /src/xstudio
 
 # cmake configure + build.
 RUN bash /build/scripts/build-xstudio.sh
+
+FROM build AS test
+RUN bash /build/scripts/run-tests.sh

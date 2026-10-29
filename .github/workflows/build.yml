@@ -32,6 +32,7 @@ jobs:
       JOBS: "4"
       STUDIO_PLUGINS: ""
       BMD_DECKLINK: "OFF"
+      BUILD_TESTING: "ON"
 
     steps:
       - name: Check out repository
@@ -107,6 +108,21 @@ jobs:
             JOBS=${{ env.JOBS }}
             BMD_DECKLINK=${{ env.BMD_DECKLINK }}
             STUDIO_PLUGINS=${{ env.STUDIO_PLUGINS }}
+            BUILD_TESTING=${{ env.BUILD_TESTING }}
+
+      - name: Run unit tests
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.build_file }}
+          push: false
+          target: test
+          build-args: |
+            DEPS_IMAGE=${{ env.DEPS_IMAGE }}
+            JOBS=${{ env.JOBS }}
+            BMD_DECKLINK=${{ env.BMD_DECKLINK }}
+            STUDIO_PLUGINS=${{ env.STUDIO_PLUGINS }}
+            BUILD_TESTING=${{ env.BUILD_TESTING }}
 
   build-macos:
     name: Build (macos-arm64)
@@ -115,6 +131,7 @@ jobs:
 
     env:
       JOBS: "4"
+      BUILD_TESTING: "ON"
       QT_ROOT: ${{ github.workspace }}/.ci-cache/Qt
       VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
@@ -150,3 +167,6 @@ jobs:
 
       - name: Build xSTUDIO
         run: bash ci/macos/scripts/build-xstudio.sh
+
+      - name: Run unit tests
+        run: bash ci/macos/scripts/run-tests.sh

@@ -2,8 +2,8 @@
 # Shared helpers, sourced by every build script.
 set -euo pipefail
 
-# Parallelism: honour an explicit JOBS, otherwise 8 threads.
-export JOBS="${JOBS:-8}"
+# Parallelism: honour an explicit JOBS (CI sets it in build.yml), otherwise 1.
+export JOBS="${JOBS:-1}"
 
 # Where sources are downloaded and built.
 export WORK="${WORK:-/tmp/xbuild}"

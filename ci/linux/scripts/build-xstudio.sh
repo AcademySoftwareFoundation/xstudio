@@ -23,7 +23,7 @@ log "Building xSTUDIO from ${SRC}"
 PYBIND11_CMAKE_DIR="$(python3 -m pybind11 --cmakedir)"
 log "Using pip pybind11 cmake dir: ${PYBIND11_CMAKE_DIR}"
 
-# --- 3) Optional CMake flags (studio plugins) --------------------------------
+# --- 3) Optional CMake flags -------------------------------------------------
 cmake_extra=()
 if [ -n "${STUDIO_PLUGINS:-}" ]; then
     cmake_extra+=(-DSTUDIO_PLUGINS="${STUDIO_PLUGINS}")
@@ -37,6 +37,7 @@ cmake -S "$SRC" -B "$SRC/build" \
     -DCMAKE_CXX_FLAGS="-Wno-error=maybe-uninitialized" \
     -Dpybind11_DIR="$PYBIND11_CMAKE_DIR" \
     -DBMD_DECKLINK_PLUGIN="${BMD_DECKLINK:-OFF}" \
+    -DBUILD_TESTING="${BUILD_TESTING:-OFF}" \
     "${cmake_extra[@]}"
 
 # --- 5) Build ----------------------------------------------------------------
