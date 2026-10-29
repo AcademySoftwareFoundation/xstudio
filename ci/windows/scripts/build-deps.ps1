@@ -99,7 +99,7 @@ if (-not (Test-Path -LiteralPath $Qt6Dir)) {
 }
 Write-Log "Using Qt6_DIR=$Qt6Dir"
 
-# --- vcpkg bootstrap ----------------------------------------------------------
+# --- vcpkg bootstrap (skipped when CI already bootstrapped this baseline) ------
 $NeedBootstrap = $true
 if (Test-Path -LiteralPath $VcpkgExe) {
     Push-Location $VcpkgRoot
@@ -125,7 +125,7 @@ if ($NeedBootstrap) {
     $Bootstrap = Join-Path $VcpkgRoot 'bootstrap-vcpkg.bat'
     Invoke-Checked cmd.exe @('/c', "`"$Bootstrap`" -disableMetrics")
 } else {
-    Write-Log "vcpkg already at $VcpkgBaseline"
+    Write-Log "vcpkg already at $VcpkgBaseline (skip bootstrap)"
 }
 
 # --- vcpkg manifest ports -----------------------------------------------------

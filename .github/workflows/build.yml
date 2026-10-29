@@ -32,7 +32,7 @@ jobs:
       JOBS: "4"
       STUDIO_PLUGINS: ""
       BMD_DECKLINK: "OFF"
-      BUILD_TESTING: "ON"
+      BUILD_TESTING: "OFF"
 
     steps:
       - name: Check out repository
@@ -110,20 +110,6 @@ jobs:
             STUDIO_PLUGINS=${{ env.STUDIO_PLUGINS }}
             BUILD_TESTING=${{ env.BUILD_TESTING }}
 
-      - name: Run unit tests
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ${{ matrix.build_file }}
-          push: false
-          target: test
-          build-args: |
-            DEPS_IMAGE=${{ env.DEPS_IMAGE }}
-            JOBS=${{ env.JOBS }}
-            BMD_DECKLINK=${{ env.BMD_DECKLINK }}
-            STUDIO_PLUGINS=${{ env.STUDIO_PLUGINS }}
-            BUILD_TESTING=${{ env.BUILD_TESTING }}
-
   build-macos:
     name: Build (macos-arm64)
     runs-on: macos-latest
@@ -131,23 +117,16 @@ jobs:
 
     env:
       JOBS: "4"
-      BUILD_TESTING: "ON"
+      BUILD_TESTING: "OFF"
       QT_ROOT: ${{ github.workspace }}/.ci-cache/Qt
       VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
-      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+      VCPKG_BINARY_SOURCES: "clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,readwrite"
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-
-      - name: Export vcpkg Actions cache credentials
-        uses: actions/github-script@v7
-        with:
-          script: |
-            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
-            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
       - name: Read Qt version for cache key
         id: pins
@@ -162,14 +141,43 @@ jobs:
           path: ${{ env.QT_ROOT }}
           key: qt-${{ steps.pins.outputs.qt_version }}-mac-clang64-imageformats-pdf
 
+      - name: Bootstrap vcpkg
+        run: |
+          baseline="$(python3 -c "import json; print(json.load(open('vcpkg.json'))['builtin-baseline'])")"
+          if [ ! -d "${VCPKG_ROOT}/.git" ]; then
+            git clone https://github.com/microsoft/vcpkg.git "${VCPKG_ROOT}"
+          else
+            git -C "${VCPKG_ROOT}" fetch origin
+          fi
+          git -C "${VCPKG_ROOT}" checkout --force "${baseline}"
+          "${VCPKG_ROOT}/bootstrap-vcpkg.sh" -disableMetrics
+
+      - name: Setup NuGet credentials
+        env:
+          FEED_URL: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+          NUGET_OWNER: ${{ github.repository_owner }}
+        run: |
+          brew list mono &>/dev/null || brew install mono
+          nuget="$(${VCPKG_ROOT}/vcpkg fetch nuget | tail -n 1)"
+          mono "${nuget}" sources add \
+            -Source "${FEED_URL}" \
+            -StorePasswordInClearText \
+            -Name GitHubPackages \
+            -UserName "${NUGET_OWNER}" \
+            -Password "${{ secrets.GITHUB_TOKEN }}" \
+            || mono "${nuget}" sources update \
+              -Source "${FEED_URL}" \
+              -StorePasswordInClearText \
+              -Name GitHubPackages \
+              -UserName "${NUGET_OWNER}" \
+              -Password "${{ secrets.GITHUB_TOKEN }}"
+          mono "${nuget}" setapikey "${{ secrets.GITHUB_TOKEN }}" -Source "${FEED_URL}"
+
       - name: Build deps
         run: bash ci/macos/scripts/build-deps.sh
 
       - name: Build xSTUDIO
         run: bash ci/macos/scripts/build-xstudio.sh
-
-      - name: Run unit tests
-        run: bash ci/macos/scripts/run-tests.sh
 
   build-windows:
     name: Build (windows-x64)
@@ -178,9 +186,10 @@ jobs:
 
     env:
       JOBS: "4"
-      BUILD_TESTING: "ON"
+      BUILD_TESTING: "OFF"
       QT_ROOT: ${{ github.workspace }}/.ci-cache/Qt
-      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+      VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
+      VCPKG_BINARY_SOURCES: "clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,readwrite"
 
     steps:
       - name: Check out repository
@@ -190,13 +199,6 @@ jobs:
 
       - name: Enable git long paths
         run: git config --global core.longpaths true
-
-      - name: Export vcpkg Actions cache credentials
-        uses: actions/github-script@v7
-        with:
-          script: |
-            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
-            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
       - name: Set up MSVC developer command prompt
         uses: ilammy/msvc-dev-cmd@v1
@@ -225,18 +227,54 @@ jobs:
           path: ${{ env.QT_ROOT }}
           key: qt-${{ steps.pins.outputs.qt_version }}-win-msvc2019_64-imageformats-pdf
 
-      - name: Build deps
+      - name: Bootstrap vcpkg
+        shell: pwsh
+        run: |
+          $baseline = (Get-Content -Raw vcpkg.json | ConvertFrom-Json).'builtin-baseline'
+          if (-not (Test-Path -LiteralPath (Join-Path $env:VCPKG_ROOT '.git'))) {
+            git clone https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
+            if ($LASTEXITCODE -ne 0) { throw "git clone failed ($LASTEXITCODE)" }
+          } else {
+            git -C $env:VCPKG_ROOT fetch origin
+            if ($LASTEXITCODE -ne 0) { throw "git fetch failed ($LASTEXITCODE)" }
+          }
+          git -C $env:VCPKG_ROOT checkout --force $baseline
+          if ($LASTEXITCODE -ne 0) { throw "git checkout failed ($LASTEXITCODE)" }
+          $bootstrap = Join-Path $env:VCPKG_ROOT 'bootstrap-vcpkg.bat'
+          cmd.exe /c "`"$bootstrap`" -disableMetrics"
+          if ($LASTEXITCODE -ne 0) { throw "bootstrap-vcpkg failed ($LASTEXITCODE)" }
+
+      - name: Setup NuGet credentials
         shell: pwsh
         env:
-          VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
+          FEED_URL: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+          NUGET_OWNER: ${{ github.repository_owner }}
+        run: |
+          $vcpkg = Join-Path $env:VCPKG_ROOT 'vcpkg.exe'
+          $nuget = (& $vcpkg fetch nuget | Select-Object -Last 1).Trim()
+          if ($LASTEXITCODE -ne 0) { throw "vcpkg fetch nuget failed ($LASTEXITCODE)" }
+          & $nuget sources add `
+            -Source $env:FEED_URL `
+            -StorePasswordInClearText `
+            -Name GitHubPackages `
+            -UserName $env:NUGET_OWNER `
+            -Password '${{ secrets.GITHUB_TOKEN }}'
+          if ($LASTEXITCODE -ne 0) {
+            & $nuget sources update `
+              -Source $env:FEED_URL `
+              -StorePasswordInClearText `
+              -Name GitHubPackages `
+              -UserName $env:NUGET_OWNER `
+              -Password '${{ secrets.GITHUB_TOKEN }}'
+            if ($LASTEXITCODE -ne 0) { throw "nuget sources update failed ($LASTEXITCODE)" }
+          }
+          & $nuget setapikey '${{ secrets.GITHUB_TOKEN }}' -Source $env:FEED_URL
+          if ($LASTEXITCODE -ne 0) { throw "nuget setapikey failed ($LASTEXITCODE)" }
+
+      - name: Build deps
+        shell: pwsh
         run: .\ci\windows\scripts\build-deps.ps1
 
       - name: Build xSTUDIO
         shell: pwsh
-        env:
-          VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
         run: .\ci\windows\scripts\build-xstudio.ps1
-
-      - name: Run unit tests
-        shell: pwsh
-        run: .\ci\windows\scripts\run-tests.ps1

@@ -74,7 +74,7 @@ if [ ! -d "${QT6_DIR}" ]; then
 fi
 log "Using Qt6_DIR=${QT6_DIR}"
 
-# --- vcpkg bootstrap ----------------------------------------------------------
+# --- vcpkg bootstrap (skipped when CI already bootstrapped this baseline) ------
 if [ ! -x "${VCPKG_ROOT}/vcpkg" ] || \
    [ "$(git -C "${VCPKG_ROOT}" rev-parse HEAD 2>/dev/null || true)" != "${VCPKG_BASELINE}" ]; then
   # Full clone: versioned port git-trees must be in the local object DB
@@ -89,7 +89,7 @@ if [ ! -x "${VCPKG_ROOT}/vcpkg" ] || \
   log "Bootstrapping vcpkg"
   "${VCPKG_ROOT}/bootstrap-vcpkg.sh" -disableMetrics
 else
-  log "vcpkg already at ${VCPKG_BASELINE}"
+  log "vcpkg already at ${VCPKG_BASELINE} (skip bootstrap)"
 fi
 
 # --- vcpkg manifest ports (ffmpeg, OIIO, …) -----------------------------------
