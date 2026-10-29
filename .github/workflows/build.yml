@@ -200,11 +200,6 @@ jobs:
       - name: Enable git long paths
         run: git config --global core.longpaths true
 
-      - name: Set up MSVC developer command prompt
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
       - name: Read Qt version for cache key
         id: pins
         shell: pwsh
@@ -227,6 +222,7 @@ jobs:
           path: ${{ env.QT_ROOT }}
           key: qt-${{ steps.pins.outputs.qt_version }}-win-msvc2019_64-imageformats-pdf
 
+      # Before msvc-dev-cmd: that action overwrites VCPKG_ROOT with the VS-bundled copy.
       - name: Bootstrap vcpkg
         shell: pwsh
         run: |
@@ -271,10 +267,19 @@ jobs:
           & $nuget setapikey '${{ secrets.GITHUB_TOKEN }}' -Source $env:FEED_URL
           if ($LASTEXITCODE -ne 0) { throw "nuget setapikey failed ($LASTEXITCODE)" }
 
+      - name: Set up MSVC developer command prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Build deps
         shell: pwsh
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
         run: .\ci\windows\scripts\build-deps.ps1
 
       - name: Build xSTUDIO
         shell: pwsh
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
         run: .\ci\windows\scripts\build-xstudio.ps1
