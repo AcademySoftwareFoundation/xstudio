@@ -112,17 +112,15 @@ if (Test-Path -LiteralPath $VcpkgExe) {
 }
 
 if ($NeedBootstrap) {
+    # Full clone: versioned port git-trees must be in the local object DB
+    # (blobless/shallow clones force promisor fetches during install).
     Write-Log "Fetching vcpkg $VcpkgBaseline"
     if (-not (Test-Path -LiteralPath (Join-Path $VcpkgRoot '.git'))) {
-        Invoke-Checked git @('clone', '--filter=blob:none', 'https://github.com/microsoft/vcpkg.git', $VcpkgRoot)
+        Invoke-Checked git @('clone', 'https://github.com/microsoft/vcpkg.git', $VcpkgRoot)
+    } else {
+        Invoke-Checked git @('-C', $VcpkgRoot, 'fetch', 'origin')
     }
-    Push-Location $VcpkgRoot
-    try {
-        Invoke-Checked git @('fetch', '--depth', '1', 'origin', $VcpkgBaseline)
-        Invoke-Checked git @('checkout', '--force', 'FETCH_HEAD')
-    } finally {
-        Pop-Location
-    }
+    Invoke-Checked git @('-C', $VcpkgRoot, 'checkout', '--force', $VcpkgBaseline)
     Write-Log 'Bootstrapping vcpkg'
     $Bootstrap = Join-Path $VcpkgRoot 'bootstrap-vcpkg.bat'
     Invoke-Checked cmd.exe @('/c', "`"$Bootstrap`" -disableMetrics")

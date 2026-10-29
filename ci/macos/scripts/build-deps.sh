@@ -77,12 +77,15 @@ log "Using Qt6_DIR=${QT6_DIR}"
 # --- vcpkg bootstrap ----------------------------------------------------------
 if [ ! -x "${VCPKG_ROOT}/vcpkg" ] || \
    [ "$(git -C "${VCPKG_ROOT}" rev-parse HEAD 2>/dev/null || true)" != "${VCPKG_BASELINE}" ]; then
+  # Full clone: versioned port git-trees must be in the local object DB
+  # (blobless/shallow clones force promisor fetches during install).
   log "Fetching vcpkg ${VCPKG_BASELINE}"
   if [ ! -d "${VCPKG_ROOT}/.git" ]; then
-    git clone --filter=blob:none https://github.com/microsoft/vcpkg.git "${VCPKG_ROOT}"
+    git clone https://github.com/microsoft/vcpkg.git "${VCPKG_ROOT}"
+  else
+    git -C "${VCPKG_ROOT}" fetch origin
   fi
-  git -C "${VCPKG_ROOT}" fetch --depth 1 origin "${VCPKG_BASELINE}"
-  git -C "${VCPKG_ROOT}" checkout --force FETCH_HEAD
+  git -C "${VCPKG_ROOT}" checkout --force "${VCPKG_BASELINE}"
   log "Bootstrapping vcpkg"
   "${VCPKG_ROOT}/bootstrap-vcpkg.sh" -disableMetrics
 else
