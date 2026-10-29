@@ -117,6 +117,10 @@ jobs:
           DEPS_TAG: ${{ matrix.deps_tag }}
         run: bash ci/linux/scripts/run-build-container.sh
 
+      - name: sccache stats
+        if: always()
+        run: ${{ env.SCCACHE_BIN_DIR }}/sccache --show-stats
+
   build-macos:
     name: Build (macos-arm64)
     runs-on: macos-latest

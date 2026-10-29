@@ -61,6 +61,3 @@ docker run --rm \
   -e XSTUDIO_SRC=/src/xstudio \
   "${DEPS_IMAGE}" \
   bash -lc "${pkg_setup} && bash /src/xstudio/ci/linux/scripts/build-xstudio.sh"
-
-echo "==> sccache stats"
-SCCACHE_DIR="${SCCACHE_DIR}" "${SCCACHE_BIN_DIR}/sccache" --show-stats
