@@ -1,5 +1,4 @@
 # Install Windows build deps: Qt SDK via aqt, vcpkg + manifest ports.
-# No xSTUDIO configure/build here — see build-xstudio.ps1.
 #
 # Usage: pwsh ci/windows/scripts/build-deps.ps1
 #
@@ -112,8 +111,6 @@ if (Test-Path -LiteralPath $VcpkgExe) {
 }
 
 if ($NeedBootstrap) {
-    # Full clone: versioned port git-trees must be in the local object DB
-    # (blobless/shallow clones force promisor fetches during install).
     Write-Log "Fetching vcpkg $VcpkgBaseline"
     if (-not (Test-Path -LiteralPath (Join-Path $VcpkgRoot '.git'))) {
         Invoke-Checked git @('clone', 'https://github.com/microsoft/vcpkg.git', $VcpkgRoot)

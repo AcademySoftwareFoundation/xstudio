@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Install macOS build deps: Homebrew tools, Qt SDK, vcpkg + manifest ports.
-# No xSTUDIO configure/build here — see build-xstudio.sh.
 #
 # Usage: ci/macos/scripts/build-deps.sh
 #
@@ -77,8 +76,6 @@ log "Using Qt6_DIR=${QT6_DIR}"
 # --- vcpkg bootstrap (skipped when CI already bootstrapped this baseline) ------
 if [ ! -x "${VCPKG_ROOT}/vcpkg" ] || \
    [ "$(git -C "${VCPKG_ROOT}" rev-parse HEAD 2>/dev/null || true)" != "${VCPKG_BASELINE}" ]; then
-  # Full clone: versioned port git-trees must be in the local object DB
-  # (blobless/shallow clones force promisor fetches during install).
   log "Fetching vcpkg ${VCPKG_BASELINE}"
   if [ ! -d "${VCPKG_ROOT}/.git" ]; then
     git clone https://github.com/microsoft/vcpkg.git "${VCPKG_ROOT}"

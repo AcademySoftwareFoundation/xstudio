@@ -110,7 +110,7 @@ else()
 endif()
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-# libstdc++fs n'existe que pour GCC<9 / Clang<9 (std::filesystem ailleurs dans libstdc++)
+# Link libstdc++fs only for GCC/Clang < 9; newer libstdc++ already has std::filesystem.
 set(XSTUDIO_STDCXXFS "")
 if(UNIX AND NOT APPLE)
   if((CMAKE_CXX_COMPILER_ID STREQUAL "GNU"   AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9) OR
