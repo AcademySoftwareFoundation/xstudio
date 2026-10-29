@@ -44,6 +44,11 @@ esac
 echo "==> Pulling ${DEPS_IMAGE}"
 docker pull "${DEPS_IMAGE}"
 
+# Docker runs as root; chown the mounted sccache dir back to the host user so
+# actions/cache can tar it (otherwise Post Restore sccache → Permission denied).
+HOST_UID="$(id -u)"
+HOST_GID="$(id -g)"
+
 echo "==> Building xSTUDIO in container (sccache dir: ${SCCACHE_DIR})"
 docker run --rm \
   -v "${REPO_ROOT}:/src/xstudio" \
@@ -60,4 +65,4 @@ docker run --rm \
   -e QT_ROOT=/opt/qt \
   -e XSTUDIO_SRC=/src/xstudio \
   "${DEPS_IMAGE}" \
-  bash -lc "${pkg_setup} && bash /src/xstudio/ci/linux/scripts/build-xstudio.sh"
+  bash -lc "${pkg_setup} && bash /src/xstudio/ci/linux/scripts/build-xstudio.sh; status=\$?; /sccache-bin/sccache --show-stats || true; chown -R ${HOST_UID}:${HOST_GID} /sccache; exit \$status"
