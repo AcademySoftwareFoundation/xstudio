@@ -8,6 +8,8 @@
 #   JOBS=1
 #   QT_ROOT=$HOME/Qt
 #   VCPKG_ROOT=<sibling-of-repo>/vcpkg
+#   BUILD_TESTING=OFF
+#   CMAKE_C_COMPILER_LAUNCHER / CMAKE_CXX_COMPILER_LAUNCHER (e.g. sccache)
 
 set -euo pipefail
 
@@ -37,11 +39,20 @@ if [ ! -x "${VCPKG_ROOT}/vcpkg" ]; then
   exit 1
 fi
 
+cmake_launcher_args=()
+if [ -n "${CMAKE_C_COMPILER_LAUNCHER:-}" ]; then
+  cmake_launcher_args+=(-DCMAKE_C_COMPILER_LAUNCHER="${CMAKE_C_COMPILER_LAUNCHER}")
+fi
+if [ -n "${CMAKE_CXX_COMPILER_LAUNCHER:-}" ]; then
+  cmake_launcher_args+=(-DCMAKE_CXX_COMPILER_LAUNCHER="${CMAKE_CXX_COMPILER_LAUNCHER}")
+fi
+
 log "Configuring with preset MacOSNinjaRelease"
 cmake -S "${REPO_ROOT}" -B "${REPO_ROOT}/build" \
   --preset MacOSNinjaRelease \
   -DQt6_DIR="${QT6_DIR}" \
-  -DBUILD_TESTING="${BUILD_TESTING:-OFF}"
+  -DBUILD_TESTING="${BUILD_TESTING:-OFF}" \
+  "${cmake_launcher_args[@]}"
 
 log "Building xSTUDIO"
 cmake --build "${REPO_ROOT}/build" -j "${JOBS}"

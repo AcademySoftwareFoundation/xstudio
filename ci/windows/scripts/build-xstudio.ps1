@@ -8,6 +8,7 @@
 #   QT_ROOT=C:\Qt
 #   VCPKG_ROOT=<sibling-of-repo>\vcpkg
 #   BUILD_TESTING=OFF
+#   CMAKE_C_COMPILER_LAUNCHER / CMAKE_CXX_COMPILER_LAUNCHER (e.g. sccache)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -68,14 +69,22 @@ if (-not (Test-Path -LiteralPath $VcpkgExe)) {
     throw "ERROR: vcpkg not found at $VcpkgRoot`n  Run ci/windows/scripts/build-deps.ps1 first."
 }
 
-Write-Log 'Configuring with preset WinNinjaRelease'
-Invoke-Checked cmake @(
+$cmakeArgs = @(
     '-S', $RepoRoot,
     '-B', $BuildDir,
     '--preset', 'WinNinjaRelease',
     "-DQt6_DIR=$Qt6Dir",
     "-DBUILD_TESTING=$BuildTesting"
 )
+if ($env:CMAKE_C_COMPILER_LAUNCHER) {
+    $cmakeArgs += "-DCMAKE_C_COMPILER_LAUNCHER=$($env:CMAKE_C_COMPILER_LAUNCHER)"
+}
+if ($env:CMAKE_CXX_COMPILER_LAUNCHER) {
+    $cmakeArgs += "-DCMAKE_CXX_COMPILER_LAUNCHER=$($env:CMAKE_CXX_COMPILER_LAUNCHER)"
+}
+
+Write-Log 'Configuring with preset WinNinjaRelease'
+Invoke-Checked cmake $cmakeArgs
 
 Write-Log 'Building xSTUDIO'
 Invoke-Checked cmake @('--build', $BuildDir, '-j', $Jobs)

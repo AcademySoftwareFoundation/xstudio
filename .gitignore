@@ -16,6 +16,7 @@ docs/conf.py
 
 # Local debug / IDE artefacts
 .cache/
+.ci-cache/
 devenv/
 compile_commands.json
 

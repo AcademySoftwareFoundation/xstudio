@@ -12,6 +12,9 @@ permissions:
   contents: read
   packages: write
 
+env:
+  SCCACHE_VERSION: v0.19.0
+
 jobs:
   build-linux:
     name: Build (${{ matrix.deps_tag }})
@@ -23,16 +26,16 @@ jobs:
         include:
           - deps_tag: ubuntu2404
             deps_file: ci/linux/dockerfiles/ubuntu2404.deps.Dockerfile
-            build_file: ci/linux/dockerfiles/ubuntu2404.build.Dockerfile
           - deps_tag: rocky9
             deps_file: ci/linux/dockerfiles/rocky9.deps.Dockerfile
-            build_file: ci/linux/dockerfiles/rocky9.build.Dockerfile
 
     env:
       JOBS: "4"
       STUDIO_PLUGINS: ""
       BMD_DECKLINK: "OFF"
       BUILD_TESTING: "OFF"
+      SCCACHE_DIR: ${{ github.workspace }}/.ci-cache/sccache
+      SCCACHE_BIN_DIR: ${{ github.workspace }}/.ci-cache/sccache-bin
 
     steps:
       - name: Check out repository
@@ -96,19 +99,23 @@ jobs:
             FDKAAC_REF=${{ env.FDKAAC_REF }}
             NASM_VERSION=${{ env.NASM_VERSION }}
 
-      - name: Build xSTUDIO
-        uses: docker/build-push-action@v6
+      - name: Install sccache
+        env:
+          DEST_DIR: ${{ env.SCCACHE_BIN_DIR }}
+        run: bash ci/scripts/install-sccache.sh
+
+      - name: Restore sccache
+        uses: actions/cache@v4
         with:
-          context: .
-          file: ${{ matrix.build_file }}
-          push: false
-          target: build
-          build-args: |
-            DEPS_IMAGE=${{ env.DEPS_IMAGE }}
-            JOBS=${{ env.JOBS }}
-            BMD_DECKLINK=${{ env.BMD_DECKLINK }}
-            STUDIO_PLUGINS=${{ env.STUDIO_PLUGINS }}
-            BUILD_TESTING=${{ env.BUILD_TESTING }}
+          path: ${{ env.SCCACHE_DIR }}
+          key: sccache-${{ runner.os }}-${{ matrix.deps_tag }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            sccache-${{ runner.os }}-${{ matrix.deps_tag }}-${{ github.ref_name }}-
+
+      - name: Build xSTUDIO
+        env:
+          DEPS_TAG: ${{ matrix.deps_tag }}
+        run: bash ci/linux/scripts/run-build-container.sh
 
   build-macos:
     name: Build (macos-arm64)
@@ -121,6 +128,8 @@ jobs:
       QT_ROOT: ${{ github.workspace }}/.ci-cache/Qt
       VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
       VCPKG_BINARY_SOURCES: "clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,readwrite"
+      SCCACHE_DIR: ${{ github.workspace }}/.ci-cache/sccache
+      SCCACHE_BIN_DIR: ${{ github.workspace }}/.ci-cache/sccache-bin
 
     steps:
       - name: Check out repository
@@ -173,11 +182,31 @@ jobs:
               -Password "${{ secrets.GITHUB_TOKEN }}"
           mono "${nuget}" setapikey "${{ secrets.GITHUB_TOKEN }}" -Source "${FEED_URL}"
 
+      - name: Install sccache
+        env:
+          DEST_DIR: ${{ env.SCCACHE_BIN_DIR }}
+        run: bash ci/scripts/install-sccache.sh
+
+      - name: Restore sccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.SCCACHE_DIR }}
+          key: sccache-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            sccache-${{ runner.os }}-${{ github.ref_name }}-
+
       - name: Build deps
         run: bash ci/macos/scripts/build-deps.sh
 
       - name: Build xSTUDIO
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ${{ env.SCCACHE_BIN_DIR }}/sccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ${{ env.SCCACHE_BIN_DIR }}/sccache
         run: bash ci/macos/scripts/build-xstudio.sh
+
+      - name: sccache stats
+        if: always()
+        run: "${{ env.SCCACHE_BIN_DIR }}/sccache" --show-stats
 
   build-windows:
     name: Build (windows-x64)
@@ -190,6 +219,8 @@ jobs:
       QT_ROOT: ${{ github.workspace }}/.ci-cache/Qt
       VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
       VCPKG_BINARY_SOURCES: "clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,readwrite"
+      SCCACHE_DIR: ${{ github.workspace }}/.ci-cache/sccache
+      SCCACHE_BIN_DIR: ${{ github.workspace }}/.ci-cache/sccache-bin
 
     steps:
       - name: Check out repository
@@ -272,6 +303,33 @@ jobs:
         with:
           arch: x64
 
+      - name: Install sccache
+        shell: pwsh
+        run: |
+          $version = $env:SCCACHE_VERSION
+          $dest = $env:SCCACHE_BIN_DIR
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          $asset = "sccache-$version-x86_64-pc-windows-msvc.zip"
+          $url = "https://github.com/mozilla/sccache/releases/download/$version/$asset"
+          $zip = Join-Path $env:RUNNER_TEMP $asset
+          Write-Host "==> Downloading $url"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $env:RUNNER_TEMP -Force
+          $exe = Get-ChildItem -Path $env:RUNNER_TEMP -Recurse -Filter 'sccache.exe' |
+            Select-Object -First 1
+          if (-not $exe) { throw "sccache.exe not found in $asset" }
+          Copy-Item -Force $exe.FullName (Join-Path $dest 'sccache.exe')
+          & (Join-Path $dest 'sccache.exe') --version
+          if ($LASTEXITCODE -ne 0) { throw "sccache --version failed ($LASTEXITCODE)" }
+
+      - name: Restore sccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.SCCACHE_DIR }}
+          key: sccache-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            sccache-${{ runner.os }}-${{ github.ref_name }}-
+
       - name: Build deps
         shell: pwsh
         env:
@@ -282,4 +340,11 @@ jobs:
         shell: pwsh
         env:
           VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
+          CMAKE_C_COMPILER_LAUNCHER: ${{ env.SCCACHE_BIN_DIR }}/sccache.exe
+          CMAKE_CXX_COMPILER_LAUNCHER: ${{ env.SCCACHE_BIN_DIR }}/sccache.exe
         run: .\ci\windows\scripts\build-xstudio.ps1
+
+      - name: sccache stats
+        if: always()
+        shell: pwsh
+        run: & (Join-Path $env:SCCACHE_BIN_DIR 'sccache.exe') --show-stats

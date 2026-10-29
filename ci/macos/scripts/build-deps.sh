@@ -42,7 +42,7 @@ log "Jobs:       ${JOBS}"
 # --- Homebrew -----------------------------------------------------------------
 if [ "${SKIP_BREW:-0}" != "1" ]; then
   log "Installing Homebrew packages"
-  brew install cmake ninja pkg-config nasm autoconf autoconf-archive
+  brew install cmake ninja pkg-config nasm autoconf automake autoconf-archive
 fi
 hash -r
 cmake --version | head -1

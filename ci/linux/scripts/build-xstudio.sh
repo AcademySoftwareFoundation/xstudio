@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Configure and build xSTUDIO from sources already present at $XSTUDIO_SRC
-# (copied by the build Dockerfile). Build check only — no install/package.
+# (Docker COPY, or bind-mounted by ci/linux/scripts/run-build-container.sh).
+# Build check only — no install/package.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib.sh
 source "$HERE/lib.sh"
@@ -10,10 +11,10 @@ require_env QT_VERSION QT_ROOT
 SRC="${XSTUDIO_SRC:-/src/xstudio}"
 QT_GCC="${QT_ROOT}/${QT_VERSION}/gcc_64"
 
-# --- 1) Ensure the source tree was copied into the image --------------------
+# --- 1) Ensure the source tree is available ---------------------------------
 if [ ! -f "$SRC/CMakeLists.txt" ]; then
     echo "ERROR: no xSTUDIO sources at ${SRC} (expected CMakeLists.txt)." >&2
-    echo "  The build Dockerfile must COPY the repo into ${SRC}." >&2
+    echo "  Mount or COPY the repo into ${SRC}." >&2
     exit 1
 fi
 
@@ -30,6 +31,14 @@ if [ -n "${STUDIO_PLUGINS:-}" ]; then
 fi
 
 # --- 4) Configure ------------------------------------------------------------
+# Optional compiler launcher (e.g. sccache) from the environment.
+if [ -n "${CMAKE_C_COMPILER_LAUNCHER:-}" ]; then
+    cmake_extra+=(-DCMAKE_C_COMPILER_LAUNCHER="${CMAKE_C_COMPILER_LAUNCHER}")
+fi
+if [ -n "${CMAKE_CXX_COMPILER_LAUNCHER:-}" ]; then
+    cmake_extra+=(-DCMAKE_CXX_COMPILER_LAUNCHER="${CMAKE_CXX_COMPILER_LAUNCHER}")
+fi
+
 # GCC 13: keep -Werror but ignore maybe-uninitialized (Imath inlines).
 cmake -S "$SRC" -B "$SRC/build" \
     -DCMAKE_BUILD_TYPE=Release \
