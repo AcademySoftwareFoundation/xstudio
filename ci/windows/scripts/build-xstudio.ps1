@@ -82,6 +82,11 @@ if ($env:CMAKE_C_COMPILER_LAUNCHER) {
 if ($env:CMAKE_CXX_COMPILER_LAUNCHER) {
     $cmakeArgs += "-DCMAKE_CXX_COMPILER_LAUNCHER=$($env:CMAKE_CXX_COMPILER_LAUNCHER)"
 }
+if ($env:CMAKE_C_COMPILER_LAUNCHER -or $env:CMAKE_CXX_COMPILER_LAUNCHER) {
+    # sccache cannot cache MSVC /Zi shared PDBs; embed debug info (/Z7) instead.
+    $cmakeArgs += '-DCMAKE_POLICY_DEFAULT_CMP0141=NEW'
+    $cmakeArgs += '-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded'
+}
 
 Write-Log 'Configuring with preset WinNinjaRelease'
 Invoke-Checked cmake $cmakeArgs
