@@ -170,3 +170,70 @@ jobs:
 
       - name: Run unit tests
         run: bash ci/macos/scripts/run-tests.sh
+
+  build-windows:
+    name: Build (windows-x64)
+    runs-on: windows-latest
+    timeout-minutes: 360
+
+    env:
+      JOBS: "4"
+      BUILD_TESTING: "ON"
+      QT_ROOT: ${{ github.workspace }}/.ci-cache/Qt
+      VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
+      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Enable git long paths
+        run: git config --global core.longpaths true
+
+      - name: Export vcpkg Actions cache credentials
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - name: Set up MSVC developer command prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Read Qt version for cache key
+        id: pins
+        shell: pwsh
+        run: |
+          Get-Content ci/windows/versions.env | ForEach-Object {
+            $line = $_.Trim()
+            if (-not $line -or $line.StartsWith('#')) { return }
+            $eq = $line.IndexOf('=')
+            if ($eq -lt 1) { return }
+            $name = $line.Substring(0, $eq).Trim()
+            $value = $line.Substring($eq + 1).Trim()
+            if ($name -eq 'QT_VERSION') {
+              "qt_version=$value" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            }
+          }
+
+      - name: Restore Qt SDK cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.QT_ROOT }}
+          key: qt-${{ steps.pins.outputs.qt_version }}-win-msvc2019_64-imageformats-pdf
+
+      - name: Build deps
+        shell: pwsh
+        run: .\ci\windows\scripts\build-deps.ps1
+
+      - name: Build xSTUDIO
+        shell: pwsh
+        run: .\ci\windows\scripts\build-xstudio.ps1
+
+      - name: Run unit tests
+        shell: pwsh
+        run: .\ci\windows\scripts\run-tests.ps1
