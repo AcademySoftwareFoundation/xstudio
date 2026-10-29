@@ -46,8 +46,11 @@ jobs:
           repo="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
           echo "DEPS_IMAGE=ghcr.io/${repo}/xstudio-deps:${{ matrix.deps_tag }}" >> "$GITHUB_ENV"
 
+      # driver: docker so `docker pull` layers are visible to `docker build`.
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -56,7 +59,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # `_compile` already depends on `_deps` (registry + GHA BuildKit cache).
       - name: Build deps image and compile xSTUDIO
         working-directory: ci/linux
         run: just ${{ matrix.recipe_compile }}
