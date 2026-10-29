@@ -206,7 +206,7 @@ jobs:
 
       - name: sccache stats
         if: always()
-        run: "${{ env.SCCACHE_BIN_DIR }}/sccache" --show-stats
+        run: ${{ env.SCCACHE_BIN_DIR }}/sccache --show-stats
 
   build-windows:
     name: Build (windows-x64)
@@ -347,4 +347,5 @@ jobs:
       - name: sccache stats
         if: always()
         shell: pwsh
-        run: & (Join-Path $env:SCCACHE_BIN_DIR 'sccache.exe') --show-stats
+        run: |
+          & (Join-Path $env:SCCACHE_BIN_DIR 'sccache.exe') --show-stats
