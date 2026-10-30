@@ -12,7 +12,6 @@ concurrency:
 
 permissions:
   contents: read
-  packages: write
 
 env:
   SCCACHE_VERSION: v0.19.0
@@ -22,6 +21,9 @@ jobs:
     name: Build (${{ matrix.deps_tag }})
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    permissions:
+      contents: read
+      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -43,7 +45,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -55,51 +57,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set GHCR deps image
-        run: |
-          repo="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
-          echo "DEPS_IMAGE=ghcr.io/${repo}/xstudio-deps:${{ matrix.deps_tag }}" >> "$GITHUB_ENV"
-          echo "DEPS_CACHE=ghcr.io/${repo}/xstudio-deps:${{ matrix.deps_tag }}-buildcache" >> "$GITHUB_ENV"
-
-      - name: Export version pins to job env
-        run: grep -vE '^\s*(#|$)' ci/linux/versions.env >> "$GITHUB_ENV"
-
-      - name: Build deps image
-        uses: docker/build-push-action@v6
-        with:
-          context: ci/linux
-          file: ${{ matrix.deps_file }}
-          push: true
-          tags: ${{ env.DEPS_IMAGE }}
-          cache-from: type=registry,ref=${{ env.DEPS_CACHE }}
-          cache-to: type=registry,ref=${{ env.DEPS_CACHE }},mode=max
-          build-args: |
-            JOBS=${{ env.JOBS }}
-            CMAKE_VERSION=${{ env.CMAKE_VERSION }}
-            NINJA_VERSION=${{ env.NINJA_VERSION }}
-            PYBIND11_VERSION=${{ env.PYBIND11_VERSION }}
-            AQTINSTALL_VERSION=${{ env.AQTINSTALL_VERSION }}
-            QT_VERSION=${{ env.QT_VERSION }}
-            OPENEXR_REF=${{ env.OPENEXR_REF }}
-            CAF_VERSION=${{ env.CAF_VERSION }}
-            OCIO_VERSION=${{ env.OCIO_VERSION }}
-            OTIO_REF=${{ env.OTIO_REF }}
-            FILESEQ_CPP_REF=${{ env.FILESEQ_CPP_REF }}
-            FFMPEG_VERSION=${{ env.FFMPEG_VERSION }}
-            OIIO_VERSION=${{ env.OIIO_VERSION }}
-            LIBRAW_VERSION=${{ env.LIBRAW_VERSION }}
-            LIBDE265_VERSION=${{ env.LIBDE265_VERSION }}
-            LIBHEIF_VERSION=${{ env.LIBHEIF_VERSION }}
-            EXIV2_VERSION=${{ env.EXIV2_VERSION }}
-            GLEW_VERSION=${{ env.GLEW_VERSION }}
-            JSON_VERSION=${{ env.JSON_VERSION }}
-            SPDLOG_VERSION=${{ env.SPDLOG_VERSION }}
-            FMT_VERSION=${{ env.FMT_VERSION }}
-            LIBJPEGTURBO_VERSION=${{ env.LIBJPEGTURBO_VERSION }}
-            X264_REF=${{ env.X264_REF }}
-            X265_VERSION=${{ env.X265_VERSION }}
-            FDKAAC_REF=${{ env.FDKAAC_REF }}
-            NASM_VERSION=${{ env.NASM_VERSION }}
+      - name: Ensure deps image
+        env:
+          DEPS_TAG: ${{ matrix.deps_tag }}
+          DEPS_FILE: ${{ matrix.deps_file }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: bash ci/linux/scripts/ensure-deps-image.sh
 
       - name: Install sccache
         env:
