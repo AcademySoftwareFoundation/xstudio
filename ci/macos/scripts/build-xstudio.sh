@@ -48,10 +48,12 @@ if [ -n "${CMAKE_CXX_COMPILER_LAUNCHER:-}" ]; then
 fi
 
 log "Configuring with preset MacOSNinjaRelease"
+# Deps are installed by build-deps.sh; skip toolchain re-install on configure.
 cmake -S "${REPO_ROOT}" -B "${REPO_ROOT}/build" \
   --preset MacOSNinjaRelease \
   -DQt6_DIR="${QT6_DIR}" \
   -DBUILD_TESTING="${BUILD_TESTING:-OFF}" \
+  -DVCPKG_MANIFEST_INSTALL=OFF \
   "${cmake_launcher_args[@]}"
 
 log "Building xSTUDIO"

@@ -85,6 +85,8 @@ if [ -n "${CMAKE_CXX_COMPILER_LAUNCHER:-}" ]; then
 fi
 
 log "Configuring xSTUDIO with preset ${CMAKE_PRESET}"
+# Deps are installed by build-deps.sh; do not let the vcpkg toolchain re-run
+# manifest install (would rebuild ports if CMAKE_*_COMPILER_LAUNCHER / env differs).
 # GCC 13+: keep -Werror but ignore maybe-uninitialized (Imath inlines).
 cmake -S "${SRC}" -B "${SRC}/build" \
   --preset "${CMAKE_PRESET}" \
@@ -93,6 +95,7 @@ cmake -S "${SRC}" -B "${SRC}/build" \
   -DBMD_DECKLINK_PLUGIN="${BMD_DECKLINK:-OFF}" \
   -DBUILD_TESTING="${BUILD_TESTING:-OFF}" \
   -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
+  -DVCPKG_MANIFEST_INSTALL=OFF \
   "${cmake_extra[@]}" \
   "${cmake_launcher_args[@]}"
 

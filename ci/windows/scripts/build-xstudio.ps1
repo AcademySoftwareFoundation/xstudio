@@ -69,12 +69,14 @@ if (-not (Test-Path -LiteralPath $VcpkgExe)) {
     throw "ERROR: vcpkg not found at $VcpkgRoot`n  Run ci/windows/scripts/build-deps.ps1 first."
 }
 
+# Deps are installed by build-deps.ps1; skip toolchain re-install on configure.
 $cmakeArgs = @(
     '-S', $RepoRoot,
     '-B', $BuildDir,
     '--preset', 'WinNinjaRelease',
     "-DQt6_DIR=$Qt6Dir",
-    "-DBUILD_TESTING=$BuildTesting"
+    "-DBUILD_TESTING=$BuildTesting",
+    '-DVCPKG_MANIFEST_INSTALL=OFF'
 )
 if ($env:CMAKE_C_COMPILER_LAUNCHER) {
     $cmakeArgs += "-DCMAKE_C_COMPILER_LAUNCHER=$($env:CMAKE_C_COMPILER_LAUNCHER)"
