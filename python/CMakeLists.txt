@@ -65,10 +65,16 @@ else()
                     ARGS -m pip install .
                     DEPENDS __pybind_xstudio ${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in)
     else()
+        # Debian/Ubuntu: pip --prefix= installs to dist-packages (or prefix/local),
+        # not lib/pythonX.Y/site-packages where install() looks. pip --target= into
+        # the existing xstudio/ dir (created by the pybind .so) is skipped unless
+        # --upgrade, which would replace the directory and wipe the .so.
+        # Copy the pure-Python package over the pybind output, same as WIN32.
         add_custom_command(OUTPUT ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio/api
-                    COMMAND ${Python_EXECUTABLE}
-                    ARGS -m pip install . --prefix=${OUTPUT}
-                    DEPENDS __pybind_xstudio ${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in)
+                    COMMAND ${CMAKE_COMMAND} -E copy_directory
+                        ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio
+                        ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio
+                    DEPENDS __pybind_xstudio ${DEPS})
     endif()
 
     add_custom_target(python_module ALL DEPENDS __pybind_xstudio ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio/api)

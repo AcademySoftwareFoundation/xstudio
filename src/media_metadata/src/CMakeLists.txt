@@ -6,9 +6,9 @@ SET(LINK_DEPS
 if(WIN32)
 	#list(APPEND LINK_DEPS ghc_filesystem)  # Link against the MSVSLX implementation for Windows
 elseif(UNIX)
-	list(APPEND LINK_DEPS dl)  # Link against stdc++fs for Linux
+	list(APPEND LINK_DEPS dl)  # Link against ${XSTUDIO_STDCXXFS} for Linux
 	if (NOT APPLE)
-		list(APPEND LINK_DEPS stdc++fs)  # Link against stdc++fs for Linux
+		list(APPEND LINK_DEPS ${XSTUDIO_STDCXXFS})  # Link against ${XSTUDIO_STDCXXFS} for Linux
 	endif()
 endif()
 

@@ -110,6 +110,15 @@ else()
 endif()
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Link libstdc++fs only for GCC/Clang < 9; newer libstdc++ already has std::filesystem.
+set(XSTUDIO_STDCXXFS "")
+if(UNIX AND NOT APPLE)
+  if((CMAKE_CXX_COMPILER_ID STREQUAL "GNU"   AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9) OR
+     (CMAKE_CXX_COMPILER_ID MATCHES "Clang"  AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9))
+    set(XSTUDIO_STDCXXFS stdc++fs)
+  endif()
+endif()
+
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_LINK_DEPENDS_NO_SHARED true)
 
@@ -212,9 +221,21 @@ if (USE_VCPKG)
 
   set(VCPKG_INTEGRATION ON)
 
+  # Prefer vcpkg's Python: Debian/Ubuntu system interpreters disable ensurepip.
+  if(DEFINED VCPKG_TARGET_TRIPLET AND NOT Python_EXECUTABLE)
+    set(_xstudio_vcpkg_python
+      "${CMAKE_SOURCE_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/tools/python3/python3${CMAKE_EXECUTABLE_SUFFIX}")
+    if(EXISTS "${_xstudio_vcpkg_python}")
+      set(Python_EXECUTABLE "${_xstudio_vcpkg_python}" CACHE FILEPATH "Python from vcpkg" FORCE)
+      set(Python_ROOT "${CMAKE_SOURCE_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}")
+    endif()
+    unset(_xstudio_vcpkg_python)
+  endif()
+
   # Install pip and sphinx
   find_package(Python COMPONENTS Interpreter Development)
 
+  message("Python_EXECUTABLE ${Python_EXECUTABLE}")
   message("Python_RUNTIME_LIBRARY_DIRS ${Python_RUNTIME_LIBRARY_DIRS}")
 
   execute_process(

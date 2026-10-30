@@ -258,6 +258,7 @@ class HELPER_QML_EXPORT ModelPropertyTree : public JSONTreeModel {
   public:
     explicit ModelPropertyTree(QObject *parent = nullptr) : JSONTreeModel(parent) {}
 
+    using JSONTreeModel::index;
     [[nodiscard]] QModelIndex index() const { return index_; }
     [[nodiscard]] int roleId() const { return role_id_; }
     [[nodiscard]] QString role() const { return role_; }

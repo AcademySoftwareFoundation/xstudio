@@ -264,6 +264,22 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "USE_SANITIZER": "address"
       }
+    },
+    {
+      "name": "LinuxUbuntu2404NinjaRelease",
+      "inherits": ["linux-ninja-base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "VCPKG_TARGET_TRIPLET": "x64-xstudio-linux-ubuntu2404"
+      }
+    },
+    {
+      "name": "LinuxRocky9NinjaRelease",
+      "inherits": ["linux-ninja-base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "VCPKG_TARGET_TRIPLET": "x64-xstudio-linux-rocky9"
+      }
     }
   ]
 }

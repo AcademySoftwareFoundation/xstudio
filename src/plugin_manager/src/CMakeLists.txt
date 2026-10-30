@@ -6,9 +6,9 @@ SET(LINK_DEPS
 )
 
 if(UNIX)
-	list(APPEND LINK_DEPS dl)  # Link against stdc++fs for Linux
+	list(APPEND LINK_DEPS dl)  # Link against ${XSTUDIO_STDCXXFS} for Linux
 	if (NOT APPLE)
-		list(APPEND LINK_DEPS stdc++fs)  # Link against stdc++fs for Linux
+		list(APPEND LINK_DEPS ${XSTUDIO_STDCXXFS})  # Link against ${XSTUDIO_STDCXXFS} for Linux
 	endif()
 endif()
 

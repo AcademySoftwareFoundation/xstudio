@@ -1,25 +1,37 @@
-.gitignore
-.github
+# Editors / OS
 *.sublime-project
 *.sublime-workspace
 ._*
 .vscode/
 .vs/
 .DS_Store
+
+# Python / generated docs
 __*__
-ignore/
+*.egg-info/
 python/test/xstudio.log
 python/src/xstudio/version.py
-*.egg-info/
 docs/Doxyfile
 docs/conf.py
+
+# Local debug / IDE artefacts
+.cache/
+.ci-cache/
+devenv/
+compile_commands.json
+
+# vcpkg manifest install tree (created under the repo by CI / devenv)
+vcpkg_installed/
+
+# Build trees
+ignore/
 build/
 __build/
 __build_debug/
 build_rel/
 build_dbg/
 xstudio_install
-CMakeUserPresets.json
-aqtinstall.log
 build_logs/
+CMakeUserPresets.json
 CMakeUserPresets.json.bak
+aqtinstall.log

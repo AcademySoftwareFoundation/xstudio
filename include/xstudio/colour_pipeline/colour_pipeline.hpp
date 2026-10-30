@@ -229,6 +229,10 @@ namespace colour_pipeline {
         virtual size_t fast_colour_transform_hash(const media::AVFrameID &media_ptr) = 0;
 
       protected:
+        // Declaring make_pre_draw_gpu_hook(...) below would hide StandardPlugin's
+        // virtual of the same name. GCC 13 (-Woverloaded-virtual) warns about that;
+        // this using pulls the base overload into scope so both remain callable.
+        using plugin::StandardPlugin::make_pre_draw_gpu_hook;
         void make_pre_draw_gpu_hook(
             const std::string &viewport_name,
             caf::typed_response_promise<plugin::GPUPreDrawHookPtr> rp);

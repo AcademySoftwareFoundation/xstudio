@@ -54,20 +54,34 @@ void EmbeddedPython::setup() {
             if (res) {
                 auto p = fs::path(info.dli_fname);
                 std::string python_home;
-                if (p.string().find("Contents/Frameworks") != std::string::npos) {
+                // XSTUDIO_PYTHONHOME overrides the derived path (same as Win32).
+                auto xstudio_pythonhome = get_env("XSTUDIO_PYTHONHOME");
+                if (xstudio_pythonhome) {
+                    python_home = *xstudio_pythonhome;
+                } else if (p.string().find("Contents/Frameworks") != std::string::npos) {
                     // String match will happen On MacOS install, here python
                     // installation is in Resources folder in the app bundle
-                    python_home = p.parent_path().parent_path() / "Resources/python";
+                    python_home = (p.parent_path().parent_path() / "Resources/python").string();
                 } else {
-                    // Otherwise, we jump up twice to get above the 'lib' folder
-                    // where python310.so is installed, as python home should
-                    // be the parent folder of where the main python DSO is
-                    // installed
-                    python_home = p.parent_path().parent_path();
+                    // vcpkg / RHEL: libpython lives in {prefix}/lib or
+                    // {prefix}/lib64, so two parents is the Python prefix.
+                    // Debian/Ubuntu: it lives in /usr/lib/<triplet>/ (or the
+                    // /lib/<triplet> symlink). Walking two parents yields
+                    // /usr/lib or /lib, which is not a valid PYTHONHOME
+                    // (stdlib is /usr/lib/python3.X) and CPython then fails
+                    // with "module 'sys' has no attribute 'stdout'".
+                    auto so_dir   = p.parent_path();
+                    auto dir_name = so_dir.filename().string();
+                    if (dir_name == "lib" || dir_name == "lib64") {
+                        python_home = so_dir.parent_path().string();
+                    }
                 }
                 std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-                std::wstring wstr = converter.from_bytes(python_home.data());
-                PyConfig_SetString(&config, &config.home, wstr.data());
+                std::wstring wstr;
+                if (!python_home.empty()) {
+                    wstr = converter.from_bytes(python_home.data());
+                    PyConfig_SetString(&config, &config.home, wstr.data());
+                }
 
                 std::string xstudio_python_path;
                 auto pythonpath_env = get_env("PYTHONPATH");
