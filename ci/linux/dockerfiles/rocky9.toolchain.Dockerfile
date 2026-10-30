@@ -22,7 +22,7 @@ RUN dnf -y install dnf-plugins-core \
     && dnf -y install \
         git wget curl ca-certificates pkgconf-pkg-config \
         zip unzip tar xz bzip2 which file \
-        autoconf automake libtool nasm yasm bison flex \
+        autoconf automake libtool nasm bison flex \
         python3 python3-devel python3-pip \
         alsa-lib-devel pulseaudio-libs-devel \
         freeglut-devel mesa-libGL-devel mesa-libGLU-devel mesa-libEGL-devel libglvnd-devel \

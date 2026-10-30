@@ -30,6 +30,10 @@ if [ ! -f "${SRC}/vcpkg.json" ]; then
   exit 1
 fi
 
+# Host-mounted repos are owned by the runner UID; container often runs as root.
+git config --global --add safe.directory "${VCPKG_ROOT}"
+git config --global --add safe.directory "${SRC}"
+
 VCPKG_BASELINE="$(
   python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['builtin-baseline'])" \
     "${SRC}/vcpkg.json"
