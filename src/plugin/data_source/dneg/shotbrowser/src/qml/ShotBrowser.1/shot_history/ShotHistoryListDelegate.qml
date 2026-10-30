@@ -97,7 +97,7 @@ Rectangle{ id: frame
             if(m.groupDetail.flags.includes("Load Sequence"))
                 ShotBrowserHelpers.addSequencesToNewPlaylist([delegateModel.modelIndex(index)])
             else
-                ShotBrowserHelpers.addToCurrent([delegateModel.modelIndex(index)], panelType != "ShotBrowser", addMode.value)
+                ShotBrowserHelpers.addToCurrent([delegateModel.modelIndex(index)], {"viewed": panelType != "ShotBrowser", "addMode": addMode.value})
         }
 
         onPressed: (mouse)=> {

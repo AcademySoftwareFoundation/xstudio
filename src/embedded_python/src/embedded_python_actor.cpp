@@ -1171,7 +1171,7 @@ void EmbeddedPythonActor::join_broadcast(
                     .send(plugin_actor);
             },
             [=](caf::error &e) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(e));
+                log_caf_error(e);
             });
 }
 

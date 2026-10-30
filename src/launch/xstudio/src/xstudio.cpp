@@ -18,7 +18,6 @@ __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;          // 
 #include <thread>
 
 #ifndef _WIN32
-#include <execinfo.h>
 #include <unistd.h>
 #endif
 
@@ -72,6 +71,8 @@ CAF_POP_WARNINGS
 
 #include "xstudio/ui/qml/studio_ui.hpp" //NOLINT
 
+#include "crash_handler.hpp"
+
 using namespace std;
 using namespace caf;
 using namespace std::chrono_literals;
@@ -90,51 +91,6 @@ bool shutdown_xstudio = false;
 // this is required to overcome a very odd link
 // error on MaxOS (intel)
 uint32_t OPENSSL_ia32cap_P[4] = {0};
-#endif
-
-#ifdef _WIN32
-#include <DbgHelp.h>
-
-void handler(int sig) {
-    void *stack[10];
-    HANDLE process = GetCurrentProcess();
-    SymInitialize(process, nullptr, TRUE);
-
-    // Capture the call stack
-    WORD frames = CaptureStackBackTrace(0, 10, stack, nullptr);
-
-    // Print out the frames to stderr
-    fprintf(stderr, "Error: signal %d:\n", sig);
-    for (int i = 0; i < frames; ++i) {
-        DWORD64 address = reinterpret_cast<DWORD64>(stack[i]);
-        char symbolBuffer[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)];
-        SYMBOL_INFO *symbol  = reinterpret_cast<SYMBOL_INFO *>(symbolBuffer);
-        symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
-        symbol->MaxNameLen   = MAX_SYM_NAME;
-
-        if (SymFromAddr(process, address, nullptr, symbol)) {
-            fprintf(stderr, "%d: %s\n", i, symbol->Name);
-        } else {
-            fprintf(stderr, "%d: [Unknown Symbol]\n", i);
-        }
-    }
-
-    SymCleanup(process);
-    exit(1);
-}
-#else
-void handler(int sig) {
-    void *array[10];
-    size_t size;
-
-    // get void*'s for all entries on the stack
-    size = backtrace(array, 10);
-
-    // print out all the frames to stderr
-    fprintf(stderr, "Error: signal %d:\n", sig);
-    backtrace_symbols_fd(array, size, STDERR_FILENO);
-    exit(1);
-}
 #endif
 
 void my_handler(int s) {
@@ -782,7 +738,12 @@ struct CLIArguments {
 
     args::Flag debug                     = {misc, "debug", "Debugging mode", {"debug"}};
     args::ValueFlag<std::string> logfile = {
-        misc, "PATH", "Write session log to file", {"log-file"}};
+        misc,
+        "PATH",
+        "Write the session log to this file at debug level, line by line, starting a new "
+        "file on each run (previous runs are kept as .1 to .10). The preference "
+        "/core/logging/log_file takes precedence when it is set.",
+        {"log-file"}};
     args::Flag disable_vsync = {
         misc, "disable-vsync", "Disable sync to video refresh", {"disable-vsync"}};
 
@@ -821,11 +782,26 @@ struct Launcher {
         setenv("QML_IMPORT_TRACE", "0", true);
 #endif
 
-        signal(SIGSEGV, handler);
+        // crash reports go next to the user preferences
+        xstudio::launch::install_crash_handler(
+            (std::filesystem::path(preference_path()).parent_path() / "crash").string(),
+            argc,
+            argv);
         start_logger(
             cli_args.debug.Matched() ? spdlog::level::debug : spdlog::level::info,
             args::get(cli_args.logfile));
         prefs = load_preferences();
+
+        // the preference wins over the command line option
+        try {
+            const auto preferred_log_file =
+                expand_envvars(preference_value<std::string>(prefs, "/core/logging/log_file"));
+            if (not preferred_log_file.empty())
+                set_log_file(preferred_log_file);
+        } catch (const std::exception &e) {
+            spdlog::warn("Preference /core/logging/log_file not applied: {}", e.what());
+        }
+        xstudio::launch::set_crash_report_log_file(log_file());
 
         scoped_actor self{system};
 

@@ -112,6 +112,8 @@ template <typename T> class IvyDataSourceActor : public caf::event_based_actor {
 
     void update_preferences(const utility::JsonStore &js);
 
+    void read_otio_sidecar(const std::string &otio_path, const caf::actor &media_actor);
+
     T data_source_;
     caf::actor http_;
     caf::actor pool_;

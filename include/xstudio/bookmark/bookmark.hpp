@@ -93,6 +93,8 @@ struct BookmarkDetail {
     std::optional<bool> enabled_;
     std::optional<bool> has_focus_;
     std::optional<bool> visible_;
+
+    std::optional<timebase::flicks> owner_timecode_;
     std::optional<timebase::flicks> start_;
     std::optional<timebase::flicks> duration_;
     std::optional<std::string> user_type_;
@@ -124,6 +126,7 @@ struct BookmarkDetail {
             f.field("foc", x.has_focus_),
             f.field("vis", x.visible_),
             f.field("sta", x.start_),
+            f.field("ot", x.owner_timecode_),
             f.field("dur", x.duration_),
             f.field("utp", x.user_type_),
             f.field("udt", x.user_data_),
@@ -298,6 +301,7 @@ class Bookmark : public utility::Container {
     [[nodiscard]] auto has_focus() const { return has_focus_; }
     [[nodiscard]] auto visible() const { return visible_; }
     [[nodiscard]] auto start() const { return start_; }
+    [[nodiscard]] auto owner_timecode() const { return owner_timecode_; }
     [[nodiscard]] auto duration() const { return duration_; }
     [[nodiscard]] auto user_type() const { return user_type_; }
     [[nodiscard]] auto user_data() const { return user_data_; }
@@ -309,6 +313,7 @@ class Bookmark : public utility::Container {
     void set_enabled(const bool enabled = true) { enabled_ = enabled; }
     void set_visible(const bool visible = true) { visible_ = visible; }
     void set_has_focus(const bool has_focus = true) { has_focus_ = has_focus; }
+    void set_owner_timecode(const timebase::flicks owner_timecode = timebase::k_flicks_low) { owner_timecode_ = owner_timecode; }
     void set_start(const timebase::flicks start = timebase::k_flicks_low) { start_ = start; }
     void set_duration(const timebase::flicks duration = timebase::k_flicks_max) {
         duration_ = duration;
@@ -327,6 +332,7 @@ class Bookmark : public utility::Container {
     bool enabled_{true};
     bool has_focus_{false};
     bool visible_{true};
+    timebase::flicks owner_timecode_{timebase::k_flicks_low};
     timebase::flicks start_{timebase::k_flicks_low};
     timebase::flicks duration_{timebase::k_flicks_max};
     std::string user_type_;

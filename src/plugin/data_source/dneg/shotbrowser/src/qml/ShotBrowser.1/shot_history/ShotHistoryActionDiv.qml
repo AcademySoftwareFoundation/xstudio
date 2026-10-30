@@ -20,7 +20,7 @@ RowLayout{
         text: targetIsTimeline ? "Add to Timeline" : "Add"
         Layout.fillHeight: true
         Layout.preferredWidth: cellWidth
-        onClicked: ShotBrowserHelpers.addToCurrent(resultsSelectionModel.selectedIndexes, true, addMode.value)
+        onClicked: ShotBrowserHelpers.addToCurrent(resultsSelectionModel.selectedIndexes, {"addMode": addMode.value})
         hiddenToolTip: targetIsTimeline ? "Load the selected media into new track(s) in the timeline - new clips will be conformed over the current on-screen clip where possible (otherwise new clips are added to a new 'Unconformed' video track)." : "Add selected search results to the current playlist."
         hiddenToolTipMaxWidth: 400
     }

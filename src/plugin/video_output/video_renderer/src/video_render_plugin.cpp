@@ -418,11 +418,11 @@ void VideoRenderPlugin::update_ocio_choices(const utility::Uuid &target_render_i
                         },
 
                         [=](caf::error &err) {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            utility::log_caf_error(err);
                         });
             },
             [=](caf::error &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                utility::log_caf_error(err);
             });
 }
 
@@ -541,7 +541,7 @@ utility::JsonStore VideoRenderPlugin::qml_item_callback(
                             playback_render_output(path, audio_path, session);
                         },
                         [=](caf::error &err) {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            utility::log_caf_error(err);
                         });
             }
 
@@ -588,10 +588,10 @@ utility::JsonStore VideoRenderPlugin::qml_item_callback(
                         qml_item_callback(qml_item_id, callback_data);
                     },
                     [=](caf::error &err) {
-                        spdlog::warn(
-                            "{} - an error ocurred setting up the offscreen viewport: {}",
-                            __PRETTY_FUNCTION__,
-                            to_string(err));
+                        utility::log_caf_error(
+                            err,
+                            spdlog::level::warn,
+                            "an error occurred setting up the offscreen viewport:");
                     });
             return result;
         }
@@ -689,7 +689,7 @@ void VideoRenderPlugin::playback_render_output(
     }
 
     auto handle_error = [=](caf::error &err) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+        utility::log_caf_error(err);
     };
 
     auto add_audio = [=](caf::actor media) {

@@ -40,6 +40,7 @@ Bookmark::Bookmark(const JsonStore &jsn)
         note_ = std::make_shared<Note>(jsn["note"]);
 
     start_     = jsn.value("start", timebase::k_flicks_low);
+    owner_timecode_ = jsn.value("owner_timecode", timebase::k_flicks_low);
     duration_  = jsn.value("duration", timebase::k_flicks_max);
     enabled_   = jsn.value("enabled", true);
     owner_     = jsn.value("owner", utility::Uuid());
@@ -76,6 +77,7 @@ JsonStore Bookmark::serialise() const {
     } else
         jsn["annotation"] = nullptr;
     jsn["start"]     = start_;
+    jsn["owner_timecode"] = owner_timecode_;
     jsn["duration"]  = duration_;
     jsn["enabled"]   = enabled_;
     jsn["owner"]     = owner_;
@@ -107,6 +109,11 @@ bool Bookmark::update(const BookmarkDetail &detail) {
 
     if (detail.start_) {
         start_  = *(detail.start_);
+        changed = true;
+    }
+
+    if (detail.owner_timecode_) {
+        owner_timecode_  = *(detail.owner_timecode_);
         changed = true;
     }
 
@@ -228,6 +235,7 @@ BookmarkDetail &BookmarkDetail::operator=(const Bookmark &other) {
     enabled_   = other.enabled_;
     has_focus_ = other.has_focus_;
     visible_   = other.visible_;
+    owner_timecode_     = other.owner_timecode_;
     start_     = other.start_;
     duration_  = other.duration_;
     user_type_ = other.user_type_;

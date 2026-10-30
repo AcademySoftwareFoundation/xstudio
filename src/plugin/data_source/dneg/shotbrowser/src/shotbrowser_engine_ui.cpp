@@ -617,10 +617,10 @@ QFuture<QUrl> ShotBrowserEngine::remapCachePathFuture(const QPersistentModelInde
         StdFromQString(index.parent().data(SessionModel::Roles::actorRole).toString()));
     auto path = index.data(SessionModel::Roles::pathRole).toUrl();
     // get shotgrid metadata..
-    auto site = std::string("mum");
+    auto primary_site = std::string("mum");
     try {
         scoped_actor sys{system()};
-        site = request_receive<utility::JsonStore>(
+        primary_site = request_receive<utility::JsonStore>(
             *sys,
             media_actor,
             json_store::get_json_atom_v,
@@ -630,56 +630,109 @@ QFuture<QUrl> ShotBrowserEngine::remapCachePathFuture(const QPersistentModelInde
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
 
+    const auto mysite = get_env("DNSITEDATA_SHORT_NAME");
+    const auto sites = std::vector<std::string>({"lon","chn","mum","mtl","syd"});
+
     return QtConcurrent::run([=]() {
         const auto orig          = uri_to_posix_path(UriFromQUrl(path), false);
         static const auto pathre = std::regex(R"(^/jobs/(([^/]+)/.+)$)");
-        static const auto sequencere = std::regex(R"(^/jobs/([^/]+)(/.+\.)(\{:\d*d\})(\..+)$)");
+        static const auto sequencere = std::regex(R"(^/jobs/(.+[^/]+)(/.+\.)(\{:\d*d\})(\..+)$)");
+        auto site = primary_site;
+
+        auto found = false;
+
+        // spdlog::warn("{}", orig);
+
         std::cmatch m;
-
         if (std::regex_match(orig.c_str(), m, pathre) and m[2] != site) {
-            const auto npath = std::string("/jobs/") + site + "/" + std::string(m[1]);
-            // remap path to cache.
+            auto npath = std::string("/jobs/") + site + "/" + std::string(m[1]);
 
-            utility::add_remap_file_path(orig, npath);
+            if(not fs::exists(npath)) {
+                for(const auto &s: sites) {
+                    if(mysite and s == *mysite)
+                        continue;
 
-            // spdlog::warn("{} {}", orig, npath);
+                    if(fs::exists(std::string("/jobs/") + s + "/" + std::string(m[1]))) {
+                        found = true;
+                        site = s;
+                        npath = std::string("/jobs/") + site + "/" + std::string(m[1]);
+                        break;
+                    } else {
+                        // spdlog::warn("{}", std::string("/jobs/") + s + "/" + m[1].str());
+                    }
+                }
+            } else {
+                found = true;
+            }
+
+            if(found)
+                utility::add_remap_file_path(orig, npath);
 
             std::cmatch ms;
             if(std::regex_match(orig.c_str(), ms, sequencere)) {
-                const auto to_re = std::string("/jobs/") + ms[1].str() + ms[2].str() + "(\\d+)" + ms[4].str();
-                const auto to_sub = std::string("/jobs/") + site + "/" + ms[1].str() + ms[2].str() + "$1" + ms[4].str();
+                // /jobs/mum/GPWRH/028_roa_1375/OUT/O_028_roa_1375_comp_v030/4260x2168/O_028_roa_1375_comp_v030.{:04d}.exr
+                // just look for directory..
 
-                const auto from_re = std::string("/jobs/") + site + "/" + ms[1].str() + ms[2].str() + "(\\d+)" + ms[4].str();
-                const auto from_sub = std::string("/jobs/") + ms[1].str() + ms[2].str() + "$1" + ms[4].str();
+                // spdlog::warn("{}", std::string("/jobs/") + site + "/" + ms[1].str());
+                if(not fs::exists(std::string("/jobs/") + site + "/" + ms[1].str())) {
+                    for(const auto &s: sites) {
+                        if(mysite and s == *mysite)
+                            continue;
 
-                // spdlog::warn("{}", to_re);
-                // spdlog::warn("{}", to_sub);
-                // spdlog::warn("{}", from_re);
-                // spdlog::warn("{}", from_sub);
+                        if(fs::exists(std::string("/jobs/") + s + "/" + ms[1].str())) {
+                            found = true;
+                            site = s;
+                            break;
+                        } else {
+                            // spdlog::warn("{}", std::string("/jobs/") + s + "/" + ms[1].str());
+                        }
+                    }
+                } else {
+                    found = true;
+                }
 
-                utility::add_regex_mapping(
-                    std::make_pair(std::regex(to_re), to_sub),
-                    std::make_pair(std::regex(from_re), from_sub)
-                );
+                if(found) {
+                    const auto to_re = std::string("/jobs/") + ms[1].str() + ms[2].str() + "(\\d+)" + ms[4].str();
+                    const auto to_sub = std::string("/jobs/") + site + "/" + ms[1].str() + ms[2].str() + "$1" + ms[4].str();
+
+                    const auto from_re = std::string("/jobs/") + site + "/" + ms[1].str() + ms[2].str() + "(\\d+)" + ms[4].str();
+                    const auto from_sub = std::string("/jobs/") + ms[1].str() + ms[2].str() + "$1" + ms[4].str();
+
+                    // spdlog::warn("{}", to_re);
+                    // spdlog::warn("{}", to_sub);
+                    // spdlog::warn("{}", from_re);
+                    // spdlog::warn("{}", from_sub);
+
+                    utility::add_regex_mapping(
+                        std::make_pair(std::regex(to_re), to_sub),
+                        std::make_pair(std::regex(from_re), from_sub)
+                    );
+                }
             }
 
-            // trigger remote loading of source by daemon.
-            auto socket = new QUdpSocket();
-            QByteArray data;
-            data.append(std::string("read|") + npath);
-            socket->writeDatagram(
-                data, QHostInfo::fromName("globalnfscache").addresses().front(), 8081);
-            socket->deleteLater();
+            if(found) {
+                // trigger remote loading of source by daemon.
+                auto socket = new QUdpSocket();
+                QByteArray data;
+                data.append(std::string("read|") + npath);
+                socket->writeDatagram(
+                    data, QHostInfo::fromName("globalnfscache").addresses().front(), 8081);
+                socket->deleteLater();
 
-            // trigger re-evaluation of source detail..
-            anon_mail(media::acquire_media_detail_atom_v, true).send(source_actor);
-            anon_mail(media_hook::get_media_hook_atom_v).send(source_actor);
+                // trigger re-evaluation of source detail..
+                anon_mail(media::acquire_media_detail_atom_v, true).send(source_actor);
+                anon_mail(media_hook::get_media_hook_atom_v).send(source_actor);
 
-            // switch current media source ?
-            anon_mail(media::current_media_source_atom_v, source_uuid).send(media_actor);
-            anon_mail(media::invalidate_cache_atom_v).delay(1s).send(media_actor);
+                // switch current media source ?
+                anon_mail(media::current_media_source_atom_v, source_uuid).send(media_actor);
+                anon_mail(media::invalidate_cache_atom_v).delay(1s).send(media_actor);
 
-            return QUrlFromUri(posix_path_to_uri(npath, false, true));
+                return QUrlFromUri(posix_path_to_uri(npath, false, true));
+            } else {
+                throw std::runtime_error("File not found");
+            }
+
+            return path;
         }
 
         return path;

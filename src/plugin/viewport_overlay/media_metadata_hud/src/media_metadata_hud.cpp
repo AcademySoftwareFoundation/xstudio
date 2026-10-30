@@ -4,6 +4,7 @@
 #include "xstudio/utility/chrono.hpp"
 #include "xstudio/media_reader/image_buffer_set.hpp"
 #include "xstudio/media/media_actor.hpp"
+#include "xstudio/utility/logging.hpp"
 
 #ifdef __apple__
 #include <OpenGL/gl3.h>
@@ -1063,7 +1064,7 @@ void MediaMetadataHUD::update_full_metadata_set(const bool full_rebuild) {
                     new_metadata(who, source_metadata, full_rebuild);
                 },
                 [=](error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    utility::log_caf_error(err);
                     new_metadata(who);
                 });
     };
@@ -1218,8 +1219,7 @@ caf::message_handler MediaMetadataHUD::message_handler_extensions() {
                                             render_data_per_image_cache_.clear();
                                         },
                                         [=](caf::error &err) {
-                                            spdlog::warn(
-                                                "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                            utility::log_caf_error(err);
                                         });
                             }
                         }

@@ -10,6 +10,7 @@
 #include "xstudio/utility/chrono.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/notification_handler.hpp"
+#include "xstudio/utility/logging.hpp"
 
 #include "shotbrowser_plugin.hpp"
 
@@ -1337,10 +1338,7 @@ void ShotBrowser::refresh_playlist_versions(
                                                                     this));
                                                 },
                                                 [=](error &err) mutable {
-                                                    spdlog::warn(
-                                                        "{} {}",
-                                                        __PRETTY_FUNCTION__,
-                                                        to_string(err));
+                                                    log_caf_error(err);
                                                 });
 
                                         // return this as the result.
@@ -1355,7 +1353,7 @@ void ShotBrowser::refresh_playlist_versions(
 
                                 [=](error &err) mutable {
                                     failed(playlist, notification_uuid);
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    log_caf_error(err);
                                     rp.deliver(err);
                                 });
                     } catch (const std::exception &err) {
@@ -1364,7 +1362,7 @@ void ShotBrowser::refresh_playlist_versions(
                     }
                 },
                 [=](error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     failed(playlist, notification_uuid);
                     rp.deliver(err);
                 });
@@ -1745,19 +1743,18 @@ void ShotBrowser::load_playlist(
                                         rp.deliver(playlist);
                                     },
                                     [=](error &err) mutable {
-                                        spdlog::error(
-                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                        log_caf_error(err, spdlog::level::err);
                                         rp.deliver(
                                             make_error(xstudio_error::error, to_string(err)));
                                     });
                         },
                         [=](error &err) mutable {
-                            spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err, spdlog::level::err);
                             rp.deliver(make_error(xstudio_error::error, to_string(err)));
                         });
             },
             [=](error &err) mutable {
-                spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err, spdlog::level::err);
                 rp.deliver(make_error(xstudio_error::error, to_string(err)));
             });
 }
@@ -1816,7 +1813,7 @@ void ShotBrowser::do_add_media_sources_from_shotgun(
         // parent MediaActor using the shotgun query data
         mail(
             playlist::add_media_atom_v,
-            build_media_task_data->media_actor_,
+            ua,
             build_media_task_data->sg_data_,
             build_media_task_data->media_rate_)
             .request(pool_, caf::infinite)
@@ -1853,7 +1850,7 @@ void ShotBrowser::do_add_media_sources_from_shotgun(
                                     continue_processing_job_queue();
                                 },
                                 [=](const caf::error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    log_caf_error(err);
                                     continue_processing_job_queue();
                                 });
                     } else {
@@ -1874,7 +1871,7 @@ void ShotBrowser::do_add_media_sources_from_shotgun(
                     }
                 },
                 [=](const caf::error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     continue_processing_job_queue();
                 });
     };
@@ -1900,7 +1897,7 @@ void ShotBrowser::do_add_media_sources_from_shotgun(
                             add_media();
                         },
                         [=](const caf::error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                             add_media();
                         });
                 continue_processing_job_queue();
@@ -2029,7 +2026,7 @@ void ShotBrowser::do_add_media_sources_from_ivy(
 
                             },
                             [=](error &err) {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err);
                             });
 
                     mail(media::get_media_source_names_atom_v, media::MT_AUDIO)
@@ -2055,13 +2052,13 @@ void ShotBrowser::do_add_media_sources_from_ivy(
                                         .send(ivy_media_task_data->media_actor_);
                             },
                             [=](error &err) {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err);
                             });
 
                     continue_processing_job_queue();
                 },
                 [=](error &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     continue_processing_job_queue();
                 });
     };
@@ -2118,7 +2115,7 @@ void ShotBrowser::do_add_media_sources_from_ivy(
                                         finalise();
                                 },
                                 [=](error &err) {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    log_caf_error(err);
 
                                     // kill bad source.
                                     send_exit(source.actor(), caf::exit_reason::user_shutdown);
@@ -2131,7 +2128,7 @@ void ShotBrowser::do_add_media_sources_from_ivy(
                 },
 
                 [=](error &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     continue_processing_job_queue();
                 });
     } catch (const std::exception &err) {
@@ -2234,7 +2231,7 @@ void ShotBrowser::reorder_playlist(
                         .then(
                             [=](const bool) mutable { rp.deliver(true); },
                             [=](error &err) mutable {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err);
                                 rp.deliver(err);
                             });
 
@@ -2244,7 +2241,7 @@ void ShotBrowser::reorder_playlist(
                 }
             },
             [=](error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(err);
             });
 }

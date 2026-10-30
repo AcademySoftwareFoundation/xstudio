@@ -4,6 +4,7 @@
 #include "xstudio/shotgun_client/shotgun_client.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/notification_handler.hpp"
+#include "xstudio/utility/logging.hpp"
 
 #include "shotbrowser_plugin.hpp"
 
@@ -215,7 +216,7 @@ void ShotBrowser::update_playlist_versions(
                     rp.deliver(result);
                 },
                 [=](error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     failed(playlist, notification_uuid);
                     rp.deliver(err);
                 });

@@ -192,7 +192,7 @@ JsonStoreActor::JsonStoreActor(
                             .then(
                                 [=](const bool) mutable {},
                                 [=](const error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    log_caf_error(err);
                                 });
                         json_store_.set(json, path);
                         broadcast_change();

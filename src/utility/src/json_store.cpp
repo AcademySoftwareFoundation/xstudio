@@ -30,6 +30,51 @@ bool JsonStore::remove(const std::string &path) {
     return true;
 }
 
+JsonStore xstudio::utility::decompress_json(const std::vector<std::byte> &compressed_buffer) {
+    std::string_view compressed_view(
+        reinterpret_cast<const char*>(compressed_buffer.data()),
+        compressed_buffer.size()
+    );
+
+    // 2. Load the view into an underlying string buffer
+    std::stringbuf in_string_buf{std::string(compressed_view)};
+
+    // 3. Wrap it in a zstr::istream to handle the decompression
+    zstr::istream decompress_stream(&in_string_buf);
+
+    // 4. Stream the decompressed text directly into your JsonStore object
+    JsonStore jsn;
+    decompress_stream >> jsn;
+
+    return jsn;
+}
+
+std::vector<std::byte> xstudio::utility::compress_json(const JsonStore &jsn) {
+    // 1. Create an underlying string buffer to catch the compressed data
+    std::stringbuf out_string_buf;
+
+    // 2. Wrap it in a zstr::ostream scope so the stream flushes cleanly on destruction
+    {
+        zstr::ostream compress_stream(&out_string_buf);
+
+        // 3. Pipe the entire input stringstream buffer straight into the compression stream
+        compress_stream << jsn;
+    }
+
+    // 4. Extract the compressed raw data string
+    std::string compressed_str = out_string_buf.str();
+
+    // 5. Allocate the vector and safely copy characters into std::byte elements
+    std::vector<std::byte> output_buffer(compressed_str.size());
+    std::copy(
+        compressed_str.begin(),
+        compressed_str.end(),
+        reinterpret_cast<char*>(output_buffer.data())
+    );
+
+    return output_buffer;
+}
+
 JsonStore xstudio::utility::open_session(const caf::uri &path) {
     return open_session(utility::uri_to_posix_path(path));
 }

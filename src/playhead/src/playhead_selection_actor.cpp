@@ -62,11 +62,11 @@ caf::message_handler PlayheadSelectionActor::message_handler() {
                                     select_media(UuidVector({new_selection_uuid}));
                                 },
                                 [=](error &err) {
-                                    spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    log_caf_error(err, spdlog::level::err);
                                 });
                     },
                     [=](error &err) mutable {
-                        spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err, spdlog::level::err);
                     });
         },
 
@@ -379,7 +379,7 @@ void PlayheadSelectionActor::select_media(
                         .send(base_.event_group());
                 },
                 [=](error &err) mutable {
-                    spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err, spdlog::level::err);
                 });
     } else {
         // deselect first
@@ -424,7 +424,7 @@ void PlayheadSelectionActor::select_one() {
                 }
             },
             [=](error &err) mutable {
-                spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err, spdlog::level::err);
             });
 }
 
@@ -444,7 +444,7 @@ void PlayheadSelectionActor::select_all() {
                 select_media(l);
             },
             [=](error &err) mutable {
-                spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err, spdlog::level::err);
             });
 }
 
@@ -466,7 +466,7 @@ void PlayheadSelectionActor::select_next_media_item(const int skip_by) {
                 select_media(UuidVector({media_actor.uuid()}));
             },
             [=](error &err) mutable {
-                spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err, spdlog::level::err);
             });
 }
 

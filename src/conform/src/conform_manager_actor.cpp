@@ -806,7 +806,7 @@ void ConformWorkerActor::process_request(
                         rp.deliver(result);
                     },
                     [=](const error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                         rp.deliver(err);
                     });
 
@@ -1052,7 +1052,7 @@ void ConformWorkerActor::conform_chain(
                         conform_chain(rp, conform_request);
                     },
                     [=](const error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                         rp.deliver(err);
                     });
             // get track clip media metadata
@@ -1132,10 +1132,10 @@ void ConformWorkerActor::conform_chain(
                             }
                         },
                         [=](const error &err) mutable {
-                            spdlog::warn(
-                                "Failed to get template clip media actors {} {}",
-                                __PRETTY_FUNCTION__,
-                                to_string(err));
+                            log_caf_error(
+                                err,
+                                spdlog::level::warn,
+                                "Failed to get template clip media actors");
                             rp.deliver(err);
                         });
 
@@ -1169,7 +1169,7 @@ void ConformWorkerActor::conform_chain(
                             conform_chain(rp, conform_request);
                         },
                         [=](const error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                             rp.deliver(err);
                         });
 
@@ -1210,7 +1210,7 @@ void ConformWorkerActor::conform_step_get_playlist_json(
                 }
             },
             [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(err);
             });
 }
@@ -1236,7 +1236,7 @@ void ConformWorkerActor::conform_step_get_clip_json(
                 conform_step_get_reuse_map(rp, conform_task, conform_request);
             },
             [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(err);
             });
 }
@@ -1302,21 +1302,18 @@ void ConformWorkerActor::conform_step_get_reuse_map(
                                                     rp, conform_task, conform_request);
                                             },
                                             [=](const error &err) mutable {
-                                                spdlog::warn(
-                                                    "{} {}",
-                                                    __PRETTY_FUNCTION__,
-                                                    to_string(err));
+                                                log_caf_error(err);
                                                 rp.deliver(err);
                                             });
                                 },
                                 [=](const error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    log_caf_error(err);
                                     rp.deliver(err);
                                 });
                     }
                 },
                 [=](const error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     rp.deliver(err);
                 });
     } else {
@@ -1357,7 +1354,7 @@ void ConformWorkerActor::conform_step_get_clip_media(
                 conform_step_get_media_json(rp, conform_task, conform_request);
             },
             [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(err);
             });
 }
@@ -1393,7 +1390,7 @@ void ConformWorkerActor::conform_step_get_media_json(
                     conform_step_get_media_source(rp, conform_task, conform_request);
                 },
                 [=](const error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     rp.deliver(err);
                 });
     } else {
@@ -1449,7 +1446,7 @@ void ConformWorkerActor::conform_step_get_media_source(
                     conform_request);
             },
             [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(err);
             });
 }

@@ -7,6 +7,7 @@
 #include "xstudio/broadcast/broadcast_actor.hpp"
 #include "xstudio/media/media_metadata_manager_actor.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/utility/logging.hpp"
 
 #include <iostream>
 
@@ -82,7 +83,7 @@ GlobalMetadataManager::GlobalMetadataManager(caf::actor_config &cfg)
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
                 }
             },
-            [=](caf::error &e) { spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(e)); });
+            [=](caf::error &e) { utility::log_caf_error(e); });
 
     behavior_.assign(
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
@@ -203,7 +204,7 @@ GlobalMetadataManager::GlobalMetadataManager(caf::actor_config &cfg)
         },
 
         [=](const caf::error &err) {
-            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+            utility::log_caf_error(err);
         },
         [=](caf::message &msg) { spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(msg)); });
 }
