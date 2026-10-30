@@ -40,6 +40,17 @@ Tip: Hit the 'Tab' key to toggle between the 'Present' layout and an alternative
 .. note::
     All aspects of your Layout and UI customisations are automatically saved so that they persist between future xSTUDIO session.
 
+Sharing Layouts
+---------------
+
+Layouts can be saved to a file and loaded into another xSTUDIO, for example to share a layout with a colleague or to carry it to another machine.
+
+To export, choose *File->Export->Layouts ...*, tick the layouts you want and press *Export...* to pick a file name. The layouts are saved to a single .json file.
+
+To import, choose *File->Import->Layouts ...* and select a file that was exported this way. The layouts it contains are listed so that you can choose which ones to add. Imported layouts are added to the end of the layout list. A layout whose name is already in use is added with a number after its name, so existing layouts are never replaced.
+
+If a layout uses a panel that is not available in your xSTUDIO (for example one that is provided by a plugin you don't have) the dialog warns you, and that panel will be blank in the imported layout.
+
 Customising the Interface Walkthrough
 -------------------------------------
 
