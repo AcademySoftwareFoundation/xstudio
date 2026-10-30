@@ -2,6 +2,8 @@ name: build Check
 
 on:
   push:
+    branches: [main, develop]
+  pull_request:
   workflow_dispatch:
 
 concurrency:
