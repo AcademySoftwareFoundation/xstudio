@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Download a pinned sccache release binary into DEST_DIR (default: .ci-cache/sccache-bin).
 #
-# Usage: ci/scripts/install-sccache.sh
+# Usage: ci/macos/scripts/install-sccache.sh
 #
 # Env:
 #   SCCACHE_VERSION=v0.19.0
@@ -13,15 +13,12 @@ SCCACHE_VERSION="${SCCACHE_VERSION:-v0.19.0}"
 DEST_DIR="${DEST_DIR:-.ci-cache/sccache-bin}"
 mkdir -p "${DEST_DIR}"
 
-os="$(uname -s)"
 arch="$(uname -m)"
-case "${os}/${arch}" in
-  Linux/x86_64)   target=x86_64-unknown-linux-musl ;;
-  Linux/aarch64)  target=aarch64-unknown-linux-musl ;;
-  Darwin/arm64)   target=aarch64-apple-darwin ;;
-  Darwin/x86_64)  target=x86_64-apple-darwin ;;
+case "${arch}" in
+  arm64)  target=aarch64-apple-darwin ;;
+  x86_64) target=x86_64-apple-darwin ;;
   *)
-    echo "ERROR: unsupported platform ${os}/${arch} for sccache" >&2
+    echo "ERROR: unsupported macOS arch ${arch} for sccache" >&2
     exit 1
     ;;
 esac

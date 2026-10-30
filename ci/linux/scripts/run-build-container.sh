@@ -89,7 +89,7 @@ case "${MODE}" in
     mkdir -p "${SCCACHE_DIR}"
     if [ ! -x "${SCCACHE_BIN_DIR}/sccache" ]; then
       echo "ERROR: sccache binary not found at ${SCCACHE_BIN_DIR}/sccache" >&2
-      echo "  Run ci/scripts/install-sccache.sh first." >&2
+      echo "  Run ci/linux/scripts/install-sccache.sh first." >&2
       exit 1
     fi
     docker_vols+=(

@@ -1,6 +1,6 @@
 # Download a pinned sccache release binary into DEST_DIR (default: .ci-cache/sccache-bin).
 #
-# Usage: ci/scripts/install-sccache.ps1
+# Usage: ci/windows/scripts/install-sccache.ps1
 #
 # Env:
 #   SCCACHE_VERSION=v0.19.0

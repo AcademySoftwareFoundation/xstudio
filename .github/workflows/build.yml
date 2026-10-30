@@ -35,12 +35,15 @@ env:
   # PR: head/base refs ; push/workflow_dispatch: ref_name / default_branch
   SCCACHE_HEAD_REF: ${{ github.head_ref || github.ref_name }}
   SCCACHE_BASE_REF: ${{ github.base_ref || github.event.repository.default_branch }}
+  # Step ceilings (hang detection). Job timeout must cover both + setup overhead.
+  TIMEOUT_DEPS_MINUTES: "120"
+  TIMEOUT_BUILD_MINUTES: "60"
 
 jobs:
   build-linux:
     name: Build (${{ matrix.deps_tag }})
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 200
     strategy:
       fail-fast: false
       matrix:
@@ -54,15 +57,15 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -84,11 +87,11 @@ jobs:
       - name: Install sccache
         env:
           DEST_DIR: ${{ env.SCCACHE_BIN_DIR }}
-        run: bash ci/scripts/install-sccache.sh
+        run: bash ci/linux/scripts/install-sccache.sh
 
       - name: Restore sccache
         id: sccache-restore
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ env.SCCACHE_DIR }}
           key: sccache-${{ runner.os }}-${{ matrix.deps_tag }}-${{ env.SCCACHE_HEAD_REF }}-${{ github.sha }}
@@ -98,6 +101,7 @@ jobs:
             sccache-${{ runner.os }}-${{ matrix.deps_tag }}-
 
       - name: Build deps
+        timeout-minutes: ${{ fromJSON(env.TIMEOUT_DEPS_MINUTES) }}
         env:
           DEPS_TAG: ${{ matrix.deps_tag }}
           VCPKG_TARGET_TRIPLET: ${{ matrix.vcpkg_triplet }}
@@ -109,6 +113,7 @@ jobs:
         run: bash ci/linux/scripts/run-build-container.sh deps
 
       - name: Build xSTUDIO
+        timeout-minutes: ${{ fromJSON(env.TIMEOUT_BUILD_MINUTES) }}
         env:
           DEPS_TAG: ${{ matrix.deps_tag }}
           VCPKG_TARGET_TRIPLET: ${{ matrix.vcpkg_triplet }}
@@ -119,7 +124,7 @@ jobs:
 
       - name: Save sccache
         if: always() && steps.sccache-restore.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ${{ env.SCCACHE_DIR }}
           key: sccache-${{ runner.os }}-${{ matrix.deps_tag }}-${{ env.SCCACHE_HEAD_REF }}-${{ github.sha }}
@@ -137,7 +142,7 @@ jobs:
   build-macos:
     name: Build (macos-arm64)
     runs-on: macos-latest
-    timeout-minutes: 360
+    timeout-minutes: 200
 
     env:
       # Qt must live outside the source tree: CMake rejects INTERFACE includes under CMAKE_SOURCE_DIR.
@@ -145,7 +150,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
@@ -157,7 +162,7 @@ jobs:
           echo "qt_version=${QT_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Restore Qt SDK cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.QT_ROOT }}
           key: qt-${{ steps.pins.outputs.qt_version }}-mac-clang64-imageformats-pdf
@@ -178,11 +183,11 @@ jobs:
       - name: Install sccache
         env:
           DEST_DIR: ${{ env.SCCACHE_BIN_DIR }}
-        run: bash ci/scripts/install-sccache.sh
+        run: bash ci/macos/scripts/install-sccache.sh
 
       - name: Restore sccache
         id: sccache-restore
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ env.SCCACHE_DIR }}
           key: sccache-${{ runner.os }}-${{ env.SCCACHE_HEAD_REF }}-${{ github.sha }}
@@ -192,9 +197,11 @@ jobs:
             sccache-${{ runner.os }}-
 
       - name: Build deps
+        timeout-minutes: ${{ fromJSON(env.TIMEOUT_DEPS_MINUTES) }}
         run: bash ci/macos/scripts/build-deps.sh
 
       - name: Build xSTUDIO
+        timeout-minutes: ${{ fromJSON(env.TIMEOUT_BUILD_MINUTES) }}
         env:
           CMAKE_C_COMPILER_LAUNCHER: ${{ env.SCCACHE_BIN_DIR }}/sccache
           CMAKE_CXX_COMPILER_LAUNCHER: ${{ env.SCCACHE_BIN_DIR }}/sccache
@@ -202,7 +209,7 @@ jobs:
 
       - name: Save sccache
         if: always() && steps.sccache-restore.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ${{ env.SCCACHE_DIR }}
           key: sccache-${{ runner.os }}-${{ env.SCCACHE_HEAD_REF }}-${{ github.sha }}
@@ -216,7 +223,7 @@ jobs:
     # windows-2022 = VS 2022 (matches ASWF docs). windows-latest is VS 2026 / MSVC 14.51,
     # which breaks Qt 6.5.3 (removed stdext::checked_array_iterator).
     runs-on: windows-2022
-    timeout-minutes: 360
+    timeout-minutes: 200
 
     env:
       # Qt must live outside the source tree: CMake rejects INTERFACE includes under CMAKE_SOURCE_DIR.
@@ -224,7 +231,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
@@ -248,7 +255,7 @@ jobs:
           }
 
       - name: Restore Qt SDK cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.QT_ROOT }}
           key: qt-${{ steps.pins.outputs.qt_version }}-win-msvc2019_64-imageformats-pdf
@@ -274,11 +281,11 @@ jobs:
 
       - name: Install sccache
         shell: pwsh
-        run: .\ci\scripts\install-sccache.ps1
+        run: .\ci\windows\scripts\install-sccache.ps1
 
       - name: Restore sccache
         id: sccache-restore
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ env.SCCACHE_DIR }}
           key: sccache-${{ runner.os }}-${{ env.SCCACHE_HEAD_REF }}-${{ github.sha }}
@@ -288,6 +295,7 @@ jobs:
             sccache-${{ runner.os }}-
 
       - name: Build deps
+        timeout-minutes: ${{ fromJSON(env.TIMEOUT_DEPS_MINUTES) }}
         shell: pwsh
         env:
           # msvc-dev-cmd overwrites VCPKG_ROOT; restore our sibling clone.
@@ -295,6 +303,7 @@ jobs:
         run: .\ci\windows\scripts\build-deps.ps1
 
       - name: Build xSTUDIO
+        timeout-minutes: ${{ fromJSON(env.TIMEOUT_BUILD_MINUTES) }}
         shell: pwsh
         env:
           VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
@@ -304,7 +313,7 @@ jobs:
 
       - name: Save sccache
         if: always() && steps.sccache-restore.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ${{ env.SCCACHE_DIR }}
           key: sccache-${{ runner.os }}-${{ env.SCCACHE_HEAD_REF }}-${{ github.sha }}
