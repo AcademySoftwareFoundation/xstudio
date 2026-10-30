@@ -77,15 +77,9 @@ jobs:
         run: bash ci/linux/scripts/ensure-toolchain-image.sh
 
       - name: Bootstrap vcpkg
-        run: |
-          baseline="$(python3 -c "import json; print(json.load(open('vcpkg.json'))['builtin-baseline'])")"
-          if [ ! -d "${VCPKG_ROOT}/.git" ]; then
-            git clone https://github.com/microsoft/vcpkg.git "${VCPKG_ROOT}"
-          else
-            git -C "${VCPKG_ROOT}" fetch origin
-          fi
-          git -C "${VCPKG_ROOT}" checkout --force "${baseline}"
-          "${VCPKG_ROOT}/bootstrap-vcpkg.sh" -disableMetrics
+        uses: ./.github/actions/bootstrap-vcpkg
+        with:
+          vcpkg-root: ${{ env.VCPKG_ROOT }}
 
       - name: Install sccache
         env:
@@ -169,15 +163,9 @@ jobs:
           key: qt-${{ steps.pins.outputs.qt_version }}-mac-clang64-imageformats-pdf
 
       - name: Bootstrap vcpkg
-        run: |
-          baseline="$(python3 -c "import json; print(json.load(open('vcpkg.json'))['builtin-baseline'])")"
-          if [ ! -d "${VCPKG_ROOT}/.git" ]; then
-            git clone https://github.com/microsoft/vcpkg.git "${VCPKG_ROOT}"
-          else
-            git -C "${VCPKG_ROOT}" fetch origin
-          fi
-          git -C "${VCPKG_ROOT}" checkout --force "${baseline}"
-          "${VCPKG_ROOT}/bootstrap-vcpkg.sh" -disableMetrics
+        uses: ./.github/actions/bootstrap-vcpkg
+        with:
+          vcpkg-root: ${{ env.VCPKG_ROOT }}
 
       - name: Set up NuGet credentials
         run: |
@@ -277,21 +265,9 @@ jobs:
 
       # Before msvc-dev-cmd: that action overwrites VCPKG_ROOT with the VS-bundled copy.
       - name: Bootstrap vcpkg
-        shell: pwsh
-        run: |
-          $baseline = (Get-Content -Raw vcpkg.json | ConvertFrom-Json).'builtin-baseline'
-          if (-not (Test-Path -LiteralPath (Join-Path $env:VCPKG_ROOT '.git'))) {
-            git clone https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
-            if ($LASTEXITCODE -ne 0) { throw "git clone failed ($LASTEXITCODE)" }
-          } else {
-            git -C $env:VCPKG_ROOT fetch origin
-            if ($LASTEXITCODE -ne 0) { throw "git fetch failed ($LASTEXITCODE)" }
-          }
-          git -C $env:VCPKG_ROOT checkout --force $baseline
-          if ($LASTEXITCODE -ne 0) { throw "git checkout failed ($LASTEXITCODE)" }
-          $bootstrap = Join-Path $env:VCPKG_ROOT 'bootstrap-vcpkg.bat'
-          cmd.exe /c "`"$bootstrap`" -disableMetrics"
-          if ($LASTEXITCODE -ne 0) { throw "bootstrap-vcpkg failed ($LASTEXITCODE)" }
+        uses: ./.github/actions/bootstrap-vcpkg
+        with:
+          vcpkg-root: ${{ env.VCPKG_ROOT }}
 
       - name: Set up NuGet credentials
         shell: pwsh
