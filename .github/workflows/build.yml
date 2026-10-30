@@ -101,7 +101,7 @@ jobs:
           restore-keys: |
             sccache-${{ runner.os }}-${{ matrix.deps_tag }}-${{ github.ref_name }}-
 
-      - name: Build xSTUDIO
+      - name: Build deps
         env:
           DEPS_TAG: ${{ matrix.deps_tag }}
           VCPKG_TARGET_TRIPLET: ${{ matrix.vcpkg_triplet }}
@@ -110,7 +110,16 @@ jobs:
           # Re-bootstrap inside the container so the vcpkg tool matches the image libc
           # (important for Rocky). Host step above only warms the git clone.
           SKIP_VCPKG_BOOTSTRAP: "0"
-        run: bash ci/linux/scripts/run-build-container.sh
+        run: bash ci/linux/scripts/run-build-container.sh deps
+
+      - name: Build xSTUDIO
+        env:
+          DEPS_TAG: ${{ matrix.deps_tag }}
+          VCPKG_TARGET_TRIPLET: ${{ matrix.vcpkg_triplet }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NUGET_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          SKIP_VCPKG_BOOTSTRAP: "1"
+        run: bash ci/linux/scripts/run-build-container.sh build
 
       - name: sccache stats
         if: always()
