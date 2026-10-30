@@ -69,26 +69,34 @@ if (-not (Test-Path -LiteralPath $VcpkgExe)) {
     throw "ERROR: vcpkg not found at $VcpkgRoot`n  Run ci/windows/scripts/build-deps.ps1 first."
 }
 
-# Deps are installed by build-deps.ps1; skip toolchain re-install on configure.
+# Deps live in $RepoRoot\vcpkg_installed (toolchain default is build\vcpkg_installed).
+# Pass sccache as cmake cache vars only — leaving them in the environment breaks
+# pip's isolated cmake (OpenTimelineIO wheel) during configure.
 $cmakeArgs = @(
     '-S', $RepoRoot,
     '-B', $BuildDir,
     '--preset', 'WinNinjaRelease',
     "-DQt6_DIR=$Qt6Dir",
     "-DBUILD_TESTING=$BuildTesting",
-    '-DVCPKG_MANIFEST_INSTALL=OFF'
+    '-DVCPKG_MANIFEST_INSTALL=OFF',
+    "-DVCPKG_INSTALLED_DIR=$(Join-Path $RepoRoot 'vcpkg_installed')"
 )
-if ($env:CMAKE_C_COMPILER_LAUNCHER) {
-    $cmakeArgs += "-DCMAKE_C_COMPILER_LAUNCHER=$($env:CMAKE_C_COMPILER_LAUNCHER)"
+$cLauncher = $env:CMAKE_C_COMPILER_LAUNCHER
+$cxxLauncher = $env:CMAKE_CXX_COMPILER_LAUNCHER
+if ($cLauncher) {
+    $cmakeArgs += "-DCMAKE_C_COMPILER_LAUNCHER=$cLauncher"
 }
-if ($env:CMAKE_CXX_COMPILER_LAUNCHER) {
-    $cmakeArgs += "-DCMAKE_CXX_COMPILER_LAUNCHER=$($env:CMAKE_CXX_COMPILER_LAUNCHER)"
+if ($cxxLauncher) {
+    $cmakeArgs += "-DCMAKE_CXX_COMPILER_LAUNCHER=$cxxLauncher"
 }
-if ($env:CMAKE_C_COMPILER_LAUNCHER -or $env:CMAKE_CXX_COMPILER_LAUNCHER) {
+if ($cLauncher -or $cxxLauncher) {
     # sccache cannot cache MSVC /Zi shared PDBs; embed debug info (/Z7) instead.
     $cmakeArgs += '-DCMAKE_POLICY_DEFAULT_CMP0141=NEW'
     $cmakeArgs += '-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded'
 }
+
+Remove-Item Env:CMAKE_C_COMPILER_LAUNCHER -ErrorAction SilentlyContinue
+Remove-Item Env:CMAKE_CXX_COMPILER_LAUNCHER -ErrorAction SilentlyContinue
 
 Write-Log 'Configuring with preset WinNinjaRelease'
 Invoke-Checked cmake $cmakeArgs

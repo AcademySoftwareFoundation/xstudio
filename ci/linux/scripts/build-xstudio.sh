@@ -85,9 +85,14 @@ if [ -n "${CMAKE_CXX_COMPILER_LAUNCHER:-}" ]; then
 fi
 
 log "Configuring xSTUDIO with preset ${CMAKE_PRESET}"
-# Deps are installed by build-deps.sh; do not let the vcpkg toolchain re-run
-# manifest install (would rebuild ports if CMAKE_*_COMPILER_LAUNCHER / env differs).
+# Deps are installed by build-deps.sh into ${SRC}/vcpkg_installed. Manifest
+# install stays OFF so cmake does not rebuild ports (sccache launchers would
+# change the ABI hash). Point VCPKG_INSTALLED_DIR at that tree — the toolchain
+# default is ${CMAKE_BINARY_DIR}/vcpkg_installed, which is empty here.
+# Do not export CMAKE_*_COMPILER_LAUNCHER into the environment (breaks pip's
+# isolated cmake); pass them only as cache vars for the xSTUDIO compile.
 # GCC 13+: keep -Werror but ignore maybe-uninitialized (Imath inlines).
+env -u CMAKE_C_COMPILER_LAUNCHER -u CMAKE_CXX_COMPILER_LAUNCHER \
 cmake -S "${SRC}" -B "${SRC}/build" \
   --preset "${CMAKE_PRESET}" \
   -DQt6_DIR="${QT6_DIR}" \
@@ -96,6 +101,7 @@ cmake -S "${SRC}" -B "${SRC}/build" \
   -DBUILD_TESTING="${BUILD_TESTING:-OFF}" \
   -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
   -DVCPKG_MANIFEST_INSTALL=OFF \
+  -DVCPKG_INSTALLED_DIR="${SRC}/vcpkg_installed" \
   "${cmake_extra[@]}" \
   "${cmake_launcher_args[@]}"
 

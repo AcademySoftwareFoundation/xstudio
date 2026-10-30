@@ -114,13 +114,16 @@ fi
 export VCPKG_DEFAULT_TRIPLET="${VCPKG_TARGET_TRIPLET}"
 export VCPKG_MAX_CONCURRENCY="${JOBS}"
 
+# Same install root as build-xstudio.sh (-DVCPKG_INSTALLED_DIR=.../vcpkg_installed).
+# Explicit --x-install-root avoids drifting from cmake's default (build/vcpkg_installed).
 log "Installing vcpkg manifest dependencies (${VCPKG_TARGET_TRIPLET})"
 (
   cd "${SRC}"
   "${VCPKG_ROOT}/vcpkg" install \
     --triplet "${VCPKG_TARGET_TRIPLET}" \
     --overlay-ports="${SRC}/cmake/vcpkg_overlay_ports" \
-    --overlay-triplets="${SRC}/cmake/vcpkg_triplets"
+    --overlay-triplets="${SRC}/cmake/vcpkg_triplets" \
+    --x-install-root="${SRC}/vcpkg_installed"
 )
 
 log "Linux vcpkg deps OK"

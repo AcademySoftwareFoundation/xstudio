@@ -126,14 +126,17 @@ if ($NeedBootstrap) {
 }
 
 # --- vcpkg manifest ports -----------------------------------------------------
+# Same install root as build-xstudio.ps1 (-DVCPKG_INSTALLED_DIR=...\vcpkg_installed).
 Write-Log 'Installing vcpkg manifest dependencies (triplet x64-windows)'
 $OverlayPorts = Join-Path $RepoRoot 'cmake\vcpkg_overlay_ports'
+$InstallRoot = Join-Path $RepoRoot 'vcpkg_installed'
 Push-Location $RepoRoot
 try {
     Invoke-Checked $VcpkgExe @(
         'install',
         '--triplet', 'x64-windows',
-        "--overlay-ports=$OverlayPorts"
+        "--overlay-ports=$OverlayPorts",
+        "--x-install-root=$InstallRoot"
     )
 } finally {
     Pop-Location

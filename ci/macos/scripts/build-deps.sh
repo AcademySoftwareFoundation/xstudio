@@ -90,13 +90,15 @@ else
 fi
 
 # --- vcpkg manifest ports (ffmpeg, OIIO, …) -----------------------------------
+# Same install root as build-xstudio.sh (-DVCPKG_INSTALLED_DIR=.../vcpkg_installed).
 log "Installing vcpkg manifest dependencies (triplet arm-osx)"
 (
   cd "${REPO_ROOT}"
   "${VCPKG_ROOT}/vcpkg" install \
     --triplet arm-osx \
     --overlay-ports="${REPO_ROOT}/cmake/vcpkg_overlay_ports" \
-    --overlay-triplets="${REPO_ROOT}/cmake/vcpkg_triplets"
+    --overlay-triplets="${REPO_ROOT}/cmake/vcpkg_triplets" \
+    --x-install-root="${REPO_ROOT}/vcpkg_installed"
 )
 
 log "macOS deps OK"

@@ -48,12 +48,15 @@ if [ -n "${CMAKE_CXX_COMPILER_LAUNCHER:-}" ]; then
 fi
 
 log "Configuring with preset MacOSNinjaRelease"
-# Deps are installed by build-deps.sh; skip toolchain re-install on configure.
+# Deps live in ${REPO_ROOT}/vcpkg_installed (not build/vcpkg_installed).
+# Keep launchers out of the environment so pip's isolated builds are unaffected.
+env -u CMAKE_C_COMPILER_LAUNCHER -u CMAKE_CXX_COMPILER_LAUNCHER \
 cmake -S "${REPO_ROOT}" -B "${REPO_ROOT}/build" \
   --preset MacOSNinjaRelease \
   -DQt6_DIR="${QT6_DIR}" \
   -DBUILD_TESTING="${BUILD_TESTING:-OFF}" \
   -DVCPKG_MANIFEST_INSTALL=OFF \
+  -DVCPKG_INSTALLED_DIR="${REPO_ROOT}/vcpkg_installed" \
   "${cmake_launcher_args[@]}"
 
 log "Building xSTUDIO"
