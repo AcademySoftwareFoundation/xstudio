@@ -29,9 +29,11 @@ jobs:
       matrix:
         include:
           - deps_tag: ubuntu2404
-            deps_file: ci/linux/dockerfiles/ubuntu2404.deps.Dockerfile
+            deps_file: ci/linux/dockerfiles/ubuntu2404.toolchain.Dockerfile
+            vcpkg_triplet: x64-xstudio-linux-ubuntu2404
           - deps_tag: rocky9
-            deps_file: ci/linux/dockerfiles/rocky9.deps.Dockerfile
+            deps_file: ci/linux/dockerfiles/rocky9.toolchain.Dockerfile
+            vcpkg_triplet: x64-xstudio-linux-rocky9
 
     env:
       JOBS: "4"
@@ -40,6 +42,10 @@ jobs:
       BUILD_TESTING: "OFF"
       SCCACHE_DIR: ${{ github.workspace }}/.ci-cache/sccache
       SCCACHE_BIN_DIR: ${{ github.workspace }}/.ci-cache/sccache-bin
+      VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
+      VCPKG_BINARY_SOURCES: "clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,readwrite"
+      FEED_URL: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+      NUGET_OWNER: ${{ github.repository_owner }}
 
     steps:
       - name: Check out repository
@@ -57,13 +63,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Ensure deps image
+      - name: Ensure toolchain image
         env:
           DEPS_TAG: ${{ matrix.deps_tag }}
           DEPS_FILE: ${{ matrix.deps_file }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
-        run: bash ci/linux/scripts/ensure-deps-image.sh
+        run: bash ci/linux/scripts/ensure-toolchain-image.sh
+
+      - name: Bootstrap vcpkg
+        run: |
+          baseline="$(python3 -c "import json; print(json.load(open('vcpkg.json'))['builtin-baseline'])")"
+          if [ ! -d "${VCPKG_ROOT}/.git" ]; then
+            git clone https://github.com/microsoft/vcpkg.git "${VCPKG_ROOT}"
+          else
+            git -C "${VCPKG_ROOT}" fetch origin
+          fi
+          git -C "${VCPKG_ROOT}" checkout --force "${baseline}"
+          "${VCPKG_ROOT}/bootstrap-vcpkg.sh" -disableMetrics
 
       - name: Install sccache
         env:
@@ -81,6 +98,12 @@ jobs:
       - name: Build xSTUDIO
         env:
           DEPS_TAG: ${{ matrix.deps_tag }}
+          VCPKG_TARGET_TRIPLET: ${{ matrix.vcpkg_triplet }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NUGET_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          # Re-bootstrap inside the container so the vcpkg tool matches the image libc
+          # (important for Rocky). Host step above only warms the git clone.
+          SKIP_VCPKG_BOOTSTRAP: "0"
         run: bash ci/linux/scripts/run-build-container.sh
 
       - name: sccache stats

@@ -20,6 +20,9 @@ docs/conf.py
 devenv/
 compile_commands.json
 
+# vcpkg manifest install tree (created under the repo by CI / devenv)
+vcpkg_installed/
+
 # Build trees
 ignore/
 build/

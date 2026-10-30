@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Install build tooling the distro cannot provide at the required version:
-# recent CMake, Ninja, pybind11 2.13.x, and Qt 6.5.x via aqtinstall.
+# recent CMake, Ninja, and Qt 6.5.x via aqtinstall.
 #
 # Usage: ci/linux/scripts/build-tools.sh
 #
 # Overridable env:
 #   JOBS=1
 #   QT_ROOT=/opt/qt
-#   CMAKE_VERSION NINJA_VERSION PYBIND11_VERSION AQTINSTALL_VERSION QT_VERSION
+#   CMAKE_VERSION NINJA_VERSION AQTINSTALL_VERSION QT_VERSION
 #     (Docker ARG/ENV, or ci/linux/versions.env for local runs)
 
 set -euo pipefail
@@ -17,7 +17,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/build-common.sh"
 
 source_versions_env
-require_env CMAKE_VERSION NINJA_VERSION PYBIND11_VERSION AQTINSTALL_VERSION QT_VERSION
+require_env CMAKE_VERSION NINJA_VERSION AQTINSTALL_VERSION QT_VERSION
 
 QT_ROOT="${QT_ROOT:-/opt/qt}"
 QT_GCC="${QT_ROOT}/${QT_VERSION}/gcc_64"
@@ -32,19 +32,16 @@ pip_install() {
         || python3 -m pip install --no-cache-dir "$@"
 }
 
-# --- CMake + Ninja + pybind11 + aqtinstall ------------------------------------
-log "Installing CMake ${CMAKE_VERSION} + Ninja ${NINJA_VERSION} + pybind11 ${PYBIND11_VERSION} + aqtinstall ${AQTINSTALL_VERSION}"
+log "Installing CMake ${CMAKE_VERSION} + Ninja ${NINJA_VERSION} + aqtinstall ${AQTINSTALL_VERSION}"
 pip_install \
     "cmake==${CMAKE_VERSION}" \
     "ninja==${NINJA_VERSION}" \
-    "pybind11==${PYBIND11_VERSION}" \
     "aqtinstall==${AQTINSTALL_VERSION}"
 
 hash -r
 log "Toolchain versions:"
 cmake --version | head -1
 ninja --version
-echo "pybind11: $(python3 -m pybind11 --version 2>/dev/null || echo "${PYBIND11_VERSION}")"
 
 # --- Qt SDK (official mirrors, no Qt account) ---------------------------------
 if [ -d "${QT6_DIR}" ]; then
