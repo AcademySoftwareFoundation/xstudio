@@ -18,12 +18,14 @@ ENV JOBS=${JOBS}
 
 RUN dnf -y install dnf-plugins-core \
     && dnf config-manager --set-enabled crb \
+    && dnf -y install epel-release \
     && dnf -y groupinstall "Development Tools" \
     && dnf -y install \
-        git wget curl ca-certificates pkgconf-pkg-config \
+        git wget ca-certificates pkgconf-pkg-config \
         zip unzip tar xz bzip2 which file \
         autoconf automake libtool nasm bison flex \
         python3 python3-devel python3-pip \
+        mono-complete \
         alsa-lib-devel pulseaudio-libs-devel \
         freeglut-devel mesa-libGL-devel mesa-libGLU-devel mesa-libEGL-devel libglvnd-devel \
         libuuid-devel freetype-devel \
