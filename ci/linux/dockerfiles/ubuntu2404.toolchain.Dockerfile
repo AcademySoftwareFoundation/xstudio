@@ -21,7 +21,7 @@ ENV JOBS=${JOBS}
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential git wget curl ca-certificates pkg-config \
         zip unzip tar xz-utils bzip2 \
-        autoconf automake libtool nasm yasm bison flex \
+        autoconf automake autoconf-archive libtool nasm yasm bison flex \
         python3 python3-pip python3-dev python-is-python3 libpython3-dev \
         mono-complete \
         libssl-dev zlib1g-dev libasound2-dev uuid-dev \

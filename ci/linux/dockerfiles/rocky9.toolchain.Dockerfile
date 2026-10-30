@@ -23,7 +23,7 @@ RUN dnf -y install dnf-plugins-core \
     && dnf -y install \
         git wget ca-certificates pkgconf-pkg-config \
         zip unzip tar xz bzip2 which file \
-        autoconf automake libtool nasm bison flex \
+        autoconf automake autoconf-archive libtool nasm bison flex \
         perl perl-IPC-Cmd kernel-headers \
         python3 python3-devel python3-pip \
         mono-complete \
