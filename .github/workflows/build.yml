@@ -32,6 +32,9 @@ env:
   NUGET_OWNER: ${{ github.repository_owner }}
   SCCACHE_DIR: ${{ github.workspace }}/.ci-cache/sccache
   SCCACHE_BIN_DIR: ${{ github.workspace }}/.ci-cache/sccache-bin
+  # PR: head/base refs ; push/workflow_dispatch: ref_name / default_branch
+  SCCACHE_HEAD_REF: ${{ github.head_ref || github.ref_name }}
+  SCCACHE_BASE_REF: ${{ github.base_ref || github.event.repository.default_branch }}
 
 jobs:
   build-linux:
@@ -90,12 +93,15 @@ jobs:
         run: bash ci/scripts/install-sccache.sh
 
       - name: Restore sccache
-        uses: actions/cache@v4
+        id: sccache-restore
+        uses: actions/cache/restore@v4
         with:
           path: ${{ env.SCCACHE_DIR }}
-          key: sccache-${{ runner.os }}-${{ matrix.deps_tag }}-${{ github.ref_name }}-${{ github.sha }}
+          key: sccache-${{ runner.os }}-${{ matrix.deps_tag }}-${{ env.SCCACHE_HEAD_REF }}-${{ github.sha }}
           restore-keys: |
-            sccache-${{ runner.os }}-${{ matrix.deps_tag }}-${{ github.ref_name }}-
+            sccache-${{ runner.os }}-${{ matrix.deps_tag }}-${{ env.SCCACHE_HEAD_REF }}-
+            sccache-${{ runner.os }}-${{ matrix.deps_tag }}-${{ env.SCCACHE_BASE_REF }}-
+            sccache-${{ runner.os }}-${{ matrix.deps_tag }}-
 
       - name: Build deps
         env:
@@ -116,6 +122,13 @@ jobs:
           NUGET_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
           SKIP_VCPKG_BOOTSTRAP: "1"
         run: bash ci/linux/scripts/run-build-container.sh build
+
+      - name: Save sccache
+        if: always() && steps.sccache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.SCCACHE_DIR }}
+          key: sccache-${{ runner.os }}-${{ matrix.deps_tag }}-${{ env.SCCACHE_HEAD_REF }}-${{ github.sha }}
 
       - name: sccache stats
         if: always()
@@ -190,12 +203,15 @@ jobs:
         run: bash ci/scripts/install-sccache.sh
 
       - name: Restore sccache
-        uses: actions/cache@v4
+        id: sccache-restore
+        uses: actions/cache/restore@v4
         with:
           path: ${{ env.SCCACHE_DIR }}
-          key: sccache-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+          key: sccache-${{ runner.os }}-${{ env.SCCACHE_HEAD_REF }}-${{ github.sha }}
           restore-keys: |
-            sccache-${{ runner.os }}-${{ github.ref_name }}-
+            sccache-${{ runner.os }}-${{ env.SCCACHE_HEAD_REF }}-
+            sccache-${{ runner.os }}-${{ env.SCCACHE_BASE_REF }}-
+            sccache-${{ runner.os }}-
 
       - name: Build deps
         run: bash ci/macos/scripts/build-deps.sh
@@ -205,6 +221,13 @@ jobs:
           CMAKE_C_COMPILER_LAUNCHER: ${{ env.SCCACHE_BIN_DIR }}/sccache
           CMAKE_CXX_COMPILER_LAUNCHER: ${{ env.SCCACHE_BIN_DIR }}/sccache
         run: bash ci/macos/scripts/build-xstudio.sh
+
+      - name: Save sccache
+        if: always() && steps.sccache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.SCCACHE_DIR }}
+          key: sccache-${{ runner.os }}-${{ env.SCCACHE_HEAD_REF }}-${{ github.sha }}
 
       - name: sccache stats
         if: always()
@@ -301,30 +324,18 @@ jobs:
 
       - name: Install sccache
         shell: pwsh
-        run: |
-          $version = $env:SCCACHE_VERSION
-          $dest = $env:SCCACHE_BIN_DIR
-          New-Item -ItemType Directory -Force -Path $dest | Out-Null
-          $asset = "sccache-$version-x86_64-pc-windows-msvc.zip"
-          $url = "https://github.com/mozilla/sccache/releases/download/$version/$asset"
-          $zip = Join-Path $env:RUNNER_TEMP $asset
-          Write-Host "==> Downloading $url"
-          Invoke-WebRequest -Uri $url -OutFile $zip
-          Expand-Archive -Path $zip -DestinationPath $env:RUNNER_TEMP -Force
-          $exe = Get-ChildItem -Path $env:RUNNER_TEMP -Recurse -Filter 'sccache.exe' |
-            Select-Object -First 1
-          if (-not $exe) { throw "sccache.exe not found in $asset" }
-          Copy-Item -Force $exe.FullName (Join-Path $dest 'sccache.exe')
-          & (Join-Path $dest 'sccache.exe') --version
-          if ($LASTEXITCODE -ne 0) { throw "sccache --version failed ($LASTEXITCODE)" }
+        run: .\ci\scripts\install-sccache.ps1
 
       - name: Restore sccache
-        uses: actions/cache@v4
+        id: sccache-restore
+        uses: actions/cache/restore@v4
         with:
           path: ${{ env.SCCACHE_DIR }}
-          key: sccache-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+          key: sccache-${{ runner.os }}-${{ env.SCCACHE_HEAD_REF }}-${{ github.sha }}
           restore-keys: |
-            sccache-${{ runner.os }}-${{ github.ref_name }}-
+            sccache-${{ runner.os }}-${{ env.SCCACHE_HEAD_REF }}-
+            sccache-${{ runner.os }}-${{ env.SCCACHE_BASE_REF }}-
+            sccache-${{ runner.os }}-
 
       - name: Build deps
         shell: pwsh
@@ -340,6 +351,13 @@ jobs:
           CMAKE_C_COMPILER_LAUNCHER: ${{ env.SCCACHE_BIN_DIR }}/sccache.exe
           CMAKE_CXX_COMPILER_LAUNCHER: ${{ env.SCCACHE_BIN_DIR }}/sccache.exe
         run: .\ci\windows\scripts\build-xstudio.ps1
+
+      - name: Save sccache
+        if: always() && steps.sccache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.SCCACHE_DIR }}
+          key: sccache-${{ runner.os }}-${{ env.SCCACHE_HEAD_REF }}-${{ github.sha }}
 
       - name: sccache stats
         if: always()
