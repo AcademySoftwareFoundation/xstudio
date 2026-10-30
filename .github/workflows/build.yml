@@ -168,22 +168,12 @@ jobs:
           vcpkg-root: ${{ env.VCPKG_ROOT }}
 
       - name: Set up NuGet credentials
-        run: |
-          brew list mono &>/dev/null || brew install mono
-          nuget="$(${VCPKG_ROOT}/vcpkg fetch nuget | tail -n 1)"
-          mono "${nuget}" sources add \
-            -Source "${FEED_URL}" \
-            -StorePasswordInClearText \
-            -Name GitHubPackages \
-            -UserName "${NUGET_OWNER}" \
-            -Password "${{ secrets.GITHUB_TOKEN }}" \
-            || mono "${nuget}" sources update \
-              -Source "${FEED_URL}" \
-              -StorePasswordInClearText \
-              -Name GitHubPackages \
-              -UserName "${NUGET_OWNER}" \
-              -Password "${{ secrets.GITHUB_TOKEN }}"
-          mono "${nuget}" setapikey "${{ secrets.GITHUB_TOKEN }}" -Source "${FEED_URL}"
+        uses: ./.github/actions/setup-nuget-credentials
+        with:
+          vcpkg-root: ${{ env.VCPKG_ROOT }}
+          feed-url: ${{ env.FEED_URL }}
+          username: ${{ env.NUGET_OWNER }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install sccache
         env:
@@ -270,28 +260,12 @@ jobs:
           vcpkg-root: ${{ env.VCPKG_ROOT }}
 
       - name: Set up NuGet credentials
-        shell: pwsh
-        run: |
-          $vcpkg = Join-Path $env:VCPKG_ROOT 'vcpkg.exe'
-          $nuget = (& $vcpkg fetch nuget | Select-Object -Last 1).Trim()
-          if ($LASTEXITCODE -ne 0) { throw "vcpkg fetch nuget failed ($LASTEXITCODE)" }
-          & $nuget sources add `
-            -Source $env:FEED_URL `
-            -StorePasswordInClearText `
-            -Name GitHubPackages `
-            -UserName $env:NUGET_OWNER `
-            -Password '${{ secrets.GITHUB_TOKEN }}'
-          if ($LASTEXITCODE -ne 0) {
-            & $nuget sources update `
-              -Source $env:FEED_URL `
-              -StorePasswordInClearText `
-              -Name GitHubPackages `
-              -UserName $env:NUGET_OWNER `
-              -Password '${{ secrets.GITHUB_TOKEN }}'
-            if ($LASTEXITCODE -ne 0) { throw "nuget sources update failed ($LASTEXITCODE)" }
-          }
-          & $nuget setapikey '${{ secrets.GITHUB_TOKEN }}' -Source $env:FEED_URL
-          if ($LASTEXITCODE -ne 0) { throw "nuget setapikey failed ($LASTEXITCODE)" }
+        uses: ./.github/actions/setup-nuget-credentials
+        with:
+          vcpkg-root: ${{ env.VCPKG_ROOT }}
+          feed-url: ${{ env.FEED_URL }}
+          username: ${{ env.NUGET_OWNER }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up MSVC developer command prompt
         uses: ilammy/msvc-dev-cmd@v1
