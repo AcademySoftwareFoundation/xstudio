@@ -66,7 +66,6 @@ if [ ! -x "${VCPKG_ROOT}/vcpkg" ]; then
   exit 1
 fi
 
-# NuGet credentials for GitHub Packages binary cache (no mono required).
 if [ -n "${NUGET_PASSWORD:-${GITHUB_TOKEN:-}}" ] && [ -n "${FEED_URL:-}" ] && [ -n "${NUGET_OWNER:-}" ]; then
   NUGET_PASSWORD="${NUGET_PASSWORD:-${GITHUB_TOKEN}}"
   NUGET_SOURCE_NAME="${NUGET_SOURCE_NAME:-GitHubPackages}"
@@ -90,6 +89,26 @@ if [ -n "${NUGET_PASSWORD:-${GITHUB_TOKEN:-}}" ] && [ -n "${FEED_URL:-}" ] && [ 
 </configuration>
 EOF
   log "NuGet config → ${NUGET_CONFIG_DIR}/NuGet.Config (${FEED_URL})"
+
+  if command -v mono >/dev/null 2>&1; then
+    nuget="$("${VCPKG_ROOT}/vcpkg" fetch nuget | tail -n 1)"
+    if [ -f "${nuget}" ]; then
+      mono "${nuget}" sources add \
+        -Source "${FEED_URL}" \
+        -StorePasswordInClearText \
+        -Name "${NUGET_SOURCE_NAME}" \
+        -UserName "${NUGET_OWNER}" \
+        -Password "${NUGET_PASSWORD}" \
+        || mono "${nuget}" sources update \
+          -Source "${FEED_URL}" \
+          -StorePasswordInClearText \
+          -Name "${NUGET_SOURCE_NAME}" \
+          -UserName "${NUGET_OWNER}" \
+          -Password "${NUGET_PASSWORD}"
+      mono "${nuget}" setapikey "${NUGET_PASSWORD}" -Source "${FEED_URL}"
+      log "NuGet setapikey OK (${FEED_URL})"
+    fi
+  fi
 fi
 
 export VCPKG_DEFAULT_TRIPLET="${VCPKG_TARGET_TRIPLET}"
