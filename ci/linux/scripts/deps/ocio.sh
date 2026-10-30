@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # OpenColorIO.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../lib.sh
-source "$HERE/../lib.sh"
+# shellcheck source=../build-common.sh
+source "$HERE/../build-common.sh"
 
 require_env OCIO_VERSION
 log "Building OpenColorIO ${OCIO_VERSION}"

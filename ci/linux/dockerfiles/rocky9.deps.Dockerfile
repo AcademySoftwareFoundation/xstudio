@@ -20,7 +20,7 @@ FROM ${ROCKY_IMAGE} AS deps
 ENV DISTRO=rocky9 \
     QT_ROOT=/opt/qt
 
-# Build parallelism (empty -> 1 in lib.sh).
+# Build parallelism (empty -> 1 in build-common.sh).
 ARG JOBS=
 ENV JOBS=${JOBS}
 
@@ -44,7 +44,7 @@ RUN dnf -y install dnf-plugins-core \
     && dnf clean all
 
 # Shared helpers (cmake_build, fetch, …)
-COPY scripts/lib.sh /build/scripts/lib.sh
+COPY scripts/build-common.sh /build/scripts/build-common.sh
 
 # ---------------------------------------------------------------------------
 # 2) Build tools: CMake, Ninja, pybind11, Qt 6 (aqtinstall)

@@ -28,7 +28,7 @@ RUN dnf -y install epel-release \
     && dnf -y install libxkbcommon-devel gtest-devel \
     && dnf clean all
 
-# Build scripts (build-xstudio.sh, run-tests.sh, lib.sh, …).
+# Build scripts (build-xstudio.sh, run-tests.sh, build-common.sh, …).
 COPY ci/linux/scripts/ /build/scripts/
 
 # xSTUDIO sources from the current checkout.

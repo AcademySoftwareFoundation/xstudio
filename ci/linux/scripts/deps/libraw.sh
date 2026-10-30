@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # LibRaw (RAW image support for OpenImageIO). Built after libjpeg-turbo.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../lib.sh
-source "$HERE/../lib.sh"
+# shellcheck source=../build-common.sh
+source "$HERE/../build-common.sh"
 
 require_env LIBRAW_VERSION
 log "Building LibRaw ${LIBRAW_VERSION}"

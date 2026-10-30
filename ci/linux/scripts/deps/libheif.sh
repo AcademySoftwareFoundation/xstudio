@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # libheif (HEIF/HEIC support for OpenImageIO). Built after libde265 and codecs.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../lib.sh
-source "$HERE/../lib.sh"
+# shellcheck source=../build-common.sh
+source "$HERE/../build-common.sh"
 
 require_env LIBHEIF_VERSION
 log "Building libheif ${LIBHEIF_VERSION}"

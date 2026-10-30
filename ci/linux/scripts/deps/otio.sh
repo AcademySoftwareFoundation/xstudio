@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # OpenTimelineIO. Built after OpenEXR/Imath (OTIO_FIND_IMATH=ON).
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../lib.sh
-source "$HERE/../lib.sh"
+# shellcheck source=../build-common.sh
+source "$HERE/../build-common.sh"
 
 require_env OTIO_REF
 log "Building OpenTimelineIO (${OTIO_REF})"

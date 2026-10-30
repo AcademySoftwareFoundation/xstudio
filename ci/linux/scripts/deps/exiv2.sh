@@ -3,8 +3,8 @@
 # distro packages are 0.27 and only export exiv2lib, while xSTUDIO links
 # Exiv2::exiv2lib (0.28+ cmake namespace).
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../lib.sh
-source "$HERE/../lib.sh"
+# shellcheck source=../build-common.sh
+source "$HERE/../build-common.sh"
 
 require_env EXIV2_VERSION
 log "Building Exiv2 ${EXIV2_VERSION}"

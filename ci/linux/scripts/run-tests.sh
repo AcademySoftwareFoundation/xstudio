@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Run C++ unit tests (ctest). Skips Python tests (need a live xstudio session).
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib.sh
-source "$HERE/lib.sh"
+# shellcheck source=build-common.sh
+source "$HERE/build-common.sh"
 
 SRC="${XSTUDIO_SRC:-/src/xstudio}"
 BUILD_DIR="${SRC}/build"

@@ -2,8 +2,8 @@
 # C++ fileseq (justinfx/gofileseq). Only the cpp/ tree is built; installs to
 # /usr/local so find_package(FileSeq) picks it up like the other source deps.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../lib.sh
-source "$HERE/../lib.sh"
+# shellcheck source=../build-common.sh
+source "$HERE/../build-common.sh"
 
 require_env FILESEQ_CPP_REF
 log "Building fileseq C++ (${FILESEQ_CPP_REF})"

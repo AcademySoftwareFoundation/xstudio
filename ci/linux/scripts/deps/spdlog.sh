@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # spdlog (installed under /usr/local; needs fmt first).
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../lib.sh
-source "$HERE/../lib.sh"
+# shellcheck source=../build-common.sh
+source "$HERE/../build-common.sh"
 
 require_env SPDLOG_VERSION
 log "Building spdlog ${SPDLOG_VERSION}"

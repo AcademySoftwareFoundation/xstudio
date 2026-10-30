@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # fmt (installed under /usr/local).
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../lib.sh
-source "$HERE/../lib.sh"
+# shellcheck source=../build-common.sh
+source "$HERE/../build-common.sh"
 
 require_env FMT_VERSION
 log "Building fmt ${FMT_VERSION}"

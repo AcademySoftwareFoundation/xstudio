@@ -20,7 +20,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     DISTRO=ubuntu2404 \
     QT_ROOT=/opt/qt
 
-# Build parallelism (empty -> 1 in lib.sh).
+# Build parallelism (empty -> 1 in build-common.sh).
 ARG JOBS=
 ENV JOBS=${JOBS}
 
@@ -42,7 +42,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Shared helpers (cmake_build, fetch, …)
-COPY scripts/lib.sh /build/scripts/lib.sh
+COPY scripts/build-common.sh /build/scripts/build-common.sh
 
 # ---------------------------------------------------------------------------
 # 2) Build tools: CMake, Ninja, pybind11, Qt 6 (aqtinstall)

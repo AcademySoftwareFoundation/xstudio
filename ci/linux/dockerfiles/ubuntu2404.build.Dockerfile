@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libgtest-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Build scripts (build-xstudio.sh, run-tests.sh, lib.sh, …).
+# Build scripts (build-xstudio.sh, run-tests.sh, build-common.sh, …).
 COPY ci/linux/scripts/ /build/scripts/
 
 # xSTUDIO sources from the current checkout.

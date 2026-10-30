@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # FFmpeg codec libraries (nasm, x264, x265, fdk-aac) under /usr/local.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../lib.sh
-source "$HERE/../lib.sh"
+# shellcheck source=../build-common.sh
+source "$HERE/../build-common.sh"
 
 require_env NASM_VERSION X264_REF X265_VERSION FDKAAC_REF
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # C++ Actor Framework.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../lib.sh
-source "$HERE/../lib.sh"
+# shellcheck source=../build-common.sh
+source "$HERE/../build-common.sh"
 
 require_env CAF_VERSION
 log "Building C++ Actor Framework ${CAF_VERSION}"

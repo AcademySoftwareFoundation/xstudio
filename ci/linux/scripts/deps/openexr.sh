@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # OpenEXR (also installs Imath). Built before OTIO/OIIO.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../lib.sh
-source "$HERE/../lib.sh"
+# shellcheck source=../build-common.sh
+source "$HERE/../build-common.sh"
 
 require_env OPENEXR_REF
 log "Building OpenEXR ${OPENEXR_REF} (also installs Imath)"

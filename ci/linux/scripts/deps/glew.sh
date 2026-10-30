@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # GLEW (installed under /usr/local).
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../lib.sh
-source "$HERE/../lib.sh"
+# shellcheck source=../build-common.sh
+source "$HERE/../build-common.sh"
 
 require_env GLEW_VERSION
 log "Building GLEW ${GLEW_VERSION}"

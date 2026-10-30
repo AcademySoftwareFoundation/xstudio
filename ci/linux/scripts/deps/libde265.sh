@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # libde265 (HEVC decoder used by libheif). Built before libheif.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../lib.sh
-source "$HERE/../lib.sh"
+# shellcheck source=../build-common.sh
+source "$HERE/../build-common.sh"
 
 require_env LIBDE265_VERSION
 log "Building libde265 ${LIBDE265_VERSION}"

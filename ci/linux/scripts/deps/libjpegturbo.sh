@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # libjpeg-turbo (installed under /usr/local; OIIO needs >= 2.1).
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../lib.sh
-source "$HERE/../lib.sh"
+# shellcheck source=../build-common.sh
+source "$HERE/../build-common.sh"
 
 require_env LIBJPEGTURBO_VERSION
 log "Building libjpeg-turbo ${LIBJPEGTURBO_VERSION}"

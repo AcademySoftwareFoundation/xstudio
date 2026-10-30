@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # FFmpeg. Built after the codec libraries it enables.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../lib.sh
-source "$HERE/../lib.sh"
+# shellcheck source=../build-common.sh
+source "$HERE/../build-common.sh"
 
 require_env FFMPEG_VERSION
 log "Building FFmpeg ${FFMPEG_VERSION}"
