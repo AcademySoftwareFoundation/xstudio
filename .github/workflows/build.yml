@@ -63,8 +63,6 @@ jobs:
           DEPS_FILE: ${{ matrix.deps_file }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PUSH_BEFORE: ${{ github.event.before }}
         run: bash ci/linux/scripts/ensure-deps-image.sh
 
       - name: Install sccache
@@ -92,8 +90,7 @@ jobs:
           if [ -f .ci-cache/sccache-show-stats.txt ]; then
             cat .ci-cache/sccache-show-stats.txt
           else
-            echo "No sccache stats file (build container did not write .ci-cache/sccache-show-stats.txt)"
-            exit 1
+            echo "No sccache stats file (build did not run or container did not write .ci-cache/sccache-show-stats.txt)"
           fi
 
   build-macos:

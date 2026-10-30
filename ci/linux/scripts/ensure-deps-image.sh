@@ -1,24 +1,35 @@
 #!/usr/bin/env bash
-# Ensure the Linux deps image is available locally (pull from GHCR, or build+push).
+# Ensure the Linux deps image is available locally (pull from GHCR, or build).
 #
 # Usage: ci/linux/scripts/ensure-deps-image.sh
 #
 # Required env:
 #   DEPS_TAG     (ubuntu2404 | rocky9)
 #   DEPS_FILE    (path from repo root, e.g. ci/linux/dockerfiles/ubuntu2404.deps.Dockerfile)
-#   GITHUB_REPOSITORY (owner/repo) — used to form the GHCR image name
+#   GITHUB_REPOSITORY (owner/repo) — primary GHCR image (base repo on PRs)
 #
 # Strategy env (from GitHub Actions):
 #   GITHUB_EVENT_NAME
-#   GITHUB_SHA
 #   PR_HEAD_REPO   — github.event.pull_request.head.repo.full_name (PR only)
-#   PR_BASE_SHA    — github.event.pull_request.base.sha (PR only)
-#   PUSH_BEFORE    — github.event.before (push only)
 #
 # Optional:
 #   JOBS=1
-#   DEPS_IMAGE / DEPS_CACHE — override image tags
-#   GITHUB_ENV / GITHUB_OUTPUT — when set, export DEPS_IMAGE for later steps
+#   DEPS_IMAGE / DEPS_CACHE — override primary image tags
+#   DEPS_CONTENT_HASH — override content hash used in default tags
+#   GITHUB_ENV — when set, export DEPS_IMAGE for later steps
+#
+# Image tag is content-addressed:
+#   ghcr.io/<repo>/xstudio-deps:<distro>-<hash12>
+# where hash12 covers only deps inputs (versions.env, *deps* Dockerfiles,
+# build-common/tools, deps/*.sh) — see deps-content-hash.sh.
+#
+# Pull order:
+#   1) primary: ghcr.io/<GITHUB_REPOSITORY>/xstudio-deps:<distro>-<hash>
+#   2) fallback: ghcr.io/<PR_HEAD_REPO>/… same tag (fork), retagged locally
+#   3) build (push if same-repo can write packages; else --load only)
+#
+# Note: fork fallback only works if that GHCR package is pullable by the runner
+# (public package, or otherwise authorized).
 
 set -euo pipefail
 
@@ -29,12 +40,13 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 
 EVENT_NAME="${GITHUB_EVENT_NAME:-${EVENT_NAME:-}}"
 : "${EVENT_NAME:?GITHUB_EVENT_NAME is required}"
-SHA="${GITHUB_SHA:-${SHA:-}}"
-: "${SHA:?GITHUB_SHA is required}"
+
+DEPS_CONTENT_HASH="${DEPS_CONTENT_HASH:-$(bash "${REPO_ROOT}/ci/linux/scripts/deps-content-hash.sh")}"
+IMAGE_TAG="${DEPS_TAG}-${DEPS_CONTENT_HASH}"
 
 repo_lc="$(printf '%s' "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
-DEPS_IMAGE="${DEPS_IMAGE:-ghcr.io/${repo_lc}/xstudio-deps:${DEPS_TAG}}"
-DEPS_CACHE="${DEPS_CACHE:-ghcr.io/${repo_lc}/xstudio-deps:${DEPS_TAG}-buildcache}"
+DEPS_IMAGE="${DEPS_IMAGE:-ghcr.io/${repo_lc}/xstudio-deps:${IMAGE_TAG}}"
+DEPS_CACHE="${DEPS_CACHE:-ghcr.io/${repo_lc}/xstudio-deps:${IMAGE_TAG}-buildcache}"
 VERSIONS_ENV="${REPO_ROOT}/ci/linux/versions.env"
 CONTEXT="${REPO_ROOT}/ci/linux"
 DOCKERFILE="${REPO_ROOT}/${DEPS_FILE}"
@@ -43,7 +55,17 @@ if [ -n "${GITHUB_ENV:-}" ]; then
   {
     echo "DEPS_IMAGE=${DEPS_IMAGE}"
     echo "DEPS_CACHE=${DEPS_CACHE}"
+    echo "DEPS_CONTENT_HASH=${DEPS_CONTENT_HASH}"
   } >> "${GITHUB_ENV}"
+fi
+
+# Secondary image from the PR head fork (when different from the base repo).
+FORK_IMAGE=""
+FORK_CACHE=""
+if [ -n "${PR_HEAD_REPO:-}" ] && [ "${PR_HEAD_REPO}" != "${GITHUB_REPOSITORY}" ]; then
+  fork_lc="$(printf '%s' "${PR_HEAD_REPO}" | tr '[:upper:]' '[:lower:]')"
+  FORK_IMAGE="ghcr.io/${fork_lc}/xstudio-deps:${IMAGE_TAG}"
+  FORK_CACHE="ghcr.io/${fork_lc}/xstudio-deps:${IMAGE_TAG}-buildcache"
 fi
 
 can_push=false
@@ -54,53 +76,39 @@ case "${EVENT_NAME}" in
       can_push=true
     fi
     ;;
-esac
-
-changed=false
-case "${EVENT_NAME}" in
-  workflow_dispatch)
-    changed=true
-    ;;
-  pull_request)
-    : "${PR_BASE_SHA:?PR_BASE_SHA is required for pull_request}"
-    if git -C "${REPO_ROOT}" diff --name-only "${PR_BASE_SHA}" "${SHA}" | grep -qE '^ci/linux/'; then
-      changed=true
-    fi
-    ;;
-  push)
-    zero=0000000000000000000000000000000000000000
-    if [ -z "${PUSH_BEFORE:-}" ] || [ "${PUSH_BEFORE}" = "${zero}" ]; then
-      changed=true
-    elif git -C "${REPO_ROOT}" cat-file -e "${PUSH_BEFORE}^{commit}" 2>/dev/null \
-      && git -C "${REPO_ROOT}" diff --name-only "${PUSH_BEFORE}" "${SHA}" | grep -qE '^ci/linux/'; then
-      changed=true
-    fi
-    ;;
   *)
     echo "ERROR: unsupported GITHUB_EVENT_NAME=${EVENT_NAME}" >&2
     exit 1
     ;;
 esac
 
-echo "==> Deps strategy: can_push=${can_push} ci/linux changed=${changed}"
-echo "==> Image: ${DEPS_IMAGE}"
+echo "==> Deps content hash: ${DEPS_CONTENT_HASH}"
+echo "==> Deps strategy: can_push=${can_push}"
+echo "==> Primary image: ${DEPS_IMAGE}"
+[ -n "${FORK_IMAGE}" ] && echo "==> Fork fallback: ${FORK_IMAGE}"
 
-need_build=false
-if [ "${can_push}" = true ] && [ "${changed}" = true ]; then
-  need_build=true
-elif docker pull "${DEPS_IMAGE}"; then
-  echo "==> Using existing ${DEPS_IMAGE}"
+# Try primary (ASWF / base repo), then fork. On success, tag as DEPS_IMAGE for later steps.
+pull_deps_image() {
+  if docker pull "${DEPS_IMAGE}"; then
+    echo "==> Using ${DEPS_IMAGE}"
+    return 0
+  fi
+  if [ -n "${FORK_IMAGE}" ]; then
+    echo "==> Primary miss; trying fork image ${FORK_IMAGE}"
+    if docker pull "${FORK_IMAGE}"; then
+      docker tag "${FORK_IMAGE}" "${DEPS_IMAGE}"
+      echo "==> Using fork image (tagged as ${DEPS_IMAGE})"
+      return 0
+    fi
+  fi
+  return 1
+}
+
+if pull_deps_image; then
   exit 0
-elif [ "${can_push}" = true ]; then
-  echo "==> Deps image missing; will build and push"
-  need_build=true
-else
-  echo "ERROR: deps image ${DEPS_IMAGE} is not available and this job cannot push to GHCR" >&2
-  echo "  Fork PRs reuse the base repo image; publish it from main/develop or a same-repo PR that touches ci/linux/." >&2
-  exit 1
 fi
 
-[ "${need_build}" = true ]
+echo "==> No reusable image; will build$([ "${can_push}" = true ] && echo ' and push' || echo ' locally (no GHCR push)')"
 
 if [ ! -f "${DOCKERFILE}" ]; then
   echo "ERROR: Dockerfile not found: ${DOCKERFILE}" >&2
@@ -119,12 +127,28 @@ while IFS= read -r line || [ -n "${line}" ]; do
   build_args+=(--build-arg "${line}")
 done < "${VERSIONS_ENV}"
 
-echo "==> Building and pushing ${DEPS_IMAGE}"
-docker buildx build \
-  --push \
-  --tag "${DEPS_IMAGE}" \
-  --cache-from "type=registry,ref=${DEPS_CACHE}" \
-  --cache-to "type=registry,ref=${DEPS_CACHE},mode=max" \
-  "${build_args[@]}" \
-  -f "${DOCKERFILE}" \
+common=(
+  --tag "${DEPS_IMAGE}"
+  --cache-from "type=registry,ref=${DEPS_CACHE}"
+  "${build_args[@]}"
+  -f "${DOCKERFILE}"
   "${CONTEXT}"
+)
+
+# Also try fork buildcache as cache source when present.
+if [ -n "${FORK_CACHE}" ]; then
+  common+=(--cache-from "type=registry,ref=${FORK_CACHE}")
+fi
+
+if [ "${can_push}" = true ]; then
+  echo "==> Building and pushing ${DEPS_IMAGE}"
+  docker buildx build \
+    --push \
+    --cache-to "type=registry,ref=${DEPS_CACHE},mode=max" \
+    "${common[@]}"
+else
+  echo "==> Building locally (no push) ${DEPS_IMAGE}"
+  docker buildx build \
+    --load \
+    "${common[@]}"
+fi

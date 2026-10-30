@@ -5,7 +5,7 @@
 # Usage: ci/linux/scripts/run-build-container.sh
 #
 # Required env:
-#   DEPS_IMAGE   (e.g. ghcr.io/.../xstudio-deps:ubuntu2404)
+#   DEPS_IMAGE   (e.g. ghcr.io/.../xstudio-deps:ubuntu2404-<hash12>)
 #   DEPS_TAG     (ubuntu2404 | rocky9) — selects package install flavour
 # Optional:
 #   SCCACHE_DIR=.ci-cache/sccache
@@ -41,8 +41,13 @@ case "${DEPS_TAG}" in
     ;;
 esac
 
-echo "==> Pulling ${DEPS_IMAGE}"
-docker pull "${DEPS_IMAGE}"
+# Prefer an image already loaded by ensure-deps-image.sh (e.g. fork --load).
+if docker image inspect "${DEPS_IMAGE}" >/dev/null 2>&1; then
+  echo "==> Using local image ${DEPS_IMAGE}"
+else
+  echo "==> Pulling ${DEPS_IMAGE}"
+  docker pull "${DEPS_IMAGE}"
+fi
 
 # Docker runs as root; chown the mounted sccache dir back to the host user so
 # actions/cache can tar it (otherwise Post Restore sccache → Permission denied).
