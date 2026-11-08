@@ -162,7 +162,9 @@ vec4 fetch_rgba_pixel(ivec2 image_coord)
 			yuv_tex_lookup_10bit(uv_coord, v_plane_bytes_offset, v_linesize)
 			);
 
-		if (half_scale_uvx && ((image_coord.x & 1) == 1) && image_coord.x*2 < frame_width_pixels) {
+		// 4:2:2 chroma is co-sited with the even columns: an odd column takes the average
+		// of the samples either side, when there is one to its right.
+		if (half_scale_uvx && ((image_coord.x & 1) == 1) && image_coord.x + 1 < frame_width_pixels) {
 
 			uv_coord.x = uv_coord.x + 1;
 			ivec3 yuv2 = ivec3(yuv.x,
@@ -170,7 +172,7 @@ vec4 fetch_rgba_pixel(ivec2 image_coord)
 				yuv_tex_lookup_10bit(uv_coord, v_plane_bytes_offset, v_linesize)
 				);
 
-			yuv = (yuv + yuv2) >> 1;
+			yuv = (yuv + yuv2 + 1) >> 1;
 
 		}
 
@@ -682,6 +684,7 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
         const int half_scale_uvy       = pixel_unpack_uniforms.value("half_scale_uvy", 0);
         const int half_scale_uvx       = pixel_unpack_uniforms.value("half_scale_uvx", 0);
         const int bits_per_channel     = pixel_unpack_uniforms.value("bits_per_channel", 0);
+        const int frame_width_pixels   = pixel_unpack_uniforms.value("frame_width_pixels", 0);
         const Imath::M33f yuv_conv     = pixel_unpack_uniforms.value("yuv_conv", Imath::M33f());
         const Imath::V3i yuv_offsets = pixel_unpack_uniforms.value("yuv_offsets", Imath::V3i());
         const float norm_coeff       = pixel_unpack_uniforms.value("norm_coeff", 1.0f);
@@ -773,7 +776,9 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
                     yuv_tex_lookup_10bit(uv_coord, u_plane_bytes_offset, u_linesize),
                     yuv_tex_lookup_10bit(uv_coord, v_plane_bytes_offset, v_linesize));
 
-                if (half_scale_uvx && (image_coord.x & 1) == 1) {
+                // as the shader: average the co-sited samples either side of an odd column
+                if (half_scale_uvx && (image_coord.x & 1) == 1 &&
+                    image_coord.x + 1 < frame_width_pixels) {
 
                     uv_coord.x = uv_coord.x + 1;
                     Imath::V3i yuv2(
@@ -781,7 +786,7 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
                         yuv_tex_lookup_10bit(uv_coord, u_plane_bytes_offset, u_linesize),
                         yuv_tex_lookup_10bit(uv_coord, v_plane_bytes_offset, v_linesize));
 
-                    yuv = (yuv + yuv2) / 2;
+                    yuv = (yuv + yuv2 + Imath::V3i(1)) / 2;
                 }
 
                 if (a_linesize != 0) {
