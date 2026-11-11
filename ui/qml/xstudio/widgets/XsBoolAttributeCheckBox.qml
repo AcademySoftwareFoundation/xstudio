@@ -28,6 +28,7 @@ Rectangle {
     Rectangle {
 
         anchors.fill: parent
+        color: XsStyleSheet.controlColour
         border.width: 1 // mycheckableDecorated?1:0
         border.color: mouseArea.containsMouse ? XsStyleSheet.accentColor : XsStyleSheet.baseColor
         visible: checkable
