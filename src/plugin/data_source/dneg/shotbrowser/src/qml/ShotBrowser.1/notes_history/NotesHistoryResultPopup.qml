@@ -38,20 +38,44 @@ XsPopupMenu {
         hotkeyName: "Select All"
     }
 
-    XsMenuModelItem {
-        text: "Add To New Playlist"
-        menuItemPosition: 1
-        menuPath: ""
-        menuModelName: rightClickMenu.menu_model_name
-        onActivated:  ShotBrowserHelpers.addToNewPlaylist(popupSelectionModel.selectedIndexes)
-    }
+    // XsMenuModelItem {
+    //     text: "Add To New Playlist"
+    //     menuItemPosition: 1
+    //     menuPath: ""
+    //     menuModelName: rightClickMenu.menu_model_name
+    //     onActivated:  ShotBrowserHelpers.addToNewPlaylist(popupSelectionModel.selectedIndexes)
+    // }
 
     XsMenuModelItem {
-        text: "Load Annotations"
+        text: "Load SG Attachments"
         menuItemPosition: 1.5
         menuPath: ""
         menuModelName: rightClickMenu.menu_model_name
         onActivated:  ShotBrowserHelpers.loadAnnotations(popupSelectionModel.selectedIndexes)
+    }
+
+    XsMenuModelItem {
+        text: "Add Notes To Current Media"
+        menuItemPosition: 1.6
+        menuPath: ""
+        menuModelName: rightClickMenu.menu_model_name
+        onActivated:  {
+            let indexes = popupSelectionModel.selectedIndexes;
+            if(indexes.length) {
+                indexes = ShotBrowserHelpers.mapIndexesToResultModel(indexes)
+                let m = indexes[0].model
+
+                for(let i = 0; i< indexes.length; i++) {
+                    let annotationRole =  m.get(indexes[i], "annotationRole")
+                    if(annotationRole != undefined) {
+                        Future.promise(
+                            ShotBrowserEngine.assignAnnotationsFuture(annotationRole.id, "Attachment", currentPlayhead.mediaUuid)
+                        ).then(function(result) {
+                        })
+                    }
+                }
+            }
+        }
     }
 
     XsMenuModelItem {

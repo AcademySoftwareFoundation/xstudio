@@ -259,14 +259,8 @@ void Stroke::add_point(const Imath::V2f &pt, float size_pressure, float opacity_
 }
 
 bool Stroke::fade(const float fade_amount) {
-    bool is_invisible = true;
-    for (auto &point : _points) {
-        point.opacity_pressure = std::max(0.0f, point.opacity_pressure - fade_amount);
-        if (point.opacity_pressure)
-            is_invisible = false; // at least one point has non-zero opacity ... don't erase
-    }
-    update_hash();
-    return is_invisible;
+    _fade_factor = std::max(0.0f, _fade_factor - fade_amount);
+    return _fade_factor == 0.0f;
 }
 
 void xstudio::ui::canvas::from_json(const nlohmann::json &j, Stroke &s) {

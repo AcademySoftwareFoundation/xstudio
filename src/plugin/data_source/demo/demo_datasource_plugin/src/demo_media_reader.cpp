@@ -268,7 +268,7 @@ ImageBufPtr ProceduralImageGenReader::image(const media::AVFrameID &mptr) {
 
     ImageBufPtr buf(new ImageBuffer(shader_uuid, jsn));
 
-    const float scale = 1.0f + float(mptr.frame()) / 100.0f;
+    // const float scale = 1.0f + float(mptr.frame()) / 100.0f;
 
     const std::string uri_stem(uri_string, 0, uri_string.find("."));
     __mutex.lock();

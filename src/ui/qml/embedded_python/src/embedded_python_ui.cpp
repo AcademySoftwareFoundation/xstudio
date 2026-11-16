@@ -23,6 +23,7 @@ EmbeddedPythonUI::EmbeddedPythonUI(QObject *parent) : super(parent) {
     setRoleNames(
         std::vector<std::string>({
             "nameRole",
+            "menuHotKeyRole",
             "menuPathRole",
             "scriptPathRole",
             "snippetTypeRole",
@@ -293,6 +294,11 @@ QVariant EmbeddedPythonUI::data(const QModelIndex &index, int role) const {
         case Roles::snippetTypeRole:
             if (j.count("snippet_type"))
                 result = QString::fromStdString(j.at("snippet_type"));
+            break;
+
+        case Roles::menuHotKeyRole:
+            if (j.count("menu_hotkey"))
+                result = QString::fromStdString(j.at("menu_hotkey"));
             break;
 
         case Roles::menuPathRole:

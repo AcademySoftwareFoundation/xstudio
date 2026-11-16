@@ -104,6 +104,7 @@ struct Stroke {
     bool fade(const float fade_amount);
 
     [[nodiscard]] float opacity() const { return _opacity; }
+    [[nodiscard]] float fade_factor() const { return _fade_factor; }
     [[nodiscard]] float thickness() const { return _thickness; }
     [[nodiscard]] float softness() const { return _softness; }
     [[nodiscard]] float size_sensitivity() const { return _size_sensitivity; }
@@ -123,6 +124,7 @@ struct Stroke {
 
     size_t _hash{0};
     float _opacity{1.0f};
+    float _fade_factor{1.0f};
     float _thickness{0.0f};
     float _softness{0.0f};
     float _size_sensitivity{0.0f};

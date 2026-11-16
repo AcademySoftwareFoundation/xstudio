@@ -37,7 +37,7 @@ imported into some DCCs such as Maya or Houdini as a viewport overlay."""
 
 class ExportType(Enum):
     MEDIA_NAMED_IMAGES = 1
-    USER_NAMED_IMAEGS = 2
+    USER_NAMED_IMAGES = 2
     GREASEPENCIL = 3
 
 # Declare our plugin class - we're using the PluginBase base class here.
@@ -144,6 +144,26 @@ class AnnotationsExporter(PluginBase):
             "annotation_export_attrs"
             )
 
+        self.cancelled = self.add_attribute(
+            "Cancelled",
+            False
+            )
+        self.cancelled.expose_in_ui_attrs_group(
+            "annotation_export_attrs"
+            )
+
+        self.progress_message = self.add_attribute(
+            "Progress",
+            {
+                "progress": 0,
+                "message" : "No export in progress.",
+                "in_progress": False
+            }
+            )
+        self.progress_message.expose_in_ui_attrs_group(
+            "annotation_export_attrs"
+            )
+
         self.__output_folder = None
         self.__export_type = None
         self.subfolder = None
@@ -175,6 +195,14 @@ class AnnotationsExporter(PluginBase):
         # auto set the output name
         self.attribute_changed(self.scope, 0)
 
+        self.progress_message.set_value(
+            {
+                "progress": 0,
+                "message": "",
+                "in_progress": False
+            }
+            )
+
         # This pops up our export dialog
         self.create_qml_item(
             dialog_qml
@@ -184,6 +212,7 @@ class AnnotationsExporter(PluginBase):
 
         self.__output_folder = urlsplit(output_folder).path
         self.exported_images = []
+        self.cancelled.set_value(False)
 
         # This is not necessary, the attributes should already by set in the UI
         # code but we'll do it here to make sure the backend attributes are 
@@ -208,7 +237,7 @@ class AnnotationsExporter(PluginBase):
         if self.export_type.value() == "Annotated Images - Use Media Name and Frame":
             self.__export_type = ExportType.MEDIA_NAMED_IMAGES
         elif self.export_type.value() == "Annotated Images - Use Your Own Name":
-            self.__export_type = ExportType.USER_NAMED_IMAEGS
+            self.__export_type = ExportType.USER_NAMED_IMAGES
         elif self.export_type.value() == "Greasepencil Package":
             self.__export_type = ExportType.GREASEPENCIL
             # try to make package folder
@@ -231,7 +260,8 @@ class AnnotationsExporter(PluginBase):
         elif scope == "Current Media":
 
             self.export_media_annotations(
-                self.current_playhead().on_screen_media
+                self.current_playhead().on_screen_media,
+                check=True
                 )
             
         elif scope == "Current Playlist / Timeline":
@@ -241,12 +271,40 @@ class AnnotationsExporter(PluginBase):
                 )
 
         else: 
+
             # "Entire Session"
+            count = 0
             for playlist in self.connection.api.session.playlists:
-                self.export_bookmark_for_current_playlist(
-                    playlist
+                for media in playlist.media:
+                    count += len(media.ordered_bookmarks())
+            if count == 0:
+                self.popup_message_box(
+                    "Error",
+                    "It doesn't look like there are any bookmarks in the session to export.")
+                return
+            index = 0
+            for playlist in self.connection.api.session.playlists:
+                index = self.export_bookmark_for_current_playlist(
+                    playlist,
+                    count=count,
+                    index=index
                     )
+
+        if self.cancelled.value():
+            return False
+
+        if not self.exported_images:
+            return ("No images were exported. Please check that there are annotations on the media in the selected scope.")
+
         
+        self.progress_message.set_value(
+            {
+                "progress": 100,
+                "message": "Exporting complete",
+                "in_progress": False
+            }
+            )
+
         # generate the greasePencil.xml
         if self.__export_type == ExportType.GREASEPENCIL:
 
@@ -283,11 +341,11 @@ class AnnotationsExporter(PluginBase):
                 frame,
                 self.__image_file_ext
                 )
-        elif self.__export_type == ExportType.USER_NAMED_IMAEGS:
-            path = "{}/{}_{}.{}".format(
+        elif self.__export_type == ExportType.USER_NAMED_IMAGES:
+            path = "{}/{}.{:04d}.{}".format(
                 self.__output_folder,
                 self.user_name.value(),
-                idx,
+                idx+1,
                 self.__image_file_ext
                 )
         elif self.__export_type == ExportType.GREASEPENCIL:
@@ -335,7 +393,7 @@ class AnnotationsExporter(PluginBase):
             bookmark,
             m)
 
-    def export_media_annotations(self, media, index = 0):
+    def export_media_annotations(self, media, index = 0, check = False, count = -1):
 
         bookmarks = media.ordered_bookmarks()
         export_frames = set()
@@ -344,7 +402,8 @@ class AnnotationsExporter(PluginBase):
             bookmark_frame = bookmark_frame + media.media_source().media_reference.timecode().total_frames()
             duration = max(1, int(round(bookmark.duration.total_seconds()/media.media_source().rate.seconds())))
             export_frames.add((bookmark, bookmark_frame, duration))
-        if not export_frames:
+
+        if check and not export_frames:
             self.popup_message_box(
                 "Error",
                 "It doesn't look like there are any bookmarks on the current media to export.")
@@ -352,6 +411,17 @@ class AnnotationsExporter(PluginBase):
 
         for (bookmark, frame, duration) in export_frames:
 
+            if self.cancelled.value():
+                return index
+
+            if count > 0:
+                self.progress_message.set_value(
+                    {
+                        "progress": (index*100)/count,
+                        "message": "Exporting {} of {} annotated images...".format(index, count),
+                        "in_progress": True
+                    }
+                    )
             index = self.export_frame(
                 index,
                 frame,
@@ -361,13 +431,24 @@ class AnnotationsExporter(PluginBase):
 
         return index
 
-    def export_bookmark_for_current_playlist(self, playlist, index = 0):
+    def export_bookmark_for_current_playlist(self, playlist, index = 0, count = -1):
+
+        if count == -1:
+            count = 0
+            for media in playlist.media:
+                count += len(media.ordered_bookmarks())
+            if not count:
+                self.popup_message_box(
+                    "Error",
+                    "It doesn't look like there are any bookmarks on the current playlist to export.")
+                return
 
         media_items = playlist.media
         for m in media_items:
             index = self.export_media_annotations(
                 m,
-                index
+                index,
+                count=count
                 )
         return index
 

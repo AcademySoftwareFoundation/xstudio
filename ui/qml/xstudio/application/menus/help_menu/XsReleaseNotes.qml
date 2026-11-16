@@ -102,7 +102,7 @@ Item {
                     // feature_text = features.value + Qt.application.version
                 } else {
                     let t = helpers.readFile(studio.releaseDocsUrl())
-                    const regex1 = /^[^@]+<div class="section" id="release-notes">/im;
+                    const regex1 = /^[^@]+<span id="id1"><\/span>/im;
                     t = t.replace(regex1, '');
 
                     const regex2 = /<footer>[^@]+$/im;

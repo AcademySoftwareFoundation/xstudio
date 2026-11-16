@@ -11,6 +11,8 @@ Item {
     property alias verticalAlignment: widget.verticalAlignment
     property alias text: widget.text
     property alias font: widget.font
+    property alias wrapMode: widget.wrapMode
+    property var wrapWidth: -1
     opacity: enabled ? 1.0 : 0.5
     clip: true
     property bool truncated: widget.contentWidth > width
@@ -20,6 +22,7 @@ Item {
     TextEdit {
 
         id: widget
+        width: wrapWidth == -1 ? contentWidth : wrapWidth
         x: Math.min(root.width-contentWidth, 0)
         anchors.top: parent.top
         anchors.bottom: parent.bottom

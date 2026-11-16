@@ -16,14 +16,22 @@ Control
     Layout.fillWidth: true
     Layout.fillHeight: true
 
+    // The value shown and scrubbed. Bind it from the caller; the control never
+    // writes it itself, it emits valueEdited(newValue) and the caller pushes
+    // that to its model, whose echo comes back through the binding.
+    property var value
+    signal valueEdited(var newValue)
+    readonly property bool bound: value !== undefined && value !== null && !isNaN(value)
+
     property bool isPressed: false //mouseArea.containsPress
     property bool isMouseHovered: mouseArea.containsMouse
     property string text
     property string shortText: text.substring(0,3)
     property int fromValue: 0
     property int toValue: 100
-    property int defaultValue: toValue
-    property int prevValue: defaultValue/2
+    // Optional: double-click toggles between this and the previous value.
+    // No default means double-click does nothing.
+    property var defaultValue: undefined
     property var stepSize: 0.25
 
     property alias valueText: valueDiv.text
@@ -48,6 +56,15 @@ Control
     signal editingCompleted()
     focusPolicy: Qt.NoFocus
     clip: true
+
+    function edit(newValue) {
+        newValue = Math.min(toValue, Math.max(newValue, fromValue))
+        if (newValue !== value) valueEdited(newValue)
+    }
+    function ignoreUnbound(what) {
+        if (typeof helpers !== "undefined")
+            helpers.logWarning("XsIntegerValueControl '" + text + "': " + what + " ignored, value is unbound")
+    }
 
     onWidthChanged: {
         if(width < shortThresholdWidth) {
@@ -137,18 +154,10 @@ Control
             font.family: XsStyleSheet.fontFamily
 
             onAccepted:{
-                // if(currentTool != "Erase"){ //#todo
-                    if(parseInt(text) >= toValue) {
-                        value = toValue
-                    }
-                    else if(parseInt(text) <= fromValue) {
-                        value = fromValue
-                    }
-                    else {
-                        value = parseInt(text)
-                    }
-                    selectAll()
-                // }
+                if (!bound) { ignoreUnbound("text entry"); return }
+                var v = parseInt(text)
+                if (!isNaN(v)) edit(v)
+                selectAll()
             }
         }
 
@@ -162,22 +171,16 @@ Control
         propagateComposedEvents: true
 
         property real mouseXOnPress: 0
-        property int valueOnPress: defaultValue
-        property int lastValue: defaultValue
+        property real valueOnPress: 0
+        property real lastValue: 0
 
         onMouseXChanged: {
-
-            if(pressed) {
-                value = Math.min(
-                    toValue,
-                    Math.max(
-                        valueOnPress + (mouseX - mouseXOnPress)*stepSize,
-                        fromValue)
-                        )
-            }
+            if (pressed && bound)
+                edit(valueOnPress + (mouseX - mouseXOnPress)*stepSize)
         }
 
         onPressed: {
+            if (!bound) { ignoreUnbound("drag"); return }
             mouseXOnPress = mouseX
             if (value != defaultValue) {
                 lastValue = value
@@ -186,12 +189,9 @@ Control
         }
 
         onDoubleClicked: {
-            if(value == defaultValue){
-                value = lastValue
-            }
-            else{
-                value = defaultValue
-            }
+            if (!bound) { ignoreUnbound("double-click"); return }
+            if (defaultValue === undefined) return
+            edit(value == defaultValue ? lastValue : defaultValue)
         }
     }
 }

@@ -80,6 +80,11 @@ XsWindow{
     }
     property alias authentication_methods: __authentication_methods.value
 
+    Component.onCompleted: {
+        if(authMethod.currentIndex == -1)
+            authMethod.currentIndex = authMethod.valueDiv.find(authentication_method)
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: itemSpacing
@@ -93,30 +98,19 @@ XsWindow{
             Layout.preferredHeight: itemHeight
 
             text: "Authentication Method :"
-            property bool ready: false
 
-            onCurrentIndexChanged: {
-                if(ready && currentIndex != -1 ) {
-                    authentication_method = model[currentIndex]
-                }
-            }
-
+            onActivated: authentication_method = model[currentIndex]
             model: authentication_methods && authentication_methods.length ? authentication_methods : []
+
             onModelChanged: {
                 if(model.length && authentication_method != undefined) {
-                    ready = true
                     currentIndex = valueDiv.find(authentication_method)
                 }
             }
 
-            property var auth_method: authentication_method ? authentication_method : null
-            onAuth_methodChanged: {
-                if(ready && valueDiv.find(authentication_method) != -1 && currentIndex != valueDiv.find(authentication_method)){
-                    currentIndex = valueDiv.find(authentication_method)
-                }
-            }
 
         }
+
         Item{
             Layout.fillWidth: true
             Layout.preferredHeight: itemHeight/2

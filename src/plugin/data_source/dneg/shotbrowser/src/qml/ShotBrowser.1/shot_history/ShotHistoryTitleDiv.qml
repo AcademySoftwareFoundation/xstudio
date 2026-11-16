@@ -97,17 +97,17 @@ RowLayout {id: titleDiv
                 }
             }
 
-            XsPrimaryButton{
-                Layout.leftMargin: 2
-                Layout.preferredWidth: XsStyleSheet.primaryButtonStdWidth
-                Layout.maximumWidth: XsStyleSheet.primaryButtonStdWidth
-                Layout.fillHeight: true
+            // XsPrimaryButton{
+            //     Layout.leftMargin: 2
+            //     Layout.preferredWidth: XsStyleSheet.primaryButtonStdWidth
+            //     Layout.maximumWidth: XsStyleSheet.primaryButtonStdWidth
+            //     Layout.fillHeight: true
 
-                imgSrc: "qrc:/icons/list_alt2.svg"
-                toolTip: "Compact Mode"
-                isActive: compactMode
-                onClicked: compactMode = !compactMode
-            }
+            //     imgSrc: "qrc:/icons/list_alt2.svg"
+            //     toolTip: "Compact Mode"
+            //     isActive: compactMode
+            //     onClicked: compactMode = !compactMode
+            // }
 
             XsPrimaryButton{
                 Layout.leftMargin: 2

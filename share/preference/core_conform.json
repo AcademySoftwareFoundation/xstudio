@@ -20,7 +20,7 @@
 				"maximum": 10,
 				"datatype": "int",
 				"context": ["APPLICATION"],
-				"category": "Conform",
+				"category": "Timeline",
 				"display_name": "Conform Neighbours Count"
 			}
 		}

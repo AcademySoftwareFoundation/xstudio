@@ -3,6 +3,7 @@
 import QtQuick
 import Qt.labs.qmlmodels
 
+import xstudio.qml.viewport 1.0
 import xstudio.qml.models 1.0
 import xStudio 1.0
 
@@ -38,6 +39,8 @@ XsPopupMenu {
             let mp = si.model.get(si, "menuPathRole")
             helpers.setMenuPathPosition(mp,"timeline_clip_menu_", 81 + ((1.0/rc)*i) )
         }
+
+        helpers.setMenuPathPosition("Set Trim", "timeline_clip_menu_", 8)
     }
 
 
@@ -76,6 +79,7 @@ XsPopupMenu {
                 }
             }
         }
+
         return clipsWithBadMedia
     }
 
@@ -356,11 +360,29 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
-        text: qsTr("Fit To Media")
-        menuPath: ""
-        menuItemPosition: 5.5
+        text: qsTr("Trim To Media Length")
+        menuPath: "Set Trim"
+        menuItemPosition: 1.0
         menuModelName: timelineMenu.menu_model_name
-        onActivated: theTimeline.fitToMedia(timelineSelection.selectedIndexes)
+        onActivated: theTimeline.setClipToFullMediaLength(timelineSelection.selectedIndexes)
+        panelContext: timelineMenu.panelContext
+    }
+
+    XsMenuModelItem {
+        text: qsTr("Trim to Original Cut Range")
+        menuPath: "Set Trim"
+        menuItemPosition: 2.0
+        menuModelName: timelineMenu.menu_model_name
+        onActivated: theTimeline.restoreClipsToOriginalEdit(timelineSelection.selectedIndexes)
+        panelContext: timelineMenu.panelContext
+    }
+
+    XsMenuModelItem {
+        text: qsTr("Trim to Custom Cut Range")
+        menuPath: "Set Trim"
+        menuItemPosition: 3.0
+        menuModelName: timelineMenu.menu_model_name
+        onActivated: theTimeline.restoreClipsToPreviousEdit(timelineSelection.selectedIndexes)
         panelContext: timelineMenu.panelContext
     }
 
@@ -460,14 +482,27 @@ XsPopupMenu {
     Repeater {
         model: DelegateModel {
             model: embeddedPython.clipMenuModel
-            delegate: Item {XsMenuModelItem {
-                text: nameRole
-                menuPath: menuPathRole
-                menuItemPosition: (index*0.01)+80
-                menuModelName: timelineMenu.menu_model_name
-                onActivated: embeddedPython.pyEvalFile(scriptPathRole)
-                panelContext: timelineMenu.panelContext
-            }}
+            delegate: Item {
+                XsHotkey {
+                    id: hk
+                    name: nameRole
+                    description: nameRole
+                    componentName: "Clip Snippets"
+                    onActivated: embeddedPython.pyEvalFile(scriptPathRole)
+                    sequence: menuHotKeyRole || null
+                    context: ""+timelineMenu.panelContext
+                }
+
+                XsMenuModelItem {
+                    hotkeyUuid: hk.uuid
+                    text: nameRole
+                    menuPath: menuPathRole
+                    menuItemPosition: (index*0.01)+80
+                    menuModelName: timelineMenu.menu_model_name
+                    onActivated: embeddedPython.pyEvalFile(scriptPathRole)
+                    panelContext: timelineMenu.panelContext
+                }
+            }
         }
     }
 

@@ -86,13 +86,25 @@ void UIModelData::setModelDataName(QString name) {
         // we send empty data to 'register' but if the model already exists
         // we'll be sent back what's already in the model
         if (data_preference_path_.empty()) {
-            auto data = request_receive<utility::JsonStore>(
-                *sys,
-                central_models_data_actor_,
-                ui::model_data::register_model_data_atom_v,
-                model_name_,
-                utility::JsonStore(nlohmann::json::parse("{}")),
-                as_actor());
+            utility::JsonStore data;
+            try {
+                data = request_receive<utility::JsonStore>(
+                    *sys,
+                    central_models_data_actor_,
+                    ui::model_data::register_model_data_atom_v,
+                    model_name_,
+                    utility::JsonStore(nlohmann::json::parse("{}")),
+                    as_actor());
+            } catch (const XStudioError &e) {
+                // This runs inside a QML binding update on the Qt thread: an
+                // escaping exception terminates the process. Log and leave the
+                // model empty instead.
+                spdlog::warn(
+                    "UIModelData::setModelDataName('{}') registration failed: {}",
+                    model_name_,
+                    e.what());
+                return;
+            }
 
             // now we update with the returned model data
             setModelData(data);

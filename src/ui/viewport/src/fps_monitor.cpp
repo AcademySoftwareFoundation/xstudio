@@ -129,7 +129,7 @@ FpsMonitor::FpsMonitor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {
             anon_mail(update_actual_fps_atom_v).send(this);
         },
         [=](const error &err) mutable {
-            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+            log_caf_error(err);
         },
         [=](caf::message) {});
 }

@@ -46,8 +46,8 @@ XsPopup {
 
     function hideOtherSubMenus(widget) {
 
-        for (var i = 0; i < view.count; ++i) {
-            let item = view.itemAtIndex(i)
+        for (var i = 0; i < view.repeater.count; ++i) {
+            let item = view.repeater.itemAt(i)
             if (item != null && item != widget && typeof item.hideSubMenus != "undefined") {
                 item.hideSubMenus()
             }
@@ -65,19 +65,14 @@ XsPopup {
 
     }
 
-    XsListView {
+    Flickable {
 
         id: view
-        orientation: ListView.Vertical
-        spacing: 0
         width: minWidth
-        height: maxMenuHeight(contentHeight)
-        contentHeight: contentItem.childrenRect.height
+        height: maxMenuHeight(layout.height)
+        contentHeight: layout.height
         contentWidth: minWidth
-        snapMode: ListView.SnapToItem
         clip: true
-
-        cacheBuffer: 1000
 
         ScrollBar.vertical: XsScrollBar {
             parent: view.parent
@@ -111,132 +106,213 @@ XsPopup {
             }
         }
 
-        model: DelegateModel {
+        property alias repeater: repeater
 
-            // setting up the model and rootIndex like this causes us to
-            // iterate over the children of the node in the 'menu_model' that
-            // is found at 'menu_model_index'. Note that the delegate will
-            // be assigned a value 'index' which is its index in the list of
-            // children.
-            model: the_popup.menu_model
-            rootIndex: the_popup.menu_model_index
-            delegate: chooser
+        ColumnLayout {
 
-            DelegateChooser {
-                id: chooser
-                role: "menu_item_type"
+            id: layout
+            spacing: 0
+            Repeater {
 
-                DelegateChoice {
-                    roleValue: "button"
+                id: repeater
+                model: DelegateModel {
 
-                    XsMenuItemNew {
-                        // again, we pass in the model to the menu item and
-                        // step one level deeper into the tree by useing row=index
-                        menu_model: the_popup.menu_model
-                        menu_model_index: the_popup.menu_model.index(
-                            index, // row = child index
-                            0, // column = 0 (always, we don't use columns)
-                            the_popup.menu_model_index // the parent index into the model
-                        )
-                        parent_menu: the_popup
-                        width: view.width
-                        indent: view.indent
-                        enabled: menu_item_enabled
-                        onMinWidthChanged: {
-                            view.setMinWidth(minWidth)
-                        }
-                        onLeftIconSizeChanged: {
-                            view.setIndent(leftIconSize)
-                        }
-                    }
+                    // setting up the model and rootIndex like this causes us to
+                    // iterate over the children of the node in the 'menu_model' that
+                    // is found at 'menu_model_index'. Note that the delegate will
+                    // be assigned a value 'index' which is its index in the list of
+                    // children.
+                    model: the_popup.menu_model
+                    rootIndex: the_popup.menu_model_index
+                    delegate: chooser
 
-                }
+                    DelegateChooser {
+                        id: chooser
+                        role: "menu_item_type"
 
-                DelegateChoice {
-                    roleValue: "menu"
+                        DelegateChoice {
+                            roleValue: "button"
 
-                    XsMenuItemNew {
-                        // again, we pass in the model to the menu item and
-                        // step one level deeper into the tree by useing row=index
-                        menu_model: the_popup.menu_model
-                        menu_model_index: the_popup.menu_model.index(
-                            index, // row = child index
-                            0, // column = 0 (always, we don't use columns)
-                            the_popup.menu_model_index // the parent index into the model
-                        )
-                        parent_menu: the_popup
-                        width: view.width
-                        indent: view.indent
-                        onMinWidthChanged: {
-                            view.setMinWidth(minWidth)
-                        }
-                        onLeftIconSizeChanged: {
-                            view.setIndent(leftIconSize)
-                        }
-                    }
-                }
-
-                DelegateChoice {
-                    roleValue: "divider"
-                    XsMenuDivider {
-                        width: view.width
-                        onMinWidthChanged: {
-                            view.setMinWidth(minWidth)
-                        }
-                    }
-
-                }
-
-                DelegateChoice {
-                    roleValue: "multichoice"
-
-                    XsMenuItemNew {
-                        menu_model: the_popup.menu_model
-                        menu_model_index: the_popup.menu_model.index(index, 0, the_popup.menu_model_index)
-
-                        parent_menu: the_popup
-                        width: view.width
-                        indent: view.indent
-                        onMinWidthChanged: {
-                            view.setMinWidth(minWidth)
-                        }
-                        onLeftIconSizeChanged: {
-                            view.setIndent(leftIconSize)
-                        }
-
-                    }
-
-                }
-
-                DelegateChoice {
-
-                    roleValue: "radiogroup"
-
-                    ColumnLayout {
-
-                        width: view.width
-                        spacing: 0
-                        id: layout
-                        property var idx: index
-                        Repeater {
-
-                            // we can optionally drive the menu selection with
-                            // 'choice_ids' - this allows us to handle the case
-                            // where there are duplicate names in 'choices' but
-                            // they really mean different
-                            model: choices_ids ? choices_ids : choices
-                            XsMenuItemToggle {
-                                actualValue: choices_ids ? choices_ids[index] : choices[index]
-                                label: choices[index]
-                                isRadioButton: true
-                                radioSelectedChoice: current_choice
+                            XsMenuItemNew {
+                                // again, we pass in the model to the menu item and
+                                // step one level deeper into the tree by useing row=index
                                 menu_model: the_popup.menu_model
-                                menu_model_index: the_popup.menu_model.index(layout.idx, 0, the_popup.menu_model_index)
+                                menu_model_index: the_popup.menu_model.index(
+                                    index, // row = child index
+                                    0, // column = 0 (always, we don't use columns)
+                                    the_popup.menu_model_index // the parent index into the model
+                                )
                                 parent_menu: the_popup
-                                onClicked: {
-                                    current_choice = actualValue
-                                    the_popup.closeAll()
+                                width: view.width
+                                indent: view.indent
+                                enabled: menu_item_enabled
+                                onMinWidthChanged: {
+                                    view.setMinWidth(minWidth)
                                 }
+                                onLeftIconSizeChanged: {
+                                    view.setIndent(leftIconSize)
+                                }
+                            }
+
+                        }
+
+                        DelegateChoice {
+                            roleValue: "menu"
+
+                            XsMenuItemNew {
+                                // again, we pass in the model to the menu item and
+                                // step one level deeper into the tree by useing row=index
+                                menu_model: the_popup.menu_model
+                                menu_model_index: the_popup.menu_model.index(
+                                    index, // row = child index
+                                    0, // column = 0 (always, we don't use columns)
+                                    the_popup.menu_model_index // the parent index into the model
+                                )
+                                parent_menu: the_popup
+                                width: view.width
+                                indent: view.indent
+                                onMinWidthChanged: {
+                                    view.setMinWidth(minWidth)
+                                }
+                                onLeftIconSizeChanged: {
+                                    view.setIndent(leftIconSize)
+                                }
+                            }
+                        }
+
+                        DelegateChoice {
+                            roleValue: "divider"
+                            XsMenuDivider {
+                                width: view.width
+                                onMinWidthChanged: {
+                                    view.setMinWidth(minWidth)
+                                }
+                            }
+
+                        }
+
+                        DelegateChoice {
+                            roleValue: "multichoice"
+
+                            XsMenuItemNew {
+                                menu_model: the_popup.menu_model
+                                menu_model_index: the_popup.menu_model.index(index, 0, the_popup.menu_model_index)
+
+                                parent_menu: the_popup
+                                width: view.width
+                                indent: view.indent
+                                onMinWidthChanged: {
+                                    view.setMinWidth(minWidth)
+                                }
+                                onLeftIconSizeChanged: {
+                                    view.setIndent(leftIconSize)
+                                }
+
+                            }
+
+                        }
+
+                        DelegateChoice {
+
+                            roleValue: "radiogroup"
+
+                            ColumnLayout {
+
+                                width: view.width
+                                spacing: 0
+                                id: layout
+                                property var idx: index
+                                Repeater {
+
+                                    // we can optionally drive the menu selection with
+                                    // 'choice_ids' - this allows us to handle the case
+                                    // where there are duplicate names in 'choices' but
+                                    // they really mean different
+                                    model: choices_ids ? choices_ids : choices
+                                    XsMenuItemToggle {
+                                        actualValue: choices_ids ? choices_ids[index] : choices[index]
+                                        label: choices[index]
+                                        isRadioButton: true
+                                        radioSelectedChoice: current_choice
+                                        menu_model: the_popup.menu_model
+                                        menu_model_index: the_popup.menu_model.index(layout.idx, 0, the_popup.menu_model_index)
+                                        parent_menu: the_popup
+                                        onClicked: {
+                                            current_choice = actualValue
+                                            the_popup.closeAll()
+                                        }
+                                        width: view.width
+                                        onMinWidthChanged: {
+                                            view.setMinWidth(minWidth)
+                                        }
+                                        onLeftIconSizeChanged: {
+                                            view.setIndent(leftIconSize)
+                                        }
+
+                                    }
+                                }
+                            }
+
+                        }
+
+                        DelegateChoice {
+                            roleValue: "toggle"
+
+                            XsMenuItemToggle {
+                                menu_model: the_popup.menu_model
+                                menu_model_index: the_popup.menu_model.index(index, 0, the_popup.menu_model_index)
+                                parent_menu: the_popup
+
+                                onClicked: {
+                                    menu_model.nodeActivated(menu_model_index, "clicked", helpers.contextPanel(the_popup))
+                                    // if(mouse.modifiers == Qt.NoModifier)
+                                    //     the_popup.closeAll()
+                                }
+
+                                width: view.width
+                                onMinWidthChanged: {
+                                    view.setMinWidth(minWidth)
+                                }
+                                onLeftIconSizeChanged: {
+                                    view.setIndent(leftIconSize)
+                                }
+
+                            }
+
+                        }
+
+                        DelegateChoice {
+                            roleValue: "toggle_settings"
+
+                            XsMenuItemToggleWithSettings {
+                                menu_model: the_popup.menu_model
+                                menu_model_index: the_popup.menu_model.index(index, 0, the_popup.menu_model_index)
+
+                                parent_menu: the_popup
+                                width: view.width
+                                isChecked: is_checked
+                                onClicked:{
+                                    is_checked = !is_checked
+                                    // the_popup.closeAll()
+                                }
+                                onMinWidthChanged: {
+                                    view.setMinWidth(minWidth)
+                                }
+                                onLeftIconSizeChanged: {
+                                    view.setIndent(leftIconSize)
+                                }
+
+                            }
+
+                        }
+
+                        DelegateChoice {
+                            roleValue: "custom"
+
+                            XsMenuItemCustom {
+                                menu_model: the_popup.menu_model
+                                menu_model_index: the_popup.menu_model.index(index, 0, the_popup.menu_model_index)
+                                parent_menu: the_popup
                                 width: view.width
                                 onMinWidthChanged: {
                                     view.setMinWidth(minWidth)
@@ -248,82 +324,9 @@ XsPopup {
                             }
                         }
                     }
-
                 }
-
-                DelegateChoice {
-                    roleValue: "toggle"
-
-                    XsMenuItemToggle {
-                        menu_model: the_popup.menu_model
-                        menu_model_index: the_popup.menu_model.index(index, 0, the_popup.menu_model_index)
-                        parent_menu: the_popup
-
-                        onClicked: {
-                            menu_model.nodeActivated(menu_model_index, "clicked", helpers.contextPanel(the_popup))
-                            // if(mouse.modifiers == Qt.NoModifier)
-                            //     the_popup.closeAll()
-                        }
-
-                        width: view.width
-                        onMinWidthChanged: {
-                            view.setMinWidth(minWidth)
-                        }
-                        onLeftIconSizeChanged: {
-                            view.setIndent(leftIconSize)
-                        }
-
-                    }
-
-                }
-
-                DelegateChoice {
-                    roleValue: "toggle_settings"
-
-                    XsMenuItemToggleWithSettings {
-                        menu_model: the_popup.menu_model
-                        menu_model_index: the_popup.menu_model.index(index, 0, the_popup.menu_model_index)
-
-                        parent_menu: the_popup
-                        width: view.width
-                        isChecked: is_checked
-                        onClicked:{
-                            is_checked = !is_checked
-                            // the_popup.closeAll()
-                        }
-                        onMinWidthChanged: {
-                            view.setMinWidth(minWidth)
-                        }
-                        onLeftIconSizeChanged: {
-                            view.setIndent(leftIconSize)
-                        }
-
-                    }
-
-                }
-
-                DelegateChoice {
-                    roleValue: "custom"
-
-                    XsMenuItemCustom {
-                        menu_model: the_popup.menu_model
-                        menu_model_index: the_popup.menu_model.index(index, 0, the_popup.menu_model_index)
-                        parent_menu: the_popup
-                        width: view.width
-                        onMinWidthChanged: {
-                            view.setMinWidth(minWidth)
-                        }
-                        onLeftIconSizeChanged: {
-                            view.setIndent(leftIconSize)
-                        }
-
-                    }
-
-                }
-
             }
         }
-
     }
 }
 

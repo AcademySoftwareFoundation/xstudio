@@ -9,13 +9,14 @@ Item {
     property alias text: tt.text
     property string type: "INFO"
     property real percentage: 0.0
+    property bool hovered: hover.hovered
 
     XsToolTip {
         id: tt
         delay: 0
         x: -width/2
         y: parent.height
-        visible: hover.hovered
+        visible: parent.hovered
     }
 
     HoverHandler {

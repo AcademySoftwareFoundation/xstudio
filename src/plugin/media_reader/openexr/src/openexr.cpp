@@ -290,24 +290,15 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
 
     // compute the size of the buffer we need
     const size_t n_pixels = (data_window.size().x + 1) * (data_window.size().y + 1);
-    const size_t bytes_per_channel_r =
-        (pix_type[0] == -1                     ? 0
-         : pix_type[0] == Imf::PixelType::HALF ? 2
-                                               : 4);
-    const size_t bytes_per_channel_g =
-        (pix_type[1] == -1                     ? 0
-         : pix_type[1] == Imf::PixelType::HALF ? 2
-                                               : 4);
-    const size_t bytes_per_channel_b =
-        (pix_type[2] == -1                     ? 0
-         : pix_type[2] == Imf::PixelType::HALF ? 2
-                                               : 4);
-    const size_t bytes_per_channel_a =
-        (pix_type[3] == -1                     ? 0
-         : pix_type[3] == Imf::PixelType::HALF ? 2
-                                               : 4);
-    const size_t bytes_per_pixel =
-        bytes_per_channel_r + bytes_per_channel_g + bytes_per_channel_b + bytes_per_channel_a;
+
+    size_t bytes_per_pixel = 0;
+    for (size_t i = 0; i < exr_channels_to_load.size(); ++i) {
+        if (pix_type[i] == Imf::PixelType::HALF)
+            bytes_per_pixel += 2;
+        else // uint32 or float32
+            bytes_per_pixel += 4;
+    }
+
     const size_t buf_size = n_pixels * bytes_per_pixel;
 
     // const size_t gl_line_size = 8192*4;

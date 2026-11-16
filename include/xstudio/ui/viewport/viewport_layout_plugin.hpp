@@ -77,7 +77,7 @@ class ViewportLayoutPlugin : public plugin::StandardPlugin {
         const float menu_position,
         const playhead::AssemblyMode mode,
         const playhead::AutoAlignMode default_auto_align =
-            playhead::AutoAlignMode::AAM_ALIGN_OFF);
+            playhead::AutoAlignMode::AAM_ALIGN_MANUAL);
 
     /**
      *  @brief Expose an attribute in the Settings panel for your layout

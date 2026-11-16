@@ -42,14 +42,21 @@ std::string PathRemapper::remap(const std::string &path, const bool forward) {
     // 	spdlog::warn("remap forward {} {} -> {}", forward, path, p);
     // }
 
+    // spdlog::warn("{} {} -> {}", forward ? "TO" : "FROM", path, p);
+
     return p;
 }
 
 void PathRemapper::add_path_mapping(const std::string &from, const std::string &to) {
-    // spdlog::warn("add_path_mapping {} -> {}", from, to);
     std::scoped_lock lock(mutex_);
     forward_map_.emplace(std::make_pair(from, to));
     backward_map_.emplace(std::make_pair(to, from));
+}
+
+void PathRemapper::add_regex_mapping(const std::pair<std::regex, std::string> from, const std::pair<std::regex, std::string> to) {
+    std::scoped_lock lock(mutex_);
+    forward_regex_.emplace_back(from);
+    backward_regex_.emplace_back(to);
 }
 
 

@@ -153,6 +153,8 @@ namespace qt {
         thumbnail::ThumbnailBufferPtr
         rgb96thumbFromHalfFloatImage(const media_reader::ImageBufPtr &image);
 
+        utility::JsonStore getColorMetadataExport();
+
         ui::viewport::Viewport *xstudio_viewport_ = nullptr;
         QOpenGLContext *gl_context_               = {nullptr};
         QOffscreenSurface *surface_               = {nullptr};

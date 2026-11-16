@@ -278,28 +278,28 @@ CompositeViewportLayout::CompositeViewportLayout(
     monochrome_ = add_boolean_attribute("Monochrome", "Monochrome", true);
 
     add_layout_mode(
-        "Over", 1.0, playhead::AssemblyMode::AM_TEN, playhead::AutoAlignMode::AAM_ALIGN_FRAMES);
+        "Over", 1.0, playhead::AssemblyMode::AM_TEN, playhead::AutoAlignMode::AAM_ALIGN_AUTO);
 
     add_layout_mode(
         "A/B Blend",
         2.0,
         playhead::AssemblyMode::AM_TEN,
-        playhead::AutoAlignMode::AAM_ALIGN_FRAMES);
+        playhead::AutoAlignMode::AAM_ALIGN_AUTO);
 
     add_layout_mode(
-        "Add", 3.0, playhead::AssemblyMode::AM_TEN, playhead::AutoAlignMode::AAM_ALIGN_FRAMES);
+        "Add", 3.0, playhead::AssemblyMode::AM_TEN, playhead::AutoAlignMode::AAM_ALIGN_AUTO);
 
     add_layout_mode(
         "A/B Difference",
         4.0,
         playhead::AssemblyMode::AM_TEN,
-        playhead::AutoAlignMode::AAM_ALIGN_FRAMES);
+        playhead::AutoAlignMode::AAM_ALIGN_AUTO);
 
     add_layout_mode(
         "Screen",
         5.0,
         playhead::AssemblyMode::AM_TEN,
-        playhead::AutoAlignMode::AAM_ALIGN_FRAMES);
+        playhead::AutoAlignMode::AAM_ALIGN_AUTO);
 
     add_layout_settings_attribute(blend_ratio_, "A/B Blend");
     add_layout_settings_attribute(difference_boost_, "A/B Difference");

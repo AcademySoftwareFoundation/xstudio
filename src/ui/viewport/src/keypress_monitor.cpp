@@ -7,6 +7,7 @@
 #include "xstudio/ui/mouse.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/utility/logging.hpp"
 
 using namespace xstudio::ui::keypress_monitor;
 
@@ -354,7 +355,7 @@ KeypressMonitor::KeypressMonitor(caf::actor_config &cfg) : caf::event_based_acto
 
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
         [=](const error &err) mutable {
-            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+            utility::log_caf_error(err);
         });
 }
 

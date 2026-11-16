@@ -41,7 +41,8 @@ class AnnotationsRenderer : public plugin::ViewportOverlayRenderer {
         std::atomic_bool &cursor_blink,
         std::atomic_bool &hide_all,
         std::atomic_int *hide_strokes,
-        std::atomic_bool *hide_all2);
+        std::atomic_bool *hide_all2,
+        std::atomic_int *visibility_override);
 
     void render_image_overlay(
         const Imath::M44f &transform_window_to_viewport_space,
@@ -68,6 +69,7 @@ class AnnotationsRenderer : public plugin::ViewportOverlayRenderer {
     std::atomic_bool &cursor_blink_;
     std::atomic_bool &hide_all_;
     std::atomic_int *hide_strokes_;
+    std::atomic_int *visibility_override_;
     std::atomic_bool *hide_per_viewport_;
 };
 

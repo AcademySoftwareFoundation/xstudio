@@ -279,6 +279,7 @@ void register_mediareference_class(py::module &m, const std::string &name) {
         .def("__str__", str_impl)
         .def("container", &utility::MediaReference::container)
         .def("frame_count", &utility::MediaReference::frame_count)
+        .def("frame_list", &utility::MediaReference::frame_list)
         .def("fill_partial_sequences", &utility::MediaReference::fill_partial_sequences)
         .def(
             "seconds",
@@ -658,6 +659,7 @@ void register_frame_list_class(py::module &m, const std::string &name) {
         .def(py::init<>())
         .def(py::init<int, int, int>())
         .def(py::init<std::string>())
+        .def("frames", &utility::FrameList::frames)
         .def("__str__", str_impl);
 }
 

@@ -10,6 +10,7 @@
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/string_helpers.hpp"
 #include "xstudio/media_reader/image_buffer_set.hpp"
+#include "xstudio/utility/logging.hpp"
 
 #include "grading.h"
 #include "grading_common.h"
@@ -371,7 +372,7 @@ void GradingTool::on_screen_media_changed(
                 select_bookmark_on_media_changed(previous_media_uuid, current_media_uuid_);
             },
             [=](const caf::error &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                utility::log_caf_error(err);
             });
 }
 

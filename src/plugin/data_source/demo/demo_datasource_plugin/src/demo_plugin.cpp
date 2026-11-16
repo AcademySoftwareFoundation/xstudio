@@ -4,6 +4,7 @@
 #include "demo_media_reader.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/media/media_actor.hpp"
+#include "xstudio/utility/logging.hpp"
 
 CAF_PUSH_WARNINGS
 #include <QFile>
@@ -131,7 +132,7 @@ utility::JsonStore DemoPlugin::qml_item_callback(
                                 const std::string fr = j["frame_range"];
 
                                 static const std::regex frame_range("^([0-9]+)\\-([0-9]+)$");
-                                int in_frame  = 0;
+                                /*int in_frame  = 0;
                                 int out_frame = 0;
                                 std::cmatch m;
                                 if (std::regex_search(fr.c_str(), m, frame_range)) {
@@ -140,7 +141,7 @@ utility::JsonStore DemoPlugin::qml_item_callback(
                                         out_frame = std::stoi(m[2].str());
                                     } catch (...) {
                                     }
-                                }
+                                }*/
 
                                 auto _uri = caf::make_uri(path);
                                 if (!_uri) {
@@ -222,7 +223,7 @@ utility::JsonStore DemoPlugin::qml_item_callback(
                         }
                     },
                     [=](caf::error &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        utility::log_caf_error(err);
                     });
         }
 
@@ -404,7 +405,7 @@ caf::message_handler DemoPlugin::message_handler_extensions() {
                         }
                     },
                     [=](caf::error &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        utility::log_caf_error(err);
                     });
         },
 
@@ -488,7 +489,7 @@ caf::message_handler DemoPlugin::message_handler_extensions() {
                             .send(requester);
                     },
                     [=](caf::error &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        utility::log_caf_error(err);
                     });
         },
 
@@ -521,7 +522,7 @@ caf::message_handler DemoPlugin::message_handler_extensions() {
                             .send(requester);
                     },
                     [=](caf::error &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        utility::log_caf_error(err);
                     });
         },
         [=](set_database_value_atom,
@@ -552,7 +553,7 @@ caf::message_handler DemoPlugin::message_handler_extensions() {
                         // tell us if data has changed.
                     },
                     [=](caf::error &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        utility::log_caf_error(err);
                     });
         },
         [=](utility::event_atom,
@@ -633,7 +634,7 @@ void DemoPlugin::initialise_database() {
                             try {
                                 if (result.is_array()) {
                                     std::vector<std::string> job_choices;
-                                    for (int i = 0; i < result.size(); ++i) {
+                                    for (size_t i = 0; i < result.size(); ++i) {
                                         job_choices.push_back(result[i].get<std::string>());
                                     }
                                     current_project_->set_role_data(
@@ -654,11 +655,11 @@ void DemoPlugin::initialise_database() {
                             }
                         },
                         [=](caf::error &err) {
-                            spdlog::critical("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            utility::log_caf_error(err, spdlog::level::critical);
                         });
             },
             [=](caf::error &err) {
-                spdlog::critical("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                utility::log_caf_error(err, spdlog::level::critical);
             });
 }
 

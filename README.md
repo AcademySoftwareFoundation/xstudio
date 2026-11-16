@@ -1,8 +1,8 @@
-# Welcome to xSTUDIO - v1.3.0
+# Welcome to xSTUDIO - v1.4.0
 
 xSTUDIO is a media playback and review application designed for professionals working in the film and TV post production industries, particularly the Visual Effects and Feature Animation sectors. xSTUDIO is focused on providing an intuitive, easy to use interface with a high performance playback engine at its core and C++ and Python APIs for pipeline integration and customisation for total flexibility.
 
-This codebase will build version 1.3.0 of xSTUDIO.
+This codebase will build version 1.4.0 of xSTUDIO.
 
 ## Building xSTUDIO
 
@@ -11,7 +11,6 @@ This release of xSTUDIO can be built on various Linux flavours, Microsoft Window
 ### Building xSTUDIO for Linux
 
 * [Linux Generic](docs/reference/build_guides/linux_generic.md)
-* [CentOS 7](docs/reference/build_guides/centos_7.md)
 * [Rocky Linux 9.1](docs/reference/build_guides/rocky_linux_9_1.md)
 * [Ubuntu 22.04](docs/reference/build_guides/ubuntu_22_04.md)
 

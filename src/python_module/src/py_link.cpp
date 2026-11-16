@@ -28,7 +28,11 @@ void py_link(py::module_ &m) {
         .def("connect_remote", &caf::python::py_context::connect_remote)
         .def("connect_local", &caf::python::py_context::connect_local)
         .def("disconnect", &caf::python::py_context::disconnect)
-        .def("send", &caf::python::py_context::py_send, "Sends a message to an actor")
+        .def("send", &caf::python::py_context::py_send, "Sends a message to an actor")    
+        .def(
+            "wait_for_xstudio_exit",
+            &caf::python::py_context::py_wait_for_xstudio_exit,
+            "Blocks the calling thread until xSTUDIO exits.")
         .def(
             "request",
             &caf::python::py_context::py_request,

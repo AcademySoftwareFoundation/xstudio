@@ -36,6 +36,7 @@ namespace canvas {
       public:
         virtual void redo(Canvas *) = 0;
         virtual void undo(Canvas *) = 0;
+        virtual ~CanvasUndoRedo() = default;  
     };
 
     typedef std::unique_ptr<CanvasUndoRedo> CanvasUndoRedoPtr;

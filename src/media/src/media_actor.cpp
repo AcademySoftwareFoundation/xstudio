@@ -142,7 +142,9 @@ caf::message_handler MediaActor::default_event_handler() {
             media_reader::get_thumbnail_atom,
             const thumbnail::ThumbnailBufferPtr &) {},
         [=](utility::event_atom, media::media_display_info_atom, const utility::JsonStore &) {
-        }};
+        },
+        [=](utility::event_atom, notification_atom, const JsonStore &) {}
+    };
 }
 
 caf::message_handler MediaActor::message_handler() {
@@ -438,7 +440,7 @@ caf::message_handler MediaActor::message_handler() {
                         }
                     },
                     [=](const error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
 
             // OK f*ck it I'll do the re-ordering later. headache
@@ -526,8 +528,7 @@ caf::message_handler MediaActor::message_handler() {
                                                     UuidActor(base_.uuid(), this),
                                                     std::make_pair(
                                                         std::string(), std::string())));
-                                            spdlog::warn(
-                                                "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                            log_caf_error(err);
                                         });
                             }
                         },
@@ -536,7 +537,7 @@ caf::message_handler MediaActor::message_handler() {
                                 std::make_pair(
                                     UuidActor(base_.uuid(), this),
                                     std::make_pair(std::string(), std::string())));
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                         });
             } catch (...) {
                 rp.deliver(
@@ -1259,7 +1260,7 @@ caf::message_handler MediaActor::message_handler() {
                             rp.delegate(media_sources_.at(base_.current()), atom, default_rate);
                     },
                     [=](caf::error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                         rp.deliver(err);
                     });
 
@@ -1454,10 +1455,7 @@ caf::message_handler MediaActor::message_handler() {
                                         rp.deliver(jsn);
                                     },
                                     [=](error &err) mutable {
-                                        spdlog::warn(
-                                            "{} Dead Media Source {}",
-                                            __PRETTY_FUNCTION__,
-                                            to_string(err));
+                                        log_caf_error(err, spdlog::level::warn, "Dead Media Source");
                                         // dump sources..
                                         for (const auto &[i, j] : media_sources_)
                                             spdlog::warn("{} {}", to_string(i), to_string(j));
@@ -1472,8 +1470,7 @@ caf::message_handler MediaActor::message_handler() {
                         }
                     },
                     [=](error &err) mutable {
-                        spdlog::warn(
-                            "{} Dead JsonStore {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err, spdlog::level::warn, "Dead JsonStore");
                         rp.deliver(std::move(err));
                     });
             return rp;
@@ -1507,6 +1504,17 @@ caf::message_handler MediaActor::message_handler() {
             update_human_readable_details(rp);
             return rp;
         },
+
+        [=](media_display_info_atom, const bool) {
+            pending_media_display_info_ = false;
+
+            mail(
+                utility::event_atom_v,
+                media_display_info_atom_v,
+                media_list_columns_info_)
+                .send(base_.event_group());
+        },
+
         [=](media_display_info_atom) -> result<utility::JsonStore> {
             auto rp = make_response_promise<utility::JsonStore>();
             mail(human_readable_info_atom_v, true)
@@ -1577,7 +1585,7 @@ void MediaActor::add_or_rename_media_source(
                 }
             },
             [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 }
 
@@ -1623,7 +1631,7 @@ void MediaActor::clone_bookmarks_to(
                 }
             },
             [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(err);
             });
 }
@@ -1891,9 +1899,9 @@ void MediaActor::update_human_readable_details(
 
                     // The uri for frame based formats is a bit ugly ... here replace the frame
                     // expr with some hashes
-                    static std::regex re(R"(\.\{\:[0-9]*d\}\.)");
+                    static std::regex re(R"(\{\:[0-9]*d\}\.)");
                     const auto filepath =
-                        std::regex_replace(uri_to_posix_path(ref.uri()), re, ".#.");
+                        std::regex_replace(uri_to_posix_path(ref.uri()), re, "#.");
                     r["File Path - MediaSource (Image)"] = filepath;
                     r["File Name - MediaSource (Image)"] =
                         fs::path(filepath).filename().string();
@@ -2111,12 +2119,15 @@ void MediaActor::build_media_list_info(caf::typed_response_promise<utility::Json
                 // Thus if we add lots of media at once (e.g. building a playlist) xstudio can
                 // freeze due to all these recursive searches. We therefore don't want to emit
                 // these events until some time after the media item has been created.
-                if ((utility::clock::now() - creation_time_) > std::chrono::seconds(5)) {
+                if (not pending_media_display_info_ and (utility::clock::now() - creation_time_) > std::chrono::seconds(5)) {
                     mail(
                         utility::event_atom_v,
                         media_display_info_atom_v,
                         media_list_columns_info_)
                         .send(base_.event_group());
+                } else if(not pending_media_display_info_) {
+                    pending_media_display_info_ = true;
+                    anon_mail(media_display_info_atom_v, true).delay(5s).send(this);
                 }
             }
             rp.deliver(*result);
@@ -2159,7 +2170,7 @@ void MediaActor::duplicate(
                 anon_mail(json_store::set_json_atom_v, Uuid(), jsn, "").send(actor);
             },
             [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 
     anon_mail(

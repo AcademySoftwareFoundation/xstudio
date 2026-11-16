@@ -14,7 +14,7 @@ ApplicationWindow {
     id: appWindow
     visible: false
     color: "#00000000"
-    title: fileName
+    title: (viewedMediaSetProperties.values.nameRole ? viewedMediaSetProperties.values.nameRole + " - " : "") + fileName
     objectName: "xstudio_popout_window"
     minimumWidth: 150
     minimumHeight: 100
@@ -27,6 +27,7 @@ ApplicationWindow {
         }
         return "xSTUDIO"
     }
+
     XsFocusRemover {
         target: hotkey_area
     }

@@ -49,7 +49,7 @@ CMake needs to know where your Qt 6.5.3 SDK is installed. Create a `CMakeUserPre
       "version": 3,
       "configurePresets": [
         {
-          "name": "MacOSNinjaReleaseLocal",
+          "name": "MacOSReleaseLocal",
           "inherits": "MacOSNinjaRelease",
           "cacheVariables": {
             "Qt6_DIR": "/Users/maryjane/Qt/6.5.3/macos/lib/cmake/Qt6"
@@ -62,9 +62,9 @@ For an Intel Mac, inherit from `MacOSIntelNinjaRelease` instead. See the [CMake 
 
 ### Build xSTUDIO
 
-Run the configure command. Note that this cmake command ***may take several hours to complete***. This is because xSTUDIO's dependencies (particularly ffmpeg) take a long time to download and build from the source code, which is what VCPKG is doing.
+Run the configure command. Note that this cmake command ***may take several hours to complete***. This is because xSTUDIO's dependencies (particularly ffmpeg) take a long time to download and build from the source code, which is what VCPKG is doing. However, the very time consuming step only needs to happen once on your first time build.
 
-    cmake -B build --preset MacOSNinjaReleaseLocal
+    cmake -B build --preset MacOSReleaseLocal
 
 When this has finished, you can build xSTUDIO with:
 
@@ -73,3 +73,19 @@ When this has finished, you can build xSTUDIO with:
 RelWithDebInfo and Debug variants are also available — see [CMakePresets.json](../../../CMakePresets.json) for the full list.
 
 If the build is successful, you should have an application bundle in the 'build' folder called 'xSTUDIO.app'. This can be drag & dropped into your applications folder, desktop and dock as for any other application.
+
+### Fast iteration on source changes
+
+The `install` target above runs `macdeployqt` and copies documentation, preferences, and Python dependencies into the bundle. On a warm bundle this takes several minutes even when nothing has changed. Once you have done it at least once, incremental rebuilds do not need to repeat it, because the compiled binaries are linked directly into `build/xSTUDIO.app/Contents/`.
+
+For iteration on C++ / QML source changes, use:
+
+    cmake --build build
+
+and re-launch `build/xSTUDIO.app`. A single-file relink completes in seconds instead of minutes.
+
+You should re-run `cmake --build build --target install` when:
+
+- files under `share/docs`, `share/preference`, `share/snippets`, or `share/fonts` change,
+- a new dynamic library or plugin is added that `macdeployqt` needs to discover,
+- the Qt SDK is upgraded and the copied frameworks in the bundle need refreshing.

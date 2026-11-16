@@ -95,3 +95,15 @@ Simple markers can be added to a Sequence via the right-mouse Context menu *some
     :align: center
     :alt: Sequence Markers
     :scale: 100%
+
+Comparing Timelines
+-------------------
+
+2 or more timelines can be viewed at the same time for comparison. To do this, first load a timeline for viewing by double clicking on a sequence object in the Playlists panel. Then hold the CTRL/CMD button down and click on another sequence object to multi-select in the Playlists panel. You will see two timeline interfaces, one for each of the timelines that you selected, in the Timeline panel. They timeline interfaces are ordered from top to bottom according to the order that the sequence objects were multi-selected in the Playlists panel. In the viewport, you will see the image for each timeline laid out in a grid arrangement. The 'Grid' compare mode is just a default and you're free to use other :ref:`compare modes <compare_modes>` from the Compare button in the viewport timeline. The two timelines will share a common playhead in this mode.
+
+A limitation of this feature is that the timeline toolbars are also duplicated for each timeline being compared. Future version of xSTUDIO will address this problem and provide a less crowded interface when comparing timelines.
+
+.. figure:: ../images/timeline-compare-01.png
+    :align: center
+    :alt: Timeline Comparison
+    :scale: 60%

@@ -3,8 +3,9 @@
 
 import numpy as np
 
-from xstudio.core import AttributeRole, Uuid
+from xstudio.core import AttributeRole, Uuid, get_colourspace_info_atom
 from xstudio.plugin import PluginBase
+import json
 
 # This plugin is intended to allow for OCIO helper operations that can be
 # executed in Python rather than C++. This is useful for operations that
@@ -59,9 +60,9 @@ class OCIOPluginPython(PluginBase):
             }
         )
 
-        self.range_menu_id = self.insert_menu_item(
+        self.insert_menu_item(
             menu_model_name="media_list_menu_",
-            menu_text="Set YUV Range",
+            menu_text="YUV Range",
             menu_path="Media Settings",
             menu_item_position=1.0,
             attr_id=self.range_attr.uuid,
@@ -78,12 +79,30 @@ class OCIOPluginPython(PluginBase):
             }
         )
 
-        self.matrix_menu_id = self.insert_menu_item(
+        self.insert_menu_item(
             menu_model_name="media_list_menu_",
-            menu_text="Set YUV Matrix",
+            menu_text="YUV Matrix",
             menu_path="Media Settings",
             menu_item_position=2.0,
             attr_id=self.matrix_attr.uuid,
+        )
+
+        # Colourspace setting
+
+        self.source_colourspace_attr = self.add_attribute(
+            attribute_name="Source Colourspace",
+            attribute_value="",
+            attribute_role_data={
+                "combo_box_options": ["Unknown"]
+            }
+        )
+
+        self.insert_menu_item(
+            menu_model_name="media_list_menu_",
+            menu_text="OCIO Source Colourspace",
+            menu_path="Media Settings",
+            menu_item_position=2.1,
+            attr_id=self.source_colourspace_attr.uuid,
         )
 
         self.connect_to_ui()
@@ -99,6 +118,10 @@ class OCIOPluginPython(PluginBase):
         of the media.
         """
         shown_uuid = Uuid(menu_item_data["uuid"])
+
+        if shown_uuid == self.source_colourspace_attr.uuid:
+            self.fill_source_colourspace_menu()
+            return
 
         # Always base the Auto label off the main selection
         media = self.connection.api.session.selected_media[0]
@@ -173,7 +196,15 @@ class OCIOPluginPython(PluginBase):
 
         medias = self.connection.api.session.selected_media
 
-        if attribute == self.range_attr:
+        if attribute == self.source_colourspace_attr:
+
+            source_cs = self.source_colourspace_attr.value()
+            if source_cs == "Reset":
+                source_cs = ""
+            for media in medias:
+                media.media_source().set_metadata(source_cs, '/colour_pipeline/override_input_cs')
+
+        elif attribute == self.range_attr:
             range_value = self.range_attr.value()
 
             for media in medias:
@@ -204,6 +235,33 @@ class OCIOPluginPython(PluginBase):
 
                     # Update the shader overrides based on the new settings
                     self._update_yuv_media_conversion(media)
+
+    def fill_source_colourspace_menu(self):
+        """Fill the source colourspace menu with available colourspaces."""
+        # Get the list of available colourspaces from OCIO
+        # For now, we will use a hardcoded list for demonstration purposes
+        try:
+            selected_media = self.connection.api.session.inspected_container.playhead_selection.selected_sources
+            if selected_media:
+                cp_actor = self.connection.api.app.active_viewport.colour_pipeline.remote
+                cs_info = self.connection.request_receive(
+                    cp_actor,
+                    get_colourspace_info_atom(),
+                    selected_media[0].media_source().remote)[0]
+                cs_info = json.loads(cs_info.dump())
+
+                available_colourspaces = cs_info["available_colourspaces"]
+                self.source_colourspace_attr.set_role_data(
+                    "combo_box_options", ["Reset"] + available_colourspaces
+                )
+                self.source_colourspace_attr.set_value(cs_info["current_colourspace"], False)
+            else:
+                self.source_colourspace_attr.set_role_data(
+                    "combo_box_options", []
+                )
+        except Exception as e:
+            self.connection.api.log_err(f"Error filling source colourspace menu: {e}")
+
 
     def _update_yuv_media_conversion(self, media):
         media_metadata = self._yuv_media_metadata(media)

@@ -673,6 +673,13 @@ caf::message_handler TrackActor::message_handler() {
             return rp;
         },
 
+        [=](event_atom, change_atom, clip_edited_status_atom, const utility::Uuid clip_id, const int edited_status) {
+
+            // event coming from clip. Pass up to stack
+            mail(event_atom_v, change_atom_v, clip_edited_status_atom_v, clip_id, edited_status, base_.item().uuid()).send(base_.event_group());
+
+        },
+
         [=](event_atom, change_atom) {
             // update_edit_list_ = true;
             mail(event_atom_v, change_atom_v).send(base_.event_group());
@@ -705,6 +712,13 @@ caf::message_handler TrackActor::message_handler() {
                 rp.deliver(UuidActor(dup.uuid(), actor));
             }
 
+            return rp;
+        },
+
+        [=](duplicate_atom, const utility::UuidVector &selection_for_duplication) -> result<UuidActor> {
+
+            auto rp = make_response_promise<UuidActor>();
+            do_partial_duplication(rp, selection_for_duplication);
             return rp;
         },
 
@@ -760,6 +774,28 @@ caf::message_handler TrackActor::message_handler() {
             jsn["actors"] = {};
 
             return result<JsonStore>(jsn);
+        },
+
+        [=](playlist::get_media_atom) -> result<utility::UuidActorVector> {
+
+            // get all media actors for children of this track.
+            auto rp = make_response_promise<utility::UuidActorVector>();
+            auto ar = utility::AutoResponder<utility::UuidActorVector>(0, rp);
+            for (const auto &i : base_.item().children()) {
+                if (i.item_type() == IT_CLIP) {
+                    ar.increment();
+                    mail(playlist::get_media_atom_v, true)
+                        .request(i.actor(), infinite)
+                        .then(
+                            [=](const UuidUuidActor &ua) mutable { 
+                                ar.result().push_back(ua.second);
+                                ar.decrement();
+                            },
+                            [=](error &err) mutable { ar.decrement(err); });
+                }
+            }
+
+            return rp;
         },
 
         [=](media::get_media_pointers_atom atom,
@@ -920,8 +956,8 @@ void TrackActor::insert_items(
                     for (const auto &ua : uav)
                         add_item(ua);
 
-                    // find insertion point..
-                    auto it = std::next(base_.item().begin(), index);
+                    // find insertion point..                    
+                    int insertion_index = index;
 
                     // insert items..
                     // our list will be out of order..
@@ -936,8 +972,11 @@ void TrackActor::insert_items(
                                 auto blind = request_receive<JsonStore>(
                                     *sys, ua.actor(), serialise_atom_v);
 
+                                auto it = insertion_index >= 0 ? std::next(base_.item().begin(), std::min(insertion_index, int(base_.item().size()))) : base_.item().end();
                                 auto tmp = base_.item().insert(it, i, blind);
-                                changes.insert(changes.begin(), tmp.begin(), tmp.end());
+                                if (insertion_index != -1) insertion_index++;
+                                it = insertion_index >= 0 ? std::next(base_.item().begin(), std::min(insertion_index, int(base_.item().size()))) : base_.item().end();
+                                changes.insert(changes.end(), tmp.begin(), tmp.end());
                                 found = true;
                                 break;
                             }
@@ -978,7 +1017,7 @@ void TrackActor::insert_items_at_frame(
         // insert gap to fill space..
         UuidActorVector uav_plus_gap;
         auto track_end = base_.item().trimmed_frame_start().frames() +
-                         base_.item().trimmed_frame_duration().frames() - 1;
+                         base_.item().trimmed_frame_duration().frames();
         auto filler   = frame - track_end;
         auto gap_uuid = Uuid::generate();
         auto gap_actor =
@@ -1727,4 +1766,73 @@ void TrackActor::merge_gaps(caf::typed_response_promise<JsonStore> rp) {
         mail(event_atom_v, item_atom_v, changes, false).send(base_.event_group());
 
     rp.deliver(changes);
+}
+
+void TrackActor::do_partial_duplication(
+    caf::typed_response_promise<UuidActor> rp, const utility::UuidVector &selection_for_duplication) {
+
+    // the goal of this is to duplicate the complete track if it's in the selection, otherwiser
+    // we duplicate the track and only it's children that are in the selection. 
+    // For clips not in the selection, we create a gap to fill the space.
+
+    bool in_selection = false;
+    for (const auto &i : selection_for_duplication) {
+        if (base_.item().uuid() == i) {
+            // track is in selection, duplicate whole track.
+            rp.delegate(caf::actor_cast<caf::actor>(this), duplicate_atom_v);
+            return;
+        }
+        auto item = find_item(base_.item().children(), i);
+        if (item) {
+            in_selection = true;
+        }
+    }
+
+    if (not in_selection) {
+        // neither track or any of its children are in selection, don't duplicate.
+        rp.deliver(UuidActor());
+    } else {
+
+        JsonStore jsn;
+        auto dup = base_.duplicate();
+        dup.item().clear();
+
+        jsn["base"]   = dup.serialise();
+        jsn["actors"] = {};
+        auto actor    = spawn<TrackActor>(jsn);
+
+        if (actors_.empty()) {
+            rp.deliver(UuidActor(dup.uuid(), actor));
+        } else {
+            // duplicate all children and relink against items.
+            scoped_actor sys{system()};
+
+            FrameRateDuration gap_duration;
+            gap_duration.set_rate(base_.item().rate());
+
+            for (const auto &i : base_.children()) {
+
+                if (std::find(selection_for_duplication.begin(), selection_for_duplication.end(), i.uuid()) == selection_for_duplication.end()) {
+                    // child is not in selection ... add to the gap duration and continue.
+                    gap_duration.set_duration(gap_duration.duration() + i.trimmed_duration());
+                    continue;
+                }
+
+                if (gap_duration.duration() > timebase::k_flicks_zero_seconds) {
+                    // make the required gap actor and insert it before the next child.
+                    utility::Uuid gap_uuid = utility::Uuid::generate();
+                    auto gap_actor = spawn<GapActor>("Gap", gap_duration, gap_uuid);
+                    auto ua = UuidActor(gap_uuid, gap_actor);
+                    request_receive<JsonStore>(
+                        *sys, actor, insert_item_atom_v, -1, UuidActorVector({ua}));
+                    gap_duration.set_duration(FrameRate());
+                }
+                auto ua =
+                    request_receive<UuidActor>(*sys, actors_[i.uuid()], duplicate_atom_v);
+                request_receive<JsonStore>(
+                    *sys, actor, insert_item_atom_v, -1, UuidActorVector({ua}));
+            }
+            rp.deliver(UuidActor(dup.uuid(), actor));
+        }
+    }
 }

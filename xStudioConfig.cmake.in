@@ -8,6 +8,13 @@
 get_filename_component(xStudio_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 set(xStudio_INCLUDE_DIRS "@CONF_INCLUDE_DIRS@")
 
+# Public dependencies exposed on xStudio target interfaces (e.g. xstudio::http_client
+# exposes OpenSSL::SSL / ZLIB::ZLIB via cpp-httplib in its public headers). Resolve
+# their imported targets so downstream find_package(xStudio) consumers don't have to.
+include(CMakeFindDependencyMacro)
+find_dependency(OpenSSL)
+find_dependency(ZLIB)
+
 # Our library dependencies (contains definitions for IMPORTED targets)
 if(NOT TARGET foo AND NOT xStudio_BINARY_DIR)
   include("${xStudio_CMAKE_DIR}/xStudioTargets.cmake")

@@ -53,6 +53,12 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
             viewportCurrentMediaContainerIndex WRITE setViewportCurrentMediaContainerIndex
                 NOTIFY viewportCurrentMediaContainerIndexChanged)
 
+    Q_PROPERTY(
+        QModelIndexList selectedTimelinesIndeces READ
+            selectedTimelinesIndeces NOTIFY selectedTimelinesIndecesChanged)
+
+    Q_PROPERTY(
+        QPersistentModelIndex lastTimelineIndex READ lastTimelineIndex NOTIFY lastTimelineIndexChanged)
 
   public:
     enum Roles {
@@ -62,12 +68,14 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
         actorRole,
         actorUuidRole,
         audioActorUuidRole,
+        audioModeRole,
         availableDurationRole,
         availableStartRole,
         bitDepthRole,
         bookmarkUuidsRole,
         busyRole,
         clipMediaUuidRole,
+        clipEditedStatusRole,
         containerUuidRole,
         enabledRole,
         errorRole,
@@ -162,7 +170,7 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
 
     Q_INVOKABLE [[nodiscard]] QString getNextName(const QString &nameTemplate) const;
 
-    Q_INVOKABLE void setSessionSelection(const QModelIndexList &indexes) const;
+    Q_INVOKABLE void setSessionSelection(const QModelIndexList &indexes);
 
     // begin timeline operations
     Q_INVOKABLE QFuture<QVariant> importTimelineFuture(
@@ -200,15 +208,12 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
     Q_INVOKABLE QModelIndex
     getTimelineClipIndex(const QModelIndex &timelineIndex, const int frame);
 
-    Q_INVOKABLE int getNextTimelineClipFrame(const QModelIndex &timelineIndex, const int frame);
-
-    Q_INVOKABLE int
-    getPreviousTimelineClipFrame(const QModelIndex &timelineIndex, const int frame);
+    Q_INVOKABLE void jumpToNextClip(const QModelIndex &timelineIndex, const bool forwads);
 
     Q_INVOKABLE void resetTimelineItemDragFlag(const QModelIndexList &items);
     Q_INVOKABLE void updateTimelineItemDragFlag(
         const QModelIndexList &items,
-        const bool isRolling,
+        const QString &mode,
         const bool isRipple,
         const bool isOverwrite);
 
@@ -250,7 +255,6 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
 
     // return all gap/clip items boundaries in timeline frames.
     Q_INVOKABLE QVariantList boundaryFramesInTimeline(const QModelIndexList &indexes);
-
 
     Q_INVOKABLE [[nodiscard]] QModelIndexList getIndexesByName(
         const QModelIndex &idx, const QString &name, const QString &type = "") const;
@@ -311,6 +315,9 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
         const bool insert);
     Q_INVOKABLE bool
     alignTimelineItems(const QModelIndexList &indexes, const bool align_right = true);
+
+    Q_INVOKABLE QString copyTimelineItemsToClipboard(const QModelIndexList &items, const QModelIndex &timeline_index);
+    Q_INVOKABLE void pasteFromClipboard(const QString &clipboard_data, const QModelIndex &timeline_index);
 
     Q_INVOKABLE [[nodiscard]] QFuture<bool> exportOTIO(
         const QModelIndex &timeline,
@@ -447,6 +454,12 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
     Q_INVOKABLE QFuture<QString> getJSONFuture(
         const QModelIndex &index, const QString &path, const bool includeSource = false);
 
+    Q_INVOKABLE QList<QUuid> getBookmarks(const QModelIndexList &indexes) {
+        return getBookmarksFuture(indexes).result();
+    }
+    Q_INVOKABLE QFuture<QList<QUuid>> getBookmarksFuture(
+        const QModelIndexList &indexes);
+
     Q_INVOKABLE QStringList
     getMediaSourceNames(const QModelIndex &media_index, bool image_sources);
     Q_INVOKABLE QStringList setMediaSource(
@@ -493,6 +506,14 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
         return current_playhead_owner_index_;
     }
 
+    Q_INVOKABLE QModelIndexList selectedTimelinesIndeces() {
+        return multi_select_timeline_indeces_;
+    }
+
+    Q_INVOKABLE QPersistentModelIndex lastTimelineIndex() {
+        return last_timeline_index_;
+    }
+
     Q_INVOKABLE void
     setTimelineFocus(const QModelIndex &timeline, const QModelIndexList &indexes) const;
     Q_INVOKABLE void
@@ -521,6 +542,8 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
     void
     mediaSourceChanged(const QModelIndex &media, const QModelIndex &source, const int mode);
     void makeTimelineSelection(QModelIndex timeline, QModelIndexList items);
+    void selectedTimelinesIndecesChanged();
+    void lastTimelineIndexChanged();
 
   public:
     [[nodiscard]] caf::actor_system &system() const { return self()->home_system(); }
@@ -665,6 +688,8 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
     QPersistentModelIndex mediaStatusIndex_;
     QPersistentModelIndex current_playlist_index_;
     QPersistentModelIndex current_playhead_owner_index_;
+    QPersistentModelIndex last_timeline_index_;
+    QModelIndexList multi_select_timeline_indeces_;
 
     QMap<QString, QImage> media_thumbnails_; // key is actor string
     utility::UuidSet processed_events_;

@@ -48,6 +48,7 @@ XsTimeline                1.0 ../application/panels/timeline/XsTimeline.qml
 XsTimelineClipMenu        1.0 ../application/panels/timeline/menus/XsTimelineClipMenu.qml
 XsTimelineMenu            1.0 ../application/panels/timeline/menus/XsTimelineMenu.qml
 XsTimelinePanel           1.0 ../application/panels/timeline/XsTimelinePanel.qml
+XsTimelinePanelParent     1.0 ../application/panels/timeline/XsTimelinePanelParent.qml
 XsTimelineTrackMenu       1.0 ../application/panels/timeline/menus/XsTimelineTrackMenu.qml
 
 XsDelegateAudioTrack      1.0 ../application/panels/timeline/delegates/XsDelegateAudioTrack.qml

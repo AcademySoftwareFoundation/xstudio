@@ -15,7 +15,7 @@ CAF_POP_WARNINGS
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/ui/qml/actor_object.hpp"
 
-#include "helper_qml_export.h"
+#include "xstudio/ui/qml/helper_qml_export.h"
 
 namespace xstudio::ui::qml {
 

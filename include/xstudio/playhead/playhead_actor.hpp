@@ -34,6 +34,8 @@ class PlayheadActor : public caf::event_based_actor, public PlayheadBase {
 
     [[nodiscard]] const char *name() const override { return NAME.c_str(); }
 
+    static inline const utility::Uuid TIMELINE_COMPARE_PLAYHEAD_UUID = utility::Uuid("442f6169-a3b0-465d-850d-03280b224d70");
+
   private:
     inline static const std::string NAME = "PlayheadActor";
 
@@ -132,10 +134,6 @@ class PlayheadActor : public caf::event_based_actor, public PlayheadBase {
 
     utility::UuidActor hero_sub_playhead_;
     utility::UuidActorVector sub_playheads_;
-
-    // per-source compare offsets (media uuid -> frame offset), applied by
-    // align_clip_frame_numbers() when auto align mode is 'Manual'
-    std::map<utility::Uuid, int64_t> manual_source_offsets_;
 
     utility::UuidActor video_string_out_actor_;
     utility::UuidActor timeline_actor_;

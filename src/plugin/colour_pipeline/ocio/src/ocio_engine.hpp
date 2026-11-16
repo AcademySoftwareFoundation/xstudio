@@ -129,6 +129,12 @@ class OCIOEngine {
         std::vector<std::string> &displays,
         std::map<std::string, std::vector<std::string>> &display_views) const;
 
+    /* Get the ICC profile path for the given display and view.*/
+    std::string get_icc_profile_path(
+        const utility::JsonStore &src_colour_mgmt_metadata,
+        const std::string &display,
+        const std::string &view) const;
+
   private:
     // OCIO logic
     std::string working_space(const utility::JsonStore &src_colour_mgmt_metadata) const;

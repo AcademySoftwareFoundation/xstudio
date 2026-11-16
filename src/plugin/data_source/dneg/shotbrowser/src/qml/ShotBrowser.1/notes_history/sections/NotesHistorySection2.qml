@@ -10,11 +10,12 @@ import ShotBrowser 1.0
 Rectangle{
     color: "transparent"
 
-    property bool isHovered: notesEdit.hovered
+    property bool descriptionClicked: false
+    property bool descriptionHovered: notesEdit.hovered
     property int textHeightDiff: 0
 
     Component.onCompleted: {
-        textHeightDiff = notesEdit.implicitHeight+(panelPadding*2) - notesEdit.height
+        textHeightDiff = notesEdit.implicitHeight + (panelPadding * 2) - notesEdit.height
     }
 
 
@@ -40,6 +41,11 @@ Rectangle{
             Layout.fillHeight: true
             color: XsStyleSheet.widgetBgNormalColor
 
+            TapHandler {
+                enabled: notesEdit.implicitHeight > notesEdit.height
+                onTapped: descriptionClicked = true
+            }
+
             TextArea{ id: notesEdit
                 anchors.fill: parent
                 enabled: false
@@ -50,7 +56,7 @@ Rectangle{
                 font.hintingPreference: Font.PreferNoHinting
                 color: XsStyleSheet.primaryTextColor
 
-                text: contentRole
+                text: attachmentsRole && attachmentsRole.length ? "Please see annotations.\n\n"+contentRole : contentRole
                 padding: panelPadding
                 wrapMode: TextEdit.Wrap
             }

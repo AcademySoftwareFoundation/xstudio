@@ -757,17 +757,24 @@ Item {
                 // Nothing found message
                 ColumnLayout {
 
-                    anchors.centerIn: parent
+                    anchors.margins: 30
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
                     spacing: 20
                     visible: scanResultsModel.numMediaFiles === 0 && !searching_attr.value && !deepScan
                     XsText {
+
                         id: msg
+                        Layout.fillWidth: true
                         text: "No media found in current folder."
                         color: "#666666"
                         font.pixelSize: 18
+                        wrapMode: Text.Wrap
+                        horizontalAlignment: Text.AlignHCenter
                     }
                     XsPrimaryButton {
-                        Layout.preferredWidth: 200
+                        Layout.preferredWidth: Math.min(parent.width, 200)
                         Layout.alignment: Qt.AlignHCenter
                         visible: scanResultsModel.numRootFolders && !deepScan
                         text: "Run Full Scan"

@@ -61,6 +61,17 @@ class CafRequest : public ControllableJob<QMap<int, QString>> {
                 requestNotificationRole(type, sys, system_, result);
                 break;
 
+            case SessionModel::Roles::audioModeRole:
+                if (type == "Timeline") {
+
+                    auto data = request_receive<timeline::AudioMode>(
+                        *sys,
+                        actorFromString(system_, json_.at("actor")),
+                        timeline::audio_mode_atom_v);
+
+                    result[role_] =  QStringFromStd(json(static_cast<int>(data)).dump());
+                }
+                break;                
             case SessionModel::Roles::bitDepthRole:
             case SessionModel::Roles::resolutionRole:
             case SessionModel::Roles::formatRole:
@@ -103,6 +114,16 @@ class CafRequest : public ControllableJob<QMap<int, QString>> {
                         *sys,
                         actorFromString(system_, json_.at("actor")),
                         media::rotation_atom_v);
+                    result[role_] = QString("%1").arg(data);
+                }
+                break;
+
+            case SessionModel::Roles::clipEditedStatusRole:
+                if (type == "Clip") {
+                    auto data = request_receive<int>(
+                        *sys,
+                        actorFromString(system_, json_.at("actor")),
+                        timeline::clip_edited_status_atom_v);
                     result[role_] = QString("%1").arg(data);
                 }
                 break;

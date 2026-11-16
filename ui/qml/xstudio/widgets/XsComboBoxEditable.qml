@@ -17,7 +17,7 @@ XsComboBox{
 
     XsPrimaryButton{ id: clearBtn
         imgSrc: "qrc:/icons/close.svg"
-        visible: currentIndex !== -1 && (hovered || popup.opened )
+        visible: currentIndex !== -1 && (parent.hovered || popup.opened )
 
         width: height
         height: parent.height - XsStyleSheet.panelPadding

@@ -772,6 +772,13 @@ ImageBufPtr OIIOMediaReader::image(const media::AVFrameID &mptr) {
         jsn["channel_b_start"] = channel_b_start;
         jsn["channel_a_start"] = channel_a_start;
 
+        // The native bit depth of the file, which can be less than the bit depth of
+        // the buffer we store it in - e.g. 10 bit DPX data is expanded to 16 bits by
+        // OIIO. Not used by the shader, but the pixel probe uses it to report code
+        // values at the file's own bit depth. See oiio_buffer_pixel_picker.
+        jsn["native_bits_per_sample"] =
+            spec.get_int_attribute("oiio:BitsPerSample", bytes_per_channel * 8);
+
         // Step 11: Allocate and configure the image buffer
         buf.reset(new ImageBuffer(myshader_uuid, jsn));
         buf->allocate(pixel_count * bytes_per_pixel);
@@ -901,6 +908,134 @@ OIIOMediaReader::thumbnail(const media::AVFrameID &mpr, const size_t thumb_size)
         std::memset(&(thumb->data()[0]), 0, thumb->size());
         return thumb;
     }
+}
+
+PixelInfo OIIOMediaReader::oiio_buffer_pixel_picker(
+    const ImageBuffer &buf,
+    const utility::JsonStore &pixel_unpack_uniforms,
+    const Imath::V2i &pixel_location,
+    const std::vector<Imath::V2i> &extra_pixel_locations) {
+
+    // This is a C++ implementation of fetch_rgba_pixel in oiio_shader_code above -
+    // it lets xstudio inspect individual pixel values from the image buffer.
+
+    PixelInfo r(pixel_location);
+
+    try {
+        if (pixel_unpack_uniforms.is_null())
+            return r;
+
+        const int width             = pixel_unpack_uniforms.value("width", 0);
+        const int height            = pixel_unpack_uniforms.value("height", 0);
+        const int bytes_per_channel = pixel_unpack_uniforms.value("bytes_per_channel", 0);
+        const int is_half_float     = pixel_unpack_uniforms.value("is_half_float", 0);
+        const int has_alpha         = pixel_unpack_uniforms.value("has_alpha", 0);
+        const int channel_r_start   = pixel_unpack_uniforms.value("channel_r_start", 0);
+        const int channel_g_start   = pixel_unpack_uniforms.value("channel_g_start", 0);
+        const int channel_b_start   = pixel_unpack_uniforms.value("channel_b_start", 0);
+        const int channel_a_start   = pixel_unpack_uniforms.value("channel_a_start", 0);
+
+        if (!width || !height || !bytes_per_channel)
+            return r;
+
+        if (pixel_location.x < 0 || pixel_location.x >= width || pixel_location.y < 0 ||
+            pixel_location.y >= height) {
+            return r;
+        }
+
+        // OIIO expands integer data that isn't a whole number of bytes up to the next
+        // byte boundary - 10 and 12 bit DPX data becomes 16 bit, for example. The
+        // expansion replicates the high bits into the low bits (see
+        // BaseTypeConvertU10ToU16 in OIIO's libdpx), so we can recover the file's own
+        // code values exactly by shifting those replicated bits back off again.
+        const int stored_bits = bytes_per_channel * 8;
+        const int native_bits =
+            pixel_unpack_uniforms.value("native_bits_per_sample", stored_bits);
+        const int code_value_shift =
+            (native_bits > 0 && native_bits < stored_bits) ? (stored_bits - native_bits) : 0;
+
+        auto get_image_data_1byte = [&](const int address) -> int {
+            if (address < 0 || address + 1 > (int)buf.size())
+                return 0;
+            return *((uint8_t *)(buf.buffer() + address));
+        };
+
+        auto get_image_data_2bytes = [&](const int address) -> int {
+            if (address < 0 || address + 2 > (int)buf.size())
+                return 0;
+            return *((uint16_t *)(buf.buffer() + address));
+        };
+
+        auto get_image_data_half_float = [&](const int address) -> float {
+            if (address < 0 || address + 2 > (int)buf.size())
+                return 0.0f;
+            return (float)*((half *)(buf.buffer() + address));
+        };
+
+        auto get_image_data_float32 = [&](const int address) -> float {
+            if (address < 0 || address + 4 > (int)buf.size())
+                return 0.0f;
+            return *((float *)(buf.buffer() + address));
+        };
+
+        // Fetch one pixel, recording code values for integer formats as we go.
+        auto fetch_rgba_pixel = [&](const Imath::V2i image_coord,
+                                    const bool record_code_values) -> Imath::V4f {
+            const int pixel_offset =
+                (image_coord.x + image_coord.y * width) * bytes_per_channel;
+
+            std::array<int, 4> starts(
+                {channel_r_start, channel_g_start, channel_b_start, channel_a_start});
+            static const std::array<const char *, 4> names({"R", "G", "B", "A"});
+
+            Imath::V4f rgba(0.0f, 0.0f, 0.0f, 1.0f);
+            const int num_channels = has_alpha ? 4 : 3;
+
+            for (int i = 0; i < num_channels; ++i) {
+                const int address = pixel_offset + starts[i];
+                if (bytes_per_channel == 1) {
+                    const int code = get_image_data_1byte(address);
+                    if (record_code_values)
+                        r.add_code_value_info(names[i], code >> code_value_shift);
+                    rgba[i] = code / 255.0f;
+                } else if (bytes_per_channel == 2) {
+                    if (is_half_float) {
+                        rgba[i] = get_image_data_half_float(address);
+                    } else {
+                        const int code = get_image_data_2bytes(address);
+                        if (record_code_values)
+                            r.add_code_value_info(names[i], code >> code_value_shift);
+                        rgba[i] = code / 65535.0f;
+                    }
+                } else if (bytes_per_channel == 4) {
+                    rgba[i] = get_image_data_float32(address);
+                }
+            }
+
+            return rgba;
+        };
+
+        const Imath::V4f rgba_pix = fetch_rgba_pixel(pixel_location, true);
+
+        r.add_raw_channel_info("R", rgba_pix.x);
+        r.add_raw_channel_info("G", rgba_pix.y);
+        r.add_raw_channel_info("B", rgba_pix.z);
+        if (has_alpha)
+            r.add_raw_channel_info("A", rgba_pix.w);
+
+        for (const auto &p : extra_pixel_locations) {
+            if (p.x < 0 || p.x >= width || p.y < 0 || p.y >= height) {
+                r.add_extra_pixel_raw_rgba(Imath::V4f(0.0f, 0.0f, 0.0f, 0.0f));
+            } else {
+                r.add_extra_pixel_raw_rgba(fetch_rgba_pixel(p, false));
+            }
+        }
+
+    } catch (const std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+
+    return r;
 }
 
 media::MediaDetail OIIOMediaReader::detail(const caf::uri &uri) const {

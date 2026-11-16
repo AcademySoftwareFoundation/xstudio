@@ -111,6 +111,11 @@ class TrackActor : public caf::event_based_actor {
         const bool add_gap,
         const bool replace_with_gap = false);
 
+    void do_partial_duplication(
+        caf::typed_response_promise<utility::UuidActor> rp,
+        const utility::UuidVector &selection_for_duplication
+    );
+
     void merge_gaps(caf::typed_response_promise<utility::JsonStore> rp);
     utility::JsonStore merge_gaps();
 

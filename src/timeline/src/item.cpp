@@ -405,7 +405,8 @@ void Item::resolve_and_request_clip_frames(
     const utility::FrameRate timeline_frame_rate,
     const media::MediaType mt,
     const UuidSet &focus,
-    bool only_if_focussed) const {
+    bool only_if_focussed,
+    const AudioMode audio_mode) const {
 
     // This function recurses down through the tree of Timeline Item objects.
 
@@ -449,19 +450,23 @@ void Item::resolve_and_request_clip_frames(
                 timeline_frame_rate,
                 mt,
                 focus,
-                only_if_focussed);
+                only_if_focussed,
+                audio_mode);
         }
         break;
 
     case IT_STACK: {
-        const auto track_type =
+
+        // Note: audio_mode can force us to request audio from video tracks.
+        const auto desired_track_type =
+            (mt == media::MediaType::MT_AUDIO && audio_mode == AM_USE_VIDEO_STACK) ? IT_VIDEO_TRACK :
             mt == media::MediaType::MT_IMAGE ? IT_VIDEO_TRACK : IT_AUDIO_TRACK;
 
         for (const auto &it : *this) {
 
-            // Skip tracks whose media type doesn't match requested media type
-            if (it.transparent() or it.item_type() != track_type)
+            if (it.transparent() or it.item_type() != desired_track_type)
                 continue;
+
             it.resolve_and_request_clip_frames(
                 timeline_start,
                 helper,
@@ -470,7 +475,8 @@ void Item::resolve_and_request_clip_frames(
                 timeline_frame_rate,
                 mt,
                 focus,
-                only_if_focussed);
+                only_if_focussed,
+                audio_mode);
         }
 
     } break;
@@ -489,7 +495,8 @@ void Item::resolve_and_request_clip_frames(
                 timeline_frame_rate,
                 mt,
                 focus,
-                only_if_focussed);
+                only_if_focussed,
+                audio_mode);
             ts += it.trimmed_duration();
         }
     } break;
@@ -1456,6 +1463,26 @@ Item::item_at_frame(const int track_frame) const {
     return {};
 }
 
+std::optional<Items::const_iterator>
+    Item::item_at_time_point(const utility::FrameRate time_point) const
+{
+    auto start    = trimmed_frame_start().duration();
+    auto duration = trimmed_frame_duration().duration();
+    if (time_point >= start or time_point < (start + duration)) {
+
+        for (auto it = cbegin(); it != cend(); it++) {
+            if ((start + it->trimmed_frame_duration().duration()) > time_point) {
+                return it;
+            } else {
+                start += it->trimmed_frame_duration().duration();
+            }
+        }
+
+    }
+    return {};
+}
+
+
 FrameRange Item::range_at_index(const int item_index) const {
     auto result = FrameRange();
     result.set_rate(trimmed_range().rate());
@@ -1497,6 +1524,36 @@ int Item::frame_at_index(const int item_index, const int item_frame) const {
         dur -= std::next(cbegin(), item_index)->trimmed_frame_start().frames();
 
     return frame_at_index(item_index) + dur;
+}
+
+std::optional<utility::FrameRange> Item::item_range(const utility::Uuid &item_id) const {
+
+    // given a clip (identified by its ID) what is its frame range in the timeline, stack
+    // or video track...
+
+    if (item_type_ == IT_VIDEO_TRACK || item_type_ == IT_AUDIO_TRACK) {
+        utility::FrameRate start;
+        int i = 0;
+        for (auto it = cbegin(); it != cend(); ++it) {
+            if (it->uuid() == item_id) {
+                return utility::FrameRange(start, it->trimmed_duration(), rate());
+            } else {
+                start += it->trimmed_duration();
+            }
+            ++i;
+        }
+
+    } else if (item_type_ == IT_STACK || item_type_ == IT_TIMELINE) {
+
+        for (auto it = cbegin(); it != cend(); ++it) {
+
+            auto r = it->item_range(item_id);
+            if (r) return r;
+
+        }
+    }
+    return {};
+
 }
 
 std::optional<int> Item::frame_at_item_frame(
@@ -1798,6 +1855,7 @@ caf::typed_response_promise<media::FrameTimeMapPtr> Item::get_all_frame_IDs(
     const media::MediaType media_type,
     const TimeSourceMode tsm,
     const FrameRate & /*override_rate*/,
+    const timeline::AudioMode audio_mode,
     const UuidSet &focus_list) {
 
     // This crucial function bakes a timeline into a 'FrameTimeMap' which is
@@ -1859,7 +1917,8 @@ caf::typed_response_promise<media::FrameTimeMapPtr> Item::get_all_frame_IDs(
             rate(),
             media_type,
             focus_list,
-            true // only print frames into map for focussed items
+            true, // only print frames into map for focussed items
+            audio_mode
         );
     }
 
@@ -1871,7 +1930,8 @@ caf::typed_response_promise<media::FrameTimeMapPtr> Item::get_all_frame_IDs(
         rate(),
         media_type,
         focus_list,
-        false // print frames into map whether focussed or not
+        false, // print frames into map whether focussed or not
+        audio_mode
     );
 
     return rp;

@@ -16,6 +16,10 @@ class VideoRenderPlugin : public plugin::StandardPlugin {
     inline static const utility::Uuid PLUGIN_UUID =
         utility::Uuid("4147f82d-1006-4025-ac04-79c81cd5e7b7");
 
+    // name of the offscreen viewport this plugin renders through (created
+    // for us by the StudioUI actor)
+    inline static const std::string OFFSCREEN_VIEWPORT_NAME{"vid_render_offscreen_viewport"};
+
     void menu_item_activated(
         const utility::JsonStore &menu_item_data, const std::string &user_data) override;
 
@@ -26,6 +30,7 @@ class VideoRenderPlugin : public plugin::StandardPlugin {
 
   private:
     void remove_job(const utility::Uuid &job_id);
+    void update_annotations_visibility_override();
     void update_ocio_choices(const utility::Uuid &target_render_item_id);
     void make_offscreen_viewport(caf::typed_response_promise<bool> rp);
     void playback_render_output(
@@ -64,6 +69,9 @@ class VideoRenderPlugin : public plugin::StandardPlugin {
     module::StringAttribute *ocio_warnings_;
     std::map<utility::Uuid, module::JsonAttribute *> jobs_status_data_;
     module::StringAttribute *overall_status_;
+    module::BooleanAttribute *include_annotations_{nullptr};
+    // per-job capture of the "include annotations" setting at submit time
+    std::map<utility::Uuid, bool> job_include_annotations_;
     utility::UuidActorVector queued_jobs_;
     utility::UuidActor current_worker_;
     utility::JsonStore ocio_settings_;

@@ -129,11 +129,10 @@ Item {
             stepSize: 1
             valueText: parseFloat(cellSize/100).toFixed(2)
 
-            property real value: cellSize
-            onValueChanged:{
-
-                if(cellSize != value)
-                    cellSize = value
+            value: cellSize
+            onValueEdited: (newValue) => {
+                if (cellSize != newValue)
+                    cellSize = newValue
             }
 
             Component.onCompleted: {

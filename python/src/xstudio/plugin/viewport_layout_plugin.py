@@ -37,7 +37,7 @@ class ViewportLayoutPlugin(PluginBase):
             self.remote, self.layout_callback
             )
 
-    def add_layout_mode(self, name, menu_position, playhead_assembly_mode, auto_align_mode=AutoAlignMode.AAM_ALIGN_OFF):
+    def add_layout_mode(self, name, menu_position, playhead_assembly_mode, auto_align_mode=AutoAlignMode.AAM_ALIGN_MANUAL):
         """Add a viewport layout mode 
 
         Args:

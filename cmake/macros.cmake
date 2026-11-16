@@ -94,6 +94,7 @@ macro(default_options_local name)
 	target_include_directories(${name}
 	    PUBLIC
 	        $<BUILD_INTERFACE:${ROOT_DIR}/include>
+	        $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/gen-include>
 	        # $<INSTALL_INTERFACE:include>
 	    PRIVATE
 	        ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -136,6 +137,7 @@ macro(default_options name)
 
 	target_include_directories(${name} INTERFACE
   		$<BUILD_INTERFACE:${ROOT_DIR}/include>
+  		$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/gen-include>
   		$<BUILD_INTERFACE:${ROOT_DIR}/extern/include>
   		$<INSTALL_INTERFACE:include>
 		$<INSTALL_INTERFACE:extern/include>
@@ -153,6 +155,7 @@ macro(default_options_static name)
 	target_include_directories(${name}
 	    PUBLIC
 	        $<BUILD_INTERFACE:${ROOT_DIR}/include>
+	        $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/gen-include>
 	        # $<INSTALL_INTERFACE:include>
 	    PRIVATE
 	        ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -175,6 +178,7 @@ macro(default_plugin_options name)
 	target_include_directories(${name}
 	    PUBLIC
 	        $<BUILD_INTERFACE:${ROOT_DIR}/include>
+	        $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/gen-include>
 	        # $<INSTALL_INTERFACE:include>
 	    PRIVATE
 	        ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -275,6 +279,7 @@ if (BUILD_TESTING)
 		target_include_directories(${name}
 		    PUBLIC
 		        $<BUILD_INTERFACE:${ROOT_DIR}/include>
+		        $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/gen-include>
 		        # $<INSTALL_INTERFACE:include>
 		    PRIVATE
 		        ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -294,6 +299,7 @@ macro(default_options_qt name)
 	target_include_directories(${name}
 	    PUBLIC
 	        $<BUILD_INTERFACE:${ROOT_DIR}/include>
+	        $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/gen-include>
 	        # $<INSTALL_INTERFACE:include>
 	    PRIVATE
 	        ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -374,8 +380,6 @@ endmacro()
 
 macro(add_python_plugin NAME)
 
-	install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${NAME} DESTINATION share/xstudio/plugin-python)
-
 	add_custom_target(COPY_PY_PLUGIN_${NAME} ALL)
 
  	if (APPLE)
@@ -389,6 +393,8 @@ macro(add_python_plugin NAME)
         	copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/${NAME} ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/plugin-python/${NAME})
 
 	else()
+
+		install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${NAME} DESTINATION share/xstudio/plugin-python)
 
 		add_custom_command(TARGET COPY_PY_PLUGIN_${NAME} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E
@@ -661,7 +667,7 @@ macro(create_qml_component_with_alias NAME ALIASNAME VERSION DEPS EXTRAMOC)
 
 	# Generate export header
 	include(GenerateExportHeader)
-	generate_export_header(${PROJECT_NAME} EXPORT_FILE_NAME "${ROOT_DIR}/include/xstudio/ui/qml/${PROJECT_NAME}_export.h")
+	generate_export_header(${PROJECT_NAME} EXPORT_FILE_NAME "${CMAKE_BINARY_DIR}/gen-include/xstudio/ui/qml/${PROJECT_NAME}_export.h")
 	target_link_libraries(${PROJECT_NAME}
 		PUBLIC ${DEPS}
 	)
@@ -669,10 +675,6 @@ macro(create_qml_component_with_alias NAME ALIASNAME VERSION DEPS EXTRAMOC)
 	set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
 	set_property(TARGET ${PROJECT_NAME} PROPERTY AUTOMOC ON)
 
-	## Add the directory containing the generated export header to the include directories
-	#target_include_directories(${PROJECT_NAME}
-	#	PUBLIC ${CMAKE_BINARY_DIR}  # Include the build directory
-	#)
 
 endmacro()
 

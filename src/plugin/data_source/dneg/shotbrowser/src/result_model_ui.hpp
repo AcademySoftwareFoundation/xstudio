@@ -55,6 +55,7 @@ class ShotBrowserResultModel : public JSONTreeModel {
   public:
     enum Roles {
         addressingRole = JSONTreeModel::Roles::LASTROLE,
+        annotationRole,
         artistRole,
         assetRole,
         attachmentsRole,
@@ -69,6 +70,7 @@ class ShotBrowserResultModel : public JSONTreeModel {
         createdDateRole,
         dateSubmittedToClientRole,
         departmentRole,
+        descriptionRole,
         detailRole,
         entityRole,
         frameRangeRole,

@@ -9,8 +9,8 @@ typedef enum { AM_STRING = 0, AM_ONE, AM_ALL, AM_TEN } AssemblyMode;
 
 typedef enum {
     AAM_ALIGN_OFF = 0,
-    AAM_ALIGN_FRAMES,
-    AAM_ALIGN_TRIM,
+    AAM_ALIGN_AUTO,
+    AAM_ALIGN_AUTO_TRIM,
     AAM_ALIGN_MANUAL
 } AutoAlignMode;
 

@@ -3,6 +3,7 @@
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/utility/logging.hpp"
 
 #include "shotbrowser_plugin.hpp"
 
@@ -32,7 +33,7 @@ void ShotBrowser::use_action(
                         rp.deliver(JsonStore(R"({"data": {"status": "successful"}})"_json));
                     },
                     [=](error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                         rp.deliver(JsonStore(R"({"data": {"status": "successful"}})"_json));
                     });
         } else if (operation == "RefreshPlaylist") {
@@ -120,14 +121,13 @@ void ShotBrowser::use_action(
                                         },
                                         [=](const caf::error &err) mutable {
                                             (*count)--;
-                                            spdlog::warn(
-                                                "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                            log_caf_error(err);
                                             if (not(*count))
                                                 rp.deliver(*results);
                                         });
                             },
                             [=](const caf::error &err) mutable {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err);
                             });
                 } catch (const std::exception &err) {
                     (*count)--;
@@ -158,7 +158,7 @@ void ShotBrowser::use_action(
                                 rp.deliver(*results);
                         },
                         [=](const caf::error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                             (*count)--;
                             if (not(*count))
                                 rp.deliver(*results);
@@ -274,6 +274,11 @@ void ShotBrowser::get_action(
                 action.at("entity_name"),
                 action.at("project_name"),
                 action.at("parent_name"));
+        } else if (operation == "DownloadShotgridAnnotations") {
+            download_shotgrid_annotations(
+                rp,
+                action.at("entity"),
+                action.at("entity_id"));
         } else if (operation == "DownloadShotgridImage") {
             download_shotgrid_image(
                 rp,

@@ -29,7 +29,17 @@ class OIIOMediaReader : public MediaReader {
 
     [[nodiscard]] utility::Uuid plugin_uuid() const override;
 
+    [[nodiscard]] ImageBuffer::PixelPickerFunc pixel_picker_func() const override {
+        return &OIIOMediaReader::oiio_buffer_pixel_picker;
+    }
+
   private:
+    static PixelInfo oiio_buffer_pixel_picker(
+        const ImageBuffer &buf,
+        const utility::JsonStore &pixel_unpack_uniforms,
+        const Imath::V2i &pixel_location,
+        const std::vector<Imath::V2i> &extra_pixel_locations);
+
     utility::JsonStore supported_;
 };
 } // namespace xstudio::media_reader

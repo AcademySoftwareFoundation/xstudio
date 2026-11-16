@@ -10,6 +10,7 @@
 #include "xstudio/json_store/json_store_handler.hpp"
 #include "xstudio/utility/tree.hpp"
 #include "xstudio/utility/uuid.hpp"
+#include "xstudio/utility/notification_handler.hpp"
 
 namespace xstudio::media {
 class MediaActor : public caf::event_based_actor {
@@ -33,7 +34,9 @@ class MediaActor : public caf::event_based_actor {
     caf::message_handler message_handler();
 
     caf::behavior make_behavior() override {
-        return message_handler().or_else(base_.container_message_handler(this));
+        return message_handler().or_else(base_.container_message_handler(this))
+                .or_else(notification_.message_handler(this, base_.event_group()))
+                .or_else(utility::NotificationHandler::default_event_handler());
     }
     [[nodiscard]] const char *name() const override { return NAME.c_str(); }
     static caf::message_handler default_event_handler();
@@ -79,6 +82,8 @@ class MediaActor : public caf::event_based_actor {
         caf::actor dst_bookmarks);
 
     Media base_;
+    utility::NotificationHandler notification_;
+
     caf::actor json_store_;
     std::map<utility::Uuid, caf::actor> media_sources_;
     utility::UuidList bookmark_uuids_;
@@ -87,6 +92,7 @@ class MediaActor : public caf::event_based_actor {
     utility::JsonStore human_readable_info_;
     utility::JsonStore media_list_columns_info_;
     utility::time_point creation_time_ = {utility::clock::now()};
+    bool pending_media_display_info_{false};
 };
 
 class MediaSourceActor : public caf::event_based_actor {

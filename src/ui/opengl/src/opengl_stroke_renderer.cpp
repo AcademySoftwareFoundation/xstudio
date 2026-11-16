@@ -175,7 +175,7 @@ void OpenGLStrokeRenderer::render_single_stroke_pass1(
     shader_params["to_canvas"]       = transform_window_to_viewport_space;
     shader_params["soft_edge"]       = get_soft_edge(stroke, viewport_du_dx);
     shader_params["z_adjust"]        = depth;
-    shader_params["brush_opacity"]   = stroke->opacity();
+    shader_params["brush_opacity"]   = stroke->opacity() * stroke->fade_factor();
     shader_params["thickness"]       = stroke->thickness();
     shader_params["just_black"]      = 1.0f; // renders stroke quads as black
     stroke_shader_->set_shader_parameters(shader_params);
@@ -227,7 +227,7 @@ void OpenGLStrokeRenderer::render_single_stroke_pass2(
     shader_params["soft_edge"]        = get_soft_edge(stroke, viewport_du_dx);
     shader_params["z_adjust"]         = depth;
     shader_params["brush_colour"]     = stroke->colour();
-    shader_params["brush_opacity"]    = stroke->opacity();
+    shader_params["brush_opacity"]    = stroke->opacity() * stroke->fade_factor();
     shader_params["thickness"]        = stroke->thickness();
     shader_params["offscreenTexture"] = 11;
     shader_params["blend_mode"]       = 0;

@@ -15,6 +15,8 @@ Item{ id: widget
 
     property alias model: valueDiv.model
     property alias currentIndex: valueDiv.currentIndex
+    signal activated(index: int)
+
 
     RowLayout{
         anchors.fill: parent
@@ -32,10 +34,11 @@ Item{ id: widget
         XsComboBox{ id: valueDiv
             Layout.fillWidth: true
             Layout.fillHeight: true
+            onActivated: widget.activated(currentIndex)
 
-            onCurrentIndexChanged: {
-                widget.currentIndexChanged()
-            }
+            // onCurrentIndexChanged: {
+            //     widget.currentIndexChanged()
+            // }
         }
 
     }

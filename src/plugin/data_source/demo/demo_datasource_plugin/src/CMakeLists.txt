@@ -7,7 +7,7 @@
 # set(xStudio_DIR "/user_data/ted/install/lib/cmake/xStudio")
 # set(CAF_DIR "/builds/actor_framework/1.0.2/f3500984a1/lib64/cmake/CAF")
 
-project(demo_plugin VERSION 0.1.0 LANGUAGES CXX)
+project(demo_plugin VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
 #find_package(xStudio REQUIRED)
 find_package(nlohmann_json REQUIRED)
@@ -63,6 +63,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
 
 qt_add_qml_module(${PROJECT_NAME}
     URI DemoPlugin
+	OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/DemoPlugin
 	VERSION 1.0
 	NO_GENERATE_PLUGIN_SOURCE 
 	NO_PLUGIN_OPTIONAL 

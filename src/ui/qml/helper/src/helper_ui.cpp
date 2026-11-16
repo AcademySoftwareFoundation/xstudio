@@ -611,7 +611,7 @@ QString Helpers::readFile(const QUrl &url) const {
 }
 
 QFuture<QVariant> Helpers::pythonAsyncCallback(
-    const QString pluginName, const QString methodName, QVariant args) {
+    const QString pluginName, const QString methodName, QVariant args) const {
 
     // It looks like if we have a QJSValue and we try and access from another thread we can get
     // a crash! So we 'bake' it here to QVariant
@@ -704,6 +704,8 @@ QObject *Helpers::contextPanel(QObject *obj) const {
             QObject *cobj = c->contextObject();
             if (cobj && cobj->objectName() == "XsPanelParent") {
                 return pobj;
+            } else if (cobj && cobj->objectName() =="XsTimelinePanel") {
+                return cobj;
             }
             pobj = cobj;
             c    = c->parentContext();

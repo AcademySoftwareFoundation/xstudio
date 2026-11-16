@@ -32,7 +32,9 @@ add_custom_target(
   ${snippets}
 )
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  DESTINATION share/xstudio
-  FILES_MATCHING PATTERN "*.py"
-)
+if (NOT APPLE)
+  install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    DESTINATION share/xstudio
+    FILES_MATCHING PATTERN "*.py"
+  )
+endif()

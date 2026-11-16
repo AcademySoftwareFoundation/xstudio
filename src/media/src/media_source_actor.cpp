@@ -29,7 +29,7 @@ using namespace xstudio::media_metadata;
 using namespace xstudio::global_store;
 
 #define ERR_HANDLER_FUNC                                                                       \
-    [=](error &err) mutable { spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err)); }
+    [=](error &err) mutable { log_caf_error(err); }
 
 
 caf::message_handler MediaSourceActor::default_event_handler() {
@@ -218,12 +218,12 @@ void MediaSourceActor::update_media_detail() {
                                     }
                                 },
                                 [=](const error &err) mutable {
-                                    spdlog::debug("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    log_caf_error(err, spdlog::level::debug);
                                 });
                     }
                 },
                 [=](const error &err) mutable {
-                    spdlog::debug("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err, spdlog::level::debug);
                 });
     } catch (std::exception &e) {
         spdlog::debug("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -290,7 +290,7 @@ void MediaSourceActor::acquire_detail(
                         // base_.media_reference().set_duration(
                         //     FrameRateDuration(1,
                         //     base_.media_reference().duration().rate()));
-                        spdlog::debug("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err, spdlog::level::debug);
                         if (base_.error_detail() != to_string(err)) {
                             base_.send_changed();
                             mail(utility::event_atom_v, change_atom_v)
@@ -331,7 +331,7 @@ void MediaSourceActor::acquire_detail(
                     main_method();
                 },
                 [=](const error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     main_method();
                 });
     } else {
@@ -1298,7 +1298,7 @@ caf::message_handler MediaSourceActor::message_handler() {
                                 rp.delegate(caf::actor_cast<caf::actor>(this), atom, false);
                             },
                             [=](const error &err) mutable {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err);
                                 rp.delegate(caf::actor_cast<caf::actor>(this), atom, false);
                             });
                 } else {
@@ -2081,11 +2081,7 @@ void MediaSourceActor::build_media_streams(
                     send_stream_metadata_to_stream_actors(media_metadata);
                 },
                 [=](const caf::error &err) mutable {
-                    spdlog::critical(
-                        "{} {} {}",
-                        __PRETTY_FUNCTION__,
-                        to_string(err),
-                        to_string(base_.media_reference().uri()));
+                    log_caf_error(err, spdlog::level::critical, to_string(base_.media_reference().uri()));
                 });
 
     } else {
@@ -2098,11 +2094,7 @@ void MediaSourceActor::build_media_streams(
                     anon_mail(media_hook::get_media_hook_atom_v).send(this);
                 },
                 [=](const caf::error &err) mutable {
-                    spdlog::critical(
-                        "{} {} {}",
-                        __PRETTY_FUNCTION__,
-                        to_string(err),
-                        to_string(base_.media_reference().uri()));
+                    log_caf_error(err, spdlog::level::critical, to_string(base_.media_reference().uri()));
                     anon_mail(media_hook::get_media_hook_atom_v).send(this);
                 });
     }

@@ -12,7 +12,7 @@ import xStudio 1.0
 XsGradientRectangle {
 
     id: panel
-    anchors.fill: parent
+    //anchors.fill: parent
     property color bgColorPressed: XsStyleSheet.accentColor
     property color bgColorNormal: "transparent"
     property color forcedBgColorNormal: bgColorNormal
@@ -24,31 +24,53 @@ XsGradientRectangle {
     property color textColorNormal: XsStyleSheet.primaryTextColor
     property color hintColor: XsStyleSheet.hintColor
 
-    property real iconTextBtnWidth: btnWidth*2.2
     property real btnWidth: XsStyleSheet.primaryButtonStdWidth
     property real btnHeight: XsStyleSheet.widgetStdHeight+4
     property real panelPadding: XsStyleSheet.panelPadding
 
-    property var currentClipRange: []
-    property var currentClipHandles: []
+    property int inHandle: 0
+    property int outHandle: 0
+    property int cutRangeIn: 0
+    property int cutRangeOut: 0
+    property int editBoxWidth: 34
+    property int editBoxHeight: 15
+
+    property bool haveCurrentClip: false
     property var currentClipIndex: null
-    property var timelinePlayheadSelectionIndex: null
 
     //#TODO: test
     property bool showIcons: false
 
     property alias theTimeline: theTimeline
+    property alias timelineProperties: timelineProperties
 
     property bool hideMarkers: false
     property string timeMode: "timecode"
     property real verticalScale: 1.0
 
-    property bool isPlayheadActive: timelinePlayhead.pinnedSourceMode ? currentPlayhead.uuid == timelinePlayhead.uuid : false
+    property bool buttonsShowText: width > 1450
+    property real iconTextBtnWidth: buttonsShowText ? btnWidth*2.2 : btnWidth
+
+    Behavior on iconTextBtnWidth {NumberAnimation {duration: 150}}
 
     // persist these properties between sessions
     XsStoredPanelProperties {
         propertyNames: ["hideMarkers", "verticalScale", "timeMode"]
     }
+
+    /* This gives us direct access to the properties of the current (active)
+    playlist - for example viewedMediaSetProperties.values.nameRole gives us
+    the playlist name */
+    XsModelPropertyMap {
+        id: timelineProperties
+        index: timelineIndex.parent
+    }
+
+    XsModelPropertyMap {
+        id: parentPlaylistProperties
+        index: timelineIndex.parent.parent.parent
+    }
+    property var timelineName: timelineProperties.values.nameRole ? parentPlaylistProperties.values.nameRole + " / " + timelineProperties.values.nameRole : ""
 
     XsModelPropertyMap {
         id: currentClipProperties
@@ -77,7 +99,7 @@ XsGradientRectangle {
             let mediaIndex = model.search(currentClipProperties.values.clipMediaUuidRole, "actorUuidRole", mlist)
             if(model.canFetchMore(mediaIndex)) {
                 model.fetchMore(mediaIndex)
-                delay(250, function() {updateCurrentClipDetail()})
+                delay(250, function() {panel.updateCurrentClipDetail()})
             } else {
                 let mediaSourceIndex = model.search(
                     model.get(mediaIndex, "imageActorUuidRole"),
@@ -85,7 +107,7 @@ XsGradientRectangle {
                 )
                 let taf = model.get(mediaSourceIndex, "timecodeAsFramesRole")
                 if(taf == undefined) {
-                    delay(250, function() {updateCurrentClipDetail()} )
+                    delay(250, function() {panel.updateCurrentClipDetail()} )
                 } else {
                     // let name = currentClipProperties.values.nameRole
                     let start = currentClipProperties.values.trimmedStartRole
@@ -97,17 +119,72 @@ XsGradientRectangle {
                     start = start - astart + taf
                     let end = start + duration - 1
 
-                    currentClipRange = [start, end]
-                    currentClipHandles = [head, tail]
+                    cutRangeIn = start
+                    cutRangeOut = end
+                    inHandle = head
+                    outHandle = tail
+                    haveCurrentClip = true
                 }
             }
         } else {
-            currentClipRange = []
-            currentClipHandles = []
+            haveCurrentClip = false
         }
     }
 
-    XsPlayhead {
+    function setCutRange(text, what) {
+        let v = parseInt(text)
+
+        if(currentClipProperties.index && currentClipProperties.index.valid) {
+            let model = currentClipProperties.index.model
+            let tindex = model.getPlaylistIndex(currentClipProperties.index)
+            let mlist = model.index(0, 0, tindex)
+            let mediaIndex = model.search(currentClipProperties.values.clipMediaUuidRole, "actorUuidRole", mlist)
+            let mediaSourceIndex = model.search(
+                model.get(mediaIndex, "imageActorUuidRole"),
+                "actorUuidRole", mediaIndex
+            )
+            let taf = model.get(mediaSourceIndex, "timecodeAsFramesRole")
+            if(taf == undefined) {
+                return
+            } else {
+                // let name = currentClipProperties.values.nameRole
+                let start = currentClipProperties.values.trimmedStartRole
+                let astart = currentClipProperties.values.availableStartRole
+                let duration = currentClipProperties.values.trimmedDurationRole
+                let head = start - astart
+                let tail = currentClipProperties.values.availableDurationRole - head - duration
+
+                start = start - astart + taf
+                let end = start + duration - 1
+
+                cutRangeIn = start
+                cutRangeOut = end
+                inHandle = head
+                outHandle = tail
+                haveCurrentClip = true
+
+                if (what == 0) { // cutIn
+                    let d = v-cutRangeIn
+                    currentClipProperties.values.activeStartRole = currentClipProperties.values.activeStartRole + d
+                    currentClipProperties.values.activeDurationRole = currentClipProperties.values.activeDurationRole - d
+                } else if (what == 1) { // cutOut
+                    let d = cutRangeOut-v
+                    currentClipProperties.values.activeDurationRole = currentClipProperties.values.activeDurationRole - d
+                } else if (what == 2) { // inHandle
+                    let d = v-inHandle
+                    currentClipProperties.values.activeStartRole = currentClipProperties.values.activeStartRole + d
+                    currentClipProperties.values.activeDurationRole = currentClipProperties.values.activeDurationRole - d
+                } else if (what == 3) { // outHandle
+                    let d = v-outHandle
+                    currentClipProperties.values.activeDurationRole = currentClipProperties.values.activeDurationRole - d
+                }
+
+                updateCurrentClipDetail()
+            }
+        }        
+    }
+
+    /*XsPlayhead {
         id: timelinePlayhead
         Component.onCompleted: {
             connectToModel(0)
@@ -150,8 +227,6 @@ XsGradientRectangle {
         }
     }
 
-    property alias timelinePlayhead: timelinePlayhead
-
     Connections {
 
         target: theTimeline.timelineModel
@@ -164,7 +239,7 @@ XsGradientRectangle {
                 timelinePlayhead.connectToModel(0)
             }
         }
-    }
+    }*/
 
     Connections {
         target: timelinePlayhead
@@ -195,7 +270,10 @@ XsGradientRectangle {
         hoverEnabled: true
         onClicked: {
             if(!isPlayheadActive) {
-                viewportCurrentMediaContainerIndex = theTimeline.timelineModel.rootIndex.parent
+
+                if (!multiTimelineMode) {
+                    viewportCurrentMediaContainerIndex = theTimeline.timelineModel.rootIndex.parent
+                }
 
                 // we ensure the timeline playhead is back in 'pinned' mode. This
                 // means, regardless of the media selection, the playhead source
@@ -234,6 +312,37 @@ XsGradientRectangle {
             RowLayout{
                 spacing: 2
                 anchors.fill: parent
+
+                XsPrimaryButton{ 
+                    Layout.preferredWidth: btnWidth
+                    Layout.preferredHeight: parent.height
+                    imgSrc: "qrc:/icons/content_copy.svg"
+                    text: "Copy selected tracks/clips to clipboard" + copy_key.seqDisplay
+                    onClicked: {
+                        clipboard.text = theSessionData.copyTimelineItemsToClipboard(theTimeline.timelineSelection.selectedIndexes, timelineIndex)
+                    }
+                    enabled: theTimeline.timelineSelection.selectedIndexes.length
+                    XsHotkeyReference {
+                        id: copy_key
+                        hotkeyName: "Timeline Copy Selected Items to Clipboard"
+                        property var seqDisplay: sequence != "" ? "  (" + sequence + ")": ""
+                    }
+                }
+
+                XsPrimaryButton{ 
+                    Layout.preferredWidth: btnWidth
+                    Layout.preferredHeight: parent.height
+                    imgSrc: "qrc:/icons/content_paste.svg"
+                    text: "Paste tracks/clips from clipboard" + paste_key.seqDisplay
+                    onClicked: theSessionData.pasteFromClipboard(clipboard.text, timelineIndex)
+                    enabled: clipboard.text.startsWith("COPIED_CLIPS")
+                    XsHotkeyReference {
+                        id: paste_key
+                        hotkeyName: "Timeline Paste Items from Clipboard"
+                        property var seqDisplay: sequence != "" ? "  (" + sequence + ")": ""
+                    }
+
+                }
 
                 XsPrimaryButton{ id: deleteBtn
                     Layout.preferredWidth: btnWidth
@@ -284,6 +393,12 @@ XsGradientRectangle {
                     }
                 }
 
+                Item{
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    Layout.maximumWidth: 12
+                }
+
                 XsPrimaryButton{
                     Layout.leftMargin: 16
                     Layout.preferredWidth: iconTextBtnWidth
@@ -291,7 +406,7 @@ XsGradientRectangle {
                     imgSrc: "qrc:/icons/waves.svg"
                     text: "Ripple"
                     toolTip: "Ripple"
-                    showBoth: true
+                    showBoth: buttonsShowText
                     font.pixelSize: XsStyleSheet.fontSize
                     isActive: theTimeline.rippleMode
                     onClicked: {
@@ -306,7 +421,7 @@ XsGradientRectangle {
                     imgSrc: "qrc:/icons/filter_none.svg"
                     text: "Overwrite"
                     toolTip: "Overwrite"
-                    showBoth: true
+                    showBoth: buttonsShowText
                     font.pixelSize: XsStyleSheet.fontSize
                     isActive: theTimeline.overwriteMode
                     onClicked: {
@@ -321,7 +436,7 @@ XsGradientRectangle {
                     imageDiv.rotation: 90
                     text: "Snap"
                     toolTip: "Snap"
-                    showBoth: true
+                    showBoth: buttonsShowText
                     font.pixelSize: XsStyleSheet.fontSize
                     isActive: theTimeline.snapMode
                     onClicked: theTimeline.snapMode = !theTimeline.snapMode
@@ -330,7 +445,7 @@ XsGradientRectangle {
                 Item{
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
-                    Layout.maximumWidth: 24
+                    Layout.maximumWidth: 12
                 }
 
                 XsPrimaryButton{
@@ -340,7 +455,7 @@ XsGradientRectangle {
                     imgSrc: "qrc:/icons/crop_free.svg"
                     text: "Fit All"
                     toolTip: "Fit All"
-                    showBoth: true
+                    showBoth: buttonsShowText
                     font.pixelSize: XsStyleSheet.fontSize
                     font.family: XsStyleSheet.fontFamily
                     onClicked:  theTimeline.fitItems()
@@ -351,7 +466,7 @@ XsGradientRectangle {
                     imgSrc: "qrc:/icons/fit_screen.svg"
                     text: "Selected"
                     toolTip: "Fit Selected"
-                    showBoth: true
+                    showBoth: buttonsShowText
                     font.pixelSize: XsStyleSheet.fontSize
                     enabled: theTimeline.timelineSelection.selectedIndexes.length
                     onClicked:  theTimeline.fitItems(theTimeline.timelineSelection.selectedIndexes)
@@ -362,7 +477,7 @@ XsGradientRectangle {
                     imgSrc: "qrc:/icons/laps.svg"
                     text: "Loop"
                     toolTip: "Loop Selection"
-                    showBoth: true
+                    showBoth: buttonsShowText
                     font.pixelSize: XsStyleSheet.fontSize
                     onClicked: theTimeline.loopSelection = !theTimeline.loopSelection
                     isActive: theTimeline.loopSelection
@@ -373,7 +488,7 @@ XsGradientRectangle {
                     imgSrc: "qrc:/icons/center_focus_weak.svg"
                     text: "Focus"
                     toolTip: "Focus Selection"
-                    showBoth: true
+                    showBoth: buttonsShowText
                     font.pixelSize: XsStyleSheet.fontSize
                     onClicked: theTimeline.focusSelection = !theTimeline.focusSelection
                     isActive: theTimeline.focusSelection
@@ -381,7 +496,7 @@ XsGradientRectangle {
                 Item{
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
-                    Layout.maximumWidth: 24
+                    Layout.maximumWidth: 12
                 }
 
                 XsPrimaryButton{
@@ -391,7 +506,7 @@ XsGradientRectangle {
                     imgSrc: "qrc:/icons/stacks.svg"
                     text: "Flatten"
                     toolTip: "Flatten Selected Tracks"
-                    showBoth: true
+                    showBoth: buttonsShowText
                     font.pixelSize: XsStyleSheet.fontSize
                     enabled: theTimeline.timelineSelection.selectedIndexes.length
                     onClicked: {
@@ -405,7 +520,7 @@ XsGradientRectangle {
                     imgSrc: "qrc:/icons/splitscreen_add.svg"
                     text: "Insert"
                     toolTip: "Insert Track Above"
-                    showBoth: true
+                    showBoth: buttonsShowText
                     font.pixelSize: XsStyleSheet.fontSize
                     enabled: theTimeline.timelineSelection.selectedIndexes.length
                     onClicked:  theTimeline.insertTrackAbove(theTimeline.timelineSelection.selectedIndexes)
@@ -416,7 +531,7 @@ XsGradientRectangle {
                     imgSrc: "qrc:/icons/library_add.svg"
                     text: "Duplicate"
                     toolTip: "Duplicate Selected"
-                    showBoth: true
+                    showBoth: buttonsShowText
                     font.pixelSize: XsStyleSheet.fontSize
                     onClicked: theTimeline.duplicate(theTimeline.timelineSelection.selectedIndexes)
                     enabled: theTimeline.timelineSelection.selectedIndexes.length
@@ -427,98 +542,87 @@ XsGradientRectangle {
                 }
 
 
-                RowLayout {
-                    Layout.preferredWidth: btnWidth*5
-                    Layout.maximumWidth: btnWidth*5
-                    Layout.fillHeight: true
+                ColumnLayout {
 
-                    ColumnLayout {
-                        Layout.preferredWidth: btnWidth*1.8
-                        Layout.maximumWidth: btnWidth*1.8
-                        Layout.fillHeight: true
+                    spacing: 2
 
-                        XsText{
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            elide: Text.ElideMiddle
-                            text: "Cut Range:"
-                            horizontalAlignment: Text.AlignRight
-                        }
-
-                        XsText{
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            elide: Text.ElideMiddle
-                            text: "Handles:"
-                            horizontalAlignment: Text.AlignRight
-                        }
+                    XsText{
+                        Layout.alignment: Qt.AlignHCenter
+                        text: "Cut Range"
+                        font.pixelSize: 10
+                        horizontalAlignment: Text.AlignHCenter
                     }
 
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-
-                        XsText{
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            font.bold: true
-                            font.family: XsStyleSheet.fixedWidthFontFamily
-                            elide: Text.ElideMiddle
-                            text: currentClipRange.length ? currentClipRange[0] : ""
-                            horizontalAlignment: Text.AlignRight
+                    RowLayout {
+                        Layout.alignment: Qt.AlignVCenter
+                        spacing: 2
+                        XsTextField {
+                            Layout.preferredWidth: editBoxWidth
+                            Layout.preferredHeight: editBoxHeight
+                            text: cutRangeIn
+                            font.pixelSize: 10
+                            horizontalAlignment: TextInput.AlignHCenter
+                            onEditingFinished: setCutRange(text, 0)
+                            
                         }
-
-                        XsText{
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            font.bold: true
-                            font.family: XsStyleSheet.fixedWidthFontFamily
-                            elide: Text.ElideMiddle
-                            text: currentClipHandles.length ? (Math.abs(currentClipHandles[0]) + (currentClipHandles[0] < 0 ? " -" : "")) : ""
-                            horizontalAlignment: Text.AlignRight
+                        XsText {
+                            text: "-"
+                            font.pixelSize: 10
                         }
-                    }
+                        XsTextField {
+                            Layout.preferredWidth: editBoxWidth
+                            Layout.preferredHeight: editBoxHeight
+                            text: cutRangeOut
+                            font.pixelSize: 10
+                            horizontalAlignment: TextInput.AlignHCenter
+                            onEditingFinished: setCutRange(text, 1)
 
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-
-                        XsText{
-                            Layout.fillHeight: true
-                            text: " - "
-                        }
-
-                        XsText{
-                            Layout.fillHeight: true
-                            text: " / "
-                        }
-                    }
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-
-                        XsText{
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            font.bold: true
-                            elide: Text.ElideMiddle
-                            text: currentClipRange.length ? currentClipRange[1] : ""
-                            font.family: XsStyleSheet.fixedWidthFontFamily
-                            horizontalAlignment: Text.AlignLeft
-                        }
-
-                        XsText{
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            font.bold: true
-                            elide: Text.ElideMiddle
-                            font.family: XsStyleSheet.fixedWidthFontFamily
-                            text: currentClipHandles.length ? (Math.abs(currentClipHandles[1]) + (currentClipHandles[1] < 0 ? " -" : "")): ""
-                            horizontalAlignment: Text.AlignLeft
                         }
                     }
                 }
+
+                ColumnLayout {
+
+                    Layout.leftMargin: 10
+                    spacing: 2
+                    XsText {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: "Handles"
+                        horizontalAlignment: Text.AlignHCenter
+                        font.pixelSize: 10
+                    }
+
+                    RowLayout {
+
+                        spacing: 2
+                        XsTextField {
+                            Layout.preferredWidth: editBoxWidth
+                            Layout.preferredHeight: editBoxHeight
+                            text: inHandle
+                            font.pixelSize: 10
+                            horizontalAlignment: TextInput.AlignHCenter
+                            onEditingFinished: setCutRange(text, 2)
+                        }
+                        XsText {
+                            text: "/"
+                            font.pixelSize: 10
+                        }
+                        XsTextField {
+                            Layout.preferredWidth: editBoxWidth
+                            Layout.preferredHeight: editBoxHeight
+                            text: outHandle
+                            font.pixelSize: 10
+                            horizontalAlignment: TextInput.AlignHCenter
+                            onEditingFinished: setCutRange(text, 3)
+                        }
+                    }                
+
+                }
+
+                Item {
+                    Layout.preferredWidth: 8
+                }
+
             }
         }
 
@@ -561,6 +665,17 @@ XsGradientRectangle {
                             text: "Move"
                             isActiveIndicatorAtLeft: true
                             imgSrc: "qrc:/icons/open_with.svg"
+                            isActive: theTimeline.editMode == text
+                            onClicked: theTimeline.editMode = text
+                        }
+
+                        XsPrimaryButton{
+                            Layout.minimumHeight: btnHeight
+                            Layout.maximumHeight: btnHeight
+                            Layout.fillWidth: true
+                            text: "Trim"
+                            isActiveIndicatorAtLeft: true
+                            imgSrc: "qrc:/icons/horizontal_align_center.svg"
                             isActive: theTimeline.editMode == text
                             onClicked: theTimeline.editMode = text
                         }

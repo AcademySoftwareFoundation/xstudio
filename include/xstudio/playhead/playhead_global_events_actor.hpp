@@ -41,6 +41,7 @@ class PlayheadGlobalEventsActor : public caf::event_based_actor {
     caf::actor event_group_;
     // caf::actor fine_grain_events_group_;
     caf::actor global_active_playhead_;
+    caf::actor dummy_playhead_;
     struct ViewportAndPlayhead {
         caf::actor viewport;
         caf::actor playhead;

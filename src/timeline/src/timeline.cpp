@@ -21,7 +21,8 @@ Timeline::Timeline(
 Timeline::Timeline(const JsonStore &jsn)
     : Container(static_cast<JsonStore>(jsn.at("container"))),
       item_(static_cast<JsonStore>(jsn.at("item"))),
-      media_list_(static_cast<JsonStore>(jsn.at("media"))) {}
+      media_list_(static_cast<JsonStore>(jsn.at("media"))),
+      audio_mode_(static_cast<AudioMode>(jsn.value("audio_mode", 0))) {}
 
 JsonStore Timeline::serialise() const {
     JsonStore jsn;
@@ -29,6 +30,7 @@ JsonStore Timeline::serialise() const {
     jsn["container"] = Container::serialise();
     jsn["item"]      = item_.serialise(1);
     jsn["media"]     = media_list_.serialise();
+    jsn["audio_mode"] = audio_mode();
 
     return jsn;
 }
@@ -43,6 +45,7 @@ Timeline Timeline::duplicate() const {
     jsn["container"] = dup_container.serialise();
     jsn["item"]      = dup_item.serialise(1);
     jsn["media"]     = media_list_.serialise();
+    jsn["audio_mode"] = audio_mode();
 
     return {jsn};
 }

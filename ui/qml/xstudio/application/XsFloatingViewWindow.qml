@@ -164,7 +164,6 @@ XsWindow {
                 break;
             }
         }
-        console.log("python_callback", v)
         return helpers.python_callback(python_func_name, module_uuid, v)
 
     }

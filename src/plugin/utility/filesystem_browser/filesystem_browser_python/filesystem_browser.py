@@ -49,7 +49,7 @@ def get_windows_drives():
     bitmask = windll.kernel32.GetLogicalDrives()
     for letter in range(26):
         if bitmask & (1 << letter):
-            drives.append(f"{chr(65 + letter)}:/")
+            drives.append(f"{chr(65 + letter)}:\\")
     return drives
 
 # PySide6 dependency removed
@@ -1169,7 +1169,7 @@ class FilesystemBrowserPlugin(PluginBase):
         """Fetch subdirectories for the given path and update attribute."""
         result = {"path": path, "dirs": []}
         try:
-            if path == "/" and sys.platform == "win32":
+            if (path == "/" or path == "\\") and sys.platform == "win32":
                 drivenames = get_windows_drives()
                 result["dirs"] = [{"name": d, "path": d, "has_subdir": True} for d in drivenames]
             elif os.path.exists(path) and os.path.isdir(path):

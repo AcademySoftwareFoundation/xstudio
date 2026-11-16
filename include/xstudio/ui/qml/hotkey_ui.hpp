@@ -230,7 +230,7 @@ namespace ui::qml {
         Q_PROPERTY(
             QString hotkeyName READ hotkeyName WRITE setHotkeyName NOTIFY hotkeyNameChanged)
         Q_PROPERTY(QUuid uuid READ uuid WRITE setHotkeyUUID NOTIFY uuidChanged)
-        Q_PROPERTY(QString context READ context NOTIFY contextChanged)
+        Q_PROPERTY(QString context READ context WRITE setContext NOTIFY contextChanged)
         Q_PROPERTY(bool exclusive READ exclusive WRITE setExclusive NOTIFY exclusiveChanged)
         Q_PROPERTY(QString description READ description NOTIFY descriptionChanged)
         Q_PROPERTY(QVariant key READ key NOTIFY keyChanged)
@@ -249,15 +249,13 @@ namespace ui::qml {
         void setHotkeyUUID(const QUuid &uuid);
 
         [[nodiscard]] QString hotkeyName() const {
-            return QStringFromStd(hotkey_.hotkey_name());
+            return hotkey_name_;
         }
         [[nodiscard]] QString sequence() const {
             return QStringFromStd(hotkey_.hotkey_sequence());
         }
         [[nodiscard]] QUuid uuid() const { return QUuidFromUuid(hotkey_.uuid()); }
-        [[nodiscard]] QString context() const {
-            return QStringFromStd(hotkey_.hotkey_origin());
-        }
+        [[nodiscard]] QString context() const { return context_; }
         [[nodiscard]] bool exclusive() const { return exclusive_; }
 
         [[nodiscard]] QString description() const {
@@ -269,10 +267,16 @@ namespace ui::qml {
         [[nodiscard]] QVariant defaultModifiers() const;
 
         void setExclusive(const bool exclusive);
+        void setContext(const QString &context) {
+            if (context_ != context) {
+                context_ = context;
+                emit contextChanged();
+            }
+        }
 
       signals:
 
-        void activated(const QString context);
+        void activated(const QString context, const bool pressed);
         void sequenceChanged();
         void hotkeyNameChanged();
         void uuidChanged();
@@ -287,6 +291,8 @@ namespace ui::qml {
       private:
         void notifyExclusiveChanged();
 
+        QString hotkey_name_;
+        QString context_;
         Hotkey hotkey_;
         bool exclusive_ = {false};
     };

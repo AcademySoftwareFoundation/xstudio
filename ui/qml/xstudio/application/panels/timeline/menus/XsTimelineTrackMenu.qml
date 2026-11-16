@@ -6,6 +6,7 @@ import Qt.labs.qmlmodels
 import xstudio.qml.models 1.0
 import xStudio 1.0
 import xstudio.qml.helpers 1.0
+import xstudio.qml.viewport 1.0
 
 XsPopupMenu {
 
@@ -304,14 +305,27 @@ XsPopupMenu {
     Repeater {
         model: DelegateModel {
             model: embeddedPython.trackMenuModel
-            delegate: Item {XsMenuModelItem {
-                text: nameRole
-                menuPath: menuPathRole
-                menuItemPosition: (index*0.01)+32.5
-                menuModelName: timelineMenu.menu_model_name
-                onActivated: embeddedPython.pyEvalFile(scriptPathRole)
-                panelContext: timelineMenu.panelContext
-            }}
+            delegate: Item {
+                XsHotkey {
+                    id: hk
+                    name: nameRole
+                    description: nameRole
+                    componentName: "Track Snippets"
+                    onActivated: embeddedPython.pyEvalFile(scriptPathRole)
+                    sequence: menuHotKeyRole || null
+                    context: timelineMenu.panelContext
+                }
+
+                XsMenuModelItem {
+                    hotkeyUuid: hk.uuid
+                    text: nameRole
+                    menuPath: menuPathRole
+                    menuItemPosition: (index*0.01)+32.5
+                    menuModelName: timelineMenu.menu_model_name
+                    onActivated: embeddedPython.pyEvalFile(scriptPathRole)
+                    panelContext: timelineMenu.panelContext
+                }
+            }
         }
     }
 

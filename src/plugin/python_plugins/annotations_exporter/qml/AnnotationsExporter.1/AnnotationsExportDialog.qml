@@ -2,6 +2,8 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Dialogs
+import QuickFuture 1.0
+import QuickPromise 1.0
 
 import xstudio.qml.models 1.0
 import xStudio 1.0
@@ -41,6 +43,16 @@ XsWindow {
     XsAttributeValue {
         id: resolution
         attributeTitle: "Resolution"
+        model: plugin_attrs
+    }
+    XsAttributeValue {
+        id: progress
+        attributeTitle: "Progress"
+        model: plugin_attrs
+    }
+    XsAttributeValue {
+        id: cancelled
+        attributeTitle: "Cancelled"
         model: plugin_attrs
     }
 
@@ -236,6 +248,27 @@ XsWindow {
                 }
             }
 
+            XsText {
+                text: "Status"
+                Layout.alignment: Qt.AlignRight
+            }
+
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 24
+                Rectangle {
+                    height: 24
+                    width: progress.value.progress != undefined ? progress.value.progress * (parent.width)/100 : 0
+                    color: XsStyleSheet.accentColor
+                }
+                XsText {
+                    height: 24
+                    verticalAlignment: Text.AlignVCenter
+                    text: progress.value.message
+                }
+            }
+
+
 
         }
 
@@ -258,8 +291,8 @@ XsWindow {
             text: qsTr("Cancel")
             width: XsStyleSheet.primaryButtonStdWidth*2
             onClicked: {
+                cancelled.value = true
                 dialog.hide()
-                dialog.destroy()
             }
         }
 
@@ -268,29 +301,38 @@ XsWindow {
             Layout.leftMargin: 5
             text: qsTr("Export")
             width: XsStyleSheet.primaryButtonStdWidth*2
-            //enabled: outputFile.text != ""
+            enabled: !progress.value.in_progress
             onClicked: {
-    
-                var return_val = python_callback(
-                    "do_export",
-                    scopeChoice.currentText,
-                    exportMode.currentText,
-                    outputName.text,
-                    outputFolder.text,
-                    exportFileType.currentText,
-                    resolution_choice.currentText
-                )
-                if (Array.isArray(return_val)) {
-                    // do export should return [True, message]
-        	        dialogHelpers.messageDialogFunc("Annotations Export", return_val[1], "Ok")
-                    if (return_val[0] == true) {
-                        dialog.visible = false
-                    }
-                } else {
-                    // report (likely) error of some sort
-        	        dialogHelpers.errorDialogFunc("Annotations Export", return_val)
+
+                var py_args = {
+                    "scope": scopeChoice.currentText,
+                    "export_type": exportMode.currentText,
+                    "user_name": outputName.text,
+                    "output_folder": outputFolder.text,
+                    "file_type": exportFileType.currentText,
+                    "resolution": resolution_choice.currentText
                 }
 
+                Future.promise(
+                    helpers.pythonAsyncCallback("AnnotationsExporter", "do_export", py_args)
+                ).then(function(return_val) {
+
+                    if (Array.isArray(return_val)) {
+                        // do export should return [True, message]
+                        dialogHelpers.messageDialogFunc("Annotations Export", return_val[1], "Ok")
+                        if (return_val[0] == true) {
+                            dialog.visible = false
+                        }
+                    } else if (typeof return_val === "string") {
+                        // report (likely) error of some sort
+                        dialogHelpers.errorDialogFunc("Annotations Export", return_val)
+                    }
+
+                },
+                function(__rr) {
+                    dialogHelpers.errorDialogFunc("Annotations Export", __rr)
+                })                
+    
             }
         }
     }

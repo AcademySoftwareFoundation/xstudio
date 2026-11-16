@@ -22,9 +22,29 @@
 				],
 				"datatype": "json",
 				"context": ["APPLICATION"],
-				"category": "Conform",
+				"category": "Timeline",
 				"options": "import xStudio 1.0; XsJsonPreference {}",
 				"display_name": "Track Templates"
+			},
+			"show_clip_handles": {
+				"path": "/core/sequence/show_clip_handles",
+				"default_value": true,
+				"description": "Toggle whether in/out handle frames are indicated on clips in the Timeline interface",
+				"value": true,
+				"datatype": "bool",
+				"context": ["APPLICATION"],
+				"category": "Timeline",
+				"display_name": "Show Handles on Timeline Clips"
+			},
+			"show_edit_indicator": {
+				"path": "/core/sequence/show_edit_indicator",
+				"default_value": true,
+				"description": "Toggle whether the edit indicator is visible on timeline clips. The edit indicator is a small blue dot that shows in the bottom right corner of a clip if it's cut range (in/out frames) have been modified since the clip was first added to the timeline.",
+				"value": true,
+				"datatype": "bool",
+				"context": ["APPLICATION"],
+				"category": "Timeline",
+				"display_name": "Show Edit Indicator on Timeline Clips"
 			}
 		}
 	}

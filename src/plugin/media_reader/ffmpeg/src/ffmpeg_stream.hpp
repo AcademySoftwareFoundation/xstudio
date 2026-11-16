@@ -49,6 +49,16 @@ class DebugTimer {
 
 void AVC_CHECK_THROW(int errorNum, const char *avc_command);
 
+/* For a pixel format our shader can't unpack directly, the closest format it can
+that is a lossless repack - preserving bit depth, and for YUV the original code
+values. AV_PIX_FMT_NONE if there is no sensible match, in which case the caller
+has to fall back to a full conversion to 8 bit RGBA. */
+AVPixelFormat shader_friendly_pix_format(AVPixelFormat src);
+
+/* The SWS_CS_* coefficient set matching a stream's colourspace, for the cases
+where sws does the YUV to RGB conversion rather than our own shader. */
+int sws_colourspace_from_av(AVColorSpace colorspace);
+
 typedef enum {
     VIDEO_STREAM     = 1,
     AUDIO_STREAM     = 2,

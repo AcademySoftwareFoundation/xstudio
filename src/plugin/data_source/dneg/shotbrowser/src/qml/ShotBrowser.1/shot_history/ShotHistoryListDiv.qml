@@ -73,11 +73,20 @@ XsListView {
         model: dataModel
         delegate: ShotHistoryListDelegate{
             width: list.width - rightSpacing
-            height: compactMode ? XsStyleSheet.widgetStdHeight+2 : (XsStyleSheet.widgetStdHeight + 1) *  4
             delegateModel: chooserModel
             popupMenu: resultPopup
             onPlayMovie: (path) => list.playMovie(path)
             compactMode: list.compactMode
+
+            property bool wasHovered: false
+
+            onDescriptionClickedChanged: {
+                if(descriptionClicked)
+                    wasHovered = true
+            }
+
+            height: compactMode ? XsStyleSheet.widgetStdHeight+2 : ((XsStyleSheet.widgetStdHeight + 1) *  4) + (wasHovered ? Math.max(textHeightDiff, 0) : 0)
+
         }
     }
 
