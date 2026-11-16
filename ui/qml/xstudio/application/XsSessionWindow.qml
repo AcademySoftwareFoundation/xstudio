@@ -98,6 +98,15 @@ ApplicationWindow {
         }
     }
 
+    // Bring the first tab showing panel type 'viewName' (e.g. "Viewport") to
+    // the front of its tab strip in the current layout. Returns false if the
+    // layout has no such tab.
+    function selectPanelTab(viewName) {
+        var idx = ui_layouts_model.searchRecursive(viewName, "tab_view", layoutBar.current_layout_index)
+        if (!idx.valid) return false
+        return ui_layouts_model.set(idx.parent, idx.row, "current_tab")
+    }
+
     function togglePresentationMode() {
         if (layoutName == "Present") {
             setLayoutName(lastNonPresentLayout)
@@ -581,6 +590,9 @@ ApplicationWindow {
         viewsModel.register_view("divider", "divider", 9.0)
         viewsModel.register_view("qrc:/application/panels/python/XsPythonPanel.qml", "Python", 10.0)
         viewsModel.register_view("qrc:/application/panels/log/XsLogPanel.qml", "Log", 11.0)
+        if (webEngineAvailable) {
+            viewsModel.register_view("qrc:/application/panels/webbrowser/XsWebBrowserPanel.qml", "Web Browser", 12.0)
+        }
 
         popoutWindowsModel.register_popout_window(
             "Notes",

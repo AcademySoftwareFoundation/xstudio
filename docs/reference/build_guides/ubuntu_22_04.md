@@ -93,3 +93,15 @@ xSTUDIO now requires Qt6.5.3. You can install Qt6.5.3 using [these instructions]
     export PYTHONPATH=./bin/python/lib/python3.10/site-packages:/home/xstudio/.local/lib/python3.10/site-packages:
 
     ./bin/xstudio.bin
+
+### Web browser panel (optional)
+The embedded web browser panel is off by default and needs Qt WebEngine.
+
+    sudo apt install qt6-webengine-dev
+
+Then configure with the option on:
+
+    cmake .. -DBUILD_DOCS=Off -DBUILD_WEBENGINE=ON
+
+With the option off nothing links against WebEngine or WebChannel. On NVIDIA GPUs see the "Web Browser Panel" page of the user guide before reporting a black panel: it needs either `QTWEBENGINE_FORCE_USE_GBM=1` on Wayland or the "Render Pages on CPU" preference.
+

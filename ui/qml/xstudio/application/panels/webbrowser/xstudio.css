@@ -1,0 +1,120 @@
+/* xSTUDIO's look, for a web page shown inside xSTUDIO.
+ *
+ * A page loaded in xSTUDIO's Web Browser panel is drawn by a browser, so it
+ * gets a browser's colours unless it is told otherwise, and reads as a web
+ * page pasted into the application. Linking this file first gives it
+ * xSTUDIO's palette, its scrollbars and its form controls; the page then
+ * writes only its own layout.
+ *
+ * Self-contained and application-agnostic on purpose: it is meant to ship
+ * alongside the xSTUDIO API for anyone building such a page.
+ *
+ * WHERE THE VALUES COME FROM
+ *
+ * They are xSTUDIO's own, read off its theme singleton
+ * ui/qml/xstudio/xStudio/XsStyleSheet.qml, resolved at the shipped preference
+ * defaults: ui_brightness 60, ui_text_brightness 90, accent_color #bb7700,
+ * use_flat_theme on. Every custom property is named after the XsStyleSheet
+ * property it carries, so refreshing this file is a re-read of that one
+ * rather than an eyedropper. Measured 2026-09-15.
+ *
+ * Three of them are easy to get wrong, so they are worth stating:
+ *   - --xs-hint is NOT darkened. It is raw gray600 at every brightness.
+ *   - --xs-secondary-text and --xs-scrollbar-active are both gray800, under
+ *     different brightness preferences, so they are different greys.
+ *   - --xs-accent is never darkened; it is the user's pick, straight through.
+ *
+ * A page that must follow a user changing UI Brightness or their accent has
+ * to read the live singleton at runtime instead; these are the defaults, not
+ * a live feed.
+ */
+
+:root {
+  /* colours, by their XsStyleSheet names */
+  --xs-accent: #bb7700;               /* accentColor */
+  --xs-panel-bg: #1f1f1f;             /* panelBgColor */
+  --xs-base: #272727;                 /* baseColor */
+  --xs-panel-bg-grad-top: #373737;    /* panelBgGradTopColor */
+  --xs-panel-title-bar: #3d3d3d;      /* panelTitleBarColor */
+  --xs-menu-border: #505050;          /* menuBorderColor */
+  --xs-hint: #959595;                 /* hintColor */
+  --xs-scrollbar-base: #606060;       /* scrollbarBaseColor */
+  --xs-scrollbar-active: #747474;     /* scrollbarActiveColor */
+  --xs-secondary-text: #aeaeae;       /* secondaryTextColor */
+  --xs-primary-text: #d9d9d9;         /* primaryTextColor */
+  --xs-widget-bg-normal: rgba(153, 153, 153, 0.102);  /* widgetBgNormalColor */
+  --xs-control: rgba(153, 153, 153, 0.2);             /* controlColour */
+
+  /* A selected row is the accent darkened by three (XsMediaItemDelegate:
+     Qt.darker(accentColor, 3)). Qt.darker scales the HSV value, so every
+     channel divides by three, which is what this mix computes. Dim text stays
+     readable on it, which it would not on the undarkened accent. */
+  --xs-selection: color-mix(in srgb, var(--xs-accent) 33.33%, #000);
+
+  /* The panel fill. useFlatTheme ships on, so it is flat; a page that wants
+     the gradient form of XsGradientRectangle uses
+     linear-gradient(var(--xs-panel-bg-grad-top), var(--xs-base)). */
+  --xs-panel-fill: var(--xs-panel-bg-grad-top);
+
+  /* type and metrics */
+  --xs-font-size: 12px;               /* fontSize */
+  --xs-font-family: "Inter";          /* fontFamily — see the note below */
+  --xs-widget-height: 24px;           /* widgetStdHeight */
+  --xs-panel-padding: 4px;            /* panelPadding */
+  --xs-divider: 1px;                  /* dividerSize */
+
+  /* Without this the browser paints its own chrome — scrollbars, spinners,
+     unchecked boxes — in its light default, which is glaring on this ground. */
+  color-scheme: dark;
+}
+
+/* Inter is loaded from xSTUDIO's qrc by a QML FontLoader, so it is an
+   application font inside the Qt process rather than a system one; a browser
+   resolving through fontconfig will not necessarily find it. Always keep a
+   real fallback stack behind it — or serve the woff2 from your own origin. */
+
+body {
+  background: var(--xs-panel-fill);
+  color: var(--xs-primary-text);
+  font-family: var(--xs-font-family), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+a { color: var(--xs-accent); }
+
+::selection { background: var(--xs-selection); }
+
+/* Scrollbars. scrollbar-color is the standard property and ::-webkit-scrollbar
+   the one older Chromium honours; both are set because such a page runs in the
+   panel's QtWebEngine and in whatever browser it is developed in. */
+* { scrollbar-color: var(--xs-scrollbar-base) transparent; scrollbar-width: thin; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--xs-scrollbar-base); border-radius: 5px;
+  border: 2px solid transparent; background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--xs-scrollbar-active); background-clip: content-box;
+}
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* Controls. xSTUDIO draws hover borders and pressed states in the accent
+   (XsTabButton, XsCheckBoxSimple), which is why the accent appears on focus
+   and hover rather than a separate highlight colour. */
+button {
+  background: var(--xs-base); color: var(--xs-primary-text);
+  border: var(--xs-divider) solid var(--xs-menu-border); border-radius: 6px;
+  padding: 5px 10px; font-size: 12.5px; font-family: inherit; cursor: pointer;
+}
+button:hover { border-color: var(--xs-accent); }
+button:disabled { opacity: .5; cursor: default; }
+button.primary { background: var(--xs-selection); border-color: var(--xs-accent); }
+
+input[type=text], input[type=search], input[type=number], textarea {
+  background: var(--xs-base); color: var(--xs-primary-text);
+  border: var(--xs-divider) solid var(--xs-menu-border); border-radius: 6px;
+  padding: 5px 10px; font-size: 13px; font-family: inherit;
+}
+input:focus, textarea:focus { outline: none; border-color: var(--xs-accent); }
+
+input[type=checkbox], input[type=radio] { accent-color: var(--xs-accent); }
