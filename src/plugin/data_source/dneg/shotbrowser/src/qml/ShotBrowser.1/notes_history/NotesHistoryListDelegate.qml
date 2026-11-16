@@ -23,7 +23,7 @@ Item{ id: thisItem
 
     property bool isHovered: mArea.containsMouse ||
         sec1.isHovered ||
-        sec2.isHovered
+        sec2.isHovered || sec2.descriptionHovered
 
     required property string thumbRole
     required property string noteTypeRole
@@ -36,10 +36,12 @@ Item{ id: thisItem
     required property string projectRole
     required property int idRole
     required property var attachmentsRole
+    required property var annotationRole
     required property var addressingRole
     required property var createdDateRole
     required property int index
 
+    property alias descriptionClicked: sec2.descriptionClicked
     property alias textHeightDiff: sec2.textHeightDiff
 
     signal showImages(items: var)
@@ -95,7 +97,7 @@ Item{ id: thisItem
 
         onDoubleClicked: (mouse)=> {
             // need to know context, Which panel am I in.
-            ShotBrowserHelpers.addToCurrent([delegateModel.modelIndex(index)], panelType != "ShotBrowser", addMode.value)
+            ShotBrowserHelpers.addToCurrent([delegateModel.modelIndex(index)], {"viewed": panelType != "ShotBrowser", "addMode":addMode.value})
         }
 
         Rectangle{

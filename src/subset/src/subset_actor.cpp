@@ -427,7 +427,7 @@ caf::message_handler SubsetActor::message_handler() {
                         // rp.deliver(true);
                     },
                     [=](error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                         rp.deliver(false);
                     });
 
@@ -480,7 +480,7 @@ caf::message_handler SubsetActor::message_handler() {
                         rp.deliver(changed);
                     },
                     [=](error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                         rp.deliver(false);
                     });
 
@@ -545,7 +545,7 @@ caf::message_handler SubsetActor::message_handler() {
                 .then(
                     [=](bool) mutable { rp.deliver(playhead_); },
                     [=](caf::error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                         rp.deliver(playhead_);
                     });
 
@@ -832,10 +832,7 @@ caf::message_handler SubsetActor::message_handler() {
                                                 rp.deliver(j);
                                             },
                                             [=](caf::error &err) mutable {
-                                                spdlog::warn(
-                                                    "{} {}",
-                                                    __PRETTY_FUNCTION__,
-                                                    to_string(err));
+                                                log_caf_error(err);
                                                 rp.deliver(j);
                                             });
 
@@ -847,7 +844,7 @@ caf::message_handler SubsetActor::message_handler() {
                                 }
                             },
                             [=](caf::error &err) mutable {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err);
                                 rp.deliver(j);
                             });
                 });
@@ -969,7 +966,7 @@ void SubsetActor::sort_by_media_display_info(
                     }
                 },
                 [=](error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                 });
     }
 }

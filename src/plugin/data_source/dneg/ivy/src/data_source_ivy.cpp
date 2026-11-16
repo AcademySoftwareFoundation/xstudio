@@ -3,6 +3,12 @@
 #include <fmt/format.h>
 #include <filesystem>
 
+#include <opentimelineio/timeline.h>
+#include <opentimelineio/gap.h>
+#include <opentimelineio/clip.h>
+#include <opentimelineio/marker.h>
+#include <opentimelineio/track.h>
+
 #include <caf/policy/select_all.hpp>
 #include <caf/actor_registry.hpp>
 
@@ -14,6 +20,7 @@
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/utility/chrono.hpp"
 #include "xstudio/http_client/http_client_actor.hpp"
+#include "xstudio/utility/logging.hpp"
 
 using namespace xstudio;
 using namespace xstudio::utility;
@@ -314,7 +321,7 @@ template <typename T> caf::message_handler IvyDataSourceActor<T>::message_handle
                         }
                     },
                     [=](const error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                         rp.deliver(err);
                     });
 
@@ -360,7 +367,7 @@ template <typename T> caf::message_handler IvyDataSourceActor<T>::message_handle
                                 [=](caf::error &err) mutable { rp.deliver(err); });
                     },
                     [=](const error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                         rp.deliver(UuidActorVector());
                     });
 
@@ -600,7 +607,7 @@ void IvyMediaWorker::add_sources_to_media(
                     anon_mail(media::add_media_source_atom_v, uas).send(media);
                 },
                 [=](const error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     rp.deliver(err);
                 });
     }
@@ -720,7 +727,7 @@ void IvyMediaWorker::add_media(
                         add_sources_to_media(rp, jsn, media_rate, *sources);
                 },
                 [=](error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     (*count)--;
                     if (not(*count))
                         add_sources_to_media(rp, jsn, media_rate, *sources);
@@ -809,7 +816,7 @@ void IvyMediaWorker::get_show_stalk_uuid(
                 rp.deliver(std::make_pair(dnuuid, show));
             },
             [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(err);
             });
 }
@@ -954,7 +961,7 @@ void IvyMediaWorker::get_shotgun_shot(
                                 },
                                 [=](const error &err) mutable {
                                     rp.deliver(false);
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    log_caf_error(err);
                                 });
                     } catch (const std::exception &err) {
                         rp.deliver(false);
@@ -1034,7 +1041,7 @@ void IvyDataSourceActor<T>::get_version(
                 }
             },
             [=](error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(std::move(err));
             });
 }
@@ -1081,12 +1088,9 @@ void IvyDataSourceActor<T>::ivy_load_version_sources(
                     // some outputs (like playblasts). Here we store that path as 
                     // metadata so we can potentially make use if it later.
                     if (i.contains("name") && i.at("name") == "otio" && media_actor) {
-                        anon_mail(
-                            json_store::set_json_atom_v,
-                            utility::Uuid(),
-                            JsonStore(i.at("path")),
-                            IvyMetadataPath + "/version/otio_sidecar")
-                            .send(media_actor);
+                        
+                        read_otio_sidecar(i.at("path"), media_actor);
+                        
                     }
 
                     // need to filter unsupported leafs..
@@ -1133,13 +1137,13 @@ void IvyDataSourceActor<T>::ivy_load_version_sources(
                                     else
                                         rp.deliver(*results);
                                 }
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err);
                             });
                 }
             },
 
             [=](error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(UuidActorVector());
             });
 }
@@ -1222,8 +1226,7 @@ void IvyDataSourceActor<T>::ivy_load_version(
                                         (*count)--;
                                         if (not(*count))
                                             rp.deliver(*results);
-                                        spdlog::warn(
-                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                        log_caf_error(err);
                                     });
                         }
                     }
@@ -1233,7 +1236,7 @@ void IvyDataSourceActor<T>::ivy_load_version(
                 }
             },
             [=](error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(UuidActorVector());
             });
 }
@@ -1328,8 +1331,7 @@ void IvyDataSourceActor<T>::ivy_load_file(
                                         if (not(*count)) {
                                             rp.deliver(*results);
                                         }
-                                        spdlog::warn(
-                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                        log_caf_error(err);
                                     });
                         }
                     }
@@ -1339,7 +1341,7 @@ void IvyDataSourceActor<T>::ivy_load_file(
                 }
             },
             [=](error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(UuidActorVector());
             });
 }
@@ -1428,7 +1430,7 @@ void IvyDataSourceActor<T>::handle_drop(
                         (*count)--;
                         if (not(*count))
                             rp.deliver(*media);
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
         }
     } else {
@@ -1559,10 +1561,7 @@ void IvyDataSourceActor<T>::get_show_stalk_uuid(
                                                     }
                                                 },
                                                 [=](const error &err) mutable {
-                                                    spdlog::warn(
-                                                        "{} {}",
-                                                        __PRETTY_FUNCTION__,
-                                                        to_string(err));
+                                                    log_caf_error(err);
                                                     rp.deliver(err);
                                                 });
                                     } else {
@@ -1571,14 +1570,14 @@ void IvyDataSourceActor<T>::get_show_stalk_uuid(
                                     }
                                 },
                                 [=](const error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    log_caf_error(err);
                                     rp.deliver(err);
                                 });
                     }
                 }
             },
             [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(err);
             });
 }
@@ -1606,7 +1605,7 @@ void IvyDataSourceActor<T>::pipequery(
                 }
             },
             [=](error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(err);
             });
 }
@@ -1737,8 +1736,7 @@ void IvyDataSourceActor<T>::ivy_load_audio_sources(
                                     },
                                     [=](error &err) mutable {
                                         auto_responder.decrement(err);
-                                        spdlog::warn(
-                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                        log_caf_error(err);
                                     });
                         }
                     }
@@ -1748,7 +1746,7 @@ void IvyDataSourceActor<T>::ivy_load_audio_sources(
                 }
             },
             [=](error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(extend);
             });
 }
@@ -1806,10 +1804,68 @@ void IvyDataSourceActor<T>::order_new_media_sources(
                 rp.deliver(reordered);
             },
             [=](caf::error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(new_media_sources);
             });
 }
+
+template <typename T>
+void IvyDataSourceActor<T>::read_otio_sidecar(const std::string &otio_path, const caf::actor &media_actor)
+{
+
+    /*
+    http://jira.dneg.com/browse/XSTUDIO-3509
+
+    FEAT Anim RLO has been adding an OTIO sidecar to some outputs (like playblasts). This sets 'suggested'
+    frame ranges for the media for insertion into the RLO cut. It comes from the client edit and here we
+    use it to set 'suggested' frame range for the media to be used later in the conform engine fallback
+    behaviour. See TimelineActor::auto_insert_media_at_playhead_clip and 
+    TimelineActor::auto_replace_media_at_playhead_clip for where it gets used.
+
+    Arguably this is DNEG business logic polluting the core classes, but the frame handles suggestion 
+    metadata could be generic and of use to other studios so we will keep it here for now. 
+
+    */
+
+    namespace otio = opentimelineio::OPENTIMELINEIO_VERSION;
+
+    try {
+
+        otio::ErrorStatus error_status;
+        auto timeline = otio::SerializableObject::Retainer<otio::Timeline>(
+                dynamic_cast<otio::Timeline *>(otio::Timeline::from_json_file(otio_path, &error_status)));
+        if (otio::is_error(error_status)) {
+            throw std::runtime_error(error_status.full_description.c_str());
+        }
+        if (timeline) {
+
+            for (const auto &vid_track: timeline->video_tracks()) {
+                for (const auto &clip: vid_track->children()) {
+                    if (auto clip_ptr = dynamic_cast<otio::Clip *>(&(*clip))) {
+                        if (clip_ptr->source_range() && clip_ptr->media_reference() && clip_ptr->media_reference()->available_range()) {
+
+                            if (clip_ptr->source_range()->start_time() != clip_ptr->media_reference()->available_range()->start_time() ||
+                                clip_ptr->source_range()->duration() != clip_ptr->media_reference()->available_range()->duration()) {
+
+                                caf::scoped_actor sys{system()};
+                                request_receive<bool>(*sys, media_actor, json_store::set_json_atom_v, utility::Uuid(), JsonStore({
+                                    {"otio_sidecar", otio_path},
+                                    {"start_frame", clip_ptr->source_range()->start_time().to_frames()},
+                                    {"duration_frames", clip_ptr->source_range()->duration().to_frames()}
+                                }), "/metadata/conform/suggested_clip_range");
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    } catch ( std::exception & e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+}
+
 
 extern "C" {
 plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {

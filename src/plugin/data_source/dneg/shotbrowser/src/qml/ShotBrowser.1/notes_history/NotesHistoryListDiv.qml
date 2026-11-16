@@ -67,13 +67,15 @@ XsListView{
         id: chooserModel
         model: dataModel
         delegate: NotesHistoryListDelegate{
-            property bool wasHovered: false
             width: list.width - rightSpacing
 
-            onIsHoveredChanged: {
-                if(isHovered)
+            property bool wasHovered: false
+
+            onDescriptionClickedChanged: {
+                if(descriptionClicked)
                     wasHovered = true
             }
+
             height: cellHeight + (wasHovered ? Math.max(textHeightDiff, 0) : 0)
 
             delegateModel: chooserModel

@@ -299,7 +299,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_simple_types, FIRST_CUSTOM_ID)
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::Notification))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::playhead::SelectionMode))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::timeline::ItemType))
-    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::timeline::AudioMode))    
+    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::timeline::AudioMode))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::ColourTriplet))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (spdlog::level::level_enum))
 
@@ -414,6 +414,8 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_complex_types, FIRST_CUSTOM_ID + 200)
     CAF_ADD_TYPE_ID(xstudio_complex_types, (xstudio::media::MediaSourceChecksum))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::ui::viewport::Mask>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::vector<xstudio::ui::viewport::Mask>>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<xstudio::utility::UuidActor, xstudio::bookmark::BookmarkDetail>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::pair<xstudio::utility::UuidActor, xstudio::bookmark::BookmarkDetail>>))
 
 CAF_END_TYPE_ID_BLOCK(xstudio_complex_types)
 
@@ -712,7 +714,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_session_atoms, FIRST_CUSTOM_ID + (200 * 4))
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, split_item_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, split_item_at_frame_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, trimmed_range_atom)
-    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, audio_mode_atom)    
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, audio_mode_atom)
 
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, item_flag_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, metadata_selection_atom)
@@ -730,7 +732,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_session_atoms, FIRST_CUSTOM_ID + (200 * 4))
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, item_selection_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, item_type_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, clip_edited_status_atom)
-    
+
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::bookmark, remove_annotation_atom)
 
 

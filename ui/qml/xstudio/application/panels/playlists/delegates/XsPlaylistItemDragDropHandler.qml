@@ -129,7 +129,7 @@ XsDragDropHandler {
 
     onDropped: (mousePosition, source, data) => {
 
-        console.log("onDropped", source, data)
+        // console.log("onDropped", source, data)
 
         if (!isDragTarget) return
         isDragTarget = false

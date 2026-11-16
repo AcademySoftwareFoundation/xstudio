@@ -114,8 +114,8 @@ const char *caption_box_frag_shader = R"(
     }
 )";
 
-// for drawing the 3 handles the show up on the live caption (text box)
-static std::array<Imath::V2f, 38> handles_vertices = {
+// for drawing the 4 handles the show up on the live caption (text box)
+static std::array<Imath::V2f, 44> handles_vertices = {
     // unit box for drawing boxes!
     Imath::V2f(0.0f, 0.0f),
     Imath::V2f(1.0f, 0.0f),
@@ -160,6 +160,15 @@ static std::array<Imath::V2f, 38> handles_vertices = {
     Imath::V2f(0.8f, 0.2f),
     Imath::V2f(0.2f, 0.8f),
 
+    // N for note
+    Imath::V2f(0.2f, 0.2f),
+    Imath::V2f(0.2f, 0.8f),
+
+    Imath::V2f(0.2f, 0.2f),
+    Imath::V2f(0.8f, 0.8f),
+
+    Imath::V2f(0.8f, 0.2f),
+    Imath::V2f(0.8f, 0.8f),
 };
 
 } // namespace
@@ -549,15 +558,18 @@ void CaptionHandleRenderer::render_caption_handle(
         static const auto hndls = std::vector<HandleHoverState>(
             {HandleHoverState::HoveredOnMoveHandle,
              HandleHoverState::HoveredOnResizeHandle,
-             HandleHoverState::HoveredOnDeleteHandle});
+             HandleHoverState::HoveredOnDeleteHandle,
+            HandleHoverState::HoveredOnPasteHandle});
 
-        static const auto vtx_offsets = std::vector<int>({4, 14, 24});
-        static const auto vtx_counts  = std::vector<int>({20, 10, 4});
+        static const auto vtx_offsets = std::vector<int>({4, 14, 24, 28});
+        static const auto vtx_counts  = std::vector<int>({20, 10, 4, 6});
 
-        const auto positions = std::vector<Imath::V2f>(
-            {caption_box.min - handle_size,
+        const auto positions = std::vector<Imath::V2f>({
+            caption_box.min - handle_size,
              caption_box.max,
-             {caption_box.max.x, caption_box.min.y - handle_size.y}});
+             {caption_box.max.x, caption_box.min.y - handle_size.y},
+             {caption_box.min.x - handle_size.x, caption_box.max.y}
+         });
 
         shader_params2["box_size"] = handle_size;
 

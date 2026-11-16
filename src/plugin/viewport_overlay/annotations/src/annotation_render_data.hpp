@@ -20,7 +20,8 @@ enum class HandleHoverState {
     HoveredInCaptionArea,
     HoveredOnMoveHandle,
     HoveredOnResizeHandle,
-    HoveredOnDeleteHandle
+    HoveredOnDeleteHandle,
+    HoveredOnPasteHandle
 };
 
 typedef std::vector<std::shared_ptr<canvas::Stroke>> StrokeVec;

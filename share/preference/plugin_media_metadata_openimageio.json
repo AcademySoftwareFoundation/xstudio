@@ -29,9 +29,9 @@
 					},
 
 					"value": {
-				        "JPG": "MMC_FORCE",
-				        "JPEG": "MMC_FORCE",
-				        "PNG": "MMC_FORCE",
+				        "JPG": "MMC_FULLY",
+				        "JPEG": "MMC_FULLY",
+				        "PNG": "MMC_FULLY",
 				        "TIF": "MMC_FORCE",
 				        "TEX": "MMC_FULLY",
 				        "TIFF": "MMC_FORCE",

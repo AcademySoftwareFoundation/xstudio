@@ -1177,7 +1177,7 @@ void VideoRenderWorker::add_output_to_session() {
     }
 
     auto handle_error = [=](caf::error &err) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+        utility::log_caf_error(err);
         mail(utility::user_start_action_atom_v).send(renderer_plugin_);
         send_exit(caf::actor_cast<caf::actor>(this), caf::exit_reason::user_shutdown);
     };

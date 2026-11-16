@@ -30,6 +30,7 @@
 #include "xstudio/utility/sequence.hpp"
 #include "xstudio/utility/string_helpers.hpp"
 #include "xstudio/utility/path_remapper.hpp"
+#include "xstudio/utility/logging.hpp"
 
 #ifndef MAXHOSTNAMELEN
 #define MAXHOSTNAMELEN 256
@@ -91,6 +92,18 @@ void xstudio::utility::add_remap_file_path(const std::string &from, const std::s
 void xstudio::utility::add_regex_mapping(const std::pair<std::regex, std::string> from, const std::pair<std::regex, std::string> to) {
     s_remapper.add_regex_mapping(from, to);
 }
+
+std::vector<std::byte> xstudio::utility::string_to_bytes(const std::string &str) {
+    std::vector<std::byte> result(str.size());
+    std::copy(
+        str.begin(),
+        str.end(),
+        reinterpret_cast<char*>(result.data())
+    );
+
+    return result;
+}
+
 
 std::string xstudio::utility::forward_remap_file_path(const std::string &path) {
     return s_remapper.forwards(path);
@@ -181,7 +194,7 @@ void xstudio::utility::join_broadcast(caf::event_based_actor *source, caf::actor
         .then(
             [=](const bool) mutable {},
             [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 }
 
@@ -193,7 +206,7 @@ void xstudio::utility::join_broadcast(caf::blocking_actor *source, caf::actor ac
         .receive(
             [=](const bool) mutable {},
             [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 }
 
@@ -205,7 +218,7 @@ void xstudio::utility::leave_broadcast(caf::blocking_actor *source, caf::actor a
         .receive(
             [=](const bool) mutable {},
             [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 }
 
@@ -217,7 +230,7 @@ void xstudio::utility::leave_broadcast(caf::event_based_actor *source, caf::acto
         .then(
             [=](const bool) mutable {},
             [=](const error &err) mutable {
-                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, to_string(err), to_string(actor));
+                log_caf_error(err, spdlog::level::warn, to_string(actor));
             });
 }
 
@@ -235,11 +248,11 @@ void xstudio::utility::join_event_group(caf::event_based_actor *source, caf::act
                     .then(
                         [=](const bool) mutable {},
                         [=](const error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                         });
             },
             [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 }
 
@@ -257,11 +270,11 @@ void xstudio::utility::leave_event_group(caf::event_based_actor *source, caf::ac
                     .then(
                         [=](const bool) mutable {},
                         [=](const error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                         });
             },
             [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 }
 

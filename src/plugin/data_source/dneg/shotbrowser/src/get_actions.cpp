@@ -7,6 +7,7 @@
 #include "xstudio/media/media_actor.hpp"
 #include "xstudio/shotgun_client/shotgun_client.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/utility/logging.hpp"
 
 #include "shotbrowser_plugin.hpp"
 
@@ -43,7 +44,7 @@ void ShotBrowser::find_ivy_version(
                 rp.deliver(result);
             },
             [=](error &err) mutable {
-                spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err, spdlog::level::err);
                 rp.deliver(JsonStore(R"({"payload":[]})"_json));
             });
 }
@@ -58,7 +59,7 @@ void ShotBrowser::get_fields(
         .then(
             [=](const JsonStore &jsn) mutable { rp.deliver(jsn); },
             [=](error &err) mutable {
-                spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err, spdlog::level::err);
                 rp.deliver(JsonStore(R"({"data":{}})"_json));
             });
 }
@@ -122,7 +123,7 @@ void ShotBrowser::find_shot(
                         rp.deliver(jsn);
                     },
                     [=](error &err) mutable {
-                        spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err, spdlog::level::err);
                         shot_cache_[shot_id] = JsonStore();
                         rp.deliver(JsonStore());
                     });
@@ -226,10 +227,7 @@ void ShotBrowser::link_media(
                                                 }
                                             },
                                             [=](error &err) mutable {
-                                                spdlog::warn(
-                                                    "{} {}",
-                                                    __PRETTY_FUNCTION__,
-                                                    to_string(err));
+                                                log_caf_error(err);
                                                 (*left)--;
                                                 (*invalid)++;
                                                 if (not(*left)) {
@@ -255,7 +253,7 @@ void ShotBrowser::link_media(
                         }
                     },
                     [=](error &err) mutable {
-                        spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err, spdlog::level::err);
                         rp.deliver(JsonStore(R"({"result": {"valid":0, "invalid":0}})"_json));
                     });
         } else {
@@ -331,10 +329,7 @@ void ShotBrowser::refresh_metadata(
                                                                         },
                                                                         [=](error
                                                                                 &err) mutable {
-                                                                            spdlog::error(
-                                                                                "{} {}",
-                                                                                __PRETTY_FUNCTION__,
-                                                                                to_string(err));
+                                                                            log_caf_error(err, spdlog::level::err);
                                                                             rp.deliver(JsonStore(
                                                                                 (R"({})"_json)
                                                                                     ["error"] =
@@ -353,10 +348,7 @@ void ShotBrowser::refresh_metadata(
                                                             }
                                                         },
                                                         [=](error &err) mutable {
-                                                            spdlog::error(
-                                                                "{} {}",
-                                                                __PRETTY_FUNCTION__,
-                                                                to_string(err));
+                                                            log_caf_error(err, spdlog::level::err);
                                                             rp.deliver(JsonStore(
                                                                 (R"({})"_json)["error"] =
                                                                     to_string(err)));
@@ -369,19 +361,18 @@ void ShotBrowser::refresh_metadata(
                                             }
                                         },
                                         [=](error &err) mutable {
-                                            spdlog::error(
-                                                "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                            log_caf_error(err, spdlog::level::err);
                                             rp.deliver(JsonStore(
                                                 (R"({})"_json)["error"] = to_string(err)));
                                         });
                             },
                             [=](error &err) mutable {
-                                spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err, spdlog::level::err);
                                 rp.deliver(JsonStore((R"({})"_json)["error"] = to_string(err)));
                             });
                 },
                 [=](error &err) mutable {
-                    spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err, spdlog::level::err);
                     rp.deliver(JsonStore((R"({})"_json)["error"] = to_string(err)));
                 });
     } catch (const std::exception &err) {
@@ -448,7 +439,7 @@ void ShotBrowser::add_shotgrid_media(
                         rp.deliver(jsn);
                     },
                     [=](error &err) mutable {
-                        spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err, spdlog::level::err);
                         rp.deliver(JsonStore((R"({})"_json)["error"] = to_string(err)));
                     });
         } else {
@@ -487,8 +478,7 @@ void ShotBrowser::add_shotgrid_media(
                                             rp.deliver(jsn);
                                         },
                                         [=](error &err) mutable {
-                                            spdlog::error(
-                                                "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                            log_caf_error(err, spdlog::level::err);
                                             rp.deliver(JsonStore(
                                                 (R"({})"_json)["error"] = to_string(err)));
                                         });
@@ -507,7 +497,7 @@ void ShotBrowser::add_shotgrid_media(
                         }
                     },
                     [=](error &err) mutable {
-                        spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err, spdlog::level::err);
                         rp.deliver(JsonStore((R"({})"_json)["error"] = to_string(err)));
                     });
         }
@@ -578,7 +568,7 @@ void ShotBrowser::download_shotgrid_image(
                         }
                     },
                     [=](error &err) mutable {
-                        spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err, spdlog::level::err);
                         rp.deliver(make_error(xstudio_error::error, to_string(err)));
                     });
         }
@@ -588,6 +578,35 @@ void ShotBrowser::download_shotgrid_image(
     }
 }
 
+
+void ShotBrowser::download_shotgrid_annotations(
+    caf::typed_response_promise<utility::JsonStore> rp,
+    const std::string &entity,
+    const int entity_id
+) {
+    try {
+        mail(shotgun_attachment_atom_v, entity, entity_id, "this_file")
+            .request(shotgun_, infinite)
+            .then(
+                [=](const std::string &data) mutable {
+                    try {
+                        rp.deliver(decompress_json(string_to_bytes(data)));
+                    } catch(const std::exception &err) {
+                        spdlog::error("{} {}", __PRETTY_FUNCTION__, err.what());
+                        rp.deliver(make_error(xstudio_error::error, err.what()));
+                    }
+                },
+                [=](error &err) mutable {
+                    log_caf_error(err, spdlog::level::err);
+                    rp.deliver(make_error(xstudio_error::error, to_string(err)));
+                });
+
+
+    } catch (const std::exception &err) {
+        spdlog::error("{} {}", __PRETTY_FUNCTION__, err.what());
+        rp.deliver(make_error(xstudio_error::error, err.what()));
+    }
+}
 
 void ShotBrowser::download_shotgrid_media(
     caf::typed_response_promise<utility::JsonStore> rp,
@@ -636,7 +655,7 @@ void ShotBrowser::download_shotgrid_media(
                         }
                     },
                     [=](error &err) mutable {
-                        spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err, spdlog::level::err);
                         rp.deliver(make_error(xstudio_error::error, to_string(err)));
                     });
         }
@@ -688,7 +707,7 @@ void ShotBrowser::get_valid_media_count(
                         rp.deliver(result);
                     },
                     [=](error &err) mutable {
-                        spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err, spdlog::level::err);
                         rp.deliver(JsonStore(R"({"result": {"valid":0, "invalid":0}})"_json));
                     });
         } else {
@@ -1067,7 +1086,7 @@ void ShotBrowser::prepare_playlist_notes(
                     rp.deliver(result);
                 },
                 [=](error &err) mutable {
-                    spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err, spdlog::level::err);
                     rp.deliver(JsonStore(payload));
                 });
 

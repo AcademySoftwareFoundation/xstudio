@@ -7,6 +7,7 @@
 #include "xstudio/shotgun_client/shotgun_client.hpp"
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/thumbnail/thumbnail.hpp"
+#include "xstudio/utility/logging.hpp"
 
 namespace xstudio::shotgun_client {
 class ShotgunClientActor : public caf::event_based_actor {
@@ -35,7 +36,7 @@ class ShotgunClientActor : public caf::event_based_actor {
                 .then(
                     [=](const std::pair<std::string, std::string> &) mutable { lambda(); },
                     [=](error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        utility::log_caf_error(err);
                         rp.deliver(err);
                     });
         } else
@@ -59,7 +60,7 @@ class ShotgunClientActor : public caf::event_based_actor {
                     .then(
                         [=](const std::pair<std::string, std::string> &) mutable { lambda(); },
                         [=](error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            utility::log_caf_error(err);
                             rp.deliver(utility::JsonStore(std::move(jsn)));
                         });
             }

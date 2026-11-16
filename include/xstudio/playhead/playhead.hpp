@@ -138,7 +138,7 @@ class PlayheadBase : public module::Module {
 
     void register_hotkeys() override;
 
-  protected:
+  protected:  
     void play_faster(const bool forwards);
 
     inline static const std::vector<std::tuple<AutoAlignMode, std::string, std::string, bool>>
@@ -146,6 +146,8 @@ class PlayheadBase : public module::Module {
             {AAM_ALIGN_MANUAL, "Manual", "Manual", true},
             {AAM_ALIGN_AUTO, "Auto", "Auto", true},
             {AAM_ALIGN_AUTO_TRIM, "Auto (Trim)", "Trim", true}};
+
+    static std::string old_to_new_align_mode(std::string old);
 
     utility::TimeSourceMode play_rate_mode_{utility::TimeSourceMode::DYNAMIC};
     utility::FrameRate playhead_rate_;

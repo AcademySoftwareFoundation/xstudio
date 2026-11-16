@@ -22,7 +22,7 @@ RowLayout {
             if(resultsBaseModel.groupDetail.flags.includes("Load Sequence"))
                 ShotBrowserHelpers.addSequencesToNewPlaylist(resultsSelectionModel.selectedIndexes)
             else
-                ShotBrowserHelpers.addToCurrent(resultsSelectionModel.selectedIndexes, false, addMode.value)
+                ShotBrowserHelpers.addToCurrent(resultsSelectionModel.selectedIndexes, {"viewed": false, "addMode": addMode.value})
         }
         hiddenToolTip: targetIsTimeline ? "This option will look for shots in the timeline that match the shots for the media that you have selected from the above search results. Where a match is found the media will be cut-in to the timeline to match the cut-range of the corresponding clip(s) already in the timeline. If you are adding a SINGLE media item and it isn't matched to any shots in the timeline, it will be auto-conformed over the current on-screen clip (that is the clip under the current playhead). Otherwise any media being added that doesn't match any clips in the timeline will be added to an 'Uncoformed' video track." : "Add selected search results to the current playlist."
         hiddenToolTipMaxWidth: 400

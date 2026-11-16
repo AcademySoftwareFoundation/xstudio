@@ -134,6 +134,8 @@ class AnnotationsCore : public plugin::StandardPlugin {
 
     void clear_live_caption(LiveEditData &user_edit_data);
 
+    void push_live_caption_to_note(LiveEditData &user_edit_data);
+
     void caption_key_press(const utility::JsonStore &payload, LiveEditData &user_edit_data);
 
     void caption_mouse_pressed(const utility::JsonStore &payload, LiveEditData &user_edit_data);

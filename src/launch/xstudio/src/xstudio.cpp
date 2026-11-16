@@ -18,7 +18,6 @@ __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;          // 
 #include <thread>
 
 #ifndef _WIN32
-#include <execinfo.h>
 #include <unistd.h>
 #endif
 
@@ -58,6 +57,9 @@ CAF_PUSH_WARNINGS
 #include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QSurfaceFormat>
+#ifdef BUILD_WEBENGINE
+#include <QtWebEngineQuick/QtWebEngineQuick>
+#endif
 #include <QPalette>
 #include <QString>
 #include <QQuickView>
@@ -71,6 +73,8 @@ CAF_PUSH_WARNINGS
 CAF_POP_WARNINGS
 
 #include "xstudio/ui/qml/studio_ui.hpp" //NOLINT
+
+#include "crash_handler.hpp"
 
 using namespace std;
 using namespace caf;
@@ -90,51 +94,6 @@ bool shutdown_xstudio = false;
 // this is required to overcome a very odd link
 // error on MaxOS (intel)
 uint32_t OPENSSL_ia32cap_P[4] = {0};
-#endif
-
-#ifdef _WIN32
-#include <DbgHelp.h>
-
-void handler(int sig) {
-    void *stack[10];
-    HANDLE process = GetCurrentProcess();
-    SymInitialize(process, nullptr, TRUE);
-
-    // Capture the call stack
-    WORD frames = CaptureStackBackTrace(0, 10, stack, nullptr);
-
-    // Print out the frames to stderr
-    fprintf(stderr, "Error: signal %d:\n", sig);
-    for (int i = 0; i < frames; ++i) {
-        DWORD64 address = reinterpret_cast<DWORD64>(stack[i]);
-        char symbolBuffer[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)];
-        SYMBOL_INFO *symbol  = reinterpret_cast<SYMBOL_INFO *>(symbolBuffer);
-        symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
-        symbol->MaxNameLen   = MAX_SYM_NAME;
-
-        if (SymFromAddr(process, address, nullptr, symbol)) {
-            fprintf(stderr, "%d: %s\n", i, symbol->Name);
-        } else {
-            fprintf(stderr, "%d: [Unknown Symbol]\n", i);
-        }
-    }
-
-    SymCleanup(process);
-    exit(1);
-}
-#else
-void handler(int sig) {
-    void *array[10];
-    size_t size;
-
-    // get void*'s for all entries on the stack
-    size = backtrace(array, 10);
-
-    // print out all the frames to stderr
-    fprintf(stderr, "Error: signal %d:\n", sig);
-    backtrace_symbols_fd(array, size, STDERR_FILENO);
-    exit(1);
-}
 #endif
 
 void my_handler(int s) {
@@ -297,6 +256,7 @@ int execute_xstudio_ui(
     const bool disble_vsync,
     const float ui_scale_factor,
     const bool silence_qt_warnings,
+    [[maybe_unused]] const bool web_disable_gpu,
     int argc,
     char **argv) {
 
@@ -312,6 +272,28 @@ int execute_xstudio_ui(
         std::string fstr = fmt::format("{}", ui_scale_factor);
         qputenv("QT_SCALE_FACTOR", fstr.c_str());
     }
+
+#ifdef BUILD_WEBENGINE
+    // Chromium's GPU process can't share its output into xSTUDIO's OpenGL
+    // scene graph on every driver (NVIDIA falls back to Vulkan and the view
+    // stays black). --web-disable-gpu or the "Render Pages on CPU"
+    // preference renders pages on the CPU instead.
+    // Chromium reads the flags from this env var at initialize(); keep
+    // anything the user already set.
+    if (web_disable_gpu) {
+        QByteArray flags = qgetenv("QTWEBENGINE_CHROMIUM_FLAGS");
+        if (!flags.contains("--disable-gpu")) {
+            if (!flags.isEmpty())
+                flags += ' ';
+            flags += "--disable-gpu";
+            qputenv("QTWEBENGINE_CHROMIUM_FLAGS", flags);
+        }
+    }
+    // WebEngine composites into the QtQuick scene, so contexts must be
+    // shareable. Both calls must happen before the QApplication is constructed.
+    QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+    QtWebEngineQuick::initialize();
+#endif
 
 #ifdef __OPENGL_4_1__
     // MacOS is limited to OpenGL 4.1
@@ -782,9 +764,19 @@ struct CLIArguments {
 
     args::Flag debug                     = {misc, "debug", "Debugging mode", {"debug"}};
     args::ValueFlag<std::string> logfile = {
-        misc, "PATH", "Write session log to file", {"log-file"}};
+        misc,
+        "PATH",
+        "Write the session log to this file at debug level, line by line, starting a new "
+        "file on each run (previous runs are kept as .1 to .10). The preference "
+        "/core/logging/log_file takes precedence when it is set.",
+        {"log-file"}};
     args::Flag disable_vsync = {
         misc, "disable-vsync", "Disable sync to video refresh", {"disable-vsync"}};
+    args::Flag web_disable_gpu = {
+        misc,
+        "web-disable-gpu",
+        "Render web browser panel pages on the CPU (WebEngine builds only)",
+        {"web-disable-gpu"}};
 
     args::ValueFlagList<std::string> force_enable_plugin = {
         misc, "UUID", "Force enable a disabled plugin with its UUID", {"enable-plugin"}};
@@ -821,11 +813,26 @@ struct Launcher {
         setenv("QML_IMPORT_TRACE", "0", true);
 #endif
 
-        signal(SIGSEGV, handler);
+        // crash reports go next to the user preferences
+        xstudio::launch::install_crash_handler(
+            (std::filesystem::path(preference_path()).parent_path() / "crash").string(),
+            argc,
+            argv);
         start_logger(
             cli_args.debug.Matched() ? spdlog::level::debug : spdlog::level::info,
             args::get(cli_args.logfile));
         prefs = load_preferences();
+
+        // the preference wins over the command line option
+        try {
+            const auto preferred_log_file =
+                expand_envvars(preference_value<std::string>(prefs, "/core/logging/log_file"));
+            if (not preferred_log_file.empty())
+                set_log_file(preferred_log_file);
+        } catch (const std::exception &e) {
+            spdlog::warn("Preference /core/logging/log_file not applied: {}", e.what());
+        }
+        xstudio::launch::set_crash_report_log_file(log_file());
 
         scoped_actor self{system};
 
@@ -838,6 +845,7 @@ struct Launcher {
         actions["disable_vsync"]       = cli_args.disable_vsync.Matched();
         actions["compare"]             = static_cast<std::string>(args::get(cli_args.compare));
         actions["silence_qt_warnings"] = cli_args.silence_qt_warnings.Matched();
+        actions["web_disable_gpu"]     = cli_args.web_disable_gpu.Matched();
 
         for (const auto &ep : args::get(cli_args.force_enable_plugin)) {
             if (!actions.contains("force_enable_plugins")) {
@@ -1283,11 +1291,20 @@ int main(int argc, char **argv) {
 
         } else {
 
+            // CPU rendering for the web browser panel: the command line flag
+            // or the preference, whichever is set.
+            bool web_disable_gpu = l.actions["web_disable_gpu"];
+#ifdef BUILD_WEBENGINE
+            web_disable_gpu = web_disable_gpu ||
+                              l.prefs.get("/ui/qml/web_browser_disable_gpu").value("value", false);
+#endif
+
             // Run the QApplication and launch UI
             const int ui_exit_code = execute_xstudio_ui(
                 l.actions["disable_vsync"],
                 l.prefs.get("/ui/qml/global_ui_scale_factor").value("value", 1.0f),
                 l.actions["silence_qt_warnings"],
+                web_disable_gpu,
                 argc,
                 argv);
 

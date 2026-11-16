@@ -174,6 +174,25 @@ caf::message_handler BookmarkActor::message_handler() {
             return rp;
         },
 
+        [=](bookmark_detail_atom, const bool fanout) -> result<std::pair<UuidActor, BookmarkDetail>> {
+            auto rp = make_response_promise<std::pair<UuidActor, BookmarkDetail>>();
+
+            mail(bookmark_detail_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](const BookmarkDetail &detail) mutable {
+                        rp.deliver(std::make_pair(
+                            UuidActor(base_.uuid(), caf::actor_cast<caf::actor>(this)), detail
+                        ));
+                    },
+                    [=](caf::error &err) mutable {
+                        rp.deliver(std::make_pair(UuidActor(), BookmarkDetail()));
+                    }
+            );
+
+            return rp;
+        },
+
         [=](bookmark_detail_atom) -> result<BookmarkDetail> {
             auto detail        = BookmarkDetail(base_);
             detail.actor_addr_ = caf::actor_cast<caf::actor_addr>(this);
@@ -197,6 +216,15 @@ caf::message_handler BookmarkActor::message_handler() {
                                         result.second.duration().frame(max(
                                             timebase::k_flicks_zero_seconds, base_.start()));
                                     detail.media_reference_ = result.second;
+
+                                    // init timecode
+                                    if(not detail.owner_timecode_ or *(detail.owner_timecode_) == timebase::k_flicks_low) {
+                                        base_.set_owner_timecode(
+                                            result.second.timecode().total_frames() * result.second.rate()
+                                        );
+                                        detail.owner_timecode_ = base_.owner_timecode();
+                                    }
+
                                     rp.deliver(detail);
                                 },
                                 [=](caf::error &err) mutable { rp.deliver(err); });
@@ -393,7 +421,7 @@ void BookmarkActor::build_annotation_via_plugin(const utility::JsonStore &anno_d
                                     .send(base_.event_group());
                             },
                             [=](caf::error &err) mutable {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err);
                                 // use base annotation class - this does nothing but stores and
                                 // will later serialise annotation data, so annotations aren't
                                 // erased from the session even though we've failed to load
@@ -406,7 +434,7 @@ void BookmarkActor::build_annotation_via_plugin(const utility::JsonStore &anno_d
                             });
                 },
                 [=](caf::error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     // see comment above.
                     base_.annotation_.reset(new AnnotationBase(anno_data, base_.uuid()));
                     mail(utility::event_atom_v, bookmark_change_atom_v, base_.uuid())
@@ -452,7 +480,7 @@ void BookmarkActor::set_owner(caf::actor owner, const bool dead) {
             .then(
                 [=](const bool) mutable {},
                 [=](const error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                 });
         mail(utility::event_atom_v, bookmark_change_atom_v, base_.uuid())
             .send(base_.event_group());

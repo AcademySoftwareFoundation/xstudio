@@ -66,6 +66,7 @@ Rectangle{
 
             TapHandler {
                 onTapped: descriptionClicked = true
+                enabled: descriptionEdit.implicitHeight > descriptionEdit.height
             }
 
 

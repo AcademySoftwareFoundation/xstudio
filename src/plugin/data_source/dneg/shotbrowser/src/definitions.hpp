@@ -52,6 +52,12 @@ const auto GetDownloadMedia = R"({
     "parent_name": ""
 })"_json;
 
+const auto GetDownloadAnnotations = R"({
+    "operation": "DownloadShotgridAnnotations",
+    "entity": "attachment",
+    "entity_id": 0
+})"_json;
+
 const auto GetDownloadImage = R"({
     "operation": "DownloadShotgridImage",
     "entity": "",

@@ -805,17 +805,13 @@ void AnnotationsUI::key_pressed(
     const int key, const std::string &context, const bool auto_repeat) {
 
     if (current_tool() == Text) {
-
         utility::JsonStore payload;
 
         if (key == 16777216) { // escape key
-            // end_drawing();
             release_keyboard_focus();
             payload["viewport"] = context;
             send_event("CaptionEndEdit", payload);
-
         } else {
-
             payload["key"]      = key;
             payload["viewport"] = context;
             send_event("CaptionKeyPress", payload);

@@ -5,6 +5,7 @@
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/thumbnail/thumbnail.hpp"
 #include "xstudio/utility/notification_handler.hpp"
+#include "xstudio/utility/logging.hpp"
 
 #include "shotbrowser_plugin.hpp"
 
@@ -12,6 +13,7 @@ using namespace xstudio;
 using namespace xstudio::shotgun_client;
 using namespace xstudio::shotbrowser;
 using namespace xstudio::utility;
+using namespace std::chrono_literals;
 
 
 void ShotBrowser::create_playlist_notes(
@@ -55,12 +57,14 @@ void ShotBrowser::create_playlist_notes(
         // have annotations that are going to be part of the publish
         std::map<utility::Uuid, std::pair<std::string, std::vector<std::byte>>>
             annotated_bookmark_uuids;
+
         for (const auto &j : notes) {
             const auto &ann_uuids = j.at("note_annotation");
             for (const auto &anno_details : ann_uuids) {
                 auto bookmark_uuid =
                     anno_details.at("bookmark_uuid").template get<utility::Uuid>();
                 auto annotation_title = anno_details.at("title").template get<std::string>();
+
                 auto jpeg_buf         = request_receive<std::vector<std::byte>>(
                     *sys,
                     bookmarks,
@@ -89,6 +93,69 @@ void ShotBrowser::create_playlist_notes(
 
                                 // get new playlist id..
                                 auto note_id = result.at("data").at("id").template get<int>();
+
+                                // send json to note..
+                                for (const auto &ju : j.at("bookmark_uuid")) {
+                                    anon_mail(
+                                        json_store::set_json_atom_v,
+                                        ju.get<Uuid>(),
+                                        utility::JsonStore(result.at("data")),
+                                        ShotgunMetadataPath + "/note")
+                                        .send(bookmarks);
+
+                                    // add shotgun decorator to note.
+                                    anon_mail(
+                                        json_store::set_json_atom_v,
+                                        ju.get<Uuid>(),
+                                        JsonStore(
+                                            R"({"icon": "qrc:/shotbrowser_icons/shot_grid.svg", "tooltip": "Published to ShotGrid"})"_json),
+                                        "/ui/decorators/shotgrid")
+                                        .send(bookmarks);
+                                }
+
+                                // hideous hack... we have to wait for the note to be updated before we serialise it.
+                                scoped_actor sys{system()};
+                                std::this_thread::sleep_for(100ms);
+                                auto gathered_json = JsonStore(R"([])"_json);
+
+                                for(const auto &bookmark_uuid : j.at("bookmark_uuid")) {
+                                    const auto bmu = bookmark_uuid.template get<utility::Uuid>();
+                                    gathered_json.push_back(
+                                        request_receive<JsonStore>(
+                                            *sys,
+                                            bookmarks,
+                                            utility::serialise_atom_v,
+                                            bmu
+                                    ));
+                                }
+
+                                if(not gathered_json.empty()) {
+                                    const auto json_buffer = compress_json(gathered_json);
+                                    mail(
+                                        shotgun_upload_atom_v,
+                                        "note",
+                                        note_id,
+                                        "",
+                                        "xStudioAnnotations",  // image title
+                                        json_buffer, // jpeg buf
+                                        "application/gzip")
+                                        .request(shotgun_, infinite)
+                                        .then(
+                                            [=](const bool) {},
+                                            [=](const error &err) mutable {
+                                                spdlog::warn(
+                                                    "{} "
+                                                    "Failed"
+                                                    " uploa"
+                                                    "d of "
+                                                    "annota"
+                                                    "tion blob "
+                                                    "{}",
+                                                    __PRETTY_FUNCTION__,
+                                                    to_string(err));
+                                            }
+                                        );
+                                }
 
                                 // attach any annotations that we generated to the note
                                 for (const auto &ju : j.at("bookmark_uuid")) {
@@ -120,27 +187,6 @@ void ShotBrowser::create_playlist_notes(
                                             }
 
                                         );
-                                }
-
-                                // spdlog::warn("note {}", result.dump(2));
-                                // send json to note..
-
-                                for (const auto &ju : j.at("bookmark_uuid")) {
-                                    anon_mail(
-                                        json_store::set_json_atom_v,
-                                        ju.get<Uuid>(),
-                                        utility::JsonStore(result.at("data")),
-                                        ShotgunMetadataPath + "/note")
-                                        .send(bookmarks);
-
-                                    // add shotgun decorator to note.
-                                    anon_mail(
-                                        json_store::set_json_atom_v,
-                                        ju.get<Uuid>(),
-                                        JsonStore(
-                                            R"({"icon": "qrc:/shotbrowser_icons/shot_grid.svg", "tooltip": "Published to ShotGrid"})"_json),
-                                        "/ui/decorators/shotgrid")
-                                        .send(bookmarks);
                                 }
 
                                 (*succeed)++;
@@ -175,10 +221,7 @@ void ShotBrowser::create_playlist_notes(
                         }
                     },
                     [=](error &err) mutable {
-                        spdlog::warn(
-                            "Failed create note entity {} {}",
-                            __PRETTY_FUNCTION__,
-                            to_string(err));
+                        log_caf_error(err, spdlog::level::warn, "Failed create note entity");
                         (*failed)++;
 
                         if (count == (*failed) + (*succeed)) {
@@ -306,7 +349,7 @@ void ShotBrowser::create_playlist(
                 },
                 [=](error &err) mutable {
                     failed(playlist, notification_uuid);
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     rp.deliver(err);
                 });
 
@@ -338,7 +381,7 @@ void ShotBrowser::rename_tag(
             .then(
                 [=](const JsonStore &result) mutable { rp.deliver(result); },
                 [=](error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     rp.deliver(err);
                 });
 
@@ -385,7 +428,7 @@ void ShotBrowser::remove_entity_tag(
                             .then(
                                 [=](const JsonStore &result) mutable { rp.deliver(result); },
                                 [=](error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    log_caf_error(err);
                                     rp.deliver(err);
                                 });
 
@@ -394,7 +437,7 @@ void ShotBrowser::remove_entity_tag(
                     }
                 },
                 [=](error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     rp.deliver(err);
                 });
     } catch (const std::exception &err) {
@@ -424,7 +467,7 @@ void ShotBrowser::create_tag(
                     }
                 },
                 [=](error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     rp.deliver(err);
                 });
 
@@ -488,8 +531,7 @@ void ShotBrowser::add_entity_tag_from_name(
                                     },
 
                                     [=](error &err) mutable {
-                                        spdlog::warn(
-                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                        log_caf_error(err);
                                         rp.deliver(err);
                                     });
                         } else {
@@ -503,7 +545,7 @@ void ShotBrowser::add_entity_tag_from_name(
                         }
                     },
                     [=](error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                         rp.deliver(err);
                     });
         } else {
@@ -550,7 +592,7 @@ void ShotBrowser::add_entity_tag(
                             .then(
                                 [=](const JsonStore &result) mutable { rp.deliver(result); },
                                 [=](error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    log_caf_error(err);
                                     rp.deliver(err);
                                 });
 
@@ -559,7 +601,7 @@ void ShotBrowser::add_entity_tag(
                     }
                 },
                 [=](error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     rp.deliver(err);
                 });
     } catch (const std::exception &err) {

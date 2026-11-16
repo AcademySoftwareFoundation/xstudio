@@ -7,6 +7,10 @@ find_package(OpenSSL)
 find_package(ZLIB)
 find_package(fmt REQUIRED)
 
+if(BUILD_WEBENGINE)
+	find_package(Qt6 COMPONENTS WebEngineQuick REQUIRED)
+endif()
+
 if(NOT ${OTIO_SUBMODULE})
 	find_package(OpenTime REQUIRED)
 	find_package(OpenTimelineIO REQUIRED)
@@ -14,15 +18,26 @@ else()
 	include_directories(${CMAKE_SOURCE_DIR}/extern/otio/OpenTimelineIO/src)
 endif()
 
+# The reworked crash report is only built and tested on Linux so far; Windows
+# and MacOS keep the previous handler, see the platform files.
 if(WIN32)
 set(SOURCES
 	xstudio.cpp
+	platform/windows/crash_handler.cpp
 	xstudio_win_resource.rc
+	../../../../ui/qml/xstudio/qml.qrc
+	)
+elseif(APPLE)
+set(SOURCES
+	xstudio.cpp
+	platform/macos/crash_handler.cpp
 	../../../../ui/qml/xstudio/qml.qrc
 	)
 else()
 set(SOURCES
 	xstudio.cpp
+	crash_report.cpp
+	platform/posix/crash_handler.cpp
 	../../../../ui/qml/xstudio/qml.qrc
 	)
 endif()
@@ -44,6 +59,28 @@ if(NOT WIN32)
 endif()
 
 default_options_local(${PROJECT_NAME})
+
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+# the crash report names the build; the hash is taken when cmake runs
+find_package(Git QUIET)
+set(XSTUDIO_GIT_HASH "unknown")
+if(GIT_FOUND)
+	execute_process(
+		COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+		OUTPUT_VARIABLE _git_hash
+		OUTPUT_STRIP_TRAILING_WHITESPACE
+		RESULT_VARIABLE _git_result
+		ERROR_QUIET)
+	if(_git_result EQUAL 0)
+		set(XSTUDIO_GIT_HASH "${_git_hash}")
+	endif()
+endif()
+target_compile_definitions(${PROJECT_NAME}
+	PRIVATE
+		XSTUDIO_GIT_HASH="${XSTUDIO_GIT_HASH}"
+		XSTUDIO_BUILD_TYPE="$<CONFIG>")
 
 target_link_libraries(${PROJECT_NAME}
 	PRIVATE
@@ -85,10 +122,15 @@ target_link_libraries(${PROJECT_NAME}
 		ZLIB::ZLIB
 )
 
+if(BUILD_WEBENGINE)
+	target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::WebEngineQuick)
+	target_compile_definitions(${PROJECT_NAME} PRIVATE BUILD_WEBENGINE)
+endif()
+
 if(WIN32)
-    target_link_libraries(${PROJECT_NAME} PRIVATE dbghelp)
+    target_link_libraries(${PROJECT_NAME} PRIVATE dbghelp) # add psapi with the reworked handler
 elseif(NOT APPLE)
-	target_link_libraries(${PROJECT_NAME} PUBLIC uuid)
+	target_link_libraries(${PROJECT_NAME} PUBLIC uuid ${CMAKE_DL_LIBS})
 endif()
 
 if(WIN32)

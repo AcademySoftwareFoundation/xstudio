@@ -281,7 +281,7 @@ void MediaCopyActor::copy_media_to(
             }
         }
 
-        if (src_playlist == target_playlist) {
+        if (src_playlist == target_playlist and (target == target_playlist or src_actor == src_playlist)) {
             // copying between sibling subsets/timelines OR from parent playlist
             // to child subset/timeline
             remove_source = false;
@@ -459,7 +459,7 @@ UuidActorVector LoadUrisActor::load_uris(const bool single_playlist, const bool 
                     }
                 },
                 [=](error &err) mutable {
-                    spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err, spdlog::level::err);
                 });
     } else {
 
@@ -484,7 +484,7 @@ UuidActorVector LoadUrisActor::load_uris(const bool single_playlist, const bool 
                             }
                         },
                         [=](error &err) mutable {
-                            spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err, spdlog::level::err);
                         });
 
             } else {
@@ -508,7 +508,7 @@ UuidActorVector LoadUrisActor::load_uris(const bool single_playlist, const bool 
                         }
                     },
                     [=](error &err) mutable {
-                        spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err, spdlog::level::err);
                     });
         }
     }
@@ -757,7 +757,7 @@ caf::message_handler SessionActor::message_handler() {
         [=](timeline::item_selection_atom, const UuidActorVector &selection) {
 
             selection_ = selection;
-            check_multi_timeline_mode();            
+            check_multi_timeline_mode();
 
         },
 
@@ -1125,15 +1125,12 @@ caf::message_handler SessionActor::message_handler() {
                                                 rp.deliver(merged);
                                             },
                                             [=](error &err) mutable {
-                                                spdlog::warn(
-                                                    "{} {}",
-                                                    __PRETTY_FUNCTION__,
-                                                    to_string(err));
+                                                log_caf_error(err);
                                                 rp.deliver(merged);
                                             });
                                 },
                                 [=](error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    log_caf_error(err);
                                 });
                     },
                     [=](error &err) mutable { rp.deliver(std::move(err)); });
@@ -1334,15 +1331,14 @@ caf::message_handler SessionActor::message_handler() {
                                     .then(
                                         [=](bool) mutable {},
                                         [=](caf::error &err) {
-                                            spdlog::warn(
-                                                "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                            log_caf_error(err);
                                         });
                                 idx++;
                             }
                         }
                     },
                     [=](caf::error err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
         },
 
@@ -1671,7 +1667,7 @@ caf::message_handler SessionActor::message_handler() {
                             .send(this);
                     },
                     [=](caf::error &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
         },
 
@@ -1686,7 +1682,7 @@ caf::message_handler SessionActor::message_handler() {
                             .send(this);
                     },
                     [=](caf::error &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
         },
 
@@ -1701,7 +1697,7 @@ caf::message_handler SessionActor::message_handler() {
                             .send(this);
                     },
                     [=](caf::error &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
         },
 
@@ -1716,7 +1712,7 @@ caf::message_handler SessionActor::message_handler() {
                             .send(this);
                     },
                     [=](caf::error &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
         },
 
@@ -1743,7 +1739,7 @@ caf::message_handler SessionActor::message_handler() {
             const utility::Uuid &timeline_id,
             const utility::Uuid &playlist_id) {
             // coming from timeline (via playlist) to session. ignore.
-        },        
+        },
 
         [=](utility::event_atom,
             media::media_display_info_atom,
@@ -1801,10 +1797,7 @@ caf::message_handler SessionActor::message_handler() {
                                     auto_responder.decrement();
                                 },
                                 [=](error &err) mutable {
-                                    spdlog::warn(
-                                        "{} global_store {}",
-                                        __PRETTY_FUNCTION__,
-                                        to_string(err));
+                                    log_caf_error(err, spdlog::level::warn, "global_store");
                                     auto_responder.decrement(err);
                                 });
 
@@ -1816,8 +1809,7 @@ caf::message_handler SessionActor::message_handler() {
                                     auto_responder.decrement();
                                 },
                                 [=](error &err) mutable {
-                                    spdlog::warn(
-                                        "{} store {}", __PRETTY_FUNCTION__, to_string(err));
+                                    log_caf_error(err, spdlog::level::warn, "store");
                                     auto_responder.decrement(err);
                                 });
 
@@ -1829,8 +1821,7 @@ caf::message_handler SessionActor::message_handler() {
                                     auto_responder.decrement();
                                 },
                                 [=](error &err) mutable {
-                                    spdlog::warn(
-                                        "{} bookmarks {}", __PRETTY_FUNCTION__, to_string(err));
+                                    log_caf_error(err, spdlog::level::warn, "bookmarks");
                                     auto_responder.decrement(err);
                                 });
 
@@ -1845,10 +1836,7 @@ caf::message_handler SessionActor::message_handler() {
                                     auto_responder.decrement();
                                 },
                                 [=](error &err) mutable {
-                                    spdlog::warn(
-                                        "{} media_hook_versions {}",
-                                        __PRETTY_FUNCTION__,
-                                        to_string(err));
+                                    log_caf_error(err, spdlog::level::warn, "media_hook_versions");
                                     auto_responder.decrement(err);
                                 });
 
@@ -1869,10 +1857,7 @@ caf::message_handler SessionActor::message_handler() {
                                         auto_responder.decrement();
                                     },
                                     [=](error &err) mutable {
-                                        spdlog::warn(
-                                            "{} actors {}",
-                                            __PRETTY_FUNCTION__,
-                                            to_string(err));
+                                        log_caf_error(err, spdlog::level::warn, "actors");
                                         auto_responder.decrement(err);
                                     });
                         }
@@ -2119,14 +2104,14 @@ void SessionActor::sync_to_json_store(caf::typed_response_promise<bool> &rp) {
                                     rp.deliver(true);
                             },
                             [=](error &err) mutable {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err);
                                 (*actors).erase(target);
                                 if (actors->empty())
                                     rp.deliver(true);
                             });
                 },
                 [=](error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     (*actors).erase(caf::actor_cast<caf::actor>(current_sender()));
                     if (actors->empty())
                         rp.deliver(true);
@@ -2348,12 +2333,12 @@ void SessionActor::copy_containers_to(
                                 rp.deliver(newitems);
                             },
                             [=](error &err) mutable {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err);
                                 rp.deliver(err);
                             });
                 },
                 [=](error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                 });
     }
 }
@@ -2397,7 +2382,7 @@ void SessionActor::move_containers_to(
                         .then(
                             [=](std::vector<bool>) mutable {},
                             [=](error &err) mutable {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err);
                             });
 
                     utility::CopyResult mcr;
@@ -2412,12 +2397,12 @@ void SessionActor::move_containers_to(
                                 rp.deliver(newitems);
                             },
                             [=](error &err) mutable {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err);
                                 rp.deliver(err);
                             });
                 },
                 [=](error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                 });
     }
 }
@@ -2530,12 +2515,12 @@ void SessionActor::check_media_hook_plugin_version(
                                 }
                             },
                             [=](const caf::error &err) {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                log_caf_error(err);
                             });
                 }
             },
             [=](const caf::error &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 }
 
@@ -2573,7 +2558,7 @@ void SessionActor::gather_media_sources_media_hook(
                     gather_media_sources_data_source(rp, media, media_rate, sources);
                 },
                 [=](const caf::error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     rp.deliver(err);
                 });
     } else {
@@ -2597,7 +2582,7 @@ void SessionActor::gather_media_sources_data_source(
                     gather_media_sources_add_media(rp, media, sources);
                 },
                 [=](const caf::error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     rp.deliver(err);
                 });
     } else {
@@ -2655,18 +2640,17 @@ void SessionActor::gather_media_sources_add_media(
                                 .then(
                                     [=](const bool) mutable { rp.deliver(deduped_sources); },
                                     [=](const caf::error &err) mutable {
-                                        spdlog::warn(
-                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                        log_caf_error(err);
                                         rp.deliver(err);
                                     });
                         },
                         [=](const caf::error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                             rp.deliver(err);
                         });
             },
             [=](const caf::error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(err);
             });
 }
@@ -2678,13 +2662,13 @@ void SessionActor::check_multi_timeline_mode() {
         The intention here is that if the user is viewing a timeline and has then
         selected one or more other timelines in the session (via Playlists panel
         in the UI) then we go into ,multi-timeline compare mode. This is achieved
-        via a special playhead owned by the SessionActor which we set-up to 
+        via a special playhead owned by the SessionActor which we set-up to
         compare the timelines.
 
         Using a map here to preserve the ordering of the selection since the
-        type_atom request to each of the selected containers will 
+        type_atom request to each of the selected containers will
         return a result asynchronously
-    
+
     */
     auto clear_multi_select_playhead = [=]() mutable {
 
@@ -2761,13 +2745,13 @@ void SessionActor::check_multi_timeline_mode() {
                     update_playhead();
                 },
                 [=](const caf::error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                     update_playhead();
                 });
         }
 
     };
-    
+
     if (viewedContainer_.actor()) {
         mail(utility::type_atom_v).request(viewedContainer_.actor(), infinite)
             .then(
@@ -2784,7 +2768,7 @@ void SessionActor::check_multi_timeline_mode() {
                     }
                 },
                 [=](error &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                 });
     }
 
@@ -2836,7 +2820,7 @@ void SessionActor::setOnScreenPlayhead(const bool check_if_current_session) {
 
                     anon_mail(
                         ui::viewport::viewport_playhead_atom_v,
-                        playhead.actor()).send(playhead_events_actor);                    
+                        playhead.actor()).send(playhead_events_actor);
                 }
 
                 mail(

@@ -440,7 +440,7 @@ caf::message_handler MediaActor::message_handler() {
                         }
                     },
                     [=](const error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
 
             // OK f*ck it I'll do the re-ordering later. headache
@@ -528,8 +528,7 @@ caf::message_handler MediaActor::message_handler() {
                                                     UuidActor(base_.uuid(), this),
                                                     std::make_pair(
                                                         std::string(), std::string())));
-                                            spdlog::warn(
-                                                "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                            log_caf_error(err);
                                         });
                             }
                         },
@@ -538,7 +537,7 @@ caf::message_handler MediaActor::message_handler() {
                                 std::make_pair(
                                     UuidActor(base_.uuid(), this),
                                     std::make_pair(std::string(), std::string())));
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                         });
             } catch (...) {
                 rp.deliver(
@@ -1261,7 +1260,7 @@ caf::message_handler MediaActor::message_handler() {
                             rp.delegate(media_sources_.at(base_.current()), atom, default_rate);
                     },
                     [=](caf::error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                         rp.deliver(err);
                     });
 
@@ -1456,10 +1455,7 @@ caf::message_handler MediaActor::message_handler() {
                                         rp.deliver(jsn);
                                     },
                                     [=](error &err) mutable {
-                                        spdlog::warn(
-                                            "{} Dead Media Source {}",
-                                            __PRETTY_FUNCTION__,
-                                            to_string(err));
+                                        log_caf_error(err, spdlog::level::warn, "Dead Media Source");
                                         // dump sources..
                                         for (const auto &[i, j] : media_sources_)
                                             spdlog::warn("{} {}", to_string(i), to_string(j));
@@ -1474,8 +1470,7 @@ caf::message_handler MediaActor::message_handler() {
                         }
                     },
                     [=](error &err) mutable {
-                        spdlog::warn(
-                            "{} Dead JsonStore {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err, spdlog::level::warn, "Dead JsonStore");
                         rp.deliver(std::move(err));
                     });
             return rp;
@@ -1590,7 +1585,7 @@ void MediaActor::add_or_rename_media_source(
                 }
             },
             [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 }
 
@@ -1636,7 +1631,7 @@ void MediaActor::clone_bookmarks_to(
                 }
             },
             [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
                 rp.deliver(err);
             });
 }
@@ -2175,7 +2170,7 @@ void MediaActor::duplicate(
                 anon_mail(json_store::set_json_atom_v, Uuid(), jsn, "").send(actor);
             },
             [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err);
             });
 
     anon_mail(

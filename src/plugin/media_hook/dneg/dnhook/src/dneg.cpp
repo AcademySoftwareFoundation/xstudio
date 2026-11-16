@@ -232,6 +232,44 @@ class DNegMediaHook : public MediaHook {
                 changed = true;
             }
         }
+
+        // adjust media rate if exif rate found.
+
+        const static auto meta_root = json::json_pointer("/metadata/media");
+        if(jsn.contains(meta_root) and not jsn.at(meta_root).empty()) {
+            const static auto exif_mimetype =
+                        json::json_pointer("/mimeType");
+
+            const static auto exif_rate =
+                        json::json_pointer("/Exif/Image/FrameRate/value");
+            const auto &exif_meta = jsn.at(meta_root).front();
+
+            if(exif_meta.contains(exif_rate) and exif_meta.contains(exif_mimetype) and (exif_meta.at(exif_mimetype) == "image/jpeg" or exif_meta.at(exif_mimetype) == "image/png")) {
+                const auto rate = exif_meta.at(exif_rate).get<std::string>();
+
+                const static auto rational_re = std::regex(R"(^(\d+)/(\d+)$)");
+                std::cmatch m;
+
+                if (std::regex_match(rate.c_str(), m, rational_re)) {
+                    const auto num = std::stoi(m[1]);
+                    const auto den = std::stoi(m[2]);
+                    auto fr = FrameRate();
+
+                    if(den == 1)
+                        fr = FrameRate(fps_to_flicks(static_cast<double>(num) / static_cast<double>(den)));
+                    else
+                        fr = FrameRate(fps_to_flicks(static_cast<double>(num) * (static_cast<double>(1000) / static_cast<double>(den))));
+
+                    if(fr != result.rate()) {
+                        // spdlog::info("{} -> {}", to_string(result.rate()), to_string(fr));
+                        result.set_rate(fr);
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+
         if (adjust_timecode_->value()) {
             // check for ivy timeline_range
             try {

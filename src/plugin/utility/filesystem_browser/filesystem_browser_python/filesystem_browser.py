@@ -1169,7 +1169,7 @@ class FilesystemBrowserPlugin(PluginBase):
         """Fetch subdirectories for the given path and update attribute."""
         result = {"path": path, "dirs": []}
         try:
-            if path == "/" and sys.platform == "win32":
+            if (path == "/" or path == "\\") and sys.platform == "win32":
                 drivenames = get_windows_drives()
                 result["dirs"] = [{"name": d, "path": d, "has_subdir": True} for d in drivenames]
             elif os.path.exists(path) and os.path.isdir(path):

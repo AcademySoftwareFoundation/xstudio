@@ -12,6 +12,7 @@
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/uuid.hpp"
+#include "xstudio/utility/notification_handler.hpp"
 #include "xstudio/utility/csv.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
 #include "xstudio/thumbnail/thumbnail.hpp"
@@ -21,9 +22,9 @@ using namespace xstudio::utility;
 using namespace xstudio::bookmark;
 using namespace nlohmann;
 using namespace caf;
+using namespace std::chrono_literals;
 
 namespace {} // namespace
-
 
 BookmarksActor::BookmarksActor(caf::actor_config &cfg, const utility::JsonStore &jsn)
     : caf::event_based_actor(cfg), base_(static_cast<utility::JsonStore>(jsn["base"])) {
@@ -375,6 +376,123 @@ caf::message_handler BookmarksActor::message_handler() {
             }
             return make_error(xstudio_error::error, "Invalid uuid");
         },
+
+        // change to bookmark
+        [=](utility::event_atom, bookmark_change_atom, const utility::Uuid &uuid) {
+            mail(
+                utility::event_atom_v,
+                bookmark_change_atom_v,
+                UuidActor(uuid, bookmarks_[uuid]))
+                .send(base_.event_group());
+        },
+
+        // import external book marks and assign to media
+        [=](session::import_atom, const UuidActor &media, const JsonStore &bookmarks) -> result<UuidActorVector> {
+            auto rp = make_response_promise<UuidActorVector>();
+
+            // create bookmarks
+            std::vector<caf::actor> new_marks;
+            for(const auto &i : bookmarks)
+                new_marks.push_back(spawn<bookmark::BookmarkActor>(JsonStore(i)));
+
+            if(not new_marks.empty()) {
+                // get media detail
+                mail(media::media_reference_atom_v, media::MT_IMAGE)
+                    .request(media.actor(), infinite)
+                    .then(
+                        [=](const MediaReference &mr) mutable {
+                            if(mr.frame_count() == 0) {
+                                fan_out_request<policy::select_all>(new_marks, infinite, duplicate_atom_v)
+                                    .then(
+                                        [=](std::vector<UuidActor> duplicates) mutable {
+                                            // kill originals
+                                            for(const auto &i : new_marks)
+                                                send_exit(i, caf::exit_reason::user_shutdown);
+
+                                            anon_mail(bookmark::add_bookmark_atom_v, media, duplicates).send(caf::actor_cast<caf::actor>(this));
+
+                                            rp.deliver(duplicates);
+                                        },
+                                        [=](const caf::error &err) mutable { rp.deliver(err); });
+
+                            } else {
+                                auto media_start_flicks = mr.timecode().total_frames() * mr.rate();
+                                auto media_duration_flicks = mr.frame_count() * mr.rate();
+                                // get bookmark details.
+                                fan_out_request<policy::select_all>(new_marks, infinite, bookmark_detail_atom_v, true)
+                                    .then(
+                                        [=](std::vector<std::pair<UuidActor, BookmarkDetail>> details) mutable {
+                                            // adjust bookmarks.
+                                            std::vector<caf::actor> to_duplicate;
+                                            for(const auto &i: details) {
+                                                if(i.second.owner_timecode_ and media_start_flicks != (*i.second.owner_timecode_)) {
+                                                    auto change = bookmark::BookmarkDetail();
+                                                    change.owner_timecode_ = media_start_flicks;
+                                                    change.start_ = *(i.second.start_) - (media_start_flicks - (*i.second.owner_timecode_));
+
+                                                    if(*change.start_ < timebase::k_flicks_zero_seconds or *change.start_ > media_duration_flicks) {
+                                                        // notify user we can't add note..
+                                                        auto notify = Notification::WarnNotification("Annotation outside of media range, skipping.");
+                                                        anon_mail(notification_atom_v, notify).send(media.actor());
+                                                        send_exit(i.first.actor(), caf::exit_reason::user_shutdown);
+                                                    } else {
+                                                        anon_mail(bookmark::bookmark_detail_atom_v, change).send(i.first.actor());
+                                                        to_duplicate.push_back(i.first.actor());
+                                                    }
+                                                } else {
+                                                    to_duplicate.push_back(i.first.actor());
+                                                }
+                                            }
+
+
+
+                                            if(not to_duplicate.empty()) {
+                                                // delay duplication, so we aviod race condition with annotations.
+                                                std::this_thread::sleep_for(100ms);
+
+                                                // bookmarks adjusted. now duplicate kill and assign.
+                                                fan_out_request<policy::select_all>(to_duplicate, infinite, duplicate_atom_v)
+                                                    .then(
+                                                        [=](std::vector<UuidActor> duplicates) mutable {
+                                                            // kill originals
+                                                            for(const auto &i : to_duplicate)
+                                                                send_exit(i, caf::exit_reason::user_shutdown);
+
+                                                            anon_mail(bookmark::add_bookmark_atom_v, media, duplicates).send(caf::actor_cast<caf::actor>(this));
+
+                                                            rp.deliver(duplicates);
+                                                        },
+                                                        [=](const caf::error &err) mutable { rp.deliver(err); });
+                                            } else {
+                                                rp.deliver(UuidActorVector());
+                                            }
+                                        },
+                                        [=](const caf::error &err) mutable { rp.deliver(err); });
+                            }
+
+
+                        },
+                        [=](const caf::error &err) mutable {
+                            // failed to get media reference, just add notes unadjusted.
+                            fan_out_request<policy::select_all>(new_marks, infinite, duplicate_atom_v)
+                                .then(
+                                    [=](std::vector<UuidActor> duplicates) mutable {
+                                        // kill originals
+                                        for(const auto &i : new_marks)
+                                            send_exit(i, caf::exit_reason::user_shutdown);
+
+                                        anon_mail(bookmark::add_bookmark_atom_v, media, duplicates).send(caf::actor_cast<caf::actor>(this));
+
+                                        rp.deliver(duplicates);
+                                    },
+                                    [=](const caf::error &err) mutable { rp.deliver(err); });
+                        });
+            } else {
+                rp.deliver(UuidActorVector());
+            }
+            return rp;
+        },
+
         // create and assign.
         [=](add_bookmark_atom, const UuidActorVector &bookmarks) -> bool {
             for (const auto &i : bookmarks) {
@@ -382,6 +500,21 @@ caf::message_handler BookmarksActor::message_handler() {
                 monitor_bookmark(i.actor());
                 join_event_group(this, i.actor());
                 mail(utility::event_atom_v, add_bookmark_atom_v, i).send(base_.event_group());
+            }
+            base_.send_changed();
+            return true;
+        },
+
+        // create and assign.
+        [=](add_bookmark_atom, const UuidActor &assign, const UuidActorVector &bookmarks) -> bool {
+            for (const auto &i : bookmarks) {
+                bookmarks_[i.uuid()] = i.actor();
+                monitor_bookmark(i.actor());
+                join_event_group(this, i.actor());
+                mail(utility::event_atom_v, add_bookmark_atom_v, i).send(base_.event_group());
+                BookmarkDetail bd;
+                bd.owner_ = assign;
+                anon_mail(bookmark_detail_atom_v, bd).send(i.actor());
             }
             base_.send_changed();
             return true;
@@ -407,7 +540,6 @@ caf::message_handler BookmarksActor::message_handler() {
             return rp;
         },
 
-
         // create and assign.
         [=](add_bookmark_atom, const UuidActor &src) -> result<utility::UuidActor> {
             auto rp = make_response_promise<utility::UuidActor>();
@@ -426,14 +558,6 @@ caf::message_handler BookmarksActor::message_handler() {
             return rp;
         },
 
-        // change to bookmark
-        [=](utility::event_atom, bookmark_change_atom, const utility::Uuid &uuid) {
-            mail(
-                utility::event_atom_v,
-                bookmark_change_atom_v,
-                UuidActor(uuid, bookmarks_[uuid]))
-                .send(base_.event_group());
-        },
 
         [=](add_bookmark_atom, const utility::Uuid &uuid) -> utility::UuidActor {
             if (bookmarks_.find(uuid) != bookmarks_.end())
@@ -737,7 +861,7 @@ caf::message_handler BookmarksActor::message_handler() {
                                 "Null thumbanil returned by offscreen renderer.");
                     },
                     [=](caf::error &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
         }};
 }

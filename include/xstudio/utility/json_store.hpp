@@ -318,6 +318,8 @@ namespace fs = std::filesystem;
 
 JsonStore open_session(const caf::uri &path);
 JsonStore open_session(const std::string &path);
+std::vector<std::byte> compress_json(const JsonStore &jsn);
+JsonStore decompress_json(const std::vector<std::byte> &data);
 
 nlohmann::json sort_by(const nlohmann::json &jsn, const nlohmann::json::json_pointer &ptr);
 

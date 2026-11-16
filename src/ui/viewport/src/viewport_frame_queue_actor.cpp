@@ -243,7 +243,7 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
             playhead_velocity_ = velocity;
         },
         [=](const error &err) mutable {
-            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+            log_caf_error(err);
         },
         [=](caf::message) {});
 }
@@ -489,7 +489,7 @@ void ViewportFrameQueueActor::append_overlays_data(
                         auto_responder.decrement();
                     },
                     [=](caf::error &err) mutable {
-                        spdlog::warn("G {} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err, spdlog::level::warn, "G");
                         auto_responder.decrement();
                     });
         }
@@ -520,7 +520,7 @@ void ViewportFrameQueueActor::append_overlays_data(
                     add_overlays_data(rr);
                 },
                 [=](caf::error &err) mutable {
-                    spdlog::warn("C {} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err, spdlog::level::warn, "C");
                     auto rr = new media_reader::ImageBufDisplaySet(*result);
                     add_overlays_data(rr);
                 });
@@ -535,7 +535,7 @@ void ViewportFrameQueueActor::append_overlays_data(
                 add_layout_data(image_set_with_colour_data);
             },
             [=](caf::error &err) mutable {
-                spdlog::debug("B {} {}", __PRETTY_FUNCTION__, to_string(err));
+                log_caf_error(err, spdlog::level::debug, "B");
                 add_layout_data(foo);
             });
 }

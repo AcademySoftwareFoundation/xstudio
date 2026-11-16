@@ -8,6 +8,7 @@
 #include "xstudio/utility/blind_data.hpp"
 #include "xstudio/ui/viewport/viewport_helpers.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/utility/logging.hpp"
 
 #ifdef __apple__
 #include <OpenGL/gl3.h>
@@ -118,7 +119,7 @@ Imath::V2f get_transformed_point(
     return Imath::V2f(v.x / v.w, v.y / v.w);
 };
 
-void make_tri_verts_for_rectangle(
+/*void make_tri_verts_for_rectangle(
     const Imath::V2f &top_left,
     const Imath::V2f &bottom_right,
     std::vector<Imath::V4f> &vertices) {
@@ -128,7 +129,7 @@ void make_tri_verts_for_rectangle(
     vertices.push_back(Imath::V4f(bottom_right.x, bottom_right.y, 0.0f, 1.0f));
     vertices.push_back(Imath::V4f(bottom_right.x, top_left.y, 0.0f, 1.0f));
     vertices.push_back(Imath::V4f(top_left.x, top_left.y, 0.0f, 1.0f));
-}
+}*/
 
 
 } // namespace
@@ -151,21 +152,19 @@ void MaskRenderer::render_mask(
     // By expanding the edges of the area that the mask is drawn into we endusre
     // that the mask lines show correctly and aren't cropped off at the edges
     // of the image.
-    static const Imath::V2f padding(0.01f, 0.01f);
+    const float padding = mask.line_thickness()*viewport_du_dpixel*2.0f;
 
     // If the media, mediaStream, or mediaSource has a transform (e.g. scaling
     // or re-projection etc.) we DON'T want this to apply to the mask.
     Imath::M44f im_transform = frame.frame_id().transform_matrix();
 
-    Imath::V2f image_top_left =
+    Imath::V2f image_bottom_left =
         get_transformed_point(
-            bounds.min, image_dims, frame.frame_id().pixel_aspect(), im_transform) -
-        padding;
+            bounds.min, image_dims, frame.frame_id().pixel_aspect(), im_transform);
 
-    Imath::V2f image_bottom_right =
+    Imath::V2f image_top_right =
         get_transformed_point(
-            bounds.max, image_dims, frame.frame_id().pixel_aspect(), im_transform) +
-        padding;
+            bounds.max, image_dims, frame.frame_id().pixel_aspect(), im_transform);
 
     utility::JsonStore shader_params;
     shader_params["image_transform_matrix"] = im_transform.inverse();
@@ -197,33 +196,46 @@ void MaskRenderer::render_mask(
         last_bounds_ = bounds;
         std::vector<Imath::V4f> vertices;
 
-        image_bottom_right *= 1.0f / extra_scale;
-        image_top_left *= 1.0f / extra_scale;
+        image_bottom_left *= 1.0f / extra_scale;
+        image_top_right *= 1.0f / extra_scale;
 
         // we only want to run the maks shader over the area of the image that
-        // is acually masked off, not the unmasked area of the image. So
-        // we make 4 rectangles that cover the masked off areas outside the 'letterbox' of the
-        // mask
+        // is acually masked off, not the unmasked area of the image. 
 
-        // left/right pillars that cover masked area left and right of the image
-        make_tri_verts_for_rectangle(
-            image_top_left,
-            Imath::V2f(mask.left() + padding.x, image_bottom_right.y),
-            vertices);
-        make_tri_verts_for_rectangle(
-            Imath::V2f(mask.right() - padding.x, image_top_left.y),
-            image_bottom_right,
-            vertices);
+        // To achieve this we evaluate the edges of the mask area and the edges
+        // of the image and make a set of 8 vertices that define the outside
+        // corners and inside corners of the mask area. We then make a set of triangles
+        // that cover the area of the image that is masked off. The shader will then
+        // only be run over the area of the image that is masked off.
 
-        // top bottom areas outside the 'letterbox' of the mask area
-        make_tri_verts_for_rectangle(
-            Imath::V2f(mask.left() + padding.x, mask.bottom() + padding.y),
-            Imath::V2f(mask.right() - padding.x, image_top_left.y),
-            vertices);
-        make_tri_verts_for_rectangle(
-            Imath::V2f(mask.left() + padding.x, mask.top() - padding.y),
-            Imath::V2f(mask.right() - padding.x, image_bottom_right.y),
-            vertices);
+        static const std::vector<int> vtx_indeces{
+            4, 0, 1, 5, 4, 1, 6, 5, 1, 2, 6, 1, 3, 6, 2, 3, 7 ,6 ,3, 0, 4, 7,3, 4};            
+
+        const float m0 = std::min(image_bottom_left.x, mask.left())-padding;
+        const float m1 = std::max(image_bottom_left.x, mask.left())+padding;
+        const float m2 = std::min(image_top_right.x, mask.right())-padding;
+        const float m3 = std::max(image_top_right.x, mask.right())+padding;
+
+        const float m4 = std::min(image_bottom_left.y, mask.bottom())-padding;
+        const float m5 = std::max(image_bottom_left.y, mask.bottom())+padding;
+        const float m6 = std::min(image_top_right.y, mask.top())-padding;
+        const float m7 = std::max(image_top_right.y, mask.top())+padding;
+
+         std::vector<Imath::V2f> vtxs{
+            Imath::V2f(m0, m7),
+            Imath::V2f(m3, m7),
+            Imath::V2f(m3, m4),
+            Imath::V2f(m0, m4),
+
+            Imath::V2f(m1, m6),
+            Imath::V2f(m2, m6),
+            Imath::V2f(m2, m5),
+            Imath::V2f(m1, m5)
+        };
+
+        for (const auto &i : vtx_indeces) {
+            vertices.push_back(Imath::V4f(vtxs[i].x, vtxs[i].y, 0.0f, 1.0f));
+        }
 
         glBindVertexArray(vertex_array_object_);
         // 2. copy our vertices array in a buffer for OpenGL to use
@@ -602,7 +614,7 @@ void MaskRendererPlugin::media_due_on_screen_soon(
                     for (auto &p2 : media_source_actors) {
                         media_masks_[plugin_id][p2.uuid()].in_flight = false;
                     }
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    utility::log_caf_error(err);
                 });
     }
 }

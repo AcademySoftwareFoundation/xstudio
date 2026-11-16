@@ -129,7 +129,7 @@ GlobalUIModelData::GlobalUIModelData(caf::actor_config &cfg) : caf::event_based_
                         caf::actor_cast<caf::actor>(this));
                 },
                 [=](caf::error &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    log_caf_error(err);
                 });
     }
 
@@ -163,6 +163,7 @@ GlobalUIModelData::GlobalUIModelData(caf::actor_config &cfg) : caf::event_based_
     });
 
     behavior_.assign(
+        [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
         [=](register_model_data_atom,
             const std::string &model_name,
             const bool deregister,
@@ -417,7 +418,7 @@ GlobalUIModelData::GlobalUIModelData(caf::actor_config &cfg) : caf::event_based_
             do_cleanup_for_exited_clients();
         },
         [=](const caf::error &err) {
-            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+            log_caf_error(err);
         },
         [=](caf::message &msg) { spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(msg)); });
 }

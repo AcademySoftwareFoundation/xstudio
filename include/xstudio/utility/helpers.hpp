@@ -661,6 +661,9 @@ std::string reverse_remap_file_path(const std::string &path);
 void add_remap_file_path(const std::string &from, const std::string &to);
 void add_regex_mapping(const std::pair<std::regex, std::string> from, const std::pair<std::regex, std::string> to);
 
+
+std::vector<std::byte> string_to_bytes(const std::string &str);
+
 // The json store here must be an array. Each element in the array must be
 // another array of 2 strings and a boolean.
 //

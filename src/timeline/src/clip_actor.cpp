@@ -100,7 +100,7 @@ ClipActor::ClipActor(
                             anon_mail(item_name_atom_v, value).send(this);
                         },
                         [=](const caf::error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            log_caf_error(err);
                         });
                 // base_.item().set_name(
                 //     fs::path(uri_to_posix_path(ref.uri())).filename().string());
@@ -170,7 +170,7 @@ void ClipActor::link_media(
                         anon_mail(item_name_atom_v, value).send(this);
                     },
                     [=](const caf::error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        log_caf_error(err);
                     });
         } else {
             anon_mail(item_name_atom_v, "NO CLIP").send(this);
