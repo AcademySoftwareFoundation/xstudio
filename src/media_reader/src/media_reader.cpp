@@ -143,8 +143,18 @@ template <typename T> void typed_resample(AudioBuffer &in, const size_t out_samp
 
     const T *in_buf = (const T *)(in.buffer());
 
-    auto new_buffer = new Buffer::BufferData(out_samples * in.num_channels() * sizeof(T));
-    T *out_buf      = reinterpret_cast<T *>(new_buffer->data_.get());
+    const size_t new_size = out_samples * in.num_channels() * sizeof(T);
+    auto new_buffer       = new Buffer::BufferData(new_size);
+    T *out_buf            = reinterpret_cast<T *>(new_buffer->data_.get());
+
+    if (out_samples == 0 || in.num_samples() == 0) {
+        // nothing to interpolate from (or to): the loop below would run ~2^32 times
+        // for out_samples == 0, and read before in_buf for an empty input
+        if (new_size)
+            memset(out_buf, 0, new_size);
+        in.set_buf_data(new_buffer, new_size);
+        return;
+    }
 
     int n               = out_samples - 1;
     float ff            = 0.0f;
@@ -172,7 +182,7 @@ template <typename T> void typed_resample(AudioBuffer &in, const size_t out_samp
         *(out_buf++) = *(in_buf++);
     }
 
-    in.set_buf_data(new_buffer);
+    in.set_buf_data(new_buffer, new_size);
 }
 
 void AudioBuffer::stretch_samples(const uint64_t num_samples) {
