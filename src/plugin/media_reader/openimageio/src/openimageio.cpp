@@ -1,7 +1,9 @@
+#include <fmt/ostream.h>
 #include <OpenImageIO/typedesc.h>
 #include <cstddef>
 #include <exception>
 #include <filesystem>
+#include <half.h>
 #include <spdlog/spdlog.h>
 #include <string>
 

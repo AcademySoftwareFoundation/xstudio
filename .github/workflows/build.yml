@@ -1,0 +1,325 @@
+name: build Check
+
+on:
+  push:
+    branches: [main, develop]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+  pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  SCCACHE_VERSION: v0.19.0
+  JOBS: "4"
+  BUILD_TESTING: "OFF"
+  STUDIO_PLUGINS: ""
+  BMD_DECKLINK: "OFF"
+  VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
+  VCPKG_BINARY_SOURCES: "clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,readwrite"
+  FEED_URL: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+  NUGET_OWNER: ${{ github.repository_owner }}
+  SCCACHE_DIR: ${{ github.workspace }}/.ci-cache/sccache
+  SCCACHE_BIN_DIR: ${{ github.workspace }}/.ci-cache/sccache-bin
+  # PR: head/base refs ; push/workflow_dispatch: ref_name / default_branch
+  SCCACHE_HEAD_REF: ${{ github.head_ref || github.ref_name }}
+  SCCACHE_BASE_REF: ${{ github.base_ref || github.event.repository.default_branch }}
+  # Step ceilings (hang detection). Job timeout must cover both + setup overhead.
+  TIMEOUT_DEPS_MINUTES: "120"
+  TIMEOUT_BUILD_MINUTES: "60"
+
+jobs:
+  build-linux:
+    name: Build (${{ matrix.deps_tag }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 200
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - deps_tag: ubuntu2404
+            deps_file: ci/linux/dockerfiles/ubuntu2404.toolchain.Dockerfile
+            vcpkg_triplet: x64-xstudio-linux-ubuntu2404
+          - deps_tag: rocky9
+            deps_file: ci/linux/dockerfiles/rocky9.toolchain.Dockerfile
+            vcpkg_triplet: x64-xstudio-linux-rocky9
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Ensure toolchain image
+        env:
+          DEPS_TAG: ${{ matrix.deps_tag }}
+          DEPS_FILE: ${{ matrix.deps_file }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: bash ci/linux/scripts/ensure-toolchain-image.sh
+
+      - name: Bootstrap vcpkg
+        uses: ./.github/actions/bootstrap-vcpkg
+        with:
+          vcpkg-root: ${{ env.VCPKG_ROOT }}
+
+      - name: Install sccache
+        env:
+          DEST_DIR: ${{ env.SCCACHE_BIN_DIR }}
+        run: bash ci/linux/scripts/install-sccache.sh
+
+      - name: Restore sccache
+        id: sccache-restore
+        uses: actions/cache/restore@v5
+        with:
+          path: ${{ env.SCCACHE_DIR }}
+          key: sccache-${{ runner.os }}-${{ matrix.deps_tag }}-${{ env.SCCACHE_HEAD_REF }}-${{ github.sha }}
+          restore-keys: |
+            sccache-${{ runner.os }}-${{ matrix.deps_tag }}-${{ env.SCCACHE_HEAD_REF }}-
+            sccache-${{ runner.os }}-${{ matrix.deps_tag }}-${{ env.SCCACHE_BASE_REF }}-
+            sccache-${{ runner.os }}-${{ matrix.deps_tag }}-
+
+      - name: Build deps
+        timeout-minutes: ${{ fromJSON(env.TIMEOUT_DEPS_MINUTES) }}
+        env:
+          DEPS_TAG: ${{ matrix.deps_tag }}
+          VCPKG_TARGET_TRIPLET: ${{ matrix.vcpkg_triplet }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NUGET_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          # Re-bootstrap inside the container so the vcpkg tool matches the image libc
+          # (important for Rocky). Host step above only warms the git clone.
+          SKIP_VCPKG_BOOTSTRAP: "0"
+        run: bash ci/linux/scripts/run-build-container.sh deps
+
+      - name: Build xSTUDIO
+        timeout-minutes: ${{ fromJSON(env.TIMEOUT_BUILD_MINUTES) }}
+        env:
+          DEPS_TAG: ${{ matrix.deps_tag }}
+          VCPKG_TARGET_TRIPLET: ${{ matrix.vcpkg_triplet }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NUGET_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          SKIP_VCPKG_BOOTSTRAP: "1"
+        run: bash ci/linux/scripts/run-build-container.sh build
+
+      - name: Save sccache
+        if: always() && steps.sccache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ env.SCCACHE_DIR }}
+          key: sccache-${{ runner.os }}-${{ matrix.deps_tag }}-${{ env.SCCACHE_HEAD_REF }}-${{ github.sha }}
+
+      - name: sccache stats
+        if: always()
+        # Build runs sccache inside Docker; dump is written for this step (host --show-stats would be empty).
+        run: |
+          if [ -f .ci-cache/sccache-show-stats.txt ]; then
+            cat .ci-cache/sccache-show-stats.txt
+          else
+            echo "No sccache stats file (build did not run or container did not write .ci-cache/sccache-show-stats.txt)"
+          fi
+
+  build-macos:
+    name: Build (macos-arm64)
+    runs-on: macos-latest
+    timeout-minutes: 200
+
+    env:
+      # Qt must live outside the source tree: CMake rejects INTERFACE includes under CMAKE_SOURCE_DIR.
+      QT_ROOT: ${{ github.workspace }}/../.ci-cache/Qt
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Read Qt version for cache key
+        id: pins
+        run: |
+          # shellcheck source=ci/macos/versions.env
+          source ci/macos/versions.env
+          echo "qt_version=${QT_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Qt SDK cache
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.QT_ROOT }}
+          key: qt-${{ steps.pins.outputs.qt_version }}-mac-clang64-imageformats-pdf
+
+      - name: Bootstrap vcpkg
+        uses: ./.github/actions/bootstrap-vcpkg
+        with:
+          vcpkg-root: ${{ env.VCPKG_ROOT }}
+
+      - name: Set up NuGet credentials
+        uses: ./.github/actions/setup-nuget-credentials
+        with:
+          vcpkg-root: ${{ env.VCPKG_ROOT }}
+          feed-url: ${{ env.FEED_URL }}
+          username: ${{ env.NUGET_OWNER }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install sccache
+        env:
+          DEST_DIR: ${{ env.SCCACHE_BIN_DIR }}
+        run: bash ci/macos/scripts/install-sccache.sh
+
+      - name: Restore sccache
+        id: sccache-restore
+        uses: actions/cache/restore@v5
+        with:
+          path: ${{ env.SCCACHE_DIR }}
+          key: sccache-${{ runner.os }}-${{ env.SCCACHE_HEAD_REF }}-${{ github.sha }}
+          restore-keys: |
+            sccache-${{ runner.os }}-${{ env.SCCACHE_HEAD_REF }}-
+            sccache-${{ runner.os }}-${{ env.SCCACHE_BASE_REF }}-
+            sccache-${{ runner.os }}-
+
+      - name: Build deps
+        timeout-minutes: ${{ fromJSON(env.TIMEOUT_DEPS_MINUTES) }}
+        run: bash ci/macos/scripts/build-deps.sh
+
+      - name: Build xSTUDIO
+        timeout-minutes: ${{ fromJSON(env.TIMEOUT_BUILD_MINUTES) }}
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ${{ env.SCCACHE_BIN_DIR }}/sccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ${{ env.SCCACHE_BIN_DIR }}/sccache
+        run: bash ci/macos/scripts/build-xstudio.sh
+
+      - name: Save sccache
+        if: always() && steps.sccache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ env.SCCACHE_DIR }}
+          key: sccache-${{ runner.os }}-${{ env.SCCACHE_HEAD_REF }}-${{ github.sha }}
+
+      - name: sccache stats
+        if: always()
+        run: ${{ env.SCCACHE_BIN_DIR }}/sccache --show-stats
+
+  build-windows:
+    name: Build (windows-x64)
+    # windows-2022 = VS 2022 (matches ASWF docs). windows-latest is VS 2026 / MSVC 14.51,
+    # which breaks Qt 6.5.3 (removed stdext::checked_array_iterator).
+    runs-on: windows-2022
+    timeout-minutes: 200
+
+    env:
+      # Qt must live outside the source tree: CMake rejects INTERFACE includes under CMAKE_SOURCE_DIR.
+      QT_ROOT: ${{ github.workspace }}/../.ci-cache/Qt
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Enable git long paths
+        run: git config --global core.longpaths true
+
+      - name: Read Qt version for cache key
+        id: pins
+        shell: pwsh
+        run: |
+          Get-Content ci/windows/versions.env | ForEach-Object {
+            $line = $_.Trim()
+            if (-not $line -or $line.StartsWith('#')) { return }
+            $eq = $line.IndexOf('=')
+            if ($eq -lt 1) { return }
+            $name = $line.Substring(0, $eq).Trim()
+            $value = $line.Substring($eq + 1).Trim()
+            if ($name -eq 'QT_VERSION') {
+              "qt_version=$value" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            }
+          }
+
+      - name: Restore Qt SDK cache
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.QT_ROOT }}
+          key: qt-${{ steps.pins.outputs.qt_version }}-win-msvc2019_64-imageformats-pdf
+
+      # Before msvc-dev-cmd: that action overwrites VCPKG_ROOT with the VS-bundled copy.
+      - name: Bootstrap vcpkg
+        uses: ./.github/actions/bootstrap-vcpkg
+        with:
+          vcpkg-root: ${{ env.VCPKG_ROOT }}
+
+      - name: Set up NuGet credentials
+        uses: ./.github/actions/setup-nuget-credentials
+        with:
+          vcpkg-root: ${{ env.VCPKG_ROOT }}
+          feed-url: ${{ env.FEED_URL }}
+          username: ${{ env.NUGET_OWNER }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up MSVC developer command prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install sccache
+        shell: pwsh
+        run: .\ci\windows\scripts\install-sccache.ps1
+
+      - name: Restore sccache
+        id: sccache-restore
+        uses: actions/cache/restore@v5
+        with:
+          path: ${{ env.SCCACHE_DIR }}
+          key: sccache-${{ runner.os }}-${{ env.SCCACHE_HEAD_REF }}-${{ github.sha }}
+          restore-keys: |
+            sccache-${{ runner.os }}-${{ env.SCCACHE_HEAD_REF }}-
+            sccache-${{ runner.os }}-${{ env.SCCACHE_BASE_REF }}-
+            sccache-${{ runner.os }}-
+
+      - name: Build deps
+        timeout-minutes: ${{ fromJSON(env.TIMEOUT_DEPS_MINUTES) }}
+        shell: pwsh
+        env:
+          # msvc-dev-cmd overwrites VCPKG_ROOT; restore our sibling clone.
+          VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
+        run: .\ci\windows\scripts\build-deps.ps1
+
+      - name: Build xSTUDIO
+        timeout-minutes: ${{ fromJSON(env.TIMEOUT_BUILD_MINUTES) }}
+        shell: pwsh
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}/../vcpkg
+          CMAKE_C_COMPILER_LAUNCHER: ${{ env.SCCACHE_BIN_DIR }}/sccache.exe
+          CMAKE_CXX_COMPILER_LAUNCHER: ${{ env.SCCACHE_BIN_DIR }}/sccache.exe
+        run: .\ci\windows\scripts\build-xstudio.ps1
+
+      - name: Save sccache
+        if: always() && steps.sccache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ env.SCCACHE_DIR }}
+          key: sccache-${{ runner.os }}-${{ env.SCCACHE_HEAD_REF }}-${{ github.sha }}
+
+      - name: sccache stats
+        if: always()
+        shell: pwsh
+        run: |
+          & (Join-Path $env:SCCACHE_BIN_DIR 'sccache.exe') --show-stats

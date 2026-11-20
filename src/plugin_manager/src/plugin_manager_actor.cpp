@@ -408,13 +408,16 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
                 // component link-dependent on the ui::viewport component we
                 // spawn via the viewport_layouts_manager
                 std::vector<PluginDetail> details = manager_.plugin_detail();
-                for (auto &detail : details) {
-                    if (detail.name_ == "DefaultViewportLayout") {
+                // Avoid loop var name "detail": MSVC treats it as ambiguous with
+                // caf::detail / nlohmann::detail.
+                for (auto &plugin_detail : details) {
+                    if (plugin_detail.name_ == "DefaultViewportLayout") {
                         try {
                             auto j         = json;
                             j["name"]      = name;
                             j["is_python"] = true;
-                            result = manager_.spawn(*scoped_actor(system()), detail.uuid_, j);
+                            result = manager_.spawn(
+                                *scoped_actor(system()), plugin_detail.uuid_, j);
 
                         } catch (std::exception &e) {
                             return make_error(xstudio_error::error, e.what());

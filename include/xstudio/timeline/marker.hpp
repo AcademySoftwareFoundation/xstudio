@@ -16,7 +16,7 @@ using Markers = std::list<Marker>;
 class Marker {
   public:
     Marker(const std::string name = "Marker")
-        : uuid_(std::move(utility::Uuid::generate())), name_(std::move(name)) {}
+        : uuid_(utility::Uuid::generate()), name_(std::move(name)) {}
 
     Marker(const utility::JsonStore &jsn);
 

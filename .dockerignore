@@ -1,0 +1,26 @@
+# Keep the Docker build context small for ci/linux compile builds.
+.git
+.github
+**/.git
+
+# Build / install trees
+build/
+**/build/
+xstudio_install/
+**/xstudio_install/
+
+# IDE / editor
+.cursor/
+.vscode/
+*.swp
+*~
+
+# Docs and generated HTML (not needed to compile)
+share/docs/
+docs/_build/
+
+# Large / unused for compile
+**/*.deb
+**/*.rpm
+**/*.tar.gz
+**/node_modules/

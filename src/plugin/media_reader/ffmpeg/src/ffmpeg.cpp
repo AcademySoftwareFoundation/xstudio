@@ -683,7 +683,8 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
         const int half_scale_uvx       = pixel_unpack_uniforms.value("half_scale_uvx", 0);
         const int bits_per_channel     = pixel_unpack_uniforms.value("bits_per_channel", 0);
         const Imath::M33f yuv_conv     = pixel_unpack_uniforms.value("yuv_conv", Imath::M33f());
-        const Imath::V3i yuv_offsets = pixel_unpack_uniforms.value("yuv_offsets", Imath::V3i());
+        const Imath::V3i yuv_offsets =
+            pixel_unpack_uniforms.value("yuv_offsets", Imath::V3i(0));
         const float norm_coeff       = pixel_unpack_uniforms.value("norm_coeff", 1.0f);
 
         auto get_image_data_4bytes = [&](const int address) -> std::array<uint8_t, 4> {

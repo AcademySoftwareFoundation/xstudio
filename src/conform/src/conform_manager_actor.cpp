@@ -604,7 +604,7 @@ void ConformWorkerActor::process_request(
                                             }
                                             tracks.push_back(tmp);
                                             trackit = tracks.begin();
-                                            std::next(trackit, tracks.size() - 1);
+                                            std::advance(trackit, tracks.size() - 1);
                                             if (track_to_use <
                                                 static_cast<int>(
                                                     result.request_.template_tracks_.size()) -

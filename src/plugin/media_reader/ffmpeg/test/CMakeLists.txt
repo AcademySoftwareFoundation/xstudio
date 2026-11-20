@@ -1,6 +1,7 @@
 include(CTest)
 
-find_package(FFMPEG REQUIRED)
+# COMPONENTS required: bare find_package(FFMPEG) leaves INCLUDE_DIRS/LIBRARIES empty.
+find_package(FFMPEG REQUIRED COMPONENTS avcodec avformat swscale avutil swresample)
 
 add_executable(ffmpeg_test ffmpeg_test.cpp)
 default_options_gtest(ffmpeg_test)

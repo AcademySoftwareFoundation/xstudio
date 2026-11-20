@@ -120,7 +120,7 @@ utility::UuidVector to_uuid_vector(const utility::UuidActorVector &v) {
 
 PlayheadActor::PlayheadActor(caf::actor_config &cfg, const std::string &name)
     : caf::event_based_actor(cfg),
-      PlayheadBase(name, std::move(utility::Uuid::generate())),
+      PlayheadBase(name, utility::Uuid::generate()),
       offscreen_only_(true),
       audio_path_(NO_AUDIO) {
 

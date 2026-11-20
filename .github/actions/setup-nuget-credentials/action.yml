@@ -1,0 +1,88 @@
+name: Set up NuGet credentials
+description: >
+  Fetch nuget via vcpkg and register the GitHub Packages feed (sources + setapikey)
+  for vcpkg binary caching. Host macOS/Windows only; Linux configures NuGet in-container.
+
+inputs:
+  vcpkg-root:
+    description: Absolute path to the bootstrapped vcpkg clone.
+    required: true
+  feed-url:
+    description: NuGet feed URL (e.g. GitHub Packages index.json).
+    required: true
+  username:
+    description: NuGet feed username (typically the GitHub owner/org).
+    required: true
+  password:
+    description: NuGet feed password / API key (typically GITHUB_TOKEN).
+    required: true
+  source-name:
+    description: NuGet source display name.
+    required: false
+    default: GitHubPackages
+
+runs:
+  using: composite
+  steps:
+    - name: Set up NuGet credentials (macOS/Linux host)
+      if: runner.os != 'Windows'
+      shell: bash
+      env:
+        VCPKG_ROOT: ${{ inputs.vcpkg-root }}
+        FEED_URL: ${{ inputs.feed-url }}
+        NUGET_OWNER: ${{ inputs.username }}
+        NUGET_PASSWORD: ${{ inputs.password }}
+        NUGET_SOURCE_NAME: ${{ inputs.source-name }}
+      run: |
+        set -euo pipefail
+        if command -v brew >/dev/null 2>&1; then
+          brew list mono &>/dev/null || brew install mono
+        fi
+        nuget="$("${VCPKG_ROOT}/vcpkg" fetch nuget | tail -n 1)"
+        echo "==> NuGet source ${NUGET_SOURCE_NAME} → ${FEED_URL}"
+        mono "${nuget}" sources add \
+          -Source "${FEED_URL}" \
+          -StorePasswordInClearText \
+          -Name "${NUGET_SOURCE_NAME}" \
+          -UserName "${NUGET_OWNER}" \
+          -Password "${NUGET_PASSWORD}" \
+          || mono "${nuget}" sources update \
+            -Source "${FEED_URL}" \
+            -StorePasswordInClearText \
+            -Name "${NUGET_SOURCE_NAME}" \
+            -UserName "${NUGET_OWNER}" \
+            -Password "${NUGET_PASSWORD}"
+        mono "${nuget}" setapikey "${NUGET_PASSWORD}" -Source "${FEED_URL}"
+
+    - name: Set up NuGet credentials (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      env:
+        VCPKG_ROOT: ${{ inputs.vcpkg-root }}
+        FEED_URL: ${{ inputs.feed-url }}
+        NUGET_OWNER: ${{ inputs.username }}
+        NUGET_PASSWORD: ${{ inputs.password }}
+        NUGET_SOURCE_NAME: ${{ inputs.source-name }}
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $vcpkg = Join-Path $env:VCPKG_ROOT 'vcpkg.exe'
+        $nuget = (& $vcpkg fetch nuget | Select-Object -Last 1).Trim()
+        if ($LASTEXITCODE -ne 0) { throw "vcpkg fetch nuget failed ($LASTEXITCODE)" }
+        Write-Host "==> NuGet source $($env:NUGET_SOURCE_NAME) → $($env:FEED_URL)"
+        & $nuget sources add `
+          -Source $env:FEED_URL `
+          -StorePasswordInClearText `
+          -Name $env:NUGET_SOURCE_NAME `
+          -UserName $env:NUGET_OWNER `
+          -Password $env:NUGET_PASSWORD
+        if ($LASTEXITCODE -ne 0) {
+          & $nuget sources update `
+            -Source $env:FEED_URL `
+            -StorePasswordInClearText `
+            -Name $env:NUGET_SOURCE_NAME `
+            -UserName $env:NUGET_OWNER `
+            -Password $env:NUGET_PASSWORD
+          if ($LASTEXITCODE -ne 0) { throw "nuget sources update failed ($LASTEXITCODE)" }
+        }
+        & $nuget setapikey $env:NUGET_PASSWORD -Source $env:FEED_URL
+        if ($LASTEXITCODE -ne 0) { throw "nuget setapikey failed ($LASTEXITCODE)" }

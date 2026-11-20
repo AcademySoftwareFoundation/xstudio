@@ -1,0 +1,55 @@
+name: Bootstrap vcpkg
+description: Clone or update vcpkg at the manifest builtin-baseline and run bootstrap.
+
+inputs:
+  vcpkg-root:
+    description: Absolute path for the vcpkg clone (sibling of the repo by convention).
+    required: true
+  manifest:
+    description: Path to vcpkg.json (relative to the workspace or absolute).
+    required: false
+    default: vcpkg.json
+
+runs:
+  using: composite
+  steps:
+    - name: Bootstrap vcpkg (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      env:
+        VCPKG_ROOT: ${{ inputs.vcpkg-root }}
+        MANIFEST: ${{ inputs.manifest }}
+      run: |
+        set -euo pipefail
+        baseline="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['builtin-baseline'])" "${MANIFEST}")"
+        echo "==> vcpkg baseline ${baseline} → ${VCPKG_ROOT}"
+        if [ ! -d "${VCPKG_ROOT}/.git" ]; then
+          git clone https://github.com/microsoft/vcpkg.git "${VCPKG_ROOT}"
+        else
+          git -C "${VCPKG_ROOT}" fetch origin
+        fi
+        git -C "${VCPKG_ROOT}" checkout --force "${baseline}"
+        "${VCPKG_ROOT}/bootstrap-vcpkg.sh" -disableMetrics
+
+    - name: Bootstrap vcpkg (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      env:
+        VCPKG_ROOT: ${{ inputs.vcpkg-root }}
+        MANIFEST: ${{ inputs.manifest }}
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $baseline = (Get-Content -Raw $env:MANIFEST | ConvertFrom-Json).'builtin-baseline'
+        Write-Host "==> vcpkg baseline $baseline → $($env:VCPKG_ROOT)"
+        if (-not (Test-Path -LiteralPath (Join-Path $env:VCPKG_ROOT '.git'))) {
+          git clone https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
+          if ($LASTEXITCODE -ne 0) { throw "git clone failed ($LASTEXITCODE)" }
+        } else {
+          git -C $env:VCPKG_ROOT fetch origin
+          if ($LASTEXITCODE -ne 0) { throw "git fetch failed ($LASTEXITCODE)" }
+        }
+        git -C $env:VCPKG_ROOT checkout --force $baseline
+        if ($LASTEXITCODE -ne 0) { throw "git checkout failed ($LASTEXITCODE)" }
+        $bootstrap = Join-Path $env:VCPKG_ROOT 'bootstrap-vcpkg.bat'
+        cmd.exe /c "`"$bootstrap`" -disableMetrics"
+        if ($LASTEXITCODE -ne 0) { throw "bootstrap-vcpkg failed ($LASTEXITCODE)" }

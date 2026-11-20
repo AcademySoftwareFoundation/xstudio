@@ -40,8 +40,8 @@ else()
 	# Linux!
     list(APPEND LINK_DEPS uuid)
 	list(APPEND STATIC_LINK_DEPS uuid)
-    list(APPEND LINK_DEPS stdc++fs)
-	list(APPEND STATIC_LINK_DEPS stdc++fs)
+    list(APPEND LINK_DEPS ${XSTUDIO_STDCXXFS})
+	list(APPEND STATIC_LINK_DEPS ${XSTUDIO_STDCXXFS})
 endif()
 
 create_component_static(utility ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}" "${STATIC_LINK_DEPS}")
