@@ -81,7 +81,12 @@ class Buffer {
 
     static std::shared_ptr<ImageBufferRecyclerCache> s_buf_cache;
 
-    void set_buf_data(BufferData *new_buf) { buffer_.reset(new_buf); }
+    // 'size' must be the size new_buf was allocated with: size_ decides when allocate()
+    // reallocates, and is the size the buffer is recycled under when this Buffer dies.
+    void set_buf_data(BufferData *new_buf, const size_t size) {
+        buffer_.reset(new_buf);
+        size_ = size;
+    }
 
   private:
     BufferDataPtr buffer_; // use long long to get 16 byte alignment
