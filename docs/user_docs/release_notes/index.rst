@@ -21,6 +21,7 @@ v1.4.x
 - When comparing multiple sources with A/B, Grid mode etc. you can manually set the frame offset for each source to achieve alignment, which will then persist with the session. Auto alignment (with or without trim) based on timecode is available as before.
 - Split timeline clips at the playhead with a hotkey, and import OpenTimelineIO image-sequence trims in media-frame space.
 - Improved filesystem browser navigation and thumbnail handling.
+- Export your interface layouts to a file and import them into another xSTUDIO, from the File->Export and File->Import menus.
 - Expanded the Python API for viewport control, playhead and timeline access, and plugin event handling.
 - Improved annotation rendering and export workflows, plus color-management behavior for offscreen renders and thumbnails.
 - Improved media compatibility, including Blender multilayer EXR decoding and PDF playback fixes.
