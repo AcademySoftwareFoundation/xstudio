@@ -14,3 +14,4 @@ The xSTUDIO Interface
    viewport   
    timeline
    transport
+   web_browser
