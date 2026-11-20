@@ -13,7 +13,8 @@ class FFMpegDecoder {
         std::string path,
         const int soundcard_sample_rate,
         const utility::FrameRate default_rate,
-        std::string stream_id = "");
+        std::string stream_id              = "",
+        VideoToolboxMode videotoolbox_mode = VideoToolboxMode::Off);
 
     ~FFMpegDecoder();
 
@@ -32,6 +33,7 @@ class FFMpegDecoder {
 
     const std::string &path() const { return movie_file_path_; }
     const std::string &stream_id() const { return stream_id_; }
+    VideoToolboxMode videotoolbox_mode() const { return videotoolbox_mode_; }
     int64_t duration_frames() const { return duration_frames_; }
     utility::FrameRate frame_rate(unsigned int stream_idx = UINT_MAX) const;
     utility::Timecode first_frame_timecode();
@@ -102,5 +104,6 @@ class FFMpegDecoder {
     int64_t duration_frames_;
     const std::string stream_id_;
     const utility::FrameRate default_rate_;
+    const VideoToolboxMode videotoolbox_mode_;
 };
 } // namespace xstudio::media_reader::ffmpeg

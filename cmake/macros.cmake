@@ -77,6 +77,10 @@ if (BUILD_TESTING)
 			PRIVATE TEST_RESOURCE=\"${TEST_RESOURCE}\"
 			PRIVATE ROOT_DIR=\"${ROOT_DIR}\"
 			PRIVATE $<$<CONFIG:Debug>:XSTUDIO_DEBUG=1>
+			# Same platform defines as default_compile_options: the headers rely on
+			# __apple__ to #undef the 'nil' macro that MacTypes.h defines.
+			$<$<PLATFORM_ID:Darwin>:__apple__>
+			$<$<PLATFORM_ID:Darwin>:__OPENGL_4_1__>
 		)
 	endmacro()
 endif (BUILD_TESTING)

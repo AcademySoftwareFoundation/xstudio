@@ -10,6 +10,7 @@ namespace xstudio::media_reader {
 
 namespace ffmpeg {
     class FFMpegDecoder;
+    enum class VideoToolboxMode;
 }
 
 class FFMpegMediaReader : public MediaReader {
@@ -53,6 +54,7 @@ class FFMpegMediaReader : public MediaReader {
     std::shared_ptr<ffmpeg::FFMpegDecoder> thumbnail_decoder;
 
     int readers_per_source_;
+    ffmpeg::VideoToolboxMode videotoolbox_mode_;
     int soundcard_sample_rate_       = {48000};
     int channels_                    = 2;
     utility::FrameRate default_rate_ = {utility::FrameRate(timebase::k_flicks_24fps)};

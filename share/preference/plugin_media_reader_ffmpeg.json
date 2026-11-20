@@ -12,6 +12,17 @@
 					"datatype": "int",
 					"context": ["APPLICATION"]
 				},
+				"videotoolbox": {
+					"path": "/plugin/media_reader/FFMPEG/videotoolbox",
+					"default_value": "prefer",
+					"description": "macOS only. Decode H.264, HEVC and ProRes video with Apple's VideoToolbox. 'prefer' falls back to FFmpeg's own decoder when VideoToolbox can't decode a stream; 'only' reports an error instead; 'off' always uses FFmpeg's decoder. Applies to media loaded after the change.",
+					"value": "prefer",
+					"datatype": "multichoice string",
+					"options": ["off", "prefer", "only"],
+					"context": ["APPLICATION"],
+					"category": "Playback",
+					"display_name": "VideoToolbox Decoding (macOS)"
+				},
 				"supported": {
 					"path": "/plugin/media_reader/FFMPEG/supported",
 					"description": "Control plugin format support",
